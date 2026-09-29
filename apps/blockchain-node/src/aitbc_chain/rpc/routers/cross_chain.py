@@ -140,6 +140,13 @@ def _lock_transfer(
     pair, tokens, amount, min_amount and slippage). Either way the signature
     authorizes exactly the operation the wallet approved.
     """
+    # Same pause fence as /bridge/lock — swaps and cross-chain bridges are
+    # lock requests too (they end in initiate_transfer), so they refuse 503
+    # while BRIDGE_LOCKS_PAUSED is set.
+    if getattr(settings, "bridge_locks_paused", False):
+        from ...cross_chain.bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL
+
+        raise HTTPException(status_code=503, detail=BRIDGE_LOCKS_PAUSED_DETAIL)
     bridge = _get_bridge()
     if not validate_chain_id(source_chain):
         raise HTTPException(

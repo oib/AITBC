@@ -58,6 +58,14 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
     2. Generate proof
     3. Confirm on target chain
     """
+    # Pause fence — mirrors bridge_confirm's release fence: a service-level
+    # refusal decided before any auth or bridge work. Refund, status and
+    # confirm paths are deliberately untouched so in-flight transfers stay
+    # refundable/releasable while locks are paused.
+    if getattr(settings, "bridge_locks_paused", False):
+        from ..cross_chain.bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL
+
+        raise HTTPException(status_code=503, detail=BRIDGE_LOCKS_PAUSED_DETAIL)
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
 
@@ -483,6 +491,12 @@ async def bridge_health(request: Request) -> dict[str, Any]:
 @rate_limit(rate=20, per=60)
 async def bridge_batch_lock(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Batch lock multiple cross-chain transfers."""
+    # Pause fence — the batch shares the single-lock pause semantics: the
+    # whole request refuses 503 rather than degrading into per-item failures.
+    if getattr(settings, "bridge_locks_paused", False):
+        from ..cross_chain.bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL
+
+        raise HTTPException(status_code=503, detail=BRIDGE_LOCKS_PAUSED_DETAIL)
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
 

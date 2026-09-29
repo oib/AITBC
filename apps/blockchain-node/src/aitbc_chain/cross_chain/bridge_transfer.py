@@ -21,7 +21,7 @@ from ..state.bridge_credit import (
     sign_bridge_lock,
 )
 from .bridge_base import BridgeBase
-from .bridge_types import BridgeStatus, BridgeTransfer
+from .bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL, BridgeLocksPausedError, BridgeStatus, BridgeTransfer
 
 logger = get_logger(__name__)
 
@@ -74,6 +74,14 @@ class BridgeTransferMixin(BridgeBase):
         target chain (GAP-47 cross-chain swaps quote a converted amount).
         ``None`` releases the locked amount — the plain bridge behavior.
         """
+        # Pause gate — the single chokepoint every lock request funnels
+        # through (/bridge/lock, /bridge/batch/lock, /swap,
+        # /cross-chain/bridge). Raising here rather than only in the routes
+        # covers internal callers too: while paused no new BRIDGE_LOCK
+        # envelope is signed, so no valid lock can reach the mempool —
+        # nothing downstream needs to refuse it for the pause to hold.
+        if getattr(settings, "bridge_locks_paused", False):
+            raise BridgeLocksPausedError(BRIDGE_LOCKS_PAUSED_DETAIL)
         if source_chain == target_chain:
             raise ValueError("Source and target chain must be different")
         if release_amount is not None and release_amount < 0:
