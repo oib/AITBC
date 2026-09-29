@@ -29,6 +29,10 @@ class BridgeDepositStatus(StrEnum):
     # (e.g. deposit to a keyless wallet on testnet). error_message is
     # mandatory — a write-off without a written reason is rejected.
     WRITTEN_OFF = "written_off"
+    # Terminal funding: ETH sent to the bridge wallet from a whitelisted
+    # operator funding source (BRIDGE_FUNDING_SOURCES). Recorded in the
+    # ledger for the audit trail but owed no payout.
+    FUNDING = "funding"
 
 
 # SELECT projection shared by every read: wallet column -> monitor key.
@@ -149,7 +153,13 @@ def _db_connection() -> sqlite3.Connection:
     return conn
 
 
-def create_deposit(eth_tx_hash: str, eth_from_address: str, eth_amount: str, ait_recipient: str) -> str | None:
+def create_deposit(
+    eth_tx_hash: str,
+    eth_from_address: str,
+    eth_amount: str,
+    ait_recipient: str,
+    status: BridgeDepositStatus = BridgeDepositStatus.PENDING,
+) -> str | None:
     """Create a new bridge deposit record.
 
     amount_ait starts at '0' — the oracle-priced value lands via
@@ -173,7 +183,7 @@ def create_deposit(eth_tx_hash: str, eth_from_address: str, eth_amount: str, ait
                     eth_from_address,
                     ait_recipient,
                     eth_amount,
-                    BridgeDepositStatus.PENDING,
+                    status,
                     datetime.now(UTC).isoformat(),
                 ),
             )
