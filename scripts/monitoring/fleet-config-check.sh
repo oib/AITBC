@@ -793,15 +793,22 @@ for h in $HOSTS; do
     fi
     checked=$(echo "$metrics" | awk '/^v9_shadow_checked_total / {print $2}' | cut -d. -f1)
     reject=$(echo "$metrics" | awk '/^v9_would_reject_total / {print $2}' | cut -d. -f1)
+    other=$(echo "$metrics" | awk '/^v9_shadow_checked_other_total / {print $2}' | cut -d. -f1)
     uptime_h=$(( (now_epoch - restart_s) / 3600 ))
     if [ -z "$checked" ]; then
         printf "  %-14s uptime %sh — v9_shadow_checked absent (pre-positive-control deploy); would_reject %s%s\n" \
             "$h" "$uptime_h" "${reject:-0}" "$([ "$validator" -eq 0 ] && echo " (non-validator)")"
     else
-        printf "  %-14s uptime %sh — checked %s, would_reject %s%s\n" \
-            "$h" "$uptime_h" "$checked" "${reject:-0}" "$([ "$validator" -eq 0 ] && echo " (non-validator)")"
+        printf "  %-14s uptime %sh — checked %s, would_reject %s, other %s%s\n" \
+            "$h" "$uptime_h" "$checked" "${reject:-0}" "${other:-0}" "$([ "$validator" -eq 0 ] && echo " (non-validator)")"
     fi
     [ -n "$reject" ] && [ "$reject" != "0" ] && { v9_bad=1; printf "  %-14s FAIL: v9_would_reject_total=%s — shadow window NOT clean\n" "$h" "$reject"; }
+    # A non-zero _other series means real evaluations landed outside the
+    # known-type set: most likely a peer probing with made-up type names,
+    # but it could also be a real type the allowlist missed. Either way it
+    # needs an explanation on record before the pin — "clean" must not
+    # silently include traffic we cannot classify.
+    [ -n "$other" ] && [ "$other" != "0" ] && { v9_bad=1; printf "  %-14s FLAG: v9_shadow_checked_other_total=%s — unknown-type traffic seen; explain before pin\n" "$h" "$other"; }
     # traffic-mix: per-type checked series show which types the window covered
     echo "$metrics" | grep -E '^v9_shadow_checked_[a-z].*_total ' | sed 's/^/               mix: /'
 done

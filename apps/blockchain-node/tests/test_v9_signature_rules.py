@@ -562,9 +562,12 @@ class TestV9Policy:
         lands in _other and vanishes from the traffic-mix review. Derive the
         recognized universe mechanically — the named type sets plus every
         tx_type comparison literal in both apply files — and require the
-        metric set to cover it. (The reverse is not asserted: the verdict
-        also sees client-submitted types the apply path never dispatches on,
-        e.g. GOVERNANCE_VOTE.)"""
+        metric set to cover it. Two blind spots: the reverse direction is
+        not asserted (the verdict also sees client-submitted types the apply
+        path never dispatches on, e.g. GOVERNANCE_VOTE), and a type reached
+        through a non-literal route — a dispatch dict, getattr, or an
+        indirect caller — escapes the grep. This is a tripwire, not proof of
+        completeness; the traffic-mix review stays the human backstop."""
         import re
         from pathlib import Path
 
