@@ -68,6 +68,21 @@ def test_aux_shipped_mirror():
     assert set(AUX_SHIPPED_TABLES) == shipped
 
 
+def test_governance_vote_service_local_but_dup_hard():
+    """governance_vote is service-local RPC bookkeeping (apply never reads
+    it) and must not be aux-shipped, yet its per-host (proposal_id,
+    lower(voter_address)) duplicate invariant stays a hard failure."""
+    build_spec = _load_spec_gen().build_spec
+
+    generated = build_spec()
+    assert generated["tables"]["governance_vote"]["class"] == "service"
+    assert "governance_vote" in generated["dup_hard"]
+    assert generated["dupkeys"]["governance_vote"] == {
+        "key": ["proposal_id", "voter_address"],
+        "addr": ["voter_address"],
+    }
+
+
 def test_digest_keeps_semantic_columns():
     """No consensus/aux table may lose every column to the volatile set —
     the digest would hash an empty projection and always match."""
