@@ -1489,6 +1489,13 @@ class StateTransition:
                 select(Receipt).where(Receipt.chain_id == chain_id, Receipt.receipt_id == receipt_id)
             ).first()
             if receipt and receipt.minted_amount:
+                # The raw-SQL fee debit above already landed in the row, but
+                # the ORM snapshot of sender_account still holds the
+                # pre-debit balance — writing stale+minted would silently
+                # undo the fee. Refresh before mutating so the stored value
+                # is balance-fee+minted, identical to the parallel path's
+                # two raw UPDATEs (v0.25.8 parity fix).
+                session.refresh(sender_account)
                 sender_account.balance += receipt.minted_amount  # type: ignore[union-attr]
                 receipt.status = "claimed"
                 receipt.claimed_at = datetime.now(UTC)

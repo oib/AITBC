@@ -439,9 +439,7 @@ class TestBridgeTxParity:
     """
 
     def _engine(self):
-        engine = create_engine(
-            "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
-        )
+        engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         chain_metadata.create_all(engine)
         return engine
 
@@ -465,9 +463,7 @@ class TestBridgeTxParity:
             if to and to != "bridge_lock":
                 session.add(Account(chain_id="chain-a", address=to, balance=0, nonce=0))
             session.commit()
-            ok, err = StateTransition().apply_transaction(
-                session, "chain-a", dict(tx), tx.get("tx_hash", "0x" + "ab" * 32)
-            )
+            ok, err = StateTransition().apply_transaction(session, "chain-a", dict(tx), tx.get("tx_hash", "0x" + "ab" * 32))
             assert ok, err
             session.flush()
             return compute_state_root_full(session, "chain-a")
@@ -486,10 +482,7 @@ class TestBridgeTxParity:
                 )
             )
             session.commit()
-            account_map = {
-                a.address: a
-                for a in session.exec(select(Account).where(Account.chain_id == "chain-a")).all()
-            }
+            account_map = {a.address: a for a in session.exec(select(Account).where(Account.chain_id == "chain-a")).all()}
             # Mirror sync_block_import: pre-create all recipients except the
             # bridge_lock pseudo-account.
             to = tx.get("to", "")
@@ -521,6 +514,15 @@ class TestBridgeTxParity:
         assert par_root == seq_root, "parallel path diverges: bridge_lock must not be credited/created"
 
     def test_bridge_withdraw_parity(self):
+        """v0.25.8: BRIDGE_WITHDRAW is sequential-only.
+
+        The burn is not a generic transfer: the sequential validator requires
+        a payload eth_address and a positive value, and apply deliberately
+        never creates or credits the pseudo-recipient — the pure delta would
+        both skip the payload gate and materialize the account. The parity
+        contract is therefore the ``requires_sequential`` flag, and the
+        sequential result burns sender funds with no recipient account.
+        """
         tx = {
             "from": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
             "to": "0x0000000000000000000000000000000000000000",
@@ -532,7 +534,43 @@ class TestBridgeTxParity:
             "payload": {"eth_address": "0x1234567890123456789012345678901234567890"},
             "tx_hash": "0x" + "70" * 32,
         }
-        assert self._par_root(tx) == self._seq_root(tx)
+        engine = self._engine()
+        with Session(engine) as session:
+            session.add(
+                Account(
+                    chain_id="chain-a",
+                    address=tx["from"],
+                    balance=10_000_000,
+                    nonce=0,
+                )
+            )
+            session.commit()
+            account_map = {a.address: a for a in session.exec(select(Account).where(Account.chain_id == "chain-a")).all()}
+            delta = compute_state_delta(account_map, dict(tx), "chain-a", tx["tx_hash"])
+            assert not delta.success and delta.requires_sequential, delta
+
+        # Sequential still applies the burn exactly once — sender debited by
+        # value+fee — and never creates the burn pseudo-recipient account.
+        from aitbc_chain.state.state_transition import StateTransition
+
+        engine = self._engine()
+        with Session(engine) as session:
+            session.add(
+                Account(
+                    chain_id="chain-a",
+                    address=tx["from"],
+                    balance=10_000_000,
+                    nonce=0,
+                )
+            )
+            session.commit()
+            ok, err = StateTransition().apply_transaction(session, "chain-a", dict(tx), tx["tx_hash"])
+            assert ok, err
+            session.flush()
+            accounts = {a.address: a for a in session.exec(select(Account).where(Account.chain_id == "chain-a")).all()}
+            assert accounts[tx["from"]].balance == 10_000_000 - 1000 - 36
+            assert accounts[tx["from"]].nonce == 1
+            assert tx["to"] not in accounts
 
     def test_bridge_release_credits_recipient(self):
         tx = {
