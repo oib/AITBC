@@ -115,7 +115,7 @@ class TestDeltaSync:
         from datetime import UTC, datetime, timedelta
 
         from aitbc_chain.aux_state import upsert_aux_rows
-        from aitbc_chain.base_models import Bond, GovernanceProposal, GovernanceVote, Stake
+        from aitbc_chain.base_models import Bond, GovernanceVote, Stake
         from sqlmodel import select
 
         now = datetime.now(UTC)
@@ -141,19 +141,6 @@ class TestDeltaSync:
                     "created_tx_hash": "0xdeadbeef",
                 }
             ],
-            "governance_proposals": [
-                {
-                    "proposal_id": "prop-1",
-                    "proposer_address": "0x02b8f2c61db19b04ab68cfb43d0605e63de74c5b",
-                    "title": "t",
-                    "description": "d",
-                    "status": "active",
-                    "votes_for": 3,
-                    "voting_starts": now.isoformat(),
-                    "voting_ends": (now + timedelta(days=3)).isoformat(),
-                    "execution_payload": {"k": "v"},
-                }
-            ],
             "governance_votes": [
                 {
                     "proposal_id": "prop-1",
@@ -166,7 +153,7 @@ class TestDeltaSync:
         }
         with session_factory() as s:
             counts = upsert_aux_rows(s, "test", payload)
-            assert counts == {"stakes": 1, "bonds": 1, "governance_proposals": 1, "governance_votes": 1}
+            assert counts == {"stakes": 1, "bonds": 1, "governance_votes": 1}
             s.commit()
 
         checksummed = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
@@ -175,8 +162,6 @@ class TestDeltaSync:
             assert stake.id == 7 and stake.address == checksummed and stake.amount == 1000
             bond = s.exec(select(Bond).where(Bond.chain_id == "test")).one()
             assert bond.bond_id == "bond_0xabc_1" and bond.provider == checksummed
-            prop = s.exec(select(GovernanceProposal).where(GovernanceProposal.chain_id == "test")).one()
-            assert prop.votes_for == 3 and prop.execution_payload == {"k": "v"}
             vote = s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).one()
             assert vote.voting_power == 1000 and vote.voter_address == checksummed
 
