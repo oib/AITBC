@@ -1513,3 +1513,123 @@ tables identical on all 5 hosts at common prefix 27707; service drift
 (block_state_delta, bridge_*, escrow, cross_chain_swap) and the
 bridge_validators twins correctly classified as WARN; heads converged
 27708 -> 27709. Exit 0.
+
+### Governance-vote casing follow-up: canonicalize at write + per-host NOCASE index (2026-09-29)
+
+Follow-up to the dedupe above. The twins existed because
+``cast_governance_vote`` lowercased ``voter_address`` before storing while
+aux upserts arrived checksummed — two write spellings for one identity.
+
+- ``rpc/staking.py``: every request-supplied address the staking/governance
+  routes store now goes through ``_request_address`` (0x-prefix if missing,
+  then EIP-55 via ``_to_ait_address``): ``voter_address`` in
+  ``cast_governance_vote``, ``proposer_address`` in
+  ``create_governance_proposal``, ``agent_address`` in
+  ``register_agent_identity``, ``verified_by`` in ``verify_agent_identity``
+  (verbatim before — now ``_to_ait_address`` passthrough/canonical), and the
+  ``stake.address`` insert in ``stake_tokens``. Reads that meet pre-fix
+  lowercase rows compare case-insensitively (``get_staking_info``,
+  the vote-power sum, the ``stake.address`` ownership check in
+  ``unstake_tokens``, and the already-voted check — which would otherwise
+  miss a legacy lowercase row and hand the insert to the new index as a
+  500 instead of the intended 400).
+- Signed-message contract preserved: ``sign_data["address"]`` in
+  ``stake_tokens``/``unstake_tokens`` keeps the *lowercase* spelling because
+  the wallet CLI signs ``hex_address.lower()`` while submitting the
+  checksummed form — canonicalizing inside the signed message would break
+  every existing client signature. Storage, the queued transfer's
+  ``signer``, and responses carry the canonical form instead.
+- User-visible impact that existed: ``GET /governance/proposal/{id}``
+  answered ``total_votes=len(votes)`` — 10 on node2 vs 5 on the rest of the
+  fleet for the same proposal while the twins were live. Resolved by the
+  dedupe; prevented from recurring by the write canonicalization + index.
+
+Schema-migration note (per-host, applied 2026-09-29): SQLModel does not
+backfill indexes onto existing databases, so the case-insensitive
+uniqueness belt was applied by hand on all five fleet hosts after the
+dup-scan returned 0 rows everywhere:
+
+    SELECT chain_id, proposal_id, voter_address COLLATE NOCASE, COUNT(*)
+      FROM governance_vote GROUP BY 1,2,3 HAVING COUNT(*)>1;   -- 0 on all 5
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_governance_vote_voter_nocase
+      ON governance_vote(chain_id, proposal_id, voter_address COLLATE NOCASE);
+
+Any new host/chain DB needs the same statement — it is not in the model
+``__table_args__`` (sqlite ``COLLATE NOCASE`` in an index is dialect-bound)
+and ``create_all`` will not emit it.
+
+Tests: ``test_governance_vote_canonicalization.py`` — canonical storage at
+the vote route, either-spelling stake power lookup, legacy-lowercase
+revote blocked with 400, twin insert rejected by the NOCASE index, the
+dup-scan returning clean, and the lowercase signed-message contract pinned
+both ways (lowercase verifies and stores canonical; canonical-signed is
+rejected — the pre-existing CLI contract).
+
+### Escrow routing: 404 is submit-time divergence, not corruption (2026-09-29)
+
+The ``escrow`` table is service-local: a create/release/refund routed to a
+node other than the one that accepted the create gets a 404 "Escrow not
+found" — expected divergence, not corruption and not a sync failure.
+Confirmed the missing-row routes return 404 as designed
+(``rpc/routers/settlement.py``: :181, :280, :317; refund maps the
+service-level miss at :160). Routing rule + design TODO recorded in
+``docs/ops/escrow-routing.md``: aux service tables should be *derivable
+from sealed ``ESCROW_*`` history* — the chain already records the
+lock/release/refund transitions, so a node could rebuild its escrow view by
+replay instead of depending on which node fielded the submit POST.
+
+### bridge_validators → height-scoped chain state: feasibility note (2026-09-29)
+
+Why the current design diverges per node:
+
+- ``bridge_validators`` is written only by the RPC
+  (``POST /bridge/validators/register`` → ``register_validator``) into the
+  node's own service-local table — nothing ships it through consensus or
+  aux sync, so each node's set is whatever was POSTed to it.
+- ``confirm_transfer`` → ``_validate_proof`` counts recovered signers
+  against that local set (``_verify_header_threshold_signatures`` →
+  ``check_threshold``), and ``bridge_release_enabled`` fails closed when no
+  set is registered — so the same proof can confirm on one node and fail
+  on another. Bridge confirmation outcome is node-dependent today.
+
+Fix direction: the validator set belongs in chain state, resolvable at a
+height — the same mechanism as ``bridge_release_authority``, which reads
+``chain_parameter_history`` via ``_chain_parameter_value`` so every node
+resolves the identical value at a given block
+(``state_transition._bridge_release_authority``). A
+``bridge_validator_set`` chain parameter (JSON set + threshold + epoch,
+height-scoped) gives the confirm path a deterministic membership set.
+
+Signature-domain finding (the important part): the collected
+``remote_attestation`` attestations already sign *exactly* the message the
+bridge header path verifies. Both sides serialize
+``{chain_id, height, hash, parent_hash, proposer, state_root,
+bridge_state_root}`` as canonical JSON → keccak256 → secp256k1 —
+``sign_consensus_message`` / ``verify_block_signature`` on the attestation
+side, ``build_verification_message`` + ``recover_all_signers`` on the
+bridge side. No domain separation exists between the two, so a collected
+attestation is *directly usable* as a ``validator_signatures`` entry — no
+dual-signing, no proof-format change for the header path. The transfer
+binding does not need the signature to cover the transfer fields: the
+proof's merkle inclusion into ``bridge_state_root`` already binds the
+transfer to the signed header (``_validate_proof`` step 5a/5c).
+
+The gap, precisely: attestations do **not** cover the legacy non-header
+multisig domain (``_verify_threshold_signatures`` without a header hashes
+the whole proof dict minus signature fields). If that path ever becomes
+live, either attesters must dual-sign the proof dict, or the proof must
+carry/embed the block hash and take the header path — it already carries
+``block_hash``/``block_height`` and ``_validate_proof`` materializes the
+header from them, so the header path is the natural one. Also worth noting:
+the shared domain means a consensus attestation is replayable as a bridge
+header signature — same statement ("V signed header H"), so harmless, but
+a domain tag would be the cleaner long-term cut if the two diverge.
+
+And (d): threshold ≥2 is unreachable today regardless — nothing populates
+``validator_signatures``. ``collect_attestations`` gathers validator
+signatures at proposal time and discards them after use; bridge proofs
+carry only ``proposer_signature``, and ``bridge_block_header.signature``
+stores a single signature. The 1-signer proposer path
+(``_verify_proposer_signature`` / the non-multisig branch of
+``_verify_header_threshold_signatures``, requiring the recovered signer ==
+``header.proposer`` and ∈ the validator set) is the only working path.
