@@ -713,6 +713,22 @@ for h in $HOSTS; do
     fi
 done
 
+echo "=== bridge payout audit (COMPLETED rows must be sealed; one payout per deposit) ==="
+# The Sep-29 manual audit found five ledger rows marked COMPLETED whose
+# ait_tx_hash never landed on chain — this is the recurring version of it.
+# bridge-payout-audit.py walks every bridge_deposits ledger fleet-wide,
+# checks each COMPLETED row's payout hash is sealed on the canonical
+# chain, and fails if any ETH deposit hash maps to more than one distinct
+# payout (a double payment).
+AUDIT_SPEC=""
+for h in $HOSTS; do
+    AUDIT_SPEC="$AUDIT_SPEC ${h}=${RESOLVED[$h]:-$h}"
+done
+if ! python3 "$(cd "$(dirname "$0")" && pwd)/bridge-payout-audit.py" \
+    --chain-host "${AITBC_HUB_ALIAS:-hub}" $AUDIT_SPEC; then
+    bridge_bad=1
+fi
+
 echo "=== chain state digests (consensus tables must match, aux must converge) ==="
 # v0.25.8: semantic per-table digests across the fleet. The classification
 # lives in aitbc_chain.state.block_deltas (CONSENSUS_STATE_TABLES,
