@@ -639,6 +639,30 @@ for var in BRIDGE_PAYOUT_ADDRESS AIT_USD_FIXED_PRICE BRIDGE_CONFIRMATIONS BRIDGE
     printf "  %-28s %s\n" "$var" "${val:-<unset>}"
 done
 
+echo "=== deprecated bridge contract references (owner key lost; unconfigurable forever) ==="
+# 0x24403CCf… is owned by 0x818018F3… whose key was declared unrecoverable
+# on 2026-08-31 — every onlyOwner path is frozen and the contract cannot
+# even be paused. Any live config still naming it can strand user funds.
+DEAD_BRIDGE_CONTRACT="0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA"
+for h in $HOSTS; do
+    hits=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        "for f in /etc/aitbc/*.env; do \
+             grep -v '^[[:space:]]*#' \"\$f\" 2>/dev/null | grep -q '$DEAD_BRIDGE_CONTRACT' && echo \"\$f\"; \
+         done | tr '\n' ' '" \
+        2>/dev/null || echo "UNREACHABLE")
+    if [ "$hits" = "UNREACHABLE" ]; then
+        bridge_bad=1
+        printf "  %-14s UNREACHABLE\n" "$h"
+        continue
+    fi
+    if [ -n "${hits// /}" ]; then
+        bridge_bad=1
+        printf "  %-14s FAIL: live env still names the dead bridge contract: %s\n" "$h" "$hits"
+    else
+        printf "  %-14s ok\n" "$h"
+    fi
+done
+
 echo "=== ETH_WALLET_PRIVATE_KEY carriers (should be the withdrawal payer only) ==="
 # The key controls the bridge wallet's ETH: a holder other than
 # aitbc-wallet (the withdrawal payer) is exposure. Print carrier unit names
