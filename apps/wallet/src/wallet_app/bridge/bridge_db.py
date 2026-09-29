@@ -113,6 +113,12 @@ def init_db() -> None:
     _add_column_if_not_exists(conn, "eth_deposits", "error_message", "TEXT")
     _add_column_if_not_exists(conn, "eth_deposits", "retry_count", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_not_exists(conn, "eth_deposits", "next_retry_at", "TEXT")
+    # SUBMITTED-era lifecycle columns (standalone monitor writes these;
+    # keep the shared table's shape identical from either side).
+    _add_column_if_not_exists(conn, "eth_deposits", "signed_tx", "TEXT")
+    _add_column_if_not_exists(conn, "eth_deposits", "envelope_hash", "TEXT")
+    _add_column_if_not_exists(conn, "eth_deposits", "submitted_height", "INTEGER")
+    _add_column_if_not_exists(conn, "eth_deposits", "rebroadcast_count", "INTEGER NOT NULL DEFAULT 0")
 
     # Expression index keeps the public by-recipient lookup off a full table
     # scan; the query stays LOWER() = LOWER() so either service's stored

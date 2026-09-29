@@ -38,6 +38,7 @@ _DEPOSIT_SELECT = """
            eth_usd_price,
            ait_usd_price,
            ait_tx_hash,
+           envelope_hash,
            signed_tx,
            submitted_height,
            rebroadcast_count,
@@ -99,6 +100,10 @@ def init_db() -> None:
             # SUBMITTED-era lifecycle columns: the signed payout envelope is
             # stored before it is broadcast so a crash can never orphan it.
             ("signed_tx", "TEXT"),
+            # envelope_hash is the payout hash derived from the stored
+            # signed envelope; ait_tx_hash is what the chain knows (server
+            # canonical if the RPC reported a different normalization).
+            ("envelope_hash", "TEXT"),
             ("submitted_height", "INTEGER"),
             ("rebroadcast_count", "INTEGER NOT NULL DEFAULT 0"),
         ]:
@@ -186,6 +191,7 @@ def update_deposit(
     retry_count: int | None = None,
     next_retry_at: str | None = None,
     signed_tx: str | None = None,
+    envelope_hash: str | None = None,
     submitted_height: int | None = None,
     rebroadcast_count: int | None = None,
 ) -> bool:
@@ -208,6 +214,9 @@ def update_deposit(
         if ait_tx_hash is not None:
             updates.append("ait_tx_hash = ?")
             params.append(ait_tx_hash)
+        if envelope_hash is not None:
+            updates.append("envelope_hash = ?")
+            params.append(envelope_hash)
         if signed_tx is not None:
             updates.append("signed_tx = ?")
             params.append(signed_tx)
