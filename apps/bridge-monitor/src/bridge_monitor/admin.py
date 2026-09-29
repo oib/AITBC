@@ -64,9 +64,12 @@ def main() -> int:
     _load_env_file(ns.env_file)
 
     # Storage path comes from DATA_DIR like the service; allow override so
-    # an operator can point at a copied DB for inspection.
+    # an operator can point at a copied DB for inspection. init_db() runs
+    # the additive migrations so a ledger older than the code still reads.
     from .main import BridgeMonitor
-    from .storage import create_deposit, get_deposit, update_deposit, BridgeDepositStatus
+    from .storage import BridgeDepositStatus, create_deposit, get_deposit, init_db, update_deposit
+
+    init_db()
 
     def cmd_status(tx_hash: str) -> int:
         d = get_deposit(tx_hash)
