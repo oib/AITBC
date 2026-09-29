@@ -393,6 +393,77 @@ class TestPollLiveness:
         assert monitor._poll_fail_streak == 0
 
 
+class TestFundingSource:
+    """BRIDGE_FUNDING_SOURCES senders record FUNDING, never a payout."""
+
+    def _funding_block(self, monitor, from_addr):
+        mock_tx = MagicMock()
+        mock_tx.get.side_effect = lambda k, d="": {
+            "to": monitor.bridge_eth_address,
+            "value": 5 * 10**16,  # 0.05 ETH
+            "from": from_addr,
+            "input": "0x",
+        }.get(k, d)
+        mock_tx.hash.hex.return_value = "0xfund01"
+        return {"transactions": [mock_tx]}
+
+    def test_funding_source_records_funding_no_payout(self, monitor, tmp_path):
+        from bridge_monitor.storage import get_deposit
+
+        monitor.funding_sources = {"0xopfund"}
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            patch.object(monitor, "process_deposit") as mock_process,
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = self._funding_block(monitor, "0xopFund")
+            monitor.poll_ethereum()
+        mock_process.assert_not_called()
+        row = get_deposit("0xfund01")
+        assert row is not None
+        assert row["status"] == "funding"
+
+    def test_non_whitelisted_is_normal_deposit(self, monitor, tmp_path):
+
+        monitor.funding_sources = {"0xopfund"}
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            patch.object(monitor, "process_deposit") as mock_process,
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = self._funding_block(monitor, "0xcustomer")
+            monitor.poll_ethereum()
+        mock_process.assert_called_once()
+
+    def test_funding_dedup_no_double_row(self, monitor, tmp_path):
+        from bridge_monitor.storage import get_deposit
+
+        monitor.funding_sources = {"0xopfund"}
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = self._funding_block(monitor, "0xopfund")
+            monitor.poll_ethereum()
+        row = get_deposit("0xfund01")
+        assert row["status"] == "funding"
+        # A rescan (same block re-polled) must not duplicate or alter the row
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = self._funding_block(monitor, "0xopfund")
+            from bridge_monitor.storage import set_cursor
+
+            set_cursor("last_processed_block", 96)  # force rescan of 97..97
+            monitor.poll_ethereum()
+        assert get_deposit("0xfund01")["status"] == "funding"
+
+
 class TestKickBurst:
     """Demand-triggered polling: a fresh kick file switches the loop into a
     ~3-polls-in-60s burst; the slow poll_interval stays the safety net."""
