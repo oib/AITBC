@@ -592,6 +592,7 @@ if [ -z "$latest_tag" ]; then
 else
     latest_tag_commit=$(git -C "$(dirname "$0")/../.." rev-list -n1 "$latest_tag")
     printf "  latest tag: %s (%.10s)\n" "$latest_tag" "$latest_tag_commit"
+    heads=""
     for h in $HOSTS; do
         res=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
             "cd /opt/aitbc 2>/dev/null && head=\$(git rev-parse HEAD 2>/dev/null) && \
@@ -599,11 +600,22 @@ else
             2>/dev/null || echo "UNREACHABLE")
         case "$res" in
             UNREACHABLE|"") tag_bad=1; printf "  %-14s UNREACHABLE\n" "$h" ;;
-            *" ON")   printf "  %-14s %.10s on %s\n" "$h" "${res%% *}" "$latest_tag" ;;
+            *" ON")   printf "  %-14s %.10s on %s\n" "$h" "${res%% *}" "$latest_tag"; heads="$heads ${res%% *}" ;;
             *" BEHIND") tag_bad=1; printf "  %-14s %.10s BEHIND %s — missed rollout\n" "$h" "${res%% *}" "$latest_tag" ;;
             *) tag_bad=1; printf "  %-14s %s\n" "$h" "$res" ;;
         esac
     done
+    # Ancestor checks alone do not prove the fleet runs the same code:
+    # two hosts on different commits can both contain the tag. Print
+    # whether checkout HEADs are identical — a pin gate reads this.
+    if [ -n "$heads" ]; then
+        uniq=$(echo "$heads" | tr ' ' '\n' | grep -v '^$' | sort -u | wc -l)
+        if [ "$uniq" -eq 1 ]; then
+            echo "  checkouts identical: $(echo $heads | awk '{print substr($1,1,10)}')"
+        else
+            echo "  WARNING: checkout HEADs differ ($uniq distinct) — see above"
+        fi
+    fi
 fi
 
 echo "=== bridge deposit monitor check (exactly one inbound watcher fleet-wide) ==="
