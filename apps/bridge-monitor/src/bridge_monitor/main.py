@@ -81,6 +81,10 @@ class BridgeMonitor:
         self.burst_interval = float(os.getenv("BRIDGE_BURST_INTERVAL", "20"))
         self._last_kick_seen = self._kick_mtime() or 0.0
         self._burst_until = 0.0
+        # Consecutive _poll_ethereum transport failures. A dead ETH endpoint
+        # is silent by nature — the scan "finds nothing" forever — so a
+        # streak past the threshold emits ALERT lines the fleet check counts.
+        self._poll_fail_streak = 0
         init_db()
         logger.info("BridgeMonitor initialized - watching %s", self.bridge_eth_address)
 
@@ -659,6 +663,7 @@ class BridgeMonitor:
             # Only pay for deposits buried by BRIDGE_CONFIRMATIONS blocks —
             # a reorg of an unconfirmed deposit must never have been paid.
             latest_block = max(0, w3.eth.block_number - self.confirmations)
+            self._poll_fail_streak = 0  # RPC answered — endpoint is live
             logger.debug("Latest confirmed block: %s", latest_block)
 
             # Use persistent cursor; bootstrap from latest_block - 10 on first run
@@ -707,7 +712,15 @@ class BridgeMonitor:
                 # in a terminal or PENDING_RETRY state (or was skipped).
                 set_cursor("last_processed_block", block_num)
         except Exception as e:
-            logger.error("Error polling Ethereum: %s", e)
+            self._poll_fail_streak += 1
+            if self._poll_fail_streak >= 3:
+                logger.critical(
+                    "ALERT: Ethereum poll failed %s consecutive times — deposits are NOT being scanned: %s",
+                    self._poll_fail_streak,
+                    e,
+                )
+            else:
+                logger.error("Error polling Ethereum (%s consecutive): %s", self._poll_fail_streak, e)
 
     async def run(self) -> None:
         """Main polling loop.

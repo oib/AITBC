@@ -57,6 +57,19 @@ else
     HOSTS="${AITBC_FLEET_HOSTS:?set AITBC_FLEET_HOSTS to the hosts to check, or pass them as arguments}"
 fi
 
+# Every ssh probe goes through sshr: a single transient blip (jump-host
+# hiccup, connection drop) must not paint a host UNREACHABLE — the drift
+# gate reads that as failure the same way a real divergence does. One
+# retry with a short delay is enough to absorb blips; anything still
+# failing after two tries is genuinely down.
+sshr() {
+    if ssh -o ConnectTimeout=8 -o BatchMode=yes "$@" 2>/dev/null; then
+        return 0
+    fi
+    sleep 2
+    ssh -o ConnectTimeout=8 -o BatchMode=yes "$@" 2>/dev/null
+}
+
 # Host names are site-dependent: a canonical host may answer to a bare name,
 # to an ssh-config alias, or only to an FQDN, and no single scheme resolves
 # everywhere. Auto-probe candidate addresses per canonical host so the check
@@ -662,6 +675,51 @@ for h in $HOSTS; do
         printf "  %-14s ok\n" "$h"
     fi
 done
+
+echo "=== deposit scanner liveness (cursor within ${BRIDGE_CURSOR_MAX_LAG:-100} blocks of Sepolia head) ==="
+# A dead ETH endpoint fails silently: the scan "finds nothing" forever and
+# deposits stop being detected without ever emitting ALERT. The monitor's
+# persistent block cursor is the ground truth — where the service is
+# active it must stay within ~100 blocks (~20 min) of the Sepolia head.
+SEPOLIA_HEAD=$(curl -s -m 8 \
+    -H 'Content-Type: application/json' -H 'User-Agent: web3.py/7.0' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+    "${SEPOLIA_HEAD_RPC:-https://ethereum-sepolia-rpc.publicnode.com}" 2>/dev/null \
+    | python3 -c 'import json,sys
+try: print(int(json.load(sys.stdin)["result"], 16))
+except Exception: pass')
+if [ -z "$SEPOLIA_HEAD" ]; then
+    echo "  WARNING: Sepolia head fetch failed — cursor liveness skipped"
+else
+    for h in $HOSTS; do
+        probe=$(sshr "${RESOLVED[$h]:-$h}" \
+            "systemctl is-active aitbc-bridge-monitor 2>/dev/null; \
+             python3 -c 'import sqlite3; c=sqlite3.connect(\"file:/var/lib/aitbc/bridge_deposits.db?mode=ro\",uri=True); d=dict(c.execute(\"SELECT key,value FROM bridge_cursor\")); print(d.get(\"last_processed_block\",\"\"))' 2>/dev/null" \
+            || echo "UNREACHABLE")
+        if [ "$probe" = "UNREACHABLE" ]; then
+            bridge_bad=1; printf "  %-14s UNREACHABLE\n" "$h"; continue
+        fi
+        svc_state=$(echo "$probe" | head -1)
+        cursor=$(echo "$probe" | tail -1)
+        if [ "$svc_state" != "active" ]; then
+            printf "  %-14s monitor %s — skipped\n" "$h" "${svc_state:-unknown}"
+            continue
+        fi
+        if ! [[ "$cursor" =~ ^[0-9]+$ ]]; then
+            bridge_bad=1
+            printf "  %-14s FAIL: monitor active but bridge_cursor has no last_processed_block\n" "$h"
+            continue
+        fi
+        lag=$((SEPOLIA_HEAD - cursor))
+        if [ "$lag" -gt "${BRIDGE_CURSOR_MAX_LAG:-100}" ]; then
+            bridge_bad=1
+            printf "  %-14s FAIL: cursor %s lags Sepolia head %s by %s blocks — deposits not being scanned\n" \
+                "$h" "$cursor" "$SEPOLIA_HEAD" "$lag"
+        else
+            printf "  %-14s ok: cursor %s (lag %s)\n" "$h" "$cursor" "$lag"
+        fi
+    done
+fi
 
 echo "=== ETH_WALLET_PRIVATE_KEY carriers (should be the withdrawal payer only) ==="
 # The key controls the bridge wallet's ETH: a holder other than
