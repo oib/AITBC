@@ -90,8 +90,11 @@ def main() -> int:
         if not d:
             print(f"no deposit row {tx_hash}")
             return 1
-        if d.get("status") == BridgeDepositStatus.COMPLETED.value:
-            print(f"deposit {tx_hash} is COMPLETED — cannot write off a paid deposit")
+        if d.get("status") == BridgeDepositStatus.COMPLETED.value and d.get("ait_tx_hash"):
+            # A completed row WITH a payout hash may have actually paid —
+            # writing it off falsifies the record. A completed row with NO
+            # ait_tx_hash is a phantom: recorded success, nothing sent.
+            print(f"deposit {tx_hash} is COMPLETED with a payout hash — cannot write off a paid deposit")
             return 1
         update_deposit(tx_hash, status=BridgeDepositStatus.WRITTEN_OFF, error_message=reason.strip())
         print(f"deposit {tx_hash} written off: {reason.strip()}")
