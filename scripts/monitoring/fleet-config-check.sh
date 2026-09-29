@@ -658,9 +658,11 @@ for h in $HOSTS; do
         printf "  %-14s UNREACHABLE\n" "$h"
         continue
     fi
-    printf "  %-14s %s\n" "$h" "${carriers:-<none>}"
-    echo "$carriers" | grep -v "^$" | grep -qv "^aitbc-wallet" && \
-        echo "  WARN: $h has ETH key carriers beyond the withdrawal payer"
+    printf "  %-14s %s\n" "$h" "$(echo "${carriers:-<none>}" | paste -sd, -)"
+    echo "$carriers" | grep -v "^$" | grep -qv "^aitbc-wallet" && {
+        bridge_bad=1
+        echo "  FAIL: $h has ETH key carriers beyond the withdrawal payer"
+    }
 done
 
 echo "=== chain state digests (consensus tables must match, aux must converge) ==="
