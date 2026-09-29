@@ -35,6 +35,24 @@ MAX_LOCK_DAYS = 3650
 STAKE_AUTH_MAX_AGE_SECONDS = 300
 
 
+def _request_address(value: str) -> str:
+    """Normalize a request-supplied address to its canonical storage form.
+
+    Adds the ``0x`` prefix when the caller omitted it — the contract the old
+    inline ``lower().strip()`` blocks had — then delegates to
+    :func:`_to_ait_address`, which returns the EIP-55 checksum for 40-hex
+    addresses and the lowercased input for anything else. One spelling per
+    address on every node: an aux row written here can never twin with a
+    different-cased spelling written elsewhere (the governance_vote
+    lowercase/checksum duplicates of 2026-09-29).
+    """
+    value = value.strip()
+    if not value.lower().startswith("0x"):
+        value = "0x" + value
+    canonical: str = _to_ait_address(value)
+    return canonical
+
+
 def _freshness_fields(data: dict[str, Any], *, action: str) -> tuple[int, int | float]:
     """Validate and return (nonce, timestamp) from a signed staking request.
 
@@ -75,9 +93,12 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
         raise HTTPException(status_code=400, detail="amount must be positive")
     if not isinstance(lock_days, int) or isinstance(lock_days, bool) or not 1 <= lock_days <= MAX_LOCK_DAYS:
         raise HTTPException(status_code=400, detail=f"lock_days must be an integer between 1 and {MAX_LOCK_DAYS}")
-    address = address.lower().strip()
-    if not address.startswith("0x"):
-        address = "0x" + address
+    address = _request_address(address)
+    # The signed message keeps the lowercase spelling: the wallet CLI signs
+    # ``hex_address.lower()`` while submitting the checksummed form, so the
+    # reconstructed message must use that exact spelling or every existing
+    # client signature breaks. Storage and lookups use the canonical form.
+    signed_address = address.lower()
 
     # Bug 13: Validate chain_id is supported
     if not validate_chain_id(chain_id):
@@ -89,7 +110,7 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
         raise HTTPException(status_code=403, detail="Signature required for staking")
     nonce, timestamp = _freshness_fields(stake_data, action="staking")
     sign_data = {
-        "address": address,
+        "address": signed_address,
         "amount": amount,
         "chain_id": chain_id,
         "action": "stake",
@@ -98,8 +119,6 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
     }
     if not verify_request_signature(address, signature, sign_data):
         raise HTTPException(status_code=403, detail="Invalid staker signature")
-    if not address.startswith("0x"):
-        address = "0x" + address
     with session_scope() as session:
         account = session.get(Account, (chain_id, address))
         if not account:
@@ -160,9 +179,10 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
     stake_id = unstake_data.get("stake_id")
     if not address or not stake_id:
         raise HTTPException(status_code=400, detail="address and stake_id are required")
-    address = address.lower().strip()
-    if not address.startswith("0x"):
-        address = "0x" + address
+    address = _request_address(address)
+    # Same contract as stake_tokens: the wallet signs the lowercase spelling
+    # of its address, so the reconstructed message must use it verbatim.
+    signed_address = address.lower()
 
     # Bug 13: Validate chain_id is supported
     if not validate_chain_id(chain_id):
@@ -174,7 +194,7 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
         raise HTTPException(status_code=403, detail="Signature required for unstaking")
     nonce, timestamp = _freshness_fields(unstake_data, action="unstaking")
     sign_data = {
-        "address": address,
+        "address": signed_address,
         "stake_id": stake_id,
         "chain_id": chain_id,
         "action": "unstake",
@@ -193,7 +213,9 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
         stake = session.get(Stake, stake_id)
         if not stake:
             raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
-        if stake.address != address:
+        # Rows written before canonical-at-write may hold the lowercase
+        # spelling — compare canonically so either storage form authorizes.
+        if _to_ait_address(stake.address) != address:
             raise HTTPException(status_code=403, detail="Not authorized to unstake")
         if stake.status != "active":
             raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
@@ -272,9 +294,10 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
 async def get_staking_info(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get staking information for an address"""
     chain_id = get_chain_id(chain_id)
-    address = address.lower().strip()
+    address = _request_address(address)
     with session_scope() as session:
-        statement = select(Stake).where(Stake.chain_id == chain_id, Stake.address == address)
+        # Pre-canonicalization rows may hold the lowercase spelling; match both.
+        statement = select(Stake).where(Stake.chain_id == chain_id, func.lower(Stake.address) == address.lower())
         stakes = session.exec(statement).all()
         total_staked = sum(s.amount for s in stakes if s.status == "active")
         active_stakes = [
@@ -313,9 +336,7 @@ async def register_agent_identity(request: Request, identity_data: dict[str, Any
     capabilities = identity_data.get("capabilities", {})
     if not agent_id or not agent_address:
         raise HTTPException(status_code=400, detail="agent_id and agent_address are required")
-    agent_address = agent_address.lower().strip()
-    if not agent_address.startswith("0x"):
-        agent_address = "0x" + agent_address
+    agent_address = _request_address(agent_address)
     with session_scope() as session:
         existing = session.exec(
             select(AgentIdentity).where(AgentIdentity.chain_id == chain_id, AgentIdentity.agent_id == agent_id)
@@ -393,17 +414,19 @@ async def verify_agent_identity(request: Request, verification_data: dict[str, A
             raise HTTPException(status_code=404, detail=f"Agent identity not found: {agent_id}")
         identity.is_verified = True
         identity.verified_at = datetime.now(UTC)
-        identity.verified_by = verifier_address
+        # Record the verifier canonically too — verified_by is an address
+        # field other aux writers would otherwise casing-twin with.
+        identity.verified_by = _to_ait_address(verifier_address)
         session.add(identity)
         session.commit()
-        _logger.info("Agent identity verified: %s by %s", agent_id, verifier_address)
+        _logger.info("Agent identity verified: %s by %s", agent_id, identity.verified_by)
         return {
             "success": True,
             "identity_id": identity.id,
             "agent_id": agent_id,
             "is_verified": True,
             "verified_at": identity.verified_at.isoformat(),
-            "verified_by": verifier_address,
+            "verified_by": identity.verified_by,
             "chain_id": chain_id,
         }
 
@@ -426,9 +449,7 @@ async def create_governance_proposal(request: Request, proposal_data: dict[str, 
     execution_payload = proposal_data.get("execution_payload", {})
     if not proposal_id or not proposer_address or (not title):
         raise HTTPException(status_code=400, detail="proposal_id, proposer_address, and title are required")
-    proposer_address = proposer_address.lower().strip()
-    if not proposer_address.startswith("0x"):
-        proposer_address = "0x" + proposer_address
+    proposer_address = _request_address(proposer_address)
     with session_scope() as session:
         existing = session.exec(
             select(GovernanceProposal).where(
@@ -485,19 +506,20 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
     reason = vote_data.get("reason")
     if not proposal_id or not voter_address:
         raise HTTPException(status_code=400, detail="proposal_id and voter_address are required")
-    voter_address = voter_address.lower().strip()
-    if not voter_address.startswith("0x"):
-        voter_address = "0x" + voter_address
+    # Canonicalize at write: the stored row carries the EIP-55 checksum so
+    # the same voter cannot twin under a different casing (the
+    # lowercase/checksum duplicates the fleet carried until 2026-09-29).
+    voter_address = _request_address(voter_address)
     with session_scope() as session:
         # Voting power is the voter's active stake on this chain — the
-        # request-supplied value is never trusted. Stake rows are written in
-        # EIP-55 checksummed form by the state transition, so compare
-        # case-insensitively against the lowercased request address.
+        # request-supplied value is never trusted. Stake rows predating
+        # canonical-at-write may hold the lowercase spelling, so compare
+        # case-insensitively against the canonical request address.
         voting_power = int(
             session.exec(
                 select(func.coalesce(func.sum(Stake.amount), 0)).where(
                     Stake.chain_id == chain_id,
-                    func.lower(Stake.address) == voter_address,
+                    func.lower(Stake.address) == voter_address.lower(),
                     Stake.status == "active",
                 )
             ).one()
@@ -510,11 +532,15 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
         ).first()
         if not proposal:
             raise HTTPException(status_code=404, detail=f"Proposal not found: {proposal_id}")
+        # Case-insensitive duplicate check: rows written before canonical
+        # storage may hold the lowercase twin of this voter, and the NOCASE
+        # unique index (ux_governance_vote_voter_nocase) would turn a verbatim
+        # miss into an IntegrityError 500 instead of the intended 400.
         existing_vote = session.exec(
             select(GovernanceVote).where(
                 GovernanceVote.chain_id == chain_id,
                 GovernanceVote.proposal_id == proposal_id,
-                GovernanceVote.voter_address == voter_address,
+                func.lower(GovernanceVote.voter_address) == voter_address.lower(),
             )
         ).first()
         if existing_vote:
