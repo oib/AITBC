@@ -219,6 +219,63 @@ if [ "$skip_flagged" -eq 0 ]; then
     echo "  SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL unset on all hosts (files and running processes)"
 fi
 
+echo "=== effective transition heights (process env shadows code default) ==="
+# Env files are only one of three sources feeding the process environment —
+# systemd Environment= lines and leftover drop-ins (the rejoin runbook
+# creates them) bypass /etc/aitbc/*.env entirely. Read what the RUNNING
+# process actually holds, then fall back to that host's own checkout
+# default: env-if-present else code IS the effective value, and it catches
+# all three sources at once. Convention (v0.25.8 changelog): v2=0/v3=5470
+# are env-set on all five nodes by design; v4+ are code-pinned literals —
+# so env presence for V4..V9 is a violation, V9's most of all because the
+# pin lands in config.py and a stray env value would shadow it silently.
+height_bad=0
+declare -A EFF=()
+for h in $HOSTS; do
+    res=$(sshr "${RESOLVED[$h]:-$h}" \
+        "pid=\$(systemctl show -p MainPID --value aitbc-blockchain-node 2>/dev/null); \
+         if [ -z \"\$pid\" ] || [ \"\$pid\" = 0 ]; then echo NOTRUNNING; exit 0; fi; \
+         ( [ -r /proc/\$pid/environ ] && tr '\0' '\n' < /proc/\$pid/environ || sudo -n tr '\0' '\n' < /proc/\$pid/environ ) 2>/dev/null | \
+           sed -n 's/^STATE_TRANSITION_\(V[0-9][0-9]*\)_HEIGHT=/E:\1=/p' | sort; \
+         grep -oE 'state_transition_v[0-9]+_height[^=]*=[[:space:]]*[A-Za-z0-9_]+' \
+           /opt/aitbc/apps/blockchain-node/src/aitbc_chain/config.py 2>/dev/null | \
+           sed -n 's/^state_transition_\(v[0-9][0-9]*\)_height[^=]*=[[:space:]]*\([A-Za-z0-9_]*\).*/C:\U\1\E=\2/p' | sort" \
+        2>/dev/null || echo "UNREACHABLE")
+    case "$res" in
+        UNREACHABLE|"") height_bad=1; printf "  %-14s UNREACHABLE\n" "$h"; continue ;;
+        NOTRUNNING)     printf "  %-14s node not running — skipped\n" "$h"; continue ;;
+    esac
+    line=""
+    for v in 2 3 4 5 6 7 8 9; do
+        e=$(echo "$res" | sed -n "s/^E:V${v}=//p" | tail -1)
+        c=$(echo "$res" | sed -n "s/^C:V${v}=//p" | tail -1)
+        if [ -n "$e" ]; then
+            line="$line V$v=$e(env)"
+            case "$v" in
+                2|3) : ;;  # documented env pins
+                *) height_bad=1
+                   printf "  %-14s FLAG: STATE_TRANSITION_V${v}_HEIGHT=%s in process env — v4+ heights are code-pinned; env shadows the pin\n" "$h" "$e" ;;
+            esac
+        else
+            line="$line V$v=${c:-none}"
+        fi
+    done
+    printf "  %-14s%s\n" "$h" "$line"
+    # drift key = effective values only (source tags stripped)
+    EFF[$h]=$(echo "$line" | sed 's/(env)//g')
+done
+if [ "${#EFF[@]}" -gt 1 ]; then
+    first=""
+    for h in $HOSTS; do
+        [ -z "${EFF[$h]:-}" ] && continue
+        if [ -z "$first" ]; then first="${EFF[$h]}"; elif [ "$first" != "${EFF[$h]}" ]; then
+            height_bad=1
+            echo "  FAIL: effective transition heights differ across hosts — replay/fork risk below the pinned heights"
+            break
+        fi
+    done
+fi
+
 echo "=== faucet budget check (exactly one live agent-coordinator faucet) ==="
 # hub and hub1 both run aitbc-agent-coordinator with their own coin_requests
 # DB and both hold the genesis key; two live faucets double the fleet-wide
@@ -1161,7 +1218,8 @@ echo
 if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
    && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ] && [ "$faucet_bad" -eq 0 ] \
    && [ "$mesh_bad" -eq 0 ] && [ "$val_bad" -eq 0 ] && [ "$dig_bad" -eq 0 ] \
-   && [ "$wallet_bad" -eq 0 ] && [ "${tag_bad:-0}" -eq 0 ] && [ "$bridge_bad" -eq 0 ]; then
+   && [ "$wallet_bad" -eq 0 ] && [ "${tag_bad:-0}" -eq 0 ] && [ "$bridge_bad" -eq 0 ] \
+   && [ "${height_bad:-0}" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
