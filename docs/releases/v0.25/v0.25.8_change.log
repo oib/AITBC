@@ -1973,3 +1973,19 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
   `0x818018F3…` deployer key — every `onlyOwner` path is permanently frozen.
   Key-split plan updated: a new CrossChainBridge deploy with an offline
   owner key is required (validator set empty, locks unused — cheap now).
+
+### Dead bridge contract swept + write-off guard hardened (v0.25.8)
+
+- Frozen contract `0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA`
+  (`owner()` = deployer key declared unrecoverable 2026-08-31) swept
+  from active config: hub's `BRIDGE_CONTRACT_ADDRESS` commented out,
+  `contracts/deployments-bridge-sepolia.json` marked deprecated, the
+  exchange test fixture and v0.4.14 release doc annotated, and
+  `fleet-config-check.sh` FAILs on any non-commented env reference.
+  Contract holds 0 ETH; it can never be paused, so the new-contract
+  deploy in the key-split plan is the only safe path.
+- `write-off` now refuses recipient-bearing rows (money owed) unless
+  `--unpaid-with-recipient` + a reason is passed; `abandon-and-resign`
+  keeps its nonce proof. `bridge-payout-audit.py` lists
+  recipient-bearing write-offs separately as `WRITTEN-OFF DEBT` so an
+  unpaid debt can't quietly masquerade as an unrecoverable row.
