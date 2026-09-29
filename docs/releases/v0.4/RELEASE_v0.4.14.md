@@ -40,7 +40,7 @@ AITBC v0.4.14 activates and fully integrates the infrastructure features planned
 **4.1 Bridge Contract Deployment (Sepolia)**
 
 - ✅ Deployed `CrossChainBridge.sol` to Ethereum Sepolia testnet
-  - Contract address: `0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA`
+  - Contract address: `0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA` — **DEPRECATED 2026-09-29**: `owner()` is the deployer key, declared unrecoverable 2026-08-31; every `onlyOwner` path is permanently unreachable and the unpaused contract can still receive funds. Do not point deposits at it (see `contracts/deployments-bridge-sepolia.json`)
   - Deployer wallet: `0x818018F30d8F5FB7AE7a64f25895F15110923748` (0.05 ETH funded via Google faucet)
   - Infura RPC configured (`ETH_RPC_URL=https://sepolia.infura.io/v3/...`)
   - Hardhat config updated with Sepolia network
