@@ -1445,3 +1445,71 @@ Fix:
 The v9 shadow window restarts again on deploy: the
 v9_would_reject_bridge_lock_unsigned counter must read absent after the
 rolling restart (counters reset on service restart).
+
+### Fleet state-digest monitor, aux case-fix, governance-vote dedupe, and pure/sequential parity (2026-09-29)
+
+Semantic state digests across the fleet:
+- state/block_deltas.py classifies every chain table: CONSENSUS_STATE_TABLES
+  (account, block, transaction, receipt, chain_parameter(+history),
+  governance_proposal, bond, gpu_*, ipfs_subscription, liquidity_*),
+  AUX_SHIPPED_TABLES (governance_vote, stake — must converge), service-local
+  (escrow, bridge_*, mempool, block_state_delta, ...), and the watch member
+  cross_chain_transfer (service-local rows that feed block.bridge_state_root
+  — drift warns, never fails).
+- scripts/monitoring/state-digest-spec.py emits the authoritative spec JSON
+  once on the control host so every node digests the same classification even
+  mid-deploy; fleet-config-check.sh carries an embedded fallback kept in
+  parity by tests/test_fleet_digest_spec.py.
+- scripts/monitoring/state-digest-remote.py is a stdlib-only read-only helper
+  piped to each host: volatile columns (id, *_at, timestamps, autoincrement
+  keys) excluded, addresses lowercased, JSON envelopes normalized
+  (tx_hash/value/chain_id re-echoes and falsy signature dropped), sorted
+  row-hash fold per table. The aux natural-key case-duplicate scan
+  (governance-vote twin pattern + bridge_validators) runs in the same pass.
+- The driver now digests the fleet-COMMON PREFIX: pass one reads each node's
+  sealed height, pass two bounds height-scoped tables (block.height,
+  transaction.block_height, *_history.applied_height — NULL applied_height
+  means in-force and stays in) to the fleet minimum. Without the bound the
+  proposer being one block ahead read as a block/transaction consensus FAIL
+  on every run — pure sampling timing, not drift.
+
+Auxiliary upsert case fix:
+- aux_state.py upsert_aux_rows matched all natural-key fields with exact
+  equality — a checksummed incoming voter_address did not match the stored
+  lowercase row and inserted a twin. Address-bearing key fields now compare
+  case-insensitively (func.lower) while the stored row is rewritten to
+  canonical checksum casing. Regression: test_aux_state_case_insensitive_key_lookup
+  (checksummed row updates lowercase legacy row; numeric-keyed stake rows are
+  not merged by casing).
+
+Authorized production write (only one this batch):
+- node2 chain.db backed up to
+  /root/aitbc-backups/node2-chain-pre-govvote-dedupe-20260929.db, then the five
+  lowercase governance_vote originals (ids 1-5, twin-verified against the
+  checksummed rows 6-10 and follower state) were deleted. Fleet aux scan
+  afterwards: governance_vote and stake are case-clean on all five hosts;
+  the remaining natural-key twins are bridge_validators rows on hub and
+  node2 (address, epoch) — service-local, reported as WARN, not deduped.
+- Canary: the single authorized BRIDGE_REFUND sealed at height 27639
+  (tx 83724a3ae0…, refund of lock 0x6360b047…, 36000 AIT to
+  0xf4924759508e420eed947bd33326731b11c4b7df) — confirmed on all hosts.
+
+Pure-vs-sequential apply parity (tests/test_apply_parity.py):
+- Matrix across covered tx families x block versions x signed/unsigned forms
+  comparing account maps, state roots, accept/reject, and side-effect tables.
+- Found and fixed: BOND_LOCK/RELEASE/SLASH mutate bond rows + escrow/burn
+  accounts but were missing from the sequential-only set — the account-only
+  pure path silently dropped their side effects. The set is now canonical:
+  SEQUENTIAL_ONLY_TX_TYPES lives in pure_state_transition.py and is imported
+  by sync_block_import.py and consensus/poa.py instead of three copies that
+  could drift.
+- RECEIPT_CLAIM stale-ORM overwrite: apply_transaction did a raw-SQL fee
+  debit then flushed a stale sender_account ORM object that could overwrite
+  it; now a direct SQL increment. Two intentional skips remain: keyless
+  pseudo-senders cannot produce a valid sender signature.
+
+First full monitor verdict (height-bound digests live): consensus + aux
+tables identical on all 5 hosts at common prefix 27707; service drift
+(block_state_delta, bridge_*, escrow, cross_chain_swap) and the
+bridge_validators twins correctly classified as WARN; heads converged
+27708 -> 27709. Exit 0.

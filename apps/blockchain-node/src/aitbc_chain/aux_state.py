@@ -17,6 +17,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import func
 from sqlmodel import select
 
 from .base_models import Bond, GovernanceProposal, GovernanceVote, Stake, _to_ait_address
@@ -187,7 +188,19 @@ def upsert_aux_rows(session: Any, chain_id: str, tables: dict[str, list[dict[str
                 logger.warning("Skipping %s row with missing key fields: %r", name, row)
                 continue
             cond = [spec.model.chain_id == chain_id]
-            cond += [getattr(spec.model, k) == v for k, v in key_values.items()]
+            for k, v in key_values.items():
+                column = getattr(spec.model, k)
+                if k in spec.address_fields and isinstance(v, str) and v:
+                    # Case-insensitive match on address key fields: the fleet
+                    # carries legacy lowercase rows next to canonical checksum
+                    # spellings of the same address. An exact-equality lookup
+                    # misses the lowercase row and INSERTs a second copy —
+                    # the v0.25.8 governance-vote duplicates. lower() treats
+                    # both spellings as one natural key; the stored row is
+                    # still rewritten to canonical form by the update below.
+                    cond.append(func.lower(column) == v.lower())
+                else:
+                    cond.append(column == v)
             existing = session.exec(select(spec.model).where(*cond)).first()
             data: dict[str, Any] = {}
             for f in spec.fields:

@@ -30,6 +30,7 @@ from .state.block_deltas import (
 )
 from .state.bridge_credit import BRIDGE_AUTHORITY_TX_TYPES
 from .state.pure_state_transition import (
+    SEQUENTIAL_ONLY_TX_TYPES,
     StateDelta,
     _determine_tx_type,
     _escrow_address,
@@ -54,28 +55,14 @@ from .sync_validator import ImportResult
 
 logger = get_logger(__name__)
 
-# Transaction types whose side effects (pools, stakes, GPU tables, etc.) are not
-# modeled by the pure/parallel delta map. They must be applied through the
-# full StateTransition.apply_transaction sequential path to keep state roots
-# and side-effect tables consistent across nodes.
-_SEQUENTIAL_ONLY_TX_TYPES = frozenset(
-    {
-        "LIQUIDITY_DEPOSIT",
-        "LIQUIDITY_WITHDRAW",
-        "LIQUIDITY_CLAIM",
-        "GPU_REGISTER",
-        "GPU_ALLOCATE",
-        # Writes chain_parameter (governance_executors et al.) at apply — the
-        # pure delta path computes account changes only, so the parameter write
-        # would silently never land on parallel-imported blocks (GAP-57).
-        "GOVERNANCE_EXECUTE",
-        # v4 lock-window rules (maturity, payee ownership, claim-set overlap)
-        # live in validate_transaction — only the sequential apply path runs
-        # them on import. Without this a follower would apply a Byzantine
-        # proposer's early release unchecked (GAP-42).
-        "STAKE_RELEASE",
-    }
-)
+# Transaction types whose side effects (pools, stakes, GPU tables, bond rows,
+# governance parameters, burn semantics, etc.) are not modeled by the
+# pure/parallel delta map. They must be applied through the full
+# StateTransition.apply_transaction sequential path to keep state roots and
+# side-effect tables consistent across nodes. The canonical list lives in
+# pure_state_transition.SEQUENTIAL_ONLY_TX_TYPES (one list, one rule — the
+# pure path returns requires_sequential=True for exactly these types).
+_SEQUENTIAL_ONLY_TX_TYPES = SEQUENTIAL_ONLY_TX_TYPES
 
 
 class BlockImportMixin(SyncBase):

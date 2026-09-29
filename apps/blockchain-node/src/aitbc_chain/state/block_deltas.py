@@ -96,6 +96,275 @@ _DIGEST_TABLE = "__digest__"
 _DIGEST_EXCLUDE = frozenset({"account", "transaction", "block", "mempool", "block_state_delta"})
 _DIGEST_ROW_LIMIT = 100_000
 
+# ---------------------------------------------------------------------------
+# Fleet table classification (v0.25.8)
+#
+# Two questions decide where a table lands:
+#   * is it written and/or read by the block-apply path
+#     (``StateTransition`` / ``compute_state_delta`` / ``apply_deltas_to_db``)?
+#   * may two healthy nodes legitimately hold different rows?
+#
+# CONSENSUS_STATE_TABLES must be semantically identical on every node —
+# divergence there means a validation decision or a sealed root can differ
+# per node. SERVICE_STATE_TABLES are written by RPC endpoints and ancillary
+# services (bridge, coordinator settlement, agent staking, bounties, …) and
+# are allowed to differ; their diff is informational. AUX_SHIPPED_TABLES is
+# the subset of service-written rows that auxiliary state sync copies
+# verbatim between nodes (``aux_state.AUX_TABLES``): they are not read at
+# apply, but the sync contract says they must still converge — a mismatch
+# there is a sync bug (the governance-vote case-duplicate of v0.25.8), not
+# legitimate drift. Membership may overlap: ``bond`` and
+# ``governance_proposal`` are both apply-state and aux-shipped.
+#
+# Audit basis (apply path: state_transition.py + pure_state_transition.py +
+# liquidity_transition.py):
+#   - ``account``/``block``/``transaction``: written every block; ``account``
+#     is additionally proven by the state root.
+#   - ``receipt``: validated + claimed at apply (RECEIPT_CLAIM reads the row,
+#     marks status/claimed_at). Rows are born in the coordinator settlement
+#     RPC and are NOT aux-shipped today — a claim on a node missing the row
+#     would diverge (table is empty fleet-wide at v0.25.8).
+#   - ``chain_parameter``/``chain_parameter_history``: written by
+#     GOVERNANCE_EXECUTE at apply and read by every authority/parameter gate.
+#   - ``governance_proposal``: read at apply by GOVERNANCE_EXECUTE
+#     (status/tallies gate execution); also written there (executed_at,
+#     execution_tx_hash) and by the submit-time RPC + aux sync.
+#   - ``bond``: read+written at apply by BOND_LOCK/RELEASE/SLASH. Apply writes
+#     wall-clock ``locked_until``/``created_at``/``updated_at`` — volatile.
+#   - ``gpu_registration``/``gpu_allocation``: written at apply
+#     (GPU_REGISTER/GPU_ALLOCATE) with wall-clock ``registered_at``/
+#     ``allocated_at`` and per-node autoincrement ``id``; GPU_ALLOCATE also
+#     reads ``gpu_registration``. A direct submit-time RPC writes the same
+#     tables — the apply copy is the consensus-relevant one.
+#   - ``ipfs_subscription``: read+written at apply (IPFS_SUBSCRIPTION);
+#     ``created_at``/``updated_at`` are wall-clock.
+#   - ``liquidity_pool``/``liquidity_stake``/``liquidity_distribution``:
+#     written at apply by LIQUIDITY_* handlers. ``liquidity_stake.stake_id``
+#     is ``secrets.token_hex`` per apply and ``locked_until``/timestamps are
+#     wall-clock — nondeterministic by construction, excluded via
+#     VOLATILE_DIGEST_COLUMNS; the deterministic columns must still match.
+#   - ``stake``: written by the staking RPC only; apply never reads it
+#     (STAKE_RELEASE validation replays the STAKE_LOCK transaction row, not
+#     the stake table). Aux-shipped → must converge, but not apply-state.
+#   - ``governance_vote``: written by the voting RPC only; apply never reads
+#     it (execution reads governance_proposal tallies). Aux-shipped query
+#     ledger → must converge; divergence is the case-duplicate sync bug.
+#   - ``escrow``: submit-time bookkeeping written by the escrow RPC.
+#     ESCROW_RELEASE/REFUND validation reads the derived escrow ACCOUNT row
+#     (``session.get(Account, (chain_id, escrow_addr))``) — the escrow table
+#     itself is never queried at apply. Legitimately differs per node.
+#   - ``bridge_validators``: written only by POST /bridge/validators/register
+#     — per-node registration bookkeeping; the PBFT validator set lives in
+#     env, not here. Legitimately differs.
+#   - ``bridge_block_header``: bridge finality pipeline cache of the remote
+#     chain's headers — populated per node that runs the bridge service.
+#   - ``consensus_state``: PBFT engine's per-node view/sequence journal —
+#     node-local by construction.
+#   - ``block_state_delta``: this file's own undo journal — node-local
+#     operational metadata (journal counts drift with local replay/fork
+#     history; not comparable, never shipped).
+#   - ``agent_identity``/``agent_stake``/``agent_stake_memo``,
+#     ``bounty_contract``/``bounty_submission``, ``smart_contract``,
+#     ``htlc_swaps``, ``cross_chain_escrows``, ``cross_chain_swap``,
+#     ``escrow_proofs``: service/RPC bookkeeping; apply never reads them.
+#   - ``cross_chain_transfer``: service-written by the bridge (rows are born
+#     on the node that served the lock RPC, and the fleet legitimately
+#     carries different subsets: 5 rows on hub / 4 on node2 / 0 elsewhere).
+#     BUT the block producer folds these rows into
+#     ``block.bridge_state_root`` (``consensus/poa.py::
+#     _compute_bridge_state_root``) and the importer re-derives the same
+#     root when the payload omits it (``sync_block_import.py::
+#     _derive_bridge_state_root``) — service-local state feeding a
+#     consensus-bound root. Kept in SERVICE_STATE_TABLES (divergence is
+#     legitimate today) but pinned in CONSENSUS_SENSITIVE_WATCH so the digest
+#     monitor reports its drift as a WARN, never silently.
+CONSENSUS_STATE_TABLES = frozenset(
+    {
+        "account",
+        "block",
+        "transaction",
+        "receipt",
+        "chain_parameter",
+        "chain_parameter_history",
+        "governance_proposal",
+        "bond",
+        "gpu_registration",
+        "gpu_allocation",
+        "ipfs_subscription",
+        "liquidity_pool",
+        "liquidity_stake",
+        "liquidity_distribution",
+    }
+)
+
+SERVICE_STATE_TABLES = frozenset(
+    {
+        # Aux-shipped (must still converge — sync contract, not apply state):
+        "stake",
+        "governance_vote",
+        # Service/RPC bookkeeping that may legitimately differ per node:
+        "escrow",
+        "bridge_validators",
+        "bridge_block_header",
+        "cross_chain_escrows",
+        "cross_chain_swap",
+        "cross_chain_transfer",
+        "escrow_proofs",
+        "agent_identity",
+        "agent_stake",
+        "agent_stake_memo",
+        "bounty_contract",
+        "bounty_submission",
+        "smart_contract",
+        "htlc_swaps",
+        "edge_node_registration",
+        # Node-local operational tables:
+        "mempool",
+        "consensus_state",
+        "block_state_delta",
+    }
+)
+
+# The DB tables aux_state.AUX_TABLES copies verbatim between nodes (payload
+# keys ``stakes``/``bonds``/``governance_proposals``/``governance_votes``
+# map onto these). Kept as a literal so the digest tooling can read the
+# classification without pulling the sync stack; a test asserts the two
+# agree. All members must converge fleet-wide: the consensus members are
+# digested anyway, and the service members (``stake``, ``governance_vote``)
+# are promoted to must-match by this set — a diff there means aux sync is
+# writing duplicates or missing rows.
+AUX_SHIPPED_TABLES = frozenset({"stake", "bond", "governance_proposal", "governance_vote"})
+
+# Service-local tables whose contents feed a consensus-bound computation —
+# watched by the digest monitor with WARN severity rather than FAIL.
+# ``cross_chain_transfer`` is the current member: hub and node2 hold
+# different local row subsets by design (each bridge node records only the
+# locks it served), yet the block producer hashes these rows into
+# ``block.bridge_state_root`` and the importer re-derives it on missing
+# payloads. Divergence here is legitimate, but a silent content change to a
+# lock row would fork the root — hence watch, not ignore.
+CONSENSUS_SENSITIVE_WATCH = frozenset({"cross_chain_transfer"})
+
+# Columns excluded from cross-host semantic digests. Two families:
+#   * per-node identity/timestamp fields: autoincrement ``id`` and any
+#     wall-clock stamp written at insert/update (created_at & friends) —
+#     same semantic row, different bytes.
+#   * apply-time nondeterministic fields: ``locked_until`` (bond and
+#     liquidity stakes set it from apply-time ``now()``), ``stake_id`` and
+#     ``allocation_id`` (random tokens generated per apply when the payload
+#     omits one — ``secrets.token_hex``/``uuid4``), ``unbonding_at`` —
+#     identical inputs still produce different stored values on each node.
+# Datetime columns NOT listed here are still normalized (T/space separator,
+# sub-second precision) before hashing — only true wall-clock/nondeterminism
+# earns exclusion.
+VOLATILE_DIGEST_COLUMNS = frozenset(
+    {
+        "id",
+        "created_at",
+        "updated_at",
+        "timestamp",
+        "recorded_at",
+        "registered_at",
+        "allocated_at",
+        "received_at",
+        "verified_at",
+        "executed_at",
+        "locked_at",
+        "settled_at",
+        "refunded_at",
+        "released_at",
+        "completed_at",
+        "claimed_at",
+        "confirmed_at",
+        "deployed_at",
+        "lock_time",
+        "confirm_time",
+        "last_distribution_at",
+        "locked_until",
+        "unbonding_at",
+        "stake_id",
+        "allocation_id",
+        "updated",
+    }
+)
+
+# JSON columns normalized before hashing: parse, drop the listed keys, and
+# re-serialize with sorted keys so a byte-different but semantically equal
+# blob does not flap the digest. For ``transaction.envelope`` the fleet
+# legitimately carries both stored spellings of the same signed message:
+#   * ``tx_hash``: some nodes persist the envelope before the hash key is
+#     injected, others after — the row's own ``tx_hash`` column still carries
+#     the value into the digest.
+#   * ``value``: internal alias of ``amount`` (excluded from the signed
+#     message by ``verify_transaction_signature``) — present on some nodes,
+#     absent on others.
+#   * ``chain_id``: the submitting node echoes the row's ``chain_id`` column
+#     into the stored envelope, peers that imported the block do not — same
+#     redundant value, already in the digest via the column.
+#   * ``signature`` when falsy: an unsigned bridge envelope stores
+#     ``"signature": ""`` on the submitting node and omits the key on
+#     peers — same semantics. A present non-empty signature is kept.
+DIGEST_JSON_DROP_KEYS: dict[str, frozenset[str]] = {
+    "envelope": frozenset({"tx_hash", "value", "chain_id"}),
+}
+DIGEST_JSON_DROP_FALSY: dict[str, frozenset[str]] = {
+    "envelope": frozenset({"signature"}),
+}
+
+# Tables whose consensus-bound content is a strict subset of their columns —
+# digested on the allowlist only. ``cross_chain_transfer`` rows carry the
+# lock event (transfer_id, amount, chains, parties, source tx) which feeds
+# ``block.bridge_state_root``, plus confirmation bookkeeping (status,
+# target_tx_hash, release_amount, proof_hash, lock/confirm times) that the
+# local bridge service mutates as confirmations progress — legitimate drift.
+DIGEST_COLUMN_ALLOWLIST: dict[str, frozenset[str]] = {
+    "cross_chain_transfer": frozenset(
+        {
+            "transfer_id",
+            "source_chain",
+            "target_chain",
+            "sender",
+            "recipient",
+            "amount",
+            "asset",
+            "source_tx_hash",
+        }
+    ),
+}
+
+# Address-shaped columns are canonicalized case-insensitively before hashing:
+# checksum vs lowercase spellings of the same address are one identity (the
+# fleet already carries both on disk — canonicalization is a read-side
+# concern, not a rewrite).
+DIGEST_ADDRESS_COLUMNS = frozenset(
+    {
+        "address",
+        "sender",
+        "recipient",
+        "voter_address",
+        "proposer_address",
+        "provider",
+        "registered_by",
+        "allocated_by",
+        "member_address",
+        "buyer",
+        "owner",
+        "deployer",
+        "staker_address",
+        "agent_wallet",
+        "creator_address",
+        "submitter_address",
+        "winner_address",
+        "claimed_by",
+        "verified_by",
+        "initiator",
+        "participant",
+        "user_address",
+        "client_id",
+        "proposer",
+    }
+)
+
 
 def _table_digest(session: Session, table_name: str, chain_id: str) -> str | None:
     """Canonical SHA-256 over a table's current rows, chain-scoped when the
