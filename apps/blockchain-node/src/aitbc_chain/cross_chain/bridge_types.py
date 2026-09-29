@@ -7,6 +7,20 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+# Exact detail string for the HTTP 503 every lock-request surface returns
+# while ``settings.bridge_locks_paused`` is set, and the message of
+# ``BridgeLocksPausedError`` at the ``initiate_transfer`` chokepoint.
+BRIDGE_LOCKS_PAUSED_DETAIL = "Bridge paused: locks unavailable until validator attestation is live"
+
+
+class BridgeLocksPausedError(ValueError):
+    """A new bridge lock was attempted while locks are paused.
+
+    ``ValueError`` subclass so callers that already map validation failures
+    keep working — the REST surfaces translate it to 503 before this is
+    ever raised across the request boundary.
+    """
+
 
 class BridgeStatus(Enum):
     """Status of a cross-chain transfer."""
