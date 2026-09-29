@@ -109,9 +109,11 @@ class TestDeltaSync:
             assert rows[0].value == "0x1111111111111111111111111111111111111111"
 
     def test_aux_state_upserted_from_peer(self, session_factory):
-        """stake/bond/governance side-effect rows live outside the account
-        state root — without sync propagation a follower's governance/vote
-        reads zero power and bond gates diverge per node."""
+        """stake/bond side-effect rows live outside the account state root —
+        without sync propagation a follower's bond gates diverge per node.
+        governance_votes is deliberately NOT shipped: the vote ledger is
+        service-local RPC bookkeeping, so a peer payload key for it must be
+        ignored rather than upserted."""
         from datetime import UTC, datetime, timedelta
 
         from aitbc_chain.aux_state import upsert_aux_rows
@@ -153,7 +155,7 @@ class TestDeltaSync:
         }
         with session_factory() as s:
             counts = upsert_aux_rows(s, "test", payload)
-            assert counts == {"stakes": 1, "bonds": 1, "governance_votes": 1}
+            assert counts == {"stakes": 1, "bonds": 1}
             s.commit()
 
         checksummed = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
@@ -162,8 +164,8 @@ class TestDeltaSync:
             assert stake.id == 7 and stake.address == checksummed and stake.amount == 1000
             bond = s.exec(select(Bond).where(Bond.chain_id == "test")).one()
             assert bond.bond_id == "bond_0xabc_1" and bond.provider == checksummed
-            vote = s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).one()
-            assert vote.voting_power == 1000 and vote.voter_address == checksummed
+            # governance_votes payload key is ignored — service-local ledger.
+            assert s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).all() == []
 
         # Second sync updates in place — keyed upsert, no duplicates.
         payload["stakes"][0]["status"] = "withdrawn"
@@ -174,19 +176,37 @@ class TestDeltaSync:
         with session_factory() as s:
             stakes = s.exec(select(Stake).where(Stake.chain_id == "test")).all()
             assert len(stakes) == 1 and stakes[0].status == "withdrawn"
-            votes = s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).all()
-            assert len(votes) == 1 and votes[0].voting_power == 2000
+            assert s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).all() == []
 
-    def test_aux_state_case_insensitive_key_lookup(self, session_factory):
+    def test_aux_state_case_insensitive_key_lookup(self, session_factory, monkeypatch):
         """v0.25.8: a lowercase legacy row must match the checksummed incoming
         natural key — exact equality missed it and inserted a second vote
         (the node2 governance-vote duplicates). The lookup must find the
-        existing row and rewrite its address to canonical form."""
+        existing row and rewrite its address to canonical form.
+
+        ``governance_votes`` is service-local now (not in ``AUX_TABLES``), so
+        the spec is injected back for this test — the case-insensitive key
+        lookup must stay correct for any address-keyed table that returns to
+        aux shipping."""
         from datetime import UTC, datetime
 
-        from aitbc_chain.aux_state import upsert_aux_rows
+        import aitbc_chain.aux_state as aux_state
+        from aitbc_chain.aux_state import _AuxSpec, upsert_aux_rows
         from aitbc_chain.base_models import GovernanceVote, Stake
         from sqlmodel import select
+
+        monkeypatch.setitem(
+            aux_state.AUX_TABLES,
+            "governance_votes",
+            _AuxSpec(
+                GovernanceVote,
+                key_fields=("proposal_id", "voter_address"),
+                fields=("proposal_id", "voter_address", "vote_type", "voting_power", "reason", "created_at"),
+                ts_field="created_at",
+                address_fields=("voter_address",),
+                datetime_fields=("created_at",),
+            ),
+        )
 
         checksummed = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
         lowercase = checksummed.lower()
