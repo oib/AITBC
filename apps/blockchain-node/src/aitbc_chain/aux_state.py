@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import func
 from sqlmodel import select
 
-from .base_models import Bond, GovernanceProposal, GovernanceVote, Stake, _to_ait_address
+from .base_models import Bond, GovernanceVote, Stake, _to_ait_address
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -73,33 +73,6 @@ AUX_TABLES: dict[str, _AuxSpec] = {
         ts_field="updated_at",
         address_fields=("provider",),
         datetime_fields=("locked_until", "created_at", "updated_at"),
-    ),
-    "governance_proposals": _AuxSpec(
-        GovernanceProposal,
-        key_fields=("proposal_id",),
-        fields=(
-            "proposal_id",
-            "proposer_address",
-            "title",
-            "description",
-            "category",
-            "status",
-            "votes_for",
-            "votes_against",
-            "votes_abstain",
-            "quorum_required",
-            "passing_threshold",
-            "execution_payload",
-            "voting_starts",
-            "voting_ends",
-            "executed_at",
-            "execution_tx_hash",
-            "created_at",
-            "updated_at",
-        ),
-        ts_field="updated_at",
-        address_fields=("proposer_address",),
-        datetime_fields=("voting_starts", "voting_ends", "executed_at", "created_at", "updated_at"),
     ),
     "governance_votes": _AuxSpec(
         GovernanceVote,

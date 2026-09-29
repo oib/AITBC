@@ -113,8 +113,8 @@ _DIGEST_ROW_LIMIT = 100_000
 # verbatim between nodes (``aux_state.AUX_TABLES``): they are not read at
 # apply, but the sync contract says they must still converge — a mismatch
 # there is a sync bug (the governance-vote case-duplicate of v0.25.8), not
-# legitimate drift. Membership may overlap: ``bond`` and
-# ``governance_proposal`` are both apply-state and aux-shipped.
+# legitimate drift. Membership may overlap: ``bond`` is both apply-state
+# and aux-shipped.
 #
 # Audit basis (apply path: state_transition.py + pure_state_transition.py +
 # liquidity_transition.py):
@@ -126,9 +126,13 @@ _DIGEST_ROW_LIMIT = 100_000
 #     would diverge (table is empty fleet-wide at v0.25.8).
 #   - ``chain_parameter``/``chain_parameter_history``: written by
 #     GOVERNANCE_EXECUTE at apply and read by every authority/parameter gate.
-#   - ``governance_proposal``: read at apply by GOVERNANCE_EXECUTE
-#     (status/tallies gate execution); also written there (executed_at,
-#     execution_tx_hash) and by the submit-time RPC + aux sync.
+#   - ``governance_proposal``: apply WRITES execution markers only
+#     (status=executed, executed_at, execution_tx_hash) — GOVERNANCE_EXECUTE
+#     applies the tx-carried execution_payload and is gated on the executor
+#     signature alone; tallies/status are never read at apply. Proposal rows,
+#     vote tallies, and status transitions are written by the submit-time RPC
+#     on the serving node, so the table legitimately diverges per node while
+#     aux sync is disabled.
 #   - ``bond``: read+written at apply by BOND_LOCK/RELEASE/SLASH. Apply writes
 #     wall-clock ``locked_until``/``created_at``/``updated_at`` — volatile.
 #   - ``gpu_registration``/``gpu_allocation``: written at apply
@@ -186,7 +190,6 @@ CONSENSUS_STATE_TABLES = frozenset(
         "receipt",
         "chain_parameter",
         "chain_parameter_history",
-        "governance_proposal",
         "bond",
         "gpu_registration",
         "gpu_allocation",
@@ -203,6 +206,9 @@ SERVICE_STATE_TABLES = frozenset(
         "stake",
         "governance_vote",
         # Service/RPC bookkeeping that may legitimately differ per node:
+        # governance_proposal: apply stamps execution markers but never reads
+        # the table; proposals/tallies are RPC-side bookkeeping per node.
+        "governance_proposal",
         "escrow",
         "bridge_validators",
         "bridge_block_header",
@@ -226,14 +232,17 @@ SERVICE_STATE_TABLES = frozenset(
 )
 
 # The DB tables aux_state.AUX_TABLES copies verbatim between nodes (payload
-# keys ``stakes``/``bonds``/``governance_proposals``/``governance_votes``
-# map onto these). Kept as a literal so the digest tooling can read the
+# keys ``stakes``/``bonds``/``governance_votes`` map onto these;
+# ``governance_proposals`` is also shipped by the sync payload but is
+# deliberately NOT promoted to must-match — proposal rows are service-side
+# bookkeeping (apply only stamps execution markers), so per-node divergence
+# is legitimate. Kept as a literal so the digest tooling can read the
 # classification without pulling the sync stack; a test asserts the two
 # agree. All members must converge fleet-wide: the consensus members are
 # digested anyway, and the service members (``stake``, ``governance_vote``)
 # are promoted to must-match by this set — a diff there means aux sync is
 # writing duplicates or missing rows.
-AUX_SHIPPED_TABLES = frozenset({"stake", "bond", "governance_proposal", "governance_vote"})
+AUX_SHIPPED_TABLES = frozenset({"stake", "bond", "governance_vote"})
 
 # Service-local tables whose contents feed a consensus-bound computation —
 # watched by the digest monitor with WARN severity rather than FAIL.
