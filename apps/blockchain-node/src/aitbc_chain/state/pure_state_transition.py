@@ -277,6 +277,46 @@ class StateDelta:
     requires_sequential: bool = False
 
 
+# Transaction types whose block application the pure delta map cannot model —
+# they must always run through the full sequential
+# ``StateTransition.apply_transaction``. One canonical list, shared by
+# ``sync_block_import`` and ``consensus.poa``: a block containing any of them
+# never takes the parallel path.
+#
+# - ``LIQUIDITY_*``/``GPU_REGISTER``/``GPU_ALLOCATE`` write non-account state
+#   (pools, stakes, distributions, gpu_registration, gpu_allocation).
+# - ``GOVERNANCE_EXECUTE`` writes chain_parameter (governance_executors et
+#   al.) at apply — the pure delta computes account changes only, so the
+#   parameter write would silently never land on parallel-applied blocks
+#   (GAP-57).
+# - ``STAKE_RELEASE`` v4 lock-window rules (maturity, payee ownership,
+#   claim-set overlap) live in validate_transaction — only the sequential
+#   apply path runs them (GAP-42).
+# - ``BOND_*`` write/mutate the ``bond`` row, and BOND_RELEASE/BOND_SLASH
+#   move the bonded value escrow->provider / escrow->burn inside
+#   ``_handle_bond_transaction`` — movements outside the generic sender/
+#   recipient debit the pure delta would produce (v0.25.8).
+# - ``BRIDGE_WITHDRAW`` burns: its payload validation (eth_address, value>0)
+#   lives only in the sequential validator, and apply deliberately never
+#   creates or credits the pseudo-recipient account — the generic delta
+#   would do both (v0.25.8).
+SEQUENTIAL_ONLY_TX_TYPES = frozenset(
+    {
+        "LIQUIDITY_DEPOSIT",
+        "LIQUIDITY_WITHDRAW",
+        "LIQUIDITY_CLAIM",
+        "GPU_REGISTER",
+        "GPU_ALLOCATE",
+        "GOVERNANCE_EXECUTE",
+        "STAKE_RELEASE",
+        "BOND_LOCK",
+        "BOND_RELEASE",
+        "BOND_SLASH",
+        "BRIDGE_WITHDRAW",
+    }
+)
+
+
 def _determine_tx_type(tx_data: dict[str, Any]) -> str:
     """Determine the transaction type from tx_data.
 
@@ -383,11 +423,12 @@ def compute_state_delta(
                 )
             recipient = _escrow_address(job_id)
 
-    # Liquidity pool and GPU transactions update non-account state (pools,
-    # stakes, distributions, gpu_registration, gpu_allocation) that the pure
-    # delta map cannot yet model. Force a sequential fallback so
-    # StateTransition.apply_transaction handles them.
-    if tx_type in {"LIQUIDITY_DEPOSIT", "LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM", "GPU_REGISTER", "GPU_ALLOCATE"}:
+    # Sequential-only types: side effects the pure delta map cannot model
+    # (pools, stakes, gpu rows, chain parameters, bond rows, burn semantics —
+    # see SEQUENTIAL_ONLY_TX_TYPES). Force a sequential fallback so
+    # StateTransition.apply_transaction handles them; callers additionally
+    # pre-filter whole blocks on the same list.
+    if tx_type in SEQUENTIAL_ONLY_TX_TYPES:
         return StateDelta(
             sender=sender,
             recipient=recipient,
@@ -540,7 +581,12 @@ def compute_state_delta(
     # historically. Imported txs arrive without a signature anyway, so the
     # gate only preserves identical behaviour for any path that does carry one.
     signature = tx_data.get("signature")
-    if signature and sender and block_version >= 7:
+    # BRIDGE_LOCK is pre-registered like the credits: the sequential path
+    # never checks a sender signature or nonce for it — authorization is the
+    # v9 bridge_signature gate below. Skip the generic sender-sig check so a
+    # lock carrying a decorative/wrong sender signature applies identically
+    # on both paths.
+    if signature and sender and block_version >= 7 and tx_type != "BRIDGE_LOCK":
         from ..rpc.utils import verify_transaction_signature
 
         if not verify_transaction_signature(tx_data, signature, sender):
@@ -599,7 +645,10 @@ def compute_state_delta(
     # (v7+ signed txs); tautological for unsigned/legacy overrides.
     expected_nonce = sender_account.nonce if sender_account.nonce is not None else 0
     tx_nonce = tx_data.get("nonce", 0)
-    if tx_nonce != expected_nonce:
+    # BRIDGE_LOCK: sequential's pre-registered branch does not check the nonce
+    # either — the caller-side account-nonce override already substitutes the
+    # live value for unsigned locks, and a signed nonce carries no authority.
+    if tx_type != "BRIDGE_LOCK" and tx_nonce != expected_nonce:
         return StateDelta(
             sender=sender,
             recipient=recipient,
