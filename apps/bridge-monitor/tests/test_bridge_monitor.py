@@ -150,9 +150,11 @@ class TestCursorSafety:
 
             monitor.poll_ethereum()
 
-            # Cursor should still advance — deposit was caught and marked for retry
-            assert get_cursor("last_processed_block") == 100
-            # _mark_for_retry called for each block in range (90-100 = 11 blocks)
+            # Cursor should still advance — deposit was caught and marked
+            # for retry. Block 100 minus BRIDGE_CONFIRMATIONS=3 default: the
+            # poll only scans to the confirmed tip (97).
+            assert get_cursor("last_processed_block") == 100 - monitor.confirmations
+            # _mark_for_retry called for each scanned block
             assert mock_retry.call_count > 0
 
 
