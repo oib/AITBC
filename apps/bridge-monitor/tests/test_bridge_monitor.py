@@ -408,9 +408,10 @@ class TestFundingSource:
         return {"transactions": [mock_tx]}
 
     def test_funding_source_records_funding_no_payout(self, monitor, tmp_path):
-        from bridge_monitor.storage import get_deposit
+        from bridge_monitor.storage import get_deposit, set_cursor
 
         monitor.funding_sources = {"0xopfund"}
+        set_cursor("last_processed_block", 96)  # scan only block 97
         with (
             patch.object(monitor, "_check_float"),
             patch.object(monitor, "eth_rpc") as mock_rpc,
@@ -425,8 +426,10 @@ class TestFundingSource:
         assert row["status"] == "funding"
 
     def test_non_whitelisted_is_normal_deposit(self, monitor, tmp_path):
+        from bridge_monitor.storage import set_cursor
 
         monitor.funding_sources = {"0xopfund"}
+        set_cursor("last_processed_block", 96)  # scan only block 97
         with (
             patch.object(monitor, "_check_float"),
             patch.object(monitor, "eth_rpc") as mock_rpc,
@@ -438,9 +441,10 @@ class TestFundingSource:
         mock_process.assert_called_once()
 
     def test_funding_dedup_no_double_row(self, monitor, tmp_path):
-        from bridge_monitor.storage import get_deposit
+        from bridge_monitor.storage import get_deposit, set_cursor
 
         monitor.funding_sources = {"0xopfund"}
+        set_cursor("last_processed_block", 96)
         with (
             patch.object(monitor, "_check_float"),
             patch.object(monitor, "eth_rpc") as mock_rpc,
