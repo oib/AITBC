@@ -1800,3 +1800,26 @@ stored proposal rather than the tx-carried override, and — if on-chain
 governance is intended — signed votes with stake-snapshot tallies gating
 execution. The executor key remains the most sensitive key: it can
 reassign every authority, including itself — first in the key-split list.
+### Key-split ordering — all authority resolves to one key (2026-09-29)
+
+The parameter-history audit confirms every authority lands on hub's
+``0x02B8F2C6…`` key: ``governance_executors`` (9819),
+``escrow_settlement_authority`` (22193), ``bridge_release_authority``
+(22469) — only ``bond_slash_authority`` differs (``0xab0797…``).
+
+Split order, ranked by the damage each key can do:
+
+1. **governance_executors** — can reassign every other authority,
+   including itself. New dedicated offline key; switched via
+   ``parameter_change`` executed by the current executor (last use of
+   0x02B8… for governance).
+2. **bridge_release_authority** — signs credits that mint funds. New key;
+   same change carries the bridge validator-set parameter (4 consensus
+   validators, 3-of-4) and the ETH contract validator list+threshold, so
+   the contract never points at keys being rotated.
+3. **escrow_settlement_authority** — settles locks/refunds.
+4. **bond_slash_authority** — already on a separate key; verify it is not
+   on a running host.
+Plus the non-parameter items: faucet gets its own funded wallet (~1 week
+budget); treasury/genesis funds move to an offline address; the proposer
+key stays confined to aitbc-blockchain-node only.
