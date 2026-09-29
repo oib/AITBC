@@ -46,6 +46,9 @@ V9_UNSIGNED_ALLOWED_TX_TYPES = frozenset(
 # unvalidated, so an allowlist is the only safe suffix source — arbitrary
 # type strings would otherwise grow the registry and the /metrics body
 # without bound. Anything not in this set lands in ``_other``.
+# Completeness is enforced by test_v9_metric_known_types_covers_apply_path:
+# a type the apply path recognizes but that is missing here would hide in
+# _other and vanish from the traffic-mix review.
 V9_METRIC_KNOWN_TX_TYPES = frozenset(
     {
         "TRANSFER",
@@ -76,6 +79,7 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         "LIQUIDITY_WITHDRAW",
         "LIQUIDITY_CLAIM",
         "RECEIPT_CLAIM",
+        "IPFS_SUBSCRIPTION",
     }
 )
 
