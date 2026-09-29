@@ -34,6 +34,8 @@ def _patch_bridge_config(signers, threshold):
         bridge_module,
         "bridge_config",
         BridgeConfig(
+            # deprecated production pair (owner key lost 2026-08-31); kept
+            # here only so the multisig path tests a realistic config shape
             bridge_eth_address="0x818018F30d8F5FB7AE7a64f25895F15110923748",
             bridge_contract_address="0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA",
             withdraw_enabled=False,
