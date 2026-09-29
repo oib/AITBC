@@ -37,12 +37,16 @@ class BridgeMonitor:
         if not bridge_eth:
             raise RuntimeError("BRIDGE_ETH_ADDRESS environment variable is required")
         self.bridge_eth_address = bridge_eth.lower()
-        self.genesis_wallet_address = os.getenv("GENESIS_WALLET_ADDRESS")
+        # Dedicated payout wallet: BRIDGE_PAYOUT_* is the production path.
+        # GENESIS_WALLET_* is kept as a transitional fallback only.
+        self.genesis_wallet_address = os.getenv("BRIDGE_PAYOUT_ADDRESS") or os.getenv("GENESIS_WALLET_ADDRESS")
         if not self.genesis_wallet_address:
-            raise RuntimeError("GENESIS_WALLET_ADDRESS environment variable is required")
-        self.genesis_private_key = os.getenv("GENESIS_WALLET_PRIVATE_KEY")
+            raise RuntimeError("BRIDGE_PAYOUT_ADDRESS or GENESIS_WALLET_ADDRESS environment variable is required")
+        self.genesis_private_key = os.getenv("BRIDGE_PAYOUT_PRIVATE_KEY") or os.getenv("GENESIS_WALLET_PRIVATE_KEY")
         if not self.genesis_private_key:
-            logger.warning("GENESIS_WALLET_PRIVATE_KEY not set - cannot sign AIT transfers")
+            logger.warning("BRIDGE_PAYOUT_PRIVATE_KEY not set - cannot sign AIT transfers")
+        elif not os.getenv("BRIDGE_PAYOUT_PRIVATE_KEY"):
+            logger.warning("Payouts signed with GENESIS_WALLET_PRIVATE_KEY; configure a dedicated BRIDGE_PAYOUT_PRIVATE_KEY")
         self.poll_interval = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))
         self.min_eth_deposit = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
         self.min_ait_deposit = Decimal(os.getenv("BRIDGE_MIN_DEPOSIT_AIT", "1"))
