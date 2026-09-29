@@ -41,6 +41,54 @@ V9_UNSIGNED_ALLOWED_TX_TYPES = frozenset(
     }
 )
 
+# Transaction types that get their own v9 metric series. tx_type is
+# peer-supplied (tx_data["type"] / payload.type) and reaches the verdict
+# unvalidated, so an allowlist is the only safe suffix source — arbitrary
+# type strings would otherwise grow the registry and the /metrics body
+# without bound. Anything not in this set lands in ``_other``.
+V9_METRIC_KNOWN_TX_TYPES = frozenset(
+    {
+        "TRANSFER",
+        "MESSAGE",
+        "AI_JOB",
+        "ESCROW_LOCK",
+        "ESCROW_RELEASE",
+        "ESCROW_REFUND",
+        "BRIDGE_LOCK",
+        "BRIDGE_RELEASE",
+        "BRIDGE_REFUND",
+        "BRIDGE_WITHDRAW",
+        "GPU_REGISTER",
+        "GPU_ALLOCATE",
+        "GPU_MARKET",
+        "STAKE_LOCK",
+        "STAKE_RELEASE",
+        "BOND_LOCK",
+        "BOND_RELEASE",
+        "BOND_SLASH",
+        "BOUNTY_LOCK",
+        "BOUNTY_PAYOUT",
+        "BOUNTY_REFUND",
+        "GOVERNANCE_PROPOSE",
+        "GOVERNANCE_VOTE",
+        "GOVERNANCE_EXECUTE",
+        "LIQUIDITY_DEPOSIT",
+        "LIQUIDITY_WITHDRAW",
+        "LIQUIDITY_CLAIM",
+        "RECEIPT_CLAIM",
+    }
+)
+
+
+def _type_suffix(tx_type: str) -> str:
+    """Per-type metric suffix for a peer-supplied type name, or ``_other``."""
+    t = (tx_type or "").upper()
+    if t and t in V9_METRIC_KNOWN_TX_TYPES:
+        return "_" + t.lower()
+    if t:
+        return "_other"
+    return ""
+
 
 def count_v9_shadow_checked(tx_type: str) -> None:
     """Positive control for the shadow window.
@@ -52,8 +100,9 @@ def count_v9_shadow_checked(tx_type: str) -> None:
     The per-type series also exposes the traffic mix the window covered.
     """
     metrics_registry.increment("v9_shadow_checked_total")
-    if tx_type:
-        metrics_registry.increment(f"v9_shadow_checked_{tx_type.lower()}_total")
+    suffix = _type_suffix(tx_type)
+    if suffix:
+        metrics_registry.increment(f"v9_shadow_checked{suffix}_total")
 
 
 def v9_signature_verdict(tx_data: dict[str, Any], tx_type: str) -> str | None:
@@ -80,8 +129,7 @@ def count_v9_would_reject(reason: str, tx_type: str = "") -> None:
     label support, so the reason/type are encoded in the name.
     """
     metrics_registry.increment("v9_would_reject_total")
-    suffix = f"_{tx_type.lower()}" if tx_type else ""
-    metrics_registry.increment(f"v9_would_reject_{reason}{suffix}_total")
+    metrics_registry.increment(f"v9_would_reject_{reason}{_type_suffix(tx_type)}_total")
 
 
 # The window-judgement series must exist from process start — the same
