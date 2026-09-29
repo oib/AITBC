@@ -2033,3 +2033,9 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
 - Sub-minimum ETH deposits are recorded as FAILED ledger rows (dust inflow; deliberate resolution) so the payout audit can account for every inflow.
 - AIT recipients are validated at parse time with the shared valid_ait_recipient predicate (storage.py; admin.py delegates to it); malformed recipients fail permanently at once instead of burning the 5-attempt retry budget.
 - The retry queue guards per-row build failures so one deposit exception cannot kill the remaining rows.
+
+### fix(bridge): alert on payout head-of-line blocking, clear stale retry time
+
+- Serialization trades nonce collisions for head-of-line blocking: one SUBMITTED row that can neither seal nor abandon blocks every payout queued behind it forever. _check_queue_health (per poll) ALERTs when the oldest SUBMITTED row exceeds BRIDGE_STUCK_PAYOUT_BLOCKS (default rebroadcast_blocks x max_rebroadcasts) and when PENDING_RETRY depth reaches BRIDGE_QUEUE_ALERT_DEPTH (default 5); the alert names the row and the release path.
+- update_deposit gains clear_fields (allowlisted columns set to NULL): abandon_payout now clears next_retry_at, so a re-queued deposit is due immediately instead of waiting out a stale backoff (previously next_retry_at=None was silently a no-op).
+- AGENTS.md documents the release matrix for a blocked row: abandon-and-resign for nonce-passed unsealed envelopes; write-off (+ manual-payout when still owed) for sealed-failed or lost rows.
