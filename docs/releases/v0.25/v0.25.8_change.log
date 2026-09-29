@@ -1705,3 +1705,30 @@ RECEIPT_CLAIM stale-ORM fix are behavior-neutral on all recorded history.
 They change only what a *future* block containing such a transaction
 would compute; no past block exercises either path, so no replay
 divergence is possible.
+
+### Attester re-signs the already-imported head — not_at_parent false positive (2026-09-29)
+
+Attestation requests can arrive *after* the block they name has already
+been imported on a fast follower: the request's ``parent_hash`` then
+mismatches the local head because the head IS the requested block. Seen
+live on node1 — "Import block check 27718" at 08:13:18, then "would
+refuse … not_at_parent" at 08:13:21 for the same hash. At v9 that refusal
+would have cost the block an attestation it had earned.
+
+``consensus/remote_attestation.py::_v9_check_transactions`` now treats
+``tip.height == request.height and tip.hash == request.hash`` — i.e. the
+local head IS the requested block — as attestable and returns before the
+parent-binding check: import already ran every tx-level validation on
+this exact block, so re-signing it is idempotent. The tx-binding
+recomputes (``unbound_tx_set``/``tx_count_mismatch``/``tx_set_mismatch``)
+still run first, so a request cannot claim the head's hash without
+committing to its real transaction set. Fork protection is unchanged: a
+rival hash at the same height falls through to ``not_at_parent`` exactly
+as before (tip hash differs from the request hash), and a block ahead of
+the head still runs the full checks.
+
+Tests added under ``TestAttesterTxChecks`` in
+``tests/test_v9_signature_rules.py``: (a) a request arriving after import
+signs with no ``v9_would_reject`` counter; (b) a rival hash at the head's
+height still refuses and counts; (c) a not-yet-imported block ahead of
+the head still runs the tx checks.
