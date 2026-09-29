@@ -42,6 +42,20 @@ V9_UNSIGNED_ALLOWED_TX_TYPES = frozenset(
 )
 
 
+def count_v9_shadow_checked(tx_type: str) -> None:
+    """Positive control for the shadow window.
+
+    Every verdict evaluated counts: a clean window is then provably
+    ``checked > 0 AND would_reject == 0`` instead of relying on the
+    *absence* of a lazily-created series — silence can mean "nothing
+    rejected" or "the check never ran / the endpoint isn't serving".
+    The per-type series also exposes the traffic mix the window covered.
+    """
+    metrics_registry.increment("v9_shadow_checked_total")
+    if tx_type:
+        metrics_registry.increment(f"v9_shadow_checked_{tx_type.lower()}_total")
+
+
 def v9_signature_verdict(tx_data: dict[str, Any], tx_type: str) -> str | None:
     """Return the reason ``tx_data`` would be rejected under v9 rules, or
     ``None`` when it satisfies them.
@@ -50,6 +64,7 @@ def v9_signature_verdict(tx_data: dict[str, Any], tx_type: str) -> str | None:
     fails verification is already rejected by the existing v7+ checks on
     every path, so its rejection is not v9-specific.
     """
+    count_v9_shadow_checked(tx_type)
     if tx_type in V9_UNSIGNED_ALLOWED_TX_TYPES:
         return None
     if tx_data.get("signature") or tx_data.get("sig"):
@@ -67,3 +82,10 @@ def count_v9_would_reject(reason: str, tx_type: str = "") -> None:
     metrics_registry.increment("v9_would_reject_total")
     suffix = f"_{tx_type.lower()}" if tx_type else ""
     metrics_registry.increment(f"v9_would_reject_{reason}{suffix}_total")
+
+
+# The window-judgement series must exist from process start — the same
+# reason the alert counters in metrics.py are pre-created: an eager 0 is
+# evidence ("checked ran, nothing rejected"), an absent series is not.
+for _series in ("v9_shadow_checked_total", "v9_would_reject_total"):
+    metrics_registry.increment(_series, 0.0)
