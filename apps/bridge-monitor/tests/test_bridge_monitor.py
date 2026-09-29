@@ -248,6 +248,18 @@ class TestWriteOffAndAbandon:
             monitor.process_deposit("0xwo2", "0xfrom", Decimal("1.0"), "0xdata")
         mock_build.assert_not_called()
 
+    def test_write_off_guard_recipient_vs_phantom(self, monitor, tmp_path):
+        """A row with a valid recipient is owed money — needs the override."""
+        from bridge_monitor.admin import write_off_denial_reason
+
+        phantom = {"status": "completed", "ait_tx_hash": None, "ait_recipient": ""}
+        assert write_off_denial_reason(phantom, False) is None  # no recipient → writable
+        owed = {"status": "completed", "ait_tx_hash": None, "ait_recipient": "0x" + "d" * 40}
+        assert write_off_denial_reason(owed, False) is not None  # owed money → refused
+        assert write_off_denial_reason(owed, True) is None  # deliberate override → allowed
+        paid = {"status": "completed", "ait_tx_hash": "0xreal", "ait_recipient": "0x" + "d" * 40}
+        assert write_off_denial_reason(paid, True) is not None  # actually paid → always refused
+
     def _submitted_for_abandon(self, monitor):
         import json as _json
 
