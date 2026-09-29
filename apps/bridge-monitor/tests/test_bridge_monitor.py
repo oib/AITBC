@@ -362,6 +362,37 @@ class TestCursorSafety:
             assert mock_retry.call_count > 0
 
 
+class TestPollLiveness:
+    """A dead ETH endpoint must surface as ALERT, not 'finds nothing'."""
+
+    def test_consecutive_failures_alert(self, monitor, caplog):
+        import logging
+
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            caplog.at_level(logging.CRITICAL),
+        ):
+            mock_rpc._get_web3.side_effect = RuntimeError("endpoint down")
+            for _ in range(4):
+                monitor.poll_ethereum()
+
+        assert monitor._poll_fail_streak == 4
+        alerts = [r for r in caplog.records if "ALERT" in r.message]
+        assert len(alerts) == 2  # streaks 3 and 4 alert; 1-2 log at error
+
+    def test_success_resets_streak(self, monitor):
+        monitor._poll_fail_streak = 5
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = {"transactions": []}
+            monitor.poll_ethereum()
+        assert monitor._poll_fail_streak == 0
+
+
 class TestKickBurst:
     """Demand-triggered polling: a fresh kick file switches the loop into a
     ~3-polls-in-60s burst; the slow poll_interval stays the safety net."""
