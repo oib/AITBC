@@ -1856,3 +1856,56 @@ key stays confined to aitbc-blockchain-node only.
 - The hub /w/ edge route no longer exists (verified: /w/v1/wallets 404s). Wallet daemons sign on request and must never be reachable off-host.
 - node0's stale wallet_daemon_url (pointing at the dead route) removed; all hosts resolve to the local daemon on 127.0.0.1:8108.
 - fleet-config-check.sh gained two sections: wallet-daemon-URL loopback assertion (FAILs non-loopback), and running-commit-vs-latest-tag report (flags hosts missing the deploy tag). Commit 339d48199b.
+
+### Bridge inbound path — deposit hardening + second live proof (cc63065a86)
+
+End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
+
+- **Self-send mint hole fixed**: any tx whose sender is the bridge wallet
+  is skipped (self-sends and the bridge's own outbound sends are never
+  deposits). Before this, the ETH_WALLET_PRIVATE_KEY holder could mint AIT
+  payouts for gas. Proven live: self-send 0xb431fc7f33a82e9ce1227bacb37cc3c1fe3a6e13931f464587fabb6b111a034e
+  (Sepolia block 11807841) scanned and ignored — no row, no payout.
+- **External-sender proof**: fresh wallet 0xE7Bb3a334C372239349918C9D0F760E48e18B6A6
+  deposited 0.0015 ETH in Sepolia tx 0x6d7434a8d1dc843782466aec51b801d9063f39f115d65e3be7b3d3a66df4eb38
+  (block 11807830); credited 527232857 units (14.645357 AIT) to canary
+  0x992b2241da9918845bf32d1249bf53eaaa761d06 via payout tx
+  0x643659a0c319883fbb194b8c2655d894909b0042f9869eb989b7e951420121b8 at
+  AITBC block 28092 — verified on all five hosts. The earlier 14.5556-AIT
+  canary credit (block 28032) was a self-send test artifact, not a backed
+  deposit.
+- **Confirmation depth**: the monitor now scans only blocks buried by
+  BRIDGE_CONFIRMATIONS (default 3; raise to >=12 for mainnet). A reorg of
+  an unconfirmed deposit can no longer undo a paid payout.
+- **Retry taxonomy**: temporary failures — oracle outage, RPC error,
+  missing stored price — stay PENDING_RETRY and recompute at retry time;
+  FAILED is reserved for permanent problems (no recipient, below minimum)
+  and retry exhaustion, all logged at CRITICAL with an ALERT marker
+  (funds received but not paid must never be silent).
+- **Oracle staleness**: Chainlink answers older than
+  CHAINLINK_MAX_AGE_SECONDS (default 3 days — Sepolia feeds are sparse
+  test data) are treated as unavailable, which now retries the deposit.
+- **Float alert**: each poll critical-logs ALERT when the payout wallet
+  drops below BRIDGE_LOW_FLOAT_AIT (default 50) so deposits stop piling
+  up in PENDING_RETRY unnoticed.
+- **Duplicate monitor disabled by flag**: the wallet app's embedded
+  deposit watcher now requires BRIDGE_DEPOSIT_MONITOR_ENABLED=true
+  (default off). It had BRIDGE_ENABLED=true from exchange.env on hub and
+  node2 — two independent watchers would double-pay the day both hold
+  keys. Per the key-split plan this component never gets a payout key.
+- **fleet-config-check**: new sections assert exactly one live deposit
+  monitor, display the hub payout config (AIT_USD_FIXED_PRICE, address,
+  minimums), and FAIL on ETH_WALLET_PRIVATE_KEY carriers beyond
+  aitbc-wallet (the withdrawal payer). Current exposure: 13/11/8 carriers
+  on hub/hub1/node2 via blockchain-secrets.env — confinement tracked as a
+  pending operational item (requires restarting the shared-secrets
+  carriers, incl. the hub proposer).
+- **Stranded deposits settled**: 0x746aebaf... (0.05 ETH, Sep 26, no
+  recipient — permanent failure) refunded on the ETH side minus gas via
+  Sepolia tx 0x18867d5dd8bc79ed467cebbe011d62c1098d81a9ba71adb1e08dae9d9e0248b5
+  (block 11807877). hub1 ledger row 0x36470037... (0.01 ETH, Aug 31,
+  recipient recorded, never paid — legacy pending state) was settled by
+  crediting the recorded 84.854 AIT to 0x1d8B34f249b96169E48E956b00c307898FbaF087
+  via payout tx 0xc07d9eb4db0d49737a8a27eb63338b709a8a1220a718400e3d80b2d6df65f688
+  (AITBC block 28101). Policy: refund ETH-side when no AIT recipient was
+  encoded; pay the recorded AIT credit when one was.
