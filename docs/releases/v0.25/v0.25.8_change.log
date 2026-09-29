@@ -1909,3 +1909,31 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
   via payout tx 0xc07d9eb4db0d49737a8a27eb63338b709a8a1220a718400e3d80b2d6df65f688
   (AITBC block 28101). Policy: refund ETH-side when no AIT recipient was
   encoded; pay the recorded AIT credit when one was.
+
+### Bridge ops — ETH key confinement, payout audit, alert interim
+
+- **ETH_WALLET_PRIVATE_KEY confined**: moved out of
+  `blockchain-secrets.env` on hub, hub1 and node2 into each host's
+  `aitbc-wallet.env` (0600, loaded only by aitbc-wallet — the withdrawal
+  payer). All non-validator carriers restarted; `/proc` scan now shows
+  only aitbc-wallet + aitbc-blockchain-node (the validator keeps the old
+  env in memory until its planned v9-pin restart — fleet-config-check
+  reports it as PENDING, not FAIL).
+- **Deposit payout audit**: every ETH deposit hash in every ledger
+  (hub, hub1 legacy, node2, node0, node1) was matched against on-chain
+  payouts. Result: zero double payments, but five rows marked
+  "completed" had no matching chain transaction — their recorded
+  ait_tx_hash values exist in no chain DB (the early monitor recorded
+  success without a landing tx). Settled under the recorded-credit
+  policy: 42.316 AIT (0xcb147b10, h28204), 42.3108 AIT (0x3954d301,
+  h28205) and 42.4798 AIT (0xe11692ca, h28206) to 0x72184bFF… for the
+  Aug-31 deposits, and 2.49425 AIT (0x611f1288, h28207) to
+  0x3Ed42960… for the Sep-7 node2 deposit. The Aug-27 row
+  (0x7e1aab4b…, 0.05 ETH, no recipient recorded) remains open — it has
+  no payable target under the policy; candidate is an ETH refund to
+  sender 0x15095ec8….
+- **Deposit ALERT lines (interim)**: fleet-config-check now counts
+  `ALERT:` journal lines on each host since its previous run — the
+  interim until the Prometheus/Alertmanager route (the same item the
+  v9 alerts wait on) carries permanent-FAILED, retries-exhausted and
+  low-float events to the operator.
