@@ -544,6 +544,18 @@ class TestV9Policy:
         assert c["v9_shadow_checked_transfer_total"] == 1.0
         assert c["v9_shadow_checked_bridge_lock_total"] == 1.0
 
+    def test_shadow_checked_unknown_type_clamped(self):
+        """tx_type is peer-supplied — a made-up type must not mint its own
+        metric series, or /metrics grows without bound."""
+        from aitbc_chain.state.v9_policy import count_v9_would_reject
+
+        v9_signature_verdict({"type": "ZZZ_MADE_UP"}, "ZZZ_MADE_UP")
+        count_v9_would_reject("missing_signature", "ZZZ_MADE_UP")
+        c = metrics_registry._counters
+        assert c["v9_shadow_checked_other_total"] == 1.0
+        assert c["v9_would_reject_missing_signature_other_total"] == 1.0
+        assert not any("zzz" in name for name in c)
+
 
 class _StubBroker:
     def __init__(self) -> None:
