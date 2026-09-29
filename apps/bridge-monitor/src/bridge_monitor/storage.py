@@ -204,6 +204,21 @@ def create_deposit(
             return None
 
 
+# Fields a caller may explicitly reset to NULL via update_deposit(clear_fields=).
+# Passing None as a value never clears a column — it means "no change".
+_CLEARABLE_COLUMNS: dict[str, str] = {
+    "ait_amount": "amount_ait",
+    "eth_usd_price": "eth_usd_price",
+    "ait_usd_price": "ait_usd_price",
+    "ait_tx_hash": "ait_tx_hash",
+    "error_message": "error_message",
+    "next_retry_at": "next_retry_at",
+    "signed_tx": "signed_tx",
+    "envelope_hash": "envelope_hash",
+    "submitted_height": "submitted_height",
+}
+
+
 def update_deposit(
     eth_tx_hash: str,
     ait_amount: str | None = None,
@@ -218,15 +233,22 @@ def update_deposit(
     envelope_hash: str | None = None,
     submitted_height: int | None = None,
     rebroadcast_count: int | None = None,
+    clear_fields: list[str] | None = None,
 ) -> bool:
     """Update bridge deposit record."""
     if status == BridgeDepositStatus.WRITTEN_OFF and not error_message:
         raise ValueError("WRITTEN_OFF requires a written reason (error_message)")
+    for f in clear_fields or []:
+        if f not in _CLEARABLE_COLUMNS:
+            raise ValueError(f"cannot clear unknown field {f!r}")
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
 
         updates = []
         params: list[Any] = []
+
+        for f in clear_fields or []:
+            updates.append(f"{_CLEARABLE_COLUMNS[f]} = NULL")
 
         if ait_amount is not None:
             updates.append("amount_ait = ?")
@@ -328,6 +350,17 @@ def count_deposits(status: BridgeDepositStatus | None = None) -> int:
         count: int = cursor.fetchone()[0]
 
         return count
+
+
+def count_pending_retry() -> int:
+    """PENDING_RETRY rows including those whose next_retry_at is still ahead."""
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM eth_deposits WHERE status = ?",
+            (BridgeDepositStatus.PENDING_RETRY.value,),
+        )
+        return int(cursor.fetchone()[0])
 
 
 def get_deposits_for_retry(now_iso: str | None = None) -> list[dict[str, Any]]:

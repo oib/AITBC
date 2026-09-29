@@ -601,6 +601,86 @@ class TestPayoutSerialization:
         d = get_deposit("0xcoll")
         assert d["status"] == BridgeDepositStatus.SUBMITTED.value
 
+    def test_stuck_submitted_row_alerts(self, monitor, caplog):
+        """A sealed-failed or proof-failed SUBMITTED row blocks the queue —
+        serialization needs an age alert so the stall cannot sit silent."""
+        import logging
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        create_deposit("0xold", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xold",
+            signed_tx='{"nonce": 1}',
+            submitted_height=10,
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+
+        with (
+            patch.object(monitor, "_head_height", return_value=10 + monitor.stuck_payout_blocks + 50),
+            caplog.at_level(logging.CRITICAL),
+        ):
+            monitor._check_queue_health()
+
+        alerts = [r for r in caplog.records if "payout slot blocked" in r.message]
+        assert alerts and "0xold" in alerts[0].message
+
+    def test_queue_depth_alerts(self, monitor, caplog):
+        import logging
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        for i in range(monitor.queue_alert_depth):
+            h = f"0xq{i}"
+            create_deposit(h, "0xfrom", "1.0", "0x" + "d" * 40)
+            update_deposit(h, status=BridgeDepositStatus.PENDING_RETRY)
+
+        with caplog.at_level(logging.CRITICAL):
+            monitor._check_queue_health()
+
+        alerts = [r for r in caplog.records if "PENDING_RETRY" in r.message]
+        assert alerts
+
+    def test_abandon_makes_row_immediately_due(self, monitor):
+        """update_deposit(next_retry_at=None) never cleared the column —
+        abandon must clear the stale retry time or the re-queue waits out
+        the old backoff for no reason."""
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        envelope = {
+            "type": "TRANSFER",
+            "chain_id": "ait-test",
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 100,
+            "nonce": 5,
+            "fee": 360000,
+            "payload": {"amount": 100},
+            "signature": "0xdead",
+        }
+        payout_hash = monitor._envelope_tx_hash(envelope)
+        create_deposit("0xab", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xab",
+            signed_tx=_json.dumps(envelope),
+            ait_tx_hash=payout_hash,
+            status=BridgeDepositStatus.SUBMITTED,
+            next_retry_at="2999-01-01T00:00:00+00:00",  # stale future backoff
+        )
+
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+        ):
+            ok, _ = monitor.abandon_payout("0xab")
+
+        assert ok
+        d = get_deposit("0xab")
+        assert d["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert d["next_retry_at"] is None  # cleared, due immediately
+
 
 class TestCursorHoldOnTotalFailure:
     """If process_deposit AND the retry fallback both raise, the cursor
