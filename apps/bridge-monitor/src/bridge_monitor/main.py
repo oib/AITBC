@@ -15,6 +15,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 
 from .storage import (
     BridgeDepositStatus,
+    count_pending_retry,
     create_deposit,
     get_cursor,
     get_deposit,
@@ -71,6 +72,14 @@ class BridgeMonitor:
         self.payout_seal_depth = int(os.getenv("PAYOUT_SEAL_DEPTH", "2"))
         self.rebroadcast_blocks = int(os.getenv("PAYOUT_REBROADCAST_BLOCKS", "6"))
         self.max_rebroadcasts = int(os.getenv("PAYOUT_MAX_REBROADCAST", "5"))
+        # Serialization trades nonce collisions for head-of-line blocking:
+        # one stuck SUBMITTED row gates every payout queued behind it. Alert
+        # when the oldest has outlived its own recovery horizon and when the
+        # retry queue grows — neither can fix itself without an operator.
+        self.stuck_payout_blocks = int(
+            os.getenv("BRIDGE_STUCK_PAYOUT_BLOCKS", str(self.rebroadcast_blocks * self.max_rebroadcasts))
+        )
+        self.queue_alert_depth = int(os.getenv("BRIDGE_QUEUE_ALERT_DEPTH", "5"))
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
         # route (and the deposit-instruction call) touches this file; a fresh
@@ -725,9 +734,46 @@ class BridgeMonitor:
                 f"Abandoned payout {payout_hash}: account nonce {chain_nonce} > envelope nonce {env_nonce}, "
                 "envelope not sealed — safe to re-sign"
             ),
-            next_retry_at=None,
+            clear_fields=["next_retry_at"],
         )
         return True, f"payout {payout_hash} abandoned; deposit {tx_hash} queued for a fresh payout"
+
+    def _check_queue_health(self) -> None:
+        """Alert on head-of-line blocking the sweep cannot fix itself.
+
+        Serialization means the oldest SUBMITTED row gates every payout
+        queued behind it. A row that sealed-failed (kept for operator
+        review) or that fails the abandon proof stays SUBMITTED forever —
+        without an alert here, every later deposit silently queues.
+        """
+        try:
+            submitted = get_submitted_deposits()
+            if submitted and self.stuck_payout_blocks > 0:
+                head = self._head_height()
+                oldest_tx, oldest_height = min(
+                    ((d["eth_tx_hash"], int(d.get("submitted_height") or (head or 0))) for d in submitted),
+                    key=lambda t: t[1],
+                )
+                if head is not None and head - oldest_height > self.stuck_payout_blocks:
+                    logger.critical(
+                        "ALERT: payout slot blocked — deposit %s SUBMITTED for %s blocks (>%s); "
+                        "%s row(s) holding the slot, retry queue cannot drain. Release via "
+                        "admin.py abandon-and-resign (nonce passed + unsealed) or write-off after review",
+                        oldest_tx,
+                        head - oldest_height,
+                        self.stuck_payout_blocks,
+                        len(submitted),
+                    )
+            depth = count_pending_retry()
+            if depth >= self.queue_alert_depth:
+                logger.critical(
+                    "ALERT: %s deposits in PENDING_RETRY (>= %s) — check payout float, "
+                    "RPC health, and any blocked SUBMITTED row gating the queue",
+                    depth,
+                    self.queue_alert_depth,
+                )
+        except Exception as e:
+            logger.warning("queue health check failed: %s", e)
 
     def _check_float(self) -> None:
         """Alert once per poll when the payout wallet is running dry."""
@@ -886,6 +932,7 @@ class BridgeMonitor:
                     self.poll_ethereum()
                     self.process_retry_queue()
                     self.process_submitted_deposits()
+                    self._check_queue_health()
                 except Exception as e:
                     logger.error("Error in polling loop: %s", e)
                 interval = self.burst_interval if now < self._burst_until else self.poll_interval
