@@ -223,6 +223,97 @@ class TestSubmittedLifecycle:
         assert get_deposit("0xsub")["status"] == BridgeDepositStatus.SUBMITTED.value
 
 
+class TestWriteOffAndAbandon:
+    """WRITTEN_OFF is terminal+reasoned; abandon-and-resign needs the nonce proof."""
+
+    def test_write_off_requires_reason(self, monitor, tmp_path):
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        create_deposit("0xwo", "0xfrom", "1.0", "")
+        with pytest.raises(ValueError):
+            update_deposit("0xwo", status=BridgeDepositStatus.WRITTEN_OFF)
+        update_deposit(
+            "0xwo",
+            status=BridgeDepositStatus.WRITTEN_OFF,
+            error_message="deposit to keyless deployer wallet; testnet; unrecoverable",
+        )
+        assert get_deposit("0xwo")["status"] == BridgeDepositStatus.WRITTEN_OFF.value
+
+    def test_written_off_row_skipped(self, monitor, tmp_path):
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        create_deposit("0xwo2", "0xfrom", "1.0", "")
+        update_deposit("0xwo2", status=BridgeDepositStatus.WRITTEN_OFF, error_message="unrecoverable")
+        with patch.object(monitor, "_build_signed_transfer") as mock_build:
+            monitor.process_deposit("0xwo2", "0xfrom", Decimal("1.0"), "0xdata")
+        mock_build.assert_not_called()
+
+    def _submitted_for_abandon(self, monitor):
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        envelope = {
+            "type": "TRANSFER",
+            "nonce": 7,
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 1,
+            "fee": 1,
+            "payload": {"amount": 1},
+            "signature": "0xab",
+        }
+        payout_hash = monitor._envelope_tx_hash(envelope)
+        create_deposit("0xabn", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xabn",
+            ait_amount="1",
+            signed_tx=_json.dumps(envelope),
+            envelope_hash=payout_hash,
+            ait_tx_hash=payout_hash,
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        return envelope, payout_hash
+
+    def test_abandon_refuses_when_nonce_not_passed(self, monitor, tmp_path):
+        self._submitted_for_abandon(monitor)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=7),  # envelope nonce 7 not passed
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert not ok
+        assert "still land" in msg
+        from bridge_monitor.storage import get_deposit
+
+        assert get_deposit("0xabn")["status"] == BridgeDepositStatus.SUBMITTED.value
+
+    def test_abandon_refuses_when_sealed(self, monitor, tmp_path):
+        self._submitted_for_abandon(monitor)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=True),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert not ok
+        assert "sealed" in msg
+
+    def test_abandon_succeeds_and_queues_retry(self, monitor, tmp_path):
+        self._submitted_for_abandon(monitor)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),  # nonce 9 > envelope nonce 7
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert ok
+        from bridge_monitor.storage import get_deposit
+
+        d = get_deposit("0xabn")
+        assert d["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        # envelope fields cleared so no path hands the dead envelope back
+        assert not d["signed_tx"] and not d["envelope_hash"] and not d["ait_tx_hash"]
+
+
 class TestCursorSafety:
     """Cursor advances even if one deposit crashes, because each is wrapped."""
 
