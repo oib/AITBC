@@ -1841,3 +1841,18 @@ key stays confined to aitbc-blockchain-node only.
   10,000,000 units from the proposer (tx 0x8dfdedc4..., sealed at 27974,
   verified on all five hosts): aitbc-bridge-monitor can now submit
   correctly-signed deposit payouts after the GENESIS_WALLET_ADDRESS fix.
+
+### bridge-monitor: dedicated payout key + first end-to-end deposit proof (2026-09-29)
+
+- The monitor payout signer now reads BRIDGE_PAYOUT_PRIVATE_KEY / BRIDGE_PAYOUT_ADDRESS first (GENESIS_WALLET_* kept as warned transitional fallback) — commit 5d9f91156b.
+- Hub monitor migrated off GENESIS_WALLET_PRIVATE_KEY (derived 0x5A1a…) to a dedicated payout key 0x0C710fd24BE6fFFe7FBf65c1A953e57C3769a395 in a monitor-only env file; float 1000 AIT funded from the proposer wallet. The old key was drained to zero and stripped from node2 node.env — no live process holds it fleet-wide.
+- Oracle fix: ChainlinkOracle now selects the Sepolia ETH/USD feed (0x694A…5306) when ETH_NETWORK=sepolia — commit d519094ee0. CoinGecko began 403ing the hub IP on 2026-09-28; on-hub AIT/USD is pinned via AIT_USD_FIXED_PRICE=0.28 (EUR-anchored reference).
+- First end-to-end ETH-to-AIT proof: Sepolia tx 0x1df445b58acfad19bb10fa521000ca72474175737f1826546889f96178cb7c54 (block 11807510, 0.0015 ETH, AIT recipient in tx data) produced AIT credit 0x78f1f846411065e2ea58b65210726ef2c98eb7feb921527bb8f930cea6523161 sealed at height 28032 (524000098 units to canary 0x90030c53…). Verified identical on all five hosts; restart-idempotent.
+- Known gap recorded: the monitor processes deposits at chain tip — there is no confirmation-depth gate (acceptable on Sepolia; revisit before mainnet).
+- A historical failed deposit row (0x746aebaf…, 0.05 ETH, 2026-09-26, empty tx data) is a user deposit without a recipient — support/refund decision, not a code bug.
+
+### ops: wallet daemons are loopback-only; dead hub /w/ route gone (2026-09-29)
+
+- The hub /w/ edge route no longer exists (verified: /w/v1/wallets 404s). Wallet daemons sign on request and must never be reachable off-host.
+- node0's stale wallet_daemon_url (pointing at the dead route) removed; all hosts resolve to the local daemon on 127.0.0.1:8108.
+- fleet-config-check.sh gained two sections: wallet-daemon-URL loopback assertion (FAILs non-loopback), and running-commit-vs-latest-tag report (flags hosts missing the deploy tag). Commit 339d48199b.
