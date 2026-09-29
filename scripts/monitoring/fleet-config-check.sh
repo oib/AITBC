@@ -764,29 +764,29 @@ echo "=== v9 shadow window (pin gate) ==="
 V9_WINDOW_MIN_HOURS="${V9_WINDOW_MIN_HOURS:-24}"
 v9_bad=0
 now_epoch=$(date +%s)
-latest_restart_us=0
+latest_restart_s=0
 for h in $HOSTS; do
     probe=$(sshr "${RESOLVED[$h]:-$h}" \
         "systemctl is-active aitbc-blockchain-node 2>/dev/null; \
-         systemctl show -p ActiveEnterTimestampUSec --value aitbc-blockchain-node 2>/dev/null | head -1; \
+         date -d \"\$(systemctl show -p ActiveEnterTimestamp --value aitbc-blockchain-node 2>/dev/null | head -1)\" +%s 2>/dev/null; \
          curl -s -m 5 http://127.0.0.1:9009/metrics 2>/dev/null | grep -E '^v9_'" \
         || echo "UNREACHABLE")
     if [ "$probe" = "UNREACHABLE" ]; then
         v9_bad=1; printf "  %-14s UNREACHABLE\n" "$h"; continue
     fi
     svc_state=$(echo "$probe" | sed -n '1p')
-    restart_us=$(echo "$probe" | sed -n '2p')
+    restart_s=$(echo "$probe" | sed -n '2p')
     metrics=$(echo "$probe" | tail -n +3)
     if [ "$svc_state" != "active" ]; then
         printf "  %-14s node %s — skipped\n" "$h" "${svc_state:-unknown}"
         continue
     fi
-    if [[ "$restart_us" =~ ^[0-9]+$ ]] && [ "$restart_us" -gt "$latest_restart_us" ]; then
-        latest_restart_us=$restart_us
+    if [[ "$restart_s" =~ ^[0-9]+$ ]] && [ "$restart_s" -gt "$latest_restart_s" ]; then
+        latest_restart_s=$restart_s
     fi
     checked=$(echo "$metrics" | awk '/^v9_shadow_checked_total / {print $2}' | cut -d. -f1)
     reject=$(echo "$metrics" | awk '/^v9_would_reject_total / {print $2}' | cut -d. -f1)
-    uptime_h=$(( (now_epoch - restart_us / 1000000) / 3600 ))
+    uptime_h=$(( (now_epoch - restart_s) / 3600 ))
     if [ -z "$checked" ]; then
         printf "  %-14s uptime %sh — v9_shadow_checked absent (pre-positive-control deploy); would_reject %s\n" \
             "$h" "$uptime_h" "${reject:-0}"
@@ -798,8 +798,8 @@ for h in $HOSTS; do
     # traffic-mix: per-type checked series show which types the window covered
     echo "$metrics" | grep -E '^v9_shadow_checked_[a-z].*_total ' | sed 's/^/               mix: /'
 done
-if [ "$latest_restart_us" -gt 0 ]; then
-    elapsed_h=$(( (now_epoch - latest_restart_us / 1000000) / 3600 ))
+if [ "$latest_restart_s" -gt 0 ]; then
+    elapsed_h=$(( (now_epoch - latest_restart_s) / 3600 ))
     if [ "$elapsed_h" -ge "$V9_WINDOW_MIN_HOURS" ]; then
         [ "$v9_bad" -eq 0 ] \
             && echo "  WINDOW: ${elapsed_h}h clean (>= ${V9_WINDOW_MIN_HOURS}h) — pin gate satisfied" \
