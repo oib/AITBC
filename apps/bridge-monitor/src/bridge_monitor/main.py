@@ -1,6 +1,7 @@
 """Bridge monitor service - polls Ethereum for ETH deposits and sends AIT."""
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -18,6 +19,7 @@ from .storage import (
     get_cursor,
     get_deposit,
     get_deposits_for_retry,
+    get_submitted_deposits,
     init_db,
     set_cursor,
     update_deposit,
@@ -57,6 +59,14 @@ class BridgeMonitor:
         # Critical-logged when the payout wallet drops below roughly a day of
         # expected payouts — otherwise deposits pile up in PENDING_RETRY.
         self.low_float_units = ait_to_units(Decimal(os.getenv("BRIDGE_LOW_FLOAT_AIT", "50")))
+        # Payout confirmation lifecycle: a deposit is COMPLETED only once
+        # its payout tx is sealed this deep. A SUBMITTED payout that hasn't
+        # sealed after REBROADCAST_BLOCKS is rebroadcast with the *same*
+        # signed envelope — never re-signed (a fresh nonce would double-pay
+        # if the original then landed).
+        self.payout_seal_depth = int(os.getenv("PAYOUT_SEAL_DEPTH", "2"))
+        self.rebroadcast_blocks = int(os.getenv("PAYOUT_REBROADCAST_BLOCKS", "6"))
+        self.max_rebroadcasts = int(os.getenv("PAYOUT_MAX_REBROADCAST", "5"))
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
         # route (and the deposit-instruction call) touches this file; a fresh
@@ -125,10 +135,24 @@ class BridgeMonitor:
             logger.error("Error calculating AIT amount: %s", e)
             return None
 
-    def submit_ait_transfer(self, to_address: str, amount: Decimal) -> str | None:
-        """Submit AIT transfer transaction to AITBC blockchain."""
+    @staticmethod
+    def _envelope_tx_hash(transaction: dict) -> str:
+        """Local copy of mempool.compute_tx_hash — sha256 of canonical JSON.
+
+        Deriving the hash at sign time means the payout is trackable even if
+        the first POST never returns (accepted-then-timeout), and proves a
+        rebroadcast carries the identical envelope.
+        """
+        import hashlib
+        import json
+
+        canonical = json.dumps(transaction, sort_keys=True, separators=(",", ":")).encode()
+        return "0x" + hashlib.sha256(canonical).hexdigest()
+
+    def _build_signed_transfer(self, to_address: str, amount: Decimal) -> dict | None:
+        """Build and sign the payout TRANSFER envelope (no network submit)."""
         if not self.genesis_private_key:
-            logger.error("Cannot submit AIT transfer - no private key")
+            logger.error("Cannot build payout - no private key")
             return None
         try:
             import json
@@ -137,7 +161,6 @@ class BridgeMonitor:
             from eth_keys import keys
             from eth_utils import keccak, to_checksum_address
 
-            # Get current nonce
             sender_response = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
             if sender_response.status_code != 200:
                 logger.error("Failed to get sender account: %s", sender_response.text)
@@ -145,7 +168,6 @@ class BridgeMonitor:
             nonce = int(sender_response.json().get("nonce", 0))
 
             chain_id = os.getenv("CHAIN_ID", "ait-localnet")
-            # Convert decimal AIT to on-chain compute-units (same as aitbc wallet send)
             tx_amount = ait_to_units(amount)
             transaction = {
                 "type": "TRANSFER",
@@ -163,8 +185,17 @@ class BridgeMonitor:
             message = json.dumps(signed_fields, sort_keys=True, separators=(",", ":")).encode()
             signature = private_key.sign_msg_hash(keccak(message))
             transaction["signature"] = signature.to_bytes().hex()
+            logger.info("Built signed payout: %s units (%s AIT) to %s (nonce=%s)", tx_amount, amount, to_address, nonce)
+            return transaction
+        except Exception as e:
+            logger.error("Error building signed payout: %s", e)
+            return None
 
-            logger.info("Submitting AIT transfer: %s units (%s AIT) to %s (nonce=%s)", tx_amount, amount, to_address, nonce)
+    def _post_signed_tx(self, transaction: dict) -> str | None:
+        """POST an already-signed payout envelope; returns its chain tx hash."""
+        try:
+            import httpx
+
             submit_response = httpx.post(
                 f"{self.blockchain_rpc_url}/rpc/transaction",
                 json=transaction,
@@ -175,12 +206,30 @@ class BridgeMonitor:
                 tx_hash: str | None = result.get("transaction_hash") or result.get("tx_hash")
                 logger.info("AIT transfer submitted: %s", tx_hash)
                 return tx_hash
-            else:
-                logger.error("Failed to submit AIT transfer: %s", submit_response.text)
-                return None
+            logger.error("Failed to submit AIT transfer: %s", submit_response.text)
+            return None
         except Exception as e:
             logger.error("Error submitting AIT transfer: %s", e)
             return None
+
+    def submit_ait_transfer(self, to_address: str, amount: Decimal) -> str | None:
+        """Build, sign and submit a payout; returns the chain tx hash."""
+        transaction = self._build_signed_transfer(to_address, amount)
+        if not transaction:
+            return None
+        return self._post_signed_tx(transaction)
+
+    def _head_height(self) -> int | None:
+        """Current chain head height from the local RPC."""
+        try:
+            import httpx
+
+            resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/head", timeout=5)
+            if resp.status_code == 200:
+                return int(resp.json().get("height", 0))
+        except Exception as e:
+            logger.warning("head height fetch failed: %s", e)
+        return None
 
     def process_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> None:
         """Process a single ETH deposit.
@@ -198,9 +247,14 @@ class BridgeMonitor:
             if status == BridgeDepositStatus.FAILED.value:
                 logger.info("Deposit %s already failed, skipping", tx_hash)
                 return
-            # PROCESSING / PENDING_RETRY — likely a crash mid-transfer.
-            # Mark for retry so the retry queue re-attempts with backoff
-            # rather than silently skipping (which would lose funds).
+            if status == BridgeDepositStatus.SUBMITTED.value or existing.get("signed_tx"):
+                # A signed payout envelope already exists — the confirmation
+                # sweep owns it. Re-signing here would risk a double payout
+                # if the original lands.
+                logger.info("Deposit %s already has a submitted payout, skipping", tx_hash)
+                return
+            # PROCESSING / PENDING_RETRY with no envelope — crash before the
+            # first signed submit. Retry is safe: nothing was broadcast.
             logger.warning("Deposit %s in non-terminal state %s, marking for retry", tx_hash, status)
             self._mark_for_retry(tx_hash, f"Recovered from non-terminal state: {status}")
             return
@@ -247,19 +301,40 @@ class BridgeMonitor:
         if not deposit_id:
             logger.info("Deposit %s already exists in database", tx_hash)
             return
+        transaction = self._build_signed_transfer(ait_recipient, ait_amount)
+        if not transaction:
+            self._mark_for_retry(tx_hash, "Failed to build signed payout")
+            return
+        # Ledger-first: the signed envelope (and its derived hash) is on
+        # disk before it can hit the mempool. A crash between POST and any
+        # later update can never leave an untracked payout, and recovery
+        # rebroadcasts this exact envelope instead of re-signing.
+        ait_tx_hash = self._envelope_tx_hash(transaction)
         update_deposit(
             tx_hash,
             ait_amount=str(ait_amount),
             eth_usd_price=str(eth_usd) if eth_usd else None,
             ait_usd_price=str(ait_usd) if ait_usd else None,
-            status=BridgeDepositStatus.PROCESSING,
+            signed_tx=json.dumps(transaction),
+            submitted_height=self._head_height(),
+            rebroadcast_count=0,
+            ait_tx_hash=ait_tx_hash,
+            status=BridgeDepositStatus.SUBMITTED,
         )
-        ait_tx_hash = self.submit_ait_transfer(ait_recipient, ait_amount)
-        if ait_tx_hash:
-            update_deposit(tx_hash, ait_tx_hash=ait_tx_hash, status=BridgeDepositStatus.COMPLETED)
-            logger.info("Successfully bridged %s ETH to %s AIT for %s", eth_amount, ait_amount, ait_recipient)
+        posted = self._post_signed_tx(transaction)
+        if posted and posted != ait_tx_hash:
+            logger.warning("RPC returned hash %s differing from derived %s", posted, ait_tx_hash)
+            update_deposit(tx_hash, ait_tx_hash=posted)
+        if posted:
+            logger.info(
+                "Payout for deposit %s broadcast as %s — awaiting %s-block seal",
+                tx_hash,
+                ait_tx_hash,
+                self.payout_seal_depth,
+            )
         else:
-            self._mark_for_retry(tx_hash, "Failed to submit AIT transfer")
+            update_deposit(tx_hash, error_message="Submit failed — awaiting rebroadcast")
+            logger.warning("Payout %s submit failed; sweep will rebroadcast the same envelope", ait_tx_hash)
 
     def _mark_for_retry(self, tx_hash: str, error_message: str) -> None:
         """Mark a deposit for retry instead of immediate failure."""
@@ -331,16 +406,121 @@ class BridgeMonitor:
                 ait_amount_str = str(ait_amount)
                 update_deposit(tx_hash, ait_amount=ait_amount_str)
             ait_amount = Decimal(ait_amount_str)
+            if d.get("signed_tx"):
+                # A payout envelope already exists — hand it to the
+                # confirmation sweep. Re-signing would risk a double payout.
+                logger.info("Retry deposit %s already has a signed payout, moving to SUBMITTED", tx_hash)
+                update_deposit(tx_hash, status=BridgeDepositStatus.SUBMITTED)
+                continue
             logger.info("Retrying deposit %s: %s AIT to %s", tx_hash, ait_amount, ait_recipient)
-            update_deposit(tx_hash, status=BridgeDepositStatus.PROCESSING)
-            ait_tx_hash = self.submit_ait_transfer(ait_recipient, ait_amount)
-            if ait_tx_hash:
-                update_deposit(
-                    tx_hash, ait_tx_hash=ait_tx_hash, status=BridgeDepositStatus.COMPLETED, retry_count=d.get("retry_count", 0)
-                )
-                logger.info("Retry succeeded for deposit %s", tx_hash)
+            transaction = self._build_signed_transfer(ait_recipient, ait_amount)
+            if not transaction:
+                self._mark_for_retry(tx_hash, "Retry: failed to build signed payout")
+                continue
+            payout_hash = self._envelope_tx_hash(transaction)
+            update_deposit(
+                tx_hash,
+                signed_tx=json.dumps(transaction),
+                submitted_height=self._head_height(),
+                rebroadcast_count=0,
+                ait_tx_hash=payout_hash,
+                status=BridgeDepositStatus.SUBMITTED,
+                retry_count=d.get("retry_count", 0),
+            )
+            posted = self._post_signed_tx(transaction)
+            if posted:
+                logger.info("Retry payout for deposit %s broadcast as %s", tx_hash, posted)
             else:
-                self._mark_for_retry(tx_hash, "Retry: failed to submit AIT transfer")
+                # Stay SUBMITTED — the sweep rebroadcasts the same envelope.
+                update_deposit(tx_hash, error_message="Retry submit failed — awaiting rebroadcast")
+
+    def process_submitted_deposits(self) -> None:
+        """Confirm or rebroadcast payouts whose deposits are SUBMITTED.
+
+        COMPLETED requires the payout sealed PAYOUT_SEAL_DEPTH deep. A
+        payout that vanished from the mempool without sealing is rebroadcast
+        with the stored envelope — identical signature, identical hash. A
+        payout that sealed but failed at apply stays SUBMITTED and alerts:
+        funds may or may not have moved; an operator decides, not the code.
+        """
+        try:
+            import httpx
+        except ImportError:
+            return
+        deposits = get_submitted_deposits()
+        if not deposits:
+            return
+        head = self._head_height()
+        for d in deposits:
+            tx_hash = d["eth_tx_hash"]
+            payout_hash = d.get("ait_tx_hash")
+            signed_raw = d.get("signed_tx")
+            if not signed_raw:
+                # Corrupt row — signed with an unknown key shape we cannot
+                # rebroadcast; alert rather than guess.
+                logger.critical("ALERT: deposit %s is SUBMITTED with no stored envelope", tx_hash)
+                continue
+            sealed_height = None
+            failed_on_chain = False
+            if payout_hash:
+                try:
+                    resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/transaction/{payout_hash}", timeout=5)
+                    if resp.status_code == 200:
+                        body = resp.json()
+                        sealed_height = body.get("block_height")
+                        st = (body.get("status") or "").lower()
+                        if st and st not in ("pending", "confirmed", "success", ""):
+                            failed_on_chain = True
+                except Exception as e:
+                    logger.warning("payout status fetch failed for %s: %s", payout_hash, e)
+            if failed_on_chain:
+                logger.critical(
+                    "ALERT: payout %s for deposit %s sealed with failed status — staying SUBMITTED for operator review",
+                    payout_hash,
+                    tx_hash,
+                )
+                continue
+            if sealed_height and head and head - int(sealed_height) >= self.payout_seal_depth:
+                update_deposit(tx_hash, status=BridgeDepositStatus.COMPLETED, error_message="")
+                logger.info("Payout %s sealed at height %s — deposit %s COMPLETED", payout_hash, sealed_height, tx_hash)
+                continue
+            # Not sealed deep enough (or not sealed at all).
+            submitted_height = d.get("submitted_height") or (head or 0)
+            rebroadcast_count = int(d.get("rebroadcast_count") or 0)
+            if head is None:
+                continue  # can't judge distance — try next poll
+            if head - int(submitted_height) <= self.rebroadcast_blocks:
+                continue  # still within the seal window
+            if rebroadcast_count >= self.max_rebroadcasts:
+                logger.critical(
+                    "ALERT: payout %s for deposit %s unsealed after %s rebroadcasts — staying SUBMITTED",
+                    payout_hash,
+                    tx_hash,
+                    rebroadcast_count,
+                )
+                continue
+            envelope = json.loads(signed_raw)
+            derived = self._envelope_tx_hash(envelope)
+            if payout_hash and derived != payout_hash:
+                logger.error("Stored envelope hash mismatch for %s (stored %s) — refusing rebroadcast", derived, payout_hash)
+                continue
+            posted = self._post_signed_tx(envelope)
+            new_count = rebroadcast_count + 1
+            if posted:
+                logger.warning(
+                    "Rebroadcast unsealed payout %s for deposit %s (attempt %s) — identical envelope",
+                    payout_hash,
+                    tx_hash,
+                    new_count,
+                )
+                update_deposit(
+                    tx_hash,
+                    rebroadcast_count=new_count,
+                    submitted_height=head,
+                    error_message="",
+                )
+            else:
+                update_deposit(tx_hash, rebroadcast_count=new_count, error_message="Rebroadcast failed")
 
     def _check_float(self) -> None:
         """Alert once per poll when the payout wallet is running dry."""
@@ -439,6 +619,7 @@ class BridgeMonitor:
                 try:
                     self.poll_ethereum()
                     self.process_retry_queue()
+                    self.process_submitted_deposits()
                 except Exception as e:
                     logger.error("Error in polling loop: %s", e)
                 interval = self.burst_interval if now < self._burst_until else self.poll_interval
