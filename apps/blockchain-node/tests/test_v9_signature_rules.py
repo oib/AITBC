@@ -532,6 +532,18 @@ class TestV9Policy:
         assert V9_UNSIGNED_ALLOWED_TX_TYPES == {"BRIDGE_LOCK", "BRIDGE_RELEASE", "BRIDGE_REFUND"}
         assert v9_signature_verdict({"type": "MESSAGE"}, "MESSAGE") == "missing_signature"
 
+    def test_shadow_checked_positive_control(self):
+        """The window pass condition needs presence, not absence: every
+        verdict evaluation counts into v9_shadow_checked_*, so a clean
+        window is provably `checked > 0 AND would_reject == 0` — silence
+        could otherwise mean the check never ran."""
+        v9_signature_verdict({"type": "TRANSFER", "signature": "0xabc"}, "TRANSFER")
+        v9_signature_verdict({}, "BRIDGE_LOCK")
+        c = metrics_registry._counters
+        assert c["v9_shadow_checked_total"] == 2.0
+        assert c["v9_shadow_checked_transfer_total"] == 1.0
+        assert c["v9_shadow_checked_bridge_lock_total"] == 1.0
+
 
 class _StubBroker:
     def __init__(self) -> None:

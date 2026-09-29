@@ -755,6 +755,60 @@ for h in $HOSTS; do
     fi
 done
 
+echo "=== v9 shadow window (pin gate) ==="
+# "Clean" needs evidence, not absence: the eager v9_shadow_checked_total
+# series proves the policy evaluated live traffic, and v9_would_reject_total
+# at 0 proves nothing would have broken. Counters are per-process, so each
+# value IS increase() since that node's last restart — the fleet window is
+# bounded by the LATEST validator restart; any restart restarts the window.
+V9_WINDOW_MIN_HOURS="${V9_WINDOW_MIN_HOURS:-24}"
+v9_bad=0
+now_epoch=$(date +%s)
+latest_restart_us=0
+for h in $HOSTS; do
+    probe=$(sshr "${RESOLVED[$h]:-$h}" \
+        "systemctl is-active aitbc-blockchain-node 2>/dev/null; \
+         systemctl show -p ActiveEnterTimestampUSec --value aitbc-blockchain-node 2>/dev/null | head -1; \
+         curl -s -m 5 http://127.0.0.1:9009/metrics 2>/dev/null | grep -E '^v9_'" \
+        || echo "UNREACHABLE")
+    if [ "$probe" = "UNREACHABLE" ]; then
+        v9_bad=1; printf "  %-14s UNREACHABLE\n" "$h"; continue
+    fi
+    svc_state=$(echo "$probe" | sed -n '1p')
+    restart_us=$(echo "$probe" | sed -n '2p')
+    metrics=$(echo "$probe" | tail -n +3)
+    if [ "$svc_state" != "active" ]; then
+        printf "  %-14s node %s — skipped\n" "$h" "${svc_state:-unknown}"
+        continue
+    fi
+    if [[ "$restart_us" =~ ^[0-9]+$ ]] && [ "$restart_us" -gt "$latest_restart_us" ]; then
+        latest_restart_us=$restart_us
+    fi
+    checked=$(echo "$metrics" | awk '/^v9_shadow_checked_total / {print $2}' | cut -d. -f1)
+    reject=$(echo "$metrics" | awk '/^v9_would_reject_total / {print $2}' | cut -d. -f1)
+    uptime_h=$(( (now_epoch - restart_us / 1000000) / 3600 ))
+    if [ -z "$checked" ]; then
+        printf "  %-14s uptime %sh — v9_shadow_checked absent (pre-positive-control deploy); would_reject %s\n" \
+            "$h" "$uptime_h" "${reject:-0}"
+    else
+        printf "  %-14s uptime %sh — checked %s, would_reject %s\n" \
+            "$h" "$uptime_h" "$checked" "${reject:-0}"
+    fi
+    [ -n "$reject" ] && [ "$reject" != "0" ] && { v9_bad=1; printf "  %-14s FAIL: v9_would_reject_total=%s — shadow window NOT clean\n" "$h" "$reject"; }
+    # traffic-mix: per-type checked series show which types the window covered
+    echo "$metrics" | grep -E '^v9_shadow_checked_[a-z].*_total ' | sed 's/^/               mix: /'
+done
+if [ "$latest_restart_us" -gt 0 ]; then
+    elapsed_h=$(( (now_epoch - latest_restart_us / 1000000) / 3600 ))
+    if [ "$elapsed_h" -ge "$V9_WINDOW_MIN_HOURS" ]; then
+        [ "$v9_bad" -eq 0 ] \
+            && echo "  WINDOW: ${elapsed_h}h clean (>= ${V9_WINDOW_MIN_HOURS}h) — pin gate satisfied" \
+            || echo "  WINDOW: ${elapsed_h}h elapsed but counters dirty — pin gate NOT satisfied"
+    else
+        echo "  WINDOW: ${elapsed_h}h of ${V9_WINDOW_MIN_HOURS}h — still running (started at latest validator restart)"
+    fi
+fi
+
 echo "=== deposit ALERT lines since last run (interim until Alertmanager wiring) ==="
 # The monitor emits CRITICAL "ALERT:" lines for permanent FAILED, retries
 # exhausted, and low float — funds received but not paid. A journald line
