@@ -52,12 +52,9 @@ def _load_env_file(path: str) -> None:
 
 def _valid_recipient(addr: object) -> bool:
     """True when the row carries a syntactically valid AIT recipient."""
-    return (
-        isinstance(addr, str)
-        and addr.startswith("0x")
-        and len(addr) == 42
-        and all(c in "0123456789abcdefABCDEF" for c in addr[2:])
-    )
+    from .storage import valid_ait_recipient
+
+    return valid_ait_recipient(addr)
 
 
 def write_off_denial_reason(d: dict, allow_recipient: bool) -> str | None:
