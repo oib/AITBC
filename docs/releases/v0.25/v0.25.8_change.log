@@ -2039,3 +2039,9 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
 - Serialization trades nonce collisions for head-of-line blocking: one SUBMITTED row that can neither seal nor abandon blocks every payout queued behind it forever. _check_queue_health (per poll) ALERTs when the oldest SUBMITTED row exceeds BRIDGE_STUCK_PAYOUT_BLOCKS (default rebroadcast_blocks x max_rebroadcasts) and when PENDING_RETRY depth reaches BRIDGE_QUEUE_ALERT_DEPTH (default 5); the alert names the row and the release path.
 - update_deposit gains clear_fields (allowlisted columns set to NULL): abandon_payout now clears next_retry_at, so a re-queued deposit is due immediately instead of waiting out a stale backoff (previously next_retry_at=None was silently a no-op).
 - AGENTS.md documents the release matrix for a blocked row: abandon-and-resign for nonce-passed unsealed envelopes; write-off (+ manual-payout when still owed) for sealed-failed or lost rows.
+
+### feat(v9): shadow-window positive control + scripted pin gate
+
+- v9_signature_verdict now counts every evaluation into v9_shadow_checked_total plus per-type v9_shadow_checked series; both the checked aggregate and v9_would_reject_total are pre-created at import. A clean shadow window is provably checked>0 AND would_reject==0 instead of relying on a lazily-created series being absent.
+- fleet-config-check gains a "v9 shadow window (pin gate)" section: the fleet window is bounded by the latest validator restart, reports per-host checked/reject and the per-type traffic mix, and prints WINDOW elapsed-vs-24h so the pin gate is a command output, not manual judgement.
+- NOTE: v9_policy.py is chain code — it must ride the pin deploy; a fleet restart inside the window would restart the window. A checkout pull is inert (running processes keep loaded code); do NOT restart aitbc-blockchain-node until the pin.
