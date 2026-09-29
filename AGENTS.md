@@ -114,6 +114,26 @@ covers what the other does.
   toolchain and `node_modules`. This suite is the *only* coverage for
   `AgentStaking`, `PaymentProcessor`, and `EscrowService`.
 
+## Bridge payout account — no manual sends
+
+Never send an ad-hoc transaction from the bridge payout account
+(`BRIDGE_PAYOUT_*`). Every payout must go through a ledger row:
+SUBMITTED rows hold a signed envelope whose nonce may still land — a
+manual send can occupy that nonce and strand the deposit forever, and
+two sends from the same account is how double payments happen. Operator
+actions use the monitor's own commands, never a raw RPC submit:
+
+```bash
+cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin <command>
+#   status <tx_hash>                inspect a ledger row
+#   manual-payout <to> <amount>     manual payout, same ledger-first path
+#   abandon-and-resign <tx_hash>    abandon a stuck SUBMITTED payout —
+#                                   refuses unless the account nonce has
+#                                   passed the envelope nonce AND the
+#                                   envelope hash is not sealed
+#   write-off <tx_hash> --reason …  terminal write-off (reason required)
+```
+
 ## Wallet key mismatches
 
 If a wallet's stored key does not match the address it is supposed to

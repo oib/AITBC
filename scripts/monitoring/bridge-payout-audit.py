@@ -37,8 +37,10 @@ for db in sorted(glob.glob('/var/lib/aitbc/**/bridge_deposits*.db', recursive=Tr
         continue
     try:
         con = sqlite3.connect('file:%s?mode=ro' % db, uri=True, timeout=10)
-        for h, ait, st in con.execute('SELECT tx_hash, ait_tx_hash, status FROM eth_deposits'):
-            rows.append({'db': db, 'tx_hash': h, 'ait_tx_hash': ait, 'status': st})
+        cols = {r[1] for r in con.execute('PRAGMA table_info(eth_deposits)')}
+        err = 'error_message' if 'error_message' in cols else 'NULL'
+        for h, ait, st, em in con.execute('SELECT tx_hash, ait_tx_hash, status, %s FROM eth_deposits' % err):
+            rows.append({'db': db, 'tx_hash': h, 'ait_tx_hash': ait, 'status': st, 'error_message': em})
         con.close()
     except Exception as exc:
         rows.append({'db': db, 'error': str(exc)})
@@ -149,6 +151,19 @@ def main() -> int:
                 flush=True,
             )
             bad = 1
+
+    # written-off rows are deliberately unsettled (each carries a written
+    # reason) — listed for visibility, not a violation
+    for row in ledgers:
+        if row.get("status") == "written_off":
+            print(
+                f"  note: {row['host']} {row['db']}: written-off deposit {row['tx_hash'][:18]}… "
+                f"({(row.get('error_message') or 'no reason!')[:90]})",
+                flush=True,
+            )
+            if not row.get("error_message"):
+                print("  FAIL: written-off row without a recorded reason", flush=True)
+                bad = 1
 
     # collect every payout hash that must exist sealed on chain
     need = {row["ait_tx_hash"] for row in ledgers if row.get("status") == "completed" and row.get("ait_tx_hash")}

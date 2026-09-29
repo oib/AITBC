@@ -25,6 +25,10 @@ class BridgeDepositStatus(StrEnum):
     SUBMITTED = "submitted"
     COMPLETED = "completed"
     FAILED = "failed"
+    # Terminal write-off: funds received but deliberately unsettled
+    # (e.g. deposit to a keyless wallet on testnet). error_message is
+    # mandatory — a write-off without a written reason is rejected.
+    WRITTEN_OFF = "written_off"
 
 
 # SELECT projection shared by every read: wallet column -> monitor key.
@@ -196,6 +200,8 @@ def update_deposit(
     rebroadcast_count: int | None = None,
 ) -> bool:
     """Update bridge deposit record."""
+    if status == BridgeDepositStatus.WRITTEN_OFF and not error_message:
+        raise ValueError("WRITTEN_OFF requires a written reason (error_message)")
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
 
@@ -239,7 +245,11 @@ def update_deposit(
             updates.append("next_retry_at = ?")
             params.append(next_retry_at)
 
-        if status is not None and status in (BridgeDepositStatus.COMPLETED, BridgeDepositStatus.FAILED):
+        if status is not None and status in (
+            BridgeDepositStatus.COMPLETED,
+            BridgeDepositStatus.FAILED,
+            BridgeDepositStatus.WRITTEN_OFF,
+        ):
             updates.append("completed_at = ?")
             params.append(datetime.now(UTC).isoformat())
 
