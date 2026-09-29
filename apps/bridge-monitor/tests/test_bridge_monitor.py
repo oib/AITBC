@@ -468,6 +468,217 @@ class TestFundingSource:
         assert get_deposit("0xfund01")["status"] == "funding"
 
 
+class TestPayoutSerialization:
+    """Two deposits in one poll must not sign the same nonce.
+
+    The payout account's nonce comes from committed chain state, so a
+    second envelope signed while the first is still unsealed collides in
+    the mempool — the stale envelope then burned the whole rebroadcast
+    budget until an operator re-signed. The monitor serializes: at most
+    one SUBMITTED payout in flight.
+    """
+
+    def _two_deposits(self, monitor):
+        """Process two fresh deposits in one poll; returns the build mock."""
+        with (
+            patch.object(
+                monitor,
+                "parse_ait_recipient",
+                side_effect=["0x" + "d" * 40, "0x" + "e" * 40],
+            ),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+            patch.object(monitor, "_build_signed_transfer") as mock_build,
+            patch.object(monitor, "_post_signed_tx", return_value="0xpayout"),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            mock_build.side_effect = [
+                {"type": "TRANSFER", "nonce": 7, "to": "0x" + "d" * 40},
+                {"type": "TRANSFER", "nonce": 8, "to": "0x" + "e" * 40},
+            ]
+            monitor.process_deposit("0xdep1", "0xfrom", Decimal("0.1"), "0xdep1")
+            monitor.process_deposit("0xdep2", "0xfrom", Decimal("0.1"), "0xdep2")
+        return mock_build
+
+    def test_second_deposit_does_not_sign_while_first_unsealed(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        mock_build = self._two_deposits(monitor)
+
+        assert mock_build.call_count == 1  # the collision the fix prevents
+        d1, d2 = get_deposit("0xdep1"), get_deposit("0xdep2")
+        assert d1["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert d2["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert not d2["signed_tx"]  # no stale envelope was ever stored
+        assert d2["retry_count"] in (None, 0)  # wait for the slot, not a retry
+        assert Decimal(str(d2["ait_amount"])) == 100  # computed amount kept for the retry
+
+    def test_deferred_deposit_pays_after_first_seals(self, monitor):
+        from bridge_monitor.storage import get_deposit, update_deposit
+
+        mock_build = self._two_deposits(monitor)
+        update_deposit("0xdep1", status=BridgeDepositStatus.COMPLETED)  # sealed
+        update_deposit("0xdep2", next_retry_at="2000-01-01T00:00:00+00:00")  # due now
+
+        with (
+            patch.object(monitor, "parse_ait_recipient", side_effect=lambda d: "0x" + "e" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+            patch.object(
+                monitor,
+                "_build_signed_transfer",
+                return_value={"type": "TRANSFER", "nonce": 8, "to": "0x" + "e" * 40},
+            ) as mock_build2,
+            patch.object(monitor, "_post_signed_tx", return_value="0xpayout2"),
+            patch.object(monitor, "_head_height", return_value=101),
+        ):
+            monitor.process_retry_queue()
+
+        assert mock_build.call_count == 1  # first poll signed once
+        assert mock_build2.call_count == 1  # second payout only after seal
+        d2 = get_deposit("0xdep2")
+        assert d2["status"] == BridgeDepositStatus.SUBMITTED.value
+
+    def test_sweep_auto_abandons_when_nonce_proof_holds(self, monitor):
+        """Nonce passed + envelope unsealed → abandoned, re-queued, no resubmit wait."""
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        envelope = {
+            "type": "TRANSFER",
+            "chain_id": "ait-test",
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 100,
+            "nonce": 5,
+            "fee": 360000,
+            "payload": {"amount": 100},
+            "signature": "0xdead",
+        }
+        payout_hash = monitor._envelope_tx_hash(envelope)
+        create_deposit("0xstuck", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xstuck",
+            ait_amount="100",
+            signed_tx=_json.dumps(envelope),
+            submitted_height=90,
+            ait_tx_hash=payout_hash,
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+
+        with (
+            patch.object(monitor, "_head_height", return_value=200),
+            patch.object(monitor, "_account_nonce", return_value=9),  # nonce passed 5
+            patch.object(monitor, "_tx_on_chain", return_value=False),  # never sealed
+            patch.object(monitor, "_post_signed_tx") as mock_post,
+            patch("httpx.get") as mock_get,
+        ):
+            mock_get.return_value = MagicMock(status_code=404)
+            monitor.process_submitted_deposits()
+
+        d = get_deposit("0xstuck")
+        assert d["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert not d["signed_tx"]  # dead envelope cleared
+        mock_post.assert_not_called()  # abandons instead of rebroadcasting
+
+    def test_nonce_rejection_alerts_immediately(self, monitor, caplog):
+        """A nonce-slot rejection is its own alert — no rebroadcast wait."""
+        import logging
+
+        from bridge_monitor.storage import create_deposit, get_deposit
+
+        create_deposit("0xcoll", "0xfrom", "1.0", "0x" + "d" * 40)
+        with (
+            patch.object(monitor, "_build_signed_transfer", return_value={"type": "TRANSFER", "nonce": 7}),
+            patch.object(monitor, "_post_signed_tx", return_value=None),
+            patch.object(monitor, "_head_height", return_value=100),
+            caplog.at_level(logging.CRITICAL),
+        ):
+            monitor._last_post_rejection = "nonce slot 7 already occupied"
+            monitor._submit_payout("0xcoll", "0x" + "d" * 40, Decimal("100"))
+
+        alerts = [r for r in caplog.records if "ALERT" in r.message and "nonce" in r.message.lower()]
+        assert alerts
+        d = get_deposit("0xcoll")
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value
+
+
+class TestCursorHoldOnTotalFailure:
+    """If process_deposit AND the retry fallback both raise, the cursor
+    must not advance — the block gets rescanned next poll."""
+
+    def test_cursor_held_when_both_handlers_fail(self, monitor):
+        from bridge_monitor.storage import get_cursor, set_cursor
+
+        mock_tx = MagicMock()
+        mock_tx.get.side_effect = lambda k, d="": {
+            "to": monitor.bridge_eth_address,
+            "value": 10**18,
+            "from": "0xfrom",
+            "input": "0x",
+        }.get(k, d)
+        mock_tx.hash.hex.return_value = "0xlosttx"
+
+        set_cursor("last_processed_block", 96)  # scan only block 97
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            patch.object(monitor, "process_deposit", side_effect=RuntimeError("boom")),
+            patch.object(monitor, "_mark_for_retry", side_effect=RuntimeError("db gone")),
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = {"transactions": [mock_tx]}
+            monitor.poll_ethereum()
+
+        assert get_cursor("last_processed_block") == 96  # not advanced
+
+
+class TestDustAndRecipientValidation:
+    """Sub-minimum ETH is recorded, malformed recipients fail at once."""
+
+    def test_dust_deposit_recorded_failed(self, monitor):
+        from bridge_monitor.storage import get_deposit, set_cursor
+
+        mock_tx = MagicMock()
+        mock_tx.get.side_effect = lambda k, d="": {
+            "to": monitor.bridge_eth_address,
+            "value": 10**13,  # 0.00001 ETH < min
+            "from": "0xdust",
+            "input": "0x",
+        }.get(k, d)
+        mock_tx.hash.hex.return_value = "0xdust01"
+
+        set_cursor("last_processed_block", 96)
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            patch.object(monitor, "process_deposit") as mock_process,
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = {"transactions": [mock_tx]}
+            monitor.poll_ethereum()
+
+        mock_process.assert_not_called()
+        d = get_deposit("0xdust01")
+        assert d is not None  # every inflow is ledger-visible
+        assert d["status"] == BridgeDepositStatus.FAILED.value
+        assert "MIN_ETH_DEPOSIT" in d["error_message"]
+
+    def test_malformed_recipient_fails_once_no_retry(self, monitor):
+        """'0x' + garbage parses as a 0x-prefixed string today; with strict
+        validation it must fail immediately, not burn the retry budget."""
+        from bridge_monitor.storage import get_deposit
+
+        # utf-8("0xNOTVALID") hex-encoded — decodes to a 0x string that is
+        # NOT a valid 42-char address
+        bad_data = "0x" + b"0xNOTVALID".hex()
+        with patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")):
+            monitor.process_deposit("0xmal", "0xfrom", Decimal("0.1"), bad_data)
+
+        d = get_deposit("0xmal")
+        assert d["status"] == BridgeDepositStatus.FAILED.value
+        assert d["next_retry_at"] is None  # permanent, no retry burn
+
+
 class TestKickBurst:
     """Demand-triggered polling: a fresh kick file switches the loop into a
     ~3-polls-in-60s burst; the slow poll_interval stays the safety net."""
