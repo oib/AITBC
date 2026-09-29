@@ -1772,3 +1772,31 @@ Changes:
   its ledger divergence is the sync-contract signal that caught the
   v0.25.8 case-duplicates; revisit alongside proposal if alert noise
   appears from RPC-side votes while sync is off.
+### governance_executors gate verified and pinned (2026-09-29)
+
+Operator-ordered check, outcome: **no emergency execute needed** —
+``governance_executors`` is set on all five hosts
+(``0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B``, applied at block 9819 via
+``gap56-set-executors``; identical values verified by direct query and the
+digest monitor).
+
+Empirical gate verification (in-memory harness on node2):
+
+- funded non-executor ``GOVERNANCE_EXECUTE`` (parameter_change →
+  bridge_release_authority=attacker): REJECTED at v5/v6/v7/v8 —
+  "not an authorized executor".
+- executor sender: passes.
+- executor list UNSET: REJECTED at v5+ ("parameter is not set" — the
+  fail-closed branch). Lenient only at v4, where sealed history predates
+  the parameter — the intended compatibility path.
+- chain_parameter_history audit: 4 authority-parameter changes total, all
+  gap56–gap60 proposals to known addresses — every change accounted for.
+
+New regression test ``tests/test_governance_executor_gate.py`` (4 cases)
+pins the gate so it cannot silently regress.
+
+Queued version-height work (unchanged): bind ``execution_payload`` to the
+stored proposal rather than the tx-carried override, and — if on-chain
+governance is intended — signed votes with stake-snapshot tallies gating
+execution. The executor key remains the most sensitive key: it can
+reassign every authority, including itself — first in the key-split list.
