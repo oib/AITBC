@@ -473,6 +473,17 @@ class ChainSettings(BaseSettings):
     # validator-set admission control are operational.
     bridge_release_enabled: bool = False
 
+    # Operator pause switch for NEW bridge locks (BRIDGE_LOCKS_PAUSED). While
+    # set, every lock-request surface — POST /bridge/lock, /bridge/batch/lock,
+    # /swap and /cross-chain/bridge, plus the initiate_transfer chokepoint
+    # itself — refuses new locks with HTTP 503; refunds, status reads and the
+    # confirm path are untouched. In place pending the attestation-based
+    # bridge validator set (the multisig confirm threshold is unreachable
+    # while block headers carry only the proposer signature). A lock already
+    # in the mempool still seals — gating admission would strand its funds
+    # (BRIDGE_REFUND binds a *sealed* lock from v6).
+    bridge_locks_paused: bool = False
+
     # Bridge configuration (v0.7.0). Operational parameters for the cross-chain
     # bridge. Defaults mirror the constants in aitbc/constants.py
     # (BRIDGE_TIMEOUT_SECONDS, BRIDGE_RETRY_LIMIT, etc.) so they can be tuned
