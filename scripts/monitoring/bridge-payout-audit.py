@@ -39,8 +39,9 @@ for db in sorted(glob.glob('/var/lib/aitbc/**/bridge_deposits*.db', recursive=Tr
         con = sqlite3.connect('file:%s?mode=ro' % db, uri=True, timeout=10)
         cols = {r[1] for r in con.execute('PRAGMA table_info(eth_deposits)')}
         err = 'error_message' if 'error_message' in cols else 'NULL'
-        for h, ait, st, em in con.execute('SELECT tx_hash, ait_tx_hash, status, %s FROM eth_deposits' % err):
-            rows.append({'db': db, 'tx_hash': h, 'ait_tx_hash': ait, 'status': st, 'error_message': em})
+        rcp = 'recipient' if 'recipient' in cols else 'NULL'
+        for h, ait, st, em, rc in con.execute('SELECT tx_hash, ait_tx_hash, status, %s, %s FROM eth_deposits' % (err, rcp)):
+            rows.append({'db': db, 'tx_hash': h, 'ait_tx_hash': ait, 'status': st, 'error_message': em, 'recipient': rc})
         con.close()
     except Exception as exc:
         rows.append({'db': db, 'error': str(exc)})
@@ -153,17 +154,31 @@ def main() -> int:
             bad = 1
 
     # written-off rows are deliberately unsettled (each carries a written
-    # reason) — listed for visibility, not a violation
+    # reason) — listed for visibility, not a violation. Rows WITH a
+    # recorded recipient are owed money and listed separately so an
+    # operator can't quietly write off a debt.
+    def _valid_recip(addr: object) -> bool:
+        return isinstance(addr, str) and addr.startswith("0x") and len(addr) == 42
+
     for row in ledgers:
-        if row.get("status") == "written_off":
+        if row.get("status") != "written_off":
+            continue
+        if _valid_recip(row.get("recipient")):
+            print(
+                f"  WRITTEN-OFF DEBT: {row['host']} {row['db']}: {row['tx_hash'][:18]}… "
+                f"recipient {row['recipient'][:18]}… — verify deliberate: "
+                f"{(row.get('error_message') or 'no reason!')[:80]}",
+                flush=True,
+            )
+        else:
             print(
                 f"  note: {row['host']} {row['db']}: written-off deposit {row['tx_hash'][:18]}… "
                 f"({(row.get('error_message') or 'no reason!')[:90]})",
                 flush=True,
             )
-            if not row.get("error_message"):
-                print("  FAIL: written-off row without a recorded reason", flush=True)
-                bad = 1
+        if not row.get("error_message"):
+            print("  FAIL: written-off row without a recorded reason", flush=True)
+            bad = 1
 
     # collect every payout hash that must exist sealed on chain
     need = {row["ait_tx_hash"] for row in ledgers if row.get("status") == "completed" and row.get("ait_tx_hash")}
