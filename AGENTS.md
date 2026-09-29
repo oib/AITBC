@@ -72,6 +72,14 @@ Deployment conventions worth knowing:
 - Release notes go in `docs/releases/v<major>.<minor>/v<version>_change.log`
   via `scripts/release/append-changelog.sh <file>` (entry on stdin; refuses
   duplicate `### ` headers and avoids heredoc-over-ssh quoting damage).
+- Release tags are cut at the deploy commit: a fleet-wide deploy of
+  consensus/sync/apply changes gets the next `v<major>.<minor>.<patch>` tag,
+  the version's changelog is finalised in the tagged commit (later entries
+  go to the next version's log), and the release is published at the same
+  time. Consensus-activation height pins get their own tag whose release
+  notes state the activation height. Docs-only or single-service deploys
+  may stay untagged. `scripts/monitoring/fleet-config-check.sh` reports
+  each host's checkout commit against the latest tag.
 
 ## No secrets in the repo
 
