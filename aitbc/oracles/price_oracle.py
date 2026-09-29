@@ -25,6 +25,8 @@ from aitbc.constants import DATA_DIR
 logger = get_logger(__name__)
 
 # ── Chainlink feed addresses (Ethereum mainnet) ───────────────────────────────
+# Sepolia feeds publish test values on an irregular schedule — fine for
+# verification, not a mainnet price source (see CHAINLINK_MAX_AGE_SECONDS).
 CHAINLINK_FEEDS_SEPOLIA: dict[str, str] = {
     "ETH/USD": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
 }
@@ -120,6 +122,19 @@ class ChainlinkOracle:
             round_data = client.call_contract(feed_addr, _CHAINLINK_ABI, "latestRoundData")
             answer = round_data[1]
             updated_at = round_data[3]
+            # Treat a stale feed answer as unavailable — paying out on an old
+            # price is worse than retrying later. Sepolia feeds are sparse
+            # test data, so the default is generous (3 days).
+            max_age = int(os.getenv("CHAINLINK_MAX_AGE_SECONDS", "259200"))
+            age = time.time() - int(updated_at)
+            if age > max_age:
+                logger.warning(
+                    "Chainlink %s answer stale (age %.0fs > %ss) — treating feed as unavailable",
+                    pair,
+                    age,
+                    max_age,
+                )
+                return None
             price = Decimal(answer) / (Decimal(10) ** decimals)
             return PriceResult(
                 base=base,

@@ -34,6 +34,11 @@ ETH_WALLET_PRIVATE_KEY = os.getenv("ETH_WALLET_PRIVATE_KEY", "")
 BRIDGE_ADMIN_PRIVATE_KEY = os.getenv("BRIDGE_ADMIN_PRIVATE_KEY", "")
 POLL_INTERVAL = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))  # seconds
 BRIDGE_ENABLED = os.getenv("BRIDGE_ENABLED", "false").lower() == "true"
+# The wallet's embedded ETH-deposit watcher is a legacy duplicate of the
+# dedicated aitbc-bridge-monitor service — two monitors pay deposits twice.
+# It stays off unless explicitly enabled, and it should never hold a payout
+# key (see the key-split plan).
+DEPOSIT_MONITOR_ENABLED = os.getenv("BRIDGE_DEPOSIT_MONITOR_ENABLED", "false").lower() == "true"
 WITHDRAW_ENABLED = os.getenv("BRIDGE_WITHDRAW_ENABLED", "true").lower() == "true"
 WITHDRAW_POLL_INTERVAL = int(os.getenv("BRIDGE_WITHDRAW_POLL_INTERVAL", "30"))  # seconds
 
@@ -428,12 +433,12 @@ async def poll_once() -> dict[str, Any]:
     Returns a summary of the poll, including how many transactions were
     scanned and how many new deposits were recorded.
     """
-    if not BRIDGE_ENABLED:
+    if not BRIDGE_ENABLED or not DEPOSIT_MONITOR_ENABLED:
         return {
             "scanned": 0,
             "recorded": 0,
             "skipped": True,
-            "reason": "BRIDGE_ENABLED=false",
+            "reason": "deposit monitor disabled",
         }
 
     if not ETH_WALLET_ADDRESS:
@@ -467,8 +472,8 @@ async def monitor_loop() -> None:
     """
     Main monitoring loop that polls for new transactions.
     """
-    if not BRIDGE_ENABLED:
-        logger.info("Bridge monitoring disabled (BRIDGE_ENABLED=false)")
+    if not BRIDGE_ENABLED or not DEPOSIT_MONITOR_ENABLED:
+        logger.info("Bridge deposit monitoring disabled (BRIDGE_ENABLED/BRIDGE_DEPOSIT_MONITOR_ENABLED)")
         return
 
     if not ETH_WALLET_ADDRESS:
@@ -506,7 +511,7 @@ def start_monitoring() -> asyncio.Task[None] | None:
     Returns the task if bridge monitoring is enabled, None otherwise.
     The caller is responsible for running an event loop.
     """
-    if not BRIDGE_ENABLED:
+    if not BRIDGE_ENABLED or not DEPOSIT_MONITOR_ENABLED:
         return None
 
     try:

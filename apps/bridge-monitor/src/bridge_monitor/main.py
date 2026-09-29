@@ -50,6 +50,13 @@ class BridgeMonitor:
         self.poll_interval = int(os.getenv("BRIDGE_POLL_INTERVAL", "30"))
         self.min_eth_deposit = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
         self.min_ait_deposit = Decimal(os.getenv("BRIDGE_MIN_DEPOSIT_AIT", "1"))
+        # Deposits are only paid once the source chain has buried them this
+        # deep — a reorg can otherwise undo a deposit that was already paid.
+        # Sepolia is forgiving; mainnet wants >=12.
+        self.confirmations = int(os.getenv("BRIDGE_CONFIRMATIONS", "3"))
+        # Critical-logged when the payout wallet drops below roughly a day of
+        # expected payouts — otherwise deposits pile up in PENDING_RETRY.
+        self.low_float_units = ait_to_units(Decimal(os.getenv("BRIDGE_LOW_FLOAT_AIT", "50")))
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
         # route (and the deposit-instruction call) touches this file; a fresh
@@ -202,6 +209,12 @@ class BridgeMonitor:
             logger.warning("Could not parse AIT recipient from tx data: %s", tx_data)
             create_deposit(tx_hash, from_address, str(eth_amount), "")
             update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Invalid AIT recipient address")
+            logger.critical(
+                "ALERT: deposit %s permanently FAILED — %s ETH from %s received but cannot be paid (no recipient)",
+                tx_hash,
+                eth_amount,
+                from_address,
+            )
             return
         # Fetch oracle prices once for both calculation and storage
         eth_usd_result = self.price_oracle.get_price("ETH", "USD")
@@ -210,9 +223,12 @@ class BridgeMonitor:
         ait_usd = ait_usd_result.price if ait_usd_result else None
         ait_amount = self.calculate_ait_amount(eth_amount, eth_usd=eth_usd, ait_usd=ait_usd)
         if not ait_amount:
-            logger.error("Could not calculate AIT amount")
+            # Temporary failure (oracle/RPC outage): keep the recipient and
+            # leave the row PENDING_RETRY so a later pass recomputes the
+            # price — never strand funds received.
+            logger.error("Could not calculate AIT amount — deposit stays PENDING_RETRY")
             create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
-            update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Price calculation failed")
+            self._mark_for_retry(tx_hash, "Price oracle unavailable")
             return
         if ait_amount < self.min_ait_deposit:
             logger.warning("Deposit %s: AIT amount %s below minimum %s, rejecting", tx_hash, ait_amount, self.min_ait_deposit)
@@ -222,6 +238,9 @@ class BridgeMonitor:
                 ait_amount=str(ait_amount),
                 status=BridgeDepositStatus.FAILED,
                 error_message=f"AIT amount {ait_amount} below minimum {self.min_ait_deposit}",
+            )
+            logger.critical(
+                "ALERT: deposit %s permanently FAILED — %s ETH received but below minimum payout", tx_hash, eth_amount
             )
             return
         deposit_id = create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
@@ -250,7 +269,14 @@ class BridgeMonitor:
         retry_count = (deposit.get("retry_count", 0) if deposit else 0) + 1
         max_retries = 5
         if retry_count >= max_retries:
-            logger.error("Deposit %s exhausted %s retries, marking FAILED", tx_hash, max_retries)
+            # Retries exhausted = funds received but not paid — alert, don't
+            # let it disappear.
+            logger.critical(
+                "ALERT: deposit %s exhausted %s retries — funds received but not paid: %s",
+                tx_hash,
+                max_retries,
+                error_message,
+            )
             update_deposit(
                 tx_hash,
                 status=BridgeDepositStatus.FAILED,
@@ -290,9 +316,20 @@ class BridgeMonitor:
             ait_recipient = d["ait_recipient"]
             ait_amount_str = d.get("ait_amount")
             if not ait_amount_str:
-                logger.error("Retry for %s: no ait_amount stored, marking FAILED", tx_hash)
-                update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Retry failed: no AIT amount")
-                continue
+                # Price was unavailable when first seen — recompute now from
+                # the stored ETH amount rather than marking FAILED (funds
+                # were received; this is a temporary failure, not permanent).
+                try:
+                    ait_amount = self.calculate_ait_amount(Decimal(d["eth_amount"]))
+                except Exception as e:
+                    logger.error("Retry %s price recalculation error: %s", tx_hash, e)
+                    self._mark_for_retry(tx_hash, f"Price recalculation error: {e}")
+                    continue
+                if not ait_amount:
+                    self._mark_for_retry(tx_hash, "Price oracle still unavailable")
+                    continue
+                ait_amount_str = str(ait_amount)
+                update_deposit(tx_hash, ait_amount=ait_amount_str)
             ait_amount = Decimal(ait_amount_str)
             logger.info("Retrying deposit %s: %s AIT to %s", tx_hash, ait_amount, ait_recipient)
             update_deposit(tx_hash, status=BridgeDepositStatus.PROCESSING)
@@ -305,12 +342,33 @@ class BridgeMonitor:
             else:
                 self._mark_for_retry(tx_hash, "Retry: failed to submit AIT transfer")
 
+    def _check_float(self) -> None:
+        """Alert once per poll when the payout wallet is running dry."""
+        try:
+            import httpx
+
+            resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
+            if resp.status_code != 200:
+                return
+            balance = int(resp.json().get("balance", 0))
+            if balance < self.low_float_units:
+                logger.critical(
+                    "ALERT: bridge payout float low — %s units left (< %s); deposits will pile up in PENDING_RETRY",
+                    balance,
+                    self.low_float_units,
+                )
+        except Exception as e:
+            logger.warning("payout float check failed: %s", e)
+
     def poll_ethereum(self) -> None:
         """Poll Ethereum for new transactions to bridge address."""
         try:
+            self._check_float()
             w3 = self.eth_rpc._get_web3()
-            latest_block = w3.eth.block_number
-            logger.debug("Latest block: %s", latest_block)
+            # Only pay for deposits buried by BRIDGE_CONFIRMATIONS blocks —
+            # a reorg of an unconfirmed deposit must never have been paid.
+            latest_block = max(0, w3.eth.block_number - self.confirmations)
+            logger.debug("Latest confirmed block: %s", latest_block)
 
             # Use persistent cursor; bootstrap from latest_block - 10 on first run
             cursor = get_cursor("last_processed_block")
@@ -329,6 +387,13 @@ class BridgeMonitor:
                     set_cursor("last_processed_block", block_num)
                     continue
                 for tx in block["transactions"]:
+                    from_address = tx.get("from", "")
+                    if from_address and from_address.lower() == self.bridge_eth_address:
+                        # Self-sends and the bridge's own outbound sends are
+                        # never deposits — otherwise the wallet key holder
+                        # could mint AIT payouts for the price of gas.
+                        logger.debug("Skipping own tx %s", tx.hash.hex())
+                        continue
                     to_address = tx.get("to", "")
                     if to_address and to_address.lower() == self.bridge_eth_address:
                         value = tx.get("value", 0)
@@ -337,7 +402,6 @@ class BridgeMonitor:
                             logger.debug("Skipping small deposit: %s ETH", eth_amount)
                             continue
                         tx_hash = tx.hash.hex()
-                        from_address = tx.get("from", "")
                         tx_data = tx.get("input", "0x")
                         logger.info("Found deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
                         try:
