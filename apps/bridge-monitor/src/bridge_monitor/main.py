@@ -316,6 +316,7 @@ class BridgeMonitor:
             eth_usd_price=str(eth_usd) if eth_usd else None,
             ait_usd_price=str(ait_usd) if ait_usd else None,
             signed_tx=json.dumps(transaction),
+            envelope_hash=ait_tx_hash,
             submitted_height=self._head_height(),
             rebroadcast_count=0,
             ait_tx_hash=ait_tx_hash,
@@ -323,6 +324,9 @@ class BridgeMonitor:
         )
         posted = self._post_signed_tx(transaction)
         if posted and posted != ait_tx_hash:
+            # The RPC normalized the tx differently — its hash is what the
+            # chain/mempool will store, so seal lookups must use it. The
+            # derived envelope_hash stays as the envelope-integrity anchor.
             logger.warning("RPC returned hash %s differing from derived %s", posted, ait_tx_hash)
             update_deposit(tx_hash, ait_tx_hash=posted)
         if posted:
@@ -501,8 +505,9 @@ class BridgeMonitor:
                 continue
             envelope = json.loads(signed_raw)
             derived = self._envelope_tx_hash(envelope)
-            if payout_hash and derived != payout_hash:
-                logger.error("Stored envelope hash mismatch for %s (stored %s) — refusing rebroadcast", derived, payout_hash)
+            expected = d.get("envelope_hash") or d.get("ait_tx_hash")
+            if expected and derived != expected:
+                logger.error("Stored envelope hash mismatch for %s (expected %s) — refusing rebroadcast", derived, expected)
                 continue
             posted = self._post_signed_tx(envelope)
             new_count = rebroadcast_count + 1
