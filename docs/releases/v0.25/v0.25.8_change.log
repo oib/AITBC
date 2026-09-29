@@ -1633,3 +1633,75 @@ stores a single signature. The 1-signer proposer path
 (``_verify_proposer_signature`` / the non-multisig branch of
 ``_verify_header_threshold_signatures``, requiring the recovered signer ==
 ``header.proposer`` and ∈ the validator set) is the only working path.
+
+### New bridge locks paused — BRIDGE_LOCKS_PAUSED (2026-09-29)
+
+``POST /bridge/lock``, ``/bridge/batch/lock``, ``/swap`` and
+``/cross-chain/bridge`` now return HTTP 503
+``{"detail": "Bridge paused: locks unavailable until validator attestation is live"}``
+while ``BRIDGE_LOCKS_PAUSED=true`` (``config.py: bridge_locks_paused``,
+code default False; set true in ``/etc/aitbc/blockchain.env`` on all five
+hosts — the env file the ``aitbc-blockchain-rpc`` unit already loads, so
+the RPC process and the in-process bridge see the flag). Refund
+(``/bridge/unlock``), status reads, confirm, batch-confirm and withdraw
+are deliberately untouched: in-flight transfers stay refundable/releasable
+while locks are paused.
+
+Boundary chosen: the lock *request* path, not mempool admission. All four
+REST surfaces funnel through ``CrossChainBridge.initiate_transfer``, which
+now raises ``BridgeLocksPausedError`` (a ValueError) before any
+debit/row/mempool write — the chokepoint also covers internal callers, so
+no new validly-signed BRIDGE_LOCK envelope can be created while paused.
+Admission stays open on purpose: nothing outside ``initiate_transfer``
+can produce a BRIDGE_LOCK that seals anyway (v9 apply requires the bridge
+authority ``bridge_signature`` — ``state/state_transition.py`` and the
+pure path enforce it, and the proposer skips pre-registered locks whose
+signature fails), a replayed envelope dedupes on ``tx_hash``, and — the
+deciding point — a lock issued *before* the pause must still be able to
+seal, because ``BRIDGE_REFUND`` binds a *sealed* lock since v6. Refusing
+admission while paused would strand an in-flight lock's funds, which is
+exactly what the pause exists to prevent.
+
+Verified before enabling: ``cross_chain_transfer`` has zero pending/locked
+rows on all five hosts (only confirmed + refunded), and no BRIDGE_LOCK
+sits in any mempool — nothing in flight to drain.
+
+### Bridge validator set — decision: the 4 consensus validators, height-scoped (2026-09-29)
+
+Operator decision on the bridge confirm validator set (builds on the
+2026-09-29 feasibility note above, which established that collected
+attestations already sign exactly the header domain the bridge verifies):
+
+- The ``bridge_validators`` table is retired for confirm purposes. The
+  validator set becomes the 4 consensus validators, stored as a
+  height-scoped chain parameter — the same mechanism as
+  ``bridge_release_authority`` (``chain_parameter_history`` via
+  ``_chain_parameter_value``), so every node resolves the identical set
+  at a given block height.
+- Threshold is 3-of-4, matching block production (proposer +
+  ``min_attestations=2``): a block is final exactly when the bridge's
+  release quorum is met, so the confirm threshold becomes reachable —
+  ``bridge_multisig_threshold=2`` is unreachable today because stored
+  headers carry only the proposer signature.
+- The proof is the block header plus its stored attestations verified
+  against that set. Attestations sign the header domain including
+  ``bridge_state_root`` and the proof binds the block hash — feasible
+  per the earlier note; a dedicated domain tag remains the cleaner
+  long-term cut if consensus and bridge verification diverge.
+- The ETH contract validator list and threshold are updated in the same
+  change as the key split.
+
+Until that lands, new locks stay paused (see the BRIDGE_LOCKS_PAUSED
+entry): locking value behind an unreachable release path would only park
+funds.
+
+### BOND_*/RECEIPT_CLAIM parity fixes verified behavior-neutral (2026-09-29)
+
+Fleet-wide verification for the parallel-path parity fixes landed in
+6026404775 (``feat(sync): … pure/sequential parity``): the ``transaction``
+table holds zero ``BOND_*`` rows and zero ``RECEIPT_CLAIM`` rows ever
+sealed on every host, so the BOND_* sequential-only correction and the
+RECEIPT_CLAIM stale-ORM fix are behavior-neutral on all recorded history.
+They change only what a *future* block containing such a transaction
+would compute; no past block exercises either path, so no replay
+divergence is possible.
