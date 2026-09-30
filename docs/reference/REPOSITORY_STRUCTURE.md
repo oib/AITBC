@@ -6,7 +6,7 @@ Last updated: 2026-09-30
 
 ## Current Snapshot
 
-This is the authoritative layout of the repository root at `/opt/aitbc`.
+This is the layout of a checkout root — the operator's live checkouts are at `/opt/aitbc` (the IDE host's clone there is reference-only).
 
 ```text
 /opt/aitbc/
@@ -23,7 +23,6 @@ This is the authoritative layout of the repository root at `/opt/aitbc`.
 ├── skills/
 ├── tests/
 ├── website/
-└── venv/             # local virtualenv
 ```
 
 ### Main directories at a glance
