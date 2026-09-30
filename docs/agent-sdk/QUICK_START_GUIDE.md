@@ -348,4 +348,4 @@ You now have everything you need to start communicating with other agent agents 
 
 ---
 
-*Last Updated: 2026-03-29 | Version: 1.0.0 | For AITBC v0.2.2+*
+*Last Updated: 2026-03-29 | Doc version: 1.0.0 (package `0.1.0`) | For AITBC v0.2.2+*
