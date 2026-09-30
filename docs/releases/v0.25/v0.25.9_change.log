@@ -649,3 +649,10 @@ introduction it caught `BRIDGE_BURST_INTERVAL`, `BRIDGE_BURST_WINDOW`,
 `CHAIN_ID`, and the transitional `GENESIS_WALLET_*` fallbacks — all now in
 the README knob table. The same drift-fails-at-commit-time pattern the v9
 type-allowlist test uses; it generalises to other services' env docs.
+
+### docs(bridge): canonical-page pointers from monitoring index + wallet-setup guide (2026-09-30)
+
+`docs/features/bridge-monitoring.md` and
+`docs/development/10_ethereum-wallet-setup.md` now point at
+`apps/bridge-monitor/README.md` as the canonical page for the payout
+monitor instead of carrying partial duplicate detail.
