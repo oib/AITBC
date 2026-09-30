@@ -693,3 +693,10 @@ repointed; `getting-started/reference/security-notes.md` is a real
 pointer page. Also marked the 24 remaining June `apps/*`/`aitbc/*`
 skeleton READMEs with a stub banner so they no longer pose as
 maintained documentation.
+
+### docs(contracts): strip drifted helper lists from Python-contract stubs (2026-09-30)
+
+The `docs/contracts/*` per-file stubs enumerate private helpers that have
+drifted (`htlc.md` cited helpers removed from `htlc_contract.py`). The
+"Key Functions" sections are removed; the class-level summaries verified
+against the sources and each page carries a stub banner.

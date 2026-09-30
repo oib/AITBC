@@ -1,5 +1,8 @@
 # Agent Messaging Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative for signatures and behavior.
+
 AITBC Agent Messaging Contract Implementation
 
 ## Implementation Details
