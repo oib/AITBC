@@ -177,8 +177,14 @@ jobs:
           pip install pytest pytest-asyncio httpx
       - name: Start services
         run: sudo systemctl start postgresql redis-server aitbc-coordinator-api aitbc-blockchain-node
+      # NOTE: scripts/wait-for-services.sh was never implemented —
+      # substitute a readiness loop against the service health ports.
       - name: Wait for services
-        run: ./scripts/wait-for-services.sh
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8203/health && curl -sf http://localhost:8202/health && break
+            sleep 2
+          done
       - name: Run E2E tests
         run: pytest tests/e2e/ -v --tb=short
       - name: Stop services
