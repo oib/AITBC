@@ -675,6 +675,30 @@ else
     fi
 fi
 
+echo "=== changelog coverage (commits since latest tag not yet in the release log) ==="
+# The release log lags by design — it is written after the fact. List every
+# commit since the latest tag whose short hash the open log does not cite,
+# so "docs are behind" surfaces as a line, not a remembered task. Changelog
+# commits themselves are exempt.
+REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+# Search every change log: relocated entries live in the version file they
+# were curated into, not necessarily the newest one. concat then one grep —
+# xargs batching would false-flag when a hash lands in a different batch.
+LOG_FILES=$(cat "$REPO_DIR"/docs/releases/*/*_change.log "$REPO_DIR"/docs/releases/*_change.log 2>/dev/null)
+if [ -z "${latest_tag:-}" ] || [ -z "$LOG_FILES" ]; then
+    echo "  NOTE: no tag or changelog found — section skipped"
+else
+    uncovered=0
+    for c in $(git -C "$REPO_DIR" log --format=%h --abbrev=7 "$latest_tag..HEAD" 2>/dev/null); do
+        subj=$(git -C "$REPO_DIR" log -1 --format=%s "$c")
+        case "$subj" in docs\(changelog\)*) continue ;; esac
+        # covered if the log cites the hash (any length) or the subject line
+        echo "$LOG_FILES" | grep -qF "$c" || echo "$LOG_FILES" | grep -qF "$subj" \
+            || { uncovered=$((uncovered+1)); printf "  uncovered: %s %s\n" "$c" "$subj"; }
+    done
+    [ "$uncovered" -eq 0 ] && echo "  all commits since $latest_tag are cited in a release log"
+fi
+
 echo "=== bridge deposit monitor check (exactly one inbound watcher fleet-wide) ==="
 # Two independent watchers paid the same deposit twice once a second key
 # existed (2026-09-29): the standalone aitbc-bridge-monitor on hub is the
