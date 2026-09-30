@@ -7,7 +7,7 @@ This guide helps you quickly get started with the new security and performance f
 ### 1. Secret Management
 
 ```python
-from aitbc.crypto.security import SecretManager
+from aitbc.crypto.secrets import SecretManager
 
 # Initialize
 manager = SecretManager(default_ttl_hours=24)
@@ -23,7 +23,7 @@ manager.rotate_secret("api_key", "new_secret_value")
 ### 2. Blockchain Validation
 
 ```python
-from aitbc.security_hardening import SecurityValidator
+from aitbc.security.validators import SecurityValidator
 
 # Validate inputs
 if SecurityValidator.validate_ethereum_private_key("0x" + "a" * 64):
@@ -103,7 +103,7 @@ Use this checklist to ensure you're using the new features effectively:
 ### Use Case 1: Secure API Key Storage
 
 ```python
-from aitbc.crypto.security import SecretManager
+from aitbc.crypto.secrets import SecretManager
 
 # Initialize with environment variable
 import os
@@ -124,7 +124,7 @@ if not api_key:
 ### Use Case 2: Blockchain Transaction Validation
 
 ```python
-from aitbc.security_hardening import SecurityValidator
+from aitbc.security.validators import SecurityValidator
 from aitbc.exceptions import ValidationError
 
 def validate_transaction(tx: dict) -> bool:
@@ -209,9 +209,9 @@ db.close()
 ```python
 # config.py
 import os
-from aitbc.crypto.security import SecretManager
+from aitbc.crypto.secrets import SecretManager
 from aitbc.caching import BlockchainCache
-from aitbc.redis_cache import get_cache
+from aitbc.caching import get_cache
 from aitbc.database import ReadReplicaManager
 
 # Secret Manager
@@ -243,7 +243,7 @@ DB_MANAGER = ReadReplicaManager(
 
 ```python
 # dev_config.py
-from aitbc.crypto.security import SecretManager
+from aitbc.crypto.secrets import SecretManager
 from aitbc.caching import BlockchainCache
 from aitbc.database import DatabaseConnection
 from pathlib import Path
