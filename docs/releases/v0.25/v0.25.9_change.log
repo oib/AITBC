@@ -811,3 +811,15 @@ comes from `scripts/security/security_audit.py`, not a stale snapshot.
 entirely: every mainnet deploy uses the disposable-deployer + multisig
 owner + deployment-record model (the bridge's BR-1 procedure generalized);
 CI secrets keep only testnet keys + RPC/verification endpoints.
+
+### docs(agent-coordinator): operator-guide audit — fictional Redis keys fixed (2026-09-30)
+
+Full audit of `OPERATOR_GUIDE.md` + its 10 topic files: ports (8107/8203),
+env vars (`AGENT_COORDINATOR_BIND_*`, `REDIS_URL`), routes
+(`/v1/agents/register`, `/v1/tasks/status`, `/health`) and the
+`aitbc-agent-coordinator` unit all verified against the code. Two recipes
+invented a `agents:active`/`agent:*` Redis layout that does not exist —
+registration lives in the agent_registry service. Replaced with the real
+API: `POST /v1/agents/discover`, `GET /v1/agents/{id}`, and
+`PUT /v1/agents/{id}/status` (body `{"status": "inactive"}`; auth note
+added — agent-scoped principal or admin required).

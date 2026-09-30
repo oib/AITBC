@@ -54,7 +54,11 @@ Found 0 agents
 1. Check if agents are registered:
 
 ```bash
-redis-cli SMEMBERS agents:active
+# list/discovered agents via the API — there is no `agents:active`
+# Redis key; registration state lives in the agent_registry service
+curl -X POST http://localhost:8107/v1/agents/discover -H 'content-type: application/json' -d '{}'
+# single agent:
+curl http://localhost:8107/v1/agents/<agent_id>
 ```
 
 1. Register an agent:
@@ -187,3 +191,5 @@ When issues occur, check in this order:
 - [Deployment](./operator-deployment.md) - Installation and service configuration
 - [Monitoring](./operator-monitoring.md) - Health checks and agent monitoring
 - [Performance Tuning](./operator-performance.md) - Load balancing and resource limits
+
+> Auth note: `/v1/agents/{id}/status` requires an authorized principal (agent-scoped credential or admin) — see `API.md`/`docs/security/agent-signed-envelopes.md` for the credential format.
