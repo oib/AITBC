@@ -74,4 +74,4 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup, conventions, and the PR p
 
 ## License
 
-[MIT License](LICENSE) — Copyright (c) 2025 AITBC.
+[MIT License](LICENSE) — Copyright (c) 2025–2026 AITBC.
