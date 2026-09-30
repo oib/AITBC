@@ -176,23 +176,22 @@ sqlite3 /var/lib/aitbc/data/blockchain.db "PRAGMA journal_mode=WAL;"
 ```
 
 ### 6. Recovery Operations
+
+**One validator at a time.** Stopping two of four validators at once drops
+the fleet below quorum and halts the chain. And never `rm -rf` the live
+`data/` and copy the same possibly-broken state back — restore from a
+*named, known-good* backup/checkpoint instead.
+
 ```bash
-# Stop blockchain services
+# On ONE node at a time:
 systemctl stop aitbc-blockchain-node.service aitbc-blockchain-p2p.service
-ssh <node1> 'systemctl stop aitbc-blockchain-node.service aitbc-blockchain-p2p.service'
 
-# Backup current data
-cp -r /var/lib/aitbc/data /var/lib/aitbc/data.backup
-
-# Restore from backup if needed
-systemctl stop aitbc-blockchain-node.service
-rm -rf /var/lib/aitbc/data/*
-cp -r /var/lib/aitbc/data.backup/* /var/lib/aitbc/data/
-systemctl start aitbc-blockchain-node.service
-
-# Restart services
+# Restore data/ from a specific known-good backup or checkpoint,
+# then restart
 systemctl start aitbc-blockchain-node.service aitbc-blockchain-p2p.service
-ssh <node1> 'systemctl start aitbc-blockchain-node.service aitbc-blockchain-p2p.service'
+
+# Verify height + block-hash parity with peers BEFORE touching the next
+# node; only then proceed
 ```
 
 ### 7. Communication Test

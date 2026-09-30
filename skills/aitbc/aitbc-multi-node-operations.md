@@ -96,9 +96,13 @@ ssh node2 'cd /opt/aitbc && git pull origin main'
 
 ### Handle Sync Conflicts
 ```bash
-# If git pull fails on remote node
-ssh node1 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
-ssh node2 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
+# If git pull fails on remote node — inspect BEFORE discarding anything:
+# `checkout --force`/`clean -fd` on the commit nodes (hub, node2) can wipe
+# uncommitted work.
+ssh node1 'cd /opt/aitbc && git status --short'
+ssh node2 'cd /opt/aitbc && git status --short'
+# If the tree is provably clean, just fast-forward:
+ssh node1 'cd /opt/aitbc && git pull --ff-only'
 ```
 
 ### Service Restart After Sync
