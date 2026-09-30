@@ -104,7 +104,7 @@ class StageRunner:
                 log.info("Sleeping for %s seconds", sleep_time)
                 time.sleep(sleep_time)
                 return {"success": True, "exit_code": 0, "output": f"Slept for {sleep_time} seconds"}
-            except Exception as e:
+            except (ValueError, TypeError, OSError) as e:
                 log.error("Sleep command failed: %s", e)
                 return {"success": False, "error": str(e)}
         cmd_list = [self.aitbc_cli, *command.cmd.split(), *command.args]
