@@ -95,7 +95,14 @@ async def prove_ml_training(request: Request, proof_request: MLProofRequest) -> 
 @router.post("/verify/training")
 @rate_limit(rate=20, per=60)
 async def verify_ml_training(request: Request, verification_request: MLVerifyRequest) -> dict[str, Any]:
-    """Verify ZK proof for ML training"""
+    """Verify ZK proof for ML training.
+
+    ``verified: true`` means the proof is cryptographically valid for the
+    public signals the *caller* supplied — nothing here binds those signals
+    to a real training run. It is not evidence a computation happened; any
+    consumer that needs that must compare the signals against
+    server-derived expectations first.
+    """
     try:
         # The verification key is chosen server-side from the circuit. This endpoint used to
         # require verification_request["verification_key"] — the caller supplied the key
@@ -137,7 +144,11 @@ async def prove_modular_ml(request: Request, proof_request: MLProofRequest) -> d
 @router.post("/verify/inference")
 @rate_limit(rate=20, per=60)
 async def verify_ml_inference(request: Request, verification_request: MLVerifyRequest) -> dict[str, Any]:
-    """Verify ZK proof for ML inference"""
+    """Verify ZK proof for ML inference.
+
+    Same caveat as ``/verify/training``: ``verified`` is validity for the
+    caller-supplied signals only, not proof a real inference ran.
+    """
     try:
         # See verify_ml_training: the key is the service's, not the caller's.
         verification_result = await zk_service.verify_proof(

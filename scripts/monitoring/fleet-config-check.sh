@@ -219,6 +219,31 @@ if [ "$skip_flagged" -eq 0 ]; then
     echo "  SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL unset on all hosts (files and running processes)"
 fi
 
+echo "=== dev-mock flag check ==="
+# AGENT_INTEGRATION_ZK_MOCK enables a mock ZK proof service that mints fake
+# proof ids and always reports verified:true. It exists for
+# development/testing only — set on a live coordinator it silently turns
+# operator-facing "verification" into theatre. Flag any occurrence, in env
+# files or the running process.
+mock_flagged=0
+for h in $HOSTS; do
+    val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        "for f in /etc/aitbc/*.env; do if [ -r \"\$f\" ]; then grep -h '^AGENT_INTEGRATION_ZK_MOCK=' \"\$f\" 2>/dev/null; else sudo -n grep -h '^AGENT_INTEGRATION_ZK_MOCK=' \"\$f\" 2>/dev/null; fi; done | tail -1 | cut -d= -f2-" \
+        2>/dev/null || echo "UNREACHABLE")
+    run=$(running_env "$h" aitbc-coordinator-api AGENT_INTEGRATION_ZK_MOCK)
+    fset=""; rset=""
+    [ -n "$val" ] && [ "$val" != "UNREACHABLE" ] && fset=1
+    [ -n "$run" ] && [ "$run" != "UNREACHABLE" ] && [ "$run" != "NOTRUNNING" ] && rset=1
+    if [ -n "$fset" ] || [ -n "$rset" ]; then
+        mock_flagged=1
+        printf "  %-14s SET: file=%s running=%s <- mock ZK verification enabled\n" \
+            "$h" "${val:-<unset>}" "${run:-<unset>}"
+    fi
+done
+if [ "$mock_flagged" -eq 0 ]; then
+    echo "  AGENT_INTEGRATION_ZK_MOCK unset on all hosts (files and running process)"
+fi
+
 echo "=== effective transition heights (process env shadows code default) ==="
 # Env files are only one of three sources feeding the process environment —
 # systemd Environment= lines and leftover drop-ins (the rejoin runbook

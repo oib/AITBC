@@ -523,6 +523,12 @@ COORDINATOR_STALE_MINER_REAPER_INTERVAL_SECONDS=60
 COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS=300
 ```
 
+### Development-only flags — never set on a live node
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_INTEGRATION_ZK_MOCK` | unset | **Dangerous if set.** Enables a mock ZK proof service that mints fake proof ids and always reports `verified: true` to `POST /v1/agents/integration/integrations/zk/{id}` — operator-facing "verification" becomes theatre. Development/testing only; `fleet-config-check.sh` flags it if found in any env file or the running coordinator process. |
+
 ```bash
 # 1. On the hub: generate replacements (as above), keeping the old file for step 3
 # 2. Distribute to every node running wallet / agent-coordinator / event-bridge

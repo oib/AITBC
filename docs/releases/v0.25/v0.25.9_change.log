@@ -884,3 +884,9 @@ dropped 4 rows that became verifiable.
 
 - `POST /verify` returned `verified` for caller-supplied signals — valid for the signals given, not evidence of correct computation. Receipt circuits (`receipt_model`/`receipt_public`/`receipt_simple`) now get 400 pointing at `/receipt/verify`, which binds proofs to server-derived signals. Docstring states the semantics plainly.
 - `agent_coordination` mock `ZKProofService` (fake proof ids, always `verified: true`) was reachable via the mounted admin router `/v1/agents/integration/integrations/zk/{id}`. Its methods now raise unless `AGENT_INTEGRATION_ZK_MOCK=1` (dev only); the integration flow records the failures non-fatally in `integration_errors`.
+
+### fix(security): ML verify docstrings, ZK-mock flag surfaced, endpoint 503
+
+- `/v1/ml-zk/verify/training` and `/verify/inference`: docstrings now state `verified` = validity for caller-supplied signals only (no in-repo consumer treats them as acceptance — wording fix, no refusal needed).
+- `AGENT_INTEGRATION_ZK_MOCK` documented in ENVIRONMENT_CONFIGURATION.md (dangerous-if-set); `fleet-config-check.sh` flags it in env files or the running coordinator process.
+- `POST /v1/agents/integration/integrations/zk/{id}` returns a clear 503 while the mock is disabled instead of recording mock-verification failures.
