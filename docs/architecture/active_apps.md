@@ -1,6 +1,6 @@
 # Active AITBC Applications
 
-This document lists AITBC applications and their status as of v0.10.18. Some entries still reflect v0.5.0-era dates; the status fields are the current source of truth.
+This document lists AITBC applications and their status. Per-app dates were dropped — they were stale stamps, not signal; check `git log` for real activity.
 
 ## Core Services
 
@@ -11,7 +11,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Agent lifecycle management
 **Maintainer**: @aitbc-internal
 **Service File**: `aitbc-agent-coordinator.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Coordinator API
 
@@ -20,7 +19,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Main REST API for AITBC platform
 **Maintainer**: @aitbc-internal
 **Service File**: `aitbc-coordinator-api.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Blockchain Node
 
@@ -29,7 +27,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Blockchain node with RPC, P2P, and sync services
 **Maintainer**: @aitbc-blockchain
 **Service Files**: `aitbc-blockchain-node.service`, `aitbc-blockchain-p2p.service`, `aitbc-blockchain-rpc.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ## AI/ML Services
 
@@ -40,7 +37,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: GPU resource management and market
 **Maintainer**: @aitbc-gpu
 **Service File**: `aitbc-gpu.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### AI Engine
 
@@ -49,7 +45,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: AI model training and inference
 **Maintainer**: @aitbc-public
 **Service Files**: `aitbc-ai.service`, `aitbc-learning.service`, `aitbc-modality-optimization.service`, `aitbc-multimodal.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Whisper
 
@@ -57,7 +52,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: active
 **Purpose**: Speech-to-text transcription service
 **Maintainer**: @aitbc-public
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### FFmpeg
 
@@ -65,7 +59,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: active
 **Purpose**: Video transcoding service
 **Maintainer**: @aitbc-public
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ## Market & Trading
 
@@ -76,7 +69,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: GPU and compute resource market
 **Maintainer**: @aitbc-internal
 **Service File**: `aitbc-market.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Exchange
 
@@ -85,7 +77,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Cross-chain exchange and trading
 **Maintainer**: @aitbc-internal
 **Service File**: `aitbc-exchange.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Trading
 
@@ -93,7 +84,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: active
 **Purpose**: Trading and order management
 **Maintainer**: @aitbc-internal
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Pool Hub
 
@@ -101,7 +91,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: active
 **Purpose**: Liquidity pool management
 **Maintainer**: @aitbc-public
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ## Infrastructure Services
 
@@ -112,7 +101,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Wallet management service
 **Maintainer**: @aitbc-wallet
 **Service File**: `aitbc-wallet.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Governance
 
@@ -121,7 +109,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Governance and voting mechanisms
 **Maintainer**: @aitbc-internal
 **Service File**: `aitbc-governance.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Hermes Agent
 
@@ -130,7 +117,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Background agent daemon and task execution
 **Maintainer**: @aitbc-public
 **Service File**: `aitbc-hermes-agent.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### IPFS
 
@@ -139,7 +125,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Local content-addressed storage and rental gateway
 **Maintainer**: @aitbc-public
 **Service Files**: `aitbc-ipfs.service`, `aitbc-island-ipfs.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Memory
 
@@ -147,7 +132,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: under development
 **Purpose**: Memory / context service for agent tasks
 **Maintainer**: @aitbc-public
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Agent Management (deprecated)
 
@@ -165,7 +149,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Mining operations
 **Maintainer**: @root
 **Service File**: `aitbc-miner.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ## Network Services
 
@@ -176,7 +159,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Cross-chain event bridging
 **Maintainer**: @aitbc-public
 **Service File**: `aitbc-blockchain-event-bridge.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Blockchain Explorer
 
@@ -185,7 +167,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: Blockchain explorer interface
 **Maintainer**: @root
 **Service File**: `aitbc-blockchain-explorer.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Bridge Monitor
 
@@ -193,7 +174,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: active
 **Purpose**: Cross-chain bridge monitoring
 **Maintainer**: @root
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Edge
 
@@ -201,7 +181,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: active
 **Purpose**: Edge computing service
 **Maintainer**: @aitbc-public
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### API Gateway
 
@@ -210,7 +189,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Purpose**: API gateway for external access
 **Maintainer**: @aitbc-public
 **Service File**: `aitbc-api-gateway.service`
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ## Shared Libraries
 
@@ -220,7 +198,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: shared library
 **Purpose**: Shared core utilities for applications
 **Maintainer**: @root
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Shared Domain
 
@@ -228,7 +205,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: shared library
 **Purpose**: Shared domain models for applications
 **Maintainer**: @root
-**Recent Activity**: Active development (last commit: 2025-06-18)
 
 ## Experimental
 
@@ -238,7 +214,6 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Status**: experimental
 **Purpose**: Zero-knowledge circuit implementations
 **Maintainer**: @root
-**Recent Activity**: Last activity: 2025-05-23
 
 ## Summary
 
@@ -249,15 +224,9 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 - **Experimental**: 1
 - **Deprecated**: 1
 
-~~All active applications have recent git activity~~ — the per-app "last commit: 2025-06-18" stamps are stale (doc dated 2026-08-21) and are either:
-
-- Referenced in CI workflows
-- Have systemd service files
-- Are core services required for platform operation
-
 ## Version Information
 
-- **Current Version**: 0.10.18 (as per `aitbc --version`)
+- **Current Version**: see `aitbc --version` on a live node (docs lag releases)
 - **Last Updated**: 2026-08-21
 - **Documentation Version**: v0.10.18
 
