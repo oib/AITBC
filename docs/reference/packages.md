@@ -53,3 +53,9 @@ Use this directory for package-specific documentation such as:
 *Last updated: 2026-04-27*
 *Version: 1.0*
 *Status: Package documentation hub*
+
+## Non-Python packages
+
+`packages/` also holds non-Python packages: `aitbc-core` (core shared
+code), `aitbc-shared` (shared helpers), `theme-provider` and `web`
+(themes/site assets). The Python table above covers `packages/py/` only.
