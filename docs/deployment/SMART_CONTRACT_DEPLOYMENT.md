@@ -57,10 +57,10 @@ This guide covers the deployment of AITBC smart contracts to testnet and mainnet
 
 ### Required Secrets
 
-> **Not for the bridge.** The deployer-key-in-CI model below is the
-> generic contract path; it predates the BR-1 decision — the bridge
-> contract gets a disposable deployer and a 2-of-3 Safe owner, and no
-> deployer key lives in CI secrets. See the bridge section below.
+> **Testnet only.** Deployer keys in CI secrets are acceptable for testnet
+> deploys. **No private key for a mainnet deploy is ever stored in CI** —
+> mainnet uses the disposable-deployer + multisig-owner procedure in the
+> Mainnet Deployment section.
 
 Configure the following secrets in your CI/CD system:
 
@@ -70,10 +70,9 @@ Configure the following secrets in your CI/CD system:
 - `TESTNET_RPC_URL` - RPC endpoint for testnet
 - `TESTNET_EXPLORER_API_KEY` - API key for testnet block explorer
 
-**For Mainnet:**
+**For Mainnet:** no deployer key in CI — see Mainnet Deployment below.
 
-- `MAINNET_DEPLOYER_PRIVATE_KEY` - Private key for mainnet deployment
-- `MAINNET_RPC_URL` - RPC endpoint for mainnet
+- `MAINNET_RPC_URL` - RPC endpoint for mainnet (verification only)
 - `ETHERSCAN_API_KEY` - API key for Etherscan verification
 
 **For Monitoring:**
@@ -147,36 +146,35 @@ Before deploying to mainnet, ensure:
 - [ ] Backup of deployment keys
 - [ ] Rollback plan documented
 
-### Automated Deployment via CI/CD — Mainnet Deployment
+### Deployment model — mainnet (all contracts, not just the bridge)
 
-The mainnet deployment workflow is triggered by:
+No mainnet deployer key lives in CI secrets or on a reused account.
+Every mainnet deployment — bridge or otherwise — follows this procedure:
 
-- Creating a tag matching `mainnet-v*`
-- Manual trigger via `workflow_dispatch`
-
-**Workflow:** `.gitea/workflows/deploy-mainnet.yml` — **planned, does not exist yet**; deployments are run manually.
-
-### Manual Deployment — Mainnet Deployment
+1. **Disposable deployer.** Generate a fresh keypair, fund it with just
+   enough ETH for the deploy, use it once, then discard it. The deployer
+   holds no authority after the deploy.
+2. **Multisig owner.** Ownership transfers at deploy time to a multisig
+   (the bridge uses a 2-of-3 Safe with three separate human signers —
+   decision log `docs/decisions/README.md`). Never leave ownership on an
+   externally-owned deployer account.
+3. **Deployment record.** Record address, tx hash, deployer, owner,
+   chain, and the `contracts/` commit hash — the same fields the bridge
+   deployment records carry.
 
 ```bash
 cd /opt/aitbc/contracts
 
-# Set environment variables (2)
 export HARDHAT_NETWORK=mainnet
-export PRIVATE_KEY=<your-mainnet-private-key>
+export PRIVATE_KEY=<disposable-deployer-key>   # fresh, single-use
 export MAINNET_RPC_URL=<mainnet-rpc-url>
 
-# Compile contracts (2)
 npx hardhat compile
-
-# Run security scan
 bash contracts/scripts/security-analysis.sh
-
-# Run contract tests
 npx hardhat test
-
-# Deploy contracts (2)
 npx hardhat run scripts/deploy-mainnet.js --network mainnet
+# then: transfer ownership to the multisig, discard the deployer key,
+# and commit the deployment record
 ```
 
 ### Deployment Safety

@@ -19,9 +19,6 @@ This directory contains documentation for Agent agents and their integrations wi
 
 - **[guides/](./guides/)** - Agent agent guides and tutorials
 
-### Economics
-
-- **[AI Economics Masters](../market/ai-economics/AI_ECONOMICS_MASTERS.md)** - AI economics, market strategy, and investment strategy (canonical docs)
 
 ## Quick Start
 
