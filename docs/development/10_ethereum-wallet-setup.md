@@ -43,7 +43,9 @@ ETH_CONFIG = {
 > but no code reads them — `ETH_CONFIG` above is hardcoded in the router.
 > The standalone exchange service's real env vars are `BRIDGE_FEE_RATE`,
 > `BRIDGE_ETH_ADDRESS`, `MIN_ETH_DEPOSIT`, `ETH_NETWORK`,
-> `EXCHANGE_WEBHOOK_SECRET`, and `EXCHANGE_API_KEY`.
+> `EXCHANGE_WEBHOOK_SECRET`, and `EXCHANGE_API_KEY`. The bridge payout
+> monitor's knobs (`BRIDGE_*`, `PAYOUT_*`) are documented in
+> [apps/bridge-monitor/README.md](../../apps/bridge-monitor/README.md).
 
 ## How It Works
 
