@@ -81,6 +81,12 @@ class BridgeMonitor:
             os.getenv("BRIDGE_STUCK_PAYOUT_BLOCKS", str(self.rebroadcast_blocks * self.max_rebroadcasts))
         )
         self.queue_alert_depth = int(os.getenv("BRIDGE_QUEUE_ALERT_DEPTH", "5"))
+        # Float alerts used to fire on every poll while a condition held — a
+        # low float is persistent, so the fleet check counted dozens of
+        # identical ALERT lines. Emit at most once per interval per
+        # condition; a cleared-then-recurring condition alerts immediately.
+        self.float_alert_interval = int(os.getenv("BRIDGE_FLOAT_ALERT_INTERVAL_SECONDS", "3600"))
+        self._float_alert_last: dict[str, float] = {}
         # Per-deposit payout cap: one payout may not exceed this fraction of
         # the payout wallet balance — a single outsized deposit cannot drain
         # the float in one send. Over-cap deposits fail permanently and alert;
@@ -909,8 +915,15 @@ class BridgeMonitor:
             )
         return False, ""
 
+    def _float_alert(self, key: str, message: str) -> None:
+        """Emit a CRITICAL alert at most once per float_alert_interval."""
+        now = time.monotonic()
+        if now - self._float_alert_last.get(key, -self.float_alert_interval) >= self.float_alert_interval:
+            logger.critical(message)
+            self._float_alert_last[key] = now
+
     def _check_float(self) -> None:
-        """Alert once per poll when the payout wallet is running dry.
+        """Alert (throttled) when the payout wallet is running dry.
 
         The committed sum matters: non-terminal rows (submitted envelopes
         that may still seal, queued payouts yet to send) already own part of
@@ -921,24 +934,24 @@ class BridgeMonitor:
             committed = ait_to_units(sum_committed_ait())
             available = max(0, balance - committed)
             if available < self.low_float_units:
-                logger.critical(
-                    "ALERT: bridge payout float low — %s units free of %s "
-                    "(%s committed to unsealed/queued payouts, threshold %s); "
+                self._float_alert(
+                    "ait_float",
+                    f"ALERT: bridge payout float low — {available} units free of {balance} "
+                    f"({committed} committed to unsealed/queued payouts, threshold {self.low_float_units}); "
                     "deposits will pile up in PENDING_RETRY",
-                    available,
-                    balance,
-                    committed,
-                    self.low_float_units,
                 )
+            else:
+                self._float_alert_last.pop("ait_float", None)
         try:
             wei = int(self.eth_rpc.get_balance(self.bridge_eth_address).get("wei", 0))
             eth = Decimal(wei) / Decimal(10**18)
             if eth < self.low_float_eth:
-                logger.critical(
-                    "ALERT: bridge ETH float low — %s ETH (< %s); cannot cover refund/withdrawal gas",
-                    eth.normalize(),
-                    self.low_float_eth,
+                self._float_alert(
+                    "eth_float",
+                    f"ALERT: bridge ETH float low — {eth.normalize()} ETH (< {self.low_float_eth}); cannot cover refund/withdrawal gas",
                 )
+            else:
+                self._float_alert_last.pop("eth_float", None)
         except Exception as e:
             logger.warning("ETH float check failed: %s", e)
 
