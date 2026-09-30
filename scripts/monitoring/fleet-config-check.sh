@@ -1268,7 +1268,8 @@ if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
    && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ] && [ "$faucet_bad" -eq 0 ] \
    && [ "$mesh_bad" -eq 0 ] && [ "$val_bad" -eq 0 ] && [ "$dig_bad" -eq 0 ] \
    && [ "$wallet_bad" -eq 0 ] && [ "${tag_bad:-0}" -eq 0 ] && [ "$bridge_bad" -eq 0 ] \
-   && [ "${height_bad:-0}" -eq 0 ]; then
+   && [ "${height_bad:-0}" -eq 0 ] && [ "${mock_flagged:-0}" -eq 0 ] \
+   && [ "${skip_flagged:-0}" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
