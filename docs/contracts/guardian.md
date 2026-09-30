@@ -1,5 +1,8 @@
 # Guardian Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative; internal helper lists were removed because they drift.
+
 AITBC Guardian Contract - Spending Limit Protection for Agent Wallets
 
 ## Implementation Details
@@ -8,10 +11,6 @@ AITBC Guardian Contract - Spending Limit Protection for Agent Wallets
 - `TimeLockConfig` — Time lock configuration for large withdrawals
 - `GuardianConfig` — Complete guardian configuration
 - `GuardianContract` — Guardian contract implementation for agent wallet protection
-
-## Key Functions
-
-- `create_guardian_contract() — Create a guardian contract with default security parameters`
 
 ## Examples
 

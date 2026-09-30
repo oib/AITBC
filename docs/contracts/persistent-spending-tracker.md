@@ -1,5 +1,8 @@
 # Persistent Spending Tracker Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative for signatures and behavior.
+
 Persistent Spending Tracker - Database-Backed Security
 
 ## Implementation Details
