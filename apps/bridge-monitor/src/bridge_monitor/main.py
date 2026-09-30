@@ -97,6 +97,21 @@ class BridgeMonitor:
                 self.max_payout_fraction,
             )
             self.max_payout_fraction = Decimal("0.5")
+        # Optional absolute ceiling alongside the fraction. The fraction cap
+        # shrinks as the float drains, so a fixed AIT bound gives a predictable
+        # worst case; the effective cap is the stricter of the two. Unset or
+        # invalid disables it — the fraction cap still applies.
+        self.max_payout_ait: Decimal | None = None
+        raw_abs = os.getenv("BRIDGE_MAX_PAYOUT_AIT", "")
+        if raw_abs:
+            try:
+                parsed_abs = Decimal(raw_abs)
+                if parsed_abs > 0:
+                    self.max_payout_ait = parsed_abs
+                else:
+                    logger.warning("BRIDGE_MAX_PAYOUT_AIT %s not positive — ignored", raw_abs)
+            except Exception:
+                logger.warning("BRIDGE_MAX_PAYOUT_AIT %r unparseable — ignored", raw_abs)
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
         # route (and the deposit-instruction call) touches this file; a fresh
@@ -875,9 +890,14 @@ class BridgeMonitor:
         if balance is None:
             return False, "balance unknown — cap unevaluated"
         cap = Decimal(balance) * self.max_payout_fraction
+        origin = f"{self.max_payout_fraction} of float"
+        if self.max_payout_ait is not None:
+            abs_cap = Decimal(ait_to_units(self.max_payout_ait))
+            if abs_cap < cap:
+                cap, origin = abs_cap, "BRIDGE_MAX_PAYOUT_AIT"
         if Decimal(ait_to_units(ait_amount)) > cap:
             return True, (
-                f"{ait_amount} AIT > {self.max_payout_fraction} of float ({units_to_ait(cap)} of {units_to_ait(balance)} AIT)"
+                f"{ait_amount} AIT > payout cap {units_to_ait(cap)} AIT ({origin}; float {units_to_ait(balance)} AIT)"
             )
         return False, ""
 
