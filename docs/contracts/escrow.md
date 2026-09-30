@@ -1,5 +1,8 @@
 # Escrow Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative; internal helper lists were removed because they drift.
+
 Smart Contract Escrow System
 
 ## Implementation Details
@@ -9,13 +12,6 @@ Smart Contract Escrow System
 - `EscrowContract`
 - `Milestone`
 - `EscrowManager` — Manages escrow contracts for AI job market
-
-## Key Functions
-
-- `log_info() — Simple logging function`
-- `log_info_old() — Legacy logging function - use logger instead`
-- `get_escrow_manager() — Get global escrow manager`
-- `create_escrow_manager() — Create and set global escrow manager`
 
 ## Examples
 

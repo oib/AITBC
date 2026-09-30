@@ -1,5 +1,8 @@
 # Htlc Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative; internal helper lists were removed because they drift.
+
 Python-native HTLC contract implementation (v0.9.0 B4).
 
 ## Implementation Details
@@ -7,13 +10,6 @@ Python-native HTLC contract implementation (v0.9.0 B4).
 - `SwapStatus`
 - `HTLCSwapRecord` — In-memory representation of a swap (persisted via DB).
 - `HTLCContract` — Python-native HTLC contract that manages swap state and fund movement.
-
-## Key Functions
-
-- `_get_chain_block_time_seconds() — Return the configured block time for a chain, falling back to the global default.`
-- `_compute_swap_id() — Compute a deterministic swap ID (mirrors Solidity keccak256 pattern).`
-- `_get_or_create_account() — Get an account or create it with zero balance.`
-- `_transfer_balance() — Transfer ``amount`` from one account to another within a DB session.`
 
 ## Examples
 
