@@ -667,7 +667,7 @@ described in a tracked doc and the changelog must carry an entry for
 every commit in the pin range — the fleet check's changelog-coverage
 section verifies the second mechanically.
 
-### docs(index): hub page + orphan-docs pre-commit check (2026-09-30)
+### docs(index): hub-page coverage + orphan-docs pre-commit check (2026-09-30)
 
 New `docs/README.md` links every documentation file that had no inbound
 link and was worth finding — the ops runbooks, the security set, the
