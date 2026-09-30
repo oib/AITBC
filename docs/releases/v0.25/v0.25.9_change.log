@@ -823,3 +823,13 @@ registration lives in the agent_registry service. Replaced with the real
 API: `POST /v1/agents/discover`, `GET /v1/agents/{id}`, and
 `PUT /v1/agents/{id}/status` (body `{"status": "inactive"}`; auth note
 added — agent-scoped principal or admin required).
+
+### docs(governance): glossary verified, fictional CODEOWNERS replaced (2026-09-30)
+
+GLOSSARY entries now match code: `AgentType` lists the real enum values;
+the H-section's stray "Agent" entry is `Hermes` (the market shop runtime);
+made-up agent types (architect/genesis/wallet/follower-agent) and the
+fictional "Stage 1-11 curriculum" are corrected to `training_setup`'s
+schema-driven stage runner. `docs/blockchain/governance/CODEOWNERS` is now
+a pointer — the file that actually routes review is `.github/CODEOWNERS`
+(`* @oib`); the team roster it claimed never existed.
