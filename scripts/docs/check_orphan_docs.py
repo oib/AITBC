@@ -35,6 +35,11 @@ ALLOWED_PREFIXES = (
     ".github/",
     ".gitea/",
     "apps/",  # src-adjacent service READMEs are code docs, not web docs
+    # tool-generated dirs recreate their README on every run — not docs
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+    "node_modules/",
 )
 
 FENCE = re.compile(r"^(```|~~~)")
