@@ -28,25 +28,22 @@
 ### Remove Inactive Agents
 
 ```bash
-redis-cli
-> SREM agents:active "stale-agent-id"
-> DEL agent:stale-agent-id
+# No `agents:active`/`agent:*` Redis layout exists — agents are marked
+# via the status endpoint (there is no delete endpoint):
+curl -X PUT http://localhost:8107/v1/agents/stale-agent-id/status   -H 'content-type: application/json' -d '{"status": "inactive"}'
 ```
 
 ### Bulk Cleanup Script
 
 ```bash
 #!/bin/bash
-# cleanup_stale_agents.sh
-redis-cli --scan --pattern "agent:*" | while read key; do
-  status=$(redis-cli HGET "$key" status)
-  if [ "$status" = "stale" ]; then
-    agent_id=$(echo "$key" | cut -d: -f2)
-    redis-cli SREM agents:active "$agent_id"
-    redis-cli DEL "$key"
-    echo "Removed stale agent: $agent_id"
-  fi
-done
+# cleanup_stale_agents.sh — mark stale agents inactive via the API.
+# (No agent keys are stored in Redis; direct redis-cli surgery does not
+# apply to this service.)
+curl -s -X POST http://localhost:8107/v1/agents/discover   -H 'content-type: application/json' -d '{}' | jq -r '.agents[]? | select(.status=="stale") | .agent_id' | while read -r agent_id; do
+    curl -s -X PUT "http://localhost:8107/v1/agents/$agent_id/status"       -H 'content-type: application/json' -d '{"status": "inactive"}'
+    echo "Marked stale agent inactive: $agent_id"
+  done
 ```
 
 ## Service Restart
@@ -77,3 +74,5 @@ done
 - [Deployment](./operator-deployment.md) - Installation and service configuration
 - [Backup and Recovery](./operator-backup.md) - Redis backup and service configuration backup
 - [Monitoring](./operator-monitoring.md) - Health checks and agent monitoring
+
+> Auth note: `/v1/agents/{id}/status` requires an authorized principal (agent-scoped credential or admin) — see `API.md`/`docs/security/agent-signed-envelopes.md` for the credential format.
