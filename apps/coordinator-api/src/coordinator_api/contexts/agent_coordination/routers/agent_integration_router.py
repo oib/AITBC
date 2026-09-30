@@ -14,6 +14,7 @@ from aitbc.rate_limiting import rate_limit
 from ....auth import AdminDep
 from ..domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
 from ..services.integration import (
+    zk_integration_mock_enabled,
     AgentDeploymentConfig,
     AgentDeploymentInstance,
     AgentDeploymentManager,
@@ -310,7 +311,18 @@ async def integrate_with_zk_system(
     user: AdminDep,
     verification_level: VerificationLevel | None = None,
 ) -> dict[str, Any]:
-    """Integrate agent execution with ZK proof system"""
+    """Integrate agent execution with ZK proof system.
+
+    The ZK integration currently runs against a mock proof service that is
+    disabled by default (``AGENT_INTEGRATION_ZK_MOCK``). While disabled this
+    endpoint returns 503 rather than recording mock-verification failures.
+    """
+    if not zk_integration_mock_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="ZK integration is unavailable: the mock proof service is disabled "
+            "(AGENT_INTEGRATION_ZK_MOCK unset). This is a development feature.",
+        )
     try:
         execution = session.get(AgentExecution, execution_id)
         if not execution:

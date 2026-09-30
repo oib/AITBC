@@ -898,7 +898,11 @@ commit that applied the in-package `receipt_simple.circom` cleanup):
 - **Fix:** the generic route now refuses all `receipt_*` circuit names
   (400, pointing at `/receipt/verify`), and its docstring states plainly
   that `verified` is proof validity for the supplied signals, not evidence
-  of a correct computation.
+  of a correct computation. The ML verify endpoints
+  (`/v1/ml-zk/verify/training`, `/verify/inference`) carry the same
+  caller-supplied-signal semantics; a sweep found no in-repo consumer
+  treating them as acceptance, so they received the same docstring
+  treatment rather than a refusal.
 
 ### Mock ZK service reachable via mounted agent-integration router
 
@@ -910,9 +914,10 @@ commit that applied the in-package `receipt_simple.circom` cleanup):
   /v1/agents/integration/integrations/zk/{execution_id}` (admin-gated) —
   so an operator-facing "verification" could report success from a mock.
 - **Fix:** both mock methods now raise unless `AGENT_INTEGRATION_ZK_MOCK=1`
-  is set (development only). The calling flow already records per-step and
-  workflow proof failures in `integration_errors` non-fatally, so the gate
-  fails closed without breaking deployments.
+  is set (development only); the endpoint itself returns a clear 503
+  upfront while disabled rather than recording failures. The variable is
+  documented in `ENVIRONMENT_CONFIGURATION.md` and `fleet-config-check.sh`
+  flags it if set in any env file or the running coordinator process.
 
 ---
 
