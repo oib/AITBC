@@ -285,8 +285,8 @@ pre-commit install
 # Run manually
 pre-commit run --all-files
 
-# Skip during active development
-git commit --no-verify -m "WIP: message"
 ```
 
-Pytest tests run in CI, NOT in pre-commit hooks. Use `--no-verify` to skip hooks during WIP commits.
+Pytest tests run in CI, NOT in pre-commit hooks. Never use `--no-verify` —
+the same checks run on Gitea and GitHub CI, so bypassing them locally only
+moves the failure to the server.

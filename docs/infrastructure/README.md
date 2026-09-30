@@ -26,7 +26,7 @@ This section documents the AITBC infrastructure components, runtime architecture
   - Fixed PYTHONPATH configurations
 
 - **Service Consolidation**: Standardized agent services
-  - Shared libraries moved to `/opt/aitbc/aitbc/` (agent_bridge, agent_compliance, agent_protocols, agent_registry, agent_trading)
+  - Shared libraries live in `aitbc/` (agent_bridge, agent_economics, agent_memory — the older docs' `agent_compliance`/`agent_protocols`/`agent_registry`/`agent_trading` names are gone)
   - Services moved to `/opt/aitbc/apps/` (agent, agent-daemon)
   - Consistent hyphenated naming (`agent-*`)
   - Removed duplicate services
@@ -48,7 +48,7 @@ This section documents the AITBC infrastructure components, runtime architecture
 
 The other "agent" names in older docs (Agent Registry, Agent Protocols,
 Agent Bridge, Agent Compliance, Agent Trading) are Python libraries under
-`aitbc/` (e.g. `aitbc/agent_protocols`, `aitbc/agent_bridge`), not deployed
+`aitbc/` (e.g. `aitbc/agent_bridge`, `aitbc/agent_economics`), not deployed
 systemd services.
 
 #### Supporting Services

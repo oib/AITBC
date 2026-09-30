@@ -103,18 +103,20 @@ ssh <node1> 'sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, 
 journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
 
 # Verify RPC endpoint is accessible
-curl -s http://<node1>:8202/rpc/genesis_allocations?chain_id=ait-testnet
+curl -s http://<node1>:8202/rpc/genesis_allocations?chain_id=ait-hub.aitbc.bubuit.net
 ```
 
-**Solution - Force RPC Bootstrap:**
+**Solution - restore state, never delete block 0:**
+Do NOT `DELETE FROM block ... height=0` to force a re-bootstrap — every
+fleet `genesis.json` is stale and the block-0 allocation set is lost, so
+bootstrap from genesis is unsafe and upcoming policy refuses it on a root
+mismatch. Restore `chain.db` from a checkpoint/backup instead; see
+`docs/ops/v5-replay-inventory.md` for the replay/checkpoint plan.
 ```bash
-# Stop blockchain service
+# Stop the node
 sudo systemctl stop aitbc-blockchain-node.service
 
-# Delete genesis block from database
-sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db "DELETE FROM block WHERE chain_id='<chain_id>' AND height=0"
-
-# Restart service to trigger RPC bootstrap
+# Restore chain.db from the latest checkpoint/backup, then restart
 sudo systemctl start aitbc-blockchain-node.service
 
 # Verify RPC bootstrap worked
