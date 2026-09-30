@@ -715,10 +715,12 @@ class ChainSettings(BaseSettings):
     # parent state before signing. None means v9 is NOT activated: the
     # same rules still evaluate in shadow mode — every would-reject logs
     # and counts v9_would_reject_*_total instead of rejecting, so the
-    # allowlist can be proven complete against live traffic. Pin a real
-    # height here (hardcoded like v4-v8 — the activation is itself
-    # consensus) only after the shadow counters stay clean.
-    state_transition_v9_height: int | None = None
+    # allowlist can be proven complete against live traffic. Activated
+    # fleet-wide at block 30400 on 2026-09-30 after a >24h clean shadow
+    # window and a nine-type canary sweep with zero substantive
+    # v9_would_reject counters, so the height is now consensus and is
+    # hardcoded like v4/v5/v7/v8.
+    state_transition_v9_height: int | None = 30400
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
     # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that

@@ -32,6 +32,7 @@ ALLOWED_PREFIXES = (
     "docs/releases/",
     "docs/archive/",
     "skills/",
+    ".devin/",  # local agent-tooling config (skills/rules), not web docs
     ".github/",
     ".gitea/",
     "apps/",  # src-adjacent service READMEs are code docs, not web docs
@@ -41,6 +42,21 @@ ALLOWED_PREFIXES = (
     ".ruff_cache/",
     "node_modules/",
 )
+
+# Directory components that never contain project docs: vendored
+# dependencies and build/tooling trees are walked by rglob even when
+# gitignored, so prune them at collection time (a prefix allowlist cannot
+# catch ``packages/node_modules/`` or a ``venv.brokencopy-*/`` backup dir).
+_PRUNED_PARTS = {"node_modules", "site-packages", ".git", "dist", "build", ".tox", "__pycache__"}
+
+
+def _is_vendored(rel: Path) -> bool:
+    parts = rel.parts[:-1]  # directory components only
+    if any(p in _PRUNED_PARTS or p.startswith(("venv", ".venv")) for p in parts):
+        return True
+    # forge vendored contract dependencies: contracts/lib/, contracts/governance/lib/, ...
+    return len(parts) > 1 and parts[0] == "contracts" and "lib" in parts
+
 
 FENCE = re.compile(r"^(```|~~~)")
 INLINE_CODE = re.compile(r"`[^`\n]*`")
@@ -74,7 +90,7 @@ def is_relative(target: str) -> bool:
 
 
 def main() -> int:
-    files = sorted(ROOT.rglob("*.md"))
+    files = sorted(f for f in ROOT.rglob("*.md") if not _is_vendored(f.relative_to(ROOT)))
     inbound: set[Path] = set()
     for f in files:
         for t in links_in(f.read_text(errors="replace")):
