@@ -64,6 +64,7 @@ cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin <command>
 | `BRIDGE_MAX_PAYOUT_FRACTION` | `0.5` | max fraction of wallet balance per payout |
 | `BRIDGE_MAX_PAYOUT_AIT` | unset | absolute AIT ceiling per payout — applies even with the balance RPC down |
 | `BRIDGE_LOW_FLOAT_AIT` / `BRIDGE_LOW_FLOAT_ETH` | `50` / `0.01` | float alert floors (AIT on *available*, ETH raw) |
+| `BRIDGE_FLOAT_ALERT_INTERVAL_SECONDS` | `3600` | min seconds between repeated low-float alerts (a persistent condition alerts at this cadence, not per poll; a cleared condition re-alerts immediately) |
 | `PAYOUT_SEAL_DEPTH` | `2` | chain confirmations before `COMPLETED` |
 | `PAYOUT_REBROADCAST_BLOCKS` / `PAYOUT_MAX_REBROADCAST` | `6` / `5` | rebroadcast cadence and budget for the same envelope |
 | `BRIDGE_STUCK_PAYOUT_BLOCKS` | `rebroadcast×max` | head-of-line blocking alert horizon |
