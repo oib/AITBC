@@ -57,6 +57,11 @@ This guide covers the deployment of AITBC smart contracts to testnet and mainnet
 
 ### Required Secrets
 
+> **Not for the bridge.** The deployer-key-in-CI model below is the
+> generic contract path; it predates the BR-1 decision — the bridge
+> contract gets a disposable deployer and a 2-of-3 Safe owner, and no
+> deployer key lives in CI secrets. See the bridge section below.
+
 Configure the following secrets in your CI/CD system:
 
 **For Testnet:**
@@ -184,6 +189,20 @@ Mainnet deployment includes:
 - Automatic rollback on failure
 
 ---
+
+## CrossChainBridge — separate deployment procedure (BR-1)
+
+The bridge contract does **not** follow the CI-secret flow above:
+
+- A frozen `CrossChainBridge` deployment on Sepolia is recorded in
+  `contracts/deployments-bridge-sepolia.json` as deprecated — its owner key
+  is unreachable. Do not send funds to it.
+- The replacement deploys with a **disposable deployer key** (fresh,
+  funded just for the deploy, discarded after), never a stored CI secret.
+- Ownership transfers at deploy time to a **2-of-3 Safe** whose signers are
+  three separate people/devices (decision log `docs/decisions/README.md`).
+- Every deployment produces a full record: address, tx hash, deployer,
+  owner, chain, and the commit hash of `contracts/`.
 
 ## Contract Verification
 
