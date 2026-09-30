@@ -880,6 +880,42 @@ unrelated exceptions are not silently swallowed.
 
 ---
 
+## Addendum — 2026-09-30 review follow-ups
+
+Two findings surfaced while re-verifying the receipt-circuit closure (same
+commit that applied the in-package `receipt_simple.circom` cleanup):
+
+### Generic `/zk/verify` returned caller-bound verdicts
+
+- **Severity:** Medium · **Status:** Resolved (2026-09-30)
+- `POST /verify` passed the caller's `proof`, `public_signals`, and
+  `circuit_name` to `verify_proof` and returned `verified`. That flag only
+  means "valid proof for the signals supplied" — anyone can prove over
+  inputs of their choosing. The receipt flow is safe because
+  `verify_model_proof`/`/receipt/verify` compare against server-derived
+  signals (`compute_public_inputs`), but nothing stopped a consumer from
+  treating the generic verdict as acceptance for a receipt circuit.
+- **Fix:** the generic route now refuses all `receipt_*` circuit names
+  (400, pointing at `/receipt/verify`), and its docstring states plainly
+  that `verified` is proof validity for the supplied signals, not evidence
+  of a correct computation.
+
+### Mock ZK service reachable via mounted agent-integration router
+
+- **Severity:** Medium · **Status:** Mitigated (2026-09-30)
+- `agent_coordination/services/integration.py` defines a local
+  `ZKProofService` mock (`generate_zk_proof` mints fake `proof_*` ids;
+  `verify_proof` always returns `verified: true`). It is wired into
+  `AgentIntegrationManager`, reachable through `POST
+  /v1/agents/integration/integrations/zk/{execution_id}` (admin-gated) —
+  so an operator-facing "verification" could report success from a mock.
+- **Fix:** both mock methods now raise unless `AGENT_INTEGRATION_ZK_MOCK=1`
+  is set (development only). The calling flow already records per-step and
+  workflow proof failures in `integration_errors` non-fatally, so the gate
+  fails closed without breaking deployments.
+
+---
+
 ## Severity Classification
 
 - **Critical:** Immediate risk of fund loss, data breach, or system compromise
