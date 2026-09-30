@@ -194,12 +194,8 @@ docs/features/6-agent-coordination.md:Payment Escrow  # no evidence token in row
 docs/features/6-agent-coordination.md:Send Message  # no evidence token in row
 docs/features/6-agent-coordination.md:Message Types  # no evidence token in row
 docs/features/6-agent-coordination.md:Hierarchical Protocol  # no evidence token in row
-docs/features/6-agent-coordination.md:Distributed Decision Making  # dead token(s): agent-autonomy-features.md
-docs/features/6-agent-coordination.md:Self-Healing  # dead token(s): agent-autonomy-features.md
-docs/features/6-agent-coordination.md:Autonomous Resource Management  # dead token(s): agent-autonomy-features.md
 docs/features/6-agent-coordination.md:Agent SDK  # no evidence token in row
 docs/features/6-agent-coordination.md:Agent Identity SDK  # no evidence token in row
-docs/features/6-agent-coordination.md:Compute Provider  # dead token(s): compute-provider.md
 docs/features/6-agent-coordination.md:Compute Consumer  # no evidence token in row
 docs/features/6-agent-coordination.md:Platform Builder  # no evidence token in row
 docs/features/6-agent-coordination.md:Swarm Coordinator  # no evidence token in row

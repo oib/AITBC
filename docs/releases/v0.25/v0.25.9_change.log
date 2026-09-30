@@ -860,3 +860,16 @@ real tokens (`BRIDGE_LOCK`, `refund_transfer`, `get_validator_set`, …);
 its "Bridge Unlock" row now names the real on-chain type `BRIDGE_REFUND`,
 and the threat-model row is `📄 doc` (a document, not shipped code).
 Convention documented in `docs/meta/DOCUMENTATION_TEMPLATE_STANDARD.md`.
+
+### test(docs): env-var coverage for aitbc_chain + fleet-check (2026-09-30)
+
+`tests/test_env_doc_coverage.py` extends the doc-coverage pattern beyond
+bridge_monitor: every env var `aitbc_chain` reads (os.getenv / environ /
+`_env_value` multi-name overrides) and every var `fleet-config-check.sh`
+watches for drift (VARS + EFF_VARS incl. STATE_TRANSITION_V*, PROPOSER_ID,
+VALIDATOR_SET) must appear in `docs/blockchain/ENVIRONMENT_CONFIGURATION.md`
+(case-insensitive — the doc mixes lowercase names). The first run caught
+43 undocumented vars; all now have a one-line entry in the new
+"Additional blockchain-node variables" table or the secrets reference.
+Also: orphan baseline is empty and `check_feature_status.py` baseline
+dropped 4 rows that became verifiable.

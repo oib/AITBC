@@ -338,6 +338,43 @@ AITBC_NODE_METRICS_PORT=9009
 
 ---
 
+### Additional blockchain-node variables
+
+Complete set read by `aitbc_chain` code beyond the sections above —
+coverage is enforced by `tests/test_env_doc_coverage.py`.
+
+| Variable | Effect |
+|---|---|
+| `AITBC_CHAIN_ENV_FILE` | Explicit env-file path loaded before other resolution. |
+| `AITBC_SYNC_IMPORT_URL` / `AITBC_SYNC_SOURCE` | Default RPC endpoints for `aitbc_chain.sync_cli` import/source sync. |
+| `STRICT_IMPORTS` | `true` makes the node refuse to start on optional-import failures instead of warning. |
+| `TRUST_X_WALLET_ADDRESS` | Dev-only header trust for RPC auth — never enable on a live node. |
+| `PEER_KEYS_DB` | Peer-key store path (default `DATA_DIR/data/peer_keys.db`). |
+| `AITBC_PROTOCOL` | Public URL scheme override for deployments behind a reverse proxy. |
+| `COORDINATOR_API_URL` | Coordinator API base URL the node talks to. |
+| `HUB_RPC_URL` | Hub RPC endpoint for followers/bootstrap. |
+| `RPC_PORT` / `P2P_PORT` | Node RPC and P2P bind ports. |
+| `RPC_PUBLIC_ENDPOINT` | Externally reachable RPC URL advertised to peers. |
+| `CROSS_SITE_REMOTE_ENDPOINTS` | Comma-separated cross-site RPC endpoints. |
+| `CORS_ORIGINS` | Allowed CORS origins for the RPC/API surface. |
+| `GOSSIP_AUTH_ENABLED` / `GOSSIP_AUTH_TIMEOUT` / `GOSSIP_AUTH_CHALLENGE_TTL` | Gossip authentication switch, handshake timeout, challenge TTL. |
+| `GOSSIP_BROADCAST_URL` | Gossip broadcast backend (e.g. `redis://…`). |
+| `GOSSIP_MAX_MESSAGE_SIZE` / `GOSSIP_MAX_MESSAGES_PER_MINUTE` / `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | Gossip message-size cap, per-peer rate limit, per-IP connection cap. |
+| `ESCROW_RELEASE_ADDRESS` / `escrow_settlement_authority` | Fallback escrow-settlement authority when the chain parameter is unset. |
+| `ESCROW_RELEASE_LOOKUP_LIMIT` | Max sealed rows scanned when resolving a release (default 10). |
+| `BRIDGE_RELEASE_AUTHORITY` | Fallback authority for `BRIDGE_RELEASE`/`BRIDGE_REFUND` signature checks (chain param takes precedence). |
+| `BOND_ESCROW_ADDRESS` / `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | Bond escrow, burn sink, and slash-authority addresses. |
+| `ENERGY_OPERATOR_ADDRESS` | Operator address for energy-settlement flows. |
+| `TRUST_X_WALLET_ADDRESS` | See above — header-trust dev flag. |
+| `LOG_SHIPPER_ENDPOINT` | Remote log-shipping endpoint. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | OpenTelemetry exporter endpoints. |
+| `AITBC_NODE_METRICS_HOST` / `AITBC_NODE_METRICS_PORT` | Node metrics bind address. |
+| `AITBC_FORCE_ENABLE_BLOCK_PRODUCTION` / `AITBC_FORCE_BLOCK_PRODUCTION_CHAINS` | Force-enable block production (override) / per-chain force list. |
+| `BLOCK_PRODUCTION_CHAINS` | Chains this node may produce blocks for. |
+| `PROPOSER_ID` / `VALIDATOR_SET` / `CONSENSUS_PROPOSER_ROUND_SECONDS` | Proposer identity, validator roster, PBFT round timing — drift-checked by fleet-config-check. |
+| `GOSSIP_BACKEND` / `GOSSIP_MESH_PEER_URLS` | Gossip backend selection and static mesh peers. |
+| `SYNC_STATE_ROOT_VALIDATION_ENABLED` | State-root validation during sync import. |
+
 ## blockchain-secrets.env Reference
 
 **Location:** `/etc/aitbc/blockchain-secrets.env`
@@ -413,7 +450,16 @@ manager, or a secrets store. Do not put it behind a URL.
 Rotate if the file was ever fetched over HTTP, or if you deployed a hub whose values came
 from a published example.
 
----
+### Additional secrets
+
+| Secret | Purpose |
+|---|---|
+| `AITBC_DB_KEY` | Chain-DB encryption key — set a real value in production; default is a placeholder. |
+| `BLOCKCHAIN_RPC_API_KEY` / `BLOCKCHAIN_RPC_API_KEY_PEERS` | RPC API keys (client access / peer auth). |
+| `ESCROW_RELEASE_PRIVATE_KEY` / `BRIDGE_RELEASE_PRIVATE_KEY` | Signing keys for escrow/bridge release authority. |
+| `GENESIS_WALLET_ADDRESS` / `GENESIS_WALLET_PRIVATE_KEY` | Genesis wallet identity + key. |
+| `KEYSTORE_PASSWORD` | Keystore decryption password. |
+| `NODE_WALLET_ADDRESS` | Node's own wallet identity. |
 
 ## website.env Reference
 
