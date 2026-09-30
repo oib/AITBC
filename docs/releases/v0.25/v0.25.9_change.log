@@ -790,3 +790,14 @@ chain data. `.gitignore` gains bare `venv` (the slash pattern missed the
 symlink that `git add -A` swept into f788114's predecessor). AGENTS.md
 now states the post-tag rule explicitly: freeze the tagged log, create
 the next version's log if absent.
+
+### fix(security): close the three residual audit findings (2026-09-30)
+
+`data_layer` mock rows now store `Decimal("1.0")` (bounds were already
+`Decimal`); `stage_runner`'s sleep handler narrows `except Exception` to
+`(ValueError, TypeError, OSError)`. `receipt_simple.circom` loses its
+dead `BidRangeProof` template — its `GreaterEqThan` was fed per-bit
+differences and could never work; recompiled r1cs is byte-identical to
+the committed artifact, so deployed zkeys are unaffected. The audit doc
+now records that the successor receipt circuits close the forged-field
+gap via server-side public-signal derivation, not comparators.

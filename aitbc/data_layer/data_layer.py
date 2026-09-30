@@ -112,7 +112,7 @@ class MockDataGenerator:
                 "from_address": address or f"0x{secrets.token_hex(20)}",
                 "to_address": f"0x{secrets.token_hex(20)}",
                 "hash": f"0x{secrets.token_hex(32)}",
-                "amount": 1.0,
+                "amount": Decimal("1.0"),
                 "timestamp": datetime.now(UTC).isoformat(),
                 "type": tx_type or "transfer",
             }

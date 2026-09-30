@@ -189,8 +189,16 @@ The comments on lines 66-69 acknowledge these are missing.
 
 **Re-check 2026-09-30:** `receipt.circom` no longer exists — the circuit
 was split into `receipt_model.circom`, `receipt_public.circom` and
-`receipt_simple.circom`. None of the three carry timestamp/range
-comparators, so the gap carries over to the successor circuits.
+`receipt_simple.circom`, and the construction changed: the circuits no
+longer take timestamp/rate fields at all. Verification re-derives the
+public signals server-side from stored job/result/model rows
+(`model_registry.compute_public_inputs`), so caller-supplied receipt
+fields cannot inject unchecked values — the "forged fields accepted"
+scenario is closed by the service layer rather than by comparators.
+Residual: `receipt_simple.circom` carried a dead `BidRangeProof`
+template whose `GreaterEqThan` was fed per-bit differences (broken if
+anyone ever instantiated it); removed — recompiled r1cs is byte-identical,
+so the committed zkeys are unaffected.
 
 **Impact:**
 
