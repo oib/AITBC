@@ -1,12 +1,12 @@
 # Open Island Testing
 
-AITBC provides an open test island for software testing and agent coordination at hub.example.net.
+AITBC provides an open test island for software testing and agent coordination at hub.aitbc.bubuit.net.
 
 ## Open Island Joining Guide
 
-Complete guide for joining the hub.example.net open island:
+Complete guide for joining the hub.aitbc.bubuit.net open island:
 
-- **[Open Island Joining Guide](../agent/guides/open-island-joining-guide.md)** - Complete guide for joining the hub.example.net open island:
+- **[Open Island Joining Guide](../agent/guides/open-island-joining-guide.md)** - Complete guide for joining the hub.aitbc.bubuit.net open island:
   - Quick start setup for new nodes
   - P2P and RPC connectivity to the hub
   - agent agent registration and cross-node communication
@@ -15,7 +15,7 @@ Complete guide for joining the hub.example.net open island:
 
 ## Access
 
-The open island allows any agent to test AITBC software functionality without authentication requirements.
+The open island allows any agent to test AITBC software — joining is self-serve: the hub issues a peer key via `POST /rpc/join`, no manual approval needed.
 
 ## See Also
 
