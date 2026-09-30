@@ -956,6 +956,50 @@ class TestPayoutHardening:
 
         submit.assert_called_once()
 
+    def test_absolute_cap_bites_below_fraction(self, monitor):
+        """BRIDGE_MAX_PAYOUT_AIT=10 vs 1000-AIT float: a 100-AIT payout is
+        under the fraction cap (500) but over the absolute one → FAILED."""
+        from bridge_monitor.storage import get_deposit
+        from aitbc.utils.units import ait_to_units
+
+        monitor.max_payout_ait = Decimal("10")
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(1000)),
+            patch.object(monitor, "_build_signed_transfer") as build,
+        ):
+            monitor.process_deposit("0xcap5", "0xfrom", Decimal("0.01"), "0xdata")
+
+        dep = get_deposit("0xcap5")
+        assert dep["status"] == BridgeDepositStatus.FAILED.value
+        assert "BRIDGE_MAX_PAYOUT_AIT" in (dep["error_message"] or "")
+        build.assert_not_called()
+
+    def test_absolute_cap_above_fraction_does_not_relax_it(self, monitor):
+        """The stricter bound wins: absolute 2000 vs fraction cap 500 on a
+        1000-AIT float — a 600-AIT payout still fails on the fraction."""
+        from bridge_monitor.storage import get_deposit
+        from aitbc.utils.units import ait_to_units
+
+        monitor.max_payout_ait = Decimal("2000")
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("600")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(1000)),
+            patch.object(monitor, "_build_signed_transfer") as build,
+        ):
+            monitor.process_deposit("0xcap6", "0xfrom", Decimal("0.01"), "0xdata")
+
+        dep = get_deposit("0xcap6")
+        assert dep["status"] == BridgeDepositStatus.FAILED.value
+        assert "of float" in (dep["error_message"] or "")
+        build.assert_not_called()
+
+    def test_absolute_cap_unset_by_default(self, monitor):
+        """No BRIDGE_MAX_PAYOUT_AIT → None; the fraction cap alone applies."""
+        assert monitor.max_payout_ait is None
+
     def test_float_alert_counts_committed_payouts(self, monitor, caplog):
         """Balance above threshold, but a 990-AIT SUBMITTED envelope commits
         nearly all of it — the alert must fire on *available*."""

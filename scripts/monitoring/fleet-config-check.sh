@@ -716,7 +716,7 @@ echo "=== bridge monitor payout config (hub — payout vars that set AIT amounts
 # AIT_USD_FIXED_PRICE directly sizes payouts; the payout address, minimums,
 # confirmation depth and float floor are shown so a config drift is visible
 # in the report instead of only surfacing as a bad payment.
-for var in BRIDGE_PAYOUT_ADDRESS AIT_USD_FIXED_PRICE BRIDGE_CONFIRMATIONS BRIDGE_LOW_FLOAT_AIT BRIDGE_LOW_FLOAT_ETH BRIDGE_MAX_PAYOUT_FRACTION MIN_ETH_DEPOSIT BRIDGE_MIN_DEPOSIT_AIT PAYOUT_SEAL_DEPTH PAYOUT_REBROADCAST_BLOCKS BRIDGE_FUNDING_SOURCES; do
+for var in BRIDGE_PAYOUT_ADDRESS AIT_USD_FIXED_PRICE BRIDGE_CONFIRMATIONS BRIDGE_LOW_FLOAT_AIT BRIDGE_LOW_FLOAT_ETH BRIDGE_MAX_PAYOUT_FRACTION BRIDGE_MAX_PAYOUT_AIT MIN_ETH_DEPOSIT BRIDGE_MIN_DEPOSIT_AIT PAYOUT_SEAL_DEPTH PAYOUT_REBROADCAST_BLOCKS BRIDGE_FUNDING_SOURCES; do
     val=$(running_env "${AITBC_HUB_ALIAS:-hub}" aitbc-bridge-monitor "$var" "")
     printf "  %-28s %s\n" "$var" "${val:-<unset>}"
 done
