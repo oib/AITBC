@@ -17,14 +17,11 @@ not TLS, is what limits reach on that plane.
   whether its bind address is right, which
   [Network Policy](../deployment/NETWORK_POLICY.md) covers.
 - **Secrets must not be placed in certificate stores.** See
-  [Secret Management](secret-management.md) for where they do belong.
+  [Secret Management](SECURITY.md) for where they do belong.
 - **Cipher suites, protocol versions and HSTS are the terminator's
   configuration**, not AITBC's. Reviewing them means reviewing that host, which
   is operated outside this repository.
 
-## See Also
+## See also
 
-- [Network Policy](../deployment/NETWORK_POLICY.md) - Public surfaces and TLS termination
-- [Network Security](network-security.md) - Network hardening
-- [Firewall Rules](firewall-rules.md) - Access control
-- [Secret Management](secret-management.md) - Certificate storage
+- [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists
