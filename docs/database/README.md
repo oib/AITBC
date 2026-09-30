@@ -1,62 +1,16 @@
-# Database Documentation
+# Database documentation
 
-This directory contains all database-related documentation including schema, security, and migration procedures.
+The earlier contents of this directory (RLS guides, a data dictionary) were
+a foreign PostgreSQL/Prisma template — deleted; AITBC does not use row-level
+security.
 
-## 📚 Documentation Files
+What is real:
 
-### [DATA_DICTIONARY.md](./DATA_DICTIONARY.md)
-
-intended schema reference (currently an unpopulated template — see the file):
-
-- Table definitions and relationships
-- Column specifications and constraints
-- Enum types and their values
-- Indexes and performance considerations
-
-**Use this when**: You need to understand the database schema or add new tables/columns.
-
-### [RLS_IMPLEMENTATION_GUIDE.md](./RLS_IMPLEMENTATION_GUIDE.md)
-
-Row-Level Security (RLS) implementation patterns:
-
-- RLS context helpers (`withUserContext`, `withAdminContext`, `withSystemContext`)
-- Security patterns and best practices
-- Common RLS policy patterns
-- Testing RLS policies
-
-**Use this when**: Implementing new features that require database access with proper security.
-
-### [RLS_POLICY_CATALOG.md](./RLS_POLICY_CATALOG.md)
-
-Comprehensive catalog of all RLS policies:
-
-- Policy definitions by table
-- Access control rules
-- Policy testing procedures
-- Security audit checklist
-
-**Use this when**: You need to understand existing RLS policies or create new ones.
-
-### [RLS_DATABASE_MIGRATION_SOP.md](./RLS_DATABASE_MIGRATION_SOP.md)
-
-Standard Operating Procedure for database migrations:
-
-- Migration workflow (dev → staging → production)
-- Schema change procedures
-- RLS policy updates
-- Rollback procedures
-- Validation checklist
-
-**Use this when**: You need to create or apply database migrations.
-
-## 🔗 Related Documentation
-
-- [Security Architecture](../security/SECURITY_FIRST_ARCHITECTURE.md) - Overall security patterns
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - Git workflow for schema changes
-
-## ⚠️ Important Notes
-
-1. **Always use RLS context helpers** - Never bypass the SQLAlchemy/SQLModel layer
-2. **Test RLS policies** - Verify isolation between users
-3. **Follow migration SOP** - Schema changes require ARCHitect approval
-4. **Update DATA_DICTIONARY.md** - Keep schema documentation current
+- **Chain schema**: [docs/apps/blockchain-node/SCHEMA.md](../apps/blockchain-node/SCHEMA.md)
+  — the chain.db tables as deployed.
+- **Migrations**: `coordinator-api` runs `alembic upgrade head` at service
+  start (`ExecStartPre`); migration sources live under
+  `apps/coordinator-api/migrations/`. A failed migration fails the start —
+  check `journalctl -u aitbc-coordinator-api` first when it won't come up.
+- **Model layer**: SQLAlchemy/SQLModel (`aitbc/database/`, service
+  `storage.py` modules); SQLite is the default store.

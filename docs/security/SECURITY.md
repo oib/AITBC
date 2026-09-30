@@ -7,8 +7,10 @@ page and the documents it links are the current reference.
 
 ## Reporting
 
-Report vulnerabilities privately to the operator before any public
-disclosure. Do not open a public issue for a suspected vulnerability.
+The reporting policy lives in [.github/SECURITY.md](../../.github/SECURITY.md):
+GitHub private vulnerability reporting or `aitbc@bubuit.net`, never a
+public issue. That file also names the scanning tooling (pip-audit,
+Safety, Bandit, CodeQL) and the local scan commands.
 
 ## Secrets and keys
 
