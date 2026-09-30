@@ -45,7 +45,6 @@ Safety, Bandit, CodeQL) and the local scan commands.
   including the payout-monitor vectors (envelope nonce collision,
   head-of-line blocking, dust/funding confusion, hot-key exposure).
 - Audits and findings: [audit summary](security_audit_summary.md),
-  [vulnerability report](SECURITY_VULNERABILITY_REPORT.md),
   [CLI audit findings](aitbc-audit-4-cli-findings.md),
   [audit framework](4_security-audit-framework.md),
   [chaos testing](3_chaos-testing.md),

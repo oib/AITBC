@@ -27,7 +27,6 @@ what remains is AITBC-specific.
 ## Audits and findings
 
 - [Security audit summary](security_audit_summary.md)
-- [Vulnerability report](SECURITY_VULNERABILITY_REPORT.md)
 - [CLI audit findings](aitbc-audit-4-cli-findings.md)
 - [Audit framework](4_security-audit-framework.md)
 - [Chaos testing](3_chaos-testing.md)
