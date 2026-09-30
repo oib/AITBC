@@ -1,5 +1,7 @@
 # Agent Bridge Source
 
+> **Skeleton stub** (generated June 2026, one line per field) — accurate as an orientation only. The service source and the page under `docs/apps/` are authoritative; expand this file when the service's behavior changes.
+
 Integration layer implementation for cross-chain agent communication.
 
 ## Files

@@ -31,25 +31,25 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| JWT Authentication | JWT-based authentication | [docs/security/authentication.md](../security/authentication.md) | ✅ | — |
-| RBAC | Role-based access control | [docs/security/access-control.md](../security/access-control.md) | ✅ | — |
+| JWT Authentication | JWT-based authentication | [security overview](../security/SECURITY.md) | ✅ | — |
+| RBAC | Role-based access control | [security overview](../security/SECURITY.md) | ✅ | — |
 | API Key Management | API key management for service-to-service | [docs/security/api-key-management.md](../security/api-key-management.md) | ✅ | — |
 
 ### Rate Limiting
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Rate Limiting Middleware | Rate limiting for API endpoints | [docs/security/rate-limiting.md](../security/rate-limiting.md) | ✅ | — |
-| Custom Key Functions | Custom rate limit key functions | [docs/security/rate-limiting.md](../security/rate-limiting.md) | ✅ | — |
+| Rate Limiting Middleware | Rate limiting for API endpoints | [security overview](../security/SECURITY.md) | ✅ | — |
+| Custom Key Functions | Custom rate limit key functions | [security overview](../security/SECURITY.md) | ✅ | — |
 
 ### Audit & Monitoring
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Audit Logging | Comprehensive audit logging for security events | [docs/security/logging-monitoring.md](../security/logging-monitoring.md) | ✅ | — |
+| Audit Logging | Comprehensive audit logging for security events | [security overview](../security/SECURITY.md) | ✅ | — |
 | Security Architecture | Overall security architecture | [docs/security/2_security-architecture.md](../security/2_security-architecture.md) | ✅ | — |
 | Threat Model | Threat modeling documentation | [docs/security/threat-model.md](../security/threat-model.md) | ✅ | — |
-| Security Audits | Security audit framework and findings | [docs/security/security-audits.md](../security/security-audits.md), [docs/releases/AUDIT.md](../releases/AUDIT.md) | ✅ | — |
+| Security Audits | Security audit framework and findings | [security overview](../security/SECURITY.md), [docs/releases/AUDIT.md](../releases/AUDIT.md) | ✅ | — |
 | Route Security Matrix | Route-level security requirements | [docs/architecture/route_security_matrix.md](../architecture/route_security_matrix.md) | ✅ | — |
 
 ---
