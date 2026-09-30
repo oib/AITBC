@@ -7060,7 +7060,7 @@
           "zk-proofs"
         ],
         "summary": "Verify ZK proof",
-        "description": "Verify a zero-knowledge proof.\n\nChecks:\n- Proof structure validity\n- Commitment correctness\n- Pairing equation satisfaction\n- Timestamp freshness",
+        "description": "Verify a zero-knowledge proof.\n\n``verified: true`` means the proof is cryptographically valid for the\npublic signals the *caller* supplied \u2014 anyone can prove over inputs of\ntheir choosing. It is not evidence that a real job was computed\ncorrectly; that requires comparing the signals against server-derived\nones, which is what ``/receipt/verify`` does for receipt circuits (and\nwhy they are refused here).\n\nChecks:\n- Proof structure validity\n- Commitment correctness\n- Pairing equation satisfaction\n- Timestamp freshness",
         "operationId": "verify_proof_v1_zk_verify_post",
         "requestBody": {
           "content": {
@@ -7089,6 +7089,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "receipt circuits must be verified via /receipt/verify, which binds the proof to server-derived signals from stored job state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
