@@ -705,3 +705,20 @@ against the sources and each page carries a stub banner.
 
 `LICENSE` and the root `README.md` footer now read `Copyright (c)
 2025–2026 AITBC` — the project spans both years.
+
+### docs(cleanup): delete foreign 2025-dated templates; fix broken examples (2026-09-30)
+
+Deleted foreign-template docs that describe a stack AITBC does not have:
+`ci-cd/CI-CD-Pipeline-Guide.md` (Next.js/yarn/Stripe — self-labelled
+foreign), and the `docs/database/` RLS set (PostgreSQL + Prisma + RLS;
+nothing named `withUserContext`, `CREATE POLICY`, or `RLS_*` exists in
+code): `RLS_IMPLEMENTATION_GUIDE.md`, `RLS_DATABASE_MIGRATION_SOP.md`,
+`RLS_POLICY_CATALOG.md`, `DATA_DICTIONARY.md`. The two index READMEs were
+part of the same import and are rewritten to point at the real schema doc
+and the real CI files. `docs/security/SECURITY.md` reporting now defers
+to `.github/SECURITY.md` (the actual policy). Fixed the broken imports a
+reader would hit first: `aitbc.crypto.security` → `aitbc.crypto.secrets`,
+`aitbc.security_hardening` → `aitbc.security.validators`,
+`aitbc.redis_cache` → `aitbc.caching`, in `quick-start.md` and
+`performance-features.md`. Dropped the stale per-app "last commit"
+stamps from `architecture/active_apps.md`.
