@@ -176,7 +176,7 @@ Resolved - proper validation re-implemented with efficient circuits and compiles
 
 **Severity:** Medium
 **Component:** apps/zk-circuits/receipt.circom
-**Status:** Open
+**Status:** Resolved (closed by architecture, 2026-09-30)
 
 **Description:**
 The ReceiptAttestation template lacks validation for:
@@ -197,8 +197,13 @@ fields cannot inject unchecked values — the "forged fields accepted"
 scenario is closed by the service layer rather than by comparators.
 Residual: `receipt_simple.circom` carried a dead `BidRangeProof`
 template whose `GreaterEqThan` was fed per-bit differences (broken if
-anyone ever instantiated it); removed — recompiled r1cs is byte-identical,
-so the committed zkeys are unaffected.
+anyone ever instantiated it); removed from **both** copies — the build
+tree `apps/zk-circuits/` and the deployed in-package tree under
+`apps/coordinator-api/.../zk_applications/zk-circuits/`. Recompiled r1cs
+is byte-identical in either tree, so the committed zkeys/vkeys are
+unaffected. The two trees' `.circom` sources are now pinned identical by
+`scripts/ci/check-zk-circuit-sync.sh` (artifacts may legitimately differ
+— separate trusted-setup ceremonies).
 
 **Impact:**
 
@@ -207,14 +212,12 @@ so the committed zkeys are unaffected.
 - Malformed computation results could be accepted
 
 **Remediation:**
-Add validation components for:
-
-- Timestamp range checks (e.g., within reasonable window)
-- Pricing rate bounds (e.g., 0 < rate < max_rate)
-- Computation result format validation
+~~Add validation components for timestamp/rate/result fields~~ —
+superseded: the successor circuits take no such fields; validation moved
+to the service layer (server-side public-signal derivation).
 
 **Status:**
-Awaiting fix
+Resolved — see the re-check note above.
 
 ---
 
@@ -850,9 +853,8 @@ compare with `Decimal("0")`.
 - **Severity:** Medium
 - **Component:** `aitbc/data_layer/data_layer.py`
 - **Location:** lines 53-54, 114
-- **Status:** Partially resolved — `amount_min`/`amount_max` are now
-  `Decimal | None`, but the mock still stores `"amount": 1.0` as a float
-  literal (verified 2026-09-30)
+- **Status:** Resolved — `amount_min`/`amount_max` are `Decimal | None`
+  and the mock stores `Decimal("1.0")` (fixed 2026-09-30, 05fd6c206b)
 
 `get_transactions` accepts `amount_min` and `amount_max` as `float`, and the mock
 generator stores `"amount": 1.0`. These should use `Decimal`.
@@ -867,8 +869,8 @@ to `Decimal | None`, and set the mock `amount` to `Decimal("1.0")`.
 - **Severity:** Medium
 - **Component:** `aitbc/training_setup/stage_runner.py`
 - **Location:** line 107
-- **Status:** Open — the sleep-command handler still uses `except
-  Exception` (verified 2026-09-30)
+- **Status:** Resolved — the sleep-command handler narrows to
+  `except (ValueError, TypeError, OSError)` (fixed 2026-09-30, 05fd6c206b)
 
 The sleep command handler uses `except Exception as e:`, which catches more than
 the intended `ValueError` from `int(...)` and any `OSError` from `time.sleep`.

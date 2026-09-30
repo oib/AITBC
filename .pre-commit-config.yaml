@@ -128,6 +128,14 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      - id: check-zk-circuit-sync
+        name: validate-zk-circuit-source-sync
+        entry: scripts/ci/check-zk-circuit-sync.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       - id: check-feature-status
         name: validate-feature-status-evidence
         entry: python3 scripts/docs/check_feature_status.py

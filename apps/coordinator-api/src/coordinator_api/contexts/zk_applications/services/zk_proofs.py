@@ -260,10 +260,12 @@ class ZKProofService:
     """Service for generating zero-knowledge proofs for receipts and ML operations"""
 
     def __init__(self, circuits_dir: Path | None = None) -> None:
-        # V23-26: the artifacts exist in two trees — this in-package copy and
-        # apps/zk-circuits/, which is where they are built. They have diverged, and the
-        # path being hardcoded is why nothing could be pointed at the other one to compare.
-        # The in-package copy stays the default so deployments are unaffected.
+        # V23-26: artifacts exist in two trees — this in-package copy (what the
+        # service loads; artifacts from its own ceremony) and apps/zk-circuits/
+        # (the build workspace, which has its own zkeys/vkeys). Sources are kept
+        # identical by scripts/ci/check-zk-circuit-sync.sh; artifacts legitimately
+        # differ between trees. The in-package copy stays the default so
+        # deployments are unaffected.
         configured = os.getenv("COORDINATOR_ZK_CIRCUITS_DIR")
         self.circuits_dir = circuits_dir or (Path(configured) if configured else Path(__file__).parent.parent / "zk-circuits")
         self.circuits = {
