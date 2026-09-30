@@ -1,5 +1,8 @@
 # Dispute Resolution Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative for signatures and behavior.
+
 Dispute Resolution Smart Contract
 
 ## Implementation Details

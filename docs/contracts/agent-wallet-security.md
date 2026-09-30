@@ -1,19 +1,14 @@
 # Agent Wallet Security Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative; internal helper lists were removed because they drift.
+
 AITBC Agent Wallet Security Implementation
 
 ## Implementation Details
 
 - `AgentSecurityProfile` — Security profile for an agent
 - `AgentWalletSecurity` — Security manager for autonomous agent wallets
-
-## Key Functions
-
-- `register_agent_for_protection() — Register an agent for security protection`
-- `protect_agent_transaction() — Protect a transaction for an agent`
-- `get_agent_security_summary() — Get security summary for an agent`
-- `generate_security_report() — Generate comprehensive security report`
-- `detect_suspicious_activity() — Detect suspicious activity for an agent`
 
 ## Examples
 

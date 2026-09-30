@@ -1,5 +1,8 @@
 # Upgrades Contract
 
+> **Skeleton stub** — the source file it points to is
+> authoritative; internal helper lists were removed because they drift.
+
 Contract Upgrade System
 
 ## Implementation Details
@@ -9,14 +12,6 @@ Contract Upgrade System
 - `ContractVersion`
 - `UpgradeProposal`
 - `ContractUpgradeManager` — Manages contract upgrades and versioning
-
-## Key Functions
-
-- `log_info()`
-- `log_error()`
-- `log_warn()`
-- `get_upgrade_manager() — Get global upgrade manager`
-- `create_upgrade_manager() — Create and set global upgrade manager`
 
 ## Examples
 
