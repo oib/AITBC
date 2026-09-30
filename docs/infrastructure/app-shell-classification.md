@@ -20,7 +20,7 @@ This document classifies app shells and thin services in the AITBC repository.
 | `shared-domain` | **ACTIVE** | Shared domain models (agent, performance, portfolio, etc.) used by agent-management and other services | Used by `aitbc-agent-management` |
 | `shared-core` | **ACTIVE** | Shared core utilities (config, database, logging, security) for microservices | Used by root aitbc package |
 | `market-service` | **ACTIVE** | Production GPU market service with proper packaging | Standard Poetry app |
-| `docs/enterprise` | **ACTIVE** | Enterprise integration documentation | Documentation only |
+| `docs/enterprise` | N/A | Directory does not exist — moved to Non-Existent |
 
 ### Candidates for Removal
 
@@ -33,6 +33,7 @@ This document classifies app shells and thin services in the AITBC repository.
 | Service | Status | Reason |
 |---------|--------|--------|
 | `docs/ai-models` | N/A | Directory does not exist |
+| `docs/enterprise` | N/A | Directory does not exist |
 
 ## Service Boundaries
 
@@ -62,7 +63,7 @@ This document classifies app shells and thin services in the AITBC repository.
 - [x] Classified `shared-core` as ACTIVE
 - [x] Classified `market-service` as ACTIVE
 - [x] Classified `market-debug` for removal
-- [x] Documented `docs/enterprise` as active documentation
+- [x] `docs/enterprise` re-checked: directory does not exist — reclassified as non-existent
 - [ ] Remove `market-debug` directory
 
 ## References

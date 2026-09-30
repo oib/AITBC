@@ -489,6 +489,44 @@ Rotation is the only remedy once a value has been served publicly. Removing the 
 
 ---
 
+## Consensus and state-transition knobs
+
+### Block production and validator quorum
+
+| Variable | Effect |
+|---|---|
+| `ENABLE_BLOCK_PRODUCTION` | Master switch for block production on the node. Followers/customer nodes run `false`; the proposer/hub and PBFT validators run `true`. |
+| `AITBC_FORCE_ENABLE_BLOCK_PRODUCTION` | Same override surface; used to force-enable on nodes whose role would otherwise keep production off. |
+| `MULTI_VALIDATOR_CONSENSUS_ENABLED` | Enables the PBFT-style multi-validator path (attestation-collecting blocks instead of single-proposer). |
+| `MULTI_VALIDATOR_MIN_ATTESTATIONS` | Minimum non-proposer attestations a block needs (default 2). If fewer validators are active, the effective minimum is reduced and logged rather than rejecting every block. |
+
+### State-transition version heights (`STATE_TRANSITION_V<N>_HEIGHT`)
+
+Consensus rules change by *height*, not by flag. Each `v<n>` adds rules to
+transaction application/validation; blocks below the activation height replay
+under the old, lenient rules so sealed history stays valid.
+
+| Height knob | What activates |
+|---|---|
+| `STATE_TRANSITION_V2_HEIGHT` | Block-versioned apply rules (unversioned blocks below it replay as v1). |
+| `STATE_TRANSITION_V3_HEIGHT` | Per-escrow custody; new blocks stamp `state_transition_version=3`. |
+| `STATE_TRANSITION_V4_HEIGHT` | Consensus stake-lock windows — `STAKE_RELEASE` must name matured lock txs. Hardcoded 11000. |
+| `STATE_TRANSITION_V5_HEIGHT` | Fail-closed authority gates: settlement authority, `governance_executors`, bridge pseudo-sender. Hardcoded 24000. |
+| `STATE_TRANSITION_V6_HEIGHT` | `BRIDGE_REFUND` must name its sealed `BRIDGE_LOCK`. Env-gated — set identically on every node; `fleet-config-check.sh` flags drift. |
+| `STATE_TRANSITION_V7_HEIGHT` | `GPU_REGISTER` for an existing gpu_id must come from the recorded registrant. Hardcoded 24650. |
+| `STATE_TRANSITION_V8_HEIGHT` | Stamped-version integrity — the height-derived version governs, mismatched stamps log `block_version_stamp_mismatch_total`. Hardcoded 24800. |
+| `STATE_TRANSITION_V9_HEIGHT` | Sender-signature enforcement at apply + attestation. **Unset = shadow mode**: would-rejects log and count `v9_would_reject_*_total` instead of rejecting. Pin only after shadow counters stay clean. |
+
+**Effective-heights rule**: heights v4/v5/v7/v8 are consensus and hardcoded in
+`aitbc_chain/config.py` — env files cannot move them (an env-drifted fleet
+would fork), and `fleet-config-check.sh` flags an env-set value that shadows
+a code pin. Only v2/v3/v6/v9 are operator-settable; set them identically on
+every node.
+
+Bridge payout/deposit knobs (`BRIDGE_*`, `PAYOUT_*`, `MIN_ETH_DEPOSIT`) live in
+`apps/bridge-monitor/README.md` — the canonical reference, kept in sync with
+the code by a docs-coverage test.
+
 ## Environment File Loading Order
 
 Systemd services load environment files in the order specified in the `[Service]` section. Later files can override earlier ones.

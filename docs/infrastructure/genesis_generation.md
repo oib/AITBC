@@ -1,5 +1,10 @@
 # Genesis Block and Wallet Generation Guide
 
+> **Safety note (2026-09-30).** The fleet's deployed `genesis.json` files
+> are stale and the original block-0 allocation set is lost — bootstrap
+> from genesis is unsafe and upcoming policy refuses it on a root
+> mismatch. Prefer checkpoint/backup restores; see
+> `docs/ops/v5-replay-inventory.md`.
 **Last Updated:** 2026-05-28
 
 > **Important:** This document uses port 8108 for the wallet service. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).

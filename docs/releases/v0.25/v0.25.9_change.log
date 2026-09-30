@@ -748,3 +748,20 @@ generic-contracts-only. `packages.md` covers the non-Python packages
 `REPOSITORY_STRUCTURE.md` drops "authoritative" and the untracked
 `venv/`/`build/` rows. `docs/CHANGELOG.md` is retired in favour of the
 release logs.
+
+### docs(staleness): May sweep — skills directives, env-config consensus section (2026-09-30)
+
+Skill files agents load as instructions now match practice: the
+troubleshooting skill no longer prescribes `DELETE FROM block WHERE
+height=0` (stale-genesis bootstrap is unsafe; restore from
+checkpoint/backup instead), the software-setup skill's `--no-verify`
+advice is removed (AGENTS.md forbids it — CI runs the same checks), and
+the multi-node skill's `git add .` / `push origin main` became named
+files + `push origin HEAD:main`. `ENVIRONMENT_CONFIGURATION.md` gains a
+consensus section: `ENABLE_BLOCK_PRODUCTION`,
+`MULTI_VALIDATOR_MIN_ATTESTATIONS`, and the `STATE_TRANSITION_V2..V9`
+height table with the hardcoded-vs-env-gated rule. `genesis_generation.md`
+warns that fleet genesis files are stale and bootstrap is unsafe.
+Broken/missing refs fixed in `e2e-test-execution.md`,
+`testing-procedures.md`, `infrastructure/README.md`, and
+`app-shell-classification.md`.
