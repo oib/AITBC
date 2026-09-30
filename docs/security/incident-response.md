@@ -38,8 +38,6 @@ SECURITY_CONTACT="aitbc@bubuit.net"
 # https://github.com/oib/AITBC/security
 ```
 
-## See Also
+## See also
 
-- [Logging and Monitoring](logging-monitoring.md) - Detection and alerting
-- [Security Audits](security-audits.md) - Post-incident audits
-- [Vulnerability Scanning](vulnerability-scanning.md) - Prevention
+- [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists

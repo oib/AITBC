@@ -1,50 +1,16 @@
-# Security Notes
+# Security notes
 
-This guide covers security best practices for AITBC nodes.
+Baseline precautions for node operators. The consolidated reference is
+[docs/security/SECURITY.md](../../security/SECURITY.md); the repository's
+secret-handling rules are in the "No secrets in the repo" section of
+[AGENTS.md](../../../AGENTS.md).
 
-## Wallet Security
-
-- Keep your wallet private keys secure
-- Never share private keys with anyone
-- Use strong passwords for wallet encryption
-- Backup wallet files regularly
-- Store backups in secure, encrypted locations
-- Consider using hardware wallets for large amounts
-
-## Database Security
-
-- Use strong passwords for database access
-- Restrict database access to localhost when possible
-- Enable SSL/TLS for database connections
-- Regularly update database software
-- Implement proper user permissions
-
-## Network Security
-
-- Limit access to blockchain RPC port 8202
-- Use firewall rules to restrict access
-- Enable SSL/TLS for RPC endpoints
-- Monitor network traffic for suspicious activity
-- Use VPNs for remote access
-
-## System Security
-
-- Regularly update AITBC codebase
-- Keep system packages updated
-- Use SSH key-based authentication
-- Disable password authentication for SSH
-- Implement fail2ban for brute force protection
-- Monitor system logs for suspicious activity
-
-## Operational Security
-
-- Implement proper logging and monitoring
-- Set up alerts for unusual activity
-- Regular security audits
-- Incident response plan
-- Backup and recovery procedures
-
-## See Also
-
-- [Coin Requests](../node/coin-requests.md) - Wallet management included
-- [Prerequisites](../installation/prerequisites.md) - Network requirements included
+- Keep wallet private keys out of the repository, chat, and screenshots;
+  a leaked key means the wallet, not a password reset.
+- Services read secrets from `/etc/aitbc/*.env` — keep those files
+  root-readable only, and never commit them.
+- Use SSH keys for node access; disable password authentication.
+- Restrict service ports to the interfaces they actually serve — the
+  bind policy is enforced by `scripts/docs/check_bind_policy.py`.
+- Chain reads are public by design; anything that mutates state requires
+  a signature (wallet, peer key, or validator key depending on the path).

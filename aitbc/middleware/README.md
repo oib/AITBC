@@ -1,5 +1,7 @@
 # Middleware
 
+> **Skeleton stub** (generated June 2026, one line per field) — accurate as an orientation only. The service source and the page under `docs/apps/` are authoritative; expand this file when the service's behavior changes.
+
 Reusable FastAPI/ASGI middleware for AITBC services: error handling, request tracing, performance logging, validation, and security headers.
 
 ## State

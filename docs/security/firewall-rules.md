@@ -68,9 +68,6 @@ iptables -A INPUT -p tcp --dport 4001 -j ACCEPT
 iptables -A INPUT -p udp --dport 4001 -j ACCEPT   # QUIC
 ```
 
-## See Also
+## See also
 
-- [Network Policy](../deployment/NETWORK_POLICY.md) — authoritative bind/exposure policy
-- [Network Security](network-security.md) - Network segmentation
-- [Access Control](access-control.md) - User permissions
-- [Authentication](authentication.md) - IP whitelisting
+- [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists
