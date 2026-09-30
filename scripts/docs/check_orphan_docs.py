@@ -97,7 +97,7 @@ def main() -> int:
 
     baseline = set()
     if BASELINE.exists():
-        baseline = {ln.strip() for ln in BASELINE.read_text().splitlines() if ln.strip()}
+        baseline = {ln.strip() for ln in BASELINE.read_text().splitlines() if ln.strip() and not ln.strip().startswith("#")}
 
     new = [o for o in orphans if o not in baseline]
     fixed = sorted(baseline - set(orphans))

@@ -1,1 +1,4 @@
-.pytest_cache/README.md
+# Files listed here are allowed orphans (no inbound Markdown link).
+# Format: repo-relative POSIX path, one per line. Empty by default —
+# add an entry only with a comment explaining why the file must stay
+# unlinked.
