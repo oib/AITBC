@@ -902,3 +902,9 @@ dropped 4 rows that became verifiable.
 - Changelog-coverage `cat` died under `set -e` when the top-level `*_change.log` glob misses — now `|| true`.
 - Same section reported every covered commit uncovered: `echo "$LOG_FILES" | grep -qF` loses to SIGPIPE under `pipefail` — now a pure-bash `case` match.
 - `skip_flagged`/`mock_flagged`/`height_bad` initialized at top with the other accumulators — a skipped section must never look like a clean one.
+
+### fix(bridge): verdict split + alert throttle + check-bug fixes
+
+- `fleet-config-check.sh`: new `v9-pin-gate:` verdict line reads only the consensus/pin subset (env drift, heights, kill-switch, mock flag, v9 window, validators, gossip, digests, convergence) — bridge monitor alerts and doc hygiene still redden the overall verdict but cannot block the pin. Full-roster note added to the header; `v9_bad` initialized with the other accumulators.
+- `bridge_monitor`: low-float alerts were emitted every poll while the condition held — now throttled to once per `BRIDGE_FLOAT_ALERT_INTERVAL_SECONDS` (default 3600) per condition, re-alerting immediately on a fresh episode.
+- Deposit ledger: the `58acfadb` "no recipient" row was the operator float top-up, already `written_off`. `746aebaf` (0.05 ETH from `0x42645cE4`, no memo, failed since Sep 26) remains open — needs an operator refund/write-off decision.
