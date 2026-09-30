@@ -734,3 +734,17 @@ section reworded as unshipped candidates. Dropped the vestigial
 `reference/backend.md` (no generator runs). `REPOSITORY_STRUCTURE.md`
 regained `aitbc/`, `mcp-server/`, `plugins/`, `skills/` and lost the
 nonexistent `dev/` and `build/` rows.
+
+### docs(staleness): third sweep — point-in-time banners, BR-1 deploy carve-out (2026-09-30)
+
+`SECURITY_VULNERABILITY_REPORT.md` now opens with a superseded banner —
+its 365-finding snapshot predates the code moves that fixed the named
+issues; current posture comes from the scan tooling, not the snapshot.
+`SMART_CONTRACT_DEPLOYMENT.md` gains a CrossChainBridge section following
+BR-1 (frozen deprecated deployment, disposable deployer, 2-of-3 Safe
+owner, full deployment record) and marks the deployer-key-in-CI path as
+generic-contracts-only. `packages.md` covers the non-Python packages
+(`aitbc-core`, `aitbc-shared`, `theme-provider`, `web`).
+`REPOSITORY_STRUCTURE.md` drops "authoritative" and the untracked
+`venv/`/`build/` rows. `docs/CHANGELOG.md` is retired in favour of the
+release logs.

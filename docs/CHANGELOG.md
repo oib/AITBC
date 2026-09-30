@@ -1,5 +1,9 @@
 # Documentation Changelog
 
+
+> **Retired (2026-09-30).** This docs-only changelog stopped being
+> maintained in June 2026. Real history lives in the per-version logs
+> under `docs/releases/` — do not add entries here.
 **Last Updated**: 2026-06-30
 **Version**: 1.0
 
