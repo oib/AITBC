@@ -31,6 +31,7 @@ DESCRIPTIONS = {
     "cli": "Command-line interface reference",
     "contracts": "Smart contract and ZK verification docs",
     "database": "Database schema, RLS, and migration docs",
+    "decisions": "Decision log — dated choices with recorded reasons",
     "deployment": "Deployment and infrastructure setup",
     "design": "Design documents and decisions",
     "development": "Developer guides and workflow",
