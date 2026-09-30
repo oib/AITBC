@@ -666,3 +666,15 @@ The v9 checklist gains a documentation gate: the v9 policy must be
 described in a tracked doc and the changelog must carry an entry for
 every commit in the pin range — the fleet check's changelog-coverage
 section verifies the second mechanically.
+
+### docs(index): hub page + orphan-docs pre-commit check (2026-09-30)
+
+New `docs/README.md` links every documentation file that had no inbound
+link and was worth finding — the ops runbooks, the security set, the
+top-level reference pages, the development/reference indexes, and the
+component READMEs that sat beside their code. `scripts/docs/
+check_orphan_docs.py` now runs in pre-commit: a `.md` file with zero
+inbound links fails the commit unless it is in an expected group
+(release notes, archive, skills, CI templates, src-adjacent READMEs) or
+listed in `scripts/docs/orphan-docs-baseline.txt` — a ratchet baseline
+that only shrinks.

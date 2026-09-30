@@ -120,6 +120,14 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      - id: check-orphan-docs
+        name: validate-no-new-orphan-docs
+        entry: python3 scripts/docs/check_orphan_docs.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       - id: check-doc-ports
         name: validate-docs-port-consistency
         entry: python3 scripts/docs/check_ports.py
