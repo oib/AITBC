@@ -462,7 +462,7 @@ curl -X GET http://localhost:8203/v1/zk/info
 
 After completing tests, document results in:
 
-- `docs/security/test-results.md`
+- Record results alongside the test run (no dedicated results file exists today)
 - Include test dates, results, any failures
 - Attach logs for failed tests
 - Sign off on successful tests

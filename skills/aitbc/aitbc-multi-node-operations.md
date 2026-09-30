@@ -82,7 +82,7 @@ echo "=== node2 ===" && ssh node2 'cd /opt/aitbc && git status --short && git re
 ```bash
 # 1. Commit and push from main node
 cd /opt/aitbc
-git add . && git commit -m "feat: description" && git push origin main
+git add <files> && git commit -m "feat: description" && git push origin HEAD:main
 
 # 2. Pull on follower
 ssh node1 'cd /opt/aitbc && git pull origin main'
