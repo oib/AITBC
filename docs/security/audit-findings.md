@@ -187,6 +187,11 @@ The ReceiptAttestation template lacks validation for:
 
 The comments on lines 66-69 acknowledge these are missing.
 
+**Re-check 2026-09-30:** `receipt.circom` no longer exists — the circuit
+was split into `receipt_model.circom`, `receipt_public.circom` and
+`receipt_simple.circom`. None of the three carry timestamp/range
+comparators, so the gap carries over to the successor circuits.
+
 **Impact:**
 
 - Invalid timestamps could be accepted
@@ -792,7 +797,7 @@ _version.py, utils, wallet.
 - **Severity:** High
 - **Component:** `aitbc/oracles/price_oracle.py`
 - **Location:** line 76
-- **Status:** Open
+- **Status:** Resolved — `PriceResult.price` is now `Decimal` (verified 2026-09-30)
 
 `PriceResult.price` is typed as `float`. Per the project `Decimal` policy for
 money and price data, financial fields should use `Decimal`.
@@ -807,7 +812,7 @@ answers into `Decimal` values.
 - **Severity:** High
 - **Component:** `aitbc/trading/types.py`
 - **Location:** lines 116, 160, 177, 199
-- **Status:** Open
+- **Status:** Resolved — all four `price` fields are now `Decimal` (verified 2026-09-30)
 
 The `price` fields at the listed line numbers are `float` in the trading
 dataclasses. This contradicts the `Decimal` policy for price data.
@@ -822,7 +827,7 @@ in the four dataclasses.
 - **Severity:** High
 - **Component:** `aitbc/security/validators.py`
 - **Location:** line 259
-- **Status:** Open
+- **Status:** Resolved — `validate_amount()` now validates `Decimal(str(amount))` (verified 2026-09-30)
 
 `validate_amount()` casts the input to `float` before comparing it to zero.
 Amounts should be validated as `Decimal` to avoid floating-point rounding.
@@ -837,7 +842,9 @@ compare with `Decimal("0")`.
 - **Severity:** Medium
 - **Component:** `aitbc/data_layer/data_layer.py`
 - **Location:** lines 53-54, 114
-- **Status:** Open
+- **Status:** Partially resolved — `amount_min`/`amount_max` are now
+  `Decimal | None`, but the mock still stores `"amount": 1.0` as a float
+  literal (verified 2026-09-30)
 
 `get_transactions` accepts `amount_min` and `amount_max` as `float`, and the mock
 generator stores `"amount": 1.0`. These should use `Decimal`.
@@ -852,7 +859,8 @@ to `Decimal | None`, and set the mock `amount` to `Decimal("1.0")`.
 - **Severity:** Medium
 - **Component:** `aitbc/training_setup/stage_runner.py`
 - **Location:** line 107
-- **Status:** Open
+- **Status:** Open — the sleep-command handler still uses `except
+  Exception` (verified 2026-09-30)
 
 The sleep command handler uses `except Exception as e:`, which catches more than
 the intended `ValueError` from `int(...)` and any `OSError` from `time.sleep`.
