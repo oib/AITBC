@@ -873,3 +873,9 @@ VALIDATOR_SET) must appear in `docs/blockchain/ENVIRONMENT_CONFIGURATION.md`
 "Additional blockchain-node variables" table or the secrets reference.
 Also: orphan baseline is empty and `check_feature_status.py` baseline
 dropped 4 rows that became verifiable.
+
+### fix(security): apply receipt-circuit cleanup to the deployed in-package tree + pin .circom source sync
+
+- `receipt_simple.circom`: the dead `BidRangeProof` removal now also applied to the in-package copy the service actually loads (`apps/coordinator-api/.../zk-circuits/`); recompiled r1cs is byte-identical to the committed artifact (`6a873d…`), so deployed zkeys/vkeys are unaffected.
+- `scripts/ci/check-zk-circuit-sync.sh` + pre-commit hook: the two circuit trees (build workspace vs deployed package) must keep identical `.circom` sources; artifacts may differ (separate ceremonies).
+- `audit-findings.md`: receipt finding status now `Resolved (closed by architecture)`; old remediation marked superseded; `data_layer`/`stage_runner` findings marked Resolved (fixed in 05fd6c206b). Ledger-wide consistency check finds no status/note disagreements.
