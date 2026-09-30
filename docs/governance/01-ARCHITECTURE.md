@@ -101,6 +101,13 @@ Staking is **not** part of the governance group: use `aitbc stake` / `aitbc unst
 3. The server derives voting power from the voter's **on-chain balance/stake snapshot** — caller-supplied `voting_power` is ignored
 4. When on-chain submission is enabled, a `GOVERNANCE_VOTE` transaction is submitted and the tx hash recorded on the vote
 
+> **Votes are advisory.** The tally informs execution but does not decide
+> it: apply never reads the vote count, and `GOVERNANCE_EXECUTE` is an
+> administrative action gated only by the `governance_executors` chain
+> parameter — an executor may execute an unpopular proposal or decline a
+> passed one. This is the standing decision (V-7, 2026-09-30); binding
+> on-chain voting would arrive as a state-transition version feature.
+
 ### Proposal Execution Flow
 
 1. Voting period ends
