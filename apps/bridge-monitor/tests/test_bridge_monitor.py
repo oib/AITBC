@@ -821,3 +821,164 @@ class TestKickBurst:
         kick.touch()
         monitor.kick_file = str(kick)
         assert monitor._kick_mtime() > 0
+
+
+class TestPayoutHardening:
+    """BR-7: price lock, per-deposit payout cap, committed-aware float.
+
+    - The first computed ait_amount is locked: a retry pays exactly the
+      stored amount, never a moved oracle's answer.
+    - A single payout may not exceed BRIDGE_MAX_PAYOUT_FRACTION of the
+      wallet balance — over-cap fails permanently and alerts.
+    - The float check alerts on *available* float: balance minus the sum
+      committed to non-terminal payouts.
+    """
+
+    def test_retry_pays_locked_amount_not_repriced(self, monitor):
+        """Stored ait_amount wins; a moved oracle is never consulted."""
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        create_deposit("0xlock1", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit(
+            "0xlock1",
+            ait_amount="100",
+            status=BridgeDepositStatus.PENDING_RETRY,
+        )
+        monitor.price_oracle.get_price = MagicMock(return_value=MagicMock(price=Decimal("999999")))
+        with (
+            patch.object(monitor, "_payout_in_flight", return_value=False),
+            patch.object(monitor, "_head_height", return_value=100),
+            patch.object(monitor, "_build_signed_transfer", return_value={"tx": 1}) as build,
+            patch.object(monitor, "_post_signed_tx", return_value="0xhash"),
+            patch.object(monitor, "_envelope_tx_hash", return_value="0xhash"),
+            patch.object(monitor, "_payout_wallet_balance", return_value=10**15),
+        ):
+            monitor.process_retry_queue()
+
+        build.assert_called_once()
+        assert build.call_args[0][1] == Decimal("100")
+        monitor.price_oracle.get_price.assert_not_called()
+        assert get_deposit("0xlock1")["status"] == BridgeDepositStatus.SUBMITTED.value
+
+    def test_unpriced_row_first_prices_and_records_prices(self, monitor):
+        """amount_ait '0' means never priced — recompute once, store inputs."""
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        create_deposit("0xlock2", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit("0xlock2", status=BridgeDepositStatus.PENDING_RETRY)
+
+        eth_p, ait_p = MagicMock(price=Decimal("3000")), MagicMock(price=Decimal("0.30"))
+        monitor.price_oracle.get_price = MagicMock(side_effect=lambda sym, q: eth_p if sym == "ETH" else ait_p)
+        with (
+            patch.object(monitor, "_payout_in_flight", return_value=False),
+            patch.object(monitor, "_head_height", return_value=100),
+            patch.object(monitor, "_build_signed_transfer", return_value={"tx": 1}),
+            patch.object(monitor, "_post_signed_tx", return_value="0xhash"),
+            patch.object(monitor, "_envelope_tx_hash", return_value="0xhash"),
+            patch.object(monitor, "_payout_wallet_balance", return_value=10**15),
+        ):
+            monitor.process_retry_queue()
+
+        dep = get_deposit("0xlock2")
+        assert Decimal(dep["ait_amount"]) > 0  # 0.01 * 3000 / 0.30 = 100
+        assert dep["eth_usd_price"] == "3000"
+        assert dep["ait_usd_price"] == "0.30"
+
+    def test_over_cap_deposit_fails_and_alerts(self, monitor, caplog):
+        """200-AIT payout vs 100-AIT float (cap 0.5 → 50 AIT): FAILED."""
+        from bridge_monitor.storage import get_deposit
+        from aitbc.utils.units import ait_to_units
+
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("200")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(100)),
+            patch.object(monitor, "_build_signed_transfer") as build,
+        ):
+            monitor.process_deposit("0xcap1", "0xfrom", Decimal("0.01"), "0xdata")
+
+        dep = get_deposit("0xcap1")
+        assert dep["status"] == BridgeDepositStatus.FAILED.value
+        assert "cap" in (dep["error_message"] or "")
+        build.assert_not_called()
+        assert "per-deposit cap" in caplog.text
+
+    def test_under_cap_deposit_proceeds(self, monitor):
+        """100-AIT payout vs 1000-AIT float submits normally."""
+        from aitbc.utils.units import ait_to_units
+
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(1000)),
+            patch.object(monitor, "_payout_in_flight", return_value=False),
+            patch.object(monitor, "_submit_payout", return_value=True) as submit,
+        ):
+            monitor.process_deposit("0xcap2", "0xfrom", Decimal("0.01"), "0xdata")
+
+        submit.assert_called_once()
+        assert submit.call_args[0][2] == Decimal("100")
+
+    def test_cap_recheck_on_retry(self, monitor):
+        """A locked amount can breach the cap later when the float shrank."""
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+        from aitbc.utils.units import ait_to_units
+
+        create_deposit("0xcap3", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit(
+            "0xcap3",
+            ait_amount="200",
+            status=BridgeDepositStatus.PENDING_RETRY,
+        )
+        with (
+            patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(100)),
+            patch.object(monitor, "_build_signed_transfer") as build,
+        ):
+            monitor.process_retry_queue()
+
+        dep = get_deposit("0xcap3")
+        assert dep["status"] == BridgeDepositStatus.FAILED.value
+        assert "cap" in (dep["error_message"] or "")
+        build.assert_not_called()
+
+    def test_cap_rpc_failure_fails_open(self, monitor):
+        """Balance unreadable → no cap verdict; payout proceeds (the float
+        check's warning covers the visibility loss)."""
+
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=None),
+            patch.object(monitor, "_payout_in_flight", return_value=False),
+            patch.object(monitor, "_submit_payout", return_value=True) as submit,
+        ):
+            monitor.process_deposit("0xcap4", "0xfrom", Decimal("0.01"), "0xdata")
+
+        submit.assert_called_once()
+
+    def test_float_alert_counts_committed_payouts(self, monitor, caplog):
+        """Balance above threshold, but a 990-AIT SUBMITTED envelope commits
+        nearly all of it — the alert must fire on *available*."""
+        from bridge_monitor.storage import create_deposit, update_deposit
+        from aitbc.utils.units import ait_to_units
+
+        create_deposit("0xcmt1", "0xfrom", "0.01", "0x" + "d" * 40)
+        update_deposit(
+            "0xcmt1",
+            ait_amount="990",
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        monitor.eth_rpc.get_balance = MagicMock(return_value={"wei": 10**18})
+        with patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(1000)):
+            monitor._check_float()
+        assert "payout float low" in caplog.text
+        assert "committed" in caplog.text
+
+    def test_float_alert_quiet_when_commitment_free(self, monitor, caplog):
+        """Same balance, no committed rows → no alert."""
+        from aitbc.utils.units import ait_to_units
+
+        monitor.eth_rpc.get_balance = MagicMock(return_value={"wei": 10**18})
+        with patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(1000)):
+            monitor._check_float()
+        assert "float low" not in caplog.text
