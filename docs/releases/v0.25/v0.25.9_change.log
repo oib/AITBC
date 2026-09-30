@@ -847,3 +847,16 @@ can carry explanations.
 now exempt prefixes in `check_orphan_docs.py` — pytest recreates
 `.pytest_cache/README.md` on every test run, and a generated artifact
 should never fail the orphan gate.
+
+### feat(docs): mechanical evidence for ✅ feature-status rows (2026-09-30)
+
+`check_feature_status.py` (new pre-commit hook
+`validate-feature-status-evidence`) makes every `✅` in the feature
+tables a verifiable claim: the row must carry a backticked code
+identifier that resolves in the tree — otherwise it lands in
+`feature-status-baseline.txt` (278 legacy rows baselined, ratchet only
+shrinks). The bridge table in `2-bridge-cross-chain.md` is seeded with
+real tokens (`BRIDGE_LOCK`, `refund_transfer`, `get_validator_set`, …);
+its "Bridge Unlock" row now names the real on-chain type `BRIDGE_REFUND`,
+and the threat-model row is `📄 doc` (a document, not shipped code).
+Convention documented in `docs/meta/DOCUMENTATION_TEMPLATE_STANDARD.md`.

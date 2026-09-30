@@ -1,0 +1,262 @@
+docs/features/1-blockchain-core.md:Block Query  # no evidence token in row
+docs/features/1-blockchain-core.md:Transaction Submission  # no evidence token in row
+docs/features/1-blockchain-core.md:Account Management  # no evidence token in row
+docs/features/1-blockchain-core.md:Auto Sync  # no evidence token in row
+docs/features/1-blockchain-core.md:Force Sync  # no evidence token in row
+docs/features/1-blockchain-core.md:Export/Import Blocks  # no evidence token in row
+docs/features/1-blockchain-core.md:Proposer Selection  # no evidence token in row
+docs/features/1-blockchain-core.md:Network Partition Handling  # no evidence token in row
+docs/features/1-blockchain-core.md:Federated Mesh  # no evidence token in row
+docs/features/1-blockchain-core.md:Island Management  # no evidence token in row
+docs/features/1-blockchain-core.md:Hub Registration  # no evidence token in row
+docs/features/1-blockchain-core.md:Island Bridging  # no evidence token in row
+docs/features/1-blockchain-core.md:NAT Traversal  # no evidence token in row
+docs/features/1-blockchain-core.md:Bootstrap Nodes  # no evidence token in row
+docs/features/1-blockchain-core.md:Peer Management  # no evidence token in row
+docs/features/1-blockchain-core.md:MultiChainManager  # no evidence token in row
+docs/features/1-blockchain-core.md:Chain Lifecycle  # no evidence token in row
+docs/features/1-blockchain-core.md:Chain Status Tracking  # no evidence token in row
+docs/features/1-blockchain-core.md:Chain Health Monitoring  # no evidence token in row
+docs/features/1-blockchain-core.md:Gossip Protocol  # no evidence token in row
+docs/features/1-blockchain-core.md:Delta Sync  # no evidence token in row
+docs/features/1-blockchain-core.md:Parallel Sync  # no evidence token in row
+docs/features/1-blockchain-core.md:Compact Blocks  # no evidence token in row
+docs/features/1-blockchain-core.md:HTTP RPC Compression  # no evidence token in row
+docs/features/1-blockchain-core.md:File Dispute  # no evidence token in row
+docs/features/1-blockchain-core.md:Submit Evidence  # no evidence token in row
+docs/features/1-blockchain-core.md:Verify Evidence  # no evidence token in row
+docs/features/1-blockchain-core.md:Arbitration Voting  # no evidence token in row
+docs/features/1-blockchain-core.md:Authorize Arbitrator  # no evidence token in row
+docs/features/1-blockchain-core.md:Query Disputes  # no evidence token in row
+docs/features/1-blockchain-core.md:Deploy Contract  # no evidence token in row
+docs/features/1-blockchain-core.md:Call Contract  # no evidence token in row
+docs/features/1-blockchain-core.md:Verify ZK Proof  # no evidence token in row
+docs/features/1-blockchain-core.md:List Contracts  # no evidence token in row
+docs/features/1-blockchain-core.md:Messaging Contracts  # no evidence token in row
+docs/features/1-blockchain-core.md:Forum Topics  # no evidence token in row
+docs/features/1-blockchain-core.md:Agent Reputation  # no evidence token in row
+docs/features/1-blockchain-core.md:Message Moderation  # no evidence token in row
+docs/features/1-blockchain-core.md:Stake Tokens  # no evidence token in row
+docs/features/1-blockchain-core.md:Unstake Tokens  # no evidence token in row
+docs/features/1-blockchain-core.md:Get Staking Info  # no evidence token in row
+docs/features/1-blockchain-core.md:Register Agent Identity  # no evidence token in row
+docs/features/1-blockchain-core.md:Get Agent Identity  # no evidence token in row
+docs/features/1-blockchain-core.md:Verify Agent Identity  # no evidence token in row
+docs/features/1-blockchain-core.md:GPU Registration  # no evidence token in row
+docs/features/1-blockchain-core.md:GPU Allocation  # no evidence token in row
+docs/features/1-blockchain-core.md:GPU Query  # no evidence token in row
+docs/features/1-blockchain-core.md:Edge Node Registration  # no evidence token in row
+docs/features/1-blockchain-core.md:Edge Node Query  # no evidence token in row
+docs/features/1-blockchain-core.md:Register Subscription  # no evidence token in row
+docs/features/1-blockchain-core.md:Heartbeat  # no evidence token in row
+docs/features/1-blockchain-core.md:Get Lease Status  # no evidence token in row
+docs/features/1-blockchain-core.md:Get Subscribers  # no evidence token in row
+docs/features/10-security.md:Secret Expiration  # no evidence token in row
+docs/features/10-security.md:Secret Rotation  # no evidence token in row
+docs/features/10-security.md:Encryption Key Rotation  # no evidence token in row
+docs/features/10-security.md:Private Key Validation  # no evidence token in row
+docs/features/10-security.md:Chain ID Validation  # no evidence token in row
+docs/features/10-security.md:Contract Address Validation  # no evidence token in row
+docs/features/10-security.md:Gas Parameter Validation  # no evidence token in row
+docs/features/10-security.md:Blockchain Caching  # no evidence token in row
+docs/features/10-security.md:Cache Invalidation  # no evidence token in row
+docs/features/10-security.md:Redis Integration  # no evidence token in row
+docs/features/10-security.md:JWT Authentication  # no evidence token in row
+docs/features/10-security.md:RBAC  # no evidence token in row
+docs/features/10-security.md:API Key Management  # no evidence token in row
+docs/features/10-security.md:Rate Limiting Middleware  # no evidence token in row
+docs/features/10-security.md:Custom Key Functions  # no evidence token in row
+docs/features/10-security.md:Audit Logging  # no evidence token in row
+docs/features/10-security.md:Security Architecture  # no evidence token in row
+docs/features/10-security.md:Threat Model  # no evidence token in row
+docs/features/10-security.md:Security Audits  # no evidence token in row
+docs/features/10-security.md:Route Security Matrix  # no evidence token in row
+docs/features/11-cli.md:Node Operations  # no evidence token in row
+docs/features/11-cli.md:Chain List  # no evidence token in row
+docs/features/11-cli.md:Chain Start/Stop  # no evidence token in row
+docs/features/11-cli.md:Sync Operations  # no evidence token in row
+docs/features/11-cli.md:Island Create/Join/List  # no evidence token in row
+docs/features/11-cli.md:Hub Register/Unregister  # no evidence token in row
+docs/features/11-cli.md:Bridge Request/Approve  # no evidence token in row
+docs/features/11-cli.md:Governance Propose  # no evidence token in row
+docs/features/11-cli.md:Governance Vote  # no evidence token in row
+docs/features/11-cli.md:Governance List/Get/Execute  # no evidence token in row
+docs/features/11-cli.md:Trade Create/List/Get  # no evidence token in row
+docs/features/11-cli.md:Trade Match/Match-All  # no evidence token in row
+docs/features/11-cli.md:Trade Discover/Sync  # no evidence token in row
+docs/features/11-cli.md:Trade Watch  # no evidence token in row
+docs/features/11-cli.md:Bridge Security-Status  # no evidence token in row
+docs/features/11-cli.md:Bridge Register-Validator  # no evidence token in row
+docs/features/11-cli.md:Bridge Oracle-Status  # no evidence token in row
+docs/features/11-cli.md:Consensus Validators  # no evidence token in row
+docs/features/11-cli.md:Consensus Status  # no evidence token in row
+docs/features/11-cli.md:Account Commands  # no evidence token in row
+docs/features/11-cli.md:Wallet Commands  # no evidence token in row
+docs/features/11-cli.md:Market Commands  # no evidence token in row
+docs/features/11-cli.md:GPU Resources Commands  # no evidence token in row
+docs/features/11-cli.md:Pool Hub Commands  # no evidence token in row
+docs/features/11-cli.md:Edge Commands  # no evidence token in row
+docs/features/11-cli.md:Mining Commands  # no evidence token in row
+docs/features/11-cli.md:Monitor Commands  # no evidence token in row
+docs/features/11-cli.md:Analytics Commands  # no evidence token in row
+docs/features/11-cli.md:Security Commands  # no evidence token in row
+docs/features/11-cli.md:Config Commands  # no evidence token in row
+docs/features/11-cli.md:Explorer Commands  # no evidence token in row
+docs/features/12-infrastructure.md:Systemd Services  # no evidence token in row
+docs/features/12-infrastructure.md:Production Architecture  # no evidence token in row
+docs/features/12-infrastructure.md:Genesis Generation  # no evidence token in row
+docs/features/12-infrastructure.md:Virtual Environment  # no evidence token in row
+docs/features/12-infrastructure.md:Runtime Directories  # no evidence token in row
+docs/features/12-infrastructure.md:Logs Organization  # no evidence token in row
+docs/features/12-infrastructure.md:Network Security  # no evidence token in row
+docs/features/12-infrastructure.md:Microservices Migration  # no evidence token in row
+docs/features/12-infrastructure.md:Health Checks  # no evidence token in row
+docs/features/12-infrastructure.md:Readiness Checks  # no evidence token in row
+docs/features/12-infrastructure.md:Prometheus Metrics  # no evidence token in row
+docs/features/12-infrastructure.md:Request Logging  # no evidence token in row
+docs/features/12-infrastructure.md:Performance Logging  # no evidence token in row
+docs/features/3-market.md:List Offers  # no evidence token in row
+docs/features/3-market.md:Get Offer  # no evidence token in row
+docs/features/3-market.md:Create Offer  # no evidence token in row
+docs/features/3-market.md:Cancel Offer  # no evidence token in row
+docs/features/3-market.md:Book Offer  # no evidence token in row
+docs/features/3-market.md:Offer History  # no evidence token in row
+docs/features/3-market.md:Match Request  # no evidence token in row
+docs/features/3-market.md:Market Analytics  # no evidence token in row
+docs/features/3-market.md:Dynamic Pricing  # no evidence token in row
+docs/features/3-market.md:Edge Advertise  # no evidence token in row
+docs/features/3-market.md:List Edge Nodes  # no evidence token in row
+docs/features/3-market.md:Edge Health  # no evidence token in row
+docs/features/3-market.md:Rate Offer  # no evidence token in row
+docs/features/3-market.md:Get Ratings  # no evidence token in row
+docs/features/3-market.md:Sync Ratings  # no evidence token in row
+docs/features/3-market.md:Service Reputation  # no evidence token in row
+docs/features/3-market.md:Create Knowledge Graph  # no evidence token in row
+docs/features/3-market.md:Add Nodes/Edges  # no evidence token in row
+docs/features/3-market.md:Get Knowledge Graph  # no evidence token in row
+docs/features/3-market.md:List Plugins  # no evidence token in row
+docs/features/3-market.md:Install Plugin  # no evidence token in row
+docs/features/3-market.md:Plugin Offers  # no evidence token in row
+docs/features/3-market.md:Apply Parameters  # no evidence token in row
+docs/features/4-governance.md:Create Proposal  # no evidence token in row
+docs/features/4-governance.md:List Proposals  # no evidence token in row
+docs/features/4-governance.md:Get Proposal  # no evidence token in row
+docs/features/4-governance.md:Execute Proposal  # no evidence token in row
+docs/features/4-governance.md:Parameter Automation  # no evidence token in row
+docs/features/4-governance.md:Cast Vote  # no evidence token in row
+docs/features/4-governance.md:List Votes  # no evidence token in row
+docs/features/4-governance.md:Get Voting Power  # no evidence token in row
+docs/features/4-governance.md:Delegate Voting Power  # no evidence token in row
+docs/features/4-governance.md:Emergency Proposals  # no evidence token in row
+docs/features/4-governance.md:On-Chain Proposal Submission  # no evidence token in row
+docs/features/4-governance.md:Create Profile  # no evidence token in row
+docs/features/4-governance.md:List Profiles  # no evidence token in row
+docs/features/4-governance.md:Get Treasury  # no evidence token in row
+docs/features/4-governance.md:Get Analytics  # no evidence token in row
+docs/features/4-governance.md:AITBCGovernanceToken  # no evidence token in row
+docs/features/4-governance.md:AITBCVoting  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Register Miner  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Miner Status  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Update Registration  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Deregister Miner  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Poll for Jobs  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Submit Job Result  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Report Job Failure  # no evidence token in row
+docs/features/5-mining-pool-hub.md:List Jobs  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Get Earnings  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Update Capabilities  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Create Pool  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Get Pool  # no evidence token in row
+docs/features/5-mining-pool-hub.md:List Pools  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Update Pool  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Delete Pool  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Pool Stats  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Join Pool  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Leave Pool  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Pool Miners  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Start/Stop Mining  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Mining Status  # no evidence token in row
+docs/features/5-mining-pool-hub.md:List Miners  # no evidence token in row
+docs/features/6-agent-coordination.md:Register Agent  # no evidence token in row
+docs/features/6-agent-coordination.md:Discover Agents  # no evidence token in row
+docs/features/6-agent-coordination.md:Get Agent  # no evidence token in row
+docs/features/6-agent-coordination.md:Update Agent Status  # no evidence token in row
+docs/features/6-agent-coordination.md:Agent Health Score  # no evidence token in row
+docs/features/6-agent-coordination.md:Least Connections  # no evidence token in row
+docs/features/6-agent-coordination.md:Round Robin  # no evidence token in row
+docs/features/6-agent-coordination.md:Weighted Round Robin  # no evidence token in row
+docs/features/6-agent-coordination.md:Resource Based  # no evidence token in row
+docs/features/6-agent-coordination.md:Geographic  # no evidence token in row
+docs/features/6-agent-coordination.md:Task Priority Queues  # no evidence token in row
+docs/features/6-agent-coordination.md:Submit Task  # no evidence token in row
+docs/features/6-agent-coordination.md:Chain-Aware Distribution  # no evidence token in row
+docs/features/6-agent-coordination.md:Payment Escrow  # no evidence token in row
+docs/features/6-agent-coordination.md:Send Message  # no evidence token in row
+docs/features/6-agent-coordination.md:Message Types  # no evidence token in row
+docs/features/6-agent-coordination.md:Hierarchical Protocol  # no evidence token in row
+docs/features/6-agent-coordination.md:Distributed Decision Making  # dead token(s): agent-autonomy-features.md
+docs/features/6-agent-coordination.md:Self-Healing  # dead token(s): agent-autonomy-features.md
+docs/features/6-agent-coordination.md:Autonomous Resource Management  # dead token(s): agent-autonomy-features.md
+docs/features/6-agent-coordination.md:Agent SDK  # no evidence token in row
+docs/features/6-agent-coordination.md:Agent Identity SDK  # no evidence token in row
+docs/features/6-agent-coordination.md:Compute Provider  # dead token(s): compute-provider.md
+docs/features/6-agent-coordination.md:Compute Consumer  # no evidence token in row
+docs/features/6-agent-coordination.md:Platform Builder  # no evidence token in row
+docs/features/6-agent-coordination.md:Swarm Coordinator  # no evidence token in row
+docs/features/7-trading.md:Create Request  # no evidence token in row
+docs/features/7-trading.md:List Requests  # no evidence token in row
+docs/features/7-trading.md:Get Request  # no evidence token in row
+docs/features/7-trading.md:Create Match  # no evidence token in row
+docs/features/7-trading.md:List Matches  # no evidence token in row
+docs/features/7-trading.md:Create Agreement  # no evidence token in row
+docs/features/7-trading.md:List Agreements  # no evidence token in row
+docs/features/7-trading.md:Create Inter-Chain Trade  # no evidence token in row
+docs/features/7-trading.md:Match Trade  # no evidence token in row
+docs/features/7-trading.md:Match All Trades  # no evidence token in row
+docs/features/7-trading.md:Inter-Chain Trade History  # no evidence token in row
+docs/features/7-trading.md:Discover Offers  # no evidence token in row
+docs/features/7-trading.md:Sync Offers  # no evidence token in row
+docs/features/7-trading.md:Sync Status  # no evidence token in row
+docs/features/7-trading.md:Offer Cache  # no evidence token in row
+docs/features/7-trading.md:Search Offers  # no evidence token in row
+docs/features/7-trading.md:Subscribe to Offers  # no evidence token in row
+docs/features/7-trading.md:Heartbeat  # no evidence token in row
+docs/features/7-trading.md:Subscription Status  # no evidence token in row
+docs/features/7-trading.md:Polling Fallback  # no evidence token in row
+docs/features/7-trading.md:Lease Tracker  # no evidence token in row
+docs/features/7-trading.md:List Chains  # no evidence token in row
+docs/features/7-trading.md:Register Chain  # no evidence token in row
+docs/features/7-trading.md:Chain Health  # no evidence token in row
+docs/features/7-trading.md:Create Payment  # no evidence token in row
+docs/features/7-trading.md:Payment Status  # no evidence token in row
+docs/features/7-trading.md:Exchange Rates  # no evidence token in row
+docs/features/7-trading.md:Market Stats  # no evidence token in row
+docs/features/7-trading.md:Wallet Balance/Info  # no evidence token in row
+docs/features/8-edge-gpu.md:List GPUs  # no evidence token in row
+docs/features/8-edge-gpu.md:Get GPU Listing  # no evidence token in row
+docs/features/8-edge-gpu.md:Remove GPU Listing  # no evidence token in row
+docs/features/8-edge-gpu.md:Scan GPUs  # no evidence token in row
+docs/features/8-edge-gpu.md:GPU Metrics  # no evidence token in row
+docs/features/8-edge-gpu.md:Advertise to Market  # no evidence token in row
+docs/features/8-edge-gpu.md:Submit Compute Request  # no evidence token in row
+docs/features/8-edge-gpu.md:List Compute Requests  # no evidence token in row
+docs/features/8-edge-gpu.md:Get Compute Request  # no evidence token in row
+docs/features/8-edge-gpu.md:Compute Result Cache  # no evidence token in row
+docs/features/8-edge-gpu.md:Escrow Verification  # no evidence token in row
+docs/features/8-edge-gpu.md:NVIDIA Driver Installation  # no evidence token in row
+docs/features/8-edge-gpu.md:CUDA Toolkit Installation  # no evidence token in row
+docs/features/8-edge-gpu.md:Ollama Installation  # no evidence token in row
+docs/features/8-edge-gpu.md:Edge GPU Optimization  # no evidence token in row
+docs/features/8-edge-gpu.md:Blockchain Registration  # no evidence token in row
+docs/features/8-edge-gpu.md:Coordinator Heartbeat  # no evidence token in row
+docs/features/9-wallet.md:Create Wallet  # no evidence token in row
+docs/features/9-wallet.md:List Wallets  # no evidence token in row
+docs/features/9-wallet.md:Get Wallet  # no evidence token in row
+docs/features/9-wallet.md:Delete Wallet  # no evidence token in row
+docs/features/9-wallet.md:Unlock/Lock Wallet  # no evidence token in row
+docs/features/9-wallet.md:Get Balance  # no evidence token in row
+docs/features/9-wallet.md:Sign Transaction  # no evidence token in row
+docs/features/9-wallet.md:Send Transaction  # no evidence token in row
+docs/features/9-wallet.md:Auto-Import  # no evidence token in row
+docs/features/9-wallet.md:Bridge Monitoring  # no evidence token in row
+docs/features/9-wallet.md:Bridge Router  # no evidence token in row
