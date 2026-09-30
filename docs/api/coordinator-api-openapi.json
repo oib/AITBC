@@ -14902,7 +14902,7 @@
           "Agent Integration"
         ],
         "summary": "Integrate With Zk System",
-        "description": "Integrate agent execution with ZK proof system",
+        "description": "Integrate agent execution with ZK proof system.\n\nThe ZK integration currently runs against a mock proof service that is\ndisabled by default (``AGENT_INTEGRATION_ZK_MOCK``). While disabled this\nendpoint returns 503 rather than recording mock-verification failures.",
         "operationId": "integrate_with_zk_system_v1_agents_integration_integrations_zk__execution_id__post",
         "parameters": [
           {
@@ -14992,6 +14992,16 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ZK integration is unavailable: the mock proof service is disabled (AGENT_INTEGRATION_ZK_MOCK unset). This is a development feature.",
             "content": {
               "application/json": {
                 "schema": {
@@ -23170,7 +23180,7 @@
           "ml-zk"
         ],
         "summary": "Verify Ml Training",
-        "description": "Verify ZK proof for ML training",
+        "description": "Verify ZK proof for ML training.\n\n``verified: true`` means the proof is cryptographically valid for the\npublic signals the *caller* supplied \u2014 nothing here binds those signals\nto a real training run. It is not evidence a computation happened; any\nconsumer that needs that must compare the signals against\nserver-derived expectations first.",
         "operationId": "verify_ml_training_v1_ml_zk_verify_training_post",
         "requestBody": {
           "content": {
@@ -23268,7 +23278,7 @@
           "ml-zk"
         ],
         "summary": "Verify Ml Inference",
-        "description": "Verify ZK proof for ML inference",
+        "description": "Verify ZK proof for ML inference.\n\nSame caveat as ``/verify/training``: ``verified`` is validity for the\ncaller-supplied signals only, not proof a real inference ran.",
         "operationId": "verify_ml_inference_v1_ml_zk_verify_inference_post",
         "requestBody": {
           "content": {
