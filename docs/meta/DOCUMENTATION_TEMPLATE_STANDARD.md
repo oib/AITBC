@@ -93,6 +93,16 @@
 
 ## 📝 **Content Standards**
 
+### Feature status markers (mechanical)
+
+A `✅` in a `docs/features/` status table is a *claim that code shipped*.
+It must carry a backticked identifier from the codebase in the same row —
+a tx type (`BRIDGE_LOCK`), env var, CLI command, module, or class.
+`scripts/docs/check_feature_status.py` (pre-commit) verifies every ✅ row
+has a token that resolves in the tree; rows without verifiable evidence
+are listed in `feature-status-baseline.txt`, and new ones fail the check.
+Use `📄 doc` for documentation artifacts, not ✅.
+
 ### **✅ Required Elements:**
 
 - [ ] Navigation path with breadcrumbs
