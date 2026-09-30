@@ -840,3 +840,10 @@ a pointer — the file that actually routes review is `.github/CODEOWNERS`
 covers it) and `orphan-docs-baseline.txt` is now empty — zero known
 orphans. The checker learned to skip `#` comment lines so the baseline
 can carry explanations.
+
+### chore(docs): exempt tool-generated dirs in orphan check (2026-09-30)
+
+`.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/` and `node_modules/` are
+now exempt prefixes in `check_orphan_docs.py` — pytest recreates
+`.pytest_cache/README.md` on every test run, and a generated artifact
+should never fail the orphan gate.
