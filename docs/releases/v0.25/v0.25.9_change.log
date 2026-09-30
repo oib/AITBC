@@ -895,3 +895,10 @@ dropped 4 rows that became verifiable.
 
 - `AGENT_INTEGRATION_ZK_MOCK` set on any host now fails `fleet-config-check.sh` (was report-only) — a fake `verified` should not hide in long output.
 - Same for `SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL`: a live signature kill-switch is silent consensus weakening and now fails the gate too.
+
+### fix(fleet-check): three check bugs surfaced by flag verification
+
+- `running_env` died under `set -u` for 3-arg calls (`grep$4` unbound) — now `${4:-}`.
+- Changelog-coverage `cat` died under `set -e` when the top-level `*_change.log` glob misses — now `|| true`.
+- Same section reported every covered commit uncovered: `echo "$LOG_FILES" | grep -qF` loses to SIGPIPE under `pipefail` — now a pure-bash `case` match.
+- `skip_flagged`/`mock_flagged`/`height_bad` initialized at top with the other accumulators — a skipped section must never look like a clean one.
