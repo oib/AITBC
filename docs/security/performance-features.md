@@ -28,7 +28,7 @@ The enhanced `SecretManager` provides enterprise-grade secret management with au
 ### Basic Usage
 
 ```python
-from aitbc.crypto.security import SecretManager
+from aitbc.crypto.secrets import SecretManager
 
 # Initialize with default TTL (24 hours)
 manager = SecretManager(default_ttl_hours=24)
@@ -137,7 +137,7 @@ Enhanced `SecurityValidator` provides blockchain-specific input validation to pr
 ### Basic Usage — Blockchain-Specific Validation
 
 ```python
-from aitbc.security_hardening import SecurityValidator
+from aitbc.security.validators import SecurityValidator
 
 # Validate Ethereum private key
 private_key = "0x" + "a" * 64
@@ -183,7 +183,7 @@ if SecurityValidator.validate_gas_price(gas_price):
 ### Integration Example
 
 ```python
-from aitbc.security_hardening import SecurityValidator
+from aitbc.security.validators import SecurityValidator
 from aitbc.exceptions import ValidationError
 
 def validate_transaction_params(tx_data: dict) -> bool:
@@ -231,7 +231,7 @@ Enhanced caching system with blockchain-specific optimizations, intelligent inva
 
 ```python
 from aitbc.caching import BlockchainCache
-from aitbc.redis_cache import get_cache
+from aitbc.caching import get_cache
 
 # Initialize blockchain cache
 redis_cache = get_cache(redis_url="redis://localhost:6379/0")
@@ -542,7 +542,7 @@ encryption_key = "hardcoded_key_here"
 
 ```python
 # ✅ Good: Validate all blockchain inputs
-from aitbc.security_hardening import SecurityValidator
+from aitbc.security.validators import SecurityValidator
 
 def process_transaction(tx_data: dict):
     if not SecurityValidator.validate_chain_id(tx_data['chain_id']):

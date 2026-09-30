@@ -1,32 +1,13 @@
-# CI/CD Documentation
+# CI/CD documentation
 
-This directory contains CI/CD pipeline and DevOps documentation.
+The earlier pipeline guide was a foreign template (Next.js/yarn, Stripe,
+Linear) — deleted. The real pipeline:
 
-## 📚 Documentation Files
+- **GitHub CI**: `.github/workflows/ci.yml`
+- **Gitea CI**: `.gitea/workflows/ci.yml`
+- **Pre-commit gates**: `.pre-commit-config.yaml` — the same checks run
+  locally (do not bypass with `--no-verify`).
+- **CLI docs drift**: `scripts/generate_cli_docs.py --check`
+- **Docs generation**: `scripts/docs/gen_master_index.py --check`
 
-### [CI-CD-Pipeline-Guide.md](./CI-CD-Pipeline-Guide.md)
-
-> **Not implemented.** This is a foreign template describing a yarn/Next.js
-> pipeline (Stripe, Linear, `dev` branch) that was never adopted here — see
-> the banner at the top of the file. AITBC's real CI is
-> `.github/workflows/ci.yml` + `.gitea/workflows/ci.yml` on `main`.
-- Pull request process
-
-**Use this when**: Setting up CI/CD or understanding the deployment workflow.
-
-## 🔗 Related Documentation
-
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - Git workflow and commit standards
-- [Security Architecture](../security/SECURITY_FIRST_ARCHITECTURE.md) - Security in CI/CD
-
-## 🎯 CI/CD Agents
-
-- **RTE** (Release Train Engineer) - PR creation and CI validation
-- **TDM** (Technical Delivery Manager) - Coordination and blocker resolution
-
-## ⚠️ Important Notes
-
-1. **Always rebase before PR** - `git rebase origin/dev`
-2. **Run ci:validate locally** - `yarn ci:validate` before pushing
-3. **Use force-with-lease** - `git push --force-with-lease`
-4. **Follow PR template** - `.github/pull_request_template.md`
+Contributing workflow: [CONTRIBUTING.md](../CONTRIBUTING.md).
