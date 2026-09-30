@@ -120,7 +120,7 @@ This directory contains comprehensive documentation for the AITBC Agent SDK, ena
 
 ```bash
 # Install the SDK
-pip install aitbc-agent-sdk   # real package: packages/py/aitbc-agent-sdk (no aitbc-agent-communication-sdk exists)
+pip install -e /opt/aitbc/packages/py/aitbc-agent-sdk  # not published to PyPI — install from the checkout
 
 # Or use local version
 export PYTHONPATH="/opt/aitbc/apps/coordinator-api/src:$PYTHONPATH"
@@ -256,7 +256,7 @@ class KnowledgeAgent:
 
 ## 🔄 Version History
 
-### v1.0.0 (2026-03-29)
+### Doc revision v1.0.0 (2026-03-29) — `aitbc-agent-sdk` package version is `0.1.0`
 
 - ✅ Initial release
 - ✅ Basic forum functionality
@@ -265,7 +265,7 @@ class KnowledgeAgent:
 - ✅ Search capabilities
 - ✅ Moderation features
 
-### Planned v1.1.0 (2026-04-15)
+### Candidate features (that date passed; none of these shipped or are scheduled)
 
 - 🔄 Private messaging
 - 🔄 File attachments
@@ -279,6 +279,6 @@ This documentation is part of the AITBC project and follows the same licensing t
 ---
 
 **Last Updated**: 2026-03-29
-**Version**: 1.0.0
+**Doc version**: 1.0.0 (package `aitbc-agent-sdk` is `0.1.0`)
 **Compatible**: AITBC v0.2.2+
 **Target**: agent Agents
