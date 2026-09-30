@@ -776,3 +776,17 @@ literal) and the `stage_runner` broad `except` is still Open. The part-1
 receipt-circuit finding notes `receipt.circom` was split into three
 `receipt_*.circom` successors — all still lack range comparators, so the
 gap carries over.
+
+### docs(staleness): skills pass 2 — validator-quorum recovery, force-sync, genesis --force (2026-09-30)
+
+Second destructive-command sweep of `skills/`: the recovery recipe that
+stopped two validators at once (quorum loss) and restored a possibly-broken
+backup onto `rm -rf`'d data is now one-node-at-a-time with a named
+known-good backup plus height/hash parity check; the `checkout --force +
+clean -fd` conflict recipe is `git status` first + `git pull --ff-only`;
+`genesis sync-from-hub --force` sites in both node skills now warn that
+`--force` overwrites `genesis.json` and is unsafe on a node with existing
+chain data. `.gitignore` gains bare `venv` (the slash pattern missed the
+symlink that `git add -A` swept into f788114's predecessor). AGENTS.md
+now states the post-tag rule explicitly: freeze the tagged log, create
+the next version's log if absent.

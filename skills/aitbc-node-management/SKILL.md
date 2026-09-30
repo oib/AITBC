@@ -143,6 +143,11 @@ Genesis blocks are now **deterministic** -- loaded from `genesis.json`, never au
 
 **For follower nodes** joining an existing chain, sync genesis from the hub:
 
+**Caution:** `--force` overwrites an existing `genesis.json`. Fleet
+genesis files are stale (see `docs/ops/v5-replay-inventory.md`), so run
+this only on a node with no chain data yet — and afterwards verify the
+fetched genesis against what peers report before starting services.
+
 ```bash
 # Fetch genesis from hub RPC
 aitbc genesis sync-from-hub --force

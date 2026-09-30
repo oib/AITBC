@@ -30,6 +30,11 @@ rm -f /etc/aitbc/credentials/proposer_id
 ```
 
 4. **Sync genesis from hub:**
+**Caution:** `--force` overwrites an existing `genesis.json`. Fleet
+genesis files are stale (see `docs/ops/v5-replay-inventory.md`), so run
+this only on a node with no chain data yet — and afterwards verify the
+fetched genesis against what peers report before starting services.
+
 ```bash
 aitbc genesis sync-from-hub --force \
   --rpc-url http://hub.example.net:8202 \
