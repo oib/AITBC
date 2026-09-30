@@ -72,6 +72,9 @@ cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin <command>
 | `AIT_USD_FIXED_PRICE` | unset | pins the AIT/USD quote (oracle bypass) |
 | `BLOCKCHAIN_RPC_URL` | `http://127.0.0.1:8202` | node RPC — balance, nonce, and submit all share this endpoint |
 | `BRIDGE_MONITOR_ENV` | `/etc/aitbc/aitbc-bridge-monitor.env` | env file loaded by `admin.py` |
+| `GENESIS_WALLET_ADDRESS` / `GENESIS_WALLET_PRIVATE_KEY` | — | transitional fallback for the payout wallet — deprecated; set `BRIDGE_PAYOUT_*` instead (a warning is logged when the fallback signs) |
+| `CHAIN_ID` | `ait-localnet` | chain ID bound into signed payout transactions |
+| `BRIDGE_BURST_INTERVAL` / `BRIDGE_BURST_WINDOW` | `20` / `60` | fast poll cadence and the window it applies for after a kick-file touch |
 
 ## Layout
 
