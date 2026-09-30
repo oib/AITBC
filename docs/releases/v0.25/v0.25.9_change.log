@@ -656,3 +656,13 @@ type-allowlist test uses; it generalises to other services' env docs.
 `docs/development/10_ethereum-wallet-setup.md` now point at
 `apps/bridge-monitor/README.md` as the canonical page for the payout
 monitor instead of carrying partial duplicate detail.
+
+### docs(ops): tracked runbooks — v9 pre-pin checklist, bridge canary, v5 replay inventory (2026-09-30)
+
+Sanitized tracked copies of the three runbooks that lived only in the
+untracked TOPOLOGY scratch area: `docs/ops/v9-pre-pin-checklist.md`,
+`docs/ops/bridge-canary-runbook.md`, `docs/ops/v5-replay-inventory.md`.
+The v9 checklist gains a documentation gate: the v9 policy must be
+described in a tracked doc and the changelog must carry an entry for
+every commit in the pin range — the fleet check's changelog-coverage
+section verifies the second mechanically.
