@@ -72,6 +72,9 @@ Deployment conventions worth knowing:
 - Release notes go in `docs/releases/v<major>.<minor>/v<version>_change.log`
   via `scripts/release/append-changelog.sh <file>` (entry on stdin; refuses
   duplicate `### ` headers and avoids heredoc-over-ssh quoting damage).
+  Once a version's tag is cut its log is frozen — entries for post-tag
+  commits go to the next version's log, creating `v<next>_change.log` if
+  it does not exist yet; never append post-tag work to a tagged log.
 - Release tags are cut at the deploy commit: a fleet-wide deploy of
   consensus/sync/apply changes gets the next `v<major>.<minor>.<patch>` tag,
   the version's changelog is finalised in the tagged commit (later entries
