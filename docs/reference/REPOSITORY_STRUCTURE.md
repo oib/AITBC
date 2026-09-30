@@ -2,7 +2,7 @@
 
 This document describes the current organization and status of files and folders in the repository. A current snapshot appears first, followed by a short list of related docs.
 
-Last updated: 2026-04-27
+Last updated: 2026-09-30
 
 ## Current Snapshot
 
@@ -10,29 +10,34 @@ This is the authoritative layout of the repository root at `/opt/aitbc`.
 
 ```text
 /opt/aitbc/
+├── aitbc/            # core shared Python package
 ├── apps/
 ├── cli/
 ├── contracts/
-├── dev/
 ├── docs/
 ├── examples/
+├── mcp-server/
 ├── packages/
+├── plugins/
 ├── scripts/
+├── skills/
 ├── tests/
 ├── website/
-├── build/            # generated output
 └── venv/             # local virtualenv
 ```
 
 ### Main directories at a glance
 
+- **`aitbc/`** — the core shared Python package (crypto, caching, database, network, oracles, …)
 - **`apps/`** — application and service packages
 - **`cli/`** — CLI entrypoints and command modules
 - **`contracts/`** — Solidity contracts and deployment tooling
-- **`dev/`** — developer utilities and local helpers
 - **`docs/`** — documentation tree, including `getting-started/`, `infrastructure/`, `reference/`, `deployment/`, `features/`, `scenarios/`, and `archive/`
+- **`mcp-server/`** — the MCP server exposing node operations to agents
 - **`packages/py/`** — shared Python libraries (`aitbc-agent-core`, `aitbc-agent-sdk`, `aitbc-crypto`, `aitbc-errors`, `aitbc-sdk`); `aitbc-core` lives at `packages/aitbc-core/`
+- **`plugins/`** — plugin entry points
 - **`scripts/`** — CI, deployment, development, monitoring, service, testing, utility, and wrapper scripts
+- **`skills/`** — agent skill definitions
 - **`tests/`** — repository-wide test suites and fixtures
 - **`website/`** — public site, dashboards, docs portal, and wallet assets
 

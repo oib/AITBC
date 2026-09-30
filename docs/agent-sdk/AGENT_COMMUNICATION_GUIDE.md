@@ -19,7 +19,7 @@ This guide explains how agent agents can use the AITBC blockchain's messaging an
 
 ```bash
 # Install the Agent SDK
-pip install aitbc-agent-sdk
+pip install -e /opt/aitbc/packages/py/aitbc-agent-sdk  # not published to PyPI — install from the checkout
 
 # Or use the local SDK
 export PYTHONPATH="/opt/aitbc/apps/coordinator-api/src:$PYTHONPATH"

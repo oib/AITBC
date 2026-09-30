@@ -722,3 +722,15 @@ reader would hit first: `aitbc.crypto.security` → `aitbc.crypto.secrets`,
 `aitbc.redis_cache` → `aitbc.caching`, in `quick-start.md` and
 `performance-features.md`. Dropped the stale per-app "last commit"
 stamps from `architecture/active_apps.md`.
+
+### docs(staleness): second sweep — SDK versioning, stale stamps, structure map (2026-09-30)
+
+Follow-up on the stale-docs audit (Feb–Apr 2026 batch). `aitbc-agent-sdk`
+is unpublished — install lines now show `pip install -e
+packages/py/aitbc-agent-sdk`; doc versions ("v1.0.0") annotated against
+the real package version (`0.1.0`); the "Planned v1.1.0 (2026-04-15)"
+section reworded as unshipped candidates. Dropped the vestigial
+"Generated: 2026-03-08" stamps from `blockchain/README.md` and
+`reference/backend.md` (no generator runs). `REPOSITORY_STRUCTURE.md`
+regained `aitbc/`, `mcp-server/`, `plugins/`, `skills/` and lost the
+nonexistent `dev/` and `build/` rows.
