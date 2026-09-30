@@ -27,13 +27,27 @@ logger = get_logger(__name__)
 
 
 class ZKProofService:
-    """Mock ZK proof service for testing"""
+    """Mock ZK proof service for testing.
+
+    Disabled by default: set ``AGENT_INTEGRATION_ZK_MOCK=1`` to enable. The
+    mock mints made-up proof ids and always reports ``verified: true`` —
+    fine for tests, unacceptable as an answer to a real caller (the service
+    is reachable via the mounted agent-integration router).
+    """
 
     def __init__(self, session: Any) -> None:
         self.session = session
 
+    @staticmethod
+    def _require_mock_enabled() -> None:
+        if os.getenv("AGENT_INTEGRATION_ZK_MOCK", "0") != "1":
+            raise RuntimeError(
+                "mock ZK proof service is disabled — set AGENT_INTEGRATION_ZK_MOCK=1 for development/testing only"
+            )
+
     async def generate_zk_proof(self, circuit_name: str, inputs: dict[str, Any]) -> dict[str, Any]:
         """Mock ZK proof generation"""
+        self._require_mock_enabled()
         return {
             "proof_id": f"proof_{uuid4().hex[:8]}",
             "circuit_name": circuit_name,
@@ -44,6 +58,7 @@ class ZKProofService:
 
     async def verify_proof(self, proof_id: str) -> dict[str, Any]:
         """Mock ZK proof verification"""
+        self._require_mock_enabled()
         return {"verified": True, "verification_time": 0.05, "details": {"mock": True}}
 
 
