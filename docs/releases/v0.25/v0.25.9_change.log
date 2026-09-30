@@ -890,3 +890,8 @@ dropped 4 rows that became verifiable.
 - `/v1/ml-zk/verify/training` and `/verify/inference`: docstrings now state `verified` = validity for caller-supplied signals only (no in-repo consumer treats them as acceptance — wording fix, no refusal needed).
 - `AGENT_INTEGRATION_ZK_MOCK` documented in ENVIRONMENT_CONFIGURATION.md (dangerous-if-set); `fleet-config-check.sh` flags it in env files or the running coordinator process.
 - `POST /v1/agents/integration/integrations/zk/{id}` returns a clear 503 while the mock is disabled instead of recording mock-verification failures.
+
+### fix(security): dev-flag checks fail the fleet-config gate
+
+- `AGENT_INTEGRATION_ZK_MOCK` set on any host now fails `fleet-config-check.sh` (was report-only) — a fake `verified` should not hide in long output.
+- Same for `SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL`: a live signature kill-switch is silent consensus weakening and now fails the gate too.
