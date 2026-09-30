@@ -79,52 +79,10 @@ template MembershipProof(n) {
 }
 
 /*
- * Bid Range Proof Circuit
- *
- * Proves that a bid is within a valid range without revealing the amount
+ * Note: a BidRangeProof template once lived here; it was removed in
+ * 2026-09 because nothing instantiated it and its GreaterEqThan was fed
+ * per-bit differences (i.e. it could never work as written).
  */
-
-template BidRangeProof() {
-    // Public signals
-    signal input commitment;
-    signal input minAmount;
-    signal input maxAmount;
-
-    // Private signals
-    signal input bid;
-    signal input salt;
-
-    // Component for hashing commitment
-    component commitmentHasher = Poseidon(2);
-    commitmentHasher.inputs[0] <== bid;
-    commitmentHasher.inputs[1] <== salt;
-    commitmentHasher.out === commitment;
-
-    // Components for range checking
-    component minChecker = GreaterEqThan(8);
-    component maxChecker = GreaterEqThan(8);
-
-    // Convert amounts to 8-bit representation
-    component bidBits = Num2Bits(64);
-    component minBits = Num2Bits(64);
-    component maxBits = Num2Bits(64);
-
-    bidBits.in <== bid;
-    minBits.in <== minAmount;
-    maxBits.in <== maxAmount;
-
-    // Check bid >= minAmount
-    for (var i = 0; i < 64; i++) {
-        minChecker.in[i] <== bidBits.out[i] - minBits.out[i];
-    }
-    minChecker.out === 1;
-
-    // Check maxAmount >= bid
-    for (var i = 0; i < 64; i++) {
-        maxChecker.in[i] <== maxBits.out[i] - bidBits.out[i];
-    }
-    maxChecker.out === 1;
-}
 
 // Main component instantiation
 component main = SimpleReceipt();
