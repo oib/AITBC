@@ -95,11 +95,11 @@ For an unfiltered reference, omit `--role`.
 
 ## Follower Node Quick Setup
 
-For a follower node joining an open island (e.g. `hub.example.net`):
+For a follower node joining an open island (e.g. `hub.aitbc.bubuit.net`):
 
 ```bash
 sudo /opt/aitbc/scripts/deployment/setup.sh \
-  --open-island https://hub.example.net \
+  --open-island http://hub.aitbc.bubuit.net \
   --node-id <unique-node-id>
 ```
 

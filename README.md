@@ -39,7 +39,7 @@ For a component-by-component status check, see [docs/releases/STATUS.md](docs/re
 
 ## Get involved
 
-- **Join the public island** — the `ait-public` island is already running. Join instructions and discovery endpoints are described in the [open-island joining guide](docs/agent/guides/open-island-joining-guide.md).
+- **Join the public island** — `ait-hub.aitbc.bubuit.net` is running and open for new nodes. Bootstrap files and a self-serve peer key: [open-island joining guide](docs/agent/guides/open-island-joining-guide.md).
 - **Set up a node** — one command on a fresh host (`scripts/deployment/setup.sh`); walkthrough in the [quick start](docs/getting-started/setup-quick-start.md) and [SETUP.md](docs/getting-started/SETUP.md).
 - **Set up a dev checkout** — clone, `poetry install`, `make ci`; conventions in [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 - **See a paid job end to end** — the [customer↔hub scenario](docs/scenarios/34_hub_customer_node_e2e.md) walks an AI job from offer to on-chain settlement.
