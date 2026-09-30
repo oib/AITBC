@@ -833,3 +833,10 @@ fictional "Stage 1-11 curriculum" are corrected to `training_setup`'s
 schema-driven stage runner. `docs/blockchain/governance/CODEOWNERS` is now
 a pointer — the file that actually routes review is `.github/CODEOWNERS`
 (`* @oib`); the team roster it claimed never existed.
+
+### chore(docs): drop last baseline orphan — pytest_cache artifact (2026-09-30)
+
+`.pytest_cache/` deleted (untracked pytest artifact; `.gitignore` already
+covers it) and `orphan-docs-baseline.txt` is now empty — zero known
+orphans. The checker learned to skip `#` comment lines so the baseline
+can carry explanations.
