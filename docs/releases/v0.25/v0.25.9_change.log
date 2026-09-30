@@ -765,3 +765,14 @@ warns that fleet genesis files are stale and bootstrap is unsafe.
 Broken/missing refs fixed in `e2e-test-execution.md`,
 `testing-procedures.md`, `infrastructure/README.md`, and
 `app-shell-classification.md`.
+
+### docs(security): re-verify audit-findings statuses against the tree (2026-09-30)
+
+The AITBC-AUDIT-2 open markers were stale: oracle `PriceResult.price`,
+all four trading `price` fields, and `validate_amount()` are already
+`Decimal`. Marked Resolved with the verification date. `data_layer` is
+partially fixed (bounds are `Decimal`, the mock still stores a float
+literal) and the `stage_runner` broad `except` is still Open. The part-1
+receipt-circuit finding notes `receipt.circom` was split into three
+`receipt_*.circom` successors — all still lack range comparators, so the
+gap carries over.
