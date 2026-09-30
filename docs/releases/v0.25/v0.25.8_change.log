@@ -2045,3 +2045,31 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
 - v9_signature_verdict now counts every evaluation into v9_shadow_checked_total plus per-type v9_shadow_checked series; both the checked aggregate and v9_would_reject_total are pre-created at import. A clean shadow window is provably checked>0 AND would_reject==0 instead of relying on a lazily-created series being absent.
 - fleet-config-check gains a "v9 shadow window (pin gate)" section: the fleet window is bounded by the latest validator restart, reports per-host checked/reject and the per-type traffic mix, and prints WINDOW elapsed-vs-24h so the pin gate is a command output, not manual judgement.
 - NOTE: v9_policy.py is chain code — it must ride the pin deploy; a fleet restart inside the window would restart the window. A checkout pull is inert (running processes keep loaded code); do NOT restart aitbc-blockchain-node until the pin.
+
+### fix(v9): bound shadow-metric cardinality; pin gate checks the _other series
+
+- The per-type `v9_shadow_checked_<type>_total` series are clamped to the known transaction-type allowlist — an unknown or malformed `tx_type` can no longer mint unbounded Prometheus label series (`091ca4c`). The shadow-window bound is anchored to validator restarts only.
+- `IPFS_SUBSCRIPTION` joined `V9_METRIC_KNOWN_TX_TYPES` — it was landing in `_other` despite being a legitimate type. New `test_known_metric_types_cover_apply_path` derives the apply-recognized type set mechanically and fails on drift (`7fdf202`).
+- The fleet-check pin gate prints `v9_shadow_checked_other_total` per host and flags any non-zero value — a clean window requires it to be 0 or explained on record (`22a486d`).
+- Restart epochs are read via `ActiveEnterTimestamp` + `date -d` — the fleet's systemd build lacks USec (`f120261`).
+
+### chore(fleet-check): identical-checkout line + effective transition heights
+
+- The validator section prints whether all validator checkouts sit on the same commit (`2dae537`).
+- A new "effective transition heights" section reads each node's `/proc/<pid>/environ` — catching env files, `Environment=` lines and systemd drop-ins — falls back to the checkout's code defaults when a var is unset, and flags both V4–V9 env shadowing and cross-host effective drift (`0267c82`).
+
+### docs(governance): votes are advisory (V-7)
+
+- Governance votes submitted over RPC are advisory tallies — a vote row is written only on the node that received the RPC, never propagated or applied. `docs/governance/01-ARCHITECTURE.md` now says so; feature-status pages claiming on-chain vote submission are stale (`8b96dc8`).
+
+### feat(bridge): BR-7 payout hardening — price lock, per-deposit caps, committed float
+
+- The first computed `ait_amount` is locked on the row: a retry pays exactly it, and a recompute only runs when the row was never priced — including the `amount_ait='0'` case the old `not ait_amount` check treated as priced, which could have submitted a 0-AIT payout after an oracle outage (`974858a`).
+- Per-deposit caps: a payout may not exceed `BRIDGE_MAX_PAYOUT_FRACTION` (default 0.5) of the payout wallet nor, when set, the absolute `BRIDGE_MAX_PAYOUT_AIT` ceiling — the stricter binds (`5e6f7a8`); the absolute ceiling still applies when the balance RPC is unreadable (`551f068`). Over-cap deposits land FAILED with an operator alert; `manual-payout` remains the deliberate, uncapped override.
+- The low-float alert counts *available* float — balance minus amounts committed to non-terminal rows — not the raw balance.
+- `fleet-config-check.sh` reports `BRIDGE_MAX_PAYOUT_FRACTION`, `BRIDGE_MAX_PAYOUT_AIT`, and `BRIDGE_FUNDING_SOURCES` per host.
+
+### docs(readme/join): welcome-page README; join docs name the real island
+
+- README is now a welcome page — role diagram, key features, doc pointers — with setup/join/job commands delegated to the docs that carry them (`40ab626`, `737906`).
+- The public island is named: join-facing docs carry `hub.aitbc.bubuit.net`, chain `ait-hub.aitbc.bubuit.net`, island `ait-hub.aitbc.bubuit.net-island`, and `http://` (no TLS listener is live — peer keys over `/rpc/join` are cleartext until then). Generic `hub.example.net` uses in API docs and scenarios are unchanged (`020a98`).
