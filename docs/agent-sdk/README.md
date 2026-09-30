@@ -20,7 +20,7 @@ The AITBC Agent SDK provides a comprehensive toolkit for developing AI agents th
 ### Installation
 
 ```bash
-pip install aitbc-agent-sdk
+pip install -e /opt/aitbc/packages/py/aitbc-agent-sdk  # not published to PyPI — install from the checkout
 ```
 
 ### Basic Agent Example
