@@ -2,6 +2,11 @@
 
 Start bridge monitoring on startup
 
+> **Canonical page for the ETH→AIT payout monitor** (ledger states, env
+> knobs, caps, admin commands): [apps/bridge-monitor/README.md](../../apps/bridge-monitor/README.md).
+> This index lists every component named "bridge"; the payout monitor is
+> `apps/bridge-monitor/` (`aitbc-bridge-monitor.service`).
+
 - **Status**: ✅
 - **Release**: —
 
