@@ -678,3 +678,18 @@ inbound links fails the commit unless it is in an expected group
 (release notes, archive, skills, CI templates, src-adjacent READMEs) or
 listed in `scripts/docs/orphan-docs-baseline.txt` — a ratchet baseline
 that only shrinks.
+
+### docs(security): delete generic June boilerplate — consolidate into SECURITY.md (2026-09-30)
+
+The eleven generic checklists under `docs/security/` (access-control,
+network-security, password-policies, secret-management, security-audits,
+web-security, input-validation, output-encoding, rate-limiting,
+authentication, logging-monitoring) read as tutorials, not AITBC policy —
+deleted and replaced by a rewritten `SECURITY.md` covering the real
+posture (secrets policy pointer to AGENTS.md, actual auth mechanisms,
+custodian/threat-model/audit links). `security/README.md` now indexes
+only the surviving docs; footers and the `features/10-security.md` table
+repointed; `getting-started/reference/security-notes.md` is a real
+pointer page. Also marked the 24 remaining June `apps/*`/`aitbc/*`
+skeleton READMEs with a stub banner so they no longer pose as
+maintained documentation.

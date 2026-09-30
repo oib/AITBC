@@ -40,8 +40,6 @@ update_api_key(old_key, new_key)
 invalidate_api_key(old_key)
 ```
 
-## See Also
+## See also
 
-- [Secret Management](secret-management.md) - Advanced secret storage solutions
-- [Authentication](authentication.md) - JWT and session management
-- [Access Control](access-control.md) - RBAC and permissions
+- [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists

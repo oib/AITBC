@@ -44,8 +44,6 @@ pg_dump aitbc | gpg --encrypt --recipient aitbc@bubuit.net > backup.sql.gpg
 gpg --decrypt backup.sql.gpg > backup.sql
 ```
 
-## See Also
+## See also
 
-- [Secret Management](secret-management.md) - Credential storage
-- [Network Security](network-security.md) - Network segmentation
-- [Access Control](access-control.md) - User permissions
+- [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists

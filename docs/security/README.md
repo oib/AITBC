@@ -1,37 +1,47 @@
-# Security Documentation
+# Security documentation
 
-This directory contains security best practices and guidelines for deploying and operating the AITBC platform.
+Start with the [security overview](SECURITY.md) — it summarizes the actual
+posture and links the policies. The former generic checklists (RBAC,
+password rules, input encoding, …) were boilerplate and were removed;
+what remains is AITBC-specific.
 
-## Core Security Guides
+## Operational hardening guides
 
-- [API Key Management](api-key-management.md) - Key generation, storage, and rotation
-- [Password Policies](password-policies.md) - Password requirements and hashing
-- [SSL/TLS Configuration](ssl-tls-configuration.md) - Certificate management and TLS setup
-- [Firewall Rules](firewall-rules.md) - UFW and iptables configuration
-- [Network Security](network-security.md) - Network segmentation and VPN access
-- [Database Security](database-security.md) - PostgreSQL security and backup encryption
-- [Secret Management](secret-management.md) - Environment variables and secret storage
-- [Access Control](access-control.md) - RBAC and principle of least privilege
-- [Input Validation](input-validation.md) - Input validation and sanitization
-- [Web Security](web-security.md) - XSS, CSRF, and SQL injection prevention
-- [Output Encoding](output-encoding.md) - Safe output handling
-- [Authentication](authentication.md) - MFA, session management, and JWT security
-- [Rate Limiting](rate-limiting.md) - Token bucket algorithm and IP-based limiting
-- [Logging and Monitoring](logging-monitoring.md) - Security logging and intrusion detection
-- [Incident Response](incident-response.md) - Incident response procedures
-- [Security Audits](security-audits.md) - Regular audits and compliance
-- [Vulnerability Scanning](vulnerability-scanning.md) - Dependency and code scanning
+- [API key management](api-key-management.md) — key generation, storage, rotation
+- [Firewall rules](firewall-rules.md) — UFW/iptables configuration
+- [Database security](database-security.md) — PostgreSQL hardening and backup encryption
+- [SSL/TLS configuration](ssl-tls-configuration.md) — certificate management
+- [Incident response](incident-response.md) — incident procedures
+- [Vulnerability scanning](vulnerability-scanning.md) — dependency and code scanning
+- [Dependency monitoring](DEPENDENCY_MONITORING.md)
 
-## Additional Security Documentation
+## Architecture and models
 
-- ✅ Environment Configuration Security - COMPLETED
-- ✅ Helm Values Secret References - COMPLETED
-- Infrastructure Security Fixes - Critical Issues Identified
-- 🚀 Package Publishing Security Guide
-- [AITBC Agent Wallet Security Model](SECURITY_AGENT_WALLET_PROTECTION.md)
-- [Critical Wallet Security Fixes - Implementation Summary](WALLET_SECURITY_FIXES_SUMMARY.md)
-- Security Scanning Implementation - COMPLETED
+- [Security architecture](2_security-architecture.md)
+- [Security-first architecture](SECURITY_FIRST_ARCHITECTURE.md)
+- [Threat model](threat-model.md) and
+  [bridge threat model](../architecture/bridge-threat-model.md)
+- [Bridge custodian](bridge-custodian.md) — payout wallet, envelope model
+- [Key escrow threshold](KEY-ESCROW-THRESHOLD.md)
 
-## Policies
+## Audits and findings
 
-See [policies/](policies/) for project policies and procedures.
+- [Security audit summary](security_audit_summary.md)
+- [Vulnerability report](SECURITY_VULNERABILITY_REPORT.md)
+- [CLI audit findings](aitbc-audit-4-cli-findings.md)
+- [Audit framework](4_security-audit-framework.md)
+- [Chaos testing](3_chaos-testing.md)
+- [Remediation plan](remediation-plan.md) and
+  [testing procedures](testing-procedures.md)
+- [Fixes summary](SECURITY_FIXES_SUMMARY.md),
+  [cleanup guide](1_security-cleanup-guide.md),
+  [audit findings](audit-findings.md)
+
+## Wallets and economics
+
+- [Agent wallet protection](SECURITY_AGENT_WALLET_PROTECTION.md)
+- [Wallet security fixes summary](WALLET_SECURITY_FIXES_SUMMARY.md)
+- [Economic analysis](economic-analysis.md),
+  [performance features](performance-features.md)
+
+See also [policies/](policies/) for project policies.

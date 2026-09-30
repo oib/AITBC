@@ -59,7 +59,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 33
-- **Markdown files under docs/**: 877
+- **Markdown files under docs/**: 866
 
 | Directory | Files | Description |
 |---|---|---|
@@ -91,7 +91,7 @@ docs/
 | [reference](reference/) | 19 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 61 | End-to-end usage scenarios |
-| [security](security/) | 42 | Security architecture and audits |
+| [security](security/) | 31 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 11 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |
