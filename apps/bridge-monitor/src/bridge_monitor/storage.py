@@ -11,6 +11,7 @@ import sqlite3
 import uuid
 from contextlib import closing
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -375,6 +376,34 @@ def get_deposits_for_retry(now_iso: str | None = None) -> list[dict[str, Any]]:
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+def sum_committed_ait() -> Decimal:
+    """AIT still owed by every non-terminal row.
+
+    pending/processing/pending_retry/submitted rows all carry an amount
+    the float is committed to pay (a submitted envelope may still seal;
+    a queued row will attempt payout). The balance alone overstates what
+    is free — the float check and the payout cap need the committed sum.
+    """
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT amount_ait FROM eth_deposits WHERE status IN (?, ?, ?, ?)",
+            (
+                BridgeDepositStatus.PENDING.value,
+                BridgeDepositStatus.PROCESSING.value,
+                BridgeDepositStatus.PENDING_RETRY.value,
+                BridgeDepositStatus.SUBMITTED.value,
+            ),
+        )
+        total = Decimal(0)
+        for (amt,) in cursor.fetchall():
+            try:
+                total += Decimal(str(amt or "0"))
+            except ArithmeticError:
+                continue  # unparseable amount — count nothing rather than die
+        return total
 
 
 def get_submitted_deposits() -> list[dict[str, Any]]:

@@ -151,6 +151,16 @@ deliberately:
   a valid recipient), then `manual-payout` if the recipient is still
   owed — never re-sign the spent envelope.
 
+Payout sizing is locked and bounded: the first computed `ait_amount` is
+stored on the row and a retry pays exactly that amount (a recompute only
+ever runs when no price was recorded — `amount_ait='0'` — and stores the
+prices it used). A single payout may not exceed
+`BRIDGE_MAX_PAYOUT_FRACTION` (default 0.5) of the payout wallet balance;
+an over-cap deposit lands FAILED and alerts — resolve it with a float
+top-up plus `manual-payout` (deliberately uncapped) or a refund. The
+low-float alert counts the balance *minus* payouts already committed on
+non-terminal rows, not the raw balance.
+
 ## Wallet key mismatches
 
 If a wallet's stored key does not match the address it is supposed to

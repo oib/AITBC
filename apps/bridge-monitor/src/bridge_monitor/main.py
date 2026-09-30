@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
-from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 
 from .storage import (
     BridgeDepositStatus,
@@ -23,6 +23,7 @@ from .storage import (
     get_submitted_deposits,
     init_db,
     set_cursor,
+    sum_committed_ait,
     update_deposit,
     valid_ait_recipient,
 )
@@ -80,6 +81,22 @@ class BridgeMonitor:
             os.getenv("BRIDGE_STUCK_PAYOUT_BLOCKS", str(self.rebroadcast_blocks * self.max_rebroadcasts))
         )
         self.queue_alert_depth = int(os.getenv("BRIDGE_QUEUE_ALERT_DEPTH", "5"))
+        # Per-deposit payout cap: one payout may not exceed this fraction of
+        # the payout wallet balance — a single outsized deposit cannot drain
+        # the float in one send. Over-cap deposits fail permanently and alert;
+        # the operator resolves them deliberately (float top-up +
+        # manual-payout, which is intentionally uncapped, or refund).
+        try:
+            self.max_payout_fraction = Decimal(os.getenv("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"))
+        except Exception:
+            self.max_payout_fraction = Decimal("0.5")
+        if not (Decimal(0) < self.max_payout_fraction <= Decimal(1)):
+            logger.warning(
+                "BRIDGE_MAX_PAYOUT_FRACTION %s outside (0,1] — falling back to 0.5; "
+                "a misconfigured cap must not silently disable a safety control",
+                self.max_payout_fraction,
+            )
+            self.max_payout_fraction = Decimal("0.5")
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
         # route (and the deposit-instruction call) touches this file; a fresh
@@ -332,6 +349,23 @@ class BridgeMonitor:
         if not deposit_id:
             logger.info("Deposit %s already exists in database", tx_hash)
             return
+        # Per-deposit cap: a payout larger than the float can absorb is a
+        # policy breach, not a retryable failure — the operator tops up and
+        # manual-pays (uncapped, deliberately) or refunds the depositor.
+        exceeds, why = self._exceeds_payout_cap(ait_amount)
+        if exceeds:
+            update_deposit(
+                tx_hash,
+                ait_amount=str(ait_amount),
+                status=BridgeDepositStatus.FAILED,
+                error_message=f"payout exceeds per-deposit cap: {why}",
+            )
+            logger.critical(
+                "ALERT: deposit %s payout exceeds per-deposit cap: %s — top up the float and manual-payout, or refund",
+                tx_hash,
+                why,
+            )
+            return
         if self._payout_in_flight():
             # Serialize: one unsealed payout envelope at a time. The payout
             # account's nonce comes from the committed chain state, so two
@@ -482,7 +516,14 @@ class BridgeMonitor:
         )
 
     def process_retry_queue(self) -> None:
-        """Re-attempt deposits in PENDING_RETRY status whose next_retry_at has passed."""
+        """Re-attempt deposits in PENDING_RETRY status whose next_retry_at has passed.
+
+        Price lock: the first computed ait_amount is authoritative — a retry
+        pays exactly the stored amount and never reprices an already-priced
+        deposit. Rows reach the recompute branch only when no price was ever
+        recorded (oracle was down at first sight); that recompute is first
+        pricing, not drift, and stores the prices it used for the audit trail.
+        """
         deposits = get_deposits_for_retry()
         if not deposits:
             return
@@ -491,12 +532,27 @@ class BridgeMonitor:
             tx_hash = d["eth_tx_hash"]
             ait_recipient = d["ait_recipient"]
             ait_amount_str = d.get("ait_amount")
-            if not ait_amount_str:
-                # Price was unavailable when first seen — recompute now from
-                # the stored ETH amount rather than marking FAILED (funds
-                # were received; this is a temporary failure, not permanent).
+            # '0' means never priced — create_deposit writes amount_ait='0'
+            # before the oracle answer lands; a missing/unparseable value is
+            # the same state. Either way this is *first* pricing, not a
+            # reprice of an already-locked amount.
+            try:
+                v = Decimal(str(ait_amount_str))
+                priced = v.is_finite() and v > 0
+            except ArithmeticError:
+                priced = False
+            if not priced:
+                # Price was unavailable when first seen — first pricing now
+                # from the stored ETH amount rather than marking FAILED
+                # (funds were received; this is a temporary failure, not
+                # permanent). Fetch prices explicitly so the row records
+                # which inputs produced the amount.
                 try:
-                    ait_amount = self.calculate_ait_amount(Decimal(d["eth_amount"]))
+                    eth_usd_result = self.price_oracle.get_price("ETH", "USD")
+                    ait_usd_result = self.price_oracle.get_price("AIT", "USD")
+                    eth_usd = eth_usd_result.price if eth_usd_result else None
+                    ait_usd = ait_usd_result.price if ait_usd_result else None
+                    ait_amount = self.calculate_ait_amount(Decimal(d["eth_amount"]), eth_usd=eth_usd, ait_usd=ait_usd)
                 except Exception as e:
                     logger.error("Retry %s price recalculation error: %s", tx_hash, e)
                     self._mark_for_retry(tx_hash, f"Price recalculation error: {e}")
@@ -505,13 +561,35 @@ class BridgeMonitor:
                     self._mark_for_retry(tx_hash, "Price oracle still unavailable")
                     continue
                 ait_amount_str = str(ait_amount)
-                update_deposit(tx_hash, ait_amount=ait_amount_str)
+                update_deposit(
+                    tx_hash,
+                    ait_amount=ait_amount_str,
+                    eth_usd_price=str(eth_usd) if eth_usd else None,
+                    ait_usd_price=str(ait_usd) if ait_usd else None,
+                )
             ait_amount = Decimal(ait_amount_str)
             if d.get("signed_tx"):
                 # A payout envelope already exists — hand it to the
                 # confirmation sweep. Re-signing would risk a double payout.
                 logger.info("Retry deposit %s already has a signed payout, moving to SUBMITTED", tx_hash)
                 update_deposit(tx_hash, status=BridgeDepositStatus.SUBMITTED)
+                continue
+            exceeds, why = self._exceeds_payout_cap(ait_amount)
+            if exceeds:
+                # Same resolution as first-sight over-cap: operator tops up
+                # the float and manual-pays, or refunds.
+                logger.critical(
+                    "ALERT: retry deposit %s payout exceeds per-deposit cap: %s — "
+                    "top up the float and manual-payout, or refund",
+                    tx_hash,
+                    why,
+                )
+                update_deposit(
+                    tx_hash,
+                    status=BridgeDepositStatus.FAILED,
+                    error_message=f"payout exceeds per-deposit cap: {why}",
+                    clear_fields=["next_retry_at"],
+                )
                 continue
             if self._payout_in_flight():
                 self._defer_for_slot(tx_hash)
@@ -775,22 +853,55 @@ class BridgeMonitor:
         except Exception as e:
             logger.warning("queue health check failed: %s", e)
 
-    def _check_float(self) -> None:
-        """Alert once per poll when the payout wallet is running dry."""
+    def _payout_wallet_balance(self) -> int | None:
+        """Payout account balance in units from the local RPC."""
         try:
             import httpx
 
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
             if resp.status_code == 200:
-                balance = int(resp.json().get("balance", 0))
-                if balance < self.low_float_units:
-                    logger.critical(
-                        "ALERT: bridge payout float low — %s units left (< %s); deposits will pile up in PENDING_RETRY",
-                        balance,
-                        self.low_float_units,
-                    )
+                return int(resp.json().get("balance", 0))
         except Exception as e:
-            logger.warning("payout float check failed: %s", e)
+            logger.warning("payout balance fetch failed: %s", e)
+        return None
+
+    def _exceeds_payout_cap(self, ait_amount: Decimal) -> tuple[bool, str]:
+        """True when a single payout exceeds BRIDGE_MAX_PAYOUT_FRACTION of
+        the wallet balance — one outsized send cannot drain the float.
+        RPC failure fails open: the float check already alerts on balance
+        visibility loss, and blocking payouts on a probe failure trades a
+        soft cap for a hard outage."""
+        balance = self._payout_wallet_balance()
+        if balance is None:
+            return False, "balance unknown — cap unevaluated"
+        cap = Decimal(balance) * self.max_payout_fraction
+        if Decimal(ait_to_units(ait_amount)) > cap:
+            return True, (
+                f"{ait_amount} AIT > {self.max_payout_fraction} of float ({units_to_ait(cap)} of {units_to_ait(balance)} AIT)"
+            )
+        return False, ""
+
+    def _check_float(self) -> None:
+        """Alert once per poll when the payout wallet is running dry.
+
+        The committed sum matters: non-terminal rows (submitted envelopes
+        that may still seal, queued payouts yet to send) already own part of
+        the balance, so the *available* float is what can pay the next
+        deposit — not the raw account figure."""
+        balance = self._payout_wallet_balance()
+        if balance is not None:
+            committed = ait_to_units(sum_committed_ait())
+            available = max(0, balance - committed)
+            if available < self.low_float_units:
+                logger.critical(
+                    "ALERT: bridge payout float low — %s units free of %s "
+                    "(%s committed to unsealed/queued payouts, threshold %s); "
+                    "deposits will pile up in PENDING_RETRY",
+                    available,
+                    balance,
+                    committed,
+                    self.low_float_units,
+                )
         try:
             wei = int(self.eth_rpc.get_balance(self.bridge_eth_address).get("wei", 0))
             eth = Decimal(wei) / Decimal(10**18)
