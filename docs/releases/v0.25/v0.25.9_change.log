@@ -628,3 +628,13 @@ This index cites each one; the `### ` sections above carry the narrative.
 - `73790613c8` docs(readme): split node-setup vs dev-install pointers; bump version badge
 - `020a981474` docs(join): name the real public island — hub.aitbc.bubuit.net
 - `23c3ee018d` docs(bridge): changelog catch-up + monitor README + custodian/threat-model corrections
+
+### feat(fleet-check): changelog-coverage section — flag post-tag commits absent from release logs (2026-09-30)
+
+`fleet-config-check.sh` now prints a "changelog coverage" section: every
+commit in `latest_tag..HEAD` whose 7-char hash prefix (matching any longer
+citation) or subject line appears in no `docs/releases/**_change.log` is
+listed as uncovered; `docs(changelog)` commits are exempt. The check exists
+because the release log is written after the fact — lag should surface as
+a line in the fleet report, not a remembered task. Sits beside the
+identical-checkout and effective-height lines in the same report.
