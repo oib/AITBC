@@ -26,7 +26,7 @@
 
 ## 📦 **Contents**
 
-- **[CODEOWNERS](CODEOWNERS)** - Ownership and review routing
+- **[CODEOWNERS](./CODEOWNERS)** - Ownership and review routing
 - **[COMMUNITY_STRATEGY.md](COMMUNITY_STRATEGY.md)** - Community and contribution strategy
 - **openclaw-dao-governance.md** - agent DAO governance notes
 
@@ -44,7 +44,7 @@ This directory collects governance-related documentation for:
 
 ## 🚀 **Next Steps**
 
-- Review `CODEOWNERS` when routing changes for review.
+- Review `CODEOWNERS` (extensionless file in this directory) when routing changes for review.
 - Use the policy docs for normative behavior and the governance docs for coordination context.
 - Keep governance notes aligned with `../MASTER_INDEX.md`.
 
