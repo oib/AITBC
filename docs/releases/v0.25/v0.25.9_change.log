@@ -879,3 +879,8 @@ dropped 4 rows that became verifiable.
 - `receipt_simple.circom`: the dead `BidRangeProof` removal now also applied to the in-package copy the service actually loads (`apps/coordinator-api/.../zk-circuits/`); recompiled r1cs is byte-identical to the committed artifact (`6a873d…`), so deployed zkeys/vkeys are unaffected.
 - `scripts/ci/check-zk-circuit-sync.sh` + pre-commit hook: the two circuit trees (build workspace vs deployed package) must keep identical `.circom` sources; artifacts may differ (separate ceremonies).
 - `audit-findings.md`: receipt finding status now `Resolved (closed by architecture)`; old remediation marked superseded; `data_layer`/`stage_runner` findings marked Resolved (fixed in 05fd6c206b). Ledger-wide consistency check finds no status/note disagreements.
+
+### fix(security): generic /zk/verify refuses receipt circuits; agent-integration ZK mock gated
+
+- `POST /verify` returned `verified` for caller-supplied signals — valid for the signals given, not evidence of correct computation. Receipt circuits (`receipt_model`/`receipt_public`/`receipt_simple`) now get 400 pointing at `/receipt/verify`, which binds proofs to server-derived signals. Docstring states the semantics plainly.
+- `agent_coordination` mock `ZKProofService` (fake proof ids, always `verified: true`) was reachable via the mounted admin router `/v1/agents/integration/integrations/zk/{id}`. Its methods now raise unless `AGENT_INTEGRATION_ZK_MOCK=1` (dev only); the integration flow records the failures non-fatally in `integration_errors`.

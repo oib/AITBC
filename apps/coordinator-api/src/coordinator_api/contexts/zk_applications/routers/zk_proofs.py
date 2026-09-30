@@ -37,6 +37,13 @@ class GenerateProofRequest(BaseModel):
     private_inputs: dict[str, Any] | None = None
 
 
+# Receipt circuits are refused on the generic /verify route: a `verified: true`
+# there only means the proof is valid for the caller-supplied signals — nothing
+# binds those signals to a real job. Receipt proofs must go through
+# /receipt/verify, which re-derives the expected signals server-side.
+RECEIPT_ONLY_CIRCUITS = {"receipt_model", "receipt_public", "receipt_simple"}
+
+
 class VerifyProofRequest(BaseModel):
     """Request to verify a ZK proof.
 
@@ -117,12 +124,25 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
     """
     Verify a zero-knowledge proof.
 
+    ``verified: true`` means the proof is cryptographically valid for the
+    public signals the *caller* supplied — anyone can prove over inputs of
+    their choosing. It is not evidence that a real job was computed
+    correctly; that requires comparing the signals against server-derived
+    ones, which is what ``/receipt/verify`` does for receipt circuits (and
+    why they are refused here).
+
     Checks:
     - Proof structure validity
     - Commitment correctness
     - Pairing equation satisfaction
     - Timestamp freshness
     """
+    if req.circuit_name in RECEIPT_ONLY_CIRCUITS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="receipt circuits must be verified via /receipt/verify, "
+            "which binds the proof to server-derived signals from stored job state",
+        )
     try:
         zk_service = zk_proof_service
 
