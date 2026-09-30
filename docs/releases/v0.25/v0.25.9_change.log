@@ -638,3 +638,14 @@ listed as uncovered; `docs(changelog)` commits are exempt. The check exists
 because the release log is written after the fact — lag should surface as
 a line in the fleet report, not a remembered task. Sits beside the
 identical-checkout and effective-height lines in the same report.
+
+### test(bridge): env-var doc coverage — BRIDGE_* vars must appear in the app README (2026-09-30)
+
+`TestDocsCoverage` in `apps/bridge-monitor/tests/test_bridge_monitor.py`
+scans `src/` for every `os.getenv("…")` name and asserts each appears in
+the app README; the reverse check flags documented
+`BRIDGE_*`/`PAYOUT_*`/`MIN_ETH_DEPOSIT` knobs no code reads. On
+introduction it caught `BRIDGE_BURST_INTERVAL`, `BRIDGE_BURST_WINDOW`,
+`CHAIN_ID`, and the transitional `GENESIS_WALLET_*` fallbacks — all now in
+the README knob table. The same drift-fails-at-commit-time pattern the v9
+type-allowlist test uses; it generalises to other services' env docs.

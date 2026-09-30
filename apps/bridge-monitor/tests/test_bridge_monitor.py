@@ -1046,3 +1046,38 @@ class TestPayoutHardening:
         with patch.object(monitor, "_payout_wallet_balance", return_value=ait_to_units(1000)):
             monitor._check_float()
         assert "float low" not in caplog.text
+
+
+class TestDocsCoverage:
+    """Env vars the code reads must appear in the app README — docs drift
+    fails at commit time, same as the v9 type-allowlist test. Reverse:
+    documented BRIDGE_*/PAYOUT_* knobs must still be read by the code."""
+
+    SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src")
+    README = os.path.join(os.path.dirname(__file__), "..", "README.md")
+
+    @staticmethod
+    def _env_names_used() -> set:
+        import re
+
+        names = set()
+        for dirpath, _dirs, files in os.walk(TestDocsCoverage.SRC_DIR):
+            for fname in files:
+                if fname.endswith(".py"):
+                    text = open(os.path.join(dirpath, fname)).read()
+                    names.update(re.findall(r"""os\.getenv\(["']([A-Z0-9_]+)["']""", text))
+        return names
+
+    def test_every_env_var_is_documented(self):
+        readme = open(self.README).read()
+        missing = sorted(n for n in self._env_names_used() if n not in readme)
+        assert not missing, "env vars read by bridge_monitor but absent from its README: " + ", ".join(missing)
+
+    def test_documented_knobs_are_still_read(self):
+        import re
+
+        used = self._env_names_used()
+        readme = open(self.README).read()
+        documented = set(re.findall(r"`(BRIDGE_[A-Z0-9_]+|PAYOUT_[A-Z0-9_]+|MIN_ETH_DEPOSIT)`", readme))
+        stale = sorted(n for n in documented if n not in used)
+        assert not stale, "knobs documented in the README that no code reads: " + ", ".join(stale)
