@@ -163,6 +163,13 @@ top-up plus `manual-payout` (deliberately uncapped) or a refund. The
 low-float alert counts the balance *minus* payouts already committed on
 non-terminal rows, not the raw balance.
 
+`BRIDGE_FUNDING_SOURCES` is a comma-separated allowlist of Ethereum-side
+sender addresses whose inflows are float top-ups, not deposits: they are
+recorded as `FUNDING` ledger rows (deduplicated, never paid out). The match
+is case-insensitive on both sides, so a canary deposit must come from a
+clearly different sender — a case variant still matches. Without it a top-up
+takes the deposit path and fails on the missing recipient.
+
 ## Wallet key mismatches
 
 If a wallet's stored key does not match the address it is supposed to

@@ -32,7 +32,7 @@
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
 | On-Chain Proposal Submission | Submit proposals to blockchain | [docs/governance/01-ARCHITECTURE.md](../governance/01-ARCHITECTURE.md) | ✅ | v0.7.3 |
-| On-Chain Vote Submission | Submit votes to blockchain | [docs/governance/01-ARCHITECTURE.md](../governance/01-ARCHITECTURE.md) | ✅ | v0.7.3 |
+| Vote Tally (advisory) | Votes recorded via RPC are advisory — written only on the receiving node, never propagated or applied | [docs/governance/01-ARCHITECTURE.md](../governance/01-ARCHITECTURE.md) | ⚠️ advisory (V-7) | v0.7.3 |
 
 ### Profiles & Treasury
 

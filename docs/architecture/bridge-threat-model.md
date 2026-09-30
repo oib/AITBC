@@ -22,6 +22,7 @@
 | Release fence | `bridge_release_enabled` config | Gates confirm/release path (default: `False` — trusted-custodian mode) |
 | HTLC settlement | `cross_chain/settlement.py` + `contracts/htlc_contract.py` | Fund locking, secret reveal, timelock enforcement, refund |
 | Bridge enhanced (coordinator) | `coordinator-api/.../bridge_enhanced.py` | HTLC swap initiation, wallet adapter calls |
+| Bridge payout monitor | `apps/bridge-monitor/` | Sepolia deposit watch, AIT payout signing/submission, ledger row lifecycle, operator admin commands |
 
 ## 2. Security Layers (Defense in Depth)
 
@@ -161,6 +162,77 @@ Live validation (2026-08-24): the flags were activated with a 2-of-2 bridge vali
 
 **Status**: ✅ Mitigated by hash chaining.
 
+### 3.13 Payout Envelope Nonce Collision
+
+**Attack/failure**: two payout envelopes signed against the same committed
+nonce (nonce is read from chain state, not the ledger) collide — one seals,
+the other burns its rebroadcast budget forever awaiting a manual re-sign,
+and a manual send occupying that nonce can strand the deposit.
+
+**Mitigation**: payouts are serialized — at most one `SUBMITTED` envelope in
+flight; rebroadcasts reuse the exact stored envelope (never re-signed); the
+sweep auto-abandons only when the account nonce has passed the envelope
+nonce AND it is unsealed. Manual sends from the payout account are
+forbidden — all movement goes through `bridge_monitor.admin` ledger rows.
+
+### 3.14 Head-of-Line Blocking
+
+**Failure mode**: serialization trades nonce collisions for queue blocking —
+one `SUBMITTED` row that can neither seal nor abandon gates every deposit
+behind it forever.
+
+**Mitigation**: `_check_queue_health` alerts when the oldest `SUBMITTED`
+outlives `BRIDGE_STUCK_PAYOUT_BLOCKS` and when `PENDING_RETRY` depth reaches
+`BRIDGE_QUEUE_ALERT_DEPTH`; the alert names the row and the release path
+(`abandon-and-resign` / `write-off` + `manual-payout`).
+
+### 3.15 Dust and Funding-Source Confusion
+
+**Attack**: dust inflows or operator float top-ups taking the deposit path —
+each unexplained inflow either fails on a missing recipient (alert noise) or,
+worse, is paid out as a deposit that never was one.
+
+**Mitigation**: sub-minimum deposits land as `FAILED` rows (recorded, not
+invisible); `BRIDGE_FUNDING_SOURCES` sender addresses are recorded `FUNDING`
+and never paid out — the match is on the Ethereum-side `from_address`,
+case-insensitive, so a case-variant sender still matches.
+
+### 3.16 Payout Wallet and Hot-Key Exposure
+
+**Attack**: the payout signing key is loaded in an internet-facing hub
+process — key theft drains the float and can sign arbitrary payouts.
+
+**Mitigation**: dedicated `BRIDGE_PAYOUT_*` wallet with bounded float;
+per-deposit caps (`BRIDGE_MAX_PAYOUT_FRACTION` + absolute
+`BRIDGE_MAX_PAYOUT_AIT`, stricter wins, absolute applies even when the
+balance RPC is down); float alert counts *available* balance after committed
+payouts. Residual: a stolen key can spend the float — keep it minimal and
+never reuse it for treasury (pre-mainnet item: funding moves to a separate
+wallet).
+
+### 3.17 Lost-Owner Bridge Contract
+
+**Failure mode**: the deployed Sepolia `CrossChainBridge`
+(`0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA`) has a permanently unreachable
+`owner()` — the deployer key was lost. Unpaused and able to receive funds
+forever: deposits sent there are irrecoverable and owner functions can never
+execute.
+
+**Mitigation**: deprecated in `contracts/deployments-bridge-sepolia.json`;
+`fleet-config-check.sh` FAILs on the address appearing in live config;
+replacement deploy with a 2-of-3 Safe owner is part of the key-split work.
+
+### 3.18 Price Movement Between Pricing and Payout
+
+**Attack/failure**: a retry repricing after oracle movement could pay a
+different amount than the deposit was first quoted — and an oracle outage
+left rows that could have submitted a 0-AIT payout.
+
+**Mitigation**: price lock — the first computed `ait_amount` is stored and
+authoritative; retries pay exactly it; rows with `amount_ait='0'` are treated
+as unpriced and recompute once. Oracle inputs (ETH/USD, AIT/USD) are stored
+on the row for auditability.
+
 ## 4. Configuration Summary
 
 | Flag | Default | Production | Risk if misconfigured |
@@ -194,6 +266,9 @@ Live validation (2026-08-24): the flags were activated with a 2-of-2 bridge vali
 | External oracle is a stub | Low | In-process verification is active | v0.7.4 oracle deferred |
 | Single-validator PoA centralized block production | Medium | v0.7.5 consensus activation | Soak test pending |
 | No external security audit for HTLC settlement | High | External audit firm | v0.9.0 audit pending |
+| Payout hot key theft drains the float | Medium | Dedicated wallet + per-deposit caps + committed-float alerts | Funded; bounded |
+| Frozen bridge contract can still receive funds | Medium | Deprecated record + fleet-check FAIL on config use | Safe-owned redeploy pending (key split) |
+| Oracle mispricing at first pricing locks a wrong amount | Low | Prices stored on row; manual-payout is the correction path | Accepted |
 
 ## 6. Audit History
 
@@ -202,6 +277,7 @@ Live validation (2026-08-24): the flags were activated with a 2-of-2 bridge vali
 | Bridge security audit | 2026-06-18 | Bug #3 (Critical): Proposer sig not checked vs validator set. Bug #4 (High): Merkle proof silently skipped. | ✅ Fixed, regression tests passing |
 | HTLC contract review | 2026-06-30 | B4 integration: Python-native HTLCContract mirrors CrossChainAtomicSwap.sol. Fund movement via Account balance transfers. | ✅ Implemented, 12 tests passing |
 | Consensus security review | 2026-06-29 | 6 Critical + 6 High findings in MultiValidatorPoA + PBFT | ⚠️ Code complete, NOT activated (soak test pending) |
+| Payout lifecycle hardening | 2026-09-30 | Nonce collision fixed by serialization + envelope reuse; head-of-line + committed-float alerts; price lock; per-deposit caps; lost-owner contract deprecated | ✅ Shipped (BR-7, `974858a`/`5e6f7a8`/`551f068`) |
 
 ## 7. Testing Coverage
 
