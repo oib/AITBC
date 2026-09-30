@@ -801,3 +801,13 @@ differences and could never work; recompiled r1cs is byte-identical to
 the committed artifact, so deployed zkeys are unaffected. The audit doc
 now records that the successor receipt circuits close the forged-field
 gap via server-side public-signal derivation, not comparators.
+
+### docs(decisions): retire vuln report + ai-economics, mainnet deploy model (2026-09-30)
+
+Operator decisions applied: `docs/market/ai-economics/` (8 curriculum
+files) and `SECURITY_VULNERABILITY_REPORT.md` deleted — current posture
+comes from `scripts/security/security_audit.py`, not a stale snapshot.
+`SMART_CONTRACT_DEPLOYMENT.md` now bans CI-held mainnet deployer keys
+entirely: every mainnet deploy uses the disposable-deployer + multisig
+owner + deployment-record model (the bridge's BR-1 procedure generalized);
+CI secrets keep only testnet keys + RPC/verification endpoints.

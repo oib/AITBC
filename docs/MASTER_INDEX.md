@@ -59,7 +59,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 33
-- **Markdown files under docs/**: 861
+- **Markdown files under docs/**: 852
 
 | Directory | Files | Description |
 |---|---|---|
@@ -84,14 +84,14 @@ docs/
 | [getting-started](getting-started/) | 31 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |
-| [market](market/) | 27 | Market, exchange, and trading docs |
+| [market](market/) | 19 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 7 | Operational runbooks and key handling |
 | [reference](reference/) | 19 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 61 | End-to-end usage scenarios |
-| [security](security/) | 31 | Security architecture and audits |
+| [security](security/) | 30 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 11 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |
