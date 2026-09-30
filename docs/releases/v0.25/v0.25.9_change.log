@@ -700,3 +700,8 @@ The `docs/contracts/*` per-file stubs enumerate private helpers that have
 drifted (`htlc.md` cited helpers removed from `htlc_contract.py`). The
 "Key Functions" sections are removed; the class-level summaries verified
 against the sources and each page carries a stub banner.
+
+### docs(license): copyright year range 2025–2026 (2026-09-30)
+
+`LICENSE` and the root `README.md` footer now read `Copyright (c)
+2025–2026 AITBC` — the project spans both years.
