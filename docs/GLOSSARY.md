@@ -9,12 +9,11 @@
 ## A
 
 - **AITBC**: Artificial Intelligence Training Blockchain - The blockchain platform for decentralized AI compute training
-- **AIT**: the network token - The native cryptocurrency token used for transactions, staking, and governance on the the network
-- **Agent**: An autonomous software entity that performs tasks on the the network, such as wallet management, AI job submission, or market operations
-- **Agent Coordinator**: A specialized agent type that orchestrates multi-agent workflows and manages complex coordination tasks
+- **AIT**: the AITBC network token - The native token used for transactions, staking, and governance on the network
+- **Agent**: An autonomous software entity that performs tasks on the network, such as wallet management, AI job submission, or market operations
+- **Agent Coordinator**: The service (`apps/agent-coordinator`) that orchestrates agent registration, messaging, and task coordination — see SERVICE_PORTS.md for the bind port
 - **Agent SDK**: Software Development Kit for building AITBC agents with identity management, authentication, and communication capabilities
-- **Agent Type**: Classification of agents based on their capabilities (coordinator, genesis, follower, wallet, general, specialized, architect)
-- **Architect Agent**: Expert agent type that designs and manages multi-chain architectures and bridge protocols
+- **Agent Type**: Classification from `AgentType` (`agent_discovery.py`): coordinator, worker, specialist, monitor, gateway, orchestrator, inference, training, processing
 
 ## B
 
@@ -27,7 +26,7 @@
 
 - **CLI**: Command Line Interface - The `aitbc` tool for interacting with the AITBC blockchain and services
 - **Consensus**: The mechanism by which blockchain nodes agree on the state of the blockchain
-- **Coordinator API**: REST API service for coordinating agent operations and managing system-wide resources
+- **Coordinator API**: REST API service (`apps/coordinator-api`) for jobs, market, escrow, and failover — see SERVICE_PORTS.md for the bind port
 - **Cross-Chain**: Operations involving multiple blockchain networks or islands
 - **Cross-Chain Transfer**: Moving assets or data between different blockchain networks using bridge protocols
 - **CoW**: Copy-on-Write - A filesystem feature that can cause SQLite corruption when used with database files
@@ -46,21 +45,20 @@
 ## F
 
 - **Federated Learning Coordinator**: Agent that coordinates federated learning across multiple participants
-- **Follower Agent**: Agent type that monitors blockchain state and maintains synchronization
-- **Failure Recovery**: Stage 10 training covering error handling, recovery procedures, and fault tolerance
+- **Follower**: A node role that syncs blocks from the hub instead of producing them (`BLOCKCHAIN_MODE=follower`)
+- **Failure Recovery**: Error-handling and recovery behaviour covered by the training-pipeline stage runner (`aitbc/training_setup/stage_runner.py`)
 
 ## G
 
-- **Genesis Agent**: Agent type responsible for blockchain genesis operations and network bootstrap
 - **Genesis Block**: The first block in a blockchain that initializes the network
 - **Genesis Deployment**: Creating and deploying a genesis block to initialize a new blockchain network
 - **GPU Service**: Service for managing GPU resources and compute capacity
 - **Governance Voting**: Mechanism for token holders to vote on network proposals and decisions
-- **Gossip Protocol**: Peer-to-peer communication protocol for message dissemination in the the network
+- **Gossip Protocol**: Peer-to-peer communication protocol for message dissemination in the network
 
 ## H
 
-- **Agent**: The AI agent training curriculum and learning system for AITBC agents
+- **Hermes**: The one-shot market agent runtime — buyers send a prompt, the shop runs `hermes -z` and returns the response (`apps/hermes_agent`)
 - **HTLC**: Hashed Time-Locked Contract - Smart contract mechanism for atomic cross-chain swaps
 - **Health Check**: Status verification for services and system components
 
@@ -74,7 +72,7 @@
 ## J
 
 - **JWT**: JSON Web Token - Authentication token format used for secure API authentication
-- **Job Submission**: Process of submitting AI compute jobs to the the network
+- **Job Submission**: Process of submitting AI compute jobs to the network
 
 ## K
 
@@ -123,7 +121,7 @@
 - **SDK**: Software Development Kit
 - **Specialized Agent**: Agent type with domain-specific expertise (bounty systems, portfolio management, etc.)
 - **Staking**: Locking tokens to earn rewards and participate in network governance
-- **Staking Validator Agent**: Agent that operates as a validator in the multi-validator PoA consensus
+- **Staking Validator**: A node participating in the multi-validator PoA consensus (PBFT-style attestations)
 - **Scenario**: A documented use case or workflow demonstrating AITBC functionality
 - **Smart Contract**: Self-executing contract with terms directly written into code
 - **Swarm Coordinator**: Agent that manages and coordinates groups of agents (swarms)
@@ -134,7 +132,7 @@
 - **Transaction**: A transfer of value or data on the blockchain
 - **Transaction Send**: CLI operation for sending transactions on the blockchain
 - **Training Schema**: JSON schema defining the structure and requirements for agent training stages
-- **Training Stage**: A level in the agent training curriculum (Stage 1-11)
+- **Training Stage**: A step in a JSON-defined training pipeline executed by `aitbc/training_setup/stage_runner.py` (stages are schema-driven, not a fixed 1-11 curriculum)
 
 ## V
 
@@ -145,7 +143,6 @@
 ## W
 
 - **Wallet**: Software for managing AIT tokens and signing transactions
-- **Wallet Agent**: Agent type focused on wallet operations
 - **Wallet Balance**: Amount of AIT tokens in a wallet
 - **Wallet Create**: CLI operation for creating a new wallet
 - **Wallet Import**: Importing an existing wallet from a private key
