@@ -10,9 +10,9 @@
 
 > **Decentralized market for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
 
-Welcome to AITBC. This repo is a Python 3.13 monorepo of FastAPI microservices, a CLI, and shared libraries for running a multi-island blockchain network where GPU providers sell compute and clients submit AI jobs that are paid, executed, and settled on-chain.
+Welcome to AITBC — a Python 3.13 monorepo of FastAPI microservices, a CLI, shared libraries, and Solidity contracts for running a multi-island blockchain network where GPU providers sell compute and clients submit AI jobs that are paid, executed, and settled on-chain.
 
-You can participate in three ways:
+## The network at a glance
 
 ```
      ┌─────────────┐          ┌─────────────┐
@@ -29,97 +29,28 @@ You can participate in three ways:
                 └─────────────┘
 ```
 
-| Role | What it is | What it does | Typical profile |
-|------|------------|--------------|-----------------|
-| **Hub** | `BLOCKCHAIN_MODE=hub` | Produces/broadcasts blocks, runs the coordinator, exchange, and public discovery endpoints. | `hub` (full services + dev deps) |
-| **Shop** | `MARKET_ROLE=shop` | Provides GPU, edge, market, and mining services; lists compute offers and executes jobs. | `provider-gpu` (GPU) or `server-no-gpu` (no GPU) |
-| **Client** | `MARKET_ROLE=customer` | Consumes compute: submits jobs, queries results, trades, and syncs as a follower. | `customer-no-gpu` (lightweight follower) |
+- **Hub** produces blocks and runs the coordinator, exchange, and public discovery endpoints.
+- **Shop** nodes list GPU compute offers and execute jobs.
+- **Client** nodes submit AI jobs, query results, and trade — as lightweight followers.
 
-A single node can combine roles — a hub can also be a shop, and a follower can be a client or a shop. Services are selected by the two independent axes `BLOCKCHAIN_MODE` and `MARKET_ROLE`. See [Service Selection](docs/getting-started/setup-service-selection.md) for the full matrix.
+A single node can combine roles. Two independent switches — `BLOCKCHAIN_MODE` and `MARKET_ROLE` — select which services a node runs; see [Service Selection](docs/getting-started/setup-service-selection.md) for the matrix.
 
 For a component-by-component status check, see [docs/releases/STATUS.md](docs/releases/STATUS.md).
 
-## Join the public network
+## Get involved
 
-A public AITBC island is already running at **http://hub.example.net/**:
+- **Join the public island** — the `ait-public` island is already running. Join instructions and discovery endpoints are described in the [open-island joining guide](docs/agent/guides/open-island-joining-guide.md).
+- **Set up a node** — clone, install with Poetry (`poetry install`), and verify with `make ci`. Full walkthrough: [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md).
+- **See a paid job end to end** — the [customer↔hub scenario](docs/scenarios/34_hub_customer_node_e2e.md) walks an AI job from offer to on-chain settlement.
+- **Explore the CLI** — `aitbc` covers wallet, market, jobs, bridge, and governance: [cli/README.md](cli/README.md).
 
-- **Island ID**: `ait-public`
-- **Chain ID**: `ait-public`
+## Key features
 
-```bash
-# Fetch dynamic join instructions
-curl http://hub.example.net/agent/join/ait-public.json
-
-# Network topology, peers, and endpoints
-curl http://hub.example.net/agent/discovery.json
-```
-
-Then start your node:
-
-```bash
-sudo systemctl start aitbc-blockchain-node
-```
-
-## Quick start (local)
-
-The repository supports both Poetry (`.venv`) and a plain `venv` in the repo root.
-The canonical path for a fresh machine is Poetry:
-
-```bash
-# 1. Clone
-git clone https://github.com/oib/aitbc.git /opt/aitbc
-cd /opt/aitbc
-
-# 2. Install dependencies (Poetry)
-pip install poetry
-poetry install
-
-# 3. Run verification
-poetry run make ci
-
-# 4. Start the coordinator API
-cd apps/coordinator-api
-PYTHONPATH=src poetry run uvicorn coordinator_api.main:app --reload
-```
-
-If you prefer a plain virtual environment, use the same lock-exported requirements
-that CI and deployment consume:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
-pip install -e . -e cli
-make ci
-```
-
-For detailed setup, see [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md).
-
-## Run an end-to-end AI job
-
-On a **shop** node, list a GPU offer:
-
-```bash
-aitbc market offer --service-type ollama --model-or-variant llama3.2:3b \
-  --price 0.001 --unit per_1k_tokens
-```
-
-On a **client** node, submit a job to the hub's coordinator:
-
-```bash
-aitbc ai submit --wallet my-wallet --type text-generation \
-  --prompt "Explain zero-knowledge proofs in one paragraph." \
-  --payment 10
-```
-
-Check the result:
-
-```bash
-aitbc ai status --job-id <job-id>
-aitbc ai results --job-id <job-id>
-```
-
-See the [CLI README](cli/README.md) for the full command reference and the [customer↔hub end-to-end scenario](docs/scenarios/34_hub_customer_node_e2e.md) for a cross-network walkthrough.
+- **Blockchain** — PoA consensus, adaptive sync, multi-island federation, state-root validation, gossip with Redis backend.
+- **Agents** — registry, identity, cross-chain reputation, communication, job dispatch.
+- **Compute market** — GPU/edge listing, offer matching, dynamic pricing, escrow-backed payments.
+- **Security** — JWT/RBAC, multi-sig wallets, encrypted keystores, Merkle-proof bridge verification, rate limiting.
+- **CLI & ops** — unified `aitbc_cli`, systemd units, Prometheus metrics, deployment scripts.
 
 ## Documentation
 
@@ -131,14 +62,6 @@ See the [CLI README](cli/README.md) for the full command reference and the [cust
 | Find every doc, scenario, and reference | [docs/MASTER_INDEX.md](docs/MASTER_INDEX.md) |
 | Check what is complete vs. in flight | [docs/releases/STATUS.md](docs/releases/STATUS.md) |
 | Read the architecture and security deep dives | [docs/blockchain/](docs/blockchain/) and [docs/security/](docs/security/) |
-
-## Key features
-
-- **Blockchain** — PoA consensus, adaptive sync, multi-island federation, state-root validation, gossip with Redis backend.
-- **Agents** — registry, identity, cross-chain reputation, communication, job dispatch.
-- **Compute market** — GPU/edge listing, offer matching, dynamic pricing, escrow-backed payments.
-- **Security** — JWT/RBAC, multi-sig wallets, encrypted keystores, Merkle-proof bridge verification, rate limiting.
-- **CLI & ops** — unified `aitbc_cli`, systemd units, Prometheus metrics, deployment scripts.
 
 ## Media
 
