@@ -883,18 +883,26 @@ class BridgeMonitor:
     def _exceeds_payout_cap(self, ait_amount: Decimal) -> tuple[bool, str]:
         """True when a single payout exceeds BRIDGE_MAX_PAYOUT_FRACTION of
         the wallet balance — one outsized send cannot drain the float.
-        RPC failure fails open: the float check already alerts on balance
-        visibility loss, and blocking payouts on a probe failure trades a
-        soft cap for a hard outage."""
+        RPC failure fails open on the fraction check only — an absolute
+        BRIDGE_MAX_PAYOUT_AIT still applies since it needs no balance. The
+        float check already alerts on balance visibility loss, and blocking
+        payouts entirely on a probe failure would trade a soft cap for a
+        hard outage."""
+        abs_cap = Decimal(ait_to_units(self.max_payout_ait)) if self.max_payout_ait is not None else None
         balance = self._payout_wallet_balance()
         if balance is None:
+            # The fraction cap needs the balance; the absolute ceiling does
+            # not. An unreadable balance fails open on the fraction only —
+            # BRIDGE_MAX_PAYOUT_AIT still bounds the payout.
+            if abs_cap is not None and Decimal(ait_to_units(ait_amount)) > abs_cap:
+                return True, (
+                    f"{ait_amount} AIT > payout cap {units_to_ait(abs_cap)} AIT (BRIDGE_MAX_PAYOUT_AIT; balance unknown)"
+                )
             return False, "balance unknown — cap unevaluated"
         cap = Decimal(balance) * self.max_payout_fraction
         origin = f"{self.max_payout_fraction} of float"
-        if self.max_payout_ait is not None:
-            abs_cap = Decimal(ait_to_units(self.max_payout_ait))
-            if abs_cap < cap:
-                cap, origin = abs_cap, "BRIDGE_MAX_PAYOUT_AIT"
+        if abs_cap is not None and abs_cap < cap:
+            cap, origin = abs_cap, "BRIDGE_MAX_PAYOUT_AIT"
         if Decimal(ait_to_units(ait_amount)) > cap:
             return True, (
                 f"{ait_amount} AIT > payout cap {units_to_ait(cap)} AIT ({origin}; float {units_to_ait(balance)} AIT)"

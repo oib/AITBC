@@ -1000,6 +1000,26 @@ class TestPayoutHardening:
         """No BRIDGE_MAX_PAYOUT_AIT → None; the fraction cap alone applies."""
         assert monitor.max_payout_ait is None
 
+    def test_absolute_cap_applies_when_balance_unreadable(self, monitor):
+        """Fraction cap needs the balance; the absolute ceiling does not —
+        100 AIT payout vs unreadable balance fails on BRIDGE_MAX_PAYOUT_AIT=10."""
+        from bridge_monitor.storage import get_deposit
+
+        monitor.max_payout_ait = Decimal("10")
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+            patch.object(monitor, "_payout_wallet_balance", return_value=None),
+            patch.object(monitor, "_build_signed_transfer") as build,
+        ):
+            monitor.process_deposit("0xcap7", "0xfrom", Decimal("0.01"), "0xdata")
+
+        dep = get_deposit("0xcap7")
+        assert dep["status"] == BridgeDepositStatus.FAILED.value
+        assert "BRIDGE_MAX_PAYOUT_AIT" in (dep["error_message"] or "")
+        assert "balance unknown" in (dep["error_message"] or "")
+        build.assert_not_called()
+
     def test_float_alert_counts_committed_payouts(self, monitor, caplog):
         """Balance above threshold, but a 990-AIT SUBMITTED envelope commits
         nearly all of it — the alert must fire on *available*."""
