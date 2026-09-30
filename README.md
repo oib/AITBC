@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Poetry](https://img.shields.io/badge/packaging-poetry-1a1a1a?logo=python)](https://python-poetry.org/)
-[![Version](https://img.shields.io/badge/version-v0.10.18-blue?style=flat-square)]()
+[![Version](https://img.shields.io/badge/version-v0.25.8-blue?style=flat-square)]()
 
 > **Decentralized market for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
 
@@ -40,7 +40,8 @@ For a component-by-component status check, see [docs/releases/STATUS.md](docs/re
 ## Get involved
 
 - **Join the public island** — the `ait-public` island is already running. Join instructions and discovery endpoints are described in the [open-island joining guide](docs/agent/guides/open-island-joining-guide.md).
-- **Set up a node** — clone, install with Poetry (`poetry install`), and verify with `make ci`. Full walkthrough: [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md).
+- **Set up a node** — one command on a fresh host (`scripts/deployment/setup.sh`); walkthrough in the [quick start](docs/getting-started/setup-quick-start.md) and [SETUP.md](docs/getting-started/SETUP.md).
+- **Set up a dev checkout** — clone, `poetry install`, `make ci`; conventions in [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 - **See a paid job end to end** — the [customer↔hub scenario](docs/scenarios/34_hub_customer_node_e2e.md) walks an AI job from offer to on-chain settlement.
 - **Explore the CLI** — `aitbc` covers wallet, market, jobs, bridge, and governance: [cli/README.md](cli/README.md).
 
