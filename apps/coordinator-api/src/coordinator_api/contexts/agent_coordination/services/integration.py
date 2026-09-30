@@ -26,6 +26,11 @@ from .security import AgentAuditor, AgentSecurityManager, AuditEventType, Securi
 logger = get_logger(__name__)
 
 
+def zk_integration_mock_enabled() -> bool:
+    """Whether the mock ZK proof service may answer (dev/testing only)."""
+    return os.getenv("AGENT_INTEGRATION_ZK_MOCK", "0") == "1"
+
+
 class ZKProofService:
     """Mock ZK proof service for testing.
 
@@ -40,7 +45,7 @@ class ZKProofService:
 
     @staticmethod
     def _require_mock_enabled() -> None:
-        if os.getenv("AGENT_INTEGRATION_ZK_MOCK", "0") != "1":
+        if not zk_integration_mock_enabled():
             raise RuntimeError(
                 "mock ZK proof service is disabled — set AGENT_INTEGRATION_ZK_MOCK=1 for development/testing only"
             )
