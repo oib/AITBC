@@ -56,7 +56,6 @@ Operator procedures for the live fleet:
   [remediation plan](security/remediation-plan.md) and its
   [testing procedures](security/testing-procedures.md).
 - Audits: [security audit summary](security/security_audit_summary.md),
-  [vulnerability report](security/SECURITY_VULNERABILITY_REPORT.md),
   [CLI audit findings](security/aitbc-audit-4-cli-findings.md),
   [audit framework](security/4_security-audit-framework.md),
   [chaos testing](security/3_chaos-testing.md),
