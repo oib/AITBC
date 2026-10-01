@@ -31,6 +31,107 @@ function copyBtn(text) {
     return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation(); copyToClipboard(this.dataset.copy, this)" title="Copy to clipboard">📋</button>`;
 }
 
+// Transaction-type palette — kept in sync with the activity timeline's
+// type_colors map in apps/blockchain-explorer/routers/analytics.py so a
+// block's content breakdown reads the same as the daily stats.
+const TX_TYPE_COLORS = {
+    BRIDGE_LOCK: '#22d3ee',
+    BRIDGE_RELEASE: '#06b6d4',
+    BRIDGE_REFUND: '#0891b2',
+    ESCROW_LOCK: '#c4b5fd',
+    ESCROW_REFUND: '#7c3aed',
+    ESCROW_RELEASE: '#8b5cf6',
+    EXCHANGE: '#84cc16',
+    GOVERNANCE_EXECUTE: '#d97706',
+    GOVERNANCE_PROPOSE: '#fbbf24',
+    GOVERNANCE_VOTE: '#f59e0b',
+    GPU_ALLOCATE: '#6366f1',
+    GPU_MARKET: '#3b82f6',
+    GPU_MARKETPLACE: '#60a5fa',
+    GPU_REGISTER: '#ef4444',
+    IPFS_SUBSCRIPTION: '#14b8a6',
+    STAKE_LOCK: '#fb7185',
+    STAKE_RELEASE: '#f43f5e',
+    TRANSFER: '#10b981',
+};
+
+// Fallback for types missing from TX_TYPE_COLORS — same idea as the backend's
+// hue-from-hash (deterministic per type), using a small sync FNV-1a hash.
+function txTypeColor(type) {
+    const known = TX_TYPE_COLORS[type];
+    if (known) return known;
+    let h = 0x811c9dc5;
+    for (let i = 0; i < type.length; i++) {
+        h ^= type.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return `hsl(${h % 360} 65% 55%)`;
+}
+
+// Count a block's transactions by type — alphabetical like the timeline's
+// dataset order.
+function blockComposition(transactions) {
+    const counts = {};
+    (transactions || []).forEach(t => {
+        const type = t.type || 'UNKNOWN';
+        counts[type] = (counts[type] || 0) + 1;
+    });
+    return Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+}
+
+function txChipsHtml(comp) {
+    return comp.map(([type, n]) => {
+        const c = txTypeColor(type);
+        return `<span class="tx-chip" style="color:${c};border-color:${c};background:color-mix(in srgb, ${c} 15%, transparent)"><i class="tx-chip-dot" style="background:${c}"></i>${escapeHtml(type)}&nbsp;×${n}</span>`;
+    }).join('');
+}
+
+// Block content summary in the activity-timeline style: a thin stacked bar
+// (segment width ∝ count, same colors) plus legend chips with counts.
+function blockContentHtml(transactions) {
+    const comp = blockComposition(transactions);
+    if (comp.length === 0) {
+        return '<span class="tx-comp-empty">no transactions</span>';
+    }
+    const total = comp.reduce((s, [, n]) => s + n, 0);
+    const bar = comp.map(([type, n]) =>
+        `<span class="tx-comp-seg" style="width:${(n / total) * 100}%;background:${txTypeColor(type)}" title="${escapeHtml(type)} ×${n}"></span>`
+    ).join('');
+    return `<div class="tx-comp-bar">${bar}</div><div class="tx-chips">${txChipsHtml(comp)}</div>`;
+}
+
+// Shared block card — used by the Latest Blocks page and explorer search
+// results (displayAddressResults previously called this without a global
+// definition).
+function renderBlockCard(block) {
+    let timestamp = 'N/A';
+    if (block.timestamp) {
+        if (typeof block.timestamp === 'string') {
+            timestamp = new Date(block.timestamp).toLocaleString();
+        } else if (typeof block.timestamp === 'number') {
+            timestamp = new Date(block.timestamp * 1000).toLocaleString();
+        }
+    }
+    const txCount = block.txCount || 0;
+    const blockHash = block.hash || 'N/A';
+    const proposer = block.proposer || 'N/A';
+    const contentRow = Array.isArray(block.transactions)
+        ? `<tr><td>Content</td><td class="tx-comp-cell">${blockContentHtml(block.transactions)}</td></tr>`
+        : '';
+    return `
+        <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
+            <table class="block-list-table">
+                <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
+                <tr><td>Hash</td><td>${escapeHtml(blockHash)} ${copyBtn(blockHash)}</td></tr>
+                <tr><td>Proposer</td><td>${escapeHtml(proposer)}</td></tr>
+                <tr><td>Transactions</td><td>${escapeHtml(txCount)}</td></tr>
+                ${contentRow}
+                <tr><td>Timestamp</td><td>${escapeHtml(timestamp)} UTC</td></tr>
+            </table>
+        </div>
+    `;
+}
+
 function renderBlockTransactions(block) {
     const txs = block.transactions || [];
     if (txs.length === 0) {
@@ -172,6 +273,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     hash: b.hash,
                     time: b.timestamp,
                     url: `/block.html?height=${encodeURIComponent(b.height)}`,
+                    comp: txChipsHtml(blockComposition(b.transactions)),
                 });
                 // Extract transactions from block
                 (b.transactions || []).forEach(t => {
@@ -213,6 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="live-feed-item" onclick="location.href='${escapeHtml(item.url)}'">
                     <span class="live-feed-type">${escapeHtml(item.type)}</span>
                     <span class="live-feed-hash">${escapeHtml(item.label)}</span>
+                    ${item.comp ? `<span class="live-feed-comp">${item.comp}</span>` : ''}
                     <span class="live-feed-time">${escapeHtml(timeStr)}</span>
                 </div>
             `;
