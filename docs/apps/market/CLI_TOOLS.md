@@ -55,7 +55,12 @@ aitbc market offer-list --service-type ipfs --status active
 
 # Disable/unregister an offer by plugin ID
 aitbc market offer-disable --plugin-id ipfs-ipfs-host
+
+# Cancel an on-chain listing by its listing id (GPU_MARKET cancel transaction; repeat --order-ids for several)
+aitbc market offer-cancel --order-ids tx_297
 ```
+
+`offer-disable` removes the registry entry only; `offer-cancel` hides the on-chain listing only. A published offer needs both to disappear completely. (`aitbc market cancel --job-id` is a different command: it cancels a paid market job and refunds its escrow, see below.)
 
 There is no CLI command to re-enable a disabled offer or to update pricing in place — publish a new offer and disable the old one.
 
