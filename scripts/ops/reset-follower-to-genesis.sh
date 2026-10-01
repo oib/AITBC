@@ -55,11 +55,23 @@ fi
 
 [ -f "$CHAIN_DB_FILE" ] || { echo "No chain DB file: $CHAIN_DB_FILE" >&2; exit 1; }
 
-# Preserve the old chain DB in case the operator needs to revert.
+# Preserve the old chain DB in case the operator needs to revert. `sqlite3 .backup` reads through
+# the WAL, so the copy is whole even if a service was killed instead of stopped cleanly: on a host
+# running with DB_KEEPER_CONNECTION the recent commits can sit in chain.db-wal, and a bare cp of
+# chain.db alone would drop them. The raw-copy fallback keeps the WAL files next to the copy.
 timestamp=$(date +%Y%m%d-%H%M%S)
 if [ -f "$DB" ]; then
     backup="${DB}.pre-reset.${timestamp}"
-    cp -p "$DB" "$backup"
+    if sqlite3 "$DB" ".backup '${backup}'"; then
+        chown --reference="$DB" "$backup" || true
+        chmod --reference="$DB" "$backup" || true
+    else
+        echo "sqlite3 .backup failed; keeping a raw copy of the database and its WAL files" >&2
+        cp -p "$DB" "$backup"
+        for suffix in -wal -shm; do
+            if [ -f "${DB}${suffix}" ]; then cp -p "${DB}${suffix}" "${backup}${suffix}"; fi
+        done
+    fi
     echo "Old chain DB saved to $backup"
     rm -f "$DB"
 fi
