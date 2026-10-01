@@ -550,6 +550,11 @@ class ChainSettings(BaseSettings):
     bridge_verification_mode: str = "in_process"  # "in_process" | "oracle"
     bridge_min_confirmations: int = 3  # minimum confirmations for any transfer
     bridge_finality_blocks: int = 6  # full finality threshold
+    # Confirmations stop being counted at this depth (never below bridge_finality_blocks or
+    # bridge_min_confirmations). Every new header used to bump every earlier header's count, a full
+    # rewrite of bridge_block_header per block (22k rows, 12.5 MiB, ~3,200 WAL frames per block per node
+    # on 2026-10-01, growing with chain height). Nothing decides on a count above the deepest requirement.
+    bridge_confirmation_count_cap: int = 100
     bridge_large_transfer_threshold: int = 10000  # transfers above this require full finality
     # Production hardening: when True, _validate_proof REJECTS any proof that
     # does not carry a Merkle inclusion proof (merkle_proof + lock_event). The
