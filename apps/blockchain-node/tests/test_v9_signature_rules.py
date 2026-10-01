@@ -738,6 +738,86 @@ class TestAttesterTxChecks:
         assert broker.published
         assert metrics_registry._counters.get("v9_would_reject_total") is None
 
+    def _lock_failures(self, svc, failures: int, message: str = "database is locked") -> dict[str, int]:
+        """Make the attester's first ``failures`` session opens fail the way a
+        busy SQLite file does, and count how often it tries."""
+        import sqlite3
+
+        from sqlalchemy.exc import OperationalError
+
+        real = svc._session_factory
+        calls = {"n": 0}
+
+        def factory():
+            calls["n"] += 1
+            if calls["n"] <= failures:
+                raise OperationalError("SELECT 1", {}, sqlite3.OperationalError(message))
+            return real()
+
+        svc._session_factory = factory
+        return calls
+
+    def _no_retry_sleep(self, monkeypatch) -> None:
+        import time
+        from types import SimpleNamespace
+
+        monkeypatch.setattr(
+            "aitbc_chain.consensus.remote_attestation.time",
+            SimpleNamespace(monotonic=time.monotonic, sleep=lambda _s: None),
+        )
+
+    def test_v9_active_retries_a_locked_database_and_attests(self, session_factory, attester, monkeypatch):
+        """One transient lock must not cost the attestation: v9 is active and
+        the block is valid, so the retry succeeds and the attestation goes out."""
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        _seed_genesis(session_factory)
+        self._no_retry_sleep(monkeypatch)
+        calls = self._lock_failures(svc, failures=1)
+        asyncio.run(svc._handle_request(self._request([_signed_tx()])))
+        assert broker.published
+        assert calls["n"] == 2
+        assert metrics_registry._counters.get("v9_would_reject_total") is None
+
+    def test_v9_active_fails_closed_when_the_lock_persists(self, session_factory, attester, monkeypatch):
+        """Retrying is bounded: a lock that outlasts it is still check_error,
+        counted once per request, and no attestation is signed."""
+        from aitbc_chain.consensus.remote_attestation import V9_CHECK_ATTEMPTS
+
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        _seed_genesis(session_factory)
+        self._no_retry_sleep(monkeypatch)
+        calls = self._lock_failures(svc, failures=99)
+        asyncio.run(svc._handle_request(self._request([_signed_tx()])))
+        assert not broker.published
+        assert calls["n"] == V9_CHECK_ATTEMPTS
+        assert metrics_registry._counters.get("v9_would_reject_attest_check_error_total") == 1.0
+        assert metrics_registry._counters.get("v9_would_reject_total") == 1.0
+
+    def test_v9_active_does_not_retry_other_database_errors(self, session_factory, attester, monkeypatch):
+        """Only SQLite's transient lock errors are retried; anything else
+        (a missing table, a corrupt page) fails closed on the first attempt."""
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        _seed_genesis(session_factory)
+        self._no_retry_sleep(monkeypatch)
+        calls = self._lock_failures(svc, failures=99, message="no such table: block")
+        asyncio.run(svc._handle_request(self._request([_signed_tx()])))
+        assert not broker.published
+        assert calls["n"] == 1
+        assert metrics_registry._counters.get("v9_would_reject_attest_check_error_total") == 1.0
+
+    def test_shadow_mode_still_attests_after_a_persistent_lock(self, session_factory, attester, monkeypatch):
+        """Before v9 the same failure stays shadow-only: counted, attested."""
+        svc, broker = attester
+        _seed_genesis(session_factory)
+        self._no_retry_sleep(monkeypatch)
+        self._lock_failures(svc, failures=99)
+        asyncio.run(svc._handle_request(self._request([_signed_tx()])))
+        assert broker.published
+        assert metrics_registry._counters.get("v9_would_reject_attest_check_error_total") == 1.0
+
     def test_v9_active_allows_signed_bridge_lock(self, session_factory, attester, monkeypatch):
         """A BRIDGE_LOCK carrying the bridge authority signature attests."""
         svc, broker = attester
