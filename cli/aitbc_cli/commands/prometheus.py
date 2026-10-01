@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import logging.handlers
 from typing import cast
 import subprocess
 import sys
@@ -118,24 +120,88 @@ def rules(ctx: click.Context, prometheus_url: str | None):
     output({"groups": result}, ctx.obj["output_format"])
 
 
+ALERT_LOG_MAX_BYTES = 5 * 1024 * 1024
+ALERT_LOG_BACKUPS = 5
+
+
+def _alert_id(alert: dict[str, Any]) -> str:
+    labels = alert.get("labels", {})
+    return f"{labels.get('alertname')}{json.dumps(labels, sort_keys=True)}"
+
+
+def _open_alert_log(path: str) -> logging.Logger | None:
+    """A logger that writes bare alert-event lines, and nothing else, to ``path`` (rotated at 5 MiB, 5 backups).
+
+    The service log of this watcher carries one httpx line per poll, so an alert event is easy to lose in it. This file
+    is what an operator tails. An unwritable path degrades to the journal and the service log, with one warning.
+    """
+    try:
+        handler = logging.handlers.RotatingFileHandler(
+            path, maxBytes=ALERT_LOG_MAX_BYTES, backupCount=ALERT_LOG_BACKUPS, encoding="utf-8"
+        )
+    except OSError as exc:
+        logger.warning("alert log %s is not writable (%s); alerts go to the journal and the service log only", path, exc)
+        return None
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    alert_logger = logging.getLogger("aitbc.alert-events")
+    alert_logger.propagate = False
+    alert_logger.setLevel(logging.INFO)
+    alert_logger.handlers = [handler]
+    return alert_logger
+
+
+def _seconds_since(active_at: str | None) -> int | None:
+    if not active_at:
+        return None
+    try:
+        started = datetime.fromisoformat(active_at)
+    except ValueError:
+        return None
+    return int((datetime.now(UTC) - started).total_seconds())
+
+
 @prometheus.command(
     epilog="""Examples:
 
   aitbc prometheus alerts
 
-  aitbc prometheus alerts --watch --interval 15"""
+  aitbc prometheus alerts --watch --interval 15
+
+  aitbc prometheus alerts --watch --alert-log /var/log/aitbc/alerts.log"""
 )
 @click.option("--prometheus-url", default=None, help="Prometheus base URL (default: http://127.0.0.1:9090)")
-@click.option("--watch", is_flag=True, help="Poll continuously and emit firing alerts")
+@click.option("--watch", is_flag=True, help="Poll continuously and emit firing and resolved alerts")
 @click.option("--interval", type=int, default=15, help="Poll interval in seconds (watch mode)")
-@click.option("--emit/--no-emit", default=True, help="Emit one structured log line per firing alert (watch mode)")
+@click.option(
+    "--emit/--no-emit",
+    default=True,
+    help="Emit one structured log line per alert state change to stdout and the service log (watch mode)",
+)
+@click.option(
+    "--alert-log",
+    "alert_log_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Also append every alert state change (firing, resolved) as one JSON line to this file, rotated at 5 MiB "
+    "(watch mode)",
+)
 @click.pass_context
-def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval: int, emit: bool):
-    """Show current Prometheus alerts and optionally watch for firing alerts."""
+def alerts(
+    ctx: click.Context,
+    prometheus_url: str | None,
+    watch: bool,
+    interval: int,
+    emit: bool,
+    alert_log_path: str | None,
+):
+    """Show current Prometheus alerts and optionally watch for firing and resolved alerts."""
     url = _prometheus_url(ctx, prometheus_url)
 
-    def _fetch() -> list[dict[str, Any]]:
+    def _fetch() -> list[dict[str, Any]] | None:
+        """The alerts Prometheus reports, or None when it did not answer (which is not the same as "no alerts")."""
         data = _prometheus_get(url, "/api/v1/alerts")
+        if data.get("status") != "success":
+            return None
         return cast(list[dict[str, Any]], data.get("data", {}).get("alerts", []))
 
     def _present(raw_alerts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -158,7 +224,8 @@ def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval
         }
 
     if not watch:
-        output(_present(_fetch()), ctx.obj["output_format"])
+        raw_now = _fetch()
+        output(_present(raw_now or []), ctx.obj["output_format"])
         return
 
     # Watch mode is the one path in this CLI that runs as a long-lived service
@@ -167,38 +234,60 @@ def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval
     # make every one-shot `aitbc prometheus alerts` -- run by whoever is at the
     # keyboard -- try to create /var/log/aitbc/prometheus-watch as them.
     configure_logging(level="INFO", service_name="prometheus-watch", to_file=True)
+    alert_log = _open_alert_log(alert_log_path) if alert_log_path else None
 
-    seen: set[str] = set()
+    def _event(name: str, alert: dict[str, Any]) -> None:
+        labels = alert.get("labels", {})
+        record: dict[str, Any] = {
+            "event": name,
+            "alertname": labels.get("alertname"),
+            "state": "firing" if name == "prometheus_alert_firing" else "resolved",
+            "severity": labels.get("severity"),
+            "summary": alert.get("annotations", {}).get("summary"),
+            "description": alert.get("annotations", {}).get("description"),
+            "labels": labels,
+            "active_at": alert.get("activeAt"),
+            "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+        }
+        if name == "prometheus_alert_resolved":
+            record["duration_seconds"] = _seconds_since(alert.get("activeAt"))
+        line = json.dumps(record, sort_keys=True)
+        if alert_log is not None:
+            alert_log.info(line)
+        if emit:
+            # Structured line for journalctl / external watchers
+            click.echo(line, file=sys.stdout)
+            if name == "prometheus_alert_firing":
+                logger.warning(line)
+            else:
+                logger.info(line)
+
+    # Alert state is tracked across polls: an alert is reported when it starts firing (again, if it had resolved) and
+    # when it stops. A poll Prometheus did not answer changes nothing -- it must not read as "everything resolved".
+    firing: dict[str, dict[str, Any]] = {}
+    unreachable = False
     try:
         while True:
             raw = _fetch()
-            summary = _present(raw)
-            if ctx.obj["output_format"] == "json":
-                output(summary, "json")
-            for alert in raw:
-                if alert.get("state") != "firing":
-                    continue
-                alert_id = f"{alert.get('labels', {}).get('alertname')}{json.dumps(alert.get('labels', {}), sort_keys=True)}"
-                if alert_id not in seen:
-                    seen.add(alert_id)
-                    if emit:
-                        # Structured line for journalctl / external watchers
-                        line = json.dumps(
-                            {
-                                "event": "prometheus_alert_firing",
-                                "alertname": alert.get("labels", {}).get("alertname"),
-                                "state": alert.get("state"),
-                                "severity": alert.get("labels", {}).get("severity"),
-                                "summary": alert.get("annotations", {}).get("summary"),
-                                "description": alert.get("annotations", {}).get("description"),
-                                "labels": alert.get("labels"),
-                                "active_at": alert.get("activeAt"),
-                                "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
-                            },
-                            sort_keys=True,
-                        )
-                        click.echo(line, file=sys.stdout)
-                        logger.warning(line)
+            if raw is None:
+                if not unreachable:
+                    logger.warning("Prometheus did not answer; alert state is unknown until it does")
+                unreachable = True
+            else:
+                if unreachable:
+                    logger.info("Prometheus answers again")
+                unreachable = False
+                summary = _present(raw)
+                if ctx.obj["output_format"] == "json":
+                    output(summary, "json")
+                current = {_alert_id(a): a for a in raw if a.get("state") == "firing"}
+                for alert_id, alert in current.items():
+                    if alert_id not in firing:
+                        _event("prometheus_alert_firing", alert)
+                for alert_id, alert in firing.items():
+                    if alert_id not in current:
+                        _event("prometheus_alert_resolved", alert)
+                firing = current
             time.sleep(interval)
     except KeyboardInterrupt:
         click.echo("\nWatch stopped")

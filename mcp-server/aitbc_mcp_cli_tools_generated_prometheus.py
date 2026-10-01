@@ -27,18 +27,27 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_alerts(
     prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")],
-    watch: Annotated[bool | None, Field(description="Poll continuously and emit firing alerts")],
+    watch: Annotated[bool | None, Field(description="Poll continuously and emit firing and resolved alerts")],
     interval: Annotated[int | None, Field(description="Poll interval in seconds (watch mode)")],
-    emit: Annotated[bool | None, Field(description="Emit one structured log line per firing alert (watch mode)")],
+    emit: Annotated[
+        bool | None,
+        Field(description="Emit one structured log line per alert state change to stdout and the service log (watch mode)"),
+    ],
+    alert_log_path: Annotated[
+        str | None,
+        Field(
+            description="Also append every alert state change (firing, resolved) as one JSON line to this file, rotated at 5 MiB (watch mode)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show current Prometheus alerts and optionally watch for firing alerts.."""
+    """Show current Prometheus alerts and optionally watch for firing and resolved alerts.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"watch": "watch", "emit": "emit"},
-        values={"prometheus_url": "prometheus-url", "interval": "interval"},
+        values={"prometheus_url": "prometheus-url", "interval": "interval", "alert_log_path": "alert-log"},
     )
     args = None
     return _aitbc_cli_read_tool(
