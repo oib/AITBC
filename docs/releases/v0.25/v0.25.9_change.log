@@ -939,3 +939,8 @@ dropped 4 rows that became verifiable.
 - Load proof: all five aitbc-blockchain-node services restarted
   22:25-22:27 CEST 2026-09-30, after the pin commit (22:23 CEST), so the
   running processes -- not just the checkouts -- carry v9_height=30400.
+
+### docs(design): SD-1 escrow rebuild design — derive rows from sealed history, prove before write
+
+- `docs/design/escrow-rebuild-from-chain.md`: derivation rules from the sealed `transaction` table (two-leg metered settlement, latest-lock-wins, block-timestamp seal times, canonical-chain guard), the non-derivable fields stated as such, and the reconciliation proof (R1–R5 per-job + G1–G4 global invariants, incl. the v3 bonded-balance check) that gates `--write`.
+- Decision log records the SD-1 choice: rebuild is read → prove → write, never write-then-check; the lazy healers stay as read-path fallbacks until the tool lands.
