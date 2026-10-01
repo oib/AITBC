@@ -201,13 +201,7 @@ Since `<node2>` has more hardware than `hub`:
 3. **Expose process and chain metrics.** The blockchain node main process now serves `/metrics` on port `9009` via `AITBC_NODE_METRICS_PORT` and exports chain height, valid subscriber counts and broadcast-skip counters.
 4. **Promote operational log lines.** `BROADCAST SKIPPED` and similar events are now logged at `WARNING` and counted in `blockchain_poa_broadcast_skipped_total` so an agent sees both the event and the metric.
 5. **Run `prometheus-node-exporter` on every node.** System metrics are cheap and make it easy to distinguish code bugs from resource exhaustion.
-6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly. On `<node2>` this is configured in `/etc/default/prometheus` as:
-   ```
-   ARGS="--storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB"
-   ``` On <node2> this is configured in `/etc/default/prometheus` as:
-   ```
-   ARGS="--storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB"
-   ```
+6. **Use the fleet retention standard.** `<node2>` runs the same Prometheus retention as every other node (see *Maintenance → Retention standard*); there is no per-node override. Size the disk from `node_filesystem_avail_bytes`.
 7. **Use the Prometheus expression API for checks.** Example:
    ```bash
    curl -s 'http://localhost:9090/api/v1/query?query=blockchain_poa_valid_subscribers'
@@ -269,6 +263,27 @@ curl -s http://localhost:9090/api/v1/rules
 2. Check retention and disk usage.
 3. Verify all scrape targets are healthy.
 4. Add recording rules for any query that becomes slow.
+
+### Retention standard
+
+Every node runs Prometheus with the package default retention: no `--storage.tsdb.retention.*` flags, which Prometheus 2.53 resolves to 15 days and no size limit. Do not set per-node retention overrides; to change retention, change it on every node.
+
+The flags live in `/etc/default/prometheus` (`ARGS=`, read by `prometheus.service`) and only role flags belong there. Today that is one: `hub` receives remote writes.
+
+```
+# every node except hub
+ARGS=""
+# hub
+ARGS="--web.enable-remote-write-receiver"
+```
+
+Check the effective value on a node (it should print `15d`):
+
+```bash
+curl -s http://localhost:9090/api/v1/status/runtimeinfo | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["storageRetention"])'
+```
+
+For scale, on 2026-10-01 the TSDB held between 0.06 and 1.0 GiB per node for 15 days of data.
 
 ### Backup
 
