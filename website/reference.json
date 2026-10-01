@@ -1,0 +1,53 @@
+{
+  "generated_by": "scripts/ops/ait-reference-price.py",
+  "generated_at": "2026-10-01T06:22:24+00:00",
+  "unit": "1 AIT = 1 compute-hour on the island reference rig",
+  "model": {
+    "lifespan_years": "3",
+    "utilization": "1",
+    "bookable_hours": "26280",
+    "wall_watts": 384,
+    "eur_per_kwh": "0.30",
+    "reference_price_eur": "0.25",
+    "ait_per_eur": "4.0000"
+  },
+  "components": [
+    {
+      "name": "RTX 4060 Ti 16GB",
+      "cost_eur": "450"
+    },
+    {
+      "name": "Ryzen 9 5950X",
+      "cost_eur": "450"
+    },
+    {
+      "name": "64 GB DDR4 RAM",
+      "cost_eur": "140"
+    },
+    {
+      "name": "Motherboard",
+      "cost_eur": "180"
+    },
+    {
+      "name": "PSU 750W 80+ Gold",
+      "cost_eur": "110"
+    },
+    {
+      "name": "NVMe storage",
+      "cost_eur": "80"
+    },
+    {
+      "name": "Case & cooling",
+      "cost_eur": "120"
+    }
+  ],
+  "hardware_total_eur": "1530",
+  "per_hour": {
+    "hardware_wear_eur": "0.058219",
+    "electricity_eur": "0.115200",
+    "cost_eur": "0.173419",
+    "price_eur": "0.25",
+    "margin_eur": "0.076581",
+    "margin_on_cost_pct": "44.16"
+  }
+}

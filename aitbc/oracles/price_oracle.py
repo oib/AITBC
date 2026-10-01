@@ -76,11 +76,12 @@ _COINGECKO_IDS: dict[str, str] = {
 _COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 
 # Compute-backed AIT reference price: 1 AIT ≈ one compute-hour on the
-# RTX 4060 Ti 16GB reference rig (≈ €0.08 electricity + €0.14 hardware wear
-# ≈ €0.22 operating cost → €0.25 price). EUR is the pricing anchor; USD and
+# RTX 4060 Ti 16GB reference rig. EUR is the pricing anchor; USD and
 # ETH quotes are derived via live ETH prices. Used when neither
 # AIT_EUR_FIXED_PRICE nor AIT_USD_FIXED_PRICE is configured.
-# See docs/getting-started/ait-value-model.md.
+# Derivation (BOM amortized over a 3-year fully-booked life + wall-draw
+# electricity): scripts/ops/ait-reference-price.py, published in
+# website/reference.json. See docs/getting-started/ait-value-model.md.
 AIT_REFERENCE_PRICE_EUR = Decimal("0.25")
 
 

@@ -908,3 +908,10 @@ dropped 4 rows that became verifiable.
 - `fleet-config-check.sh`: new `v9-pin-gate:` verdict line reads only the consensus/pin subset (env drift, heights, kill-switch, mock flag, v9 window, validators, gossip, digests, convergence) — bridge monitor alerts and doc hygiene still redden the overall verdict but cannot block the pin. Full-roster note added to the header; `v9_bad` initialized with the other accumulators.
 - `bridge_monitor`: low-float alerts were emitted every poll while the condition held — now throttled to once per `BRIDGE_FLOAT_ALERT_INTERVAL_SECONDS` (default 3600) per condition, re-alerting immediately on a fresh episode.
 - Deposit ledger: the `58acfadb` "no recipient" row was the operator float top-up, already `written_off`. `746aebaf` (0.05 ETH from `0x42645cE4`, no memo, failed since Sep 26) remains open — needs an operator refund/write-off decision.
+
+### feat(market): derive the 1 AIT reference price instead of asserting it
+
+- `aitbc/market/reference_price.py` (pure, no I/O) + `scripts/ops/ait-reference-price.py`: compute the 1 AIT = 1 compute-hour cost floor — reference-rig BOM amortized over a 3-year fully-booked lifetime + wall-draw electricity — and report the pinned price's margin over it (EUR 0.25 sits +44% over the EUR 0.173/h cost floor at EUR 1,530 BOM / 384 W / EUR 0.30 per kWh).
+- `--write-json website/reference.json` emits the committed artifact; the exchange page renders it as the new "How the Reference Is Calculated" card and `exchange.js` now sources its REF_EUR from that file instead of a literal.
+- The reference rig is documented as an island-level choice, not a protocol constant: cloners re-anchor via `--reset-components --component "Name=EUR"` plus a `GPU_COMPUTE_MULTIPLIER` rescale; `ait-value-model.md` carries the derived cost table and the re-derivation command.
+- `tests/unit/test_reference_price.py`: 14 cases — defaults, utilization scaling, validation, JSON safety.
