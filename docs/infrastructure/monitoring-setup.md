@@ -25,14 +25,15 @@ The `aitbc prometheus` command lets operators query the local Prometheus instanc
 aitbc prometheus targets              # scrape target health
 aitbc prometheus rules                # loaded recording/alert rules
 aitbc prometheus alerts               # current firing/pending alerts
-aitbc prometheus alerts --watch       # poll and emit firing alerts (stdout/journal)
+aitbc prometheus alerts --watch       # poll; emit alerts as they start firing and when they resolve (stdout/journal)
+aitbc prometheus alerts --watch --alert-log /var/log/aitbc/alerts.log   # and keep them in a file of their own
 aitbc prometheus query "blockchain_block_height"
 aitbc prometheus check                # promtool config + rules
 ```
 
 `--prometheus-url` overrides the default `http://127.0.0.1:9090`, or set `prometheus_url` in `.aitbc.yaml`.
 
-In watch mode, each firing alert is emitted as a single JSON line to stdout and also logged, so an external watcher can follow `journalctl -u aitbc-prometheus-watch` or tail the output.
+In watch mode, each alert state change is emitted as a single JSON line to stdout and also logged: `prometheus_alert_firing` when an alert starts firing (again, if it had resolved) and `prometheus_alert_resolved`, with `duration_seconds`, when it stops. A poll that Prometheus does not answer changes nothing, so an outage never reads as every alert resolving. With `--alert-log PATH` the same lines are also appended to PATH, rotated at 5 MiB with 5 backups. That file holds only these events, unlike the service log, which carries one httpx line per poll; if PATH cannot be written the watcher says so once and carries on with the journal and the service log.
 
 A systemd unit is provided in `scripts/monitoring/aitbc-prometheus-watch.service`. Install it with:
 
@@ -42,10 +43,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now aitbc-prometheus-watch
 ```
 
-Firing alerts appear in the journal and can be followed with:
+Alert events appear in the journal and, with the installed unit (which passes `--alert-log /var/log/aitbc/alerts.log`), in that file. Follow either with:
 
 ```bash
 journalctl -u aitbc-prometheus-watch -f
+tail -f /var/log/aitbc/alerts.log
 ```
 
 ## Prometheus-first metrics
