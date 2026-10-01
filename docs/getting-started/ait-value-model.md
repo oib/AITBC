@@ -39,6 +39,13 @@ EUR serves only as a pricing reference. AIT represents compute, not fiat currenc
 | CPU | Ryzen 5950X |
 | RAM | 64 GB |
 
+The reference rig is an island-level choice, not a protocol constant — the
+canonical deployment anchors on this hardware because it is what the
+operator runs. An island cloning AITBC can re-anchor on its own rig by
+re-running `scripts/ops/ait-reference-price.py` with its own `--component`
+entries and rescaling `GPU_COMPUTE_MULTIPLIER` in
+`aitbc/market/hardware_catalog.py` so the chosen rig's GPU is 1.0×.
+
 Average models served:
 
 - Llama 3.1 8B
@@ -54,13 +61,28 @@ Average models served:
 
 ## Operating Cost
 
-| Cost Component | Per Hour |
-|----------------|----------|
-| Electricity | €0.08 |
-| Hardware wear | €0.14 |
-| **Total** | **€0.22** |
+Derived by `scripts/ops/ait-reference-price.py` (committed artifact:
+`website/reference.json`, rendered on the exchange page under "How the
+Reference Is Calculated"):
 
-Reference value: ≈ €0.25 per compute hour.
+| Cost Component | Derivation | Per Hour |
+|----------------|------------|----------|
+| Electricity | 384 W wall draw × €0.30/kWh | €0.115 |
+| Hardware wear | €1,530 BOM ÷ 26,280 bookable hours | €0.058 |
+| **Cost floor** | | **€0.173** |
+
+Assumptions: 3-year hardware replacement cycle, fully booked (every
+lifetime hour is a sold hour — lower utilization would raise wear per sold
+hour).
+
+Reference price: ≈ **€0.25** per compute hour (+44 % over the cost floor —
+the margin is operator policy, not a cost passthrough).
+
+Re-derive after changing the rig, tariff, or assumptions:
+
+```bash
+venv/bin/python scripts/ops/ait-reference-price.py --write-json website/reference.json
+```
 
 ## Multi-GPU Scaling
 
