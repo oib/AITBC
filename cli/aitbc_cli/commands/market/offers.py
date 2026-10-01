@@ -453,7 +453,7 @@ Cancel a market job (with refund) with `aitbc market cancel --job-id`; remove a 
     "order_ids",
     required=True,
     multiple=True,
-    help="On-chain listing id to cancel (the id field of /rpc/market/listings, e.g. tx_297); repeat for several.",
+    help="On-chain listing id to cancel (the listing_id field of /rpc/market/listings, e.g. tx_297); repeat for several.",
 )
 @click.pass_context
 def offer_cancel(ctx, order_ids: tuple[str, ...]):

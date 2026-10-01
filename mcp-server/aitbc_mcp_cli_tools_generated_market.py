@@ -1157,7 +1157,7 @@ def aitbc_market_offer_cancel(
     order_ids: Annotated[
         list[str],
         Field(
-            description="On-chain listing id to cancel (the id field of /rpc/market/listings, e.g. tx_297); repeat for several."
+            description="On-chain listing id to cancel (the listing_id field of /rpc/market/listings, e.g. tx_297); repeat for several."
         ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
