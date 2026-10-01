@@ -915,3 +915,8 @@ dropped 4 rows that became verifiable.
 - `--write-json website/reference.json` emits the committed artifact; the exchange page renders it as the new "How the Reference Is Calculated" card and `exchange.js` now sources its REF_EUR from that file instead of a literal.
 - The reference rig is documented as an island-level choice, not a protocol constant: cloners re-anchor via `--reset-components --component "Name=EUR"` plus a `GPU_COMPUTE_MULTIPLIER` rescale; `ait-value-model.md` carries the derived cost table and the re-derivation command.
 - `tests/unit/test_reference_price.py`: 14 cases — defaults, utilization scaling, validation, JSON safety.
+
+### chore(scope): next-height payload binding pairs non-mutating verify with dead-branch removal
+
+- `TransactionRequest.validate_payload` (`rpc/transactions.py`) mutates the signed domain: `payload` gains `amount` when the client omitted it, so `verify_signature` reconstructs bytes that differ from what was signed — spurious 403 for any tx family whose signed payload lacks `amount` (surfaced via `ESCROW_LOCK` canary). The `to`-injection branch is dead code: it keys on `"recipient" in values` but wire input only ever carries the `to` alias (no `populate_by_name`).
+- Recorded for the next version-height scope, paired with payload binding: verification reconstructs the domain message from the raw wire payload — not post-validation model state — and the dead `to`-injection branch is deleted outright in the same change (dead canonicalization logic in a signature verifier is a maintenance hazard, not a comment).
