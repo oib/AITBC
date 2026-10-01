@@ -957,3 +957,15 @@ dropped 4 rows that became verifiable.
 - `--compare-state-with DB` adds the V-5 ladder's layer 2: after a clean replay to the next checkpoint's tip, every non-history table is compared wholesale — covering aux consensus state (escrow, chain_parameter, bridge rows, contracts) that the account-only state root never sees. Volatile locally-stamped columns (`created_at`/`updated_at`) and the replay-generated undo journal are excluded; the compare DB's tip must equal the replay end.
 - `tests/unit/test_replay_chain.py`: 29 cases — arg parsing, stub capping, checkpoint head reading, all proof failure modes (tip≥end, lineage/fork mismatch, missing root, empty accounts, root mismatch), copy placement, and wholesale-compare semantics incl. aux-table divergence and volatile-column exclusion.
 - `docs/ops/v5-replay-inventory.md`: recipe updated to the implemented flags (`--checkpoint` + `--snapshot`; the planned `--from-height` did not get implemented — the checkpoint file's own tip is the start height and cannot disagree with its state).
+
+### Website — block content breakdown (explorer + latest blocks)
+
+Latest Blocks cards (blocks.html) gain a "Content" row showing the block’s
+transaction composition — a thin stacked bar plus colored type chips using
+the same per-type palette as the Activity Timeline daily stats
+(`TX_TYPE_COLORS` mirrors `analytics.py`). The explorer.html Live Feed
+shows the same chips on BLOCK rows. `renderBlockCard` moved to a shared
+global in explorer.js — which also fixes a latent ReferenceError when an
+address search on explorer.html returned block results (the function was
+only defined inside blocks.js scope). Both data sources (`/api/blocks/latest`,
+`/api/blocks/non-empty`) already return per-tx `type`; no API change.
