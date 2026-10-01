@@ -33,10 +33,22 @@ for unit in $UNITS; do
     fi
 done
 
-# Back up the local DB in case the operator needs to revert.
+# Back up the local DB in case the operator needs to revert. `sqlite3 .backup` reads through the
+# WAL, so the copy is whole even if a service was killed instead of stopped cleanly: on a host
+# running with DB_KEEPER_CONNECTION the recent commits can sit in chain.db-wal, and a bare cp of
+# chain.db alone would drop them. The raw-copy fallback keeps the WAL files next to the copy.
 if [ -f "$DB" ]; then
     backup="${DB}.pre-snapshot.${TIMESTAMP}"
-    cp -p "$DB" "$backup"
+    if sqlite3 "$DB" ".backup '${backup}'"; then
+        chown --reference="$DB" "$backup" || true
+        chmod --reference="$DB" "$backup" || true
+    else
+        echo "sqlite3 .backup failed; keeping a raw copy of the database and its WAL files" >&2
+        cp -p "$DB" "$backup"
+        for suffix in -wal -shm; do
+            if [ -f "${DB}${suffix}" ]; then cp -p "${DB}${suffix}" "${backup}${suffix}"; fi
+        done
+    fi
     echo "Local chain DB saved to $backup"
 fi
 
@@ -75,7 +87,11 @@ if [ "$hub_head" != "$local_head" ]; then
     exit 1
 fi
 
-# Atomically replace the local chain DB.
+# Atomically replace the local chain DB. The services are stopped, so any chain.db-wal / chain.db-shm
+# on disk belongs to the OLD database: a killed process leaves them, and a host running with
+# DB_KEEPER_CONNECTION keeps its WAL on disk by design. SQLite would replay those frames onto the
+# new file and corrupt it, so they go first.
+rm -f "${DB}-wal" "${DB}-shm"
 mv -f "${DB}.tmp" "$DB"
 chown aitbc:aitbc "$DB"
 chmod 0640 "$DB"
