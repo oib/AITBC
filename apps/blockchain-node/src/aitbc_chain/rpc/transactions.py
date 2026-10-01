@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import col, select
-from sqlalchemy import literal_column
+from sqlalchemy import func, literal_column
 
 from aitbc.env_compat import market_getenv
 from aitbc.rate_limiting import rate_limit
@@ -128,6 +128,26 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 f"nonce too far ahead for sender '{tx_data['from']}' on chain '{chain_id}': "
                 f"account nonce {sender_account.nonce} + lookahead {lookahead}, got {nonce}"
             )
+
+        # Refuse here what a proposer would refuse at apply (V-8): a sender outside the on-chain authority for the
+        # type. Last, so every earlier rejection keeps its message. Version and parameters are those a block at the
+        # next height would apply; this door is shared by REST, gossip ingest and the p2p transport.
+        from ..state.admission_authority import AUTHORITY_GATED_TYPES, sender_authority_error
+        from ..state.state_transition import get_block_version_for_height
+
+        if tx_type in AUTHORITY_GATED_TYPES:
+            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+            next_height = (head or 0) + 1
+            authority_error = sender_authority_error(
+                session,
+                chain_id,
+                tx_type,
+                tx_data["from"],
+                block_version=get_block_version_for_height(next_height),
+                block_height=next_height,
+            )
+            if authority_error:
+                raise ValueError(authority_error)
 
 
 async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -> None:
