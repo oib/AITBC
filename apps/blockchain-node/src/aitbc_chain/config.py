@@ -56,6 +56,15 @@ class ChainSettings(BaseSettings):
     db_path: Path = DATA_DIR / "data" / "chain.db"
     db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (ait-mainnet only)
     db_encryption_key_path: Path = Path("/etc/aitbc/secrets/db_encryption.key")  # Phase 2: Encryption key file path
+    # Hold one idle SQLite connection per chain for the life of the process. Every session opens its
+    # own connection (NullPool), so whenever none is open the closing one is the *last*, and SQLite
+    # checkpoints and deletes the WAL under an EXCLUSIVE lock while it syncs the disk. On btrfs over
+    # spinning disks (fsync median ~220 ms, outliers over 1.7 s) that lock was held for seconds, and
+    # every connection opened meanwhile failed after a 5 s wait with "database is locked". With a
+    # keeper nobody is last: the WAL stays on disk and is only checkpointed passively. Off by default.
+    # While it is on, copy chain.db with `sqlite3 .backup` or with the node stopped, never with a bare
+    # `cp`, and only open a `.backup` copy with immutable=1: a live file's recent commits sit in the WAL.
+    db_keeper_connection: bool = False
 
     # Connection pooling (v0.6.0). Pool size for PostgreSQL/QueuePool-backed
     # engines. SQLite uses StaticPool (single writer) so this only applies when
