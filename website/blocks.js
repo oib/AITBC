@@ -1,5 +1,6 @@
 // Latest Blocks page — dedicated to browsing blocks
-// Reuses global helpers (copyBtn, copyToClipboard) from explorer.js
+// Reuses global helpers (copyBtn, copyToClipboard, renderBlockCard,
+// blockContentHtml) from explorer.js
 
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
@@ -9,31 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let skipEmptyBlocks = false;
     let blocksOffset = 0;
-
-    function renderBlockCard(block) {
-        let timestamp = 'N/A';
-        if (block.timestamp) {
-            if (typeof block.timestamp === 'string') {
-                timestamp = new Date(block.timestamp).toLocaleString();
-            } else if (typeof block.timestamp === 'number') {
-                timestamp = new Date(block.timestamp * 1000).toLocaleString();
-            }
-        }
-        const txCount = block.txCount || 0;
-        const blockHash = block.hash || 'N/A';
-        const proposer = block.proposer || 'N/A';
-        return `
-            <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
-                <table class="block-list-table">
-                    <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
-                    <tr><td>Hash</td><td>${escapeHtml(blockHash)} ${copyBtn(blockHash)}</td></tr>
-                    <tr><td>Proposer</td><td>${escapeHtml(proposer)}</td></tr>
-                    <tr><td>Transactions</td><td>${escapeHtml(txCount)}</td></tr>
-                    <tr><td>Timestamp</td><td>${escapeHtml(timestamp)} UTC</td></tr>
-                </table>
-            </div>
-        `;
-    }
 
     async function loadLatestBlocks(reset = true) {
         try {
