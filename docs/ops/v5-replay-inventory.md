@@ -157,7 +157,7 @@ blocker — blocks 1–10 already verify, 11+ is only reachable via the genesis
 path. If the era-ladder is clean end to end, the residual question is
 exactly that 122-block window.
 
-## Mechanical recipe (checkpoint replay, once `--from-height` exists)
+## Mechanical recipe (checkpoint replay — implemented as `--checkpoint`)
 
 ```bash
 # 1. materialize the oldest checkpoint dump
@@ -172,8 +172,22 @@ ssh hub 'sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
 ssh hub 'cat /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-node.env /etc/aitbc/blockchain.env' \
     | grep -vE 'KEY|SECRET|TOKEN|PASSWORD|PASS|MNEMONIC|SEED' > /tmp/replay.env
 
-# 4. run on a dev node (node2):
+# 4. run on a dev node (node2): the checkpoint DB is copied into the replay
+#    target wholesale; its tip C seeds state and replay runs C+1..tip.
+#    Lineage, state-bearing root proof, and a post-seed root re-check all
+#    gate the first import.
 PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/replay-chain.py \
-    --checkpoint /tmp/ckpt-122.db --blocks-source /tmp/chain-live.db \
+    --checkpoint /tmp/ckpt-122.db --snapshot /tmp/chain-live.db \
+    --chain-id ait-hub.aitbc.bubuit.net --env-file /tmp/replay.env
+
+# 5. ladder step — replay to the NEXT checkpoint's tip and compare the
+#    rebuilt non-history state wholesale against that checkpoint file:
+PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/replay-chain.py \
+    --checkpoint /tmp/ckpt-122.db --snapshot /tmp/chain-live.db \
+    --to-height <tip-of-next-backup> --compare-state-with /tmp/ckpt-sep01.db \
     --chain-id ait-hub.aitbc.bubuit.net --env-file /tmp/replay.env
 ```
+
+Note: the planned `--from-height` flag did not get implemented — the
+checkpoint DB's own tip IS the start height, which cannot disagree with the
+file's actual state the way a separate height argument could.
