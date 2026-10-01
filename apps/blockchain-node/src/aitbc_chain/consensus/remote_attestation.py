@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sqlite3
 import time
 from typing import Any
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
@@ -29,6 +31,23 @@ from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
 
 logger = get_logger(__name__)
+
+# The v9 attestation check opens its own database session. A validator that
+# cannot read its own state must not attest, but SQLite lock contention (a long
+# writer on the same file) says nothing about the block: the whole check is
+# retried once before it fails closed. The proposer waits
+# ``multi_validator_attestation_timeout_seconds`` plus 0.5 s per missing
+# attestation for answers, so one extra attempt still lands inside that window.
+V9_CHECK_ATTEMPTS = 2
+V9_CHECK_RETRY_DELAY_S = 0.5
+
+
+def _is_transient_db_lock(exc: BaseException) -> bool:
+    """True for SQLite's transient "database is locked" / "database is busy" errors."""
+    if not isinstance(exc, (OperationalError, sqlite3.OperationalError)):
+        return False
+    message = str(exc).lower()
+    return "database is locked" in message or "database is busy" in message
 
 
 def _same_address(a: str, b: str) -> bool:
@@ -219,6 +238,7 @@ class RemoteAttestationService:
         self,
         header: dict[str, Any],
         txs: list[Any],
+        _attempt: int = 1,
     ) -> str | None:
         """Verify attestation-request transactions against local parent state.
 
@@ -368,6 +388,16 @@ class RemoteAttestationService:
                                 return "nonce_order"
                         expected_nonce[sender] += 1
         except Exception as e:
+            if _attempt < V9_CHECK_ATTEMPTS and _is_transient_db_lock(e):
+                logger.info(
+                    "v9 attestation tx check hit a locked database for height %s (attempt %s of %s), retrying: %s",
+                    height,
+                    _attempt,
+                    V9_CHECK_ATTEMPTS,
+                    e,
+                )
+                time.sleep(V9_CHECK_RETRY_DELAY_S)
+                return self._v9_check_transactions(header, txs, _attempt + 1)
             logger.warning("v9 attestation tx check failed to run for height %s: %s", height, e)
             return "check_error"
         return None
