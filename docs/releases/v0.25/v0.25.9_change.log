@@ -920,3 +920,22 @@ dropped 4 rows that became verifiable.
 
 - `TransactionRequest.validate_payload` (`rpc/transactions.py`) mutates the signed domain: `payload` gains `amount` when the client omitted it, so `verify_signature` reconstructs bytes that differ from what was signed — spurious 403 for any tx family whose signed payload lacks `amount` (surfaced via `ESCROW_LOCK` canary). The `to`-injection branch is dead code: it keys on `"recipient" in values` but wire input only ever carries the `to` alias (no `populate_by_name`).
 - Recorded for the next version-height scope, paired with payload binding: verification reconstructs the domain message from the raw wire payload — not post-validation model state — and the dead `to`-injection branch is deleted outright in the same change (dead canonicalization logic in a signature verifier is a maintenance hazard, not a comment).
+
+### v9 activation height pinned at 30400
+
+- state_transition_v9_height: None -> 30400 (hardcoded consensus like
+  v4/v5/v7/v8). Preconditions met: >24h clean shadow window under
+  c4be1a458 (zero substantive v9_would_reject_* fleet-wide), fresh
+  nine-type canary sweep sealed 29687-29705 with every served signed
+  envelope verified on node0+node1, and replay proof green on the pinning
+  commit (test_historical_replay + test_apply_parity + v9 signature rules;
+  BRIDGE_LOCK stays paused and BRIDGE_REFUND needs no live lock). 30400
+  is >500 blocks past the Sep-29 validator restart (~28410) and past the
+  deployment restart at ~29710.
+- Re-window gate note: the 091ca4c..f0579f1 diff also carried
+  aitbc/data_layer, aitbc/training_setup, and README changes. None is
+  imported under apps/blockchain-node/src (verified by grep), so the
+  shadow window result stands; recorded here for the audit trail.
+- Load proof: all five aitbc-blockchain-node services restarted
+  22:25-22:27 CEST 2026-09-30, after the pin commit (22:23 CEST), so the
+  running processes -- not just the checkouts -- carry v9_height=30400.
