@@ -438,15 +438,25 @@ def _chain_offer_row(tx, status, provider, mine, my_address, my_node_id) -> dict
 
 
 @market.command(
+    name="offer-cancel",
     epilog="""Examples:
 
-  aitbc market cancel --order-ids order-1
+  aitbc market offer-cancel --order-ids tx_297
 
-  aitbc market cancel --order-ids order-1 order-2"""
+  aitbc market offer-cancel --order-ids tx_297 --order-ids tx_298
+
+Cancel a market job (with refund) with `aitbc market cancel --job-id`; remove a registry entry with
+`aitbc market offer-disable --plugin-id`.""",
 )
-@click.option("--order-ids", "order_ids", required=True, multiple=True, help="The Order ids.")
+@click.option(
+    "--order-ids",
+    "order_ids",
+    required=True,
+    multiple=True,
+    help="On-chain listing id to cancel (the id field of /rpc/market/listings, e.g. tx_297); repeat for several.",
+)
 @click.pass_context
-def cancel(ctx, order_ids: tuple[str, ...]):
+def offer_cancel(ctx, order_ids: tuple[str, ...]):
     """Cancel one or more hardware and software bundle offers by order IDs."""
     try:
         config = get_config()
