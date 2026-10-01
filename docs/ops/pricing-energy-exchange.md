@@ -14,6 +14,11 @@ safely turn on live nodes.
   with ETH; AIT/EUR does not.
 - Reference-consistent rate: **4.0 AIT/EUR**. Inverse on the exchange page:
   `1 ETH ≈ eth_eur / 0.25` AIT.
+- The €0.25 anchor is derived, not asserted:
+  `scripts/ops/ait-reference-price.py` computes the cost floor from the
+  reference rig's BOM (3-year, fully-booked amortization) plus wall-draw
+  electricity, and `--write-json website/reference.json` emits the artifact
+  the exchange page renders under "How the Reference Is Calculated".
 - Env overrides still win: `AIT_EUR_FIXED_PRICE` / `AIT_USD_FIXED_PRICE` /
   `AIT_USD_PRICE`. A shop node with `AIT_USD_PRICE=1.0` set diverges from the
   reference on purpose or by accident — check before assuming a bug.

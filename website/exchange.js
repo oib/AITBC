@@ -2,6 +2,54 @@ function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Committed fallback; reference.json overrides it once loaded.
+let refEur = 0.25;
+
+async function fetchReference() {
+    try {
+        const response = await fetch('reference.json');
+        if (!response.ok) return;
+        renderReference(await response.json());
+    } catch (error) {
+        console.error('Error fetching reference breakdown:', error);
+    }
+}
+
+function eurStr(v, digits) {
+    const n = Number(v);
+    return isFinite(n) ? `&euro;${n.toFixed(digits)}` : '-';
+}
+
+function renderReference(ref) {
+    if (ref && ref.model && ref.model.reference_price_eur != null) {
+        refEur = Number(ref.model.reference_price_eur);
+    }
+    const heroEur = document.getElementById('hero-eur-value');
+    if (heroEur) heroEur.innerHTML = `&asymp; ${eurStr(refEur, 2)}`;
+
+    const tbody = document.querySelector('#reference-table tbody');
+    if (!tbody || !ref || !ref.per_hour) return;
+
+    const m = ref.model || {};
+    const ph = ref.per_hour;
+    const hours = Number(m.bookable_hours).toLocaleString('en-US');
+    const rows = [];
+    for (const c of ref.components || []) {
+        rows.push([escapeHtml(c.name), eurStr(c.cost_eur, 2)]);
+    }
+    rows.push(['Hardware total (BOM)', eurStr(ref.hardware_total_eur, 2)]);
+    rows.push(['Amortization', `${escapeHtml(m.lifespan_years)} years × 8,760 h = ${hours} bookable h (fully booked)`]);
+    rows.push(['Hardware wear', `${eurStr(ph.hardware_wear_eur, 4)} / h`]);
+    rows.push(['Electricity', `${escapeHtml(String(m.wall_watts))} W × ${eurStr(m.eur_per_kwh, 2)}/kWh = ${eurStr(ph.electricity_eur, 4)} / h`]);
+    rows.push(['Cost per compute-hour', eurStr(ph.cost_eur, 4)]);
+    const margin = ph.margin_on_cost_pct != null ? ` (margin ${eurStr(ph.margin_eur, 4)} / h, +${Number(ph.margin_on_cost_pct).toFixed(1)}%)` : '';
+    rows.push(['Reference price', `${eurStr(ph.price_eur, 2)}${margin} — ${escapeHtml(m.ait_per_eur)} AIT/EUR`]);
+
+    tbody.innerHTML = rows
+        .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`)
+        .join('');
+}
+
 async function fetchPrices() {
     try {
         const response = await fetch('/v1/exchange/history');
@@ -16,8 +64,8 @@ async function fetchPrices() {
 function updateHeroPrice(data) {
     const c = data.current;
 
-    // Reference value: 1 AIT = €0.25 (compute-backed)
-    const REF_EUR = 0.25;
+    // Reference value: 1 AIT = refEur (compute-backed, from reference.json)
+    const REF_EUR = refEur;
     const ethEur = c.eth_eur != null ? Number(c.eth_eur) : null;
     const ethUsd = c.eth_usd != null ? Number(c.eth_usd) : null;
 
@@ -357,7 +405,7 @@ async function lookupDeposit(input) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    fetchPrices();
+    fetchReference().finally(fetchPrices);
     fetchBridgeStatus();
     updatePriceTicker();
     setInterval(updatePriceTicker, 60000);
