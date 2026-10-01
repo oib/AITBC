@@ -88,6 +88,8 @@ Each timestamped directory under `/var/backups/aitbc/` now contains:
 
 The `key-audit.json` file contains only public addresses and `match: true/false` results. It flags mismatches such as a `wallets/*.json` or `*.env` file whose private key does not derive to its declared address, which is the root cause of funding/bridge signing failures and chain splits.
 
+Leftover copies of env files in `/etc/aitbc` (`*.bak*`, `*.orig`, `*.old`, `*~`) are listed too with `backup: true`; they do not change `ok`, which is what the nightly backup acts on. To find every file holding a given key, whatever its variable name (for example after a rotation), run `key-audit.py --report out.json --find-address 0x…`: the report and the console list each file, its mode and the number of occurrences, backups included, and never the key.
+
 ## Manual Backups
 
 ### PostgreSQL
