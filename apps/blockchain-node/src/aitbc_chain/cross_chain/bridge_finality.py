@@ -104,11 +104,12 @@ class BridgeFinalityMixin(BridgeBase):
                 return header
 
     def _increment_confirmations(self, chain_id: str, new_height: int, session: Any) -> None:
-        """Increment confirmation counts for all earlier blocks on a chain (B5).
+        """Increment confirmation counts for earlier blocks on a chain, up to a cap (B5).
 
-        When a new block at height H is stored, all existing blocks at
-        height < H get their confirmation_count incremented by 1. Finality is
-        derived from the updated confirmation count rather than caller input.
+        When a new block at height H is stored, every existing block at
+        height < H whose count is still below the cap gets its
+        confirmation_count incremented by 1. Finality is derived from the
+        updated confirmation count rather than caller input.
 
         Both steps are single UPDATE statements. What they replace was a
         read-modify-write over ORM instances that loaded *every* earlier header
@@ -124,20 +125,37 @@ class BridgeFinalityMixin(BridgeBase):
         session and has loaded nothing into it but the row at ``new_height`` --
         and ``height < new_height`` excludes exactly that row, so no identity-map
         instance can go stale behind the bulk UPDATE.
+
+        Counting stops at ``bridge_confirmation_count_cap``. Bumping every earlier
+        header on every block rewrote the whole table each time -- 22,267 rows,
+        12.5 MiB, ~3,200 WAL frames per block on every node (2026-10-01), 99.8% of
+        the frames a block writes, and growing with chain height. A count above the deepest
+        requirement is never read: ``_check_finality_for_transfer`` needs at most
+        ``bridge_finality_blocks`` (large) or ``bridge_min_confirmations`` (small),
+        and the finality flag keys off ``bridge_finality_blocks``. The cap is never
+        below either, and defaults to 100 so an SDK caller with its own, deeper
+        ``FinalityConfig`` still sees an accurate depth for any realistic setting.
+        Rows already past the cap keep the count they have.
         """
         finality_blocks = getattr(settings, "bridge_finality_blocks", 6)
+        cap = max(
+            int(getattr(settings, "bridge_confirmation_count_cap", 100)),
+            finality_blocks,
+            int(getattr(settings, "bridge_min_confirmations", 3)),
+        )
         bumped = session.execute(
             update(BridgeBlockHeader)
             .where(
                 col(BridgeBlockHeader.chain_id) == chain_id,
                 col(BridgeBlockHeader.height) < new_height,
+                col(BridgeBlockHeader.confirmation_count) < cap,
             )
             .values(confirmation_count=col(BridgeBlockHeader.confirmation_count) + 1),
             execution_options={"synchronize_session": False},
         )
-        if not bumped.rowcount:
-            return
-        session.execute(
+        # Runs whether or not anything was bumped: a row can already be past the cap and still
+        # unflagged (caller-supplied counts while the release fence is down).
+        flagged = session.execute(
             update(BridgeBlockHeader)
             .where(
                 col(BridgeBlockHeader.chain_id) == chain_id,
@@ -148,7 +166,8 @@ class BridgeFinalityMixin(BridgeBase):
             .values(finality_confirmed=True),
             execution_options={"synchronize_session": False},
         )
-        session.commit()
+        if bumped.rowcount or flagged.rowcount:
+            session.commit()
 
     def _update_finality(self, chain_id: str, header: BridgeBlockHeader, session: Any, commit: bool = True) -> None:
         """Update finality_confirmed flag based on confirmation count (B5)."""
