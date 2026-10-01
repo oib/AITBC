@@ -1513,15 +1513,3 @@ tables identical on all 5 hosts at common prefix 27707; service drift
 (block_state_delta, bridge_*, escrow, cross_chain_swap) and the
 bridge_validators twins correctly classified as WARN; heads converged
 27708 -> 27709. Exit 0.
-
-### v9 activation height pinned at 30400
-
-- state_transition_v9_height: None -> 30400 (hardcoded consensus like
-  v4/v5/v7/v8). Preconditions met: >24h clean shadow window under
-  c4be1a458 (zero substantive v9_would_reject_* fleet-wide), fresh
-  nine-type canary sweep sealed 29687-29705 with every served signed
-  envelope verified on node0+node1, and replay proof green on the pinning
-  commit (test_historical_replay + test_apply_parity + v9 signature rules;
-  BRIDGE_LOCK stays paused and BRIDGE_REFUND needs no live lock). 30400
-  is >500 blocks past the Sep-29 validator restart (~28410) and past the
-  deployment restart at ~29710.
