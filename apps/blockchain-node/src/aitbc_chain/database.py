@@ -11,6 +11,7 @@ from typing import Any
 from eth_utils import keccak
 
 from sqlalchemy import Column, ColumnDefault, Engine, event, inspect, literal, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from sqlmodel import Session, create_engine, select
@@ -78,6 +79,34 @@ def encrypt_database(db_path: Path, key: bytes) -> None:
 
 _engines: dict[str, Engine] = {}
 _default_chain_id: str = ""
+
+# One idle connection per chain while ``settings.db_keeper_connection`` is on (see the setting for
+# why). Held in a registry so the connection is never garbage-collected, and released by shutdown_db.
+_keepers: dict[str, Any] = {}
+
+
+def _hold_keeper_connection(chain_id: str, engine: Engine) -> None:
+    """Open the chain's idle keeper connection, once per process, when the setting is on."""
+    if not settings.db_keeper_connection or chain_id in _keepers:
+        return
+    try:
+        _keepers[chain_id] = engine.raw_connection()
+    except (SQLAlchemyError, OSError) as e:
+        # An optimisation: failing to open it must never stop the node from starting.
+        logger.warning("Could not open the keeper connection for chain %s: %s", chain_id, e)
+        return
+    logger.info("Holding a keeper connection for chain %s", chain_id)
+
+
+def _release_keeper_connection(chain_id: str) -> None:
+    """Close the chain's keeper connection, if one is held."""
+    keeper = _keepers.pop(chain_id, None)
+    if keeper is None:
+        return
+    try:
+        keeper.close()
+    except SQLAlchemyError as e:
+        logger.warning("Could not close the keeper connection for chain %s: %s", chain_id, e)
 
 
 def get_engine(chain_id: str = "") -> Engine:
@@ -573,6 +602,7 @@ def init_db(chain_id: str = "") -> None:
 
     # Get or create chain-specific engine
     engine = get_engine(resolved_chain_id)
+    _hold_keeper_connection(resolved_chain_id, engine)
 
     # No try/except here. This used to swallow anything whose message contained "already
     # exists", on the reasoning that existing tables are fine -- but `create_all` defaults to
@@ -629,6 +659,7 @@ def shutdown_db(chain_id: str = "") -> None:
                 raise RuntimeError(f"Failed to encrypt database for chain {resolved_chain_id}: {e}") from e
 
     # Dispose of engine and cached session factory
+    _release_keeper_connection(resolved_chain_id)
     _session_factories.pop(resolved_chain_id, None)
     if resolved_chain_id in _engines:
         _engines[resolved_chain_id].dispose()
