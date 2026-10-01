@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-09-30
+**Last Updated**: 2026-10-01
 
 ---
 
@@ -59,7 +59,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 33
-- **Markdown files under docs/**: 852
+- **Markdown files under docs/**: 853
 
 | Directory | Files | Description |
 |---|---|---|
@@ -78,7 +78,7 @@ docs/
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 1 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 17 | Deployment and infrastructure setup |
-| [design](design/) | 1 | Design documents and decisions |
+| [design](design/) | 2 | Design documents and decisions |
 | [development](development/) | 31 | Developer guides and workflow |
 | [features](features/) | 91 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 31 | New-user onboarding and setup |
