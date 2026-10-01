@@ -944,3 +944,8 @@ dropped 4 rows that became verifiable.
 
 - `docs/design/escrow-rebuild-from-chain.md`: derivation rules from the sealed `transaction` table (two-leg metered settlement, latest-lock-wins, block-timestamp seal times, canonical-chain guard), the non-derivable fields stated as such, and the reconciliation proof (R1–R5 per-job + G1–G4 global invariants, incl. the v3 bonded-balance check) that gates `--write`.
 - Decision log records the SD-1 choice: rebuild is read → prove → write, never write-then-check; the lazy healers stay as read-path fallbacks until the tool lands.
+
+### ops(bridge): declared key bindings deployed for the hardened validator registrar
+
+- All five `bridge-validator-keys.env` files now declare `BRIDGE_ADMIN_ADDRESS` + `BRIDGE_VALIDATOR_ADDRESS_1`/`_2` (identical values), satisfying the `8a5cb0a47c` binding: `register_bridge_validators.py --dry-run` passes on hub (admin `0x02B8`, validators `{0x02B8, 0x628b}`) and fails closed elsewhere (node2 resolves `PROPOSER_KEY` to its own `0x4364`, refused). Registration is hub-pinned until K-1 re-keys the slots.
+- Recorded for the bridge lane: the live `bridge_validators` table is cruft (active set `{0x02b8, 0x7dc101a8…}` — an unknown sixth key — `0x628b` never registered, hub1 empty, Sep-15 rows carry malformed double-`0x` pubkeys). Superseded by BR-2's chain-param design; do not trust the table meanwhile.
