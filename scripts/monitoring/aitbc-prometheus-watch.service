@@ -9,7 +9,7 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/opt/aitbc/venv/bin/aitbc prometheus alerts --watch --interval 15
+ExecStart=/opt/aitbc/venv/bin/aitbc prometheus alerts --watch --interval 15 --alert-log /var/log/aitbc/alerts.log
 Restart=on-failure
 RestartSec=10
 
