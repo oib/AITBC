@@ -23,7 +23,9 @@ Typical usage::
 The extra env file should contain the admin key and one or more validator keys::
 
     BRIDGE_ADMIN_PRIVATE_KEY_SOURCE=PROPOSER_KEY
+    BRIDGE_ADMIN_ADDRESS=0x...
     BRIDGE_VALIDATOR_PRIVATE_KEY_SOURCE_1=PROPOSER_KEY
+    BRIDGE_VALIDATOR_ADDRESS_1=0x...
     BRIDGE_VALIDATOR_PRIVATE_KEY_2=0x...
     BRIDGE_RPC_URLS=http://127.0.0.1:8202/rpc,http://aitbc1:8202/rpc
 
@@ -36,6 +38,17 @@ Validator private keys can be supplied similarly with either:
   - ``BRIDGE_VALIDATOR_PRIVATE_KEY_<N>`` as a literal hex value
 
 The script stops numbering at the first missing ``_<N>`` key.
+
+A key read through an env var name is a different identity on every host:
+``PROPOSER_KEY`` is hub's key on hub and node2's own validator key on node2, so the
+same ``..._SOURCE_1=PROPOSER_KEY`` line registers a different validator depending on
+where the script runs. Every key reached that way (including the admin fallback to
+``PROPOSER_KEY``/``GENESIS_PRIVATE_KEY``) must therefore be bound to the address it
+must have, via ``BRIDGE_ADMIN_ADDRESS`` / ``BRIDGE_VALIDATOR_ADDRESS_<N>``, with the
+same value in the env file on every host. A host whose key derives a different address
+stops with an error instead of registering the wrong identity. A literal key needs no
+declaration, but one that is declared is enforced too. ``--dry-run`` performs the same
+checks without POSTing anything.
 """
 
 from __future__ import annotations
@@ -80,22 +93,54 @@ def _load_env_file(path: str) -> None:
         os.environ[key.strip()] = value.strip()
 
 
+def _normalize_address(value: str) -> str:
+    """Lower-case ``0x`` form, so checksummed and lower-case spellings compare equal."""
+    value = value.strip().lower()
+    return value if value.startswith("0x") else f"0x{value}"
+
+
+def _bind_address(label: str, key_hex: str, address_var: str, via: str | None) -> str:
+    """Return ``key_hex`` once it is bound to the address declared in ``address_var``.
+
+    ``via`` names the env var the key was read through, or is None for a literal.
+    A key reached by indirection resolves per host, so it must be declared: without
+    the declaration the script would silently register whichever identity the local
+    environment happens to hold. Messages carry addresses only, never key material.
+    """
+    derived, _ = _derive_address_and_public_key(key_hex)
+    declared = os.environ.get(address_var, "").strip()
+    if not declared:
+        if via is not None:
+            _die(
+                f"{label} is read through {via!r} and resolves to {derived} on this host; "
+                f"set {address_var} to the address it must have (the same on every host)"
+            )
+        return key_hex
+    if _normalize_address(declared) != _normalize_address(derived):
+        _die(f"{label} resolves to {derived} but {address_var} declares {declared}; refusing to register a different identity")
+    return key_hex
+
+
 def _get_admin_private_key() -> str:
-    """Return the admin private key, reading from a referenced env var if needed."""
+    """Return the admin private key, reading from a referenced env var if needed.
+
+    Bound to ``BRIDGE_ADMIN_ADDRESS`` (required whenever the key comes through an env var name).
+    """
+    address_var = "BRIDGE_ADMIN_ADDRESS"
     literal = os.environ.get("BRIDGE_ADMIN_PRIVATE_KEY", "").strip()
     if literal:
-        return literal.removeprefix("0x")
+        return _bind_address("admin", literal.removeprefix("0x"), address_var, None)
 
     source_var = os.environ.get("BRIDGE_ADMIN_PRIVATE_KEY_SOURCE", "").strip()
     if source_var:
         if source_var not in os.environ:
             _die(f"admin private key source env var {source_var!r} is not set")
-        return os.environ[source_var].strip().removeprefix("0x")
+        return _bind_address("admin", os.environ[source_var].strip().removeprefix("0x"), address_var, source_var)
 
-    # Sensible fallbacks for the canonical hub admin (proposer / genesis).
+    # Fallbacks for the canonical hub admin (proposer / genesis); still bound to a declared address.
     for fallback in ("PROPOSER_KEY", "GENESIS_PRIVATE_KEY"):
         if os.environ.get(fallback, "").strip():
-            return os.environ[fallback].strip().removeprefix("0x")
+            return _bind_address("admin", os.environ[fallback].strip().removeprefix("0x"), address_var, fallback)
 
     _die(
         "no admin private key found. Set BRIDGE_ADMIN_PRIVATE_KEY, "
@@ -104,12 +149,17 @@ def _get_admin_private_key() -> str:
 
 
 def _collect_validator_private_keys() -> list[tuple[str, str]]:
-    """Collect validator private keys from BRIDGE_VALIDATOR_PRIVATE_KEY(_SOURCE)_<N>."""
+    """Collect validator private keys from BRIDGE_VALIDATOR_PRIVATE_KEY(_SOURCE)_<N>.
+
+    Validator ``N`` is bound to ``BRIDGE_VALIDATOR_ADDRESS_<N>`` (required whenever its key
+    comes through an env var name), so slot ``N`` is the same identity on every host.
+    """
     validators: list[tuple[str, str]] = []
     n = 1
     while True:
         source_var = f"BRIDGE_VALIDATOR_PRIVATE_KEY_SOURCE_{n}"
         literal_var = f"BRIDGE_VALIDATOR_PRIVATE_KEY_{n}"
+        address_var = f"BRIDGE_VALIDATOR_ADDRESS_{n}"
 
         literal = os.environ.get(literal_var, "").strip()
         source = os.environ.get(source_var, "").strip()
@@ -119,11 +169,11 @@ def _collect_validator_private_keys() -> list[tuple[str, str]]:
 
         key: str
         if literal:
-            key = literal.removeprefix("0x")
+            key = _bind_address(f"validator {n}", literal.removeprefix("0x"), address_var, None)
         else:
             if source not in os.environ:
                 _die(f"validator {n} private key source env var {source!r} is not set")
-            key = os.environ[source].strip().removeprefix("0x")
+            key = _bind_address(f"validator {n}", os.environ[source].strip().removeprefix("0x"), address_var, source)
 
         validators.append((f"validator-{n}", key))
         n += 1
