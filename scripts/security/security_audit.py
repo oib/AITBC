@@ -395,7 +395,10 @@ class SecurityAudit:
             score -= min(3, len(hardcoded_urls))
 
         # Check for SSL/TLS usage
-        ssl_config_files = ["apps/coordinator-api/src/app/config.py", "apps/blockchain-node/src/aitbc_chain/config.py"]
+        ssl_config_files = [
+            "apps/coordinator-api/src/coordinator_api/config.py",
+            "apps/blockchain-node/src/aitbc_chain/config.py",
+        ]
 
         ssl_enabled = False
         for config_file in ssl_config_files:
@@ -422,7 +425,7 @@ class SecurityAudit:
         score = 10.0
 
         # Check for authentication mechanisms
-        auth_files = ["apps/coordinator-api/src/app/auth/", "apps/coordinator-api/src/app/middleware/auth.py"]
+        auth_files = ["apps/coordinator-api/src/coordinator_api/auth/"]
 
         has_auth = any((self.project_root / f).exists() for f in auth_files)
         if not has_auth:
