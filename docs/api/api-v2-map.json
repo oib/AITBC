@@ -6207,6 +6207,13 @@
           ]
         },
         {
+          "public": "/api/v2/explorer/api/journal/counts",
+          "upstream": "/api/journal/counts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/explorer/api/journal/recent",
           "upstream": "/api/journal/recent",
           "methods": [
