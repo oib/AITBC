@@ -1051,3 +1051,7 @@ only defined inside blocks.js scope). Both data sources (`/api/blocks/latest`,
 - `aitbc_rules.yml` gains `AITBCJournalErrors` (`aitbc_journal_error_messages > 0` for 5 min, warning severity): any unit logging an error alerts until the window slides past it.
 - `routers/journal.py`: `GET /api/journal/recent?unit&priority&limit&since_minutes` — journalctl rows restricted to `aitbc-*` units in code (validated `unit` param + post-fetch filter), so the public page can show "what did the service actually log" without exposing sshd/kernel/system entries. Explorer unit gains `SupplementaryGroups=systemd-journal` for the read access.
 - alerts.html gains a Service Journal card: unit + priority selectors over a warnings-and-errors table, refreshed with the rest of the page.
+
+### Round-1 proposal log demoted to INFO
+
+- `poa.py`: the "height has gone N rounds" proposal message now logs WARNING only at round >= 2. Round 1 is the documented landing spot for every empty heartbeat block in an idle hybrid chain (the 60s idle gate ends round 0 exactly), so it warned on 100% of empty blocks — pure noise on the new alerts page journal card. Round >=2 is the real signal: scheduled owner and first fallback both silent.
