@@ -317,10 +317,14 @@ def _get_escrow_lock_block_version(session: Session, chain_id: str, job_id: str)
     lock_tx = _get_escrow_lock(session, chain_id, job_id)
     if not lock_tx or lock_tx.block_height is None:
         return None
-    block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == lock_tx.block_height)).first()
-    if not block:
+    row = session.exec(
+        # Column-only: the entity select would eager-load the block's selectin
+        # transactions/receipts; only the recorded version stamp is needed.
+        select(Block.height, Block.block_metadata).where(Block.chain_id == chain_id, Block.height == lock_tx.block_height)
+    ).first()
+    if row is None:
         return None
-    return get_block_version(block, block.height)
+    return get_block_version({"block_metadata": row[1]}, row[0])
 
 
 def _escrow_beneficiary(lock_tx: Transaction, tx_type: str) -> str | None:

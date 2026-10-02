@@ -11,7 +11,7 @@ from typing import Any, cast
 from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request
-from sqlalchemy import asc, text
+from sqlalchemy import asc, func, text
 from sqlmodel import Session, delete, select
 
 from aitbc.rate_limiting import rate_limit
@@ -301,8 +301,9 @@ def _import_chain_data(import_data: dict[str, Any]) -> dict[str, Any]:
     # Validate the entire payload before any deletion happens.
     new_blocks, new_accounts, new_transactions = _build_import_objects(unique_blocks, accounts, transactions, chain_id)
     with session_scope() as session:
-        existing_blocks = session.execute(select(Block).where(Block.chain_id == chain_id).order_by(Block.height))  # type: ignore[arg-type]
-        existing_count = len(list(existing_blocks.scalars().all()))
+        # COUNT, not an entity scan: the previous form hydrated every Block
+        # row (plus selectin transactions/receipts) only to call len() on it.
+        existing_count = session.exec(select(func.count()).select_from(Block).where(Block.chain_id == chain_id)).one()
         if existing_count > 0:
             _logger.info("Replacing existing chain with %s blocks", existing_count)
         _logger.info("Clearing existing transactions for chain %s", chain_id)
