@@ -76,6 +76,118 @@
         }
       }
     },
+    "/api/alerts": {
+      "get": {
+        "summary": "Api Alerts",
+        "description": "Live alert view: firing/pending alerts plus watcher health.\n\nFiring alerts come from Prometheus when it answers; silenced state is merged\nin from the event-log replay (Prometheus itself does not know watcher\nsilences). With Prometheus down, the log replay is the live view.",
+        "operationId": "api_alerts_api_alerts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Api Alerts Api Alerts Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts/history": {
+      "get": {
+        "summary": "Api Alerts History",
+        "description": "Watcher event log, newest first. Filters match the CLI's alert-history.",
+        "operationId": "api_alerts_history_api_alerts_history_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "alertname",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Alertname"
+            }
+          },
+          {
+            "name": "node",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Api Alerts History Api Alerts History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/analytics/activity": {
       "get": {
         "summary": "Api Activity Timeline",
