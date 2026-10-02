@@ -1752,3 +1752,18 @@ a.btn-secondary {
 .evt-watch { color: var(--primary); }
 .evt-other { color: var(--text-muted); }
 .alerts-updated { color: var(--text-muted); font-size: 0.72rem; margin-top: 0.8rem; text-align: right; }
+
+/* Service journal card on alerts page */
+.journal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.journal-head h2 { margin: 0; }
+.journal-controls { display: flex; gap: 0.5rem; }
+.journal-controls select {
+    background: var(--code);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-family: 'Courier New', monospace;
+    max-width: 18rem;
+}
