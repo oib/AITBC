@@ -270,6 +270,9 @@ def _write_metrics_file(path: str, gauges: dict[str, float], warn: dict[str, boo
     ]
     try:
         fd, tmp = tempfile.mkstemp(dir=str(Path(path).parent), prefix=".watch-", suffix=".tmp")
+        # mkstemp lands at 0600; node-exporter runs as the prometheus user and
+        # must be able to read the finished file, so widen before the rename.
+        os.fchmod(fd, 0o644)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write("\n".join(lines) + "\n")
         os.replace(tmp, path)

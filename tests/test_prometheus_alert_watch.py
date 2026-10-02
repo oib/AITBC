@@ -12,6 +12,7 @@ from __future__ import annotations
 import itertools
 import json
 import logging
+import stat
 import time
 from pathlib import Path
 from typing import Any
@@ -407,6 +408,14 @@ def test_the_metrics_file_reports_the_watchers_own_health(watch, tmp_path) -> No
     assert "aitbc_prometheus_watch_prometheus_reachable 1" in content
     assert "aitbc_prometheus_watch_firing 0" in content
     assert "aitbc_prometheus_watch_notify_errors_total 0" in content
+
+
+def test_the_metrics_file_is_world_readable_for_node_exporter(watch, tmp_path) -> None:
+    # mkstemp creates 0600; without the widen, the prometheus user cannot read
+    # the textfile and every scrape logs "permission denied" (seen on hub).
+    metrics = tmp_path / "watch.prom"
+    watch([[_alert()]], "--metrics-file", str(metrics), alert_log=tmp_path / "alerts.log")
+    assert stat.S_IMODE(metrics.stat().st_mode) & 0o044 == 0o044
 
 
 def test_the_metrics_file_marks_prometheus_unreachable(watch, tmp_path) -> None:
