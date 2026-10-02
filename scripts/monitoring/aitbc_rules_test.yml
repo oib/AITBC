@@ -235,3 +235,51 @@ tests:
             exp_annotations:
               summary: "aitbc-foo.service logged errors on node9"
               description: "aitbc-foo.service produced 3 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-foo.service -p err."
+
+  # AITBCJournalScanStale: the collector writes a scan timestamp every 5 min.
+  # A dead timer leaves the textfile behind, so the series keeps its frozen
+  # value — the samples track eval time to t=10m, then repeat 600, exactly
+  # what node-exporter does with a textfile nobody updates.
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_journal_scan_timestamp_seconds{instance="hub:9100", job="node"}'
+        values: '0 30 60 90 120 150 180 210 240 270 300 330 360 390 420 450 480 510 540 570 600 600x22'
+
+    alert_rule_test:
+      # Scan current: nothing fires.
+      - eval_time: 10m
+        alertname: AITBCJournalScanStale
+        exp_alerts: []
+      # Frozen at t=10m; at t=20m the age is 600s — not yet over the threshold.
+      - eval_time: 20m
+        alertname: AITBCJournalScanStale
+        exp_alerts: []
+      # Stale since ~20m, firing after the for:5m window.
+      - eval_time: 26m
+        alertname: AITBCJournalScanStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: hub:9100
+              job: node
+            exp_annotations:
+              summary: "Journal-error collector has stopped (hub:9100)"
+              description: "aitbc_journal_scan_timestamp_seconds is absent or older than ten minutes on hub:9100 — aitbc_journal_error_messages is frozen, so AITBCJournalErrors cannot see new service errors. Check systemctl status aitbc-journal-errors.timer."
+
+  # The absent() half: no scan series at all fires the same alert with no
+  # labels.
+  - interval: 30s
+    input_series: []
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: AITBCJournalScanStale
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: AITBCJournalScanStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Journal-error collector has stopped ()"
+              description: "aitbc_journal_scan_timestamp_seconds is absent or older than ten minutes on  — aitbc_journal_error_messages is frozen, so AITBCJournalErrors cannot see new service errors. Check systemctl status aitbc-journal-errors.timer."
