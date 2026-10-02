@@ -87,6 +87,17 @@ Checkpoint mode (--checkpoint DB):
     ``--genesis`` is not needed in checkpoint mode: genesis block, allocation
     accounts and chain parameters are already inside the checkpoint.
 
+Retired GPU rows (--sweep-retired-gpu):
+
+    The per-block state root covers ``account`` only; the comparison that
+    catches drift in ``gpu_registration`` / ``gpu_allocation`` is
+    ``--compare-state-with``. Replaying history that predates the 2 Oct 2026
+    cleanup re-creates the ten retired GPU registrations and the two
+    allocations on ``canary9-gpu-001`` (see scripts/ops/gpu-registry-sweep.py),
+    so a replay compared against today's fleet state reports those two tables
+    as diverged. ``--sweep-retired-gpu`` removes them from the rebuilt database
+    before the comparison, the same repair a restored backup needs.
+
 Exit status: 0 when the whole range replays hash/state-root identical,
 1 when a block rejects or state diverges (the offending height, block hash,
 expected vs replayed root, and the rejection reason are printed).
@@ -95,6 +106,7 @@ expected vs replayed root, and the rejection reason are printed).
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import sqlite3
@@ -466,6 +478,23 @@ _HISTORY_TABLES = {
 # Columns whose values are stamped locally at apply time; they differ between
 # the recording run and any replay without the state being wrong.
 _VOLATILE_COLUMNS = {"created_at", "updated_at"}
+# Tables the 2 Oct 2026 GPU cleanup deleted rows from by SQL; a replay of earlier history writes them again.
+_RETIRED_GPU_TABLES = {"gpu_registration", "gpu_allocation"}
+
+
+def _sweep_retired_gpu(target_db: Path, chain_id: str) -> None:
+    """Delete the retired GPU rows from the rebuilt database (scratch copy: no backup)."""
+    path = Path(__file__).resolve().with_name("gpu-registry-sweep.py")
+    spec = importlib.util.spec_from_file_location("gpu_registry_sweep", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    result = module.sweep(target_db, chain_id, apply=True, backup=False)
+    removed = result["removed"]
+    print(
+        f"swept retired GPU rows from the rebuilt DB: {removed['registrations']} registrations, {removed['allocations']} allocations"
+    )
 
 
 def _table_rows(db: sqlite3.Connection, table: str, chain_id: str) -> list[tuple[Any, ...]]:
@@ -512,6 +541,7 @@ def _compare_state(compare_path: str, target_db: Path, chain_id: str, end: int) 
         }
         tables -= _HISTORY_TABLES
         ok = True
+        diverged_gpu = False
         compared = 0
         for table in sorted(tables):
             src_rows = _table_rows(src, table, chain_id)
@@ -532,6 +562,13 @@ def _compare_state(compare_path: str, target_db: Path, chain_id: str, end: int) 
                 print(f"  want {row}")
             for row in extra[:3]:
                 print(f"  got  {row}")
+            if table in _RETIRED_GPU_TABLES:
+                diverged_gpu = True
+        if diverged_gpu:
+            print(
+                "hint: the retired GPU rows come back when pre-cleanup history is replayed; "
+                "rerun with --sweep-retired-gpu (or run scripts/ops/gpu-registry-sweep.py on the kept database)"
+            )
         if ok:
             print(f"STATE COMPARE OK: {compared} non-history tables identical to checkpoint at height {end}")
         return ok
@@ -652,6 +689,8 @@ async def _run(args: argparse.Namespace) -> int:
         print("REPLAY FAILED — see divergence above", file=sys.stderr)
         return 1
     print(f"REPLAY OK: blocks {start}..{end} hash/state-root identical ({expected} blocks)")
+    if args.sweep_retired_gpu:
+        _sweep_retired_gpu(workdir / "data" / chain_id / "chain.db", chain_id)
     if args.compare_state_with:
         # Ladder layer 2: wholesale state comparison against the checkpoint at
         # the replay end — covers aux tables the account-only state root misses.
@@ -733,6 +772,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "against this chain.db — its tip must equal the replay end height "
         "(the checkpoint-to-checkpoint check; pair with --to-height)",
     )
+    parser.add_argument(
+        "--sweep-retired-gpu",
+        action="store_true",
+        help="after a successful replay, delete the retired GPU rows (scripts/ops/gpu-registry-sweep.py) "
+        "from the rebuilt DB before the --compare-state-with comparison",
+    )
     parser.add_argument("--batch-size", type=int, default=500, help="Blocks per fetch batch (default 500)")
     parser.add_argument("--workdir", help="Scratch dir for the rebuilt DB (default: a temp dir)")
     parser.add_argument("--keep", action="store_true", help="Keep the rebuilt DB after the run")
@@ -754,6 +799,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         if args.genesis:
             print("note: --genesis ignored in checkpoint mode — genesis state is inside the checkpoint", file=sys.stderr)
             args.genesis = None
+    if args.sweep_retired_gpu and not (args.compare_state_with or args.keep or args.workdir):
+        parser.error(
+            "--sweep-retired-gpu needs --compare-state-with, or --keep / --workdir to leave the swept database behind"
+        )
     if args.compare_state_with:
         compare = Path(args.compare_state_with)
         if not compare.exists():
