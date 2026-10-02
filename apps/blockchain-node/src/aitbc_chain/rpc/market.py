@@ -2,7 +2,9 @@
 
 import json
 import logging
+import os
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -12,6 +14,7 @@ from aitbc.security import SecurityAuditor, SecurityValidator
 
 from ..config import settings
 from ..metrics import metrics_registry
+from .utils import withdrawn_listing_ids
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -93,6 +96,14 @@ class MarketCreateRequest(BaseModel):
     compute_capability: str | None = None
 
 
+def _chain_db_path() -> Path:
+    """The chain.db the listing reader opens: the configured chain's, else the legacy single-chain file."""
+    path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+    if not path.exists():
+        path = Path("/var/lib/aitbc/data/chain.db")
+    return path
+
+
 @router.get("/market/listings", summary="List market items", tags=["market"])
 async def market_listings() -> dict[str, Any]:
     """Get all market listings from blockchain"""
@@ -101,12 +112,8 @@ async def market_listings() -> dict[str, Any]:
 
         # Read GPU_MARKET transactions from blockchain
         import sqlite3
-        import os
-        from pathlib import Path
 
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        chain_db_path = _chain_db_path()
 
         listings = []
         if chain_db_path.exists():
@@ -118,35 +125,21 @@ async def market_listings() -> dict[str, Any]:
             rows = cursor.fetchall()
             conn.close()
 
-            cancelled_ids: set[str] = set()
-            offer_rows: list[tuple[Any, ...]] = []
-
+            parsed: list[tuple[Any, str | None, dict[str, Any], Any]] = []
             for tx_id, sender, payload_json, timestamp in rows:
                 try:
                     payload = json.loads(payload_json) if payload_json else {}
-                    action = payload.get("action", "")
-                    order_id = payload.get("order_id", "")
-                    order_ids = payload.get("order_ids") or []
-                    if not isinstance(order_ids, list):
-                        order_ids = [order_ids]
-                    replaces = payload.get("replaces") or []
-                    if not isinstance(replaces, list):
-                        replaces = [replaces]
-                    listing_id = f"tx_{tx_id}"
-                    if action in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == "cancelled":
-                        if order_id:
-                            cancelled_ids.add(order_id)
-                        cancelled_ids.update(str(oid) for oid in order_ids)
-                        cancelled_ids.add(listing_id)
-                        continue
-                    cancelled_ids.update(str(r) for r in replaces)
-                    offer_rows.append((tx_id, sender, payload, timestamp))
                 except json.JSONDecodeError:
                     continue
+                if isinstance(payload, dict):
+                    parsed.append((tx_id, sender, payload, timestamp))
 
-            for tx_id, sender, payload, timestamp in offer_rows:
+            # Only a seller's own cancel or `replaces` hides a listing (M-1).
+            withdrawn = withdrawn_listing_ids((tx_id, sender, payload) for tx_id, sender, payload, _ in parsed)
+
+            for tx_id, sender, payload, timestamp in parsed:
                 listing_id = f"tx_{tx_id}"
-                if listing_id in cancelled_ids:
+                if listing_id in withdrawn:
                     continue
                 listing = {
                     "listing_id": listing_id,
