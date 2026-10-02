@@ -54,3 +54,111 @@ tests:
             exp_annotations:
               description: "A validator on node1:9009 would have refused to attest a block under v9 rules — inspect the v9_would_reject_attest_* counters and the node journal before pinning the v9 height."
               summary: "v9 attestation would have been refused on node1:9009"
+
+  # Authority accounts (authority-balances-textfile.py). 1 AIT = 36,000,000 units.
+  # Settlement authority: healthy, then 8,000,000 (low), then 1,000,000 (critical), then topped up.
+  # Bridge authority: flat, then its balance falls at t=6m and its nonce moves at t=9m.
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_authority_balance_units{role="escrow_settlement", address="0xS"}'
+        values: '39728900x7 8000000x7 1000000x7 36000000x10'
+      - series: 'aitbc_authority_balance_units{role="bridge_release", address="0xB"}'
+        values: '1800000x11 1500000x30'
+      - series: 'aitbc_authority_nonce{role="bridge_release", address="0xB"}'
+        values: '0x17 1x30'
+      - series: 'aitbc_authority_scrape_success{role="escrow_settlement", address="0xS"}'
+        values: '1x60'
+      - series: 'aitbc_authority_scrape_success{role="bridge_release", address="0xB"}'
+        values: '1x10 0x50'
+      - series: 'aitbc_authority_scrape_timestamp_seconds'
+        values: '0 30 60 90 120 150 180 210 240 270 300 330 360 390 420 450 480 510 540 570 600'
+
+    alert_rule_test:
+      # Healthy float: neither float alert fires.
+      - eval_time: 2m
+        alertname: AuthorityFloatLow
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: AuthorityFloatCritical
+        exp_alerts: []
+
+      # 8,000,000 units for over two minutes: low fires, critical does not.
+      - eval_time: 6m
+        alertname: AuthorityFloatLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              role: escrow_settlement
+              address: 0xS
+            exp_annotations:
+              summary: "Escrow settlement authority float is low (0xS)"
+              description: "The escrow settlement authority 0xS holds 8M units. Releases and refunds debit 1% of the settled amount from it; top it up from the treasury before it runs out."
+      - eval_time: 6m
+        alertname: AuthorityFloatCritical
+        exp_alerts: []
+
+      # 1,000,000 units from t=8m: critical is pending, then fires at 10m; low has stepped aside.
+      - eval_time: 11m
+        alertname: AuthorityFloatCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              role: escrow_settlement
+              address: 0xS
+            exp_annotations:
+              summary: "Escrow settlement authority float is nearly gone (0xS)"
+              description: "The escrow settlement authority 0xS holds 1M units, about 5 AIT of settled volume at the 1% fee. Escrow release and refund fail once it is below the fee, and the funds stay locked until it is topped up."
+      - eval_time: 11m
+        alertname: AuthorityFloatLow
+        exp_alerts: []
+
+      # Topped up to 1 AIT: both resolve.
+      - eval_time: 14m
+        alertname: AuthorityFloatCritical
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: AuthorityFloatLow
+        exp_alerts: []
+
+      # The bridge authority is flat until t=5m: quiet; its balance falls, then the alert fires.
+      - eval_time: 4m
+        alertname: BridgeAuthorityAccountMoved
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: BridgeAuthorityAccountMoved
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              role: bridge_release
+              address: 0xB
+            exp_annotations:
+              summary: "Bridge release authority account moved (0xB)"
+              description: "The bridge release authority 0xB signs bridge credits but is never debited; its balance fell or its nonce changed, so its key sent a transaction. Treat the key as exposed until explained."
+
+      # A failed read for over five minutes names the account; the healthy one stays quiet.
+      - eval_time: 3m
+        alertname: AuthorityBalanceUnreadable
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: AuthorityBalanceUnreadable
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              role: bridge_release
+              address: 0xB
+            exp_annotations:
+              summary: "Authority account bridge_release could not be read"
+              description: "authority-balances-textfile.py could not read bridge_release (0xB) from the local RPC for five minutes; the float alerts are blind for it."
+
+      # The export's own timestamp stops at t=10m; once it is over five minutes old for five minutes, stale fires.
+      - eval_time: 12m
+        alertname: AuthorityBalanceStale
+        exp_alerts: []
+      - eval_time: 21m
+        alertname: AuthorityBalanceStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Authority balance export has stopped"
+              description: "The aitbc_authority_* textfile is missing or older than five minutes; check aitbc-authority-balances.timer. The float alerts are blind until it runs again."

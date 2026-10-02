@@ -129,6 +129,41 @@ groups:
           summary: "RPC error rate is spiking"
 ```
 
+### Authority account balances
+
+The node exporters carry no account balances, so nothing warned when the escrow settlement authority ran short of fee float. Escrow release and refund debit `max(36, amount // 100)` units (1% of the settled amount) from that account; once its balance is below the fee, both fail and the escrowed funds stay locked until it is topped up. `scripts/monitoring/authority-balances-textfile.py` reads the settlement and bridge release authorities from the local RPC and writes them as a node_exporter textfile, once a minute, from `aitbc-authority-balances.timer`:
+
+| Series | Meaning |
+|---|---|
+| `aitbc_authority_balance_units{role,address}` | balance in units (1 AIT = 36,000,000); left out when the read failed, so a stale value never reads as current |
+| `aitbc_authority_nonce{role,address}` | account nonce |
+| `aitbc_authority_scrape_success{role,address}` | 1 when the account was read in the last run, else 0 |
+| `aitbc_authority_scrape_timestamp_seconds` | Unix time the last run finished |
+
+Alerts in `scripts/monitoring/aitbc_rules.yml` (tests in `aitbc_rules_test.yml`):
+
+| Alert | Fires when | Severity |
+|---|---|---|
+| `AuthorityFloatLow` | settlement authority below 9,000,000 units (0.25 AIT, about 25 AIT of settled volume) for 2 minutes | warning |
+| `AuthorityFloatCritical` | settlement authority below 1,800,000 units (0.05 AIT, about 5 AIT of settled volume) for 2 minutes | critical |
+| `BridgeAuthorityAccountMoved` | the bridge release authority's balance fell or its nonce changed within 15 minutes | critical |
+| `AuthorityBalanceUnreadable` | an account could not be read for 5 minutes | warning |
+| `AuthorityBalanceStale` | the textfile is missing or older than 5 minutes, for 5 minutes | warning |
+
+The bridge release authority has no low-balance alert on purpose. `BRIDGE_RELEASE` and `BRIDGE_REFUND` carry a pseudo-sender (no account, no nonce, no debit) and the authority only signs them, so its balance cannot run out; a balance that falls or a nonce that moves means its key sent a transaction.
+
+Install on the node that runs Prometheus (hub): copy the `.service` and `.timer` to `/etc/systemd/system/`, edit `AITBC_WATCH_ACCOUNTS` when an authority is rotated (the settlement authority is the on-chain `escrow_settlement_authority` parameter, the bridge authority is `bridge_release_authority`), then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now aitbc-authority-balances.timer
+sudo promtool check rules /etc/prometheus/aitbc_rules.yml   # after copying the rules file
+sudo systemctl reload prometheus
+curl -s localhost:9100/metrics | grep '^aitbc_authority_'
+```
+
+Roll back with `systemctl disable --now aitbc-authority-balances.timer`, removing `/var/lib/prometheus/node-exporter/aitbc_authority.prom`, and restoring the previous rules file. Nothing here touches a validator, a node process or the chain.
+
 ## Scrape configuration
 
 By default Prometheus only scrapes the local node. Remote targets are not planned, so the sample `/etc/prometheus/prometheus.yml` only lists `localhost` jobs:
