@@ -7,6 +7,7 @@ import logging
 import logging.handlers
 import os
 import re
+import socket
 from typing import cast
 import subprocess
 import sys
@@ -284,12 +285,22 @@ def _write_metrics_file(path: str, gauges: dict[str, float], warn: dict[str, boo
 
 
 def _sd_notify_watchdog() -> None:
-    """systemd watchdog ping; a no-op outside systemd (NOTIFY_SOCKET unset)."""
-    if not os.environ.get("NOTIFY_SOCKET"):
+    """systemd watchdog ping; a no-op outside systemd (NOTIFY_SOCKET unset).
+
+    Sent as a raw datagram from this process — a ``systemd-notify`` subprocess
+    would send with the child's PID, which the unit's default
+    ``NotifyAccess=main`` silently discards (seen live: watchdog killed the
+    watcher every WatchdogSec on hub/node0).
+    """
+    sock_addr = os.environ.get("NOTIFY_SOCKET")
+    if not sock_addr:
         return
+    if sock_addr.startswith("@"):
+        sock_addr = "\0" + sock_addr[1:]
     try:
-        subprocess.run(["systemd-notify", "WATCHDOG=1"], check=False, timeout=5, capture_output=True)
-    except (OSError, subprocess.TimeoutExpired):
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as sock:
+            sock.sendto(b"WATCHDOG=1", sock_addr)
+    except OSError:
         pass
 
 
