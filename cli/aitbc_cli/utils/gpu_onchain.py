@@ -1,6 +1,6 @@
 """GPU-onchain transaction builders and submission helpers.
 
-Turns `aitbc gpu-onchain register/allocate` into signed blockchain transactions
+Turns `aitbc gpu-onchain register/allocate/deregister` into signed blockchain transactions
 so they are broadcast through the mempool, included in blocks, and replicated
 across all validators instead of being written to one node's local DB.
 """
@@ -40,7 +40,7 @@ def _build_gpu_tx(
     payload: dict[str, Any],
     fee: int | None = None,
 ) -> tuple[dict[str, Any], str]:
-    """Build a GPU_REGISTER or GPU_ALLOCATE transaction and return (tx, private_key)."""
+    """Build a GPU_REGISTER, GPU_ALLOCATE or GPU_DEREGISTER transaction and return (tx, private_key)."""
     address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet, password=password, require_private_key=True)
     if not private_key:
         abort(ctx, f"Wallet '{wallet}' has no private key for signing")
@@ -126,6 +126,27 @@ def submit_gpu_allocate(
         "total_cost": str(total_cost),
     }
     tx, private_key = _build_gpu_tx(ctx, rpc_url, chain_id, wallet, password, "GPU_ALLOCATE", payload, fee=fee)
+    tx["signature"] = _sign_tx(tx, private_key)
+    return _submit_signed_tx(rpc_url, tx)
+
+
+def submit_gpu_deregister(
+    ctx: Any,
+    rpc_url: str,
+    chain_id: str,
+    wallet: str,
+    password: str | None,
+    gpu_id: str,
+    fee: int | None = None,
+) -> dict[str, Any]:
+    """Build, sign and submit a GPU_DEREGISTER transaction.
+
+    The wallet must be the GPU's registrant: the chain refuses the transaction
+    from anyone else. It deactivates the registration (the row stays, and the
+    registrant can reactivate it by registering the same gpu_id again).
+    """
+    payload = {"gpu_id": gpu_id}
+    tx, private_key = _build_gpu_tx(ctx, rpc_url, chain_id, wallet, password, "GPU_DEREGISTER", payload, fee=fee)
     tx["signature"] = _sign_tx(tx, private_key)
     return _submit_signed_tx(rpc_url, tx)
 

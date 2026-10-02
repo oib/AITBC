@@ -63,6 +63,7 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         "BRIDGE_WITHDRAW",
         "GPU_REGISTER",
         "GPU_ALLOCATE",
+        "GPU_DEREGISTER",
         "GPU_MARKET",
         "STAKE_LOCK",
         "STAKE_RELEASE",

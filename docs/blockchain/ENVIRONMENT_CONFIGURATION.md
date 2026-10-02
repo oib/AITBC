@@ -568,11 +568,12 @@ under the old, lenient rules so sealed history stays valid.
 | `STATE_TRANSITION_V7_HEIGHT` | `GPU_REGISTER` for an existing gpu_id must come from the recorded registrant. Hardcoded 24650. |
 | `STATE_TRANSITION_V8_HEIGHT` | Stamped-version integrity — the height-derived version governs, mismatched stamps log `block_version_stamp_mismatch_total`. Hardcoded 24800. |
 | `STATE_TRANSITION_V9_HEIGHT` | Sender-signature enforcement at apply + attestation. **Unset = shadow mode**: would-rejects log and count `v9_would_reject_*_total` instead of rejecting. Pin only after shadow counters stay clean. |
+| `STATE_TRANSITION_V10_HEIGHT` | `GPU_DEREGISTER` (the registrant sets its GPU to `deactivated`) and no new `GPU_ALLOCATE` on a deactivated GPU. **Unset = off** (a `GPU_DEREGISTER` sealed below it replays as a plain transfer). Env-gated until proven: every node must run a build that knows the type *before* the height, and the value must be identical on every node (`fleet-config-check.sh` flags drift). Bake it into `config.py` after a full proposer rotation. |
 
 **Effective-heights rule**: heights v4/v5/v7/v8 are consensus and hardcoded in
 `aitbc_chain/config.py` — env files cannot move them (an env-drifted fleet
 would fork), and `fleet-config-check.sh` flags an env-set value that shadows
-a code pin. Only v2/v3/v6/v9 are operator-settable; set them identically on
+a code pin. Only v2/v3/v6/v9/v10 are operator-settable; set them identically on
 every node.
 
 Bridge payout/deposit knobs (`BRIDGE_*`, `PAYOUT_*`, `MIN_ETH_DEPOSIT`) live in

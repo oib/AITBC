@@ -47,7 +47,7 @@ aitbc --help
 | `genesis` | Genesis block and wallet generation commands | `info`, `init`, `reset`, `sync-from-hub`, `verify` |
 | `governance` | Governance operations — on-chain proposals, voting, and execution | `aggregate-votes`, `close`, `execute`, `execute-cross-chain`, `get`, `list`, `propagate`, `propose`, `status`, `vote` |
 | `gpu` | Local GPU service commands for hardware management | `discover`, `list-gpus`, `register`, `unregister`, `update` |
-| `gpu-onchain` | GPU resource tracking commands (on-chain) | `allocate`, `allocations`, `list`, `query`, `register` |
+| `gpu-onchain` | GPU resource tracking commands (on-chain) | `allocate`, `allocations`, `deregister`, `list`, `query`, `register` |
 | `grant` | DAO grant proposal commands. | `create`, `disburse`, `list`, `vote` |
 | `health` | Probe remote AITBC service health endpoints. |  |
 | `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `island`, `list`, `pin`, `unpin`, `upload` |
