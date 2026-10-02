@@ -112,7 +112,7 @@ With `--metrics-file` (env `AITBC_WATCH_METRICS_FILE`) the watcher atomically wr
 - `aitbc_prometheus_watch_firing`, `aitbc_prometheus_watch_silenced_firing` — current counts
 - `aitbc_prometheus_watch_notify_errors_total` — failed webhook deliveries
 
-The shipped rules include `PrometheusWatchStale` (fires when the heartbeat is absent or older than five minutes). Deployment needs the textfile directory writable by the `aitbc` user — e.g. `setfacl -m u:aitbc:rwx /var/lib/prometheus/node-exporter` — and the matching `ReadWritePaths` line uncommented in the unit. A node that never ran the watcher has no series and stays invisible to the stale rule; if node-exporter itself dies, `ServiceDown` on the node job is the alert that fires instead.
+The shipped rules include `PrometheusWatchStale` (fires when the heartbeat is absent or older than five minutes). Deployment needs the textfile directory writable by the `aitbc` user — the fleet recipe is `chgrp aitbc /var/lib/prometheus/node-exporter && chmod 2775 ...` (the Debian nodes have no `acl` package for `setfacl`) — and a `ReadWritePaths=/var/lib/prometheus/node-exporter` drop-in for the unit (the deployed unit is a symlink into the checkout, so a drop-in in `aitbc-prometheus-watch.service.d/` carries it rather than uncommenting the repo file). The watcher writes the file world-readable; node-exporter runs as `prometheus` and skips unreadable files with `node_textfile_scrape_error 1`. A node that never ran the watcher has no series and stays invisible to the stale rule; if node-exporter itself dies, `ServiceDown` on the node job is the alert that fires instead.
 
 ### Public alerts page
 
