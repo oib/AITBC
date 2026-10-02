@@ -1055,3 +1055,7 @@ only defined inside blocks.js scope). Both data sources (`/api/blocks/latest`,
 ### Round-1 proposal log demoted to INFO
 
 - `poa.py`: the "height has gone N rounds" proposal message now logs WARNING only at round >= 2. Round 1 is the documented landing spot for every empty heartbeat block in an idle hybrid chain (the 60s idle gate ends round 0 exactly), so it warned on 100% of empty blocks — pure noise on the new alerts page journal card. Round >=2 is the real signal: scheduled owner and first fallback both silent.
+
+### Journal collector gets a stale-watchdog rule
+
+- `AITBCJournalScanStale` in `aitbc_rules.yml`: fires when `aitbc_journal_scan_timestamp_seconds` is absent or older than 10 min for 5 min — a dead `aitbc-journal-errors.timer` would otherwise freeze `aitbc_journal_error_messages` and silently blind `AITBCJournalErrors`. promtool tests cover the frozen-series and absent arms; `promtool check`/`test rules` pass (26 rules).
