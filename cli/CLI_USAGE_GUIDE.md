@@ -53,7 +53,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `platform` — Scaffold white-label platform configurations.. Subcommands: `init-platform`
 - `plugin` — Scaffold and manage AITBC plugins.. Subcommands: `create`, `list`, `load`
 - `pool-hub` — Pool hub management for SLA monitoring and billing. Subcommands: `sla`, `status`
-- `prometheus` — Query Prometheus and inspect scrape targets, rules, and alerts.. Subcommands: `alerts`, `check`, `query`, `rules`, `series`, `targets`
+- `prometheus` — Query Prometheus and inspect scrape targets, rules, and alerts.. Subcommands: `alert-history`, `alerts`, `check`, `query`, `rules`, `series`, `targets`
 - `reinvest` — Autonomous reinvestment and capacity planning commands.. Subcommands: `policy`, `simulate`
 - `reputation` — Reputation management commands. Subcommands: `create-profile`, `feedback`, `leaderboard`, `metrics`, `profile`, `trust-score`
 - `resource` — Manage agent resource allocations via coordinator-api. Subcommands: `allocate`, `deallocate`, `optimize`, `status`
