@@ -12,6 +12,7 @@ from __future__ import annotations
 import itertools
 import json
 import logging
+import socket
 import stat
 import time
 from pathlib import Path
@@ -416,6 +417,19 @@ def test_the_metrics_file_is_world_readable_for_node_exporter(watch, tmp_path) -
     metrics = tmp_path / "watch.prom"
     watch([[_alert()]], "--metrics-file", str(metrics), alert_log=tmp_path / "alerts.log")
     assert stat.S_IMODE(metrics.stat().st_mode) & 0o044 == 0o044
+
+
+def test_the_watchdog_ping_is_a_datagram_from_the_main_process(watch, tmp_path, monkeypatch) -> None:
+    # A systemd-notify subprocess sends with the child's PID, which the unit's
+    # NotifyAccess=main discards — the ping must be sent in-process (seen live:
+    # watchdog killed the watcher every WatchdogSec).
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    server.bind(str(tmp_path / "notify.sock"))
+    server.settimeout(2)
+    monkeypatch.setenv("NOTIFY_SOCKET", str(tmp_path / "notify.sock"))
+    watch([[]], alert_log=tmp_path / "alerts.log")
+    assert server.recv(64) == b"WATCHDOG=1"
+    server.close()
 
 
 def test_the_metrics_file_marks_prometheus_unreachable(watch, tmp_path) -> None:
