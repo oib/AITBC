@@ -754,6 +754,11 @@ class ChainSettings(BaseSettings):
     bridge_release_private_key: str = ""
     # Seconds to wait for remote attestation responses over gossip when this node is the proposer.
     multi_validator_attestation_timeout_seconds: float = 1.0
+    # After the attestation quorum is reached, keep collecting this many extra
+    # seconds so slower-but-valid validators still land in the block instead of
+    # losing the first-to-min_count race every round. 0 keeps the old
+    # seal-as-soon-as-quorum behaviour. Bounded by the timeout above.
+    attestation_post_quorum_linger_seconds: float = 0.0
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
     # set this to False explicitly.
     pbft_require_signatures: bool = True

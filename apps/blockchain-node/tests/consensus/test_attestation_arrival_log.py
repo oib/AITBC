@@ -48,6 +48,11 @@ def _identity(seed: str) -> tuple[str, str]:
 PROPOSER = _identity("22")
 ATTESTER_A = _identity("11")
 ATTESTER_B = _identity("33")
+ATTESTER_C = _identity("44")
+
+
+def _vs(*identities) -> str:
+    return json.dumps([{"address": i[0]} for i in identities])
 
 
 class _Broker:
@@ -107,12 +112,12 @@ def _request(block, request_timestamp=None):
     }
 
 
-async def _attest(monkeypatch, attester, block, request_timestamp=None):
+async def _attest(monkeypatch, attester, block, request_timestamp=None, vset=None):
     """The response ``attester`` publishes for ``block`` -- through the real handler."""
     monkeypatch.setattr(
         settings,
         "validator_set",
-        json.dumps([{"address": PROPOSER[0]}, {"address": ATTESTER_A[0]}, {"address": ATTESTER_B[0]}]),
+        vset if vset is not None else _vs(PROPOSER, ATTESTER_A, ATTESTER_B),
     )
     broker = _Broker()
     monkeypatch.setattr(ra_module, "gossip_broker", broker)
@@ -121,7 +126,9 @@ async def _attest(monkeypatch, attester, block, request_timestamp=None):
     return broker.published[-1][1]
 
 
-async def _collect(monkeypatch, responses, block, min_count=2, timeout=0.5):
+async def _collect(monkeypatch, responses, block, min_count=2, timeout=0.5, linger=None):
+    if linger is not None:
+        monkeypatch.setattr(settings, "attestation_post_quorum_linger_seconds", linger)
     broker = _Broker(responses)
     monkeypatch.setattr(ra_module, "gossip_broker", broker)
     collector = RemoteAttestationService(CHAIN, {PROPOSER[0]: PROPOSER[1]})
@@ -237,3 +244,97 @@ class TestAttesterPublishedLine:
 
         assert broker.published == []
         assert _lines(caplog, PUBLISHED) == []
+
+
+class TestPostQuorumLinger:
+    """attestation_post_quorum_linger_seconds: after quorum, keep collecting so a
+    slow validator still lands in the block (V-9: hub1's answers arrive ~2-4 s after
+    the fast pair and lost the race at min_count=2). 0 keeps the old behaviour."""
+
+    FOUR = [PROPOSER, ATTESTER_A, ATTESTER_B, ATTESTER_C]
+
+    async def test_a_late_but_valid_answer_lands_inside_the_linger(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        vset = _vs(*self.FOUR)
+        block = _block()
+        first = await _attest(monkeypatch, ATTESTER_A, block, vset=vset)
+        second = await _attest(monkeypatch, ATTESTER_B, block, vset=vset)
+        slow = await _attest(monkeypatch, ATTESTER_C, block, vset=vset)
+        monkeypatch.setattr(settings, "validator_set", vset)
+
+        got = await _collect(
+            monkeypatch, [(0.0, first), (0.02, second), (0.10, slow)], block, min_count=2, timeout=1.0, linger=0.4
+        )
+
+        assert [a["validator"] for a in got] == [ATTESTER_A[0], ATTESTER_B[0], ATTESTER_C[0]]
+        assert "outcome=valid rank=3" in _lines(caplog, ARRIVAL)[2]
+
+    async def test_without_linger_the_third_answer_is_never_read(self, monkeypatch, caplog):
+        """linger=0 (the default) keeps the seal-at-quorum behaviour exactly."""
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        vset = _vs(*self.FOUR)
+        block = _block()
+        first = await _attest(monkeypatch, ATTESTER_A, block, vset=vset)
+        second = await _attest(monkeypatch, ATTESTER_B, block, vset=vset)
+        slow = await _attest(monkeypatch, ATTESTER_C, block, vset=vset)
+        monkeypatch.setattr(settings, "validator_set", vset)
+
+        got = await _collect(
+            monkeypatch, [(0.0, first), (0.02, second), (0.10, slow)], block, min_count=2, timeout=1.0, linger=0.0
+        )
+
+        assert [a["validator"] for a in got] == [ATTESTER_A[0], ATTESTER_B[0]]
+        assert len(_lines(caplog, ARRIVAL)) == 2
+
+    async def test_a_validator_that_never_answers_costs_only_the_linger(self, monkeypatch):
+        """The whole point of bounding the linger: an absent validator must not stretch
+        collection to the full timeout."""
+        vset = _vs(*self.FOUR)
+        block = _block()
+        first = await _attest(monkeypatch, ATTESTER_A, block, vset=vset)
+        second = await _attest(monkeypatch, ATTESTER_B, block, vset=vset)
+        monkeypatch.setattr(settings, "validator_set", vset)
+
+        start = time.monotonic()
+        got = await _collect(monkeypatch, [(0.0, first), (0.02, second)], block, min_count=2, timeout=5.0, linger=0.15)
+        elapsed = time.monotonic() - start
+
+        assert len(got) == 2
+        assert elapsed < 1.0, "collection ended at linger, not at the 5 s timeout"
+
+    async def test_all_remote_answered_breaks_without_waiting_for_linger(self, monkeypatch):
+        """When every remote validator has answered there is nothing left to wait for,
+        even mid-linger."""
+        vset = _vs(*self.FOUR)
+        block = _block()
+        first = await _attest(monkeypatch, ATTESTER_A, block, vset=vset)
+        second = await _attest(monkeypatch, ATTESTER_B, block, vset=vset)
+        third = await _attest(monkeypatch, ATTESTER_C, block, vset=vset)
+        monkeypatch.setattr(settings, "validator_set", vset)
+
+        start = time.monotonic()
+        got = await _collect(
+            monkeypatch, [(0.0, first), (0.01, second), (0.02, third)], block, min_count=2, timeout=5.0, linger=5.0
+        )
+        elapsed = time.monotonic() - start
+
+        assert len(got) == 3
+        assert elapsed < 1.0, "all validators answered: no linger wait"
+
+    async def test_the_same_validator_twice_still_counts_once(self, monkeypatch, caplog):
+        """Gossip redelivery must not inflate the certificate: the verifier counts
+        raw entries, so a duplicate in the list would count twice toward quorum."""
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        vset = _vs(*self.FOUR)
+        block = _block()
+        first = await _attest(monkeypatch, ATTESTER_A, block, vset=vset)
+        again = dict(first)
+        second = await _attest(monkeypatch, ATTESTER_B, block, vset=vset)
+        monkeypatch.setattr(settings, "validator_set", vset)
+
+        got = await _collect(
+            monkeypatch, [(0.0, first), (0.01, again), (0.02, second)], block, min_count=2, timeout=1.0, linger=0.4
+        )
+
+        assert [a["validator"] for a in got] == [ATTESTER_A[0], ATTESTER_B[0]]
+        assert "outcome=duplicate" in _lines(caplog, ARRIVAL)[1]
