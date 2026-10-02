@@ -156,7 +156,7 @@ function renderJournalNodes(body) {
         const text = n.stale
             ? `collector stale (${relTime(Date.now() / 1000 - (n.scan_age_seconds || 0))})`
             : `${n.errors} err &middot; ${n.warnings} warn`;
-        return `<span class="jn-chip ${cls}">${escapeHtml(n.instance)}: ${text}</span>`;
+        return `<span class="jn-chip ${cls}">${escapeHtml(n.node)}: ${text}</span>`;
     }).join(' ');
 }
 
