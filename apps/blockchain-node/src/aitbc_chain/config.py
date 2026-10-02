@@ -744,6 +744,12 @@ class ChainSettings(BaseSettings):
     # (STATE_TRANSITION_V10_HEIGHT, set uniformly on every node); bake the height in here once it has been
     # proven over a full proposer rotation, as v7 and v8 were. fleet-config-check watches for drift.
     state_transition_v10_height: int | None = None
+    # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
+    # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
+    # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
+    # purpose is to keep the ids retired on 2 Oct 2026 (scripts/ops/gpu-registry-sweep.py lists them) from being
+    # registered again by anyone; it does not change what a replay of sealed history produces.
+    gpu_retired_ids: str = ""
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
     # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that
@@ -932,6 +938,10 @@ class ChainSettings(BaseSettings):
     def mesh_peer_url_list(self) -> list[str]:
         """Parsed ``GOSSIP_MESH_PEER_URLS`` (empty entries dropped)."""
         return [u.strip() for u in self.gossip_mesh_peer_urls.split(",") if u.strip()]
+
+    def gpu_retired_id_set(self) -> frozenset[str]:
+        """Parsed ``GPU_RETIRED_IDS`` (empty entries dropped)."""
+        return frozenset(i.strip() for i in self.gpu_retired_ids.split(",") if i.strip())
 
 
 settings = ChainSettings()
