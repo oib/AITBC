@@ -256,3 +256,17 @@ groups:
         annotations:
           summary: "{{ $labels.unit }} logged errors on {{ $labels.node }}"
           description: "{{ $labels.unit }} produced {{ $value }} err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u {{ $labels.unit }} -p err."
+
+      # AITBCJournalScanStale: aitbc-journal-errors.timer runs every 5 min and
+      # writes a scan timestamp; two missed runs means the error/warning gauges
+      # are frozen and AITBCJournalErrors is blind on this node.
+      - alert: AITBCJournalScanStale
+        expr: |
+          absent(aitbc_journal_scan_timestamp_seconds)
+          or time() - aitbc_journal_scan_timestamp_seconds > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Journal-error collector has stopped ({{ $labels.instance }})"
+          description: "aitbc_journal_scan_timestamp_seconds is absent or older than ten minutes on {{ $labels.instance }} — aitbc_journal_error_messages is frozen, so AITBCJournalErrors cannot see new service errors. Check systemctl status aitbc-journal-errors.timer."
