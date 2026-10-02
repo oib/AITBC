@@ -178,3 +178,78 @@ def test_real_run_dedupes_overlapping_passes(monkeypatch):
     monkeypatch.setattr(journal_mod, "_journalctl", fake_jctl)
     records = journal_mod._run_journalctl("warning", 60, 50, None)
     assert len(records) == 1
+
+
+def _prom_result(pairs):
+    return {
+        "status": "success",
+        "data": {"result": [{"metric": metric, "value": [1700000000, str(value)]} for metric, value in pairs]},
+    }
+
+
+def _fake_counts(*, errors=(), warnings=(), ages=()):
+    async def fake(path, params=None):
+        query = (params or {}).get("query", "")
+        if "error_messages" in query:
+            return _prom_result(errors)
+        if "warning_messages" in query:
+            return _prom_result(warnings)
+        return _prom_result(ages)
+
+    return fake
+
+
+def test_journal_counts_aggregates_per_node(client, monkeypatch):
+    monkeypatch.setattr(
+        journal_mod,
+        "_prometheus_get",
+        _fake_counts(
+            errors=[({"instance": "node1", "unit": "aitbc-x.service"}, 2)],
+            warnings=[
+                ({"instance": "node1", "unit": "aitbc-x.service"}, 5),
+                ({"instance": "node1", "unit": "aitbc-y.service"}, 1),
+                ({"instance": "hub", "unit": "aitbc-z.service"}, 1),
+            ],
+            ages=[({"instance": "node1"}, 20), ({"instance": "hub"}, 30)],
+        ),
+    )
+    body = client.get("/api/journal/counts").json()
+    assert body["prometheus_ok"] is True
+    node1, hub = body["nodes"][0], body["nodes"][1]
+    assert node1["instance"] == "node1"  # sorted errors-first
+    assert (node1["errors"], node1["warnings"]) == (2, 6)
+    assert node1["units"]["aitbc-x.service"] == {"errors": 2, "warnings": 5}
+    assert node1["units"]["aitbc-y.service"] == {"errors": 0, "warnings": 1}
+    assert node1["scan_age_seconds"] == 20.0
+    assert node1["stale"] is False
+    assert hub["instance"] == "hub" and hub["errors"] == 0 and hub["warnings"] == 1
+
+
+def test_journal_counts_marks_stale_scan(client, monkeypatch):
+    monkeypatch.setattr(journal_mod, "_prometheus_get", _fake_counts(ages=[({"instance": "node2"}, 900)]))
+    node = client.get("/api/journal/counts").json()["nodes"][0]
+    assert node["instance"] == "node2"
+    assert node["stale"] is True
+    assert node["scan_age_seconds"] == 900.0
+
+
+def test_journal_counts_node_without_scan_is_stale(client, monkeypatch):
+    monkeypatch.setattr(
+        journal_mod,
+        "_prometheus_get",
+        _fake_counts(errors=[({"instance": "ghost", "unit": "aitbc-x.service"}, 1)]),
+    )
+    node = client.get("/api/journal/counts").json()["nodes"][0]
+    assert node["instance"] == "ghost"
+    assert node["stale"] is True
+    assert node["scan_age_seconds"] is None
+
+
+def test_journal_counts_prometheus_down(client, monkeypatch):
+    async def down(path, params=None):
+        return None
+
+    monkeypatch.setattr(journal_mod, "_prometheus_get", down)
+    body = client.get("/api/journal/counts").json()
+    assert body["prometheus_ok"] is False
+    assert body["nodes"] == []
