@@ -1,0 +1,12 @@
+[Unit]
+Description=Export authority account balances every minute
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+OnCalendar=minutely
+AccuracySec=10s
+Persistent=false
+Unit=aitbc-authority-balances.service
+
+[Install]
+WantedBy=timers.target
