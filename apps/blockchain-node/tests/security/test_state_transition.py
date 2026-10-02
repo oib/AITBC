@@ -73,7 +73,13 @@ class TestStateTransition:
         import aitbc_chain.config as config
 
         original = getattr(config.settings, "state_transition_v8_height", 0)
+        original_v9 = getattr(config.settings, "state_transition_v9_height", None)
+        original_v10 = getattr(config.settings, "state_transition_v10_height", None)
         config.settings.state_transition_v8_height = 24800
+        # Pin v9/v10 off so the v8-era assertions keep their literals regardless
+        # of which later heights are baked into config.py.
+        config.settings.state_transition_v9_height = None
+        config.settings.state_transition_v10_height = None
         try:
             # Below the v8 threshold the recorded stamp is authoritative, even
             # over a height-derived version (v7 activates at 24650).
@@ -85,6 +91,8 @@ class TestStateTransition:
             assert get_block_version({"block_metadata": '{"state_transition_version": 2}'}, height=24800) == 8
         finally:
             config.settings.state_transition_v8_height = original
+            config.settings.state_transition_v9_height = original_v9
+            config.settings.state_transition_v10_height = original_v10
 
     def test_get_block_version_threshold_fallback(self):
         """Unversioned blocks fall back to the configured v2 activation height."""
