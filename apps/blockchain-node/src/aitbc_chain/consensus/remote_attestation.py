@@ -231,7 +231,21 @@ class RemoteAttestationService:
             except Exception as e:
                 logger.warning("Failed to publish attestation response: %s", e)
                 continue
-            logger.debug("Published attestation response for height %s from %s", message["height"], address)
+            # request_age_ms is this node's clock minus the proposer's request
+            # timestamp: request transit, queueing and the v9 checks, plus any
+            # clock offset between the two hosts. It is what separates a validator
+            # that answers late from one that never answers (V-9).
+            request_ts = request.get("timestamp")
+            request_age_ms = (
+                int((time.time() - float(request_ts)) * 1000) if isinstance(request_ts, (int, float)) else "unknown"
+            )
+            logger.info(
+                "Attestation response published: height=%s validator=%s proposer=%s request_age_ms=%s",
+                message["height"],
+                address,
+                proposer,
+                request_age_ms,
+            )
             return
 
     def _v9_check_transactions(
