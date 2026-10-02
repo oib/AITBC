@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
+from urllib.parse import quote
 
 import click
 from tabulate import tabulate
@@ -1366,7 +1367,12 @@ def offer_list(
     name="offer-disable",
     epilog="""Examples:
 
-  aitbc market offer-disable --plugin-id ipfs-ipfs-host""",
+  aitbc market offer-disable --plugin-id ipfs-ipfs-host
+
+  aitbc market --wallet shop offer-disable --plugin-id ipfs-ipfs-host
+
+The request is signed with the provider wallet (the group-level --wallet / --wallet-path, or SHOP_WALLET_ADDRESS); the
+market service removes the entry only when the signer is the offer's provider.""",
 )
 @click.option("--plugin-id", "plugin_id", required=True, help="Plugin ID to disable")
 @OUTPUT_FORMAT_OPTION
@@ -1388,8 +1394,34 @@ def offer_disable(
         else:
             hub_url = f"https://{hub_host}"
 
+        # DELETE is provider-signed: the market service removes the row only for
+        # the offer's own provider (an "unregister" proof, so a captured
+        # registration signature cannot be replayed as a removal).
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        if not private_key:
+            error(
+                f"Cannot sign the removal for provider address {wallet_address}: no wallet key available. "
+                "Place the wallet file under a wallet search dir (AITBC_WALLET_DIR, "
+                "~/.aitbc/wallets, /var/lib/aitbc/wallets) or pass --wallet/--wallet-path."
+            )
+            raise click.Abort()
+        chain_id = get_chain_id()
+        issued_at = int(time.time())
+        proof = {"plugin_id": plugin_id, "provider_address": wallet_address, "chain_id": chain_id, "issued_at": issued_at}
+        signature = sign_transaction_data(
+            registration_message("unregister", plugin_id, wallet_address, chain_id, issued_at, offer_body_hash(proof)),
+            private_key,
+        )
         client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-        result = client.delete(f"/v1/market/offer/{plugin_id}")
+        result = client.delete(
+            f"/v1/market/offer/{quote(plugin_id, safe='')}",
+            params={
+                "provider_address": wallet_address,
+                "chain_id": chain_id,
+                "issued_at": issued_at,
+                "signature": signature,
+            },
+        )
         if result and not result.get("error"):
             success(f"Disabled offer {plugin_id}")
             output(result, output_format, title="Disabled Offer")

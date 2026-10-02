@@ -837,13 +837,33 @@ class MarketService:
             logger.error("Error in register_software_service: %s: %s", type(e).__name__, str(e))
             raise
 
-    async def unregister_software_service(self, plugin_id: str) -> Any:
-        """Unregister a software service"""
+    async def unregister_software_service(self, plugin_id: str, proof: dict[str, Any]) -> Any:
+        """Unregister a software service.
+
+        DELETE /v1/market/offer/{plugin_id} is public, and it used to delete
+        any row for any caller; with the same plugin_id free again, anyone
+        could register it under their own address and be resolved as the
+        provider (the CLI trusts the row's provider_address and endpoint).
+        Removal now needs the same proof registration does -- a fresh,
+        chain-scoped signature -- scoped by ``action="unregister"`` so a
+        captured registration cannot be replayed as a removal, plus the
+        ownership gate: the signer must be the row's provider.
+        """
         from sqlalchemy import select
 
         from ..domain.market import SoftwareService
 
         try:
+            data = {
+                "plugin_id": plugin_id,
+                "provider_address": proof.get("provider_address"),
+                "chain_id": proof.get("chain_id"),
+                "issued_at": proof.get("issued_at"),
+                "signature": proof.get("signature"),
+            }
+            auth_error, signer = verify_offer_registration(data, settings.default_chain_id, action="unregister")
+            if auth_error:
+                raise PermissionError(auth_error)
             query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
             result = await self.session.execute(query)
             service = result.scalar_one_or_none()
@@ -852,10 +872,16 @@ class MarketService:
                 # and the tuple was serialized by FastAPI as a 200 with the status buried in
                 # a JSON array. Matches list_offers/update_offer_status above.
                 raise ValueError(f"Service not found: {plugin_id}")
+            if not service.provider_address:
+                raise PermissionError(f"offer {plugin_id} has no provider on record; removal is not permitted")
+            if canonical_address(service.provider_address) != canonical_address(signer or ""):
+                raise PermissionError(f"offer {plugin_id} belongs to provider {service.provider_address}")
             await self.session.delete(service)
             await self.session.commit()
             logger.info("Unregistered software service: %s", plugin_id)
             return {"plugin_id": plugin_id, "status": "unregistered"}
+        except PermissionError:
+            raise
         except Exception as e:
             logger.error("Error in unregister_software_service: %s: %s", type(e).__name__, str(e))
             raise
