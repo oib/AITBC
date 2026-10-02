@@ -27,13 +27,14 @@ aitbc prometheus rules                # loaded recording/alert rules
 aitbc prometheus alerts               # current firing/pending alerts
 aitbc prometheus alerts --watch       # poll; emit alerts as they start firing and when they resolve (stdout/journal)
 aitbc prometheus alerts --watch --alert-log /var/log/aitbc/alerts.log   # and keep them in a file of their own
+aitbc prometheus alert-history          # replay that file: events + what is still firing
 aitbc prometheus query "blockchain_block_height"
 aitbc prometheus check                # promtool config + rules
 ```
 
 `--prometheus-url` overrides the default `http://127.0.0.1:9090`, or set `prometheus_url` in `.aitbc.yaml`.
 
-In watch mode, each alert state change is emitted as a single JSON line to stdout and also logged: `prometheus_alert_firing` when an alert starts firing (again, if it had resolved) and `prometheus_alert_resolved`, with `duration_seconds`, when it stops. A poll that Prometheus does not answer changes nothing, so an outage never reads as every alert resolving. With `--alert-log PATH` the same lines are also appended to PATH, rotated at 5 MiB with 5 backups. That file holds only these events, unlike the service log, which carries one httpx line per poll; if PATH cannot be written the watcher says so once and carries on with the journal and the service log.
+In watch mode, each alert state change is emitted as a single JSON line to stdout and also logged: `prometheus_alert_firing` when an alert starts firing (again, if it had resolved), `prometheus_alert_still_firing` when a reminder interval is set (see below), and `prometheus_alert_resolved`, with `duration_seconds`, when it stops. Every record carries `via` (`startup` when the watcher sees a firing alert on its first poll after (re)start, `transition` for a state change, `silence_expired` for an alert that left a silence while still firing, `reminder`), `timestamp` (naive UTC ISO) and `timestamp_unix` (epoch). A poll that Prometheus does not answer changes nothing, so an outage never reads as every alert resolving. With `--alert-log PATH` the same lines are also appended to PATH, rotated at 5 MiB with 5 backups. That file holds only these events plus the `prometheus_watch_started` marker the watcher writes once per (re)start, unlike the service log, which carries one httpx line per poll; if PATH cannot be written the watcher says so once and carries on with the journal and the service log.
 
 A systemd unit is provided in `scripts/monitoring/aitbc-prometheus-watch.service`. Install it with:
 
@@ -49,6 +50,69 @@ Alert events appear in the journal and, with the installed unit (which passes `-
 journalctl -u aitbc-prometheus-watch -f
 tail -f /var/log/aitbc/alerts.log
 ```
+
+### Watcher configuration file
+
+The unit loads `/etc/aitbc/prometheus-watch.env` when present. Each key feeds the matching CLI option, so tuning does not require editing the unit:
+
+```bash
+# /etc/aitbc/prometheus-watch.env — EnvironmentFile= does not strip inline
+# comments; annotate on their own lines.
+AITBC_WATCH_INTERVAL=15
+AITBC_WATCH_NOTIFY_URL="https://ops.example/hook https://backup.example/hook"
+AITBC_WATCH_SILENCE_FILE=/etc/aitbc/silences.json
+AITBC_WATCH_REMIND_INTERVAL=14400
+AITBC_WATCH_METRICS_FILE=/var/lib/prometheus/node-exporter/aitbc_prometheus_watch.prom
+```
+
+`WatchdogSec=75` in the unit restarts the service if the loop hangs; keep it at least 5× `AITBC_WATCH_INTERVAL`.
+
+### Webhook notifications
+
+Each `--notify-url` (repeatable, or space-separated in `AITBC_WATCH_NOTIFY_URL`) receives a `POST` with the full event record as its JSON body — `prometheus_watch_started`, `prometheus_alert_firing`, `prometheus_alert_still_firing` and `prometheus_alert_resolved`, the latter including `duration_seconds`. A URL gets one immediate retry on failure; after that the failure is logged and counted in `aitbc_prometheus_watch_notify_errors_total`, and the watch loop continues — the alert is never lost, it is always in the event log. Keep receiver endpoints free of authentication for private networks, or terminate auth on the receiving side; the URLs are the only secret here, so the env file should be `0600 root:aitbc`.
+
+### Silences
+
+`--silence-file` points at a JSON list reloaded every poll, so editing it takes effect within one interval without a restart:
+
+```json
+[
+  {"match": {"alertname": "ServiceDown", "labels": {"instance": "hub1:9100"}},
+   "until": "2026-10-05T00:00:00Z", "reason": "exporter intentionally stopped"},
+  {"match": {"labels": {"node": "node2"}},
+   "reason": "node2 maintenance — no expiry"}
+]
+```
+
+`match.alertname` and every entry in `match.labels` must match (subset match); an empty `match` silences nothing. `until` is ISO-8601; omit it for a permanent silence. A silenced transition is still written to the alert log with `"silenced": true` — silence suppresses the webhook push, never the record. An alert whose silence expires or is removed while it still fires emits a fresh `prometheus_alert_firing` with `"via": "silence_expired"` and notifies again. A malformed silence file fails open: it warns once and silences nothing.
+
+For a permanently retired scrape target prefer deleting it at the source — remove the job from that node's own `prometheus.yml` (or stop the remote write that ships its `up` series to the hub) rather than carrying an eternal silence.
+
+### Reading the alert log
+
+`aitbc prometheus alert-history` replays the event log — `--path` (default `/var/log/aitbc/alerts.log`, rotated files pass directly), `--since 24h` or an ISO timestamp, `--alertname`, `--node`, `--state firing|resolved|silenced`, `--last N`:
+
+```bash
+aitbc prometheus alert-history --since 24h
+aitbc prometheus alert-history --node node0 --state firing
+```
+
+The result lists the matching events plus `firing_now`, the alert set still open at end of file — reconstructed from the whole stream, so a resolve outside the `--since` window still clears its alert.
+
+### Still-firing reminders
+
+`--remind-interval SECONDS` re-emits `prometheus_alert_still_firing` (recorded and notified) while an alert stays firing. Silenced alerts are not reminded, and reminders restart their cadence after a Prometheus outage instead of bursting.
+
+### Watcher self-heartbeat
+
+With `--metrics-file` (env `AITBC_WATCH_METRICS_FILE`) the watcher atomically writes a node-exporter textfile every poll:
+
+- `aitbc_prometheus_watch_poll_timestamp_seconds` — last poll attempt (proves the loop is alive even while Prometheus is down)
+- `aitbc_prometheus_watch_prometheus_reachable` — 1/0
+- `aitbc_prometheus_watch_firing`, `aitbc_prometheus_watch_silenced_firing` — current counts
+- `aitbc_prometheus_watch_notify_errors_total` — failed webhook deliveries
+
+The shipped rules include `PrometheusWatchStale` (fires when the heartbeat is absent or older than five minutes). Deployment needs the textfile directory writable by the `aitbc` user — e.g. `setfacl -m u:aitbc:rwx /var/lib/prometheus/node-exporter` — and the matching `ReadWritePaths` line uncommented in the unit. A node that never ran the watcher has no series and stays invisible to the stale rule; if node-exporter itself dies, `ServiceDown` on the node job is the alert that fires instead.
 
 ## Prometheus-first metrics
 

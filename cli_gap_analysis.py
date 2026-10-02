@@ -17,6 +17,19 @@ REPO = Path(__file__).resolve().parent
 # which meant every test collected afterwards lost aitbc_sdk, aitbc_agent_core,
 # aitbc_agent_sdk and aitbc_crypto, aborting the whole root suite with
 # ModuleNotFoundError collection errors.
+# Same for the aitbc_cli package: it lives in cli/, not the repo root, so without
+# this entry it resolves through the editable install -- which points at the
+# primary checkout (/opt/aitbc/cli). On a git worktree the docs would then be
+# generated for a different tree than the one being committed: the sync test in
+# tests/ sees the worktree through its conftest path insert, while the --check
+# half of check-cli-docs sees the primary checkout, and the two disagree on any
+# command added in the worktree. Inserted first so the repo root still lands at
+# sys.path[0] (test_syspath_hygiene pins that order).
+_cli_src = str(REPO / "cli")
+if _cli_src in sys.path:
+    sys.path.remove(_cli_src)
+sys.path.insert(0, _cli_src)
+
 _repo = str(REPO)
 if _repo in sys.path:
     sys.path.remove(_repo)
