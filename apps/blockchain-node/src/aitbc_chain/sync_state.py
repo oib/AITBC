@@ -87,11 +87,16 @@ class StateSyncMixin(SyncBase):
     def _local_head(self, session: Any) -> tuple[int, str]:
         """Return (height, recorded state_root) of our highest local block."""
         head = session.exec(
-            select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height))  # type: ignore[arg-type]
+            # Column-only: an unbounded entity select hydrated the whole block
+            # table plus selectin transactions/receipts on every call.
+            select(Block.height, Block.state_root)
+            .where(Block.chain_id == self._chain_id)
+            .order_by(desc(Block.height))  # type: ignore[arg-type]
+            .limit(1)
         ).first()
         if head is None:
             return 0, ""
-        return int(head.height or 0), str(head.state_root or "")
+        return int(head[0] or 0), str(head[1] or "")
 
     def _refuse_sync(self, reason: str, message: str, **extra: Any) -> dict[str, Any]:
         """Count and report a refused state sync (incident-27207 guards)."""
