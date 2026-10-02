@@ -64,7 +64,7 @@ aitbc --help
 | `platform` | Scaffold white-label platform configurations. | `init-platform` |
 | `plugin` | Scaffold and manage AITBC plugins. | `create`, `list`, `load` |
 | `pool-hub` | Pool hub management for SLA monitoring and billing | `sla`, `status` |
-| `prometheus` | Query Prometheus and inspect scrape targets, rules, and alerts. | `alerts`, `check`, `query`, `rules`, `series`, `targets` |
+| `prometheus` | Query Prometheus and inspect scrape targets, rules, and alerts. | `alert-history`, `alerts`, `check`, `query`, `rules`, `series`, `targets` |
 | `reinvest` | Autonomous reinvestment and capacity planning commands. | `policy`, `simulate` |
 | `reputation` | Reputation management commands | `create-profile`, `feedback`, `leaderboard`, `metrics`, `profile`, `trust-score` |
 | `resource` | Manage agent resource allocations via coordinator-api | `allocate`, `deallocate`, `optimize`, `status` |

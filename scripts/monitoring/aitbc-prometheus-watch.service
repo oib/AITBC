@@ -9,9 +9,23 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/opt/aitbc/venv/bin/aitbc prometheus alerts --watch --interval 15 --alert-log /var/log/aitbc/alerts.log
+# Optional per-node tuning without editing this unit -- the env keys feed the
+# watcher's click envvars (missing file is fine, "-" prefix):
+#   AITBC_WATCH_INTERVAL=15            poll interval; keep WatchdogSec >= 5x this
+#   AITBC_WATCH_NOTIFY_URL="..."       space-separated webhook URLs
+#   AITBC_WATCH_SILENCE_FILE=...       JSON silence file, reloaded each poll
+#   AITBC_WATCH_REMIND_INTERVAL=0      still-firing reminder cadence (seconds)
+#   AITBC_WATCH_METRICS_FILE=...       node-exporter textfile heartbeat path
+EnvironmentFile=-/etc/aitbc/prometheus-watch.env
+# --alert-log stays on the command line (a deployment constant, not a tuning
+# knob); everything else comes from the defaults or the env file above.
+ExecStart=/opt/aitbc/venv/bin/aitbc prometheus alerts --watch --alert-log /var/log/aitbc/alerts.log
 Restart=on-failure
 RestartSec=10
+# Restart a hung watcher, not just a crashed one: the CLI pings WATCHDOG=1 once
+# per poll while NOTIFY_SOCKET is set, so this must stay comfortably above the
+# poll interval (>= 5x).
+WatchdogSec=75
 
 # Hardening
 NoNewPrivileges=true
@@ -21,6 +35,9 @@ ProtectHome=true
 # ProtectSystem=strict makes /var read-only too, so the rotating log file needs an
 # explicit hole; without it configure_logging() falls back to journal-only.
 ReadWritePaths=/tmp /var/log/aitbc
+# Uncomment when AITBC_WATCH_METRICS_FILE points into the node-exporter textfile
+# directory (which also needs `setfacl -m u:aitbc:rwx` or group write for aitbc).
+#ReadWritePaths=/var/lib/prometheus/node-exporter
 
 [Install]
 WantedBy=multi-user.target

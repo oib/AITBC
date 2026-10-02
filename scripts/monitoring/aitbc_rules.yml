@@ -224,3 +224,21 @@ groups:
         annotations:
           summary: "Authority balance export has stopped"
           description: "The aitbc_authority_* textfile is missing or older than five minutes; check aitbc-authority-balances.timer. The float alerts are blind until it runs again."
+
+      # The alert watcher writes its own heartbeat into node-exporter's textfile
+      # directory every poll (--metrics-file / AITBC_WATCH_METRICS_FILE). If the
+      # series is missing or older than five minutes the watcher is dead and all
+      # alert delivery -- events, silences, webhook notifications -- is blind.
+      # Caveat: a node that has never run the watcher has no series at all and is
+      # invisible to this rule; when node-exporter itself is down the series goes
+      # absent and ServiceDown on the node job is the alert that fires.
+      - alert: PrometheusWatchStale
+        expr: |
+          absent(aitbc_prometheus_watch_poll_timestamp_seconds)
+          or time() - aitbc_prometheus_watch_poll_timestamp_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Alert watcher heartbeat has stopped ({{ $labels.instance }})"
+          description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
