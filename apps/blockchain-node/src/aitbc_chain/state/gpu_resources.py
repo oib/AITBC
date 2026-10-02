@@ -87,8 +87,9 @@ GPU_ID_BEARING_TYPES = frozenset({"GPU_REGISTER", "GPU_ALLOCATE"})
 def retired_gpu_error(tx_type: str, payload: Any, retired_ids: frozenset[str]) -> str | None:
     """Why a GPU_REGISTER or GPU_ALLOCATE may not name its ``gpu_id`` (it is retired), or None.
 
-    Admission-only (``GPU_RETIRED_IDS``): consensus does not apply it, so a block that carries such a transaction
-    still replays as before. Any other type, a payload that is not an object, or a missing ``gpu_id`` is left to the
+    Refused unconditionally at admission (``GPU_RETIRED_IDS``) and, from ``block_version`` 10
+    on, at consensus validation too — below v10 a block carrying one still replays as before.
+    Any other type, a payload that is not an object, or a missing ``gpu_id`` is left to the
     validation that already handles it. Ids compare exactly, as consensus compares them.
     """
     if not retired_ids or tx_type not in GPU_ID_BEARING_TYPES or not isinstance(payload, dict):

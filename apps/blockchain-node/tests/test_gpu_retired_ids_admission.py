@@ -26,6 +26,7 @@ from aitbc_chain.rpc import transactions as tx_mod
 from aitbc_chain.rpc.transactions import _validate_transaction_admission
 from aitbc_chain.rpc.utils import sign_transaction_data
 from aitbc_chain.state.gpu_resources import retired_gpu_error
+from aitbc_chain.state.state_transition import StateTransition
 
 CHAIN = "ait-test"
 KEY = "0x" + "33" * 32
@@ -189,3 +190,54 @@ class TestMarketRoute:
         result, mempool = await self._submit(_signed_market_register(RETIRED))
         assert isinstance(result, dict) and result["success"] is True
         mempool.add.assert_called_once()
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# the v10 apply gate: from state_transition_v10_height on the refusal is consensus, not just admission
+# --------------------------------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def apply_session():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    chain_metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(Account(chain_id=CHAIN, address=SENDER, balance=10_000_000, nonce=0))
+        session.commit()
+        yield session
+
+
+class TestApplyGate:
+    def _signed(self, tx: dict[str, Any]) -> dict[str, Any]:
+        tx["signature"] = sign_transaction_data(tx, KEY)
+        return tx
+
+    def _validate(self, session, tx: dict[str, Any], block_version: int) -> tuple[bool, str]:
+        return StateTransition().validate_transaction(
+            session, CHAIN, self._signed(tx), "0x" + "ab" * 32, block_version=block_version
+        )
+
+    @pytest.mark.parametrize("tx_type", ["GPU_REGISTER", "GPU_ALLOCATE"])
+    def test_v10_refuses_a_retired_id(self, apply_session, retired, tx_type):
+        ok, msg = self._validate(apply_session, _tx(tx_type, RETIRED), block_version=10)
+        assert not ok and "retired" in msg
+
+    @pytest.mark.parametrize("tx_type", ["GPU_REGISTER", "GPU_ALLOCATE"])
+    def test_v10_admits_another_id(self, apply_session, retired, tx_type):
+        ok, _ = self._validate(apply_session, _tx(tx_type, FRESH), block_version=10)
+        assert ok
+
+    @pytest.mark.parametrize("tx_type", ["GPU_REGISTER", "GPU_ALLOCATE"])
+    def test_below_v10_a_retired_id_still_validates(self, apply_session, retired, tx_type):
+        """Replay-safety: the refusal is off below v10, matching sealed history."""
+        ok, _ = self._validate(apply_session, _tx(tx_type, RETIRED), block_version=9)
+        assert ok
+
+    def test_v10_admits_a_retired_id_when_the_setting_is_unset(self, apply_session):
+        ok, _ = self._validate(apply_session, _tx("GPU_REGISTER", RETIRED), block_version=10)
+        assert ok
+
+    def test_v10_a_transfer_envelope_carrying_the_type_is_refused_too(self, apply_session, retired):
+        tx = _tx("TRANSFER", RETIRED, payload={**_gpu_payload(RETIRED), "type": "GPU_REGISTER"})
+        ok, msg = self._validate(apply_session, tx, block_version=10)
+        assert not ok and "retired" in msg
