@@ -38,8 +38,8 @@ def test_returns_aitbc_entries_newest_first(client, monkeypatch):
         "_run_journalctl",
         _fake_journal(
             [
-                _record("aitbc-x.service", "older"),
-                _record("aitbc-y.service", "newer"),
+                _record("aitbc-x.service", "older", ts_us=1_700_000_000_000_000),
+                _record("aitbc-y.service", "newer", ts_us=1_700_000_100_000_000),
             ]
         ),
     )
@@ -49,8 +49,8 @@ def test_returns_aitbc_entries_newest_first(client, monkeypatch):
     entry = body["entries"][0]
     assert entry["unit"] == "aitbc-y.service"
     assert entry["priority_name"] == "err"
-    assert entry["timestamp_unix"] == 1_700_000_000
-    assert entry["timestamp"] == "2023-11-14T22:13:20+00:00"
+    assert entry["timestamp_unix"] == 1_700_000_100
+    assert entry["timestamp"] == "2023-11-14T22:15:00+00:00"
 
 
 def test_non_aitbc_units_are_dropped(client, monkeypatch):
@@ -87,8 +87,10 @@ def test_unit_filter_bare_name_gets_service_suffix(client, monkeypatch):
     assert body["entries"]
 
 
-def test_priority_must_be_known(client):
+def test_priority_must_be_known(client, monkeypatch):
     assert client.get("/api/journal/recent?priority=loud").status_code == 400
+    monkeypatch.setattr(journal_mod, "_run_journalctl", _fake_journal([]))
+    monkeypatch.setattr(journal_mod, "_journald_reachable", lambda: True)
     assert client.get("/api/journal/recent?priority=err").status_code == 200
 
 
@@ -131,3 +133,48 @@ def test_syslog_identifier_falls_back_as_unit(client, monkeypatch):
     body = client.get("/api/journal/recent").json()
     assert body["entries"][0]["unit"] == "aitbc-custom"
     assert body["entries"][0]["priority_name"] == "warning"
+
+
+def test_text_level_maps_priority_6_stdout_logs(client, monkeypatch):
+    # aitbc services log via stdout: journald stores PRIORITY=6, the true level
+    # lives in the "[WARNING]"/"[ERROR]" message prefix — surface it.
+    record = _record("aitbc-x.service", message="[WARNING] silence file unreadable", priority=6)
+    monkeypatch.setattr(journal_mod, "_run_journalctl", _fake_journal([record]))
+    body = client.get("/api/journal/recent").json()
+    entry = body["entries"][0]
+    assert entry["priority"] == 4
+    assert entry["priority_name"] == "warning"
+
+
+def test_text_error_levels_map_down_to_err(client, monkeypatch):
+    record = _record("aitbc-x.service", message="[ERROR] boom", priority=6)
+    monkeypatch.setattr(journal_mod, "_run_journalctl", _fake_journal([record]))
+    body = client.get("/api/journal/recent").json()
+    assert body["entries"][0]["priority_name"] == "err"
+
+
+def test_real_run_merges_priority_and_grep_passes(monkeypatch):
+    calls = []
+
+    def fake_jctl(extra, since_minutes, limit):
+        calls.append(extra[0])
+        if extra[0] == "-p":
+            return [_record("init.scope", priority=3)]
+        return [_record("aitbc-x.service", message="[WARNING] w", priority=6)]
+
+    monkeypatch.setattr(journal_mod, "_journalctl", fake_jctl)
+    records = journal_mod._run_journalctl("warning", 60, 50, None)
+    assert calls == ["-p", "-g"]
+    assert {r.get("_SYSTEMD_UNIT") for r in records} == {"init.scope", "aitbc-x.service"}
+
+
+def test_real_run_dedupes_overlapping_passes(monkeypatch):
+    shared = _record("aitbc-x.service", message="[ERROR] e", priority=6)
+    shared["__CURSOR"] = "s=c1"
+
+    def fake_jctl(extra, since_minutes, limit):
+        return [shared]  # both passes return the same entry
+
+    monkeypatch.setattr(journal_mod, "_journalctl", fake_jctl)
+    records = journal_mod._run_journalctl("warning", 60, 50, None)
+    assert len(records) == 1

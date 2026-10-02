@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Count warning-and-worse journal messages per unit into a textfile.
 
-journalctl is asked for a rolling window (default 15 min) at priority
-``warning``; every entry is counted by unit under either
-``aitbc_journal_error_messages`` (priorities emerg..err) or
-``aitbc_journal_warning_messages`` (priority warning). The counts are gauges:
-a burst fires the AITBCJournalErrors rule while it is ongoing and clears when
-the window moves past it.
+Two signals are merged, because aitbc services log through stdout: journald
+tags every such line PRIORITY=6 (info), so the true level only exists in the
+message text as a leading ``[WARNING]``/``[ERROR]``/... token. Systemd's own
+records (watchdog kills, failed units, coredumps) carry a real PRIORITY. So:
+
+    pass 1: journalctl -p err            -> real priorities emerg..err
+    pass 2: journalctl -g '[LEVEL]'      -> text levels our services emit
+
+Every entry is counted per unit under ``aitbc_journal_error_messages``
+(real priority <= 3, or text level ERROR/CRITICAL/FATAL) or
+``aitbc_journal_warning_messages`` (real priority 4, or text WARNING/WARN).
+Counts are gauges over a rolling window (default 15 min): a burst fires
+AITBCJournalErrors while it is ongoing and clears when the window moves on.
 
 Run by a systemd timer (aitbc-journal-errors.timer); stdlib only. The unit runs
 as aitbc with SupplementaryGroups=systemd-journal, which is what lets
@@ -29,7 +36,10 @@ import time
 from collections import Counter
 
 OUTPUT_NAME = "aitbc_journal.prom"
-PRIORITY_ERROR_MAX = 3  # emerg(0) alert(1) crit(2) err(3); warning is 4
+
+TEXT_ERROR_LEVELS = ("ERROR", "CRITICAL", "FATAL")
+TEXT_WARNING_LEVELS = ("WARNING", "WARN")
+TEXT_LEVEL_RE = re.compile(r"^\[(WARNING|WARN|ERROR|CRITICAL|FATAL)\]")
 
 _LABEL_SAFE = re.compile(r"[^a-zA-Z0-9_.-]")
 
@@ -43,30 +53,20 @@ def entry_unit(record: dict) -> str:
     return "unknown"
 
 
-def collect(window: str) -> Counter[tuple[int, str]]:
-    """{(is_error, unit): count} over the window; empty when journalctl fails."""
-    counts: Counter[tuple[int, str]] = Counter()
+def _journalctl(extra: list[str], window: str) -> list[dict]:
+    """Parsed journalctl -o json rows for one query; [] on any failure."""
     try:
         out = subprocess.run(
-            [
-                "journalctl",
-                "-p",
-                "warning",
-                "--since",
-                window,
-                "-o",
-                "json",
-                "--no-pager",
-                "-q",
-            ],
+            ["journalctl", "--since", window, "-o", "json", "--no-pager", "-q", *extra],
             capture_output=True,
             text=True,
             timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired):
-        return counts
+        return []
     if out.returncode != 0:
-        return counts
+        return []
+    records = []
     for line in out.stdout.splitlines():
         line = line.strip()
         if not line:
@@ -75,17 +75,53 @@ def collect(window: str) -> Counter[tuple[int, str]]:
             record = json.loads(line)
         except ValueError:
             continue
-        if not isinstance(record, dict):
-            continue
+        if isinstance(record, dict):
+            records.append(record)
+    return records
+
+
+def collect(window: str) -> tuple[Counter[tuple[int, str]], bool]:
+    """{(is_error, unit): count} over the window, plus an all-queries-failed flag."""
+    # Real priorities: emerg..err (systemd's own records, watchdog kills, etc.)
+    real = _journalctl(["-p", "err"], window)
+    # Text levels our services emit at stdout priority 6.
+    text = _journalctl(["-g", r"\[(WARNING|WARN|ERROR|CRITICAL|FATAL)\]"], window)
+    counts: Counter[tuple[int, str]] = Counter()
+    seen: set[str] = set()
+    for record in real + text:
+        cursor = record.get("__CURSOR")
+        if cursor is not None:
+            if cursor in seen:
+                continue
+            seen.add(cursor)
         try:
             priority = int(record.get("PRIORITY", 6))
         except (TypeError, ValueError):
+            priority = 6
+        level = TEXT_LEVEL_RE.match(str(record.get("MESSAGE") or ""))
+        level_name = level.group(1) if level else None
+        is_error = priority <= 3 or level_name in TEXT_ERROR_LEVELS
+        is_warning = priority == 4 or level_name in TEXT_WARNING_LEVELS
+        if not (is_error or is_warning):
             continue
-        if priority > 4:
-            continue  # -p warning already bounds this; belt and braces
         unit = _LABEL_SAFE.sub("_", entry_unit(record))[:80]
-        counts[(1 if priority <= PRIORITY_ERROR_MAX else 0, unit)] += 1
-    return counts
+        counts[(1 if is_error else 0, unit)] += 1
+    ok = bool(real) or bool(text) or _journald_reachable()
+    return counts, ok
+
+
+def _journald_reachable() -> bool:
+    """True when journalctl can read the system journal (empty is still fine)."""
+    try:
+        out = subprocess.run(
+            ["journalctl", "--system", "-n", "1", "-o", "json", "--no-pager", "-q"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return out.returncode == 0 and bool(out.stdout.strip())
 
 
 def render(counts: Counter[tuple[int, str]], now: float, ok: bool) -> str:
@@ -130,17 +166,7 @@ def write_atomic(directory: str, text: str) -> None:
 def main() -> int:
     window = os.environ.get("AITBC_JOURNAL_WINDOW", "15 minutes ago")
     directory = os.environ.get("AITBC_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
-    counts = collect(window)
-    ok = True
-    if not counts:
-        # Distinguish "quiet journal" from "journalctl failed" with a probe scan.
-        probe = subprocess.run(
-            ["journalctl", "-n", "1", "-o", "json", "--no-pager", "-q"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        ok = probe.returncode == 0
+    counts, ok = collect(window)
     try:
         write_atomic(directory, render(counts, time.time(), ok))
     except OSError as exc:
