@@ -84,6 +84,10 @@ _REGISTRATION_FIELDS = {
     "disk_quota_mb",
 }
 
+# Which on-chain GPU registrations the default listing shows. The chain keeps a
+# registration its registrant deactivated; only "active" ones are offered.
+_GPU_LISTING_DEFAULT_STATUS = "active"
+
 # An unconfirmed offer that just resolved to nothing stays unconfirmed for
 # this long before another chain probe — bounds anchor RPCs per offer
 # without ever hiding a late-arriving seal.
@@ -454,10 +458,13 @@ class MarketService:
             # First, try to get offers from blockchain via RPC (v0.6.6: uses BlockchainRPCClient)
             blockchain_offers = []
             try:
-                # Query GPU offers from blockchain with chain_id filter
+                # Query GPU offers from blockchain with chain_id filter. A GPU its
+                # registrant took out of service (GPU_DEREGISTER) stays on the chain
+                # as "deactivated"; the default listing leaves it out, and asking
+                # for a status explicitly still shows it.
                 offers = await self._rpc_client.query_offers(
                     chain_id=chain_id,
-                    status=status if status else None,
+                    status=status if status else _GPU_LISTING_DEFAULT_STATUS,
                 )
                 for offer in offers:
                     price_per_hour = offer.get("price_per_hour")
