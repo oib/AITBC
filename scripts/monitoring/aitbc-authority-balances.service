@@ -1,0 +1,27 @@
+[Unit]
+Description=AITBC authority account balances for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=aitbc-blockchain-rpc.service
+
+[Service]
+Type=oneshot
+# role:address pairs, public addresses. Edit when an authority is rotated; the
+# settlement authority is the on-chain escrow_settlement_authority parameter, the
+# bridge authority is bridge_release_authority.
+Environment=AITBC_WATCH_ACCOUNTS=escrow_settlement:0x03DF9Ed3788E5BA3991e6788036f9D171f027716,bridge_release:0x2b0F2399680E2f3BdbBBC06bDc8D9a6b301D2DDe
+Environment=AITBC_RPC_URL=http://127.0.0.1:8202
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/authority-balances-textfile.py
+# Exits 1 when an account could not be read (the metrics then say so through
+# aitbc_authority_scrape_success), 2 on a bad AITBC_WATCH_ACCOUNTS.
+SyslogIdentifier=aitbc-authority-balances
+
+# Reads one local HTTP endpoint and writes one file in the textfile directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
