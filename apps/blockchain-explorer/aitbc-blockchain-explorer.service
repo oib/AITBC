@@ -5,6 +5,9 @@ After=network.target aitbc-blockchain-rpc.service
 [Service]
 Type=simple
 User=aitbc
+# journald's group lets /api/journal/recent read the system journal; without it
+# the endpoint serves an empty list and journal_access=false.
+SupplementaryGroups=systemd-journal
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment="PYTHONPATH=/opt/aitbc"
