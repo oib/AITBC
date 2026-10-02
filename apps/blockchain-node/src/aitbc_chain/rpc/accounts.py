@@ -202,9 +202,7 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
         # bond_slash_authority) but sit outside the account state root — ship
         # them alongside the snapshot or followers silently diverge.
         parameters = session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
-        parameter_history = session.exec(
-            select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)
-        ).all()
+        parameter_history = session.exec(select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)).all()
         # Side-effect tables (stake/bond/governance_*) are written by RPC and
         # tx paths but sit outside the account state root — the snapshot
         # carries them all or follower-local reads silently diverge.
@@ -284,14 +282,23 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
 
     with session_scope(chain_id) as session:
         # Get state roots at from_height and to_height
-        from_block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == from_height)).first()
-        to_block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == to_height)).first()
+        from_block = session.exec(
+            # Column-only: entity loads would hydrate selectin transactions/receipts.
+            select(Block.height, Block.state_root, Block.timestamp).where(
+                Block.chain_id == chain_id, Block.height == from_height
+            )
+        ).first()
+        to_block = session.exec(
+            select(Block.height, Block.state_root, Block.timestamp).where(
+                Block.chain_id == chain_id, Block.height == to_height
+            )
+        ).first()
 
         if not to_block:
             return {"error": f"Block at height {to_height} not found"}
 
-        from_state_root = (from_block.state_root if from_block else "") or ""
-        to_state_root = to_block.state_root or ""
+        from_state_root = (from_block[1] if from_block else "") or ""
+        to_state_root = to_block[1] or ""
 
         # Find touched addresses by looking at transactions in the height range
         touched_addresses: set[str] = set()
@@ -328,9 +335,7 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
                 "proposal_id": h.proposal_id,
                 "applied_height": h.applied_height,
             }
-            for h in session.exec(
-                select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)
-            ).all()
+            for h in session.exec(select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)).all()
         ]
 
         # Side-effect tables ship only rows touched inside the synced range.
@@ -342,8 +347,8 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
         from datetime import timedelta
 
         aux_changed_since = None
-        if from_block is not None and from_block.timestamp is not None:
-            aux_changed_since = from_block.timestamp - timedelta(seconds=settings.sync_aux_lookback_seconds)
+        if from_block is not None and from_block[2] is not None:
+            aux_changed_since = from_block[2] - timedelta(seconds=settings.sync_aux_lookback_seconds)
         aux = serialize_aux_rows(session, chain_id, changed_since=aux_changed_since, max_rows=settings.sync_aux_max_rows)
         if aux["truncated"]:
             return {
