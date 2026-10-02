@@ -288,6 +288,7 @@ class PoAProposer:
             from .multi_validator_poa import ValidatorRole
 
             validators = json.loads(settings.validator_set)
+            env_addresses = set()
             for v in validators:
                 address = v.get("address")
                 stake = v.get("stake", "1000")
@@ -295,6 +296,11 @@ class PoAProposer:
                     self._multi_validator.add_validator(address, Decimal(str(stake)))
                     # Promote to active validator so it is eligible for proposer selection
                     self._multi_validator.validators[address].role = ValidatorRole.VALIDATOR
+                    env_addresses.add(address)
+            # Row-persisted validators dropped from VALIDATOR_SET must leave the
+            # rotation — env is the membership source of truth.
+            for addr in self._multi_validator.deactivate_absent_from(env_addresses):
+                self._logger.info("Validator %s absent from VALIDATOR_SET — marked inactive", addr)
             self._multi_validator.save_state()
             self._logger.info(
                 "Loaded %s validators into MultiValidatorPoA for chain %s",
@@ -499,6 +505,8 @@ class PoAProposer:
         except (asyncio.TimeoutError, asyncio.CancelledError):
             self._logger.warning("PoA proposer loop did not stop within timeout")
         self._task = None
+        if self._multi_validator is not None:
+            self._multi_validator.save_state()
 
     async def _run_loop(self) -> None:
         await asyncio.sleep(self._config.interval_seconds)

@@ -61,6 +61,10 @@ def test_state_persistence_save_load():
         assert result is True
         # Verify session.add was called (insert path since no existing row)
         assert mock_session.add.called
+        # And committed — the session scope closes without committing, so a
+        # save that only adds silently rolled back and consensus_state stayed
+        # empty in production (fixed: commit inside the scope).
+        assert mock_session.commit.called
 
     # Load back exactly what save_state wrote, rather than a hand-rolled copy of its shape.
     # The copy had drifted: it put the raw stake in, which stopped being JSON-serialisable
@@ -105,6 +109,53 @@ def test_state_persistence_save_load():
     assert fresh_consensus._pbft_view == 2
     assert fresh_consensus._pbft_sequence == 5
     assert fresh_consensus._current_epoch == 1
+
+
+def test_deactivate_absent_from_marks_env_dropped_validators_inactive():
+    """A validator dropped from VALIDATOR_SET leaves the rotation but stays
+    in the table as inactive — env is the membership source of truth."""
+    consensus = _make_consensus(4, chain_id="test-deactivate-chain")
+    dropped = "0x0000000000000000000000000000000000000003"
+    kept = {a for a in consensus.validators if a != dropped}
+
+    from unittest.mock import patch
+
+    with patch.object(consensus, "save_state", return_value=True) as saved:
+        deactivated = consensus.deactivate_absent_from(kept)
+
+    assert deactivated == [dropped]
+    assert consensus.validators[dropped].is_active is False
+    assert consensus.validators[dropped].role == ValidatorRole.STANDBY
+    assert saved.called
+    # Active validators untouched
+    for addr in kept:
+        assert consensus.validators[addr].is_active is True
+
+
+def test_deactivate_absent_from_is_a_noop_when_all_present():
+    consensus = _make_consensus(2, chain_id="test-noop-chain")
+    from unittest.mock import patch
+
+    with patch.object(consensus, "save_state", return_value=True) as saved:
+        deactivated = consensus.deactivate_absent_from(set(consensus.validators))
+
+    assert deactivated == []
+    assert not saved.called
+
+
+def test_remove_validator_persists_the_deactivation():
+    """remove_validator must save: a restart that re-seeds from the row would
+    otherwise resurrect the removed validator into the rotation."""
+    consensus = _make_consensus(2, chain_id="test-remove-chain")
+    addr = "0x0000000000000000000000000000000000000000"
+
+    from unittest.mock import patch
+
+    with patch.object(consensus, "save_state", return_value=True) as saved:
+        assert consensus.remove_validator(addr) is True
+
+    assert saved.called
+    assert consensus.validators[addr].is_active is False
 
 
 if __name__ == "__main__":
