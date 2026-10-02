@@ -81,6 +81,24 @@ class EdgeNodeRegistration(ChainBase, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+GPU_ID_BEARING_TYPES = frozenset({"GPU_REGISTER", "GPU_ALLOCATE"})
+
+
+def retired_gpu_error(tx_type: str, payload: Any, retired_ids: frozenset[str]) -> str | None:
+    """Why a GPU_REGISTER or GPU_ALLOCATE may not name its ``gpu_id`` (it is retired), or None.
+
+    Admission-only (``GPU_RETIRED_IDS``): consensus does not apply it, so a block that carries such a transaction
+    still replays as before. Any other type, a payload that is not an object, or a missing ``gpu_id`` is left to the
+    validation that already handles it. Ids compare exactly, as consensus compares them.
+    """
+    if not retired_ids or tx_type not in GPU_ID_BEARING_TYPES or not isinstance(payload, dict):
+        return None
+    gpu_id = payload.get("gpu_id")
+    if isinstance(gpu_id, str) and gpu_id in retired_ids:
+        return f"{tx_type} for GPU {gpu_id} is refused: that id is retired on this chain"
+    return None
+
+
 def gpu_deregister_error(session: Session, chain_id: str, payload: Any, sender_addr: str) -> str | None:
     """Why ``sender_addr`` may not deregister the GPU named in ``payload`` (v10 rules), or None when it may.
 
