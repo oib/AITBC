@@ -1663,3 +1663,92 @@ a.btn-secondary {
     border-radius: 6px;
     color: #ef4444;
 }
+
+/* ── Alerts page ── */
+.monitor-strip { font-size: 0.85rem; }
+.mon-ok { color: var(--success); }
+.mon-warn { color: #f59e0b; }
+.mon-bad { color: #ef4444; }
+.mon-sep { color: var(--text-muted); margin: 0 0.6rem; }
+.alerts-subtitle {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 1.2rem 0 0.5rem;
+}
+.alert-card {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    margin-top: 0.6rem;
+}
+.alert-card.sev-critical { border-left-color: #ef4444; }
+.alert-card.sev-warning { border-left-color: #f59e0b; }
+.alert-card.sev-info { border-left-color: var(--primary); }
+.alert-card.alert-pending { opacity: 0.75; border-left-style: dashed; }
+.alert-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.sev-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+}
+.sev-critical .sev-badge { color: #ef4444; }
+.sev-warning .sev-badge { color: #f59e0b; }
+.sev-info .sev-badge { color: var(--primary); }
+.sev-unknown .sev-badge { color: var(--text-muted); }
+.alert-name { font-weight: 600; color: var(--text); }
+.alert-node {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.05rem 0.4rem;
+}
+.alert-since { margin-left: auto; color: var(--text-muted); font-size: 0.75rem; }
+.alert-summary { margin-top: 0.35rem; color: var(--text-muted); font-size: 0.85rem; }
+.silenced-tag {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    border: 1px dashed var(--text-muted);
+    border-radius: 4px;
+    padding: 0.05rem 0.4rem;
+}
+.alerts-clear { color: var(--success); font-size: 0.9rem; margin-top: 0.5rem; }
+.alerts-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
+.alerts-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.alerts-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.evt-time { white-space: nowrap; color: var(--text-muted); }
+.evt-name { color: var(--text); font-weight: 600; }
+.evt-via { color: var(--text-muted); font-family: 'Courier New', monospace; font-size: 0.72rem; }
+.evt-detail { color: var(--text-muted); }
+.evt-badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+.evt-firing { color: #ef4444; }
+.evt-resolved { color: var(--success); }
+.evt-still { color: #f59e0b; }
+.evt-watch { color: var(--primary); }
+.evt-other { color: var(--text-muted); }
+.alerts-updated { color: var(--text-muted); font-size: 0.72rem; margin-top: 0.8rem; text-align: right; }

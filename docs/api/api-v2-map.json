@@ -6095,6 +6095,20 @@
       "spec": "explorer-openapi.json",
       "operations": [
         {
+          "public": "/api/v2/explorer/api/alerts",
+          "upstream": "/api/alerts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/alerts/history",
+          "upstream": "/api/alerts/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/explorer/api/analytics/activity",
           "upstream": "/api/analytics/activity",
           "methods": [

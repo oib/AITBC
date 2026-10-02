@@ -17,6 +17,7 @@ configure_logging(level="INFO", service_name="blockchain-explorer", to_file=True
 logger = get_logger(__name__)
 
 from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN  # noqa: E402
+from routers.alerts import router as alerts_router  # noqa: E402
 from routers.analytics import router as analytics_router  # noqa: E402
 from routers.blocks import router as blocks_router  # noqa: E402
 from routers.chains import router as chains_router  # noqa: E402
@@ -27,6 +28,7 @@ from routers.transactions import router as transactions_router  # noqa: E402
 app = FastAPI(title="AITBC Blockchain Explorer API", version="2.0.0")
 
 app.include_router(chains_router)
+app.include_router(alerts_router)
 app.include_router(analytics_router)
 app.include_router(blocks_router)
 app.include_router(transactions_router)
