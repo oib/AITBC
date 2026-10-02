@@ -162,3 +162,53 @@ tests:
             exp_annotations:
               summary: "Authority balance export has stopped"
               description: "The aitbc_authority_* textfile is missing or older than five minutes; check aitbc-authority-balances.timer. The float alerts are blind until it runs again."
+
+  # PrometheusWatchStale: the watcher's own heartbeat. In production a dead
+  # watcher leaves a stale textfile behind, so the series keeps its frozen value
+  # instead of disappearing -- the samples below track eval time to t=10m and
+  # then keep reporting 600, which is exactly what node-exporter does with a
+  # textfile nobody updates.
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_prometheus_watch_poll_timestamp_seconds{instance="hub:9100", job="node"}'
+        values: '0 30 60 90 120 150 180 210 240 270 300 330 360 390 420 450 480 510 540 570 600 600x22'
+
+    alert_rule_test:
+      # Heartbeat current: nothing fires.
+      - eval_time: 5m
+        alertname: PrometheusWatchStale
+        exp_alerts: []
+      # Frozen at t=10m; 15m - 10m = 300s is not yet over the threshold.
+      - eval_time: 15m
+        alertname: PrometheusWatchStale
+        exp_alerts: []
+      # Stale since 15m, firing after the for:5m window.
+      - eval_time: 21m
+        alertname: PrometheusWatchStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: hub:9100
+              job: node
+            exp_annotations:
+              summary: "Alert watcher heartbeat has stopped (hub:9100)"
+              description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
+
+  # The absent() half: no heartbeat series at all -- the textfile directory or
+  # node-exporter textfile collection itself is gone -- fires the same alert
+  # with no labels.
+  - interval: 30s
+    input_series: []
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PrometheusWatchStale
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: PrometheusWatchStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Alert watcher heartbeat has stopped ()"
+              description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
