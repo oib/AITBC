@@ -1100,7 +1100,12 @@ class PoAProposer:
         round_number = self._proposer_round(head.timestamp if head is not None else None, timestamp)
         proposer = self._select_proposer(next_height, round_number)
         if round_number:
-            self._logger.warning(
+            # In hybrid mode the heartbeat gate fires at >=round_seconds idle,
+            # so every empty block legitimately lands at round 1 — warning there
+            # is guaranteed noise on an idle chain. Round >=2 means the
+            # scheduled owner AND its first fallback were both silent.
+            log = self._logger.warning if round_number >= 2 else self._logger.info
+            log(
                 "[PROPOSE] Height %s has gone %s round(s) without a block; this round belongs to %s",
                 next_height,
                 round_number,
