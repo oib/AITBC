@@ -45,6 +45,12 @@ class TestGPUResourcesCommands:
 
         assert "list" in gpu.commands
 
+    def test_gpu_group_has_deregister_subcommand(self):
+        """The ``deregister`` subcommand is registered on the gpu group."""
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        assert "deregister" in gpu.commands
+
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
     @patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_resources.get_config")
@@ -221,6 +227,108 @@ class TestGPUResourcesCommands:
 
         assert result.exit_code == 0, result.output
         assert '"mined": false' in result.output
+
+
+    @patch("aitbc_cli.utils.gpu_onchain.wait_for_tx")
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deregister")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_deregister_wait_reports_mined(
+        self, mock_get_config, mock_chain_health, mock_submit, mock_wait, runner, mock_config, cli_obj
+    ):
+        """``gpu-onchain deregister --wait`` submits the signed tx and reports the mined block."""
+        mock_get_config.return_value = mock_config
+        mock_submit.return_value = {"transaction_hash": "0xabc123"}
+        mock_wait.return_value = {"block_height": 7210, "tx_hash": "0xabc123"}
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(gpu, ["deregister", "--gpu-id", "gpu-0", "--wallet", "w1", "--wait"], obj=cli_obj)
+
+        assert result.exit_code == 0, result.output
+        mock_submit.assert_called_once()
+        # (ctx, rpc_url, chain_id, wallet, password, gpu_id)
+        assert mock_submit.call_args[0][3:] == ("w1", None, "gpu-0")
+        assert mock_wait.call_args[0][1] == "0xabc123"
+        assert "7210" in result.output
+
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deregister")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_deregister_requires_a_wallet(self, mock_get_config, mock_submit, runner, mock_config, cli_obj):
+        """The signer is not optional: without ``--wallet`` nothing is submitted."""
+        mock_get_config.return_value = mock_config
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(gpu, ["deregister", "--gpu-id", "gpu-0"], obj=cli_obj)
+
+        assert result.exit_code != 0
+        mock_submit.assert_not_called()
+
+    def test_local_unregister_help_says_it_is_local_only(self, runner):
+        """``aitbc gpu unregister`` edits the local GPU service; its help must point at the on-chain command."""
+        from aitbc_cli.commands.gpu_market import gpu as local_gpu
+
+        result = runner.invoke(local_gpu, ["unregister", "--help"])
+
+        assert result.exit_code == 0, result.output
+        text = " ".join(result.output.split())
+        assert "does not touch the blockchain" in text
+        assert "gpu-onchain deregister" in text
+
+
+class TestSubmitGpuDeregister:
+    """The transaction ``gpu-onchain deregister`` signs and sends."""
+
+    KEY = "0x" + "11" * 32
+
+    def _submit(self, **kwargs):
+        from aitbc.crypto.crypto import derive_ethereum_address
+
+        from aitbc_cli.utils import gpu_onchain
+
+        address = derive_ethereum_address(self.KEY)
+        sent: list = []
+        with (
+            patch.object(gpu_onchain, "load_wallet_for_payment", return_value=(address, self.KEY, None)),
+            patch.object(gpu_onchain, "get_buyer_nonce", return_value=7),
+            patch.object(gpu_onchain, "_submit_signed_tx", side_effect=lambda _url, tx: sent.append(tx) or {"tx_hash": "0x1"}),
+        ):
+            result = gpu_onchain.submit_gpu_deregister(None, "http://node:8202", "ait-test", "w1", None, "gpu-0", **kwargs)
+        return address, sent[0], result
+
+    def test_transaction_shape(self):
+        """GPU_DEREGISTER, value 0, signed by the wallet, naming only the gpu."""
+        from aitbc.utils import DEFAULT_TX_FEE_UNITS
+
+        address, tx, result = self._submit()
+
+        assert result == {"tx_hash": "0x1"}
+        assert tx["type"] == "GPU_DEREGISTER"
+        assert tx["from"] == address
+        assert tx["amount"] == 0
+        assert tx["nonce"] == 7
+        assert tx["fee"] == DEFAULT_TX_FEE_UNITS
+        assert tx["chain_id"] == "ait-test"
+        assert tx["payload"]["gpu_id"] == "gpu-0"
+
+    def test_signature_recovers_to_the_sender(self):
+        """The signature is over the canonical JSON the node rebuilds, so the node accepts it."""
+        import json
+
+        from aitbc.crypto.signature_recovery import verify_signature
+        from eth_utils import keccak
+
+        address, tx, _ = self._submit()
+
+        unsigned = {k: v for k, v in tx.items() if k not in ("signature", "sig", "tx_hash", "value")}
+        message = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode()
+        assert verify_signature(keccak(message), tx["signature"], address)
+
+    def test_fee_override_is_passed_through(self):
+        _, tx, _ = self._submit(fee=999)
+
+        assert tx["fee"] == 999
 
 
 class TestWaitForTx:

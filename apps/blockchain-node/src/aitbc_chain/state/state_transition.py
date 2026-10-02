@@ -38,7 +38,7 @@ from .bridge_credit import (
     verify_bridge_credit_signature,
     verify_bridge_lock_signature,
 )
-from .gpu_resources import GPUAllocation, GPURegistration
+from .gpu_resources import GPU_STATUS_DEACTIVATED, GPUAllocation, GPURegistration, gpu_deregister_error
 from .v9_policy import count_v9_would_reject, v9_signature_verdict
 from .liquidity_transition import (
     apply_liquidity_claim,
@@ -73,6 +73,15 @@ else:
 # no dedicated branch for it in apply_transaction, so a nonzero amount would
 # execute as a plain transfer.
 _ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
+
+
+def _is_zero_value_tx_type(tx_type: str, block_version: int) -> bool:
+    """Whether ``tx_type`` may not carry value under the rules of ``block_version``.
+
+    GPU_DEREGISTER joins the set from v10 only: below it the name has no consensus meaning and a block carrying it
+    replays as the plain transfer it always was.
+    """
+    return tx_type in _ZERO_VALUE_TX_TYPES or (block_version >= 10 and tx_type == "GPU_DEREGISTER")
 
 
 def _chain_parameter_value(session: Session, chain_id: str, parameter: str, block_height: int | None = None) -> str | None:
@@ -548,6 +557,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v10_threshold = getattr(settings, "state_transition_v10_height", None)
+    if v10_threshold and height >= v10_threshold:
+        return 10
     v9_threshold = getattr(settings, "state_transition_v9_height", None)
     if v9_threshold and height >= v9_threshold:
         return 9
@@ -1102,9 +1114,9 @@ class StateTransition:
             ok, why = _validate_stake_release_locks(session, chain_id, tx_data, tx_hash, value, recipient_addr)
             if not ok:
                 return (False, why)
-        if tx_type in _ZERO_VALUE_TX_TYPES and value != 0:
+        if _is_zero_value_tx_type(tx_type, block_version) and value != 0:
             return (False, f"{tx_type} transactions must have value=0, got {value}")
-        if tx_type in _ZERO_VALUE_TX_TYPES:
+        if _is_zero_value_tx_type(tx_type, block_version):
             total_cost = fee
         else:
             total_cost = value + fee
@@ -1225,10 +1237,27 @@ class StateTransition:
                             False,
                             f"GPU_REGISTER for {gpu_id} must come from its registrant {existing.registered_by}, got {sender_addr}",
                         )
+        if tx_type == "GPU_DEREGISTER" and block_version >= 10:
+            # v10: the registrant takes its own GPU out of service. The row stays (status ``deactivated``) so
+            # ``registered_by`` keeps guarding the id and the registrant can reactivate it by re-registering.
+            # The rule lives in state/gpu_resources.py::gpu_deregister_error, shared with mempool admission
+            # (rpc/transactions.py) so a transaction the proposer would drop is refused at the door too.
+            error = gpu_deregister_error(session, chain_id, tx_data.get("payload"), sender_addr)
+            if error:
+                return (False, error)
         if tx_type == "GPU_ALLOCATE":
             payload = tx_data.get("payload") or {}
             if not payload.get("gpu_id"):
                 return (False, "GPU_ALLOCATE payload must include gpu_id")
+            if block_version >= 10:
+                # v10: a deactivated GPU takes no new allocations. Checked here, before apply mutates anything.
+                target = session.exec(
+                    select(GPURegistration).where(
+                        GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == str(payload.get("gpu_id"))
+                    )
+                ).first()
+                if target is not None and target.status == GPU_STATUS_DEACTIVATED:
+                    return (False, f"GPU {payload.get('gpu_id')} is deactivated; it takes no new allocations")
             if not payload.get("client_id"):
                 return (False, "GPU_ALLOCATE payload must include client_id")
             try:
@@ -1400,7 +1429,7 @@ class StateTransition:
                     # Override the recipient for the balance update below.
                     recipient_addr = escrow_addr
         sender_account = session.get(Account, (chain_id, sender_addr))
-        if tx_type in _ZERO_VALUE_TX_TYPES:
+        if _is_zero_value_tx_type(tx_type, block_version):
             total_cost = fee
         else:
             total_cost = value + fee
@@ -1515,6 +1544,11 @@ class StateTransition:
             payload = tx_data.get("payload") or {}
             gpu_data = {**(payload if isinstance(payload, dict) else {}), "registered_by": sender_addr}
             ok, msg = self.handle_gpu_registration(session, chain_id, gpu_data)
+            if not ok:
+                return (False, msg)
+        if tx_type == "GPU_DEREGISTER" and block_version >= 10:
+            payload = tx_data.get("payload") or {}
+            ok, msg = self.handle_gpu_deregistration(session, chain_id, payload if isinstance(payload, dict) else {})
             if not ok:
                 return (False, msg)
         if tx_type == "GPU_ALLOCATE":
@@ -1957,6 +1991,29 @@ class StateTransition:
             return (True, "GPU registration successful")
         except Exception as e:
             logger.error("GPU registration error: %s", e)
+            return (False, str(e))
+
+    def handle_gpu_deregistration(self, session: Session, chain_id: str, gpu_data: dict[str, Any]) -> tuple[bool, str]:
+        """Handle the v10 GPU_DEREGISTER state transition: mark the row ``deactivated``, keep it.
+
+        Ownership and existence are checked by ``validate_transaction`` (``gpu_deregister_error``); this only
+        writes. Allocations are left untouched: nothing completes them, so they cannot be a precondition.
+        """
+        try:
+            gpu_id = gpu_data.get("gpu_id")
+            if not gpu_id:
+                return (False, "GPU ID is required")
+            existing = session.exec(
+                select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == str(gpu_id))
+            ).first()
+            if existing is None:
+                return (False, f"GPU not found: {gpu_id}")
+            existing.status = GPU_STATUS_DEACTIVATED
+            existing.updated_at = datetime.now(UTC)
+            logger.info("GPU deregistration handled: %s", gpu_id)
+            return (True, "GPU deregistration successful")
+        except Exception as e:
+            logger.error("GPU deregistration error: %s", e)
             return (False, str(e))
 
     def handle_gpu_allocation(self, session: Session, chain_id: str, allocation_data: dict[str, Any]) -> tuple[bool, str]:

@@ -384,7 +384,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 ## Related Resources
 
 - Source: `cli/aitbc_cli/commands/gpu_market.py` (`gpu` group: discover, register, unregister, update, list)
-- Source: `cli/aitbc_cli/commands/gpu_resources.py` (`gpu-onchain` group: register, query, allocate, allocations, list)
+- Source: `cli/aitbc_cli/commands/gpu_resources.py` (`gpu-onchain` group: register, query, allocate, allocations, deregister, list)
 - Source: `cli/aitbc_cli/commands/resource.py` (`resource` group: status, deallocate, experimental allocate/list/release/utilization/optimize)
 - SDK: `packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py` (`ComputeProvider.create_provider`, `offer_resources`, `set_availability`, `enable_dynamic_pricing`, `accept_job`)
 - [Next Scenario: Agent SDK Identity](./10_agent_sdk_identity.md)

@@ -85,6 +85,7 @@ async def api_activity_timeline(
             "GOVERNANCE_PROPOSE": "#fbbf24",
             "GOVERNANCE_VOTE": "#f59e0b",
             "GPU_ALLOCATE": "#6366f1",
+            "GPU_DEREGISTER": "#f97316",
             "GPU_MARKET": "#3b82f6",
             "GPU_MARKETPLACE": "#60a5fa",
             "GPU_REGISTER": "#ef4444",
@@ -122,7 +123,7 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
             cursor = await conn.cursor()
 
             # Circulating supply: sum of account balances (base units -> AIT)
-            await cursor.execute('SELECT COALESCE(SUM(balance), 0) FROM account')
+            await cursor.execute("SELECT COALESCE(SUM(balance), 0) FROM account")
             row = await cursor.fetchone()
             total_ait = float(units_to_ait((row[0] if row else 0) or 0))
 

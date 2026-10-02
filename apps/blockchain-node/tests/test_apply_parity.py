@@ -1,9 +1,9 @@
 """Apply-path parity matrix — sequential ``apply_transaction`` vs the pure
 ``compute_state_delta`` + ``apply_deltas_to_db`` path (v0.25.8).
 
-For every transaction type that has ever sealed on the fleet, at the two most
-recent block versions (8, 9), under three signature modes (``valid`` /
-``absent`` / ``invalid``):
+For every transaction type that has ever sealed on the fleet (plus GPU_DEREGISTER,
+which activates at v10), at block versions 8, 9 and 10, under three signature
+modes (``valid`` / ``absent`` / ``invalid``):
 
 * the accept/reject verdict must agree: ``ok_seq == delta.success``;
 * when both accept, the resulting ``account`` rows and the full state root
@@ -71,7 +71,7 @@ from sqlmodel import Session, create_engine, select
 CHAIN = "parity-chain"
 HEIGHT = 100  # block the transaction applies in
 LOCK_HEIGHT = 10  # seeded confirmed rows (locks) live here
-VERSIONS = (8, 9)
+VERSIONS = (8, 9, 10)
 MODES = ("valid", "absent", "invalid")
 
 BUYER_KEY = "0x" + "11" * 32
@@ -464,6 +464,12 @@ def _cases() -> list[dict[str, Any]]:
             {"gpu_id": "gpu-par-1", "client_id": BUYER, "duration_hours": 2.0, "total_cost": "0.2"},
         ),
         BUYER_KEY,
+        seeds=(_seed_gpu_registration,),
+    )
+    add(
+        "gpu_deregister",
+        lambda: _tx(PROVIDER, PROVIDER, 0, "GPU_DEREGISTER", {"gpu_id": "gpu-par-1"}),
+        PROVIDER_KEY,
         seeds=(_seed_gpu_registration,),
     )
     add(
