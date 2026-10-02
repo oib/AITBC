@@ -24,6 +24,7 @@ false.
 import asyncio
 import json
 import re
+import socket
 import subprocess
 from datetime import UTC, datetime
 from typing import Any
@@ -250,12 +251,19 @@ async def api_journal_counts() -> dict[str, Any]:
     if errors is None or warnings is None or ages is None:
         return {"prometheus_ok": False, "window_minutes": _COUNT_WINDOW_MINUTES, "nodes": []}
 
+    # Remote-written series carry a ``node`` label; this host's own scrape only
+    # has the scrape address as ``instance``, so fall back to the hostname.
+    local_node = socket.gethostname().split(".")[0]
+
+    def node_name(metric: dict[str, Any]) -> str:
+        return str(metric.get("node") or local_node)
+
     nodes: dict[str, dict[str, Any]] = {}
 
-    def node_for(instance: str) -> dict[str, Any]:
+    def node_for(name: str) -> dict[str, Any]:
         return nodes.setdefault(
-            instance,
-            {"instance": instance, "errors": 0, "warnings": 0, "units": {}, "scan_age_seconds": None, "stale": True},
+            name,
+            {"node": name, "errors": 0, "warnings": 0, "units": {}, "scan_age_seconds": None, "stale": True},
         )
 
     def accumulate(rows: list[dict[str, Any]], field: str) -> None:
@@ -264,7 +272,7 @@ async def api_journal_counts() -> dict[str, Any]:
             count = int(_metric_value(item))
             if count <= 0:
                 continue
-            node = node_for(str(metric.get("instance") or "unknown"))
+            node = node_for(node_name(metric))
             unit = str(metric.get("unit") or "unknown")
             node[field] += count
             node["units"].setdefault(unit, {"errors": 0, "warnings": 0})[field] += count
@@ -272,12 +280,12 @@ async def api_journal_counts() -> dict[str, Any]:
     accumulate(_vector(errors), "errors")
     accumulate(_vector(warnings), "warnings")
     for item in _vector(ages):
-        node = node_for(str((item.get("metric") or {}).get("instance") or "unknown"))
+        node = node_for(node_name(item.get("metric") or {}))
         age = _metric_value(item)
         node["scan_age_seconds"] = round(age, 1)
         node["stale"] = age > _STALE_SECONDS
 
-    ordered = sorted(nodes.values(), key=lambda n: (-n["errors"], -n["warnings"], n["instance"]))
+    ordered = sorted(nodes.values(), key=lambda n: (-n["errors"], -n["warnings"], n["node"]))
     return {
         "prometheus_ok": True,
         "window_minutes": _COUNT_WINDOW_MINUTES,
