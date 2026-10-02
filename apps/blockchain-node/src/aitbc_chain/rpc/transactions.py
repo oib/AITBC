@@ -72,6 +72,16 @@ _JOB_ID_INDEX_EXPRESSIONS = {
 }
 
 
+def _refuse_retired_gpu(tx_type: str, payload: Any) -> None:
+    """Refuse a GPU_REGISTER / GPU_ALLOCATE that names a gpu_id listed in ``GPU_RETIRED_IDS`` (admission only)."""
+    from ..config import settings
+    from ..state.gpu_resources import retired_gpu_error
+
+    error = retired_gpu_error(tx_type, payload, settings.gpu_retired_id_set())
+    if error:
+        raise ValueError(error)
+
+
 def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
     """Validate transaction can be admitted to mempool"""
     from ..mempool import compute_tx_hash
@@ -164,6 +174,9 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
             )
             if deregister_error:
                 raise ValueError(deregister_error)
+
+        # Last, like the authority gate: every earlier rejection keeps its message. Off unless GPU_RETIRED_IDS is set.
+        _refuse_retired_gpu(tx_type, tx_data.get("payload"))
 
 
 async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -> None:
@@ -365,6 +378,8 @@ async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -
 
         # For GPU registration, use GPU_REGISTER transaction type
         if tx_data_dict.get("type") == "GPU_REGISTER":
+            # This branch skips _validate_transaction_admission, so the retired-id door check is repeated here.
+            _refuse_retired_gpu("GPU_REGISTER", tx_data_dict.get("payload"))
             tx_data_dict["type"] = "GPU_REGISTER"
             # GPU registration doesn't require amount transfer, only fee
             tx_data_dict["amount"] = 0
