@@ -26,6 +26,7 @@ from .utils import (
     get_chain_id,
     normalize_transaction_data,
     verify_transaction_signature,
+    withdrawn_listing_ids,
 )
 
 _logger = get_logger(__name__)
@@ -394,23 +395,8 @@ async def match_market(request: Request, chain_id: str | None = None) -> dict[st
             .where(Transaction.type == "GPU_MARKET")
             .where(Transaction.status == "confirmed")
         ).all()
-        cancelled_ids: set[str] = set()
-        for tx in offers:
-            payload = tx.payload or {}
-            action = payload.get("action", "")
-            if action in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == "cancelled":
-                order_id = payload.get("order_id", "")
-                if order_id:
-                    cancelled_ids.add(str(order_id))
-                order_ids = payload.get("order_ids") or []
-                if not isinstance(order_ids, list):
-                    order_ids = [order_ids]
-                cancelled_ids.update(str(oid) for oid in order_ids)
-                cancelled_ids.add(f"tx_{tx.id}")
-            replaces = payload.get("replaces") or []
-            if not isinstance(replaces, list):
-                replaces = [replaces]
-            cancelled_ids.update(str(r) for r in replaces)
+        # Only a seller's own cancel or `replaces` hides a listing (M-1).
+        withdrawn = withdrawn_listing_ids((tx.id, tx.sender, tx.payload or {}) for tx in offers)
         matches = [
             {
                 "listing_id": f"tx_{tx.id}",
@@ -436,7 +422,7 @@ async def match_market(request: Request, chain_id: str | None = None) -> dict[st
             # and gave the CLI three rows of N/A to print.
             if (tx.payload or {}).get("action") in OFFER_ACTIONS
             and str((tx.payload or {}).get("status", "")).lower() != "cancelled"
-            and f"tx_{tx.id}" not in cancelled_ids
+            and f"tx_{tx.id}" not in withdrawn
         ]
         return {
             "chain_id": chain_id,
