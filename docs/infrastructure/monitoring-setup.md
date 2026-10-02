@@ -114,6 +114,15 @@ With `--metrics-file` (env `AITBC_WATCH_METRICS_FILE`) the watcher atomically wr
 
 The shipped rules include `PrometheusWatchStale` (fires when the heartbeat is absent or older than five minutes). Deployment needs the textfile directory writable by the `aitbc` user — e.g. `setfacl -m u:aitbc:rwx /var/lib/prometheus/node-exporter` — and the matching `ReadWritePaths` line uncommented in the unit. A node that never ran the watcher has no series and stays invisible to the stale rule; if node-exporter itself dies, `ServiceDown` on the node job is the alert that fires instead.
 
+### Public alerts page
+
+The hub site serves `alerts.html` (linked from every page's nav), rendered from two blockchain-explorer endpoints that only make sense on the hub — its Prometheus aggregates the fleet via remote-write, so the firing list is fleet-wide:
+
+- `GET /explorer-api/api/alerts` — firing + pending alerts with watcher-heartbeat health; when Prometheus is unreachable the response falls back to replaying the watcher's event log (`"source": "event_log"`) instead of going blank. `silenced` flags come from the log replay since Prometheus does not know watcher silences.
+- `GET /explorer-api/api/alerts/history?limit=&alertname=&node=&state=` — the watcher event log, newest first; same filters as `aitbc prometheus alert-history`.
+
+No nginx change is needed — both ride the existing `/explorer-api/` location. The explorer reads `PROMETHEUS_URL` (default `http://127.0.0.1:9090`) and `AITBC_ALERT_LOG` (default `/var/log/aitbc/alerts.log`) from its env files; on other nodes the endpoints answer with whatever local data exists.
+
 ## Prometheus-first metrics
 
 ### Core AITBC metrics
