@@ -517,9 +517,22 @@ class RemoteAttestationService:
 
         attestations: list[dict[str, str]] = []
         start = time.monotonic()
+
+        # Post-quorum linger (V-9 follow-up): once min_count valid attestations
+        # are in, keep collecting for up to linger seconds so slower validators
+        # still land in the block instead of losing the first-to-quorum race
+        # every round. 0 preserves the old seal-as-soon-as-quorum behaviour;
+        # the effective_timeout above still bounds the whole collection.
+        linger = float(getattr(settings, "attestation_post_quorum_linger_seconds", 0.0) or 0.0)
+        expected_remote = {canonical_address(v) for v in self._load_validator_set()} - {canonical_address(str(block.proposer))}
+        answered: set[str] = set()
+        counted: set[str] = set()
+        quorum_at: float | None = None
         try:
             while time.monotonic() - start < effective_timeout:
                 remaining = effective_timeout - (time.monotonic() - start)
+                if quorum_at is not None:
+                    remaining = min(remaining, linger - (time.monotonic() - quorum_at))
                 if remaining <= 0:
                     break
                 try:
@@ -551,11 +564,22 @@ class RemoteAttestationService:
                 signature = response.get("signature", "")
                 if not validator or not signature:
                     continue
+                try:
+                    vcanon = canonical_address(validator)
+                except Exception:
+                    vcanon = ""
+                if vcanon and vcanon in expected_remote:
+                    answered.add(vcanon)
                 outcome = "invalid_signature"
                 try:
                     if verify_block_signature(header, signature, validator):
-                        attestations.append({"validator": validator, "signature": signature})
-                        outcome = f"valid rank={len(attestations)}"
+                        dedup_key = vcanon or validator
+                        if dedup_key in counted:
+                            outcome = "duplicate"
+                        else:
+                            counted.add(dedup_key)
+                            attestations.append({"validator": validator, "signature": signature})
+                            outcome = f"valid rank={len(attestations)}"
                 except Exception as e:
                     logger.warning("Failed to verify attestation from %s: %s", validator, e)
                     outcome = "verify_error"
@@ -566,8 +590,15 @@ class RemoteAttestationService:
                     arrived_ms,
                     outcome,
                 )
-                if len(attestations) >= min_count:
+                if expected_remote and len(answered) >= len(expected_remote):
                     break
+                if len(attestations) >= min_count:
+                    if linger <= 0 or min_count <= 0:
+                        break
+                    if quorum_at is None:
+                        quorum_at = time.monotonic()
+                    elif time.monotonic() - quorum_at >= linger:
+                        break
         finally:
             sub.close()
 
