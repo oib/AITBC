@@ -52,6 +52,28 @@ def _signed_registration(issued_at=None, chain_id=None, private_key=_TEST_PRIVAT
     return body
 
 
+def _signed_unregister(
+    plugin_id, issued_at=None, chain_id=None, private_key=_TEST_PRIVATE_KEY, action="unregister", **overrides
+):
+    """Build the query parameters a provider-signed DELETE /v1/market/offer/{plugin_id} carries."""
+    import time
+
+    from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
+    from aitbc.market.offer_registration import offer_body_hash, registration_message
+    from market_service.config import settings
+
+    provider = derive_ethereum_address(private_key)
+    issued_at = int(time.time()) if issued_at is None else issued_at
+    chain_id = chain_id or settings.default_chain_id
+    proof = {"plugin_id": plugin_id, "provider_address": provider, "chain_id": chain_id, "issued_at": issued_at}
+    signature = sign_transaction_data(
+        registration_message(action, plugin_id, provider, chain_id, issued_at, offer_body_hash(proof)), private_key
+    )
+    params = {"provider_address": provider, "chain_id": chain_id, "issued_at": issued_at, "signature": signature}
+    params.update(overrides)
+    return params
+
+
 # --- Health / readiness ---
 
 
@@ -790,3 +812,166 @@ def test_register_offer_requires_plugin_id(client):
     body.pop("plugin_id")
     response = client.post("/v1/market/offer", json=body)
     assert response.status_code == 400
+
+
+# --- Signed offer removal (M-2: the DELETE used to take any caller) ---
+#
+# The route is covered over HTTP three ways (unsigned, owner, another provider); the other
+# refusals run against the service directly. The whole suite shares one TestClient address
+# and the service rate-limits per address (120 a minute), so a dozen more round trips here
+# pushed an unrelated test in test_market_operations.py into a 429.
+
+_OWNER_KEY = "0x" + "44" * 32
+_OTHER_KEY = "0x" + "55" * 32
+
+
+def _register(client, plugin_id, private_key=_TEST_PRIVATE_KEY, **fields):
+    created = client.post(
+        "/v1/market/offer",
+        json=_signed_registration(plugin_id=plugin_id, service_type="inference", model="m", private_key=private_key, **fields),
+    )
+    assert created.status_code == 200
+    return created
+
+
+async def _service_register(plugin_id, private_key=_TEST_PRIVATE_KEY, **fields):
+    from market_service.services.market_service import MarketService
+    from market_service.storage import get_session_context
+
+    async with get_session_context() as session:
+        return await MarketService(session).register_software_service(
+            _signed_registration(plugin_id=plugin_id, service_type="inference", model="m", private_key=private_key, **fields)
+        )
+
+
+async def _service_unregister(plugin_id, proof):
+    from market_service.services.market_service import MarketService
+    from market_service.storage import get_session_context
+
+    async with get_session_context() as session:
+        return await MarketService(session).unregister_software_service(plugin_id, proof)
+
+
+async def _row_exists(plugin_id):
+    from market_service.domain.market import SoftwareService
+    from market_service.storage import get_session_context
+    from sqlalchemy import select
+
+    async with get_session_context() as session:
+        result = await session.execute(select(SoftwareService).where(SoftwareService.plugin_id == plugin_id))
+        return result.scalar_one_or_none() is not None
+
+
+def test_unregister_offer_rejects_an_unsigned_delete(client):
+    """The M-2 request: no proof at all must not remove the row."""
+    _register(client, "delete-unsigned")
+
+    response = client.delete("/v1/market/offer/delete-unsigned")
+
+    assert response.status_code == 403
+    assert client.get("/v1/market/offer/delete-unsigned").status_code == 200
+
+
+def test_unregister_offer_removes_the_row_for_its_provider(client):
+    """Happy path: the provider's own signed delete still works, and the id is free again."""
+    _register(client, "delete-by-owner")
+
+    response = client.delete("/v1/market/offer/delete-by-owner", params=_signed_unregister("delete-by-owner"))
+
+    assert response.status_code == 200
+    assert response.json() == {"plugin_id": "delete-by-owner", "status": "unregistered"}
+    assert client.get("/v1/market/offer/delete-by-owner").status_code == 404
+
+
+def test_unregister_offer_refuses_another_providers_valid_signature(client):
+    """A valid signature proves who asks, not who owns the row: B cannot remove A's offer
+    and then register the id under B's address -- the whole M-2 chain."""
+    _register(client, "delete-foreign", private_key=_OWNER_KEY, endpoint="https://a.example/offer")
+
+    response = client.delete(
+        "/v1/market/offer/delete-foreign", params=_signed_unregister("delete-foreign", private_key=_OTHER_KEY)
+    )
+
+    assert response.status_code == 403
+    detail = client.get("/v1/market/offer/delete-foreign")
+    assert detail.status_code == 200
+    assert detail.json()["endpoint"] == "https://a.example/offer"
+
+
+async def test_unregister_offer_rejects_a_claimed_provider_the_signature_does_not_match():
+    """Signing with your own key while claiming the victim's provider_address."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    await _service_register("delete-spoof", private_key=_OWNER_KEY)
+    proof = _signed_unregister("delete-spoof", private_key=_OTHER_KEY, provider_address=derive_ethereum_address(_OWNER_KEY))
+
+    with pytest.raises(PermissionError, match="does not match provider_address"):
+        await _service_unregister("delete-spoof", proof)
+    assert await _row_exists("delete-spoof")
+
+
+async def test_unregister_offer_rejects_a_registration_signature_replayed_as_a_removal():
+    """action scopes the proof: a captured register signature is not a removal proof."""
+    await _service_register("delete-replay-register")
+
+    with pytest.raises(PermissionError, match="does not match provider_address"):
+        await _service_unregister("delete-replay-register", _signed_unregister("delete-replay-register", action="register"))
+    assert await _row_exists("delete-replay-register")
+
+
+async def test_unregister_offer_signature_names_the_offer():
+    """plugin_id is in the signed message: a proof for one offer cannot remove another
+    of the same provider's."""
+    await _service_register("delete-first")
+    await _service_register("delete-second")
+
+    with pytest.raises(PermissionError, match="does not match provider_address"):
+        await _service_unregister("delete-second", _signed_unregister("delete-first"))
+    assert await _row_exists("delete-second")
+
+
+async def test_unregister_offer_rejects_wrong_chain():
+    """A removal signed for another chain can't replay here."""
+    await _service_register("delete-wrong-chain")
+
+    with pytest.raises(PermissionError, match="does not match this market's chain"):
+        await _service_unregister("delete-wrong-chain", _signed_unregister("delete-wrong-chain", chain_id="other-chain"))
+    assert await _row_exists("delete-wrong-chain")
+
+
+async def test_unregister_offer_rejects_stale_issued_at():
+    """An old captured removal can't be replayed later."""
+    import time
+
+    await _service_register("delete-stale")
+
+    with pytest.raises(PermissionError, match="clock window"):
+        await _service_unregister("delete-stale", _signed_unregister("delete-stale", issued_at=int(time.time()) - 3600))
+    assert await _row_exists("delete-stale")
+
+
+async def test_unregister_offer_missing_row_is_not_found_once_the_proof_is_valid():
+    """The existing not-found contract holds for a correctly signed request."""
+    with pytest.raises(ValueError, match="Service not found"):
+        await _service_unregister("no-such-offer-to-delete", _signed_unregister("no-such-offer-to-delete"))
+
+
+async def test_unregister_offer_refuses_a_row_with_no_provider_on_record():
+    """A legacy row without a provider has no owner to sign: nobody removes it, which is
+    what register already says about updating one. A row without a provider cannot be
+    created through the signed POST, so it is seeded directly."""
+    from uuid import uuid4
+
+    from market_service.domain.market import SoftwareService
+    from market_service.storage import get_session_context
+
+    # Unique per attempt: the suite reruns a failed test, and a fixed id would then
+    # collide with the row the first attempt left behind.
+    plugin_id = f"delete-no-provider-{uuid4().hex[:8]}"
+    async with get_session_context() as session:
+        session.add(SoftwareService(plugin_id=plugin_id, service_type="inference", model="m"))
+        await session.commit()
+
+    with pytest.raises(PermissionError, match="no provider on record"):
+        await _service_unregister(plugin_id, _signed_unregister(plugin_id))
+    assert await _row_exists(plugin_id)
