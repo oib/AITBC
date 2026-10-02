@@ -4,7 +4,9 @@ Under v9 a block carries the proposer plus exactly two attestations, and the pro
 keeps the first two valid answers it reads. One validator (hub1) is in ~3% of blocks,
 and nothing records why: the answers that lose the race leave no trace, and the ones
 that win carry no timing. The collector now writes one INFO line per response that
-reaches it -- who, how long after the request was published, and what became of it.
+reaches it -- who, how long after the request was published, and what became of it --
+and the attester writes one when it publishes (request age on arrival, as seen on its own
+clock): the collector cannot see an answer that comes after the kept ones, the attester can.
 
 The signed responses come from the real attester path (``_handle_request``) rather than a
 copy of the message format, so a collector that stops accepting what attesters send fails
@@ -28,6 +30,7 @@ from eth_keys import keys
 
 CHAIN = "test-chain"
 ARRIVAL = "Attestation arrival"
+PUBLISHED = "Attestation response published"
 
 
 @pytest.fixture(autouse=True)
@@ -192,3 +195,45 @@ class TestProposerArrivalLines:
 
         assert got == []
         assert _lines(caplog, ARRIVAL) == []
+
+
+class TestAttesterPublishedLine:
+    async def test_publishing_logs_who_answered_for_whom_and_the_request_age(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+
+        await _attest(monkeypatch, ATTESTER_A, _block(), request_timestamp=time.time() - 0.25)
+
+        lines = _lines(caplog, PUBLISHED)
+        assert len(lines) == 1
+        assert f"height=100 validator={ATTESTER_A[0]} proposer={PROPOSER[0]} " in lines[0]
+        age = int(lines[0].split("request_age_ms=")[1])
+        assert 250 <= age < 5000
+
+    async def test_a_request_without_a_timestamp_still_logs(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        monkeypatch.setattr(
+            settings,
+            "validator_set",
+            json.dumps([{"address": PROPOSER[0]}, {"address": ATTESTER_A[0]}]),
+        )
+        broker = _Broker()
+        monkeypatch.setattr(ra_module, "gossip_broker", broker)
+        request = _request(_block())
+        del request["timestamp"]
+
+        await RemoteAttestationService(CHAIN, {ATTESTER_A[0]: ATTESTER_A[1]})._handle_request(request)
+
+        assert broker.published, "the attester must answer whether or not the request carries a timestamp"
+        assert "request_age_ms=unknown" in _lines(caplog, PUBLISHED)[0]
+
+    async def test_a_refused_request_logs_no_published_line(self, monkeypatch, caplog):
+        """A request for a block from outside the validator set gets no answer and no line."""
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        monkeypatch.setattr(settings, "validator_set", json.dumps([{"address": ATTESTER_A[0]}]))
+        broker = _Broker()
+        monkeypatch.setattr(ra_module, "gossip_broker", broker)
+
+        await RemoteAttestationService(CHAIN, {ATTESTER_A[0]: ATTESTER_A[1]})._handle_request(_request(_block()))
+
+        assert broker.published == []
+        assert _lines(caplog, PUBLISHED) == []

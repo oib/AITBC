@@ -763,7 +763,7 @@ class TestAttesterTxChecks:
 
         monkeypatch.setattr(
             "aitbc_chain.consensus.remote_attestation.time",
-            SimpleNamespace(monotonic=time.monotonic, sleep=lambda _s: None),
+            SimpleNamespace(monotonic=time.monotonic, time=time.time, sleep=lambda _s: None),
         )
 
     def test_v9_active_retries_a_locked_database_and_attests(self, session_factory, attester, monkeypatch):
