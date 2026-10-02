@@ -81,7 +81,7 @@ First-class market jobs (IPFS rentals and software services):
 | GET | `/v1/market/offer` | List software offers (`?service_type=`, `?status=`) |
 | POST | `/v1/market/offer` | Register or update a software offer |
 | GET | `/v1/market/offer/{plugin_id}` | Get a software offer |
-| DELETE | `/v1/market/offer/{plugin_id}` | Unregister a software offer |
+| DELETE | `/v1/market/offer/{plugin_id}` | Unregister a software offer (query: `provider_address`, `chain_id`, `issued_at`, `signature`; the signature is an `unregister` proof from the offer's provider, 403 otherwise) |
 | GET | `/v1/market/offer/{plugin_id}/health` | Software-offer health check |
 | GET | `/v1/market/offer-by-id/{offer_id}` | Look up a software offer by its on-chain offer ID |
 

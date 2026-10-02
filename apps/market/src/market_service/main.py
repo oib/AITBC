@@ -795,13 +795,27 @@ async def register_offer(service_data: dict[str, Any], svc: Annotated[MarketServ
 
 
 @app.delete("/v1/market/offer/{plugin_id}")
-async def unregister_offer(plugin_id: str, svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
-    """Unregister a market offer"""
+async def unregister_offer(
+    plugin_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    provider_address: str | None = None,
+    chain_id: str | None = None,
+    issued_at: int | None = None,
+    signature: str | None = None,
+) -> Any:
+    """Unregister a market offer (provider-signed: the signer must be the offer's provider)"""
     try:
         logger.info("DELETE /v1/market/offer/%s called", plugin_id)
-        result = await svc.unregister_software_service(plugin_id)
+        result = await svc.unregister_software_service(
+            plugin_id,
+            {"provider_address": provider_address, "chain_id": chain_id, "issued_at": issued_at, "signature": signature},
+        )
         logger.info("DELETE /v1/market/offer/%s completed", plugin_id)
         return result
+    except PermissionError as e:
+        # Missing or rejected provider proof, or a signer who is not the offer's provider.
+        logger.info("DELETE /v1/market/offer/%s rejected: %s", plugin_id, e)
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except ValueError as e:
         # The service signals "not found" with ValueError; without this it surfaced as a 500.
         logger.info("DELETE /v1/market/offer/%s not found: %s", plugin_id, e)
