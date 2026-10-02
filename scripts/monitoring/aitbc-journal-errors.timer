@@ -1,0 +1,13 @@
+[Unit]
+Description=Count journal errors/warnings for Prometheus every 5 minutes
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=false
+Unit=aitbc-journal-errors.service
+
+[Install]
+WantedBy=timers.target
