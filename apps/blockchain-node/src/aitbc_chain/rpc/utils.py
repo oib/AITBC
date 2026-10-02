@@ -6,6 +6,7 @@ import json
 import math
 import sqlite3
 import time
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from fastapi import HTTPException
 
 from aitbc.constants import DATA_DIR
 
+from ..base_models import _to_ait_address
 from ..config import settings
 from ..logger import get_logger
 
@@ -27,6 +29,52 @@ _poa_proposers: dict[str, Any] = {}
 # all -- no service_type, no model, price 0 -- so anything that means "an offer"
 # has to say so here rather than trusting the type alone.
 OFFER_ACTIONS = ("offer", "software_offer")
+
+
+def _as_id_list(value: Any) -> list[str]:
+    """A payload field that may hold one id, a list of ids, or nothing."""
+    if not value:
+        return []
+    if not isinstance(value, list):
+        value = [value]
+    return [str(v) for v in value]
+
+
+def withdrawn_listing_ids(rows: Iterable[tuple[Any, str | None, dict[str, Any]]]) -> set[str]:
+    """Listing ids (``tx_<id>``) that their own seller has withdrawn.
+
+    ``rows`` is every confirmed GPU_MARKET transaction as ``(id, sender,
+    payload)``. A listing is withdrawn two ways: a cancellation (``action``
+    ``cancel``/``cancelled``, or ``status`` ``cancelled``) names it in
+    ``order_id``/``order_ids``, or a later offer names it in ``replaces``.
+
+    Either takes effect only when its sender is the seller of the listing it
+    names. Admission checks the signature against ``from`` and nothing else,
+    and consensus has no GPU_MARKET branch, so any funded account can put any
+    listing id into a cancel or a ``replaces`` list and confirm it; without
+    this comparison that hid another seller's offer from every reader. A
+    reference to a listing the sender does not own, or to an id that is not a
+    confirmed GPU_MARKET row, is ignored.
+
+    A cancellation also withdraws its own row, so it never reads as an offer.
+    """
+    parsed = [(tx_id, _to_ait_address(sender or ""), payload) for tx_id, sender, payload in rows]
+    seller = {f"tx_{tx_id}": who for tx_id, who, _ in parsed}
+    withdrawn: set[str] = set()
+    for tx_id, who, payload in parsed:
+        is_cancel = (
+            payload.get("action", "") in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == "cancelled"
+        )
+        if is_cancel:
+            withdrawn.add(f"tx_{tx_id}")
+            named = [*_as_id_list(payload.get("order_id")), *_as_id_list(payload.get("order_ids"))]
+        else:
+            named = _as_id_list(payload.get("replaces"))
+        if not who:
+            continue
+        withdrawn.update(listing_id for listing_id in named if seller.get(listing_id) == who)
+    return withdrawn
+
 
 # Credit types the bridge lifecycle writes straight into the mempool via
 # mempool.add() (cross_chain/bridge_transfer.py), bypassing public submission
