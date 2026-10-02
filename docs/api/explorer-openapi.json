@@ -1631,7 +1631,7 @@
             }
           },
           "400": {
-            "description": "priority must be one of {sorted(_PRIORITIES)} / unit must name an aitbc-* unit",
+            "description": "priority must be one of {sorted(_PASSES)} / unit must name an aitbc-* unit",
             "content": {
               "application/json": {
                 "schema": {
