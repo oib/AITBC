@@ -120,16 +120,18 @@ The hub site serves `alerts.html` (linked from every page's nav), rendered from 
 
 - `GET /explorer-api/api/alerts` — firing + pending alerts with watcher-heartbeat health; when Prometheus is unreachable the response falls back to replaying the watcher's event log (`"source": "event_log"`) instead of going blank. `silenced` flags come from the log replay since Prometheus does not know watcher silences.
 - `GET /explorer-api/api/alerts/history?limit=&alertname=&node=&state=` — the watcher event log, newest first; same filters as `aitbc prometheus alert-history`.
-- `GET /explorer-api/api/journal/recent?unit=&priority=&limit=&since_minutes=` — recent journal entries restricted to `aitbc-*` units (priority one of `emerg|alert|crit|err|warning`, limit ≤ 200, since ≤ 7 days). Powers the page's Service Journal card; non-aitbc units are rejected and also filtered out after the fetch, so public traffic can never read e.g. sshd or kernel logs.
+- `GET /explorer-api/api/journal/recent?unit=&priority=&limit=&since_minutes=` — recent journal entries restricted to `aitbc-*` units (priority one of `emerg|alert|crit|err|warning`, limit ≤ 200, since ≤ 7 days). Merges the real-priority and text-level passes described below. Powers the page's Service Journal card; non-aitbc units are rejected and also filtered out after the fetch, so public traffic can never read e.g. sshd or kernel logs.
 
 No nginx change is needed — all ride the existing `/explorer-api/` location. The explorer reads `PROMETHEUS_URL` (default `http://127.0.0.1:9090`) and `AITBC_ALERT_LOG` (default `/var/log/aitbc/alerts.log`) from its env files; on other nodes the endpoints answer with whatever local data exists. Journal access comes from `SupplementaryGroups=systemd-journal` in the explorer unit — where an older unit runs, the endpoint returns an empty list with `journal_access: false`.
 
 ### Journal error coverage
 
-`aitbc-journal-errors.timer` (every 5 min) runs `scripts/monitoring/journal-errors-textfile.py`, which counts `journalctl -p warning` entries per unit over a rolling 15-minute window into `/var/lib/prometheus/node-exporter/aitbc_journal.prom`:
+`aitbc-journal-errors.timer` (every 5 min) runs `scripts/monitoring/journal-errors-textfile.py`, which counts warning-and-worse journal entries per unit over a rolling 15-minute window into `/var/lib/prometheus/node-exporter/aitbc_journal.prom`.
 
-- `aitbc_journal_error_messages{unit}` — priorities emerg..err; `AITBCJournalErrors` fires when any is `> 0` for 5 min
-- `aitbc_journal_warning_messages{unit}` — priority warning; page-visible, not alerted
+Two journald signals are merged, because aitbc services log through stdout: journald tags every such line `PRIORITY=6` (info), so the true level only exists in the message text as a leading `[WARNING]`/`[ERROR]`/`[CRITICAL]` token. Pass 1 fetches `journalctl -p err` (real priorities — systemd's own records like watchdog kills and unit failures), pass 2 fetches `journalctl -g` with a regex for the text levels our services emit; results are deduplicated on the journal cursor. The `/api/journal/recent` endpoint uses the same union, so what the page shows and what the alert counts come from the same definition of "warning-or-worse".
+
+- `aitbc_journal_error_messages{unit}` — real priority ≤ err, or text level ERROR/CRITICAL/FATAL; `AITBCJournalErrors` fires when any is `> 0` for 5 min
+- `aitbc_journal_warning_messages{unit}` — real priority warning, or text level WARNING/WARN; page-visible, not alerted
 - `aitbc_journal_scan_success` / `aitbc_journal_scan_timestamp_seconds` — collector health
 
 The unit runs as `aitbc` with `SupplementaryGroups=systemd-journal`; install as symlinks into the checkout like the other monitoring units:
