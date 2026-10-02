@@ -1643,6 +1643,27 @@
         }
       }
     },
+    "/api/journal/counts": {
+      "get": {
+        "summary": "Api Journal Counts",
+        "description": "Per-node journal error/warning totals from the fleet-wide collector.\n\n``/api/journal/recent`` reads only this host's journal; these counts come\nfrom every node's ``aitbc_journal_*`` textfile series remote-written into\nhub Prometheus \u2014 so remote-node noise (and which node's journal to log\ninto) is visible before ``AITBCJournalErrors`` fires. A node is ``stale``\nwhen its collector's scan timestamp is absent or older than the\n``AITBCJournalScanStale`` threshold.",
+        "operationId": "api_journal_counts_api_journal_counts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Api Journal Counts Api Journal Counts Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",

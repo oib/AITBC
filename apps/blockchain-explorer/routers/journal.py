@@ -1,7 +1,10 @@
-"""Recent service-journal entries for the alerts page.
+"""Service-journal endpoints for the alerts page.
 
 ``GET /api/journal/recent`` serves warning-or-worse journal entries — the
-context behind an ``AITBCJournalErrors`` alert.
+context behind an ``AITBCJournalErrors`` alert — from this host's journald.
+``GET /api/journal/counts`` serves the fleet-wide counterpart: per-node totals
+from the ``aitbc_journal_*`` textfile metrics every node remote-writes into
+hub Prometheus, so remote noise shows on the page before the alert fires.
 
 Two journald signals are merged per request, because aitbc services log
 through stdout: journald tags every such line PRIORITY=6 (info), so the true
@@ -18,6 +21,7 @@ been deployed the endpoint returns an empty list with ``journal_access``
 false.
 """
 
+import asyncio
 import json
 import re
 import subprocess
@@ -25,6 +29,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+
+from routers.alerts import _prometheus_get
 
 router = APIRouter()
 
@@ -52,6 +58,10 @@ _PASSES = {
 }
 _MESSAGE_LIMIT = 500
 _SCAN_LIMIT = 2000
+# Mirrors AITBC_JOURNAL_WINDOW's default ("15 minutes ago") in the collector and
+# AITBCJournalScanStale's 10-minute threshold in aitbc_rules.yml.
+_COUNT_WINDOW_MINUTES = 15
+_STALE_SECONDS = 600.0
 
 
 def _is_aitbc_unit(name: str) -> bool:
@@ -204,4 +214,73 @@ def api_journal_recent(
         "unit": unit_arg,
         "priority": priority,
         "journal_access": _journald_reachable(),
+    }
+
+
+def _vector(data: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Rows of a Prometheus instant-vector query result."""
+    if not data:
+        return []
+    return (data.get("data") or {}).get("result") or []
+
+
+def _metric_value(item: dict[str, Any]) -> float:
+    try:
+        return float(item["value"][1])
+    except (KeyError, IndexError, TypeError, ValueError):
+        return 0.0
+
+
+@router.get("/api/journal/counts")
+async def api_journal_counts() -> dict[str, Any]:
+    """Per-node journal error/warning totals from the fleet-wide collector.
+
+    ``/api/journal/recent`` reads only this host's journal; these counts come
+    from every node's ``aitbc_journal_*`` textfile series remote-written into
+    hub Prometheus — so remote-node noise (and which node's journal to log
+    into) is visible before ``AITBCJournalErrors`` fires. A node is ``stale``
+    when its collector's scan timestamp is absent or older than the
+    ``AITBCJournalScanStale`` threshold.
+    """
+    errors, warnings, ages = await asyncio.gather(
+        _prometheus_get("/api/v1/query", {"query": "aitbc_journal_error_messages"}),
+        _prometheus_get("/api/v1/query", {"query": "aitbc_journal_warning_messages"}),
+        _prometheus_get("/api/v1/query", {"query": "time() - aitbc_journal_scan_timestamp_seconds"}),
+    )
+    if errors is None or warnings is None or ages is None:
+        return {"prometheus_ok": False, "window_minutes": _COUNT_WINDOW_MINUTES, "nodes": []}
+
+    nodes: dict[str, dict[str, Any]] = {}
+
+    def node_for(instance: str) -> dict[str, Any]:
+        return nodes.setdefault(
+            instance,
+            {"instance": instance, "errors": 0, "warnings": 0, "units": {}, "scan_age_seconds": None, "stale": True},
+        )
+
+    def accumulate(rows: list[dict[str, Any]], field: str) -> None:
+        for item in rows:
+            metric = item.get("metric") or {}
+            count = int(_metric_value(item))
+            if count <= 0:
+                continue
+            node = node_for(str(metric.get("instance") or "unknown"))
+            unit = str(metric.get("unit") or "unknown")
+            node[field] += count
+            node["units"].setdefault(unit, {"errors": 0, "warnings": 0})[field] += count
+
+    accumulate(_vector(errors), "errors")
+    accumulate(_vector(warnings), "warnings")
+    for item in _vector(ages):
+        node = node_for(str((item.get("metric") or {}).get("instance") or "unknown"))
+        age = _metric_value(item)
+        node["scan_age_seconds"] = round(age, 1)
+        node["stale"] = age > _STALE_SECONDS
+
+    ordered = sorted(nodes.values(), key=lambda n: (-n["errors"], -n["warnings"], n["instance"]))
+    return {
+        "prometheus_ok": True,
+        "window_minutes": _COUNT_WINDOW_MINUTES,
+        "stale_after_seconds": int(_STALE_SECONDS),
+        "nodes": ordered,
     }

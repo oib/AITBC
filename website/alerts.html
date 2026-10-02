@@ -13,7 +13,7 @@
 
     <!-- External libraries -->
     <script src="config.js"></script>
-    <script src="alerts.js?v=1"></script>
+    <script src="alerts.js?v=2"></script>
 </head>
 <body>
     <div class="container">
@@ -64,7 +64,8 @@
                     </select>
                 </div>
             </div>
-            <p class="endpoint-note">warning-and-worse messages from aitbc-* units on this host</p>
+            <p class="endpoint-note">fleet-wide counts from the collector (rolling window); the entry list below is this host only</p>
+            <div id="journal-nodes" class="journal-nodes"></div>
             <div id="journal-container">
                 <p class="loading">Loading journal...</p>
             </div>
