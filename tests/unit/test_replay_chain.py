@@ -359,3 +359,78 @@ class TestCompareState:
             db.commit()
             db.close()
         assert replay_chain._compare_state(str(compare), target, CHAIN, TIP) is True
+
+
+class TestRetiredGpuRows:
+    """Replaying pre-cleanup history re-creates the retired GPU rows; the state compare must say so."""
+
+    GPU_DDL = (
+        "CREATE TABLE gpu_registration (chain_id TEXT, gpu_id TEXT, status TEXT, registered_by TEXT)",
+        "CREATE TABLE gpu_allocation (chain_id TEXT, allocation_id TEXT, gpu_id TEXT, status TEXT)",
+    )
+
+    def _db(self, path: Path, registrations: list[str], allocations: list[tuple[str, str]]) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        blocks = [_block_row(h, f"0x{h:064x}") for h in range(TIP + 1)]
+        _make_db(path, blocks, [("0xA", 100, 1)])
+        db = sqlite3.connect(path)
+        for ddl in self.GPU_DDL:
+            db.execute(ddl)
+        for gpu_id in registrations:
+            db.execute("INSERT INTO gpu_registration VALUES (?, ?, 'active', '0xreg')", (CHAIN, gpu_id))
+        for allocation_id, gpu_id in allocations:
+            db.execute("INSERT INTO gpu_allocation VALUES (?, ?, ?, 'active')", (CHAIN, allocation_id, gpu_id))
+        db.commit()
+        db.close()
+        return path
+
+    def _fleet_and_replayed(self, tmp_path):
+        fleet = self._db(tmp_path / "fleet.db", ["node0-rtx4060ti"], [("alloc_keep", "node0-rtx4060ti")])
+        replayed = self._db(
+            tmp_path / "r" / "replayed.db",
+            ["node0-rtx4060ti", "gpu-live-05", "canary9-gpu-001"],
+            [("alloc_keep", "node0-rtx4060ti"), ("alloc_a", "canary9-gpu-001")],
+        )
+        return fleet, replayed
+
+    def test_compare_flags_the_reappeared_rows_and_names_the_fix(self, replay_chain, tmp_path, capsys):
+        fleet, replayed = self._fleet_and_replayed(tmp_path)
+        assert replay_chain._compare_state(str(fleet), replayed, CHAIN, TIP) is False
+        out = capsys.readouterr().out
+        assert "gpu_registration: DIVERGED" in out
+        assert "gpu_allocation: DIVERGED" in out
+        assert "--sweep-retired-gpu" in out
+
+    def test_no_hint_when_the_gpu_tables_agree(self, replay_chain, tmp_path, capsys):
+        fleet = self._db(tmp_path / "fleet.db", ["node0-rtx4060ti"], [])
+        replayed = self._db(tmp_path / "r" / "replayed.db", ["node0-rtx4060ti"], [])
+        db = sqlite3.connect(replayed)
+        db.execute("UPDATE account SET balance = balance + 1")
+        db.commit()
+        db.close()
+        assert replay_chain._compare_state(str(fleet), replayed, CHAIN, TIP) is False
+        out = capsys.readouterr().out
+        assert "account: DIVERGED" in out
+        assert "hint:" not in out
+
+    def test_sweep_then_compare_passes(self, replay_chain, tmp_path, capsys):
+        fleet, replayed = self._fleet_and_replayed(tmp_path)
+        replay_chain._sweep_retired_gpu(replayed, CHAIN)
+        assert "2 registrations, 1 allocations" in capsys.readouterr().out
+        assert replay_chain._compare_state(str(fleet), replayed, CHAIN, TIP) is True
+
+    def test_sweep_leaves_no_backup_beside_the_scratch_db(self, replay_chain, tmp_path):
+        _, replayed = self._fleet_and_replayed(tmp_path)
+        before = sorted(p.name for p in replayed.parent.iterdir())
+        replay_chain._sweep_retired_gpu(replayed, CHAIN)
+        assert sorted(p.name for p in replayed.parent.iterdir()) == before
+
+    def test_sweep_flag_needs_somewhere_to_leave_the_result(self, replay_chain, tmp_path):
+        snap = tmp_path / "snap.db"
+        snap.touch()
+        (tmp_path / "genesis.json").write_text("{}")
+        with pytest.raises(SystemExit) as exc:
+            replay_chain._parse_args(["--snapshot", str(snap), "--chain-id", CHAIN, "--sweep-retired-gpu"])
+        assert exc.value.code == 2
+        args = replay_chain._parse_args(["--snapshot", str(snap), "--chain-id", CHAIN, "--sweep-retired-gpu", "--keep"])
+        assert args.sweep_retired_gpu is True
