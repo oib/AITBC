@@ -38,7 +38,13 @@ from .bridge_credit import (
     verify_bridge_credit_signature,
     verify_bridge_lock_signature,
 )
-from .gpu_resources import GPU_STATUS_DEACTIVATED, GPUAllocation, GPURegistration, gpu_deregister_error
+from .gpu_resources import (
+    GPU_STATUS_DEACTIVATED,
+    GPUAllocation,
+    GPURegistration,
+    gpu_deregister_error,
+    retired_gpu_error,
+)
 from .v9_policy import count_v9_would_reject, v9_signature_verdict
 from .liquidity_transition import (
     apply_liquidity_claim,
@@ -1267,6 +1273,15 @@ class StateTransition:
                 return (False, "GPU_ALLOCATE payload must include valid duration_hours and total_cost")
             if value != 0:
                 return (False, "GPU_ALLOCATE must have value=0")
+        if block_version >= 10:
+            # v10: the retired-id door (GPU_RETIRED_IDS) is consensus, not just admission — a
+            # proposer that skipped admission cannot re-register or allocate a retired gpu_id
+            # via a crafted block. Below v10 this never fires, so replay is unchanged. The env
+            # list MUST be identical on every node once v10 is live; fleet-config-check.sh
+            # compares it across hosts.
+            retired_error = retired_gpu_error(tx_type, tx_data.get("payload"), settings.gpu_retired_id_set())
+            if retired_error:
+                return (False, retired_error)
         return (True, "Transaction validated successfully")
 
     def apply_transaction(
