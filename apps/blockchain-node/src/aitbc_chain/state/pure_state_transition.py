@@ -283,8 +283,9 @@ class StateDelta:
 # ``sync_block_import`` and ``consensus.poa``: a block containing any of them
 # never takes the parallel path.
 #
-# - ``LIQUIDITY_*``/``GPU_REGISTER``/``GPU_ALLOCATE`` write non-account state
-#   (pools, stakes, distributions, gpu_registration, gpu_allocation).
+# - ``LIQUIDITY_*``/``GPU_REGISTER``/``GPU_ALLOCATE``/``GPU_DEREGISTER`` write non-account state
+#   (pools, stakes, distributions, gpu_registration, gpu_allocation). Below v10 GPU_DEREGISTER has no
+#   consensus meaning and both paths treat it as the plain transfer it always was.
 # - ``GOVERNANCE_EXECUTE`` writes chain_parameter (governance_executors et
 #   al.) at apply — the pure delta computes account changes only, so the
 #   parameter write would silently never land on parallel-applied blocks
@@ -307,6 +308,7 @@ SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         "LIQUIDITY_CLAIM",
         "GPU_REGISTER",
         "GPU_ALLOCATE",
+        "GPU_DEREGISTER",
         "GOVERNANCE_EXECUTE",
         "STAKE_RELEASE",
         "BOND_LOCK",

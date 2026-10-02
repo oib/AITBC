@@ -36,7 +36,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `genesis` — Genesis block and wallet generation commands. Subcommands: `info`, `init`, `reset`, `sync-from-hub`, `verify`
 - `governance` — Governance operations — on-chain proposals, voting, and execution. Subcommands: `aggregate-votes`, `close`, `execute`, `execute-cross-chain`, `get`, `list`, `propagate`, `propose`, `status`, `vote`
 - `gpu` — Local GPU service commands for hardware management. Subcommands: `discover`, `list-gpus`, `register`, `unregister`, `update`
-- `gpu-onchain` — GPU resource tracking commands (on-chain). Subcommands: `allocate`, `allocations`, `list`, `query`, `register`
+- `gpu-onchain` — GPU resource tracking commands (on-chain). Subcommands: `allocate`, `allocations`, `deregister`, `list`, `query`, `register`
 - `grant` — DAO grant proposal commands.. Subcommands: `create`, `disburse`, `list`, `vote`
 - `health` — Probe remote AITBC service health endpoints. Options: --host, --services, --timeout
 - `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `island`, `list`, `pin`, `unpin`, `upload`

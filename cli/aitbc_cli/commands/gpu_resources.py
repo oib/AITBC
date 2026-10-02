@@ -22,7 +22,7 @@ logger = get_logger(__name__)
   aitbc gpu-onchain list""",
 )
 def gpu():
-    """Register, query, allocate, and list GPU resources on the blockchain."""
+    """Register, query, allocate, deregister, and list GPU resources on the blockchain."""
     pass
 
 
@@ -156,6 +156,68 @@ def query_gpu(ctx, gpu_id: str, format: str):
         error(f"Network error: {e}")
     except Exception as e:
         error(f"Error querying GPU: {e}")
+
+
+@gpu.command(
+    name="deregister",
+    epilog="""Examples:
+
+  aitbc gpu-onchain deregister --gpu-id gpu-1 --wallet wallet-1
+
+  aitbc gpu-onchain deregister --gpu-id gpu-1 --wallet wallet-1 --wait""",
+)
+@click.option("--gpu-id", required=True, help="GPU ID to take out of service")
+@click.option("--wallet", required=True, help="Wallet name for signing (must be the GPU's registrant)")
+@click.option("--password", help="Wallet password (or AITBC_WALLET_PASSWORD env var)")
+@click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def deregister_gpu(ctx, gpu_id: str, wallet: str, password: str | None, wait: bool, format: str):
+    """Deactivate an on-chain GPU registration (signed by its registrant).
+
+    The registration stays on the chain with status 'deactivated' and takes no
+    new allocations; registering the same gpu-id again reactivates it. Takes
+    effect only once the chain has activated state-transition v10; before that
+    the node refuses the transaction. This is not `aitbc gpu unregister`,
+    which only edits the local GPU service.
+    """
+    config = get_config()
+
+    try:
+        # Get RPC URL from config (use hub for cross-node operations)
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+        if config.hub_discovery_url and "localhost" in rpc_url:
+            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
+
+        # Get chain_id
+        try:
+            from ..utils.chain_id import get_chain_id
+
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        except Exception:
+            import os
+
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+
+        from ..utils.gpu_onchain import submit_gpu_deregister, wait_for_tx
+
+        result = submit_gpu_deregister(ctx, rpc_url, chain_id, wallet, password, gpu_id)
+
+        tx_hash = result.get("transaction_hash", result.get("tx_hash"))
+        if wait and tx_hash:
+            mined = wait_for_tx(rpc_url, tx_hash)
+            if mined:
+                result["mined"] = True
+                result["block_height"] = mined.get("block_height")
+            else:
+                result["mined"] = False
+
+        success(f"GPU '{gpu_id}' deregistration transaction submitted")
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error deregistering GPU on-chain: {e}")
 
 
 @gpu.command(

@@ -149,6 +149,21 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
             if authority_error:
                 raise ValueError(authority_error)
 
+        if tx_type == "GPU_DEREGISTER":
+            # v10 (see state/gpu_resources.py::gpu_deregister_error, the rule apply uses too). Below the activation
+            # height the type has no consensus meaning, so it is refused here rather than sealed as a plain transfer.
+            from ..state.gpu_resources import gpu_deregister_error
+
+            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+            next_height = (head or 0) + 1
+            if get_block_version_for_height(next_height) < 10:
+                raise ValueError("GPU_DEREGISTER is not active on this chain yet (state_transition_v10_height)")
+            deregister_error = gpu_deregister_error(
+                session, chain_id, tx_data.get("payload"), _to_ait_address(tx_data["from"])
+            )
+            if deregister_error:
+                raise ValueError(deregister_error)
+
 
 async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -> None:
     """Best-effort relay of a locally submitted transaction to mesh peers.

@@ -88,7 +88,11 @@ def register(ctx, gpu_id: str, specs: str | None):
 @click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.pass_context
 def unregister(ctx, gpu_id: str):
-    """Unregister or delete a GPU from the local GPU service."""
+    """Unregister or delete a GPU from the local GPU service.
+
+    Local only: it does not touch the blockchain. To take an on-chain GPU
+    registration out of service, use `aitbc gpu-onchain deregister`.
+    """
     config = get_config()
 
     try:

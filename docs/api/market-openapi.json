@@ -951,7 +951,7 @@
     "/v1/market/offer": {
       "get": {
         "summary": "List Software Offers",
-        "description": "List market offers (hardware+software bundles)",
+        "description": "List market offers (hardware+software bundles).\n\nWithout ``status``, on-chain GPU registrations their registrant deactivated\nare left out; pass ``status=deactivated`` to list them.",
         "operationId": "list_software_offers_v1_market_offer_get",
         "parameters": [
           {
