@@ -42,6 +42,7 @@ from aitbc_chain.state.block_deltas import (
     revert_losing_segment,
 )
 from aitbc_chain.state.bridge_credit import sign_bridge_credit
+from aitbc_chain.state.gpu_resources import GPURegistration
 from aitbc_chain.state.state_root_utils import compute_state_root_full
 from aitbc_chain.state.state_transition import (
     StateTransition,
@@ -740,6 +741,64 @@ class TestGpuAllocateFamily:
             },
         )
         _roundtrip(session_factory, db_engine, 2, _hash("block", 1, genesis["hash"]), 1, [allocate])
+
+
+class TestGpuDeregisterFamily:
+    """GPU_DEREGISTER (v10) updates an existing gpu_registration row to ``deactivated``; the undo journal must put
+    the row back exactly as the registering block left it."""
+
+    def test_gpu_deregister_rolls_back(self, session_factory, db_engine):
+        _fund(session_factory, PROVIDER)
+        genesis = _store_block(session_factory, 0, "0x00")
+        _stamp_root(session_factory, 0)
+        register = _make_tx(
+            PROVIDER_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "GPU_REGISTER",
+                "chain_id": CHAIN,
+                "payload": {
+                    "gpu_id": "gpu-dereg-1",
+                    "miner_id": "miner-dereg-1",
+                    "model": "RTX 4090",
+                    "memory_gb": 24,
+                    "price_per_hour": "0.1",
+                },
+            },
+        )
+        _apply_block(session_factory, 1, genesis["hash"], [register])
+        deregister = _make_tx(
+            PROVIDER_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 1,
+                "type": "GPU_DEREGISTER",
+                "chain_id": CHAIN,
+                "payload": {"gpu_id": "gpu-dereg-1"},
+            },
+        )
+
+        def status() -> str:
+            with session_factory() as session:
+                row = session.exec(select(GPURegistration).where(GPURegistration.gpu_id == "gpu-dereg-1")).one()
+                return row.status
+
+        before = _snapshot(db_engine)
+        assert status() == "active"
+        _apply_block(session_factory, 2, _hash("block", 1, genesis["hash"]), [deregister], block_version=10)
+        assert status() == "deactivated"
+        assert _snapshot(db_engine) != before
+        _revert_block(session_factory, 2, 1)
+        assert status() == "active"
+        after = _snapshot(db_engine)
+        assert after == before, _dump_diff(before, after)
 
 
 class TestIpfsSubscriptionFamily:

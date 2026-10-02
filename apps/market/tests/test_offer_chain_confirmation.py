@@ -479,3 +479,45 @@ async def test_unanchored_offer_is_not_reprobed_within_ttl(service: MarketServic
     offers = await service.list_software_services()
     assert next(o for o in offers if o["plugin_id"] == "test-negcache")["confirmed"] is False
     assert len(rpc.tx_queries) == first_count  # memoized — no new probes
+
+
+class StatusFilteringRPC(StubRPC):
+    """Behaves like ``/rpc/gpus?status=``: records the filter and applies it."""
+
+    def __init__(self, offers):
+        super().__init__(offers=offers)
+        self.status_filters: list[str | None] = []
+
+    async def query_offers(self, **kwargs):
+        status = kwargs.get("status")
+        self.status_filters.append(status)
+        return [o for o in self._offers if not status or o.get("status") == status]
+
+
+def _gpu_row(gpu_id: str, status: str) -> dict:
+    return {"gpu_id": gpu_id, "price_per_hour": "0.001", "model": "RTX 4090", "status": status, "miner_id": "m-1"}
+
+
+@pytest.mark.asyncio
+async def test_default_listing_leaves_out_a_deactivated_gpu(service: MarketService) -> None:
+    rpc = StatusFilteringRPC([_gpu_row("gpu-up", "active"), _gpu_row("gpu-down", "deactivated")])
+    service._rpc_client = rpc  # type: ignore[assignment]
+
+    ids = {o["plugin_id"] for o in await service.list_software_services()}
+
+    assert "gpu-up" in ids
+    assert "gpu-down" not in ids
+    assert rpc.status_filters == ["active"]
+
+
+@pytest.mark.asyncio
+async def test_asking_for_deactivated_shows_the_deactivated_gpu(service: MarketService) -> None:
+    rpc = StatusFilteringRPC([_gpu_row("gpu-up", "active"), _gpu_row("gpu-down", "deactivated")])
+    service._rpc_client = rpc  # type: ignore[assignment]
+
+    offers = await service.list_software_services(status="deactivated")
+
+    gpu_ids = {o["plugin_id"] for o in offers if o["service_type"] == "gpu_market"}
+    assert gpu_ids == {"gpu-down"}
+    assert next(o for o in offers if o["plugin_id"] == "gpu-down")["status"] == "deactivated"
+    assert rpc.status_filters == ["deactivated"]

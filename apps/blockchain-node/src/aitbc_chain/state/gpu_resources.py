@@ -4,10 +4,13 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from aitbc.crypto.signature_recovery import canonical_address
 from sqlalchemy import JSON, Column, UniqueConstraint
-from sqlmodel import Field
+from sqlmodel import Field, Session, select
 
 from ..metadata import ChainBase
+
+GPU_STATUS_DEACTIVATED = "deactivated"
 
 
 class GPURegistration(ChainBase, table=True):
@@ -76,3 +79,28 @@ class EdgeNodeRegistration(ChainBase, table=True):
     registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     status: str = Field(default="active", index=True)  # active, deactivated
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+def gpu_deregister_error(session: Session, chain_id: str, payload: Any, sender_addr: str) -> str | None:
+    """Why ``sender_addr`` may not deregister the GPU named in ``payload`` (v10 rules), or None when it may.
+
+    The single definition of the rule: ``StateTransition.validate_transaction`` applies it at block time and
+    mempool admission applies it at the door, so a transaction the proposer would drop is refused up front.
+    """
+    if not isinstance(payload, dict):
+        return "GPU_DEREGISTER payload must be an object"
+    gpu_id = payload.get("gpu_id")
+    if not isinstance(gpu_id, str) or not gpu_id:
+        return "GPU_DEREGISTER payload must include gpu_id"
+    row = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == gpu_id)
+    ).first()
+    if row is None:
+        return f"GPU not found: {gpu_id}"
+    if not row.registered_by:
+        return f"GPU {gpu_id} has no registrant on record; removal is not permitted"
+    if canonical_address(row.registered_by) != canonical_address(sender_addr):
+        return f"GPU_DEREGISTER for {gpu_id} must come from its registrant {row.registered_by}, got {sender_addr}"
+    if row.status == GPU_STATUS_DEACTIVATED:
+        return f"GPU {gpu_id} is already deactivated"
+    return None

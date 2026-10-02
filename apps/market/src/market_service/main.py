@@ -747,7 +747,11 @@ async def list_software_offers(
     service_type: str | None = None,
     status: str | None = None,
 ) -> Any:
-    """List market offers (hardware+software bundles)"""
+    """List market offers (hardware+software bundles).
+
+    Without ``status``, on-chain GPU registrations their registrant deactivated
+    are left out; pass ``status=deactivated`` to list them.
+    """
     try:
         logger.info("GET /v1/market/offer called with filters: service_type=%s, status=%s", service_type, status)
         result = await svc.list_software_services(service_type=service_type, status=status)

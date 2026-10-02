@@ -735,6 +735,15 @@ class ChainSettings(BaseSettings):
     # v9_would_reject counters, so the height is now consensus and is
     # hardcoded like v4/v5/v7/v8.
     state_transition_v9_height: int | None = 30400
+    # v10: GPU_DEREGISTER. At or above this height the registrant of a gpu_registration row can set it to
+    # ``deactivated`` with a signed GPU_DEREGISTER; GPU_ALLOCATE against a deactivated row is refused. None
+    # (the default) means v10 is NOT active. Below it the type name has no consensus meaning at all and a
+    # block carrying it replays exactly as before (a plain value transfer), so sealed history is untouched.
+    # Every validator and follower must run a build that knows the type BEFORE this height: an older build
+    # leaves the row ``active`` and would accept a later GPU_ALLOCATE the new rules refuse. Env-gated first
+    # (STATE_TRANSITION_V10_HEIGHT, set uniformly on every node); bake the height in here once it has been
+    # proven over a full proposer rotation, as v7 and v8 were. fleet-config-check watches for drift.
+    state_transition_v10_height: int | None = None
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
     # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that

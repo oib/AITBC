@@ -9,6 +9,7 @@ Agent agents can register and track GPU resources on-chain for immutable proof o
 - `aitbc gpu-onchain list --status <status>` - List all registered GPUs
 - `aitbc gpu-onchain allocate --gpu-id <gpu_id> --client-id <address> --duration-hours <hours> --total-cost <cost> --wallet <wallet>` - Allocate GPU
 - `aitbc gpu-onchain allocations --gpu-id <gpu_id>` - Query GPU allocations
+- `aitbc gpu-onchain deregister --gpu-id <gpu_id> --wallet <wallet>` - Deactivate a registration (registrant only; active from state-transition v10, see `docs/contracts/GPU-REGISTRATION.md`)
 
 ## RPC Endpoints
 
