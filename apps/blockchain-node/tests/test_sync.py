@@ -353,6 +353,68 @@ class TestProposerSignatureValidator:
         assert ok is False
         assert "Missing required field" in reason
 
+    def _attestation_block(self, monkeypatch, validator_count, attester_indexes, min_attestations):
+        """Build a signed block whose metadata carries attestations from the
+        validators picked by ``attester_indexes`` (indexes may repeat)."""
+        from eth_account import Account as EthAccount
+
+        from aitbc.crypto.consensus_signing import sign_block_hash
+
+        proposer = EthAccount.create()
+        validators = [EthAccount.create() for _ in range(validator_count)]
+        validator_set = json.dumps([{"address": proposer.address}] + [{"address": v.address} for v in validators])
+
+        monkeypatch.setattr(sync_settings, "multi_validator_consensus_enabled", True)
+        monkeypatch.setattr(sync_settings, "multi_validator_min_attestations", min_attestations)
+        monkeypatch.setattr(sync_settings, "validator_set", validator_set)
+
+        ts = datetime.now(UTC)
+        block_hash = _make_block_hash("test", 1, "0x00", ts)
+        block_header = {
+            "chain_id": "test",
+            "height": 1,
+            "hash": block_hash,
+            "parent_hash": "0x00",
+            "proposer": proposer.address,
+            "state_root": "0x" + "11" * 32,
+            "bridge_state_root": "0x" + "22" * 32,
+        }
+        attestations = [
+            {"validator": validators[i].address, "signature": sign_block_hash(block_header, validators[i].key.hex())}
+            for i in attester_indexes
+        ]
+        block_data = {
+            "height": 1,
+            "hash": block_hash,
+            "parent_hash": "0x00",
+            "proposer": proposer.address,
+            "timestamp": ts.isoformat(),
+            "chain_id": "test",
+            "state_root": block_header["state_root"],
+            "bridge_state_root": block_header["bridge_state_root"],
+            "signature": sign_block_hash(block_header, proposer.key.hex()),
+            "block_metadata": json.dumps({"attestations": attestations}),
+        }
+        return block_data
+
+    def test_duplicated_attestation_counts_once(self, monkeypatch):
+        """[A, A] must not satisfy min_attestations=2: the verifier counts
+        distinct validators, mirroring the PBFT certificate dedup."""
+        block_data = self._attestation_block(monkeypatch, 2, [0, 0], 2)
+
+        ok, reason = ProposerSignatureValidator().validate_block_signature(block_data)
+
+        assert ok is False
+        assert "1 valid attestations" in reason
+
+    def test_two_distinct_attestations_accepted(self, monkeypatch):
+        """Two different validators still satisfy min_attestations=2."""
+        block_data = self._attestation_block(monkeypatch, 2, [0, 1], 2)
+
+        ok, reason = ProposerSignatureValidator().validate_block_signature(block_data)
+
+        assert ok is True, reason
+
 
 class TestChainSyncAppend:
     def test_append_to_empty_chain(self, session_factory):

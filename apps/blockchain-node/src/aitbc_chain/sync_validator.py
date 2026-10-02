@@ -167,6 +167,7 @@ class ProposerSignatureValidator:
         from aitbc.crypto.signature_recovery import canonical_address
 
         valid_count = 0
+        seen: set[str] = set()
         validator_canonical = {canonical_address(v) for v in validator_set}
         for att in attestations:
             validator = att.get("validator", "")
@@ -175,8 +176,15 @@ class ProposerSignatureValidator:
                 continue
             if validator_canonical and canonical_address(validator) not in validator_canonical:
                 continue
+            # Count each validator once: the PBFT path below already dedups via
+            # ``seen``, and a duplicated entry must not count twice toward
+            # min_attestations.
+            validator_key = canonical_address(validator)
+            if validator_key in seen:
+                continue
             if verify_block_signature(block_data, signature, validator):
                 valid_count += 1
+                seen.add(validator_key)
 
         if valid_count < min_attestations:
             return (False, f"Only {valid_count} valid attestations, need {min_attestations}")
