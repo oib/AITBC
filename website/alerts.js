@@ -140,6 +140,35 @@ function renderEvents(body) {
 
 const JOURNAL_UNITS = new Set();
 
+function renderJournalNodes(body) {
+    const el = document.getElementById('journal-nodes');
+    if (!body || !body.prometheus_ok) {
+        el.innerHTML = '<span class="mon-warn">fleet counts unavailable</span>';
+        return;
+    }
+    const nodes = body.nodes || [];
+    if (nodes.length === 0) {
+        el.innerHTML = '<span class="mon-warn">no collector metrics yet</span>';
+        return;
+    }
+    el.innerHTML = nodes.map(n => {
+        const cls = n.stale ? 'mon-warn' : (n.errors > 0 ? 'mon-bad' : (n.warnings > 0 ? 'mon-warn' : 'mon-ok'));
+        const text = n.stale
+            ? `collector stale (${relTime(Date.now() / 1000 - (n.scan_age_seconds || 0))})`
+            : `${n.errors} err &middot; ${n.warnings} warn`;
+        return `<span class="jn-chip ${cls}">${escapeHtml(n.instance)}: ${text}</span>`;
+    }).join(' ');
+}
+
+async function loadJournalCounts() {
+    try {
+        const resp = await fetch(`${EXPLORER_API_URL}/api/journal/counts`);
+        renderJournalNodes(resp.ok ? await resp.json() : { prometheus_ok: false });
+    } catch (err) {
+        document.getElementById('journal-nodes').innerHTML = '<span class="mon-warn">fleet counts unreachable</span>';
+    }
+}
+
 function priBadge(priority, name) {
     const cls = priority <= 3 ? 'evt-firing' : 'evt-still';
     return `<span class="evt-badge ${cls}">${escapeHtml(name || priority)}</span>`;
@@ -201,7 +230,7 @@ async function loadAlerts() {
         document.getElementById('monitor-strip').innerHTML =
             `<span class="mon-bad">Alert API unreachable</span> — ${escapeHtml(err.message || err)}`;
     }
-    await loadJournal();
+    await Promise.all([loadJournal(), loadJournalCounts()]);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

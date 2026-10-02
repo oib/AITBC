@@ -1767,3 +1767,5 @@ a.btn-secondary {
     font-family: 'Courier New', monospace;
     max-width: 18rem;
 }
+.journal-nodes { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.5rem 0 0.4rem; font-size: 0.78rem; }
+.jn-chip { padding: 0.1rem 0.55rem; border: 1px solid currentColor; border-radius: 999px; font-family: 'Courier New', monospace; }
