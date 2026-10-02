@@ -132,7 +132,7 @@ Two journald signals are merged, because aitbc services log through stdout: jour
 
 - `aitbc_journal_error_messages{unit}` — real priority ≤ err, or text level ERROR/CRITICAL/FATAL; `AITBCJournalErrors` fires when any is `> 0` for 5 min
 - `aitbc_journal_warning_messages{unit}` — real priority warning, or text level WARNING/WARN; page-visible, not alerted
-- `aitbc_journal_scan_success` / `aitbc_journal_scan_timestamp_seconds` — collector health
+- `aitbc_journal_scan_success` / `aitbc_journal_scan_timestamp_seconds` — collector health; `AITBCJournalScanStale` fires when the timestamp is absent or older than two timer periods (10 min) for 5 min, so a dead collector cannot silently blind `AITBCJournalErrors`
 
 The unit runs as `aitbc` with `SupplementaryGroups=systemd-journal`; install as symlinks into the checkout like the other monitoring units:
 
