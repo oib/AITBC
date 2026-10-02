@@ -52,6 +52,23 @@
             </div>
             <p class="alerts-updated" id="updated-note"></p>
         </div>
+
+        <div class="card" id="journal">
+            <div class="journal-head">
+                <h2>Service Journal</h2>
+                <div class="journal-controls">
+                    <select id="journal-unit"><option value="">all aitbc units</option></select>
+                    <select id="journal-priority">
+                        <option value="warning">warning+</option>
+                        <option value="err">err+</option>
+                    </select>
+                </div>
+            </div>
+            <p class="endpoint-note">warning-and-worse messages from aitbc-* units on this host</p>
+            <div id="journal-container">
+                <p class="loading">Loading journal...</p>
+            </div>
+        </div>
     </div>
 </body>
 </html>

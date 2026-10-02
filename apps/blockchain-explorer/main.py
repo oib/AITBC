@@ -22,6 +22,7 @@ from routers.analytics import router as analytics_router  # noqa: E402
 from routers.blocks import router as blocks_router  # noqa: E402
 from routers.chains import router as chains_router  # noqa: E402
 from routers.export import router as export_router  # noqa: E402
+from routers.journal import router as journal_router  # noqa: E402
 from routers.search import router as search_router  # noqa: E402
 from routers.transactions import router as transactions_router  # noqa: E402
 
@@ -34,6 +35,7 @@ app.include_router(blocks_router)
 app.include_router(transactions_router)
 app.include_router(search_router)
 app.include_router(export_router)
+app.include_router(journal_router)
 
 
 @app.get("/health")

@@ -242,3 +242,17 @@ groups:
         annotations:
           summary: "Alert watcher heartbeat has stopped ({{ $labels.instance }})"
           description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
+
+      # AitbcJournalErrors: the journal-errors timer counts err-or-worse journal
+      # messages per unit over a rolling 15-minute window into the node-exporter
+      # textfile. A unit that logs an error fires until the window moves past it.
+      # Journal warnings (priority 4) stay page-visible via /api/journal/recent
+      # without alerting -- errors are rare enough to page on.
+      - alert: AITBCJournalErrors
+        expr: aitbc_journal_error_messages > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.unit }} logged errors on {{ $labels.node }}"
+          description: "{{ $labels.unit }} produced {{ $value }} err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u {{ $labels.unit }} -p err."

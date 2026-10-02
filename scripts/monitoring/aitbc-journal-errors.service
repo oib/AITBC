@@ -1,0 +1,32 @@
+[Unit]
+Description=AITBC journal error/warning counts for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=systemd-journald.service
+
+[Service]
+Type=oneshot
+User=aitbc
+Group=aitbc
+# journald's group is what lets the aitbc user read the system journal at all;
+# it comes from the unit, no /etc/group edit needed.
+SupplementaryGroups=systemd-journal
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+Environment=AITBC_JOURNAL_WINDOW=15 minutes ago
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/journal-errors-textfile.py
+# Exits 1 when the journal could not be read (aitbc_journal_scan_success then
+# says 0).
+SyslogIdentifier=aitbc-journal-errors
+
+# Reads the system journal and writes one file in the textfile directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

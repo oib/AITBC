@@ -212,3 +212,26 @@ tests:
             exp_annotations:
               summary: "Alert watcher heartbeat has stopped ()"
               description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
+
+  # AITBCJournalErrors: an error-count series fires after the 5-minute hold and
+  # resolves when the window empties it again.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_journal_error_messages{unit="aitbc-foo.service", node="node9", instance="127.0.0.1:9100"}'
+        values: '0x2 3x12 0x6'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: AITBCJournalErrors
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: AITBCJournalErrors
+        exp_alerts:
+          - exp_labels:
+              alertname: AITBCJournalErrors
+              severity: warning
+              unit: aitbc-foo.service
+              node: node9
+              instance: 127.0.0.1:9100
+            exp_annotations:
+              summary: "aitbc-foo.service logged errors on node9"
+              description: "aitbc-foo.service produced 3 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-foo.service -p err."

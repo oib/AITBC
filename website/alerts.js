@@ -138,6 +138,52 @@ function renderEvents(body) {
     </table>`;
 }
 
+const JOURNAL_UNITS = new Set();
+
+function priBadge(priority, name) {
+    const cls = priority <= 3 ? 'evt-firing' : 'evt-still';
+    return `<span class="evt-badge ${cls}">${escapeHtml(name || priority)}</span>`;
+}
+
+function renderJournal(body) {
+    const box = document.getElementById('journal-container');
+    const entries = body.entries || [];
+    entries.forEach(e => JOURNAL_UNITS.add(e.unit));
+    const sel = document.getElementById('journal-unit');
+    const wanted = sel.value;
+    const known = [...JOURNAL_UNITS].sort();
+    sel.innerHTML = '<option value="">all aitbc units</option>' +
+        known.map(u => `<option${u === wanted ? ' selected' : ''} value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+    if (entries.length === 0) {
+        box.innerHTML = body.journal_access === false
+            ? '<p class="loading">Journal not readable on this host yet (aitbc needs the systemd-journal group — deploying).</p>'
+            : '<p class="loading">No warning-or-worse journal entries from aitbc units in the window.</p>';
+        return;
+    }
+    box.innerHTML = `<table class="alerts-table">
+        <thead><tr><th>When</th><th>Level</th><th>Unit</th><th>Message</th></tr></thead>
+        <tbody>${entries.map(e => `<tr>
+            <td class="evt-time">${escapeHtml(e.timestamp_unix ? relTime(e.timestamp_unix) : '')}</td>
+            <td>${priBadge(e.priority, e.priority_name)}</td>
+            <td class="evt-name">${escapeHtml(e.unit)}</td>
+            <td class="evt-detail">${escapeHtml(e.message)}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+async function loadJournal() {
+    const unit = document.getElementById('journal-unit').value;
+    const priority = document.getElementById('journal-priority').value;
+    const qs = `priority=${encodeURIComponent(priority)}&limit=50${unit ? '&unit=' + encodeURIComponent(unit) : ''}`;
+    try {
+        const resp = await fetch(`${EXPLORER_API_URL}/api/journal/recent?${qs}`);
+        renderJournal(resp.ok ? await resp.json() : { entries: [], journal_access: false });
+    } catch (err) {
+        document.getElementById('journal-container').innerHTML =
+            `<p class="loading">Journal endpoint unreachable — ${escapeHtml(err.message || err)}</p>`;
+    }
+}
+
 async function loadAlerts() {
     try {
         const [liveResp, histResp] = await Promise.all([
@@ -155,9 +201,12 @@ async function loadAlerts() {
         document.getElementById('monitor-strip').innerHTML =
             `<span class="mon-bad">Alert API unreachable</span> — ${escapeHtml(err.message || err)}`;
     }
+    await loadJournal();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('journal-unit').addEventListener('change', loadJournal);
+    document.getElementById('journal-priority').addEventListener('change', loadJournal);
     loadAlerts();
     setInterval(loadAlerts, REFRESH_MS);
 });
