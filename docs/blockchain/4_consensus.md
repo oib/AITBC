@@ -153,6 +153,7 @@ VALIDATOR_SET='[{"address":"0x...","stake":"1000"}, ...]'   # JSON, same on all 
 VALIDATOR_KEYS='{"0x<address>":"<private key>"}'            # in validator-secrets.env
 MULTI_VALIDATOR_MIN_ATTESTATIONS=2        # attestation quorum on MV-PoA blocks
 MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS=1.0
+ATTESTATION_POST_QUORUM_LINGER_SECONDS=0.0 # extra collection time after quorum; 0 = seal at quorum
 CONSENSUS_VALIDATOR_SET_EPOCH_BLOCKS=7200 # epoch length for validator-set rotation
 CONSENSUS_ENFORCE_PROPOSER_SCHEDULE=true  # drop pre-prepares from off-schedule proposers
 
