@@ -9,6 +9,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.orm import raiseload
 from sqlmodel import select
 
 from ..config import settings
@@ -1093,7 +1094,10 @@ class BridgeTransferMixin(BridgeBase):
             # convergence -- are pinned by test_bridge_header_sync_bound.py.
             batch = max(1, int(getattr(settings, "bridge_header_sync_batch", 500)))
             new_blocks = session.exec(
+                # Only header fields are stored below — suppress the selectin
+                # transactions/receipts eager-loads, they are wasted work here.
                 select(Block)
+                .options(raiseload("*"))
                 .where(Block.chain_id == chain_id, Block.height >= start_height)
                 .order_by(Block.height.asc())  # type: ignore[attr-defined]
                 .limit(batch)

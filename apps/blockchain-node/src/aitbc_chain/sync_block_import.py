@@ -6,7 +6,7 @@ import json
 import time
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlmodel import Session, select
 
 from aitbc.parallel import DependencyGraph, ParallelExecutor
@@ -1142,18 +1142,25 @@ class BlockImportMixin(SyncBase):
         """Get current sync status and metrics."""
         with self._session_factory() as session:
             head = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+                select(Block.height, Block.hash, Block.proposer, Block.timestamp)
+                .where(Block.chain_id == self._chain_id)
+                .order_by(text("height DESC"))
+                .limit(1)
             ).first()
-            total_blocks = session.exec(select(Block).where(Block.chain_id == self._chain_id)).all()
-            total_txs = session.exec(select(ChainTransaction).where(ChainTransaction.chain_id == self._chain_id)).all()
+            # COUNT queries — the previous .all() loads hydrated every Block
+            # entity (plus selectin transactions/receipts) just to call len().
+            total_blocks = session.exec(select(func.count()).select_from(Block).where(Block.chain_id == self._chain_id)).one()
+            total_txs = session.exec(
+                select(func.count()).select_from(ChainTransaction).where(ChainTransaction.chain_id == self._chain_id)
+            ).one()
         return {
             "chain_id": self._chain_id,
-            "head_height": head.height if head else -1,
-            "head_hash": head.hash if head else None,
-            "head_proposer": head.proposer if head else None,
-            "head_timestamp": head.timestamp.isoformat() if head else None,
-            "total_blocks": len(total_blocks),
-            "total_transactions": len(total_txs),
+            "head_height": head[0] if head else -1,
+            "head_hash": head[1] if head else None,
+            "head_proposer": head[2] if head else None,
+            "head_timestamp": head[3].isoformat() if head else None,
+            "total_blocks": total_blocks,
+            "total_transactions": total_txs,
             "validate_signatures": self._validate_signatures,
             "trusted_proposers": list(self._validator.trusted_proposers),
             "max_reorg_depth": self._max_reorg_depth,
