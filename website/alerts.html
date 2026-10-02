@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Alerts - AITBC</title>
+    <meta name="description" content="Prometheus alerts firing across the AITBC fleet and the watcher event history">
+    <meta name="robots" content="index, follow">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/style.css?v=12">
+
+    <!-- External libraries -->
+    <script src="config.js"></script>
+    <script src="alerts.js?v=1"></script>
+</head>
+<body>
+    <div class="container">
+        <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/explorer-api/api/alerts">Alerts API</a> &middot; <a href="/explorer-api/api/alerts/history">event history</a> &middot; <a href="/llms.txt">llms.txt</a>.</p></noscript>
+        <header>
+            <div class="header-nav">
+                <a href="/">Home</a>
+                <a href="/explorer.html">Explorer</a>
+                <a href="/exchange.html">Exchange</a>
+                <a href="/marketplace.html">Marketplace</a>
+                <a href="/alerts.html">Alerts</a>
+            </div>
+            <h1>Network Alerts</h1>
+            <p class="subtitle">Prometheus alerts firing across the fleet, and the alert watcher's event log</p>
+        </header>
+
+        <div class="card">
+            <div id="monitor-strip" class="monitor-strip">Checking monitor status...</div>
+        </div>
+
+        <div class="card">
+            <h2>Firing Now</h2>
+            <div id="firing-container">
+                <p class="loading">Loading alerts...</p>
+            </div>
+            <div id="pending-container" style="display:none;">
+                <h3 class="alerts-subtitle">Pending (firing soon)</h3>
+                <div id="pending-list"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Recent Alert Events</h2>
+            <div id="events-container">
+                <p class="loading">Loading event history...</p>
+            </div>
+            <p class="alerts-updated" id="updated-note"></p>
+        </div>
+    </div>
+</body>
+</html>

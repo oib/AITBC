@@ -91,7 +91,7 @@ All anonymous-safe — no credential needed:
 
 | Endpoint | Backend | Used by |
 |----------|---------|---------|
-| `/explorer-api/api/**` | blockchain-explorer :8100 | explorer, blocks, tx, search, marketplace stats + reputation |
+| `/explorer-api/api/**` | blockchain-explorer :8100 | explorer, blocks, tx, search, alerts, marketplace stats + reputation |
 | `/v1/market/offer`, `/v1/market/status`, `/v1/market/jobs`, `/v1/market/analytics` | market :8102 | marketplace + both dashboards |
 | `/v1/market/gpu/list` | coordinator :8203 (public in security matrix) | shop dashboard GPU table |
 | `/v1/exchange/history`, `/exchange/price.json` | exchange :8106 | exchange page |
