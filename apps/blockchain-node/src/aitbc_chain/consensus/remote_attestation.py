@@ -310,10 +310,19 @@ class RemoteAttestationService:
         try:
             session_ctx = self._session_factory()
             with session_ctx as session:
-                tip = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC"))).first()
-                if tip is None:
+                # Column-only select: loading the Block ORM entity would
+                # eager-load its selectin relationships (transactions and
+                # receipts) and cost seconds per request on a slow host.
+                tip_row = session.exec(
+                    select(Block.height, Block.hash)
+                    .where(Block.chain_id == self._chain_id)
+                    .order_by(text("height DESC"))
+                    .limit(1)
+                ).first()
+                if tip_row is None:
                     return "not_at_parent"
-                if tip.hash != parent_hash:
+                tip_height, tip_hash = tip_row
+                if tip_hash != parent_hash:
                     # Late request for the block this validator already
                     # imported: the request's hash IS the local head at that
                     # height. The parent-binding/nonce checks below cannot
@@ -323,7 +332,7 @@ class RemoteAttestationService:
                     # A RIVAL at the same height still refuses: tip.height
                     # matches but tip.hash != header hash falls through to
                     # not_at_parent, which is the fork protection working.
-                    if tip.height == height and tip.hash == header_hash:
+                    if tip_height == height and tip_hash == header_hash:
                         return None
                     return "not_at_parent"
 
