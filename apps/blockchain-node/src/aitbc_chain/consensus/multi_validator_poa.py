@@ -155,6 +155,7 @@ class MultiValidatorPoA:
         validator = self.validators[address]
         validator.is_active = False
         validator.role = ValidatorRole.STANDBY
+        self.save_state()
         return True
 
     def select_proposer(self, block_height: int, round_number: int = 0) -> str | None:
@@ -367,6 +368,9 @@ class MultiValidatorPoA:
                         >= settings.consensus_byzantine_threshold
                     ):
                         self.validators[validator].is_active = False
+                        # Persist the deactivation — a restart must not clear
+                        # a byzantine verdict and reset the slash history.
+                        self.save_state()
                 return True
 
         return False
@@ -382,7 +386,10 @@ class MultiValidatorPoA:
         if new_epoch != self._current_epoch:
             self._current_epoch = new_epoch
             if self._rotation.should_rotate(current_height):
-                return self._rotation.rotate_validators(current_height)
+                rotated = self._rotation.rotate_validators(current_height)
+                if rotated:
+                    self.save_state()
+                return rotated
         return False
 
     def get_state_snapshot(self) -> dict[str, Any]:
@@ -473,8 +480,9 @@ class MultiValidatorPoA:
         """Persist consensus state to DB (survives node restart).
 
         Saves validator set, PBFT view/sequence, epoch, and slashing
-        history to the ConsensusState table. Called after each consensus
-        round and on graceful shutdown.
+        history to the ConsensusState table. Called at init, after every
+        validator-set mutation (removal, byzantine deactivation, epoch
+        rotation), and on graceful shutdown.
         """
         import json
 
@@ -531,6 +539,10 @@ class MultiValidatorPoA:
                             slashing_events_json=json.dumps(slashing_events),
                         )
                     )
+                # session_scope closes without committing — without this the
+                # write above was silently rolled back on every call and
+                # consensus_state stayed empty fleet-wide.
+                session.commit()
             return True
         except Exception as e:
             logger.error("Failed to save consensus state for %s: %s", self.chain_id, e)
@@ -570,6 +582,27 @@ class MultiValidatorPoA:
             except (KeyError, ValueError) as e:
                 logger.warning("Skipping unreadable slashing record %s: %s", record, e)
         return events
+
+    def deactivate_absent_from(self, env_addresses: set[str]) -> list[str]:
+        """Mark validators missing from the env set inactive; return their addresses.
+
+        The persisted ConsensusState row would otherwise keep a validator that
+        was dropped from ``VALIDATOR_SET`` alive in the proposer rotation
+        forever: ``load_state`` restores the row and ``add_validator`` only
+        knows how to add. Env stays the membership source of truth — this
+        applies the removal side. A validator that is env-present but
+        row-inactive stays inactive: re-enabling a deactivated validator is a
+        deliberate act, not an env diff.
+        """
+        deactivated = []
+        for addr, validator in self.validators.items():
+            if addr not in env_addresses and validator.is_active:
+                validator.is_active = False
+                validator.role = ValidatorRole.STANDBY
+                deactivated.append(addr)
+        if deactivated:
+            self.save_state()
+        return deactivated
 
     def _load_validator_set_from_settings(self) -> bool:
         """Load validators from settings when no persisted state is available."""
