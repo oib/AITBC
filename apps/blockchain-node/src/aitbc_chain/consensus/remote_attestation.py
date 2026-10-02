@@ -514,22 +514,44 @@ class RemoteAttestationService:
                     break
                 if not isinstance(response, dict):
                     continue
-                if response.get("chain_id") != self._chain_id or response.get("hash") != block.hash:
+                if response.get("chain_id") != self._chain_id:
                     continue
+                # One INFO line per response that reaches the collector, with its
+                # arrival time, so the order and the delay in which validators
+                # answer can be read from the journal (V-9: one validator attests
+                # in ~3% of blocks, and the proposer keeps only the first answers).
+                # The loop stops at min_count, so a response that comes later than
+                # the kept ones is never read here; one for an earlier block that
+                # lands in this window is logged as stale.
+                arrived_ms = int((time.monotonic() - start) * 1000)
                 validator = response.get("validator", "")
+                if response.get("hash") != block.hash:
+                    logger.info(
+                        "Attestation arrival: height=%s validator=%s arrived_ms=%d outcome=stale response_height=%s",
+                        block.height,
+                        validator,
+                        arrived_ms,
+                        response.get("height"),
+                    )
+                    continue
                 signature = response.get("signature", "")
                 if not validator or not signature:
                     continue
+                outcome = "invalid_signature"
                 try:
                     if verify_block_signature(header, signature, validator):
                         attestations.append({"validator": validator, "signature": signature})
-                        logger.debug(
-                            "Collected valid attestation from %s for height %s",
-                            validator,
-                            block.height,
-                        )
+                        outcome = f"valid rank={len(attestations)}"
                 except Exception as e:
                     logger.warning("Failed to verify attestation from %s: %s", validator, e)
+                    outcome = "verify_error"
+                logger.info(
+                    "Attestation arrival: height=%s validator=%s arrived_ms=%d outcome=%s",
+                    block.height,
+                    validator,
+                    arrived_ms,
+                    outcome,
+                )
                 if len(attestations) >= min_count:
                     break
         finally:
