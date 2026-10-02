@@ -64,9 +64,11 @@ def mock_request():
 
 @pytest.fixture
 def v8_active(monkeypatch):
-    """v8 advisory semantics active from height 1 (v7 far above test heights)."""
+    """v8 advisory semantics active from height 1 (v7 off; v9/v10 unpinned so they never outrank v8)."""
     monkeypatch.setattr(settings, "state_transition_v8_height", 1)
     monkeypatch.setattr(settings, "state_transition_v7_height", 0)
+    monkeypatch.setattr(settings, "state_transition_v9_height", None)
+    monkeypatch.setattr(settings, "state_transition_v10_height", None)
     return settings
 
 
@@ -174,9 +176,7 @@ async def test_import_correct_stamp_accepted(isolated_engine, mock_request, v8_a
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()
 
-    result = await rpc_blocks.import_block(
-        mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(8))
-    )
+    result = await rpc_blocks.import_block(mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(8)))
 
     assert result["success"] is True
     assert result["accepted"] is True
@@ -193,9 +193,7 @@ async def test_import_stale_stamp_tolerated(isolated_engine, mock_request, v8_ac
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()
 
-    result = await rpc_blocks.import_block(
-        mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(7))
-    )
+    result = await rpc_blocks.import_block(mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(7)))
 
     assert result["success"] is True
     assert result["accepted"] is True
@@ -220,8 +218,6 @@ async def test_import_stamp_governs_below_activation(isolated_engine, mock_reque
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()
 
-    result = await rpc_blocks.import_block(
-        mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(5))
-    )
+    result = await rpc_blocks.import_block(mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(5)))
 
     assert result["success"] is True
