@@ -158,7 +158,7 @@ class TestGetChainId:
         result = get_chain_id("http://localhost:8202", timeout=10)
 
         assert result == "ait-devnet"
-        mock_get_from_health.assert_called_once_with("http://localhost:8202", 10)
+        mock_get_from_health.assert_called_once_with("http://localhost:8202", 10, strict=False)
 
 
 if __name__ == "__main__":

@@ -162,7 +162,7 @@ class TestGetChainId:
         result = get_chain_id("http://localhost:8202")
 
         assert result == "ait-mainnet"
-        mock_get_from_health.assert_called_once_with("http://localhost:8202", 5)
+        mock_get_from_health.assert_called_once_with("http://localhost:8202", 5, strict=False)
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_custom_timeout(self, mock_get_from_health):
@@ -172,7 +172,7 @@ class TestGetChainId:
         result = get_chain_id("http://localhost:8202", timeout=15)
 
         assert result == "ait-testchain.local"
-        mock_get_from_health.assert_called_once_with("http://localhost:8202", 15)
+        mock_get_from_health.assert_called_once_with("http://localhost:8202", 15, strict=False)
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_override_none(self, mock_get_from_health):
