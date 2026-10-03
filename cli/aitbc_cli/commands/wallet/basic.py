@@ -754,8 +754,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         # configured a non-local blockchain RPC.
         if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
             hub_rpc = (
-                getattr(config, "hub_blockchain_rpc_url", None)
-                or f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+                getattr(config, "hub_blockchain_rpc_url", None) or f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
             )
             if hub_rpc:
                 hub_rpc = hub_rpc.rstrip("/")
@@ -764,26 +763,37 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
                 if hub_rpc:
                     rpc_url = hub_rpc
 
-    # Get chain_id from RPC
-    try:
-        from ...utils.chain_id import get_chain_id
+    # Get chain_id: an explicit --chain-id or CHAIN_ID wins over the lookup;
+    # otherwise the RPC this transaction will be submitted to must advertise
+    # one. Never sign with a silent default — a wrong or empty chain id lands
+    # as an unrelated admission error only after the tx is already signed.
+    import os
 
-        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-    except Exception as e:
-        import os
+    chain_id = (ctx.obj or {}).get("chain_id_explicit") or os.getenv("CHAIN_ID") or ""
+    if not chain_id:
+        try:
+            from ...utils.chain_id import get_chain_id
 
-        logger.debug("chain_id lookup via %s failed, falling back to env: %s", rpc_url, e)
-        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5, strict=True)
+        except Exception as e:
+            error(
+                f"Chain ID lookup via {rpc_url} failed: {e}. "
+                "Pass --chain-id or set CHAIN_ID, or point --rpc-url at a serving node"
+            )
+            raise click.Abort() from e
 
-    # Get actual nonce from blockchain
-    actual_nonce = 0
+    # Get actual nonce from blockchain. A failed lookup must not mean nonce 0:
+    # the wrong nonce produces an already-signed transaction the chain refuses.
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
         account_data = http_client.get(f"/rpc/account/{sender_address}")
         actual_nonce = account_data.get("nonce", 0)
     except Exception as e:
-        logger.debug("nonce lookup for %s failed, defaulting to 0: %s", sender_address, e)
-        actual_nonce = 0
+        error(
+            f"Nonce lookup for {sender_address} via {rpc_url} failed: {e}. "
+            "Check the node is serving this account or pass --rpc-url"
+        )
+        raise click.Abort() from e
 
     # Get private key for signing
     try:
