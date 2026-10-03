@@ -1,0 +1,29 @@
+[Unit]
+Description=AITBC unlanded escrow settlements for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=aitbc-blockchain-node.service
+
+[Service]
+Type=oneshot
+# Escrow rows are per-node bookkeeping in the node's own chain.db, so this
+# timer runs on every host -- not hub-only like aitbc-authority-balances.
+# AITBC_CHAIN_DB pins one database when set; otherwise every
+# $AITBC_DATA_DIR/data/*/chain.db is checked and the findings unioned.
+Environment=AITBC_DATA_DIR=/var/lib/aitbc
+Environment=AITBC_ESCROW_SETTLEMENT_MAX_AGE_SECONDS=900
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/escrow-settlements-textfile.py
+# Exits 1 when a chain.db could not be checked (scrape_success reports which),
+# 2 on bad config or no chain.db at all.
+SyslogIdentifier=aitbc-escrow-settlements
+
+# Reads local sqlite files and writes one file in the textfile directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ReadOnlyPaths=/var/lib/aitbc
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true

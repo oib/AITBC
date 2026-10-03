@@ -212,3 +212,38 @@ groups:
         annotations:
           summary: "Journal-error collector has stopped ({{ $labels.instance }})"
           description: "aitbc_journal_scan_timestamp_seconds is absent or older than ten minutes on {{ $labels.instance }} — aitbc_journal_error_messages is frozen, so AITBCJournalErrors cannot see new service errors. Check systemctl status aitbc-journal-errors.timer."
+
+      # EscrowSettlementUnlanded: S-8 remedy 3. Escrow rows are marked
+      # released/refunded at RPC acceptance, but a settlement evaluated before
+      # its lock's block is dropped at production and never re-driven -- the
+      # row serves a dead hash forever while custody sits unresolved (15 such
+      # rows exist fleet-wide). aitbc-escrow-settlements.timer reads each
+      # host's local chain.db (escrow rows are per-node bookkeeping) and counts
+      # rows whose stored settlement hash is absent from the sealed
+      # transaction table past the exporter's age threshold (900s default --
+      # ~15x the largest observed submit-before-lock gap). Repair path:
+      # TOPOLOGY/2026-10-03-s8-remedy2-design.md.
+      - alert: EscrowSettlementUnlanded
+        expr: aitbc_escrow_unlanded_settlements > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Unlanded escrow settlement on {{ $labels.instance }} ({{ $value }} rows)"
+          description: "An escrow row on {{ $labels.instance }} is marked released/refunded but its settlement hash never sealed — a dead hash is being served and custody is unresolved (provider unpaid or buyer unrefunded). The aitbc_escrow_unlanded_settlement{job_id,kind} series names the rows; repair per the S-8 remedy-2 path."
+
+      # EscrowSettlementCheckStale: the check itself must run -- a stopped
+      # exporter puts the dead-hash disease back in the dark. Same shape as
+      # AITBCJournalScanStale: requires the timer on every host it fires on;
+      # a host where it was never installed has no series and is invisible
+      # here, so deploy coverage is checked separately.
+      - alert: EscrowSettlementCheckStale
+        expr: |
+          absent(aitbc_escrow_settlement_scrape_timestamp_seconds)
+          or time() - aitbc_escrow_settlement_scrape_timestamp_seconds > 600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Escrow settlement check has stopped ({{ $labels.instance }})"
+          description: "aitbc_escrow_settlement_scrape_timestamp_seconds is absent or older than ten minutes on {{ $labels.instance }} — unlanded settlements are invisible on this host again. Check systemctl status aitbc-escrow-settlements.timer."
