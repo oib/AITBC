@@ -1056,7 +1056,7 @@ mid-load.
 violations and is green again. `scripts/multi-node/partition-fork-test.sh`
 hardcoded the operator fleet's hostnames/IPs and was removed from the repo
 (operator tooling, kept in the private workbench). Scrubbed the stray
-`at1`/`ns2`/`ns3`/`netcup` tokens, the retired-hub FQDN, and LAN addresses
+the operator host tokens, the retired-hub FQDN, and LAN addresses
 from this changelog and `fleet-config-check.sh` comments (the script
 itself is already parameterised via `AITBC_FLEET_HOSTS`/`AITBC_FLEET_DOMAIN`).
 `test_coin_request_rate_limit.py` fixture IPs moved to the RFC 5737
@@ -1242,7 +1242,7 @@ anchored by checkpoints, not by re-validation.
 
 Timeline (UTC): 21:59:14 hub applies canary GPU_MARKETPLACE 0xf263f881e54f
 in block 27207 (recorded root 0xb67f4cbe…). 21:59:16–17 hub's own sync
-manager runs "delta sync from https://hub1.aitbc.bubuit.net 27205→27206"
+manager runs "delta sync from https://<sync-source>.aitbc.bubuit.net 27205→27206"
 and logs "1 accounts changed, state root matches" — matching block 27206's
 root, which is exactly the problem: the delta overwrote the canary
 account's committed 27207 state with its 27206 state. 22:00:24 hub and
