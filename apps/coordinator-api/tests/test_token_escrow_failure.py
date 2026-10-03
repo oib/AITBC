@@ -6,7 +6,10 @@ the payment kept its ``pending`` default. The purchase endpoint only rolls
 the booking back on ``failed``/``skipped``, so the buyer got HTTP 200
 "purchased" with no escrow behind it and the job queued to its TTL. These
 tests pin the failure semantics: the payment is marked ``failed`` with a
-sanitized, classified reason.
+sanitized, classified reason — and, for the ambiguous kinds (a lost POST
+response may still have committed the lock), an escrow lookup runs first so
+a landed lock is adopted as ``escrowed``, confirmed absence is retriable,
+and an unreadable state is ``funding_unknown`` rather than falsely clean.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ import httpx
 import pytest
 from sqlmodel import Session, select
 
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AmbiguousRequestError, NetworkError
 from aitbc_shared import JobPayment, PaymentEscrow
 
 from coordinator_api.contexts.infrastructure.domain.job import Job
@@ -94,12 +97,24 @@ def test_node_422_refusal_marks_payment_failed(mock_client_cls, payment_session)
     assert escrows == []
 
 
+def _node_404_error() -> NetworkError:
+    """The escrow GET 404s when no row exists — wrapped as NetworkError."""
+    return _network_error_from_status(404, {"detail": "escrow not found"})
+
+
+def _chain_lock_txs(*tx_hashes: str, job_id: str) -> list[dict]:
+    """Transactions the /rpc/transactions lookup returns for ESCROW_LOCK."""
+    return [{"tx_hash": h, "payload": {"job_id": job_id}} for h in tx_hashes]
+
+
 @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
 def test_node_500_marks_payment_failed_unavailable(mock_client_cls, payment_session):
     """A 5xx is retryable: failed, reported generically (no node detail leak)."""
     job = _make_job(payment_session, "job-refuse-500")
     mock_client = MagicMock()
     mock_client.post = AsyncMock(side_effect=_network_error_from_status(500, {"detail": "internal trace: /srv/node/db"}))
+    mock_client.get = AsyncMock(side_effect=_node_404_error())
+    mock_client.get_json = AsyncMock(return_value=[])
     mock_client_cls.return_value = mock_client
 
     payment = _create(payment_session, job.id, _payment_data(job.id))
@@ -116,6 +131,8 @@ def test_connect_error_marks_payment_failed_unavailable(mock_client_cls, payment
     job = _make_job(payment_session, "job-conn-error")
     mock_client = MagicMock()
     mock_client.post = AsyncMock(side_effect=NetworkError("POST request failed: connect timeout"))
+    mock_client.get = AsyncMock(side_effect=_node_404_error())
+    mock_client.get_json = AsyncMock(return_value=[])
     mock_client_cls.return_value = mock_client
 
     payment = _create(payment_session, job.id, _payment_data(job.id))
@@ -171,3 +188,83 @@ def test_successful_escrow_still_escrows(mock_client_cls, payment_session):
     assert payment.escrow_address == "0xescrow123"
     escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
     assert len(escrows) == 1
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_ambiguous_post_recovers_escrowed_when_lock_landed(mock_client_cls, payment_session):
+    """Response lost after commit: the escrow record shows the lock → escrowed."""
+    job = _make_job(payment_session, "job-ambiguous-recover")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(side_effect=AmbiguousRequestError("outcome unknown"))
+    mock_client.get = AsyncMock(return_value={"contract_id": "0xescrowA", "lock_tx_hash": "0xlock1", "state": "funded"})
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "escrowed"
+    assert payment.escrow_address == "0xescrowA"
+    assert payment.meta_data["escrow_recovered"] is True
+    assert payment.meta_data["escrow_lock_tx_hash"] == "0xlock1"
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert len(escrows) == 1
+    updated_job = payment_session.get(Job, job.id)
+    assert updated_job.payment_status == "escrowed"
+    mock_client.get_json.assert_not_called()  # record hit — no chain fallback needed
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_ambiguous_post_recovers_via_chain_when_row_missing(mock_client_cls, payment_session):
+    """Row write lost but lock sealed: the chain lookup still finds it → escrowed."""
+    job = _make_job(payment_session, "job-ambiguous-chain")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(side_effect=AmbiguousRequestError("outcome unknown"))
+    mock_client.get = AsyncMock(side_effect=_node_404_error())
+    mock_client.get_json = AsyncMock(return_value=_chain_lock_txs("0xlock9", job_id=job.id))
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "escrowed"
+    assert payment.meta_data["escrow_recovered"] is True
+    assert payment.meta_data["escrow_lock_tx_hash"] == "0xlock9"
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert len(escrows) == 1
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_ambiguous_post_marks_failed_unavailable_when_no_lock(mock_client_cls, payment_session):
+    """Response lost and nothing committed: confirmed absent → failed, retriable."""
+    job = _make_job(payment_session, "job-ambiguous-none")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(side_effect=AmbiguousRequestError("outcome unknown"))
+    mock_client.get = AsyncMock(side_effect=_node_404_error())
+    mock_client.get_json = AsyncMock(return_value=[])
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "unavailable"
+    assert "retried" in payment.meta_data["escrow_error"]
+    mock_client.get.assert_called_once()  # the lock lookup ran before the mark
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert escrows == []
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_ambiguous_post_marks_funding_unknown_when_lookup_fails(mock_client_cls, payment_session):
+    """Lock lookup unreadable: funding state is unknown, never a clean retry."""
+    job = _make_job(payment_session, "job-ambiguous-unknown")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(side_effect=AmbiguousRequestError("outcome unknown"))
+    mock_client.get = AsyncMock(side_effect=NetworkError("GET request failed: connect timeout"))
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "funding_unknown"
+    assert job.id in payment.meta_data["escrow_error"]
+    assert "may have landed" in payment.meta_data["escrow_error"]
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert escrows == []
