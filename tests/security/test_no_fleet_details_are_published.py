@@ -54,7 +54,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 # Names of specific machines and of the hosting they run on. None of these is a
 # word that legitimate code or documentation needs.
-INTERNAL_HOST_TOKENS = ["at1", "ns3", "netcup"]
+INTERNAL_HOST_TOKENS = ["at1", "ns2", "ns3", "netcup"]
 
 # A host-ordinal label in front of a registrable domain: `hub1.example-corp.net`.
 # RFC 2606 reserves `example.*` for documentation, so those are the intended form
@@ -162,7 +162,7 @@ def _scan(
 
 @pytest.mark.parametrize("token", INTERNAL_HOST_TOKENS)
 def test_no_internal_infrastructure_host_is_named(token: str) -> None:
-    """`at1` is the container host, `ns3`/`netcup` are the two perimeters."""
+    """`at1` is the container host, `ns2`/`ns3`/`netcup` are the three perimeters."""
     hits = _scan(re.compile(rf"\b{re.escape(token)}\b", re.IGNORECASE))
     assert not hits, (
         f"{token!r} names a machine in the operator's fleet; use a role word or a "
