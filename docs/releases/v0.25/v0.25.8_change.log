@@ -343,7 +343,7 @@ Deployed on hub: `website.env` carries the canonical values, render is a no-op k
 
 ### 0adca3b16 fix(fleet-check): host identity, full-reach gate, no abort on one ssh failure; faucet `=inf` guard
 
-- `fleet-config-check.sh` accepted the first ssh candidate that answered as the host. From a fleet node `hub.<domain>` resolves to the `ns2` edge box, which answers ssh — hub's env would have been read from the jump host. Candidates now must match `hostname -s`; a wrong identity prints a NOTE and is ignored (verified from node2: `hub.aitbc.bubuit.net answers as 'ns2', not 'hub' — ignored`).
+- `fleet-config-check.sh` accepted the first ssh candidate that answered as the host. From a fleet node `hub.<domain>` resolves to the edge VPS box, which answers ssh — hub's env would have been read from the jump host. Candidates now must match `hostname -s`; a wrong identity prints a NOTE and is ignored (verified from node2: `hub.aitbc.bubuit.net answers as the edge host, not 'hub' — ignored`).
 - Env sections were gated on "any host answers"; now they run only when every host verified, otherwise `NOTE: no verified ssh reach to: <hosts> — env sections SKIPPED` and the convergence section still runs to a clean exit. The `ENVFILES` ssh assignment no longer aborts the run under `set -e`. From node2 the script now completes (env skipped, convergence `No drift`), matching the AGENTS.md "skipped by design" note.
 - `coin_request_policy._env_ait` also catches `OverflowError`: `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=inf` was a 500 on every `/register`; it now falls back to the default with a warning. Deployed to hub/hub1.
 
@@ -639,10 +639,10 @@ Fleet nginx edge audit found four live defects; all fixed and verified:
   last XFF element is edge-appended and trustworthy; recursion would honour
   client-injected entries). Verified: request from hub logs `152.53.242.245`.
 - **WS idle teardown asymmetry** — hub1's edge granted 3600s on
-  `/rpc/{subscribe,gossip}/ws` + `/agent/`; hub's edge (ns2) and the IDE
+  `/rpc/{subscribe,gossip}/ws` + `/agent/`; hub's edge host and the IDE
   edges (node0/1/2) fell back to the 60s default, silently tearing idle
   gossip/subscribe/agent-SSE streams. Matching 3600s blocks deployed to
-  ns2 and all three IDE confs.
+  hub's edge conf and all three IDE confs.
 - **hub1 edge catch-all could not WS-upgrade** — missing
   `proxy_http_version 1.1` + Upgrade headers degraded non-whitelisted WS
   paths to HTTP/1.0. Fixed.
