@@ -31,7 +31,7 @@ def _governance_rpc(ctx: click.Context) -> tuple[AITBCHTTPClient, str]:
     from aitbc_cli.commands.wallet.staking import _get_chain_id, _get_rpc_url
 
     rpc_url = _get_rpc_url(ctx)
-    return AITBCHTTPClient(base_url=rpc_url, timeout=10), _get_chain_id(rpc_url)
+    return AITBCHTTPClient(base_url=rpc_url, timeout=10), _get_chain_id(ctx, rpc_url)
 
 
 def _get_governance_account(http_client: AITBCHTTPClient, address: str, chain_id: str) -> dict:
@@ -130,7 +130,12 @@ def governance():
 @click.option("--proposer-address", default="", help="Proposer wallet address (for on-chain submission)")
 @click.option("--params", default=None, help="JSON-encoded parameters for parameter_change proposals")
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
-@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)",
+)
 @click.option("--password", default=None, help="Wallet password")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -231,7 +236,9 @@ def propose(
 @click.option(
     "--voting-power", type=float, default=0.0, help="Voting power (auto-calculated from on-chain balance if enabled)"
 )
-@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)")
+@click.option(
+    "--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)"
+)
 @click.option("--password", default=None, help="Wallet password")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -336,7 +343,12 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--executor-address", default="", help="Executor wallet address (for on-chain execution)")
-@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)",
+)
 @click.option("--password", default=None, help="Wallet password")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context

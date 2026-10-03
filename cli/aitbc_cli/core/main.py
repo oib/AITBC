@@ -349,6 +349,10 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
 
     default_rpc_url = url.replace("/api", "") if url else "http://127.0.0.1:8202"
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
+    # The raw flag value, kept separately: ctx.obj["chain_id"] conflates
+    # explicit, env and auto-detected values, and signing paths must be able
+    # to tell an explicit choice from a silent default.
+    ctx.obj["chain_id_explicit"] = chain_id
 
 
 # Add commands to CLI
