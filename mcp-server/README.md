@@ -333,6 +333,11 @@ connects to it.
 
 * Destructive tools are dry-run by default.
 * Even when `dry_run=false`, the tool requires `confirm=true`.
+* Dry-run previews, confirmation-required responses, and command results all
+  report where the call would run or did run: `host` (the resolved host),
+  `target` (the SSH `user@host` or `local`), and `mode` (`ssh` or `local`).
+  Check `target` before confirming — a role mapping that resolves to a
+  jump host or the wrong node shows up there.
 * Arbitrary commands are parsed with `shlex` and disallowed shell
   metacharacters are rejected.
 * SSH connections use strict host-key checking. New keys are not silently
