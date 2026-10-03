@@ -77,6 +77,7 @@ def _config(native_chain_id=""):
     c.coordinator_api_url = "http://localhost:8203"
     c.energy_operator_address = None
     c.energy_quote_domain = DOMAIN
+    c.energy_max_rate_age_seconds = 86400  # real int: int > MagicMock comparison crashes in verify_quote
     c.energy_pricing_contract_address = None
     c.evm_rpc_url = None
     return c
@@ -102,7 +103,7 @@ def _invoke(runner, args, obj=None):
     return runner.invoke(market, args, obj=base)
 
 
-QUOTE_ARGS = ["gpu", "quote", "--gpu-id", "g1", "--buyer-id", "b1"]
+QUOTE_ARGS = ["gpu", "quote", "--gpu-id", "g1", "--buyer-id", ACCOUNT]
 
 
 def _quote_patches(config, result_quote_dict):
@@ -125,7 +126,7 @@ def _buy_args(tmp_path, quote_dict):
         "--gpu-id",
         "g1",
         "--buyer-id",
-        "b1",
+        ACCOUNT,
         "--job-id",
         "job-1",
         "--duration-hours",
