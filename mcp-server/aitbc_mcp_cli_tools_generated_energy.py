@@ -319,6 +319,12 @@ def aitbc_energy_suggest(
     region: Annotated[str | None, Field(description="Region code for the tariff table (or SHOP_REGION env)")],
     eur_per_kwh: Annotated[float | None, Field(description="Electricity tariff in EUR/kWh (or ENERGY_EUR_PER_KWH env)")],
     ait_per_eur: Annotated[float | None, Field(description="AIT/EUR rate override (default: on-chain rate, else 4.0)")],
+    margin_pct: Annotated[
+        float | None,
+        Field(
+            description="Cost-plus anchor: energy floor plus this margin % (the cost-way price; the multiplier is the value-way one)"
+        ),
+    ],
     duration_seconds: Annotated[int | None, Field(description="Floor horizon in seconds (default 1h)")],
     resource_id: Annotated[str | None, Field(description="Resource ID used in the printed registration command / --register")],
     provider_address: Annotated[str | None, Field(description="Provider wallet address (required for --register)")],
@@ -349,6 +355,7 @@ def aitbc_energy_suggest(
             "region": "region",
             "eur_per_kwh": "eur-per-kwh",
             "ait_per_eur": "ait-per-eur",
+            "margin_pct": "margin-pct",
             "duration_seconds": "duration-seconds",
             "resource_id": "resource-id",
             "provider_address": "provider-address",

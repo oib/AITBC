@@ -99,6 +99,29 @@ This table is code-backed in `aitbc/market/hardware_catalog.py`
 per-model TBP table (`GPU_TBP_W`) to derive a shop's suggested AIT/hour.
 Keep both files in sync when adjusting the model.
 
+## Pricing Anchors — cost way and value way
+
+`aitbc energy suggest` prints three numbers so the shop owner picks
+deliberately rather than accepting one suggestion:
+
+- **Energy floor** — `registered_watts × tariff × AIT/EUR`, the minimum net
+  payout a settlement guarantees. The protocol enforces this side only.
+- **Cost+margin** — floor × (1 + `--margin-pct`/100), the *cost way*: "my
+  electricity, plus my margin". Default +100 % lands near the reference hour
+  on the reference rig (floor ≈ 0.46 AIT/h → cost-plus ≈ 0.92 AIT/h ≈ 1 AIT).
+  For a rig outside the catalog there is no multiplier, so this is the only
+  anchor — e.g. a rig whose costs run double the reference lists its item at
+  ≈ 2 AIT/h.
+- **Suggested (multiplier × 1 AIT/h)** — the *value way*: what the market
+  anchor says the compute is worth, keyed on GPU model, not watts. An H100
+  is 10× the compute without drawing 10× the watts — the two anchors
+  diverging is normal and expected.
+
+The offer price is the owner's choice anywhere at or above the floor; the
+gap between the price and the floor is the margin. Bundled hardware+software
+offers put software/service value into the principal — the floor covers
+watts only.
+
 ## Unit System
 
 **Important**: The blockchain internally uses **compute-units** as the base unit, where **1 AIT = 36,000,000 compute-units**.

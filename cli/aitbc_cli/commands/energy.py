@@ -817,6 +817,13 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
 @click.option("--region", help="Region code for the tariff table (or SHOP_REGION env)")
 @click.option("--eur-per-kwh", type=float, help="Electricity tariff in EUR/kWh (or ENERGY_EUR_PER_KWH env)")
 @click.option("--ait-per-eur", type=float, help="AIT/EUR rate override (default: on-chain rate, else 4.0)")
+@click.option(
+    "--margin-pct",
+    type=float,
+    default=100.0,
+    show_default=True,
+    help="Cost-plus anchor: energy floor plus this margin % (the cost-way price; the multiplier is the value-way one)",
+)
 @click.option("--duration-seconds", type=int, default=3600, help="Floor horizon in seconds (default 1h)")
 @click.option("--resource-id", help="Resource ID used in the printed registration command / --register")
 @click.option("--provider-address", help="Provider wallet address (required for --register)")
@@ -839,6 +846,7 @@ def suggest(
     region,
     eur_per_kwh,
     ait_per_eur,
+    margin_pct,
     duration_seconds,
     resource_id,
     provider_address,
@@ -854,8 +862,10 @@ def suggest(
 
     Probes the local node (nvidia-smi power limit = real GPU TBP, lscpu CPU
     model), sums the whole-node draw, applies the electricity tariff, and
-    prints the resulting energy floor plus the compute-multiplier market
-    price suggestion (1 AIT = one reference compute-hour = EUR 0.25).
+    prints the resulting energy floor plus two price anchors: the cost-way
+    anchor (floor + --margin-pct) and, for catalog GPUs, the compute-
+    multiplier market suggestion (1 AIT = one reference compute-hour = EUR
+    0.25). The offer price above the floor is the owner's decision.
     """
     from aitbc.market.energy_pricing import (
         FIXED_POINT_SCALE,
@@ -895,6 +905,10 @@ def suggest(
 
     mult = compute_multiplier(model_key or None)
     suggested = mult if mult is not None else None
+    # Cost-way anchor: energy floor plus the owner's margin. For non-catalog
+    # rigs there is no multiplier, so this is the price the apply-hint uses.
+    cost_plus = floor_per_hour * (Decimal(1) + Decimal(str(margin_pct)) / Decimal(100))
+    price_hint = suggested if suggested is not None else cost_plus
 
     data = {
         "gpu_model": model_key or None,
@@ -916,6 +930,9 @@ def suggest(
         "node_eur_per_hour": str(node_eur_hour),
         "compute_multiplier": str(mult) if mult is not None else None,
         "suggested_ait_per_hour": str(suggested) if suggested is not None else None,
+        "margin_pct": str(margin_pct),
+        "cost_plus_ait_per_hour": str(cost_plus),
+        "price_hint_ait_per_hour": str(price_hint),
     }
     if json_output:
         output(json.dumps(data, indent=2))
@@ -928,12 +945,15 @@ def suggest(
         info(f"Tariff:        {tariff} EUR/kWh ({tariff_src})")
         info(f"AIT/EUR:       {rate} ({rate_src})")
         info(f"Energy floor:  {floor_per_hour:.4f} AIT/h ({node_eur_hour:.4f} EUR/h node electricity)")
+        info(f"Cost+margin:   {cost_plus:.4f} AIT/h (floor +{margin_pct:g}%, the cost-way anchor)")
         if suggested is not None:
             info(f"Suggested:     {suggested} AIT/h (compute multiplier {suggested}x = EUR {suggested * Decimal('0.25')}/h)")
             if suggested < floor_per_hour:
                 warning(f"Suggested price is below the energy floor ({floor_per_hour:.4f} AIT/h) — raise tariff margin")
         else:
-            warning("No compute multiplier for this GPU model — set price manually at or above the floor")
+            warning(
+                f"No compute multiplier for this GPU model — the cost-plus anchor ({cost_plus:.4f} AIT/h) is the price hint; pick your own margin with --margin-pct"
+            )
         info("")
         rid = resource_id or "<resource-id>"
         prov = provider_address or "<provider-address>"
@@ -952,8 +972,7 @@ def suggest(
                     f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff}"
                 )
                 info("  (posts the profile to the coordinator's native-energy endpoint)")
-        if suggested is not None:
-            info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {suggested}}}'")
+        info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {price_hint:.4f}}}'")
 
     if register:
         _register_suggestion(
