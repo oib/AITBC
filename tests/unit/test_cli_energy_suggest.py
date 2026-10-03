@@ -63,6 +63,24 @@ def test_suggest_reference_rig(runner, probed):
     floor = float(data["energy_floor_ait_per_hour"])
     assert 0.50 < floor < 0.52
     assert data["suggested_ait_per_hour"] == "1.0"
+    # cost-way anchor: floor +100% by default; value way wins the price hint
+    assert data["margin_pct"] == "100.0"
+    cost_plus = float(data["cost_plus_ait_per_hour"])
+    assert cost_plus == pytest.approx(floor * 2, rel=1e-6)
+    assert data["price_hint_ait_per_hour"] == "1.0"
+
+
+def test_suggest_margin_pct_override(runner, probed):
+    result = runner.invoke(
+        energy,
+        ["suggest", "--region", "de", "--margin-pct", "44", "--json-output"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    floor = float(data["energy_floor_ait_per_hour"])
+    assert data["margin_pct"] == "44.0"
+    assert float(data["cost_plus_ait_per_hour"]) == pytest.approx(floor * 1.44, rel=1e-6)
 
 
 def test_suggest_manual_overrides(runner, probed):
@@ -114,6 +132,9 @@ def test_suggest_unknown_gpu_floor_only(runner, probed):
     data = json.loads(result.output)
     assert data["gpu_tbp_watts"] == 200
     assert data["suggested_ait_per_hour"] is None  # no multiplier entry
+    # non-catalog rig: the cost-plus anchor becomes the price hint
+    floor = float(data["energy_floor_ait_per_hour"])
+    assert float(data["price_hint_ait_per_hour"]) == pytest.approx(floor * 2, rel=1e-6)
 
 
 def test_suggest_requires_tariff(runner, probed, monkeypatch):
