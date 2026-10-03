@@ -442,6 +442,29 @@ async def _find_existing_lock(job_id: str) -> str | None:
     return None
 
 
+async def _ensure_lock_sealed(job_id: str) -> None:
+    """Refuse the settlement while the job's ESCROW_LOCK is not sealed in a block.
+
+    Admission does not check escrow state: a release/refund evaluated before its
+    lock's block is dropped at production ("No ESCROW_LOCK found", or the v3
+    escrow-balance check), while this route would still have marked the row
+    settled at RPC acceptance and served the dead hash forever (S-8). The sealed
+    ``transaction`` table is the same view production consults, so whatever the
+    gate defers would have been dropped anyway. HTTP 425 tells every existing
+    caller "not yet, retry": the coordinator leaves the payment escrowed and
+    re-attempts on its next sweep; the row stays unmarked either way.
+    """
+    if not await _find_existing_lock(job_id):
+        raise HTTPException(
+            status_code=425,
+            detail=(
+                f"escrow lock for job_id={job_id} is not yet sealed in a block "
+                "(absent or still in mempool); retry after the ESCROW_LOCK lands"
+            ),
+            headers={"Retry-After": "5"},
+        )
+
+
 async def _find_existing_release(job_id: str) -> str | None:
     """Return the hash of an ESCROW_RELEASE already on-chain for ``job_id``, if any.
 
@@ -1148,6 +1171,9 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
         raise HTTPException(status_code=404, detail=f"No escrow contract found for job_id={job_id}")
+    # The lock must be sealed before the release can apply — checked before any
+    # contract state is touched, like the settlement-key preamble above.
+    await _ensure_lock_sealed(job_id)
     contract = mgr.escrow_contracts.get(contract_id)
     if contract:
         for ms in contract.milestones:
@@ -1407,6 +1433,8 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
         else:
             raise HTTPException(status_code=400, detail=f"Escrow already in final state: {contract.state.value}")
     reason = (body or {}).get("reason", "buyer_requested")
+    # The lock must be sealed before the refund can apply — same race as release.
+    await _ensure_lock_sealed(job_id)
     # B: a refund is only final once the on-chain ESCROW_REFUND transaction lands.
     # Apply the in-memory state, then settle on-chain, then roll back if settlement fails.
     async with mgr.release_lock(contract_id):
