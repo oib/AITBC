@@ -187,3 +187,16 @@ def test_message_aborts_when_nonce_missing(runner, tmp_path):
         result = _invoke_ops(runner, MESSAGE_ARGS)
     assert result.exit_code != 0
     client.post.assert_not_called()
+
+
+def test_message_root_chain_id_flag_wins(runner, tmp_path):
+    """The root --chain-id flag reaches `operations agent message` via ctx:
+    the payload is signed with the flag value and no probe runs."""
+    *patches, probe, client = _message_patches(tmp_path, _failing_probe())
+    with patches[0], patches[1], patches[2], probe as prober_cls:
+        result = _invoke_ops(runner, MESSAGE_ARGS, chain_id_explicit="flag-chain")
+    assert result.exit_code == 0, result.output
+    prober_cls.assert_not_called()
+    sent = client.post.call_args.kwargs["json"]
+    assert sent["chain_id"] == "flag-chain"
+    assert sent["nonce"] == 7
