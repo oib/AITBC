@@ -232,3 +232,28 @@ def verify_quote_against_oracle(
         operator_verified=base.operator_verified,
         breakdown=breakdown,
     )
+
+
+def expected_quote_chain_id(ctx, rpc_url: str, *, strict: bool) -> tuple[str | None, str]:
+    """Return the chain id a quote must be bound to, and where it came from.
+
+    An explicitly configured ``native_chain_id`` (``NATIVE_CHAIN_ID`` env or
+    the config file) wins. Otherwise the id is resolved exactly the way the
+    signing path resolves it — ``--chain-id`` flag, ``CHAIN_ID`` env, then a
+    strict probe of ``rpc_url`` — so the quote binding and the signed
+    transaction can never disagree.
+
+    ``strict=True`` aborts when resolution fails (buy paths, which sign).
+    ``strict=False`` returns ``(None, "unresolved")`` so read-only paths can
+    skip the check with a caveat instead of refusing.
+    """
+    from ..config import get_config
+    from .chain_id import resolve_chain_id
+
+    configured = get_config().native_chain_id
+    if configured:
+        return configured, "NATIVE_CHAIN_ID config"
+    resolved = resolve_chain_id(ctx, rpc_url, required=strict)
+    if not resolved:
+        return None, "unresolved"
+    return resolved, "resolved --chain-id/CHAIN_ID/RPC probe"
