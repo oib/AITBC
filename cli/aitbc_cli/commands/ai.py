@@ -18,6 +18,7 @@ from aitbc.compliance.policies import (
 
 from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
+from ..utils.chain_id import resolve_chain_id
 from ..utils.escrow import create_signed_escrow_lock, get_node_wallet
 from ..utils.error_handling import abort
 from ..utils.http_client import (
@@ -121,6 +122,9 @@ def _create_escrow_payment(
         amount_ait = Decimal(str(amount))
     except InvalidOperation:
         abort(ctx, f"Invalid payment amount: {amount}")
+    # Resolve only when an escrow will actually be signed: submit paths that
+    # skip payment must not depend on the blockchain RPC being reachable.
+    chain_id = chain_id or resolve_chain_id(ctx, rpc_url)
     lock_tx, signature = create_signed_escrow_lock(
         ctx,
         rpc_url,
@@ -688,7 +692,7 @@ def submit(
             buyer_address=buyer_address,
             provider_address=provider_address,
             private_key=private_key,
-            chain_id=chain_id or config.chain_id,
+            chain_id=chain_id,
             offer_id=offer_id,
             offer_quantity=offer_quantity,
         )
@@ -845,7 +849,7 @@ def pay(
             provider_address,
             private_key,
             str(node_wallet_addr),
-            chain_id or config.chain_id,
+            chain_id,
             offer_id,
             Decimal(str(offer_quantity)) if offer_quantity is not None else None,
         )

@@ -21,6 +21,8 @@ try:
 except ImportError:
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
+from aitbc_cli.utils.error_handling import CLIError
+
 
 def _resolve_join_rpc_url(hub: str, rpc_url: str | None) -> str:
     """Return the RPC base URL to use for the island join request."""
@@ -92,11 +94,12 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, r
         click.echo(f"Connecting to hub {hub} (RPC {rpc_base})...")
 
         from aitbc_cli.config import get_config
+        from aitbc_cli.utils.chain_id import resolve_chain_id
 
         config = get_config()
         client = AITBCHTTPClient(base_url=rpc_base, timeout=10, api_key=config.blockchain_rpc_api_key)
 
-        payload_chain_id = chain_id or config.chain_id
+        payload_chain_id = chain_id or resolve_chain_id(ctx, rpc_base)
         response = client.post(
             "/islands/join" if rpc_base.endswith("/rpc") else "/rpc/islands/join",
             json={
@@ -169,6 +172,8 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, r
             click.echo("Registering as hub...")
             click.echo("Run 'aitbc node hub register' to complete hub registration")
 
+    except (CLIError, click.Abort):
+        raise
     except NetworkError as e:
         error(f"Network error joining island: {e}")
         raise click.Abort() from e
