@@ -1,6 +1,5 @@
 """GPU resource tracking commands for AITBC CLI."""
 
-import os
 from decimal import Decimal
 
 import click
@@ -9,42 +8,11 @@ from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
 from ..utils import DECIMAL, error, output, success
-from ..utils.error_handling import CLIError, abort
+from ..utils.chain_id import resolve_chain_id
+from ..utils.error_handling import CLIError
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
-
-
-def _resolve_chain_id(ctx, rpc_url: str, *, required: bool = True) -> str:
-    """Resolve the chain id for the node this command actually talks to.
-
-    An explicit ``--chain-id`` or ``CHAIN_ID`` wins; otherwise ``rpc_url`` is
-    probed — never ``ctx.obj["chain_id"]``, which was resolved against the
-    *unrewritten* URL (these commands rewrite localhost to the hub URL).
-
-    ``required=True`` (signing paths) probes strictly and aborts on failure:
-    a silent default signs a transaction no node serves. ``required=False``
-    (read paths) returns ``""`` on failure so the caller omits the parameter
-    and the node's own ``chain_id=None`` default applies its chain — strictly
-    more accurate than a client-side guess, and nothing is signed.
-    """
-    explicit = (ctx.obj or {}).get("chain_id_explicit") or os.getenv("CHAIN_ID")
-    if explicit:
-        return explicit
-
-    from ..utils.chain_id import get_chain_id
-
-    if not required:
-        return get_chain_id(rpc_url, override=None, timeout=5)
-    try:
-        return get_chain_id(rpc_url, override=None, timeout=5, strict=True)
-    except Exception as e:
-        abort(
-            ctx,
-            f"Chain ID lookup via {rpc_url} failed: {e}. Set CHAIN_ID or point at a serving node",
-            from_exception=e,
-        )
-        raise AssertionError("unreachable: abort always raises") from e
 
 
 @click.group(
@@ -105,7 +73,7 @@ def register_onchain(
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        chain_id = _resolve_chain_id(ctx, rpc_url)
+        chain_id = resolve_chain_id(ctx, rpc_url)
 
         from ..utils.gpu_onchain import submit_gpu_register, wait_for_tx
 
@@ -170,7 +138,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        chain_id = _resolve_chain_id(ctx, rpc_url, required=False)
+        chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
         # Query GPU from blockchain RPC; omit chain_id when unresolved so
         # the node applies its own chain default.
@@ -223,7 +191,7 @@ def deregister_gpu(ctx, gpu_id: str, wallet: str, password: str | None, wait: bo
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        chain_id = _resolve_chain_id(ctx, rpc_url)
+        chain_id = resolve_chain_id(ctx, rpc_url)
 
         from ..utils.gpu_onchain import submit_gpu_deregister, wait_for_tx
 
@@ -288,7 +256,7 @@ def allocate_gpu(
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        chain_id = _resolve_chain_id(ctx, rpc_url)
+        chain_id = resolve_chain_id(ctx, rpc_url)
 
         try:
             hex_client_id = validate_address_strict(client_id)
@@ -355,7 +323,7 @@ def get_allocations(ctx, gpu_id: str, format: str):
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        chain_id = _resolve_chain_id(ctx, rpc_url, required=False)
+        chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
         # Query GPU allocations; omit chain_id when unresolved so the node
         # applies its own chain default.
@@ -398,7 +366,7 @@ def list_gpus(ctx, status: str | None, format: str):
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        chain_id = _resolve_chain_id(ctx, rpc_url, required=False)
+        chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
         # Query GPU list from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
