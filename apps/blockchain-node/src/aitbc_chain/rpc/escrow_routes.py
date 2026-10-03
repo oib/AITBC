@@ -48,12 +48,33 @@ def _energy_operator_address() -> str:
 
     Read per call rather than pinned at import so the gate follows a config
     change on restart-free reloads and so tests can set it. Empty means the
-    check is skipped, which is the deployed state today: no host sets
-    ``ENERGY_OPERATOR_ADDRESS``. The same variable configures the coordinator's
+    check is skipped. The same variable configures the coordinator's
     ``settings.energy_operator_address``, so setting it turns both gates on
-    together.
+    together. Deployment state today: hub's coordinator env and hub1's rpc
+    env carry it; hub's rpc env does not, so this gate stays off on the
+    node that actually serves protected creates.
     """
     return os.getenv("ENERGY_OPERATOR_ADDRESS", "").strip()
+
+
+_FALLBACK_MAX_RATE_AGE_SECONDS = 86400
+
+
+def _energy_max_rate_age_seconds() -> int:
+    """Return the freshness window applied to a protected quote's rate.
+
+    Read per call rather than pinned at import, same pattern as
+    ``_energy_operator_address``. The variable name matches the
+    coordinator's ``settings.energy_max_rate_age_seconds`` so one operator
+    setting aligns the issuance, funding, and node gates. Unset,
+    non-integer, or non-positive values fall back to 86400 seconds — the
+    operator policy the coordinator already runs on hub.
+    """
+    try:
+        value = int(os.getenv("ENERGY_MAX_RATE_AGE_SECONDS", ""))
+    except ValueError:
+        return _FALLBACK_MAX_RATE_AGE_SECONDS
+    return value if value > 0 else _FALLBACK_MAX_RATE_AGE_SECONDS
 
 
 def _settled_leg_ait(stored_units: int | None, settled_at: Any, locked_units: int) -> str:
@@ -902,6 +923,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             profile=quote.to_profile(),
             rate=quote.to_rate(),
             now=int(datetime.now(UTC).timestamp()),
+            max_rate_age_seconds=_energy_max_rate_age_seconds(),
         )
         if not result.approved:
             raise HTTPException(
