@@ -21,6 +21,7 @@ from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
 from ...utils.chain_id import resolve_chain_id
 from ...utils.energy_quote import (
+    assert_configured_native_chain,
     expected_quote_chain_id,
     compute_settlement_breakdown,
     parse_quote,
@@ -202,13 +203,20 @@ def buy(
 
     config = get_config()
 
-    # Verify the quote before funding. The expected chain id is the operator-
-    # configured NATIVE_CHAIN_ID if set, else the chain this command will sign
-    # for — resolved once here and reused for the lock so binding and signed
-    # chain cannot differ. Strict on the native rail (it signs); non-strict on
-    # EVM where the native id is not used for signing.
+    # Verify the quote before funding. On the native rail the ESCROW_LOCK is
+    # signed for exactly the resolved chain (--chain-id > CHAIN_ID > RPC
+    # probe), resolved once here and reused for the lock. A configured
+    # NATIVE_CHAIN_ID is only an assertion about the chain the quote was
+    # minted for — it may refuse the buy, never redirect it onto another
+    # chain. The read-only EVM rail keeps configured-wins semantics.
     rpc_url = _blockchain_rpc_url()
-    expected_id, expected_src = expected_quote_chain_id(ctx, rpc_url, strict=settlement == "native")
+    if settlement == "native":
+        signing_id = resolve_chain_id(ctx, rpc_url)
+        assert_configured_native_chain(ctx, config.native_chain_id, signing_id)
+        expected_id: str | None = signing_id
+        expected_src = "resolved --chain-id/CHAIN_ID/RPC probe"
+    else:
+        expected_id, expected_src = expected_quote_chain_id(ctx, rpc_url, strict=False)
     parsed = parse_quote(quote_dict)
     verification = verify_quote(
         parsed,

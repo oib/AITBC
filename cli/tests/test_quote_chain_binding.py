@@ -1,6 +1,7 @@
-"""Energy-quote chain binding: the CLI binds expected_chain_id to the
-configured NATIVE_CHAIN_ID if set, else to the chain the command resolves
-for signing — never to the CLIConfig default literal."""
+"""Energy-quote chain binding: read-only checks bind expected_chain_id to the
+configured NATIVE_CHAIN_ID if set, else to the resolved chain — never to the
+CLIConfig default literal. The signing path always signs the resolved chain;
+a configured id only asserts what chain the quote was minted for."""
 
 from __future__ import annotations
 
@@ -93,10 +94,12 @@ def _failing_probe():
     return patch("aitbc_cli.utils.chain_id.AITBCHTTPClient", return_value=prober)
 
 
-def _invoke(runner, args):
+def _invoke(runner, args, obj=None):
     from aitbc_cli.commands.market import market
 
-    return runner.invoke(market, args, obj={"output_format": "table", "api_key": "k"})
+    base = {"output_format": "table", "api_key": "k"}
+    base.update(obj or {})
+    return runner.invoke(market, args, obj=base)
 
 
 QUOTE_ARGS = ["gpu", "quote", "--gpu-id", "g1", "--buyer-id", "b1"]
@@ -235,3 +238,83 @@ def test_buy_signs_the_chain_it_verified(runner, tmp_path):
     assert result.exit_code == 0, result.output
     signer.assert_called_once()
     assert signer.call_args.kwargs["chain_id"] == RESOLVED
+
+
+def test_buy_configured_mismatch_aborts_before_wallet(runner, tmp_path, monkeypatch):
+    """a) configured X + root flag Y: refuse before wallet load or signing, naming both ids."""
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    config = _config(native_chain_id="conf-chain")
+    q = _quote_dict("conf-chain")
+    *patches, client = _buy_patches(config)
+    with patches[0], patches[1], patches[2] as loader, patches[3], patches[4] as signer, patches[5], _ok_probe():
+        result = _invoke(runner, _buy_args(tmp_path, q), obj={"chain_id_explicit": "flag-chain"})
+    assert result.exit_code != 0
+    text = result.output + str(result.exception)
+    assert "conf-chain" in text and "flag-chain" in text
+    loader.assert_not_called()
+    signer.assert_not_called()
+
+
+def test_buy_configured_mismatch_vs_probe(runner, tmp_path, monkeypatch):
+    """b) configured X, no flag, probe answers Z != X: same refusal."""
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    config = _config(native_chain_id="conf-chain")
+    q = _quote_dict("conf-chain")
+    *patches, client = _buy_patches(config)
+    with patches[0], patches[1], patches[2] as loader, patches[3], patches[4] as signer, patches[5], _ok_probe("probe-chain"):
+        result = _invoke(runner, _buy_args(tmp_path, q))
+    assert result.exit_code != 0
+    text = result.output + str(result.exception)
+    assert "conf-chain" in text and "probe-chain" in text
+    loader.assert_not_called()
+    signer.assert_not_called()
+
+
+def test_buy_configured_match_signs_resolved(runner, tmp_path, monkeypatch):
+    """c) configured id equal to the resolved id: buy proceeds, signs the resolved id."""
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    config = _config(native_chain_id=RESOLVED)
+    q = _quote_dict(RESOLVED)
+    *patches, client = _buy_patches(config)
+    with patches[0], patches[1], patches[2], patches[3], patches[4] as signer, patches[5], _ok_probe(RESOLVED):
+        result = _invoke(runner, _buy_args(tmp_path, q))
+    assert result.exit_code == 0, result.output
+    signer.assert_called_once()
+    assert signer.call_args.kwargs["chain_id"] == RESOLVED
+
+
+def test_buy_flag_signs_flag_without_probe(runner, tmp_path, monkeypatch):
+    """d) empty config + flag Y + quote minted for Y: signs Y, probe never called."""
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    config = _config()
+    q = _quote_dict("flag-chain")
+    *patches, client = _buy_patches(config)
+    with patches[0], patches[1], patches[2], patches[3], patches[4] as signer, patches[5], _failing_probe() as probe_cls:
+        result = _invoke(runner, _buy_args(tmp_path, q), obj={"chain_id_explicit": "flag-chain"})
+    assert result.exit_code == 0, result.output
+    signer.assert_called_once()
+    assert signer.call_args.kwargs["chain_id"] == "flag-chain"
+    probe_cls.assert_not_called()
+
+
+def test_real_config_native_chain_id_contract(runner, tmp_path, monkeypatch):
+    """e) real CLIConfig: default is ""; helper honours NATIVE_CHAIN_ID env and its source."""
+    from aitbc_cli.config import CLIConfig
+    from aitbc_cli.utils.energy_quote import expected_quote_chain_id
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(tmp_path / "absent.yaml"))
+    monkeypatch.delenv("NATIVE_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+
+    assert CLIConfig().native_chain_id == ""
+    with _ok_probe("probe-chain"):
+        assert expected_quote_chain_id(None, "http://x", strict=False) == (
+            "probe-chain",
+            "resolved --chain-id/CHAIN_ID/RPC probe",
+        )
+
+    monkeypatch.setenv("NATIVE_CHAIN_ID", "foo")
+    with _failing_probe():
+        assert expected_quote_chain_id(None, "http://x", strict=False) == ("foo", "NATIVE_CHAIN_ID config")
