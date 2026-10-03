@@ -21,6 +21,7 @@ from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
 from ...utils.chain_id import resolve_chain_id
 from ...utils.energy_quote import (
+    expected_quote_chain_id,
     compute_settlement_breakdown,
     parse_quote,
     verify_quote,
@@ -125,17 +126,25 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
         error("No energy quote in response")
         sys.exit(1)
 
-    # Verify the quote locally before showing it to the buyer.
+    # Verify the quote locally before showing it to the buyer. The expected
+    # chain id is the operator-configured NATIVE_CHAIN_ID if set, else the
+    # chain this node would sign for; if it cannot be resolved the binding
+    # check is skipped with a caveat rather than claimed.
     config = get_config()
     parsed = parse_quote(quote_dict)
+    expected_id, expected_src = expected_quote_chain_id(ctx, _blockchain_rpc_url(), strict=False)
     verification = verify_quote(
         parsed,
         expected_operator_address=config.energy_operator_address,
         expected_domain=config.energy_quote_domain,
-        expected_chain_id=config.native_chain_id,
+        expected_chain_id=expected_id,
     )
     if not verification.valid:
-        warning(f"Quote verification failed: {verification.refusal_reason} ({verification.refusal_code})")
+        warning(
+            f"Quote verification failed: {verification.refusal_reason} ({verification.refusal_code}; expected id from {expected_src})"
+        )
+    elif expected_id is None:
+        warning("Quote verified locally (chain binding not checked: chain id unresolved)")
     else:
         success("Quote verified locally")
 
@@ -193,17 +202,27 @@ def buy(
 
     config = get_config()
 
-    # Verify the quote before funding.
+    # Verify the quote before funding. The expected chain id is the operator-
+    # configured NATIVE_CHAIN_ID if set, else the chain this command will sign
+    # for — resolved once here and reused for the lock so binding and signed
+    # chain cannot differ. Strict on the native rail (it signs); non-strict on
+    # EVM where the native id is not used for signing.
+    rpc_url = _blockchain_rpc_url()
+    expected_id, expected_src = expected_quote_chain_id(ctx, rpc_url, strict=settlement == "native")
     parsed = parse_quote(quote_dict)
     verification = verify_quote(
         parsed,
         expected_operator_address=config.energy_operator_address,
         expected_domain=config.energy_quote_domain,
-        expected_chain_id=config.native_chain_id,
+        expected_chain_id=expected_id,
     )
     if not verification.valid:
-        error(f"Quote verification failed: {verification.refusal_reason} ({verification.refusal_code})")
+        error(
+            f"Quote verification failed: {verification.refusal_reason} ({verification.refusal_code}; expected id from {expected_src})"
+        )
         sys.exit(1)
+    if expected_id is None:
+        warning("chain binding not checked: chain id unresolved")
     success("Quote verified")
 
     breakdown = compute_settlement_breakdown(parsed)
@@ -245,6 +264,7 @@ def buy(
             yes=yes,
             json_output=json_output,
             breakdown=breakdown,
+            chain_id=expected_id,
         )
     else:
         _buy_evm(
@@ -277,6 +297,7 @@ def _buy_native(
     yes,
     json_output,
     breakdown,
+    chain_id=None,
 ):
     """Fund a native protected rental by signing ESCROW_LOCK locally."""
     from ...utils.escrow import get_node_wallet
@@ -311,7 +332,7 @@ def _buy_native(
         provider=parsed.provider,
         amount_ait=amount_ait,
         private_key=private_key,
-        chain_id=resolve_chain_id(ctx, rpc_url),
+        chain_id=chain_id or resolve_chain_id(ctx, rpc_url),
         node_wallet=node_wallet,
         energy_quote_id=parsed.quote_id,
         energy_quote_digest=parsed.digest_sha256().hex(),

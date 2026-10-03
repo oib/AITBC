@@ -38,7 +38,7 @@ _DISPLAY_KWARGS = {"help", "epilog", "description", "short_help"}
 
 # (occurrence count, reason) — count must match exactly or the test fails.
 ALLOWLIST: dict[str, tuple[int, str]] = {
-    "config.py": (2, "TODO: CLIConfig.chain_id and native_chain_id defaults feed signing callers"),
+    "config.py": (1, "TODO: CLIConfig.chain_id default only; native_chain_id now defaults empty and resolves per command"),
     "core/analytics.py": (3, "TODO: display/reporting defaults only"),
     "utils/genesis_reset.py": (1, "TODO: DEFAULT_CHAIN_ID for the reset tool"),
     "commands/wallet/basic.py": (1, "TODO: read-only balance display default"),
