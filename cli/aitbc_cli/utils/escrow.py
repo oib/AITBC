@@ -8,6 +8,7 @@ between ``aitbc ai`` (coordinator-backed jobs) and ``aitbc market run``
 from __future__ import annotations
 
 import json
+import os
 from decimal import Decimal
 from typing import Any, cast
 
@@ -44,13 +45,25 @@ def get_node_wallet(ctx, rpc_url: str) -> str:
 
 
 def get_buyer_nonce(ctx, rpc_url: str, buyer: str) -> int:
-    """Fetch the current on-chain nonce for ``buyer``; return 0 on any error."""
+    """Fetch the current on-chain nonce for ``buyer``; abort on any failure.
+
+    A failed lookup must not mean nonce 0 — the wrong nonce produces an
+    already-signed transaction the chain refuses.
+    """
     client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
         account = client.get(f"/rpc/account/{buyer}")
-    except Exception:
-        return 0
-    return int(account.get("nonce", 0))
+        nonce = account.get("nonce")
+        if nonce is None:
+            raise ValueError(f"/rpc/account/{buyer} response carried no nonce")
+        return int(nonce)
+    except Exception as e:
+        abort(
+            ctx,
+            f"Nonce lookup for {buyer} via {rpc_url} failed: {e}. Check the node is serving this account or pass --rpc-url",
+            from_exception=e,
+        )
+        raise AssertionError("unreachable: abort always raises") from e
 
 
 def build_escrow_lock_tx(
@@ -62,7 +75,7 @@ def build_escrow_lock_tx(
     amount_ait: Decimal,
     nonce: int,
     fee: int | None = None,
-    chain_id: str = "ait-localnet",
+    chain_id: str | None = None,
     *,
     energy_quote_id: str | None = None,
     energy_quote_digest: str | None = None,
@@ -71,6 +84,13 @@ def build_escrow_lock_tx(
     settlement_unit_scale: int | None = None,
 ) -> dict[str, Any]:
     """Build an unsigned ESCROW_LOCK transaction dict for the given job."""
+    if not chain_id:
+        abort(
+            ctx,
+            "No chain id for the escrow lock transaction — an explicit chain_id, "
+            "CHAIN_ID or a serving --rpc-url is required; never sign a silent default",
+        )
+        raise AssertionError("unreachable: abort always raises")
     buyer_canon = to_canonical(buyer)
     provider_canon = to_canonical(provider)
     node_canon = to_canonical(node_wallet)
@@ -141,6 +161,22 @@ def create_signed_escrow_lock(
     if not node_wallet:
         node_wallet = get_node_wallet(ctx, rpc_url)
     node_canon = to_canonical(node_wallet)
+    # The chain id comes from the RPC the transaction is submitted to: an
+    # explicit argument or CHAIN_ID wins, otherwise probe ``rpc_url``
+    # strictly — never sign a silent default the node may not serve.
+    if not chain_id:
+        chain_id = os.getenv("CHAIN_ID") or ""
+    if not chain_id:
+        try:
+            from .chain_id import get_chain_id
+
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5, strict=True)
+        except Exception as e:
+            abort(
+                ctx,
+                f"Chain ID lookup via {rpc_url} failed: {e}. Set CHAIN_ID or point --rpc-url at a serving node",
+                from_exception=e,
+            )
     nonce = get_buyer_nonce(ctx, rpc_url, buyer_canon)
     lock_tx = build_escrow_lock_tx(
         ctx,
@@ -151,7 +187,7 @@ def create_signed_escrow_lock(
         amount_ait,
         nonce,
         fee=fee,
-        chain_id=chain_id or "ait-localnet",
+        chain_id=chain_id,
         energy_quote_id=energy_quote_id,
         energy_quote_digest=energy_quote_digest,
         settlement_route=settlement_route,

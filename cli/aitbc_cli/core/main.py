@@ -353,6 +353,9 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     # explicit, env and auto-detected values, and signing paths must be able
     # to tell an explicit choice from a silent default.
     ctx.obj["chain_id_explicit"] = chain_id
+    # The URL the resolution ran against: a detected chain id is only valid
+    # for transactions submitted to that same RPC.
+    ctx.obj["chain_id_rpc_url"] = default_rpc_url
 
 
 # Add commands to CLI
