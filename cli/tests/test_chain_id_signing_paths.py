@@ -311,3 +311,16 @@ def test_island_join_env_chain_id_wins(monkeypatch):
         _join()
     prober_cls.assert_not_called()
     assert coord.post.call_args.kwargs["json"]["chain_id"] == "env-chain"
+
+
+def test_ai_submit_lookup_failure_names_job_id(runner, ai_patches):
+    """A chain-lookup abort after the job was POSTed must name the job id
+    and the pay-job recovery hint, not just the lookup error."""
+    client, escrow_spy = ai_patches
+    with _failing_probe():
+        result = _invoke_ai(runner, SUBMIT_ARGS)
+    assert result.exit_code != 0
+    text = result.output + str(result.exception)
+    assert "job-1" in text
+    assert "pay-job job-1" in text
+    escrow_spy.assert_not_called()
