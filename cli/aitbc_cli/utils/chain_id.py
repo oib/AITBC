@@ -125,3 +125,37 @@ def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5, *,
 
     # Otherwise, auto-detect from health endpoint
     return get_chain_id_from_health(rpc_url, timeout, strict=strict)
+
+
+def resolve_chain_id(ctx, rpc_url: str, *, required: bool = True) -> str:
+    """Resolve the chain id for the node this command actually talks to.
+
+    An explicit ``--chain-id`` or ``CHAIN_ID`` wins; otherwise ``rpc_url`` is
+    probed — never ``ctx.obj["chain_id"]``, which may have been resolved
+    against a different URL than the one this call submits to.
+
+    ``required=True`` (signing paths) probes strictly and aborts on failure:
+    a silent default signs a transaction no node serves. ``required=False``
+    (read paths) returns ``""`` on failure so the caller omits the parameter
+    and the node's own ``chain_id=None`` default applies its chain — strictly
+    more accurate than a client-side guess, and nothing is signed.
+    """
+    import os
+
+    from .error_handling import abort
+
+    explicit = (getattr(ctx, "obj", None) or {}).get("chain_id_explicit") or os.getenv("CHAIN_ID")
+    if explicit:
+        return explicit
+
+    if not required:
+        return get_chain_id(rpc_url, override=None, timeout=5)
+    try:
+        return get_chain_id(rpc_url, override=None, timeout=5, strict=True)
+    except Exception as e:
+        abort(
+            ctx,
+            f"Chain ID lookup via {rpc_url} failed: {e}. Set CHAIN_ID or point at a serving node",
+            from_exception=e,
+        )
+        raise AssertionError("unreachable: abort always raises") from e
