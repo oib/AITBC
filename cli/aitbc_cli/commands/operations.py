@@ -296,7 +296,8 @@ def deregister(agent_id: str):
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", help="File containing wallet password")
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def message(agent: str, message: str, wallet: str, password: str | None, password_file: str | None, rpc_url: str | None):
+@click.pass_context
+def message(ctx, agent: str, message: str, wallet: str, password: str | None, password_file: str | None, rpc_url: str | None):
     """Send a message to an agent via a blockchain transaction."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -331,7 +332,7 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
 
         from ..utils.chain_id import resolve_chain_id
 
-        chain_id = resolve_chain_id(None, rpc_url)
+        chain_id = resolve_chain_id(ctx, rpc_url)
 
         # Get actual nonce
         try:
