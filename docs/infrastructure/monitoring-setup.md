@@ -234,7 +234,7 @@ The node exporters carry no account balances, so nothing warned when the escrow 
 | `aitbc_authority_scrape_success{role,address}` | 1 when the account was read in the last run, else 0 |
 | `aitbc_authority_scrape_timestamp_seconds` | Unix time the last run finished |
 
-Alerts in `scripts/monitoring/aitbc_rules.yml` (tests in `aitbc_rules_test.yml`):
+Alerts in `scripts/monitoring/aitbc_hub_rules.yml` (tests in `aitbc_rules_test.yml`). The authority rules live in their own file because they are only valid where the exporter runs: `AuthorityBalanceStale` uses `absent()`, so loading them on a host without the timer fires the alert permanently. Every host loads `aitbc_rules.yml`; only hub also loads `aitbc_hub_rules.yml`.
 
 | Alert | Fires when | Severity |
 |---|---|---|
@@ -251,12 +251,12 @@ Install on the node that runs Prometheus (hub): copy the `.service` and `.timer`
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now aitbc-authority-balances.timer
-sudo promtool check rules /etc/prometheus/aitbc_rules.yml   # after copying the rules file
+sudo promtool check rules /etc/prometheus/aitbc_rules.yml /etc/prometheus/aitbc_hub_rules.yml   # after copying both rules files
 sudo systemctl reload prometheus
 curl -s localhost:9100/metrics | grep '^aitbc_authority_'
 ```
 
-Roll back with `systemctl disable --now aitbc-authority-balances.timer`, removing `/var/lib/prometheus/node-exporter/aitbc_authority.prom`, and restoring the previous rules file. Nothing here touches a validator, a node process or the chain.
+Hub's `rule_files:` in `/etc/prometheus/prometheus.yml` lists `aitbc_hub_rules.yml` after `aitbc_rules.yml`; non-hub hosts list `aitbc_rules.yml` only. Roll back with `systemctl disable --now aitbc-authority-balances.timer`, removing `/var/lib/prometheus/node-exporter/aitbc_authority.prom`, and restoring the previous rules file. Nothing here touches a validator, a node process or the chain.
 
 ## Scrape configuration
 
