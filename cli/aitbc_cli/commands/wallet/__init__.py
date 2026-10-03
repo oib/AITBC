@@ -179,7 +179,13 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
 
     config = get_config()
     default_rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8202"
+    # A --chain-id passed to the parent group still wins when the wallet
+    # group was invoked without one of its own.
+    chain_id = chain_id or ctx.obj.get("chain_id_explicit")
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
+    # Keep the raw flag value so signing paths can distinguish an explicit
+    # --chain-id/CHAIN_ID choice from an auto-detected or absent one.
+    ctx.obj["chain_id_explicit"] = chain_id
 
     # Initialize dual-mode adapter
     from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter

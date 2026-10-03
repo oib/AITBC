@@ -9,6 +9,10 @@ from .http_client import AITBCHTTPClient, NetworkError, get_logger
 logger = get_logger(__name__)
 
 
+class ChainIdLookupError(RuntimeError):
+    """A node could not be probed for the chain id it advertises."""
+
+
 def get_default_chain_id() -> str:
     """Return the default chain ID from environment."""
     import os
@@ -36,7 +40,7 @@ def validate_chain_id(chain_id: str) -> bool:
     return bool(chain_id and isinstance(chain_id, str) and len(chain_id) > 0)
 
 
-def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
+def get_chain_id_from_health(rpc_url: str, timeout: int = 5, *, strict: bool = False) -> str:
     """Auto-detect chain ID from the blockchain node.
 
     Public hubs proxy the root ``/health`` endpoint to the agent-coordinator,
@@ -46,15 +50,22 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
     Args:
         rpc_url: The blockchain node RPC URL (e.g., http://localhost:8202)
         timeout: Request timeout in seconds
+        strict: Raise :class:`ChainIdLookupError` naming the underlying
+            failures instead of falling back to the environment default.
+            Signing paths use this — a silently defaulted chain id produces
+            a transaction no node serves.
 
     Returns:
         The detected chain ID, or default if detection fails
     """
+    errors: list[str] = []
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout, max_retries=0)
-    except NetworkError:
+    except NetworkError as e:
+        errors.append(str(e))
         logger.debug("Network error creating chain ID client for %s", rpc_url, exc_info=True)
-    except Exception:
+    except Exception as e:
+        errors.append(str(e))
         logger.debug("Chain ID client creation for %s failed", rpc_url, exc_info=True)
     else:
         # Try the blockchain RPC /proposer endpoint first: it works behind the
@@ -69,10 +80,17 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
                 chain_id = data.get("chain_id")
                 if chain_id:
                     return str(chain_id)
-            except NetworkError:
+                errors.append(f"{endpoint}: response carried no chain_id")
+            except NetworkError as e:
+                errors.append(f"{endpoint}: {e}")
                 logger.debug("Network error detecting chain ID from %s", endpoint, exc_info=True)
-            except Exception:
+            except Exception as e:
+                errors.append(f"{endpoint}: {e}")
                 logger.debug("Chain ID detection from %s failed", endpoint, exc_info=True)
+
+    if strict:
+        detail = "; ".join(errors) or "no chain_id advertised"
+        raise ChainIdLookupError(f"{rpc_url}: {detail}")
 
     # Fallback to environment variable if detection fails
     import os
@@ -85,13 +103,15 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
     return ""
 
 
-def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5) -> str:
+def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5, *, strict: bool = False) -> str:
     """Get chain ID with override support and auto-detection fallback.
 
     Args:
         rpc_url: The blockchain node RPC URL
         override: Optional chain ID override (e.g., from --chain-id flag)
         timeout: Request timeout in seconds
+        strict: Raise :class:`ChainIdLookupError` when auto-detection fails
+            instead of falling back to the environment default or "".
 
     Returns:
         The chain ID to use (override takes precedence, then auto-detection, then default)
@@ -104,4 +124,4 @@ def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5) ->
         return override
 
     # Otherwise, auto-detect from health endpoint
-    return get_chain_id_from_health(rpc_url, timeout)
+    return get_chain_id_from_health(rpc_url, timeout, strict=strict)
