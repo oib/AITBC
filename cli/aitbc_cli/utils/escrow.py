@@ -22,6 +22,19 @@ from .error_handling import abort
 from .http_client import AITBCHTTPClient, NetworkError
 
 
+# ``node_wallet`` is advertised only at a blockchain RPC's own root ``/health``.
+# A public hub endpoint proxies just ``/rpc/*`` to the blockchain RPC and
+# answers ``/health`` with a different service (the agent-coordinator), so a
+# ``blockchain_rpc_url`` pointed at the public URL cannot discover the wallet —
+# the failure names the config key to repoint.
+_NODE_WALLET_URL_HINT = (
+    "node_wallet is advertised only at a blockchain RPC's own /health; the public "
+    "hub endpoint proxies /rpc/* only and serves a different service at /health. "
+    "Set blockchain_rpc_url (config key / BLOCKCHAIN_RPC_URL) to a blockchain RPC "
+    "that serves /health directly, e.g. http://127.0.0.1:8202 on the node itself"
+)
+
+
 def get_node_wallet(ctx, rpc_url: str) -> str:
     """Return the canonical node wallet that custodies escrow, from RPC /health.
 
@@ -37,10 +50,20 @@ def get_node_wallet(ctx, rpc_url: str) -> str:
     try:
         health = client.get("/health")
     except NetworkError as e:
-        abort(ctx, f"Cannot reach blockchain RPC at {rpc_url}: {e}")
+        abort(
+            ctx,
+            f"Cannot determine the escrow node wallet from {rpc_url}: /health request failed: {e}. {_NODE_WALLET_URL_HINT}",
+            from_exception=e,
+        )
+        raise AssertionError("unreachable: abort always raises") from e
     node_wallet = health.get("node_wallet") or health.get("proposer_id")
     if not node_wallet:
-        abort(ctx, "Blockchain RPC /health did not return node_wallet")
+        abort(
+            ctx,
+            f"Cannot determine the escrow node wallet from {rpc_url}: /health answered without "
+            f"node_wallet/proposer_id — a different service answered. {_NODE_WALLET_URL_HINT}",
+        )
+        raise AssertionError("unreachable: abort always raises")
     return to_canonical(cast(str, node_wallet))
 
 
