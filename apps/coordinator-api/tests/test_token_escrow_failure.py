@@ -23,10 +23,11 @@ import pytest
 from sqlmodel import Session, select
 
 from aitbc.exceptions import AmbiguousRequestError, NetworkError
+from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_shared import JobPayment, PaymentEscrow
 
 from coordinator_api.contexts.infrastructure.domain.job import Job
-from coordinator_api.contexts.payments.services.payments import PaymentService
+from coordinator_api.contexts.payments.services.payments import PaymentService, _lookup_escrow_record
 from coordinator_api.schemas import JobPaymentCreate
 
 BUYER = "0x08aB801150eF3496344cFA78fe025c3B48Caf435"
@@ -105,6 +106,45 @@ def _node_404_error() -> NetworkError:
 def _chain_lock_txs(*tx_hashes: str, job_id: str) -> list[dict]:
     """Transactions the /rpc/transactions lookup returns for ESCROW_LOCK."""
     return [{"tx_hash": h, "payload": {"job_id": job_id}} for h in tx_hashes]
+
+
+def _make_payment(session: Session, job: Job) -> JobPayment:
+    """A persisted payment row for direct _recover_ambiguous_escrow calls."""
+    payment = JobPayment(
+        job_id=job.id,
+        amount=Decimal("5"),
+        currency="AITBC",
+        payment_method="aitbc_token",
+        meta_data={},
+    )
+    session.add(payment)
+    session.commit()
+    return payment
+
+
+def _mock_transport_client(monkeypatch, handler) -> list[httpx.Request]:
+    """Route the real AsyncAITBCHTTPClient through an httpx.MockTransport.
+
+    The production client constructs ``httpx.AsyncClient`` per request, so
+    swapping the class for a factory that injects the transport exercises the
+    genuine code path — retry policy, raise_for_status, NetworkError wrapping
+    — with no stubbed methods. Returns the recorded request list.
+    """
+    calls: list[httpx.Request] = []
+
+    def recording(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return handler(request)
+
+    transport = httpx.MockTransport(recording)
+    real_async_client = httpx.AsyncClient
+
+    def client_factory(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+    return calls
 
 
 @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
@@ -268,3 +308,169 @@ def test_ambiguous_post_marks_funding_unknown_when_lookup_fails(mock_client_cls,
     assert "may have landed" in payment.meta_data["escrow_error"]
     escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
     assert escrows == []
+
+
+# ---------------------------------------------------------------------------
+# Real-client coverage: the lookups run against AsyncAITBCHTTPClient itself
+# (retry policy, raise_for_status, NetworkError wrapping) with a MockTransport
+# underneath, not a stubbed client.
+# ---------------------------------------------------------------------------
+
+
+def test_real_client_escrow_get_404_returns_none(monkeypatch):
+    """A definitive 404 maps to None — and a 4xx is never retried."""
+    calls = _mock_transport_client(
+        monkeypatch, lambda req: httpx.Response(404, json={"detail": "escrow not found"}, request=req)
+    )
+    client = AsyncAITBCHTTPClient(timeout=5.0, api_key=None, max_retries=1)
+
+    record = asyncio.run(_lookup_escrow_record("http://node.invalid", client, "job-x"))
+
+    assert record is None
+    assert len(calls) == 1
+
+
+def test_real_client_escrow_get_500_raises(monkeypatch):
+    """A 5xx is not an absence signal: the lookup raises (after its retry)."""
+    calls = _mock_transport_client(monkeypatch, lambda req: httpx.Response(500, json={"detail": "boom"}, request=req))
+    client = AsyncAITBCHTTPClient(timeout=5.0, api_key=None, max_retries=1)
+
+    with pytest.raises(NetworkError):
+        asyncio.run(_lookup_escrow_record("http://node.invalid", client, "job-x"))
+    assert len(calls) == 2  # GET is retried once at max_retries=1
+
+
+def test_real_client_escrow_get_connect_error_raises(monkeypatch):
+    """A transport failure raises — never read as "no lock"."""
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    calls = _mock_transport_client(monkeypatch, refuse)
+    client = AsyncAITBCHTTPClient(timeout=5.0, api_key=None, max_retries=1)
+
+    with pytest.raises(NetworkError):
+        asyncio.run(_lookup_escrow_record("http://node.invalid", client, "job-x"))
+    assert len(calls) == 2
+
+
+def test_real_client_escrow_get_unparseable_200_raises(monkeypatch):
+    """A 200 with a non-JSON body raises — the error is post-response, so no retry."""
+    calls = _mock_transport_client(monkeypatch, lambda req: httpx.Response(200, content=b"<html>oops</html>", request=req))
+    client = AsyncAITBCHTTPClient(timeout=5.0, api_key=None, max_retries=1)
+
+    with pytest.raises(ValueError):
+        asyncio.run(_lookup_escrow_record("http://node.invalid", client, "job-x"))
+    assert len(calls) == 1
+
+
+def test_recover_adopts_locked_record_via_real_client(monkeypatch, payment_session):
+    """End to end: POST outcome lost, GET finds the lock → adopted as escrowed."""
+    job = _make_job(payment_session, "job-real-locked")
+    payment = _make_payment(payment_session, job)
+    calls = _mock_transport_client(
+        monkeypatch,
+        lambda req: httpx.Response(
+            200,
+            json={"contract_id": "0xescrowZ", "lock_tx_hash": "0xlock7", "state": "locked"},
+            request=req,
+        ),
+    )
+
+    escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
+
+    assert absent is False
+    assert escrow is not None
+    assert payment.status == "escrowed"
+    assert payment.escrow_address == "0xescrowZ"
+    assert payment.meta_data["escrow_recovered"] is True
+    assert len(calls) == 1
+
+
+def test_recover_does_not_adopt_released_record(monkeypatch, payment_session):
+    """A settled record is stale evidence — never adopted as this payment's escrow."""
+    job = _make_job(payment_session, "job-real-released")
+    payment = _make_payment(payment_session, job)
+    _mock_transport_client(
+        monkeypatch,
+        lambda req: httpx.Response(
+            200,
+            json={
+                "contract_id": "0xescrowR",
+                "lock_tx_hash": "0xlock8",
+                "state": "released",
+                "released_at": "2026-10-03T20:00:00+00:00",
+            },
+            request=req,
+        ),
+    )
+
+    escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
+
+    assert escrow is None
+    assert absent is False
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "funding_unknown"
+    assert job.id in payment.meta_data["escrow_error"]
+    assert "released" in payment.meta_data["escrow_error"]
+
+
+def test_recover_does_not_adopt_refunded_record(monkeypatch, payment_session):
+    """Same for a refunded record — settled either way is not ours to adopt."""
+    job = _make_job(payment_session, "job-real-refunded")
+    payment = _make_payment(payment_session, job)
+    _mock_transport_client(
+        monkeypatch,
+        lambda req: httpx.Response(
+            200,
+            json={
+                "contract_id": "0xescrowF",
+                "lock_tx_hash": "0xlock9",
+                "state": "refunded",
+                "refunded_at": "2026-10-03T20:05:00+00:00",
+            },
+            request=req,
+        ),
+    )
+
+    escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
+
+    assert escrow is None
+    assert absent is False
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "funding_unknown"
+    assert "refunded" in payment.meta_data["escrow_error"]
+
+
+def test_recover_confirmed_absent_via_real_client(monkeypatch, payment_session):
+    """404 on the record plus an empty chain list → absence confirmed, retry safe."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rpc/escrow/" in request.url.path:
+            return httpx.Response(404, json={"detail": "escrow not found"}, request=request)
+        return httpx.Response(200, json=[], request=request)
+
+    job = _make_job(payment_session, "job-real-absent")
+    payment = _make_payment(payment_session, job)
+    _mock_transport_client(monkeypatch, handler)
+
+    escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
+
+    assert escrow is None
+    assert absent is True
+
+
+def test_recover_marks_funding_unknown_via_real_client_bad_body(monkeypatch, payment_session):
+    """A 200 the client cannot parse fails the lookup → funding_unknown, fast."""
+    job = _make_job(payment_session, "job-real-unknown")
+    payment = _make_payment(payment_session, job)
+    calls = _mock_transport_client(monkeypatch, lambda req: httpx.Response(200, content=b"not-json", request=req))
+
+    escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
+
+    assert escrow is None
+    assert absent is False
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "funding_unknown"
+    assert job.id in payment.meta_data["escrow_error"]
+    assert len(calls) == 1
