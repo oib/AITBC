@@ -139,6 +139,7 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
         expected_operator_address=config.energy_operator_address,
         expected_domain=config.energy_quote_domain,
         expected_chain_id=expected_id,
+        max_rate_age_seconds=config.energy_max_rate_age_seconds,
     )
     if not verification.valid:
         warning(
@@ -223,6 +224,7 @@ def buy(
         expected_operator_address=config.energy_operator_address,
         expected_domain=config.energy_quote_domain,
         expected_chain_id=expected_id,
+        max_rate_age_seconds=config.energy_max_rate_age_seconds,
     )
     if not verification.valid:
         error(
