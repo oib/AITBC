@@ -588,6 +588,7 @@ async def buy_gpu(
     job_id = None
     payment_id = None
     payment_status = None
+    payment = None
     try:
         from sqlmodel import Session as SQLModelSession
 
@@ -727,9 +728,13 @@ async def buy_gpu(
         session.delete(booking)
         gpu.status = "available"
         session.commit()
+        detail = f"Payment failed: {payment_status}"
+        escrow_error = getattr(payment, "meta_data", None)
+        if isinstance(escrow_error, dict) and escrow_error.get("escrow_error"):
+            detail = f"Payment failed: {escrow_error['escrow_error']}"
         raise HTTPException(
             status_code=http_status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"Payment failed: {payment_status}",
+            detail=detail,
         )
 
     return {
