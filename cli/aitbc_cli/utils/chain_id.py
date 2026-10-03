@@ -40,6 +40,33 @@ def validate_chain_id(chain_id: str) -> bool:
     return bool(chain_id and isinstance(chain_id, str) and len(chain_id) > 0)
 
 
+def _probe_endpoint(http_client: AITBCHTTPClient, endpoint: str, errors: list[str]) -> str | None:
+    """Probe one endpoint for a chain id; append a diagnostic on failure.
+
+    Returns the advertised chain id — ``supported_chains[0]`` wins over a bare
+    ``chain_id`` — or ``None`` when the endpoint does not provide one.
+    """
+    try:
+        data = http_client.get(endpoint)
+    except NetworkError as e:
+        errors.append(f"{endpoint}: {e}")
+        logger.debug("Network error detecting chain ID from %s", endpoint, exc_info=True)
+        return None
+    except Exception as e:
+        errors.append(f"{endpoint}: {e}")
+        logger.debug("Chain ID detection from %s failed", endpoint, exc_info=True)
+        return None
+    supported_chains = data.get("supported_chains") or []
+    if supported_chains:
+        first_chain = supported_chains[0] if isinstance(supported_chains, list) else str(supported_chains)
+        return str(first_chain)
+    chain_id = data.get("chain_id")
+    if chain_id:
+        return str(chain_id)
+    errors.append(f"{endpoint}: response carried no chain_id")
+    return None
+
+
 def get_chain_id_from_health(rpc_url: str, timeout: int = 5, *, strict: bool = False) -> str:
     """Auto-detect chain ID from the blockchain node.
 
@@ -71,22 +98,9 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5, *, strict: bool = F
         # Try the blockchain RPC /proposer endpoint first: it works behind the
         # public reverse proxy and returns both chain_id and supported_chains.
         for endpoint in ("/rpc/proposer", "/health"):
-            try:
-                data = http_client.get(endpoint)
-                supported_chains = data.get("supported_chains") or []
-                if supported_chains:
-                    first_chain = supported_chains[0] if isinstance(supported_chains, list) else str(supported_chains)
-                    return str(first_chain)
-                chain_id = data.get("chain_id")
-                if chain_id:
-                    return str(chain_id)
-                errors.append(f"{endpoint}: response carried no chain_id")
-            except NetworkError as e:
-                errors.append(f"{endpoint}: {e}")
-                logger.debug("Network error detecting chain ID from %s", endpoint, exc_info=True)
-            except Exception as e:
-                errors.append(f"{endpoint}: {e}")
-                logger.debug("Chain ID detection from %s failed", endpoint, exc_info=True)
+            chain_id = _probe_endpoint(http_client, endpoint, errors)
+            if chain_id is not None:
+                return chain_id
 
     if strict:
         detail = "; ".join(errors) or "no chain_id advertised"
