@@ -26,7 +26,13 @@ from aitbc_chain.base_models import Account
 from aitbc_chain.config import settings
 from aitbc_chain.database import chain_metadata
 from aitbc_chain.rpc.transactions import _validate_transaction_admission
-from aitbc_chain.state.gpu_resources import GPU_STATUS_DEACTIVATED, GPUAllocation, GPURegistration, gpu_deregister_error
+from aitbc_chain.state.gpu_resources import (
+    GPU_STATUS_DEACTIVATED,
+    GPUAllocation,
+    GPURegistration,
+    gpu_allocate_deactivated_error,
+    gpu_deregister_error,
+)
 from aitbc_chain.state.pure_state_transition import SEQUENTIAL_ONLY_TX_TYPES
 from aitbc_chain.state.state_transition import StateTransition, get_block_version_for_height
 from aitbc_chain.state.v9_policy import V9_METRIC_KNOWN_TX_TYPES
@@ -400,4 +406,100 @@ def test_admission_and_apply_give_the_same_verdict(door, session, st):
         valid, _ = st.validate_transaction(
             session, CHAIN, _deregister(key, gpu_id, nonce), f"probe-{key[-4:]}-{gpu_id}", block_version=10
         )
+        assert admitted == valid == expect, (key, gpu_id)
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# GPU_ALLOCATE: the deactivated-row door
+# --------------------------------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def door_allocate(session, monkeypatch):
+    @contextmanager
+    def _scope():
+        yield session
+
+    monkeypatch.setattr("aitbc_chain.rpc.transactions.session_scope", _scope)
+    monkeypatch.setattr("aitbc_chain.rpc.utils.get_supported_chains", lambda: [CHAIN])
+    monkeypatch.setattr(settings, "state_transition_v10_height", 1)
+
+    def submit(sender: str, gpu_id: str = "gpu-1", nonce: int = 0, **overrides: Any) -> None:
+        tx: dict[str, Any] = {
+            "from": sender,
+            "to": sender,
+            "amount": 0,
+            "fee": DEFAULT_TX_FEE_UNITS,
+            "nonce": nonce,
+            "type": "GPU_ALLOCATE",
+            "chain_id": CHAIN,
+            "payload": {"gpu_id": gpu_id, "client_id": "client-1", "duration_hours": 2.0, "total_cost": "0.2"},
+        }
+        tx.update(overrides)
+        _validate_transaction_admission(tx, None)
+
+    return submit
+
+
+def test_allocate_helper_only_reports_the_one_rule(registered):
+    assert gpu_allocate_deactivated_error(registered, CHAIN, "gpu-1") is None
+    assert gpu_allocate_deactivated_error(registered, CHAIN, None) is None
+    assert gpu_allocate_deactivated_error(registered, CHAIN, {}) is None
+    assert gpu_allocate_deactivated_error(registered, CHAIN, {"gpu_id": "gpu-1"}) is None
+    assert gpu_allocate_deactivated_error(registered, CHAIN, {"gpu_id": "no-such-gpu"}) is None
+
+
+def test_allocate_helper_reports_the_deactivated_row(registered):
+    row = _row(registered)
+    row.status = GPU_STATUS_DEACTIVATED
+    registered.add(row)
+    registered.commit()
+    assert (
+        gpu_allocate_deactivated_error(registered, CHAIN, {"gpu_id": "gpu-1"})
+        == "GPU gpu-1 is deactivated; it takes no new allocations"
+    )
+
+
+def test_allocate_admission_admits_an_active_row(door_allocate, registered):
+    door_allocate(OTHER)
+
+
+def test_allocate_admission_refuses_a_deactivated_row(door_allocate, registered, st):
+    ok, msg = _apply(st, registered, _deregister(OWNER_KEY), "tx_dereg")
+    assert ok, msg
+    with pytest.raises(ValueError, match="is deactivated; it takes no new allocations"):
+        door_allocate(OTHER)
+
+
+def test_allocate_admission_admits_a_deactivated_row_below_v10(door_allocate, registered, st, monkeypatch):
+    """Below the activation height the door stays as it was: the type predates v10, unlike GPU_DEREGISTER."""
+    ok, msg = _apply(st, registered, _deregister(OWNER_KEY), "tx_dereg")
+    assert ok, msg
+    monkeypatch.setattr(settings, "state_transition_v10_height", None)
+    door_allocate(OTHER)
+
+
+def test_allocate_admission_admits_an_unknown_row(door_allocate, registered):
+    door_allocate(OTHER, gpu_id="no-such-gpu")
+
+
+def test_allocate_admission_and_apply_give_the_same_verdict(door_allocate, session, registered, st):
+    """The two doors share gpu_allocate_deactivated_error; this fails if either ever grows a private check."""
+    ok, msg = _apply(st, session, _register(OTHER_KEY, "gpu-9", nonce=0), "tx_reg9")
+    assert ok, msg
+    ok, msg = _apply(st, session, _deregister(OTHER_KEY, "gpu-9", nonce=1), "tx_dereg9")
+    assert ok, msg
+    cases = [
+        (OTHER_KEY, "gpu-9", 2, False),
+        (OTHER_KEY, "gpu-1", 2, True),
+        (OTHER_KEY, "missing", 2, True),
+    ]
+    for key, gpu_id, nonce, expect in cases:
+        sender = derive_ethereum_address(key)
+        try:
+            door_allocate(sender, gpu_id=gpu_id, nonce=nonce)
+            admitted = True
+        except ValueError:
+            admitted = False
+        valid, _ = st.validate_transaction(session, CHAIN, _allocate(key, gpu_id, nonce), f"probe-{gpu_id}", block_version=10)
         assert admitted == valid == expect, (key, gpu_id)
