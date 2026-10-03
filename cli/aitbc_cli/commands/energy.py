@@ -159,6 +159,7 @@ def operator_verify(ctx, quote_file, check_oracle):
             contract_address=config.energy_pricing_contract_address,
             chain_id=config.energy_pricing_chain_id,
             operator_address=config.energy_operator_address,
+            max_rate_age_seconds=config.energy_max_rate_age_seconds,
         )
     else:
         expected_id, expected_src = expected_quote_chain_id(
@@ -170,6 +171,7 @@ def operator_verify(ctx, quote_file, check_oracle):
             expected_operator_address=config.energy_operator_address,
             expected_domain=config.energy_quote_domain,
             expected_chain_id=expected_id,
+            max_rate_age_seconds=config.energy_max_rate_age_seconds,
         )
 
     if result.valid:

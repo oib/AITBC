@@ -57,6 +57,7 @@ CONFIG_FILE_KEYS: dict[str, str] = {
     "energy_token_contract_address": "energy_token_contract_address",
     "energy_operator_address": "energy_operator_address",
     "energy_quote_lifetime_seconds": "energy_quote_lifetime_seconds",
+    "energy_max_rate_age_seconds": "energy_max_rate_age_seconds",
     "energy_quote_domain": "energy_quote_domain",
     "energy_eur_per_kwh": "energy_eur_per_kwh",
     "shop_region": "shop_region",
@@ -184,6 +185,14 @@ class CLIConfig(BaseAITBCConfig):
         default=None, description="Operator address (0x...) expected to sign energy quotes"
     )
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime in seconds")
+    energy_max_rate_age_seconds: int = Field(
+        default=86400,
+        description=(
+            "Maximum age of an energy rate observation accepted when verifying a quote "
+            "(ENERGY_MAX_RATE_AGE_SECONDS; matches the coordinator's configured window, "
+            "86400s on hub where the rate refreshes every 12h)"
+        ),
+    )
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote signing domain")
     energy_eur_per_kwh: Decimal | None = Field(
         default=None, description="Shop electricity tariff in EUR/kWh for `aitbc energy suggest`"
