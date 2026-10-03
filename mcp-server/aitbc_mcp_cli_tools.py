@@ -76,7 +76,7 @@ def _run_aitbc_cli_write(
         subcommand_options=subcommand_options,
         env=env,
     )
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(
