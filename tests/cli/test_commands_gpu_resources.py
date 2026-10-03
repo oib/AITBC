@@ -121,7 +121,7 @@ class TestGPUResourcesCommands:
     @patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_resources.get_config")
     def test_gpu_query_network_error_handled(self, mock_get_config, mock_http_class, mock_chain_health, runner, mock_config):
-        """``gpu-onchain query`` handles NetworkError gracefully (exit 0)."""
+        """``gpu-onchain query`` reports NetworkError and aborts (exit 1)."""
         from aitbc_cli.commands.gpu_resources import gpu
         from aitbc_cli.utils.http_client import NetworkError
 
@@ -131,14 +131,16 @@ class TestGPUResourcesCommands:
 
         result = runner.invoke(gpu, ["query", "--gpu-id", "gpu-0"])
 
-        # NetworkError is caught and reported via error(), exit code stays 0.
-        assert result.exit_code == 0, result.output
+        # NetworkError is reported and aborts the command — a swallowed
+        # error must not masquerade as a successful query.
+        assert result.exit_code == 1, result.output
+        assert "Network error: connection refused" in result.output
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
     @patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_resources.get_config")
     def test_gpu_list_network_error_handled(self, mock_get_config, mock_http_class, mock_chain_health, runner, mock_config):
-        """``gpu-onchain list`` handles NetworkError gracefully (exit 0)."""
+        """``gpu-onchain list`` reports NetworkError and aborts (exit 1)."""
         from aitbc_cli.commands.gpu_resources import gpu
         from aitbc_cli.utils.http_client import NetworkError
 
@@ -148,8 +150,10 @@ class TestGPUResourcesCommands:
 
         result = runner.invoke(gpu, ["list"])
 
-        # NetworkError is caught and reported via error(), exit code stays 0.
-        assert result.exit_code == 0, result.output
+        # NetworkError is reported and aborts the command — a swallowed
+        # error must not masquerade as a successful listing.
+        assert result.exit_code == 1, result.output
+        assert "Network error: connection refused" in result.output
 
     @patch("aitbc_cli.utils.gpu_onchain.wait_for_tx")
     @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_register")
