@@ -2355,7 +2355,7 @@
             }
           },
           "402": {
-            "description": "Payment failed: {payment_status}",
+            "description": "Payment Required",
             "content": {
               "application/json": {
                 "schema": {

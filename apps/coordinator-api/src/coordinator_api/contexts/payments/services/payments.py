@@ -170,6 +170,47 @@ async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClie
     return None
 
 
+def _find_http_status_error(exc: BaseException) -> httpx.HTTPStatusError | None:
+    """Unwrap the chained exception to find the HTTP refusal, if any.
+
+    AsyncAITBCHTTPClient maps every httpx failure to NetworkError with the
+    original as ``__cause__``; a walk over cause/context recovers the status
+    code without trusting the wrapped message text.
+    """
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if isinstance(cur, httpx.HTTPStatusError):
+            return cur
+        cur = cur.__cause__ or cur.__context__
+    return None
+
+
+def _escrow_failure_reason(exc: BaseException) -> tuple[str, str]:
+    """Classify an escrow-POST failure and return (kind, buyer-safe detail).
+
+    A node 4xx is a permanent refusal -- its ``detail`` is a domain message
+    (stale rate, binding mismatch) and safe to surface. Anything else
+    (timeouts, connect errors, 5xx, ambiguous post-send failures) is
+    retryable and reported generically so no internal URL or traceback leaks
+    into what the buyer sees.
+    """
+    status_error = _find_http_status_error(exc)
+    if status_error is not None and 400 <= status_error.response.status_code < 500:
+        detail: object = None
+        try:
+            body = status_error.response.json()
+            if isinstance(body, dict):
+                detail = body.get("detail")
+        except Exception:
+            detail = None
+        if isinstance(detail, str) and detail:
+            return "refused", detail[:200]
+        return "refused", f"the node refused the escrow (HTTP {status_error.response.status_code})"
+    return "unavailable", "the escrow funding request could not reach the node; the purchase can be retried"
+
+
 def _tee_attests_computation(receipt: dict[str, Any] | None, job: Job | None) -> bool:
     """Return True when a registered TEE quote attests a model with no Groth16 circuit.
 
@@ -805,6 +846,29 @@ class PaymentService:
         logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
         return escrow
 
+    def _mark_escrow_failed(self, payment: JobPayment, kind: str, detail: str) -> None:
+        """Mark a payment whose escrow never landed as ``failed`` with a
+        buyer-safe reason.
+
+        Leaving it ``pending`` makes the failure silent: ``_route_escrow``
+        only overwrites on an *escaping* exception, so a swallowed refusal
+        used to surface as a successful purchase with no escrow behind it
+        (market_gpu rolls the booking back only on ``failed``/``skipped``).
+        ``failed`` is correct even for the retryable kinds: the purchase is
+        the retry unit, and the chain deduplicates an ESCROW_LOCK by job_id,
+        so a retried buy resolves to the existing lock instead of
+        double-locking.
+        """
+        payment.status = "failed"
+        payment.updated_at = datetime.now(UTC)
+        # A fresh dict: re-assigning the same object would not flag the JSON
+        # column dirty and the failure reason would be lost on commit.
+        meta = dict(payment.meta_data) if isinstance(payment.meta_data, dict) else {}
+        meta["escrow_error_kind"] = kind
+        meta["escrow_error"] = detail
+        payment.meta_data = meta
+        logger.warning("Escrow funding for payment %s failed (%s): %s", payment.id, kind, detail)
+
     async def _create_token_escrow(
         self,
         payment: JobPayment,
@@ -853,14 +917,12 @@ class PaymentService:
                     "No buyer lock signature supplied for job %s; the hub will not sign on behalf of the buyer",
                     payment.job_id,
                 )
+                self._mark_escrow_failed(payment, "unsigned", "no buyer lock signature was supplied")
                 return None
 
             return await self._submit_escrow_create(payment, buyer, provider, lock_tx, meta)
-        except NetworkError as e:
-            logger.warning("Token escrow endpoint not available: %s", e)
-            return None
         except Exception as e:
-            logger.warning("Token escrow creation failed: %s", e)
+            self._mark_escrow_failed(payment, *_escrow_failure_reason(e))
             return None
 
     async def _create_crypto_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
