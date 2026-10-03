@@ -1,4 +1,7 @@
-# promtool unit tests for scripts/monitoring/aitbc_rules.yml
+# promtool unit tests for scripts/monitoring/aitbc_rules.yml and the
+# hub-only scripts/monitoring/aitbc_hub_rules.yml (authority-account alerts;
+# the hub file is exercised here so its rules keep test coverage even though
+# it is deployed on one host only).
 #
 #   promtool test rules scripts/monitoring/aitbc_rules_test.yml
 #
@@ -7,6 +10,7 @@
 # without forging anything on the live chain.
 rule_files:
   - aitbc_rules.yml
+  - aitbc_hub_rules.yml
 
 evaluation_interval: 30s
 
