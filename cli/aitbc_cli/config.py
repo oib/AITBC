@@ -189,7 +189,10 @@ class CLIConfig(BaseAITBCConfig):
         default=None, description="Shop electricity tariff in EUR/kWh for `aitbc energy suggest`"
     )
     shop_region: str | None = Field(default=None, description="Shop region code (e.g. 'de') for the regional tariff table")
-    native_chain_id: str = Field(default="ait-localnet", description="Native chain ID for quote binding")
+    native_chain_id: str = Field(
+        default="",
+        description="Native chain ID for quote binding (empty = bind to the resolved chain id)",
+    )
     tee_attestation_enabled: bool = Field(
         default=False, description="Enable TEE attestation support; default is False for fail-closed behaviour"
     )
