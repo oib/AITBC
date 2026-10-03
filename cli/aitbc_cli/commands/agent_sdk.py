@@ -21,7 +21,7 @@ from aitbc.utils.validation import validate_address
 from ..config import get_config
 from ..utils import error, info, output, success
 from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -640,15 +640,9 @@ try:
             rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
             # Use the configured blockchain RPC URL directly; followers can set it to the hub.
 
-            # Get chain_id
-            try:
-                from ..utils.chain_id import get_chain_id
+            from ..utils.chain_id import resolve_chain_id
 
-                chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-            except Exception:
-                import os
-
-                chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+            chain_id = resolve_chain_id(ctx, rpc_url)
 
             # Load agent config to get capabilities
             config_dir = get_agent_config_dir()
@@ -690,6 +684,8 @@ try:
                 ctx.obj.get("output_format", format),
             )
 
+        except (CLIError, click.Abort):
+            raise
         except Exception as e:
             abort(ctx, f"Error registering identity: {str(e)}", from_exception=e)
 
@@ -712,22 +708,19 @@ try:
             rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
             # Use the configured blockchain RPC URL directly; followers can set it to the hub.
 
-            # Get chain_id
-            try:
-                from ..utils.chain_id import get_chain_id
+            from ..utils.chain_id import resolve_chain_id
 
-                chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-            except Exception:
-                import os
-
-                chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+            chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
             # Query identity from blockchain RPC
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-            result = http_client.get(f"/rpc/identity/{agent_id}?chain_id={chain_id}")
+            query = f"?chain_id={chain_id}" if chain_id else ""
+            result = http_client.get(f"/rpc/identity/{agent_id}{query}")
 
             output(result, ctx.obj.get("output_format", format))
 
+        except (CLIError, click.Abort):
+            raise
         except Exception as e:
             abort(ctx, f"Error getting identity: {str(e)}", from_exception=e)
 
@@ -751,15 +744,9 @@ try:
             rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
             # Use the configured blockchain RPC URL directly; followers can set it to the hub.
 
-            # Get chain_id
-            try:
-                from ..utils.chain_id import get_chain_id
+            from ..utils.chain_id import resolve_chain_id
 
-                chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-            except Exception:
-                import os
-
-                chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+            chain_id = resolve_chain_id(ctx, rpc_url)
 
             # Submit verification to blockchain RPC
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -769,6 +756,8 @@ try:
             success(f"Agent identity verified: {agent_id}")
             output(result, ctx.obj.get("output_format", format))
 
+        except (CLIError, click.Abort):
+            raise
         except Exception as e:
             abort(ctx, f"Error verifying identity: {str(e)}", from_exception=e)
 
