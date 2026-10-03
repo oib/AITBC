@@ -81,7 +81,7 @@ class TestNetworkCommand:
         # `network propagate` doesn't exist; `network force-sync` is the equivalent
         result = run_cli("network", "force-sync", "--help")
         assert result.returncode == 0
-        assert "Force the local node to synchronize" in result.stdout
+        assert "wipe and re-import its chain" in result.stdout
 
 
 class TestAIOperationsCommand:
