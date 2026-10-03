@@ -35,10 +35,12 @@ A GPU's registrant removes it from the market with a `GPU_DEREGISTER` transactio
 - The market service's default offer listing leaves deactivated GPUs out; `status=deactivated`
   lists them.
 - Active only from `STATE_TRANSITION_V10_HEIGHT` (see
-  [ENVIRONMENT_CONFIGURATION.md](../blockchain/ENVIRONMENT_CONFIGURATION.md)). Below that
-  height the node refuses the transaction at admission, and a copy sealed below it replays
-  as a plain transfer. Every node must run a build that knows the type before the height is
-  set, or `gpu_registration` diverges between nodes.
+  [ENVIRONMENT_CONFIGURATION.md](../blockchain/ENVIRONMENT_CONFIGURATION.md)); the height is
+  baked into `config.py` as the default 32100 since the fleet-wide activation on
+  2026-10-02, and an env value only overrides that default. Below the height the node
+  refuses the transaction at admission, and a copy sealed below it replays as a plain
+  transfer. Every node must run a build that knows the type before the height, or
+  `gpu_registration` diverges between nodes.
 - `aitbc gpu unregister` is a different command: it edits the local GPU service and does not
   touch the chain. The coordinator API's own GPU registry (`/v1/market/gpu/*`) is a separate
   table and is not affected by a chain deactivation.
