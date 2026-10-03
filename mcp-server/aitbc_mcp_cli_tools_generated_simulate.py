@@ -19,6 +19,7 @@ from aitbc_mcp_server import (
     _build_aitbc_cli_command,
     _build_dry_run,
     _collect_options,
+    _execution_context,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -46,6 +47,7 @@ def aitbc_simulate_ai_jobs(
         values={"jobs": "jobs", "models": "models", "duration_range": "duration-range", "delay": "delay", "seed": "seed"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "simulate",
         subcommand=["ai-jobs"],
@@ -54,16 +56,16 @@ def aitbc_simulate_ai_jobs(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -96,6 +98,7 @@ def aitbc_simulate_blockchain(
         values={"blocks": "blocks", "transactions": "transactions", "delay": "delay", "seed": "seed"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "simulate",
         subcommand=["blockchain"],
@@ -104,16 +107,16 @@ def aitbc_simulate_blockchain(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -175,6 +178,7 @@ def aitbc_simulate_price(
         values={"price": "price", "volatility": "volatility", "timesteps": "timesteps", "delay": "delay", "seed": "seed"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "simulate",
         subcommand=["price"],
@@ -183,16 +187,16 @@ def aitbc_simulate_price(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -222,6 +226,7 @@ def aitbc_simulate_result(
         values={"simulation_id": "simulation-id"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "simulate",
         subcommand=["result"],
@@ -230,16 +235,16 @@ def aitbc_simulate_result(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -271,6 +276,7 @@ def aitbc_simulate_run(
         values={"scenario": "scenario", "params": "params"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "simulate",
         subcommand=["run"],
@@ -279,16 +285,16 @@ def aitbc_simulate_run(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,

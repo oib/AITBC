@@ -17,6 +17,7 @@ from aitbc_mcp_server import (
     _build_aitbc_cli_command,
     _build_dry_run,
     _collect_options,
+    _execution_context,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -51,6 +52,7 @@ def aitbc_ipfs_download(
         },
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "ipfs",
         subcommand=["download"],
@@ -59,16 +61,16 @@ def aitbc_ipfs_download(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -118,6 +120,7 @@ def aitbc_ipfs_island_subscribe(
         },
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "ipfs",
         subcommand=["island", "subscribe"],
@@ -126,16 +129,16 @@ def aitbc_ipfs_island_subscribe(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -186,6 +189,7 @@ def aitbc_ipfs_island_swarm_key(
         },
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "ipfs",
         subcommand=["island", "swarm-key"],
@@ -194,16 +198,16 @@ def aitbc_ipfs_island_swarm_key(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -253,6 +257,7 @@ def aitbc_ipfs_pin(
         values={"cid": "cid"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "ipfs",
         subcommand=["pin"],
@@ -261,16 +266,16 @@ def aitbc_ipfs_pin(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -300,6 +305,7 @@ def aitbc_ipfs_unpin(
         values={"cid": "cid"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "ipfs",
         subcommand=["unpin"],
@@ -308,16 +314,16 @@ def aitbc_ipfs_unpin(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -349,6 +355,7 @@ def aitbc_ipfs_upload(
         values={"file": "file", "name": "name"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "ipfs",
         subcommand=["upload"],
@@ -357,16 +364,16 @@ def aitbc_ipfs_upload(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,

@@ -17,6 +17,7 @@ from aitbc_mcp_server import (
     _build_aitbc_cli_command,
     _build_dry_run,
     _collect_options,
+    _execution_context,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -50,6 +51,7 @@ def aitbc_network_force_sync(
         },
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["force-sync"],
@@ -58,16 +60,16 @@ def aitbc_network_force_sync(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -98,6 +100,7 @@ def aitbc_network_gossip(
         values={"rpc_url": "rpc-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["gossip"],
@@ -106,16 +109,16 @@ def aitbc_network_gossip(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -147,6 +150,7 @@ def aitbc_network_heartbeat(
         values={"node_id": "node-id", "duration": "duration", "rpc_url": "rpc-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["heartbeat"],
@@ -155,16 +159,16 @@ def aitbc_network_heartbeat(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -195,6 +199,7 @@ def aitbc_network_lease_status(
         values={"node_id": "node-id", "rpc_url": "rpc-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["lease-status"],
@@ -203,16 +208,16 @@ def aitbc_network_lease_status(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -269,6 +274,7 @@ def aitbc_network_set_sync_source(
         values={"sync_url": "url", "env_file": "env-file"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["set-sync-source"],
@@ -277,16 +283,16 @@ def aitbc_network_set_sync_source(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -358,6 +364,7 @@ def aitbc_network_subscribe(
         },
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["subscribe"],
@@ -366,16 +373,16 @@ def aitbc_network_subscribe(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -406,6 +413,7 @@ def aitbc_network_subscribers(
         values={"chain_id": "chain-id", "rpc_url": "rpc-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["subscribers"],
@@ -414,16 +422,16 @@ def aitbc_network_subscribers(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -454,6 +462,7 @@ def aitbc_network_test(
         values={"peer": "peer", "rpc_url": "rpc-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "network",
         subcommand=["test"],
@@ -462,16 +471,16 @@ def aitbc_network_test(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,

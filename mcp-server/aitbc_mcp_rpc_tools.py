@@ -20,6 +20,7 @@ from aitbc_mcp_server import (
     HTTP_SERVICE_NAMES,
     NodeRole,
     _build_dry_run,
+    _execution_context,
     _host_for_role,
     _http_dry_run_command,
     _http_read_tool,
@@ -58,12 +59,13 @@ def _http_write_tool(
     command = _http_dry_run_command(service, path, "POST", None, body, auth)
 
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false and confirm=true to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false and confirm=true to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
                 "command": command,
+                **_execution_context(target),
                 "note": "This is a destructive RPC call. Pass dry_run=false and confirm=true to execute.",
             }
         )
