@@ -331,3 +331,27 @@ class TestFilesAgree:
         hub = (MONITORING / "aitbc_hub_rules.yml").read_text()
         assert "EscrowSettlementUnlanded" in shared
         assert "EscrowSettlement" not in hub
+
+    def _escrow_alert_bodies(self) -> list[str]:
+        """The text of each ``- alert: EscrowSettlement*`` block, comments stripped."""
+        rules = (MONITORING / "aitbc_rules.yml").read_text()
+        alerts = re.split(r"\n\s*- alert: ", rules)
+        return [
+            "\n".join(line for line in a.splitlines() if not line.lstrip().startswith("#"))
+            for a in alerts
+            if a.startswith("EscrowSettlement")
+        ]
+
+    def test_escrow_alerts_do_not_use_absent(self):
+        """absent() has no instance label and, under per-host evaluation, fires
+        on every host that lacks the timer — the T35 mechanism in miniature."""
+        bodies = self._escrow_alert_bodies()
+        assert len(bodies) >= 2, bodies
+        assert all("absent(" not in body for body in bodies)
+
+    def test_unreadable_db_fires_an_alert_not_an_all_clear(self):
+        """scrape_success 0 means the count is untrustworthy, not zero."""
+        bodies = self._escrow_alert_bodies()
+        assert any(re.search(r"aitbc_escrow_settlement_scrape_success\s*==\s*0", body) for body in bodies), (
+            "no alert reads scrape_success — a broken DB would resolve as all-clear"
+        )

@@ -233,17 +233,31 @@ groups:
           description: "An escrow row on {{ $labels.instance }} is marked released/refunded but its settlement hash never sealed — a dead hash is being served and custody is unresolved (provider unpaid or buyer unrefunded). The aitbc_escrow_unlanded_settlement{job_id,kind} series names the rows; repair per the S-8 remedy-2 path."
 
       # EscrowSettlementCheckStale: the check itself must run -- a stopped
-      # exporter puts the dead-hash disease back in the dark. Same shape as
-      # AITBCJournalScanStale: requires the timer on every host it fires on;
-      # a host where it was never installed has no series and is invisible
-      # here, so deploy coverage is checked separately.
+      # exporter puts the dead-hash disease back in the dark. Requires the
+      # timer on every host it should fire on; a host where it was never
+      # installed has no series and stays invisible, so deploy coverage is
+      # checked separately. Unlike AITBCJournalScanStale there is deliberately
+      # no absent() arm: absent() carries no instance label, and on the
+      # per-host evaluation model it fires on every host lacking the timer --
+      # the T35 mechanism in miniature.
       - alert: EscrowSettlementCheckStale
-        expr: |
-          absent(aitbc_escrow_settlement_scrape_timestamp_seconds)
-          or time() - aitbc_escrow_settlement_scrape_timestamp_seconds > 600
+        expr: time() - aitbc_escrow_settlement_scrape_timestamp_seconds > 600
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: "Escrow settlement check has stopped ({{ $labels.instance }})"
-          description: "aitbc_escrow_settlement_scrape_timestamp_seconds is absent or older than ten minutes on {{ $labels.instance }} — unlanded settlements are invisible on this host again. Check systemctl status aitbc-escrow-settlements.timer."
+          description: "aitbc_escrow_settlement_scrape_timestamp_seconds is older than ten minutes on {{ $labels.instance }} — unlanded settlements are invisible on this host again. Check systemctl status aitbc-escrow-settlements.timer."
+
+      # EscrowSettlementCheckFailed: the exporter writes scrape_success 0 and
+      # exits 1 when a chain.db cannot be opened or lacks the escrow table.
+      # Without this alert that failure reads as a clean count of zero -- the
+      # unlanded alert would resolve while the check is blind.
+      - alert: EscrowSettlementCheckFailed
+        expr: aitbc_escrow_settlement_scrape_success == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Escrow settlement check cannot read {{ $labels.db }} ({{ $labels.instance }})"
+          description: "aitbc_escrow_settlement_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no escrow table, so the unlanded count for it cannot be trusted. Check journalctl -u aitbc-escrow-settlements.service."
