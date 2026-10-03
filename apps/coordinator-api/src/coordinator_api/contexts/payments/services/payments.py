@@ -187,6 +187,22 @@ async def _lookup_escrow_record(blockchain_rpc_url: str, client: AsyncAITBCHTTPC
         raise
 
 
+_SETTLED_ESCROW_STATES = frozenset({"released", "refunded"})
+
+
+def _escrow_record_is_settled(record: dict[str, Any]) -> bool:
+    """True when the node's escrow record is already settled either way.
+
+    Checks the settlement timestamps the GET exposes as well as the
+    state/status strings, so a record settled by either path is caught.
+    """
+    if record.get("released_at") or record.get("refunded_at"):
+        return True
+    state = str(record.get("state") or "").lower()
+    status = str(record.get("status") or "").lower()
+    return state in _SETTLED_ESCROW_STATES or status in _SETTLED_ESCROW_STATES
+
+
 def _find_http_status_error(exc: BaseException) -> httpx.HTTPStatusError | None:
     """Unwrap the chained exception to find the HTTP refusal, if any.
 
@@ -910,6 +926,21 @@ class PaymentService:
         client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
         try:
             record = await _lookup_escrow_record(self.blockchain_rpc_url, client, payment.job_id)
+            if record is not None and _escrow_record_is_settled(record):
+                # A record already released or refunded is stale evidence from
+                # an earlier escrow for this job_id — a lock submitted moments
+                # ago cannot already be settled. Adopting it would mark this
+                # payment escrowed on somebody else's escrow, so our lock's
+                # fate is genuinely unknown here.
+                self._mark_escrow_failed(
+                    payment,
+                    "funding_unknown",
+                    f"the node reports job {payment.job_id}'s escrow as already "
+                    f"{record.get('state') or record.get('status')}; the funding "
+                    "state of this purchase is unknown — check the job's escrow "
+                    "record before retrying",
+                )
+                return None, False
             lock_tx_hash = (record or {}).get("lock_tx_hash")
             contract_id = (record or {}).get("contract_id")
             if lock_tx_hash is None:
