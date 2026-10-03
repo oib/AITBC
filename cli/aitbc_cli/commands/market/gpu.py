@@ -19,6 +19,7 @@ import click
 from ...config import get_config
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
+from ...utils.chain_id import resolve_chain_id
 from ...utils.energy_quote import (
     compute_settlement_breakdown,
     parse_quote,
@@ -280,7 +281,6 @@ def _buy_native(
     """Fund a native protected rental by signing ESCROW_LOCK locally."""
     from ...utils.escrow import get_node_wallet
 
-    config = get_config()
     rpc_url = _blockchain_rpc_url()
     parsed = parse_quote(quote_dict)
 
@@ -311,7 +311,7 @@ def _buy_native(
         provider=parsed.provider,
         amount_ait=amount_ait,
         private_key=private_key,
-        chain_id=config.native_chain_id,
+        chain_id=resolve_chain_id(ctx, rpc_url),
         node_wallet=node_wallet,
         energy_quote_id=parsed.quote_id,
         energy_quote_digest=parsed.digest_sha256().hex(),
