@@ -1279,6 +1279,55 @@ while read -r host rest; do
     fi
 done <<< "$S2_OUT"
 
+echo "=== escrow settlement detector (timer active, pinned DB real, textfile fresh, scrape ok) ==="
+# aitbc-escrow-settlements.timer is the S-8 dead-settlement detector: without
+# it an escrow row marked released/refunded with a hash that never sealed goes
+# back to being invisible (the weeks-long blind spot the detector exists to
+# close). The alert rules cover a STOPPED exporter (stale timestamp) and an
+# unreadable DB (scrape_success 0) but deliberately not a never-installed one
+# — absent() would fire label-less on every uninstalled host, the T35
+# mechanism — so deploy coverage lives here instead. The DB path is read from
+# the unit's Environment (the chaindb.conf drop-in pins it per host), not
+# assumed. Report + gate: a missing/stale/broken detector is drift.
+escrow_bad=0
+for h in $HOSTS; do
+    res=$(sshr "${RESOLVED[$h]:-$h}" \
+        'timer=$(systemctl is-active aitbc-escrow-settlements.timer 2>/dev/null || true)
+         db=$(systemctl show -p Environment --value aitbc-escrow-settlements.service 2>/dev/null \
+              | tr " " "\n" | sed -n "s/^AITBC_CHAIN_DB=//p" | tail -1)
+         prom=/var/lib/prometheus/node-exporter/aitbc_escrow_settlements.prom
+         if [ -f "$prom" ]; then
+             age=$(( $(date +%s) - $(stat -c %Y "$prom") ))
+             [ -n "$db" ] && succ=$(grep -F "aitbc_escrow_settlement_scrape_success{db=\"$db\"}" "$prom" | awk "{print \$NF}" | tail -1)
+         else age=-1; fi
+         printf "timer=%s db=%s dbok=%s age=%s succ=%s\n" \
+             "${timer:-unknown}" "${db:-none}" \
+             "$( [ -n "$db" ] && { [ -f "$db" ] && echo 1 || echo 0; } || echo -1 )" \
+             "${age:--1}" "${succ:-none}"' \
+        2>/dev/null || echo "UNREACHABLE")
+    if [ "$res" = "UNREACHABLE" ] || [ -z "$res" ]; then
+        escrow_bad=1
+        printf "  %-14s UNREACHABLE\n" "$h"
+        continue
+    fi
+    timer=$(echo "$res" | sed -n 's/.*timer=\([^ ]*\).*/\1/p')
+    db=$(echo "$res"    | sed -n 's/.*db=\([^ ]*\).*/\1/p')
+    dbok=$(echo "$res"  | sed -n 's/.*dbok=\([^ ]*\).*/\1/p')
+    age=$(echo "$res"   | sed -n 's/.*age=\([^ ]*\).*/\1/p')
+    succ=$(echo "$res"  | sed -n 's/.*succ=\([^ ]*\).*/\1/p')
+    flag=""
+    [ "$timer" != "active" ] && flag="timer=$timer"
+    [ "$dbok" != "1" ] && flag="$flag db_ok=$dbok"
+    { [ "$age" = "-1" ] || [ "$age" -gt 600 ]; } && flag="$flag prom_age=$age"
+    [ "$succ" != "1" ] && flag="$flag scrape_success=$succ"
+    if [ -n "$flag" ]; then
+        escrow_bad=1
+        printf "  %-14s FLAG:%s\n" "$h" "$flag"
+    fi
+    printf "  %-14s timer=%s db=%s prom_age=%ss scrape_success=%s\n" \
+        "$h" "$timer" "$db" "$age" "$succ"
+done
+
 echo
 # Two verdicts. The v9-pin-gate line reads only the consensus/pin-relevant
 # subset — bridge monitor alerts, wallet/faucet hygiene and changelog
@@ -1299,7 +1348,7 @@ if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
    && [ "$mesh_bad" -eq 0 ] && [ "$val_bad" -eq 0 ] && [ "$dig_bad" -eq 0 ] \
    && [ "$wallet_bad" -eq 0 ] && [ "${tag_bad:-0}" -eq 0 ] && [ "$bridge_bad" -eq 0 ] \
    && [ "${height_bad:-0}" -eq 0 ] && [ "${mock_flagged:-0}" -eq 0 ] \
-   && [ "${skip_flagged:-0}" -eq 0 ]; then
+   && [ "${skip_flagged:-0}" -eq 0 ] && [ "${escrow_bad:-0}" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
