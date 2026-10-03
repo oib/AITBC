@@ -315,7 +315,7 @@
       2 cli/aitbc_cli/commands/account.py
       6 cli/aitbc_cli/commands/agent.py
       7 cli/aitbc_cli/commands/agent_comm.py
-     35 cli/aitbc_cli/commands/agent_sdk.py
+     32 cli/aitbc_cli/commands/agent_sdk.py
       9 cli/aitbc_cli/commands/agent_task.py
       3 cli/aitbc_cli/commands/agent_wallet.py
      21 cli/aitbc_cli/commands/ai.py
@@ -346,7 +346,7 @@
       6 cli/aitbc_cli/commands/genesis.py
      12 cli/aitbc_cli/commands/governance.py
       5 cli/aitbc_cli/commands/gpu_market.py
-     11 cli/aitbc_cli/commands/gpu_resources.py
+
       4 cli/aitbc_cli/commands/grant.py
       3 cli/aitbc_cli/commands/http.py
       7 cli/aitbc_cli/commands/ipfs.py
@@ -362,7 +362,7 @@
      13 cli/aitbc_cli/commands/network.py
       1 cli/aitbc_cli/commands/node/main.py
       1 cli/aitbc_cli/commands/node/monitor.py
-     20 cli/aitbc_cli/commands/operations.py
+     16 cli/aitbc_cli/commands/operations.py
       1 cli/aitbc_cli/commands/performance.py
       6 cli/aitbc_cli/commands/pool_hub.py
       2 cli/aitbc_cli/commands/reinvest.py
@@ -374,12 +374,12 @@
       4 cli/aitbc_cli/commands/system.py
       6 cli/aitbc_cli/commands/tee.py
      20 cli/aitbc_cli/commands/trade.py
-     14 cli/aitbc_cli/commands/transactions.py
+      8 cli/aitbc_cli/commands/transactions.py
       3 cli/aitbc_cli/commands/wallet/__init__.py
-      9 cli/aitbc_cli/commands/wallet/basic.py
+      7 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/bridge.py
       3 cli/aitbc_cli/commands/wallet/misc.py
-      7 cli/aitbc_cli/commands/wallet/staking.py
+      5 cli/aitbc_cli/commands/wallet/staking.py
       3 cli/aitbc_cli/commands/workflow.py
       3 cli/aitbc_cli/commands/zk.py
      11 cli/aitbc_cli/core/agent_communication.py
