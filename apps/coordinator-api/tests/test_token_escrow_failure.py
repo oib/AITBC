@@ -442,6 +442,32 @@ def test_recover_does_not_adopt_refunded_record(monkeypatch, payment_session):
     assert "refunded" in payment.meta_data["escrow_error"]
 
 
+def test_recover_settled_detail_names_timestamp_leg(monkeypatch, payment_session):
+    """Settled by released_at alone (no state/status): the detail must name the leg, not 'None'."""
+    job = _make_job(payment_session, "job-real-tsonly")
+    payment = _make_payment(payment_session, job)
+    _mock_transport_client(
+        monkeypatch,
+        lambda req: httpx.Response(
+            200,
+            json={
+                "contract_id": "0xescrowT",
+                "lock_tx_hash": "0xlockT",
+                "released_at": "2026-10-03T20:00:00+00:00",
+            },
+            request=req,
+        ),
+    )
+
+    escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
+
+    assert escrow is None
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "funding_unknown"
+    assert "None" not in payment.meta_data["escrow_error"]
+    assert "released" in payment.meta_data["escrow_error"]
+
+
 def test_recover_confirmed_absent_via_real_client(monkeypatch, payment_session):
     """404 on the record plus an empty chain list → absence confirmed, retry safe."""
 
