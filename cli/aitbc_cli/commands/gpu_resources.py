@@ -1,5 +1,6 @@
 """GPU resource tracking commands for AITBC CLI."""
 
+import os
 from decimal import Decimal
 
 import click
@@ -8,9 +9,42 @@ from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
 from ..utils import DECIMAL, error, output, success
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
+
+
+def _resolve_chain_id(ctx, rpc_url: str, *, required: bool = True) -> str:
+    """Resolve the chain id for the node this command actually talks to.
+
+    An explicit ``--chain-id`` or ``CHAIN_ID`` wins; otherwise ``rpc_url`` is
+    probed — never ``ctx.obj["chain_id"]``, which was resolved against the
+    *unrewritten* URL (these commands rewrite localhost to the hub URL).
+
+    ``required=True`` (signing paths) probes strictly and aborts on failure:
+    a silent default signs a transaction no node serves. ``required=False``
+    (read paths) returns ``""`` on failure so the caller omits the parameter
+    and the node's own ``chain_id=None`` default applies its chain — strictly
+    more accurate than a client-side guess, and nothing is signed.
+    """
+    explicit = (ctx.obj or {}).get("chain_id_explicit") or os.getenv("CHAIN_ID")
+    if explicit:
+        return explicit
+
+    from ..utils.chain_id import get_chain_id
+
+    if not required:
+        return get_chain_id(rpc_url, override=None, timeout=5)
+    try:
+        return get_chain_id(rpc_url, override=None, timeout=5, strict=True)
+    except Exception as e:
+        abort(
+            ctx,
+            f"Chain ID lookup via {rpc_url} failed: {e}. Set CHAIN_ID or point at a serving node",
+            from_exception=e,
+        )
+        raise AssertionError("unreachable: abort always raises") from e
 
 
 @click.group(
@@ -71,15 +105,7 @@ def register_onchain(
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
-
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+        chain_id = _resolve_chain_id(ctx, rpc_url)
 
         from ..utils.gpu_onchain import submit_gpu_register, wait_for_tx
 
@@ -110,10 +136,17 @@ def register_onchain(
 
         success(f"GPU '{gpu_id}' registration transaction submitted")
         output(result, ctx.obj.get("output_format", format))
+    except CLIError:
+        # abort() failures already printed their message — keep the exit code.
+        raise
+    except click.Abort:
+        raise
     except NetworkError as e:
         error(f"Network error: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error registering GPU on-chain: {e}")
+        raise click.Abort() from e
 
 
 @gpu.command(
@@ -137,25 +170,26 @@ def query_gpu(ctx, gpu_id: str, format: str):
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
+        chain_id = _resolve_chain_id(ctx, rpc_url, required=False)
 
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
-
-        # Query GPU from blockchain RPC
+        # Query GPU from blockchain RPC; omit chain_id when unresolved so
+        # the node applies its own chain default.
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/gpu/info/{gpu_id}?chain_id={chain_id}")
+        params = {"chain_id": chain_id} if chain_id else {}
+        result = http_client.get(f"/rpc/gpu/info/{gpu_id}", params=params)
 
         output(result, ctx.obj.get("output_format", format))
+    except CLIError:
+        # abort() failures already printed their message — keep the exit code.
+        raise
+    except click.Abort:
+        raise
     except NetworkError as e:
         error(f"Network error: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error querying GPU: {e}")
+        raise click.Abort() from e
 
 
 @gpu.command(
@@ -189,15 +223,7 @@ def deregister_gpu(ctx, gpu_id: str, wallet: str, password: str | None, wait: bo
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
-
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+        chain_id = _resolve_chain_id(ctx, rpc_url)
 
         from ..utils.gpu_onchain import submit_gpu_deregister, wait_for_tx
 
@@ -214,10 +240,17 @@ def deregister_gpu(ctx, gpu_id: str, wallet: str, password: str | None, wait: bo
 
         success(f"GPU '{gpu_id}' deregistration transaction submitted")
         output(result, ctx.obj.get("output_format", format))
+    except CLIError:
+        # abort() failures already printed their message — keep the exit code.
+        raise
+    except click.Abort:
+        raise
     except NetworkError as e:
         error(f"Network error: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error deregistering GPU on-chain: {e}")
+        raise click.Abort() from e
 
 
 @gpu.command(
@@ -255,21 +288,13 @@ def allocate_gpu(
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
-
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+        chain_id = _resolve_chain_id(ctx, rpc_url)
 
         try:
             hex_client_id = validate_address_strict(client_id)
         except Exception as e:
             error(f"Invalid client address: {e}")
-            return
+            raise click.Abort() from e
 
         from ..utils.gpu_onchain import submit_gpu_allocate, wait_for_tx
 
@@ -296,10 +321,17 @@ def allocate_gpu(
 
         success(f"GPU allocation transaction submitted for '{gpu_id}'")
         output(result, ctx.obj.get("output_format", format))
+    except CLIError:
+        # abort() failures already printed their message — keep the exit code.
+        raise
+    except click.Abort:
+        raise
     except NetworkError as e:
         error(f"Network error: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error allocating GPU on-chain: {e}")
+        raise click.Abort() from e
 
 
 @gpu.command(
@@ -323,25 +355,26 @@ def get_allocations(ctx, gpu_id: str, format: str):
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
+        chain_id = _resolve_chain_id(ctx, rpc_url, required=False)
 
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
-
-        # Query GPU allocations from blockchain RPC
+        # Query GPU allocations; omit chain_id when unresolved so the node
+        # applies its own chain default.
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        result = http_client.get(f"/rpc/gpu/allocations/{gpu_id}?chain_id={chain_id}")
+        params = {"chain_id": chain_id} if chain_id else {}
+        result = http_client.get(f"/rpc/gpu/allocations/{gpu_id}", params=params)
 
         output(result, ctx.obj.get("output_format", format))
+    except CLIError:
+        # abort() failures already printed their message — keep the exit code.
+        raise
+    except click.Abort:
+        raise
     except NetworkError as e:
         error(f"Network error: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error querying GPU allocations: {e}")
+        raise click.Abort() from e
 
 
 @gpu.command(
@@ -365,27 +398,26 @@ def list_gpus(ctx, status: str | None, format: str):
         if config.hub_discovery_url and "localhost" in rpc_url:
             rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
-
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+        chain_id = _resolve_chain_id(ctx, rpc_url, required=False)
 
         # Query GPU list from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
 
-        params = {"chain_id": chain_id}
+        params = {"chain_id": chain_id} if chain_id else {}
         if status:
             params["status"] = status
 
         result = http_client.get("/rpc/gpus", params=params)
 
         output(result, ctx.obj.get("output_format", format))
+    except CLIError:
+        # abort() failures already printed their message — keep the exit code.
+        raise
+    except click.Abort:
+        raise
     except NetworkError as e:
         error(f"Network error: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error listing GPUs: {e}")
+        raise click.Abort() from e
