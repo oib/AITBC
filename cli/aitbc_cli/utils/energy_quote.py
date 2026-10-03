@@ -194,6 +194,7 @@ def verify_quote_against_oracle(
     chain_id: int,
     operator_address: str | None = None,
     now: int | None = None,
+    max_rate_age_seconds: int = DEFAULT_MAX_RATE_AGE_SECONDS,
 ) -> QuoteVerification:
     """Verify a quote against the on-chain IEnergyPricing oracle.
 
@@ -203,7 +204,12 @@ def verify_quote_against_oracle(
     on-chain state.
     """
     now = now if now is not None else int(time.time())
-    base = verify_quote(quote, expected_operator_address=operator_address, now=now)
+    base = verify_quote(
+        quote,
+        expected_operator_address=operator_address,
+        now=now,
+        max_rate_age_seconds=max_rate_age_seconds,
+    )
     if not base.valid:
         return base
 
@@ -213,7 +219,7 @@ def verify_quote_against_oracle(
     profile = oracle.get_profile(quote.resource_id, block_identifier=block)
     rate = oracle.get_rate(block_identifier=block)
 
-    result = evaluate_quote(quote=quote, profile=profile, rate=rate, now=now)
+    result = evaluate_quote(quote=quote, profile=profile, rate=rate, now=now, max_rate_age_seconds=max_rate_age_seconds)
     if not result.approved:
         return QuoteVerification(
             valid=False,

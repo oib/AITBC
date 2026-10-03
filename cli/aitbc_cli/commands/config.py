@@ -34,7 +34,13 @@ def _global_config_path(create: bool = False) -> Path:
 
 
 # ``config set`` value coercion: these keys are integers/booleans in CLIConfig.
-_INT_CONFIG_KEYS = {"timeout", "edge_api_port", "energy_pricing_chain_id", "energy_quote_lifetime_seconds"}
+_INT_CONFIG_KEYS = {
+    "timeout",
+    "edge_api_port",
+    "energy_pricing_chain_id",
+    "energy_quote_lifetime_seconds",
+    "energy_max_rate_age_seconds",
+}
 _BOOL_CONFIG_KEYS = {"tee_attestation_enabled"}
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
