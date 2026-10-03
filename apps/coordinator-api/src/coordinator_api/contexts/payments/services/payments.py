@@ -932,11 +932,16 @@ class PaymentService:
                 # ago cannot already be settled. Adopting it would mark this
                 # payment escrowed on somebody else's escrow, so our lock's
                 # fate is genuinely unknown here.
+                settled_as = record.get("state") or record.get("status")
+                if not settled_as:
+                    # Settled by timestamp only — name the leg rather than
+                    # interpolating a missing field as "None".
+                    settled_as = "released" if record.get("released_at") else "refunded"
                 self._mark_escrow_failed(
                     payment,
                     "funding_unknown",
                     f"the node reports job {payment.job_id}'s escrow as already "
-                    f"{record.get('state') or record.get('status')}; the funding "
+                    f"{settled_as}; the funding "
                     "state of this purchase is unknown — check the job's escrow "
                     "record before retrying",
                 )

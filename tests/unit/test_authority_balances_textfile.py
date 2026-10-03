@@ -209,12 +209,17 @@ class TestMain:
 
 
 class TestFilesAgree:
-    """The rules, the script and the unit file have to name the same things."""
+    """The rules, the script and the unit file have to name the same things.
+
+    Since the T35 split the authority rules live in ``aitbc_hub_rules.yml``
+    (loaded on the exporter host only); the shared ``aitbc_rules.yml`` must
+    carry none of them.
+    """
 
     def test_every_metric_the_rules_use_is_emitted(self):
-        rules = (MONITORING / "aitbc_rules.yml").read_text()
+        rules = (MONITORING / "aitbc_hub_rules.yml").read_text()
         used = set(re.findall(r"\baitbc_authority_[a-z_]+", rules))
-        assert used, "the rules no longer read the authority series"
+        assert used, "the hub rules no longer read the authority series"
         emitted = set(re.findall(r"\baitbc_authority_[a-z_]+", exporter.render([("r", SETTLEMENT, (1, 1))], now=1)))
         assert used <= emitted, used - emitted
 
@@ -223,9 +228,15 @@ class TestFilesAgree:
         raw = re.search(r"^Environment=AITBC_WATCH_ACCOUNTS=(\S+)$", unit, re.M)
         assert raw, "the unit does not set AITBC_WATCH_ACCOUNTS"
         roles = {role for role, _ in exporter.parse_accounts(raw.group(1))}
-        rules = (MONITORING / "aitbc_rules.yml").read_text()
+        rules = (MONITORING / "aitbc_hub_rules.yml").read_text()
         labelled = set(re.findall(r'aitbc_authority_[a-z_]+\{role="([a-z_]+)"', rules))
         assert labelled and labelled <= roles, (labelled, roles)
+
+    def test_shared_rules_file_has_no_authority_rules(self):
+        rules = (MONITORING / "aitbc_rules.yml").read_text()
+        assert not re.findall(r"\baitbc_authority_[a-z_]+", rules), (
+            "authority rules belong in aitbc_hub_rules.yml; the shared file is loaded on hosts without the exporter"
+        )
 
     def test_unit_runs_the_script_from_the_repo_and_may_write_the_textfile_dir(self):
         unit = (MONITORING / "aitbc-authority-balances.service").read_text()
