@@ -24,6 +24,7 @@ import click
 from ..config import get_config
 from ..utils import error, info, output, success, warning
 from ..utils.energy_quote import (
+    expected_quote_chain_id,
     parse_quote,
     verify_quote,
     verify_quote_against_oracle,
@@ -127,7 +128,7 @@ def operator_info(ctx):
     else:
         warning("No operator address configured (ENERGY_OPERATOR_ADDRESS)")
     info(f"Quote domain: {config.energy_quote_domain}")
-    info(f"Native chain: {config.native_chain_id}")
+    info(f"Native chain: {config.native_chain_id or '(resolved per command)'}")
     info(f"EVM chain ID: {config.energy_pricing_chain_id}")
     if config.energy_pricing_contract_address:
         info(f"Pricing contract: {config.energy_pricing_contract_address}")
@@ -149,6 +150,8 @@ def operator_verify(ctx, quote_file, check_oracle):
     config = get_config()
     parsed = parse_quote(quote_dict)
 
+    chain_caveat = False
+    expected_src = ""
     if check_oracle and config.evm_rpc_url and config.energy_pricing_contract_address:
         result = verify_quote_against_oracle(
             parsed,
@@ -158,15 +161,21 @@ def operator_verify(ctx, quote_file, check_oracle):
             operator_address=config.energy_operator_address,
         )
     else:
+        expected_id, expected_src = expected_quote_chain_id(
+            ctx, config.blockchain_rpc_url or "http://localhost:8202", strict=False
+        )
+        chain_caveat = expected_id is None
         result = verify_quote(
             parsed,
             expected_operator_address=config.energy_operator_address,
             expected_domain=config.energy_quote_domain,
-            expected_chain_id=config.native_chain_id,
+            expected_chain_id=expected_id,
         )
 
     if result.valid:
         success("Quote is valid")
+        if chain_caveat:
+            warning("chain binding not checked: chain id unresolved")
         info(f"Digest: {result.digest_hex}")
         info(f"Operator verified: {result.operator_verified}")
         if result.breakdown:
@@ -174,7 +183,8 @@ def operator_verify(ctx, quote_file, check_oracle):
             info(f"Provider credit: {result.breakdown['provider_credit_units']} units")
             info(f"Platform fee: {result.breakdown['platform_fee_units']} units")
     else:
-        error(f"Quote verification failed: {result.refusal_reason} ({result.refusal_code})")
+        src_note = f"; expected id from {expected_src}" if expected_src else ""
+        error(f"Quote verification failed: {result.refusal_reason} ({result.refusal_code}{src_note})")
         sys.exit(1)
 
 
