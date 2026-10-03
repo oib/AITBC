@@ -123,3 +123,25 @@ def gpu_deregister_error(session: Session, chain_id: str, payload: Any, sender_a
     if row.status == GPU_STATUS_DEACTIVATED:
         return f"GPU {gpu_id} is already deactivated"
     return None
+
+
+def gpu_allocate_deactivated_error(session: Session, chain_id: str, payload: Any) -> str | None:
+    """Why a ``GPU_ALLOCATE`` may not name its ``gpu_id`` (the row is deactivated), or None.
+
+    The single definition of the v10 rule: ``StateTransition.validate_transaction`` applies it at block
+    time and mempool admission applies it at the door, so a transaction the proposer would drop is
+    refused up front. Every other ``GPU_ALLOCATE`` payload problem stays with the check that already
+    owns it, so a non-dict payload or a missing ``gpu_id`` is left alone here; an unknown row and an
+    active one are both fine.
+    """
+    if not isinstance(payload, dict):
+        return None
+    gpu_id = payload.get("gpu_id")
+    if gpu_id is None:
+        return None
+    target = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == str(gpu_id))
+    ).first()
+    if target is not None and target.status == GPU_STATUS_DEACTIVATED:
+        return f"GPU {gpu_id} is deactivated; it takes no new allocations"
+    return None

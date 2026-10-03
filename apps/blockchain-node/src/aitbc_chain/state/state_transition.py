@@ -42,6 +42,7 @@ from .gpu_resources import (
     GPU_STATUS_DEACTIVATED,
     GPUAllocation,
     GPURegistration,
+    gpu_allocate_deactivated_error,
     gpu_deregister_error,
     retired_gpu_error,
 )
@@ -1261,13 +1262,11 @@ class StateTransition:
                 return (False, "GPU_ALLOCATE payload must include gpu_id")
             if block_version >= 10:
                 # v10: a deactivated GPU takes no new allocations. Checked here, before apply mutates anything.
-                target = session.exec(
-                    select(GPURegistration).where(
-                        GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == str(payload.get("gpu_id"))
-                    )
-                ).first()
-                if target is not None and target.status == GPU_STATUS_DEACTIVATED:
-                    return (False, f"GPU {payload.get('gpu_id')} is deactivated; it takes no new allocations")
+                # The rule lives in state/gpu_resources.py::gpu_allocate_deactivated_error, shared with mempool
+                # admission (rpc/transactions.py) so a transaction the proposer would drop is refused at the door too.
+                deactivated_error = gpu_allocate_deactivated_error(session, chain_id, payload)
+                if deactivated_error:
+                    return (False, deactivated_error)
             if not payload.get("client_id"):
                 return (False, "GPU_ALLOCATE payload must include client_id")
             try:

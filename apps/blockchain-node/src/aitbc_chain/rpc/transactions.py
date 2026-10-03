@@ -175,6 +175,19 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
             if deregister_error:
                 raise ValueError(deregister_error)
 
+        if tx_type == "GPU_ALLOCATE":
+            # v10 (see state/gpu_resources.py::gpu_allocate_deactivated_error, the rule apply uses too).
+            # Unlike GPU_DEREGISTER the type itself predates v10, so below the activation height
+            # admission stays exactly as it was and only the deactivated-row door applies.
+            from ..state.gpu_resources import gpu_allocate_deactivated_error
+
+            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+            next_height = (head or 0) + 1
+            if get_block_version_for_height(next_height) >= 10:
+                deactivated_error = gpu_allocate_deactivated_error(session, chain_id, tx_data.get("payload"))
+                if deactivated_error:
+                    raise ValueError(deactivated_error)
+
         # Last, like the authority gate: every earlier rejection keeps its message. Off unless GPU_RETIRED_IDS is set.
         _refuse_retired_gpu(tx_type, tx_data.get("payload"))
 
