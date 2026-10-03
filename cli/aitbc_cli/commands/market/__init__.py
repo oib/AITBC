@@ -35,10 +35,17 @@ def safe_load_credentials():
         node_role = os.getenv("NODE_ROLE", "")
         if node_role == "hub":
             # Hub nodes use blockchain config instead
+            chain_id = os.getenv("CHAIN_ID")
+            if not chain_id:
+                error(
+                    "Cannot determine the chain id to sign with: this hub has no "
+                    "island credentials and CHAIN_ID is not set — set CHAIN_ID"
+                )
+                raise click.Abort() from e
             return {
                 "credentials": {"p2p_port": 8200},
                 "island_id": os.getenv("ISLAND_ID", "ait-hub"),
-                "chain_id": os.getenv("CHAIN_ID", "ait-localnet"),
+                "chain_id": chain_id,
             }
         error(f"Island credentials required for market operations: {e}")
         error("Note: Hub nodes do not need to join islands - market works with blockchain config")
@@ -159,13 +166,18 @@ def get_account_nonce(address: str, chain_id: str) -> int:
         try:
             http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
             response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
-            nonce = response.get("nonce", 0)
-            return int(nonce) if nonce is not None else 0
+            nonce = response.get("nonce")
+            if nonce is None:
+                raise ValueError(f"/rpc/accounts/{address} response carried no nonce")
+            return int(nonce)
         except Exception as e:
             logger.debug("Failed to get nonce from %s: %s", base_url, e)
             continue
-    error(f"Failed to get account nonce for {address}")
-    return 0
+    error(
+        f"Failed to get account nonce for {address} via {rpc_url} or the hub RPC — "
+        "a failed lookup must not mean nonce 0; point --rpc-url at a serving node"
+    )
+    raise click.Abort()
 
 
 def get_next_nonce(wallet_address: str | None = None) -> int:
