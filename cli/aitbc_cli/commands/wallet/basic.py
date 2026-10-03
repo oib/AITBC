@@ -787,7 +787,10 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
         account_data = http_client.get(f"/rpc/account/{sender_address}")
-        actual_nonce = account_data.get("nonce", 0)
+        nonce = account_data.get("nonce")
+        if nonce is None:
+            raise ValueError(f"/rpc/account/{sender_address} response carried no nonce")
+        actual_nonce = int(nonce)
     except Exception as e:
         error(
             f"Nonce lookup for {sender_address} via {rpc_url} failed: {e}. "
