@@ -10,7 +10,9 @@ invisible for weeks because nothing checked inclusion.
 The invariant this watches: a row marked ``released`` must have its
 ``release_tx_hash`` in the sealed ``transaction`` table, and a ``refunded`` row
 its ``refund_tx_hash``, within ``AITBC_ESCROW_SETTLEMENT_MAX_AGE_SECONDS``
-(default 900s) of the settlement timestamp. The delay threshold is what makes
+(default 900s) of the settlement timestamp. A stored ``*_tx_hash`` is itself a
+settlement claim -- a two-leg row marked only ``released`` still has its
+refund leg checked -- so a leg is claimed by status, timestamp, or hash. The delay threshold is what makes
 the check safe: a settlement lands a few blocks after acceptance -- observed
 submission-to-lock-block times were <= ~60s, and the largest recorded
 release-before-lock gap was 54s -- so 15 minutes is ~15x the anomaly window,
@@ -94,13 +96,22 @@ def parse_settled_at(raw: object) -> datetime | None:
 
 
 def _unlanded_rows(conn: sqlite3.Connection, now: float, max_age_seconds: float) -> list[Violation]:
-    """Escrow rows marked released/refunded whose stored hash is not sealed."""
+    """Escrow legs whose stored settlement hash is not sealed.
+
+    A leg is claimed three ways: a terminal ``status``, a settlement
+    timestamp, or a stored ``*_tx_hash`` -- a hash is itself the claim, so a
+    two-leg row marked only ``released`` still has its refund leg checked.
+    """
     violations: list[Violation] = []
     rows = conn.execute(
         "SELECT job_id, status, release_tx_hash, refund_tx_hash, released_at, refunded_at "
         "FROM escrow "
-        "WHERE status IN ('released', 'refunded') OR released_at IS NOT NULL OR refunded_at IS NOT NULL"
+        "WHERE status IN ('released', 'refunded') OR released_at IS NOT NULL OR refunded_at IS NOT NULL "
+        "OR release_tx_hash IS NOT NULL OR refund_tx_hash IS NOT NULL"
     ).fetchall()
+
+    def stored(tx_hash: object) -> bool:
+        return isinstance(tx_hash, str) and bool(tx_hash.strip())
 
     def sealed(tx_hash: object) -> bool:
         if not isinstance(tx_hash, str) or not tx_hash:
@@ -111,9 +122,9 @@ def _unlanded_rows(conn: sqlite3.Connection, now: float, max_age_seconds: float)
 
     for job_id, status, release_hash, refund_hash, released_at, refunded_at in rows:
         legs = []
-        if status == "released" or released_at is not None:
+        if status == "released" or released_at is not None or stored(release_hash):
             legs.append(("release", release_hash, released_at))
-        if status == "refunded" or refunded_at is not None:
+        if status == "refunded" or refunded_at is not None or stored(refund_hash):
             legs.append(("refund", refund_hash, refunded_at))
         for kind, tx_hash, settled_raw in legs:
             if sealed(tx_hash):
@@ -200,10 +211,14 @@ def main() -> int:
         return 2
     directory = os.environ.get("AITBC_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
     dbs = resolve_dbs()
+    now = time.time()
     if not dbs:
+        # Still write the textfile: with absent() gone from the rules, a host
+        # that stops writing entirely would be invisible. scrape_success{db=
+        # "none"} 0 leaves a failing series for the alert to fire on.
+        write_atomic(directory, render({"none": None}, now))
         print("escrow-settlements: no chain.db found to check", file=sys.stderr)
         return 2
-    now = time.time()
     results = {db: read_db(db, now, max_age) for db in dbs}
     write_atomic(directory, render(results, now))
     failed = [db for db, result in results.items() if result is None]

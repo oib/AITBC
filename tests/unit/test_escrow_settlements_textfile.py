@@ -180,6 +180,48 @@ class TestUnlandedRows:
         violations = self._check(db)
         assert [(v.job_id, v.kind) for v in violations] == [("job-both", "refund")]
 
+    def test_stored_refund_hash_claims_the_leg_on_a_released_row(self, tmp_path):
+        """The live blind spot: node0's metered rows are status='released' with
+        refunded_at NULL but carry a dead refund_tx_hash — the stored hash is
+        itself a claim and must flag even without a refund mark."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [("job-metered", "released", "0xlanded", "0xdeadrefund", _ts(OLD), None)],
+            landed=["0xlanded"],
+        )
+        violations = self._check(db)
+        assert [(v.job_id, v.kind) for v in violations] == [("job-metered", "refund")]
+
+    def test_stored_release_hash_claims_the_leg_on_a_refunded_row(self, tmp_path):
+        """Symmetric blind spot: a release hash on a refund-marked row."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [("job-metered2", "refunded", "0xdeadrel", "0xlanded", None, _ts(OLD))],
+            landed=["0xlanded"],
+        )
+        violations = self._check(db)
+        assert [(v.job_id, v.kind) for v in violations] == [("job-metered2", "release")]
+
+    def test_hash_only_row_is_a_claim_with_illegible_age(self, tmp_path):
+        """A stored hash with no status or timestamp is still a settlement
+        claim; its unparseable age cannot hide an unsealed hash."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [("job-hashonly", "locked", None, "0xdeadrefund", None, None)],
+        )
+        violations = self._check(db)
+        assert [(v.job_id, v.kind) for v in violations] == [("job-hashonly", "refund")]
+
+    def test_sealed_second_leg_hash_is_not_a_violation(self, tmp_path):
+        """Hash-claims-leg must not flag the healed two-leg rows: both stored
+        hashes sealed means clean, regardless of the missing refunded_at."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [("job-healed", "released", "0xrel", "0xref", _ts(OLD), None)],
+            landed=["0xrel", "0xref"],
+        )
+        assert self._check(db) == []
+
     def test_unreadable_db_is_failure_not_clear(self, tmp_path):
         db = tmp_path / "chain.db"
         db.write_text("not sqlite")
@@ -264,10 +306,15 @@ class TestMain:
         text = (tmp_path / "out" / exporter.OUTPUT_NAME).read_text()
         assert 'aitbc_escrow_settlement_scrape_success{db="' + str(db) + '"} 0' in text
 
-    def test_no_db_found_exits_2(self, tmp_path, monkeypatch, capsys):
+    def test_no_db_found_exits_2_but_still_writes(self, tmp_path, monkeypatch, capsys):
+        """No chain.db is a failed check, not silence: the textfile must still
+        carry a failing scrape_success so the alert has a series to fire on."""
         self._env(monkeypatch, tmp_path, db_path=None)
         assert exporter.main() == 2
         assert "no chain.db" in capsys.readouterr().err
+        text = (tmp_path / "out" / exporter.OUTPUT_NAME).read_text()
+        assert 'aitbc_escrow_settlement_scrape_success{db="none"} 0' in text
+        assert "aitbc_escrow_settlement_scrape_timestamp_seconds" in text
 
     def test_bad_threshold_exits_2(self, fleet_db, tmp_path, monkeypatch, capsys):
         self._env(monkeypatch, tmp_path, fleet_db)
