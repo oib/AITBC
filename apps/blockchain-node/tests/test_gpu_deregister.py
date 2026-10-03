@@ -23,7 +23,7 @@ from sqlmodel import Session, create_engine, select
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
 from aitbc_chain.base_models import Account
-from aitbc_chain.config import settings
+from aitbc_chain.config import ChainSettings, settings
 from aitbc_chain.database import chain_metadata
 from aitbc_chain.rpc.transactions import _validate_transaction_admission
 from aitbc_chain.state.gpu_resources import (
@@ -311,9 +311,19 @@ def test_allocation_on_a_deactivated_row_is_accepted_below_v10(registered, st):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def test_v10_is_off_unless_the_height_is_set(monkeypatch):
-    assert settings.state_transition_v10_height is None
-    assert get_block_version_for_height(10_000_000) == 9
+def test_v10_height_is_baked_at_32100(monkeypatch):
+    """The baked default is consensus: a fresh settings object (no env, no env file) activates v10 at 32100."""
+    monkeypatch.delenv("STATE_TRANSITION_V10_HEIGHT", raising=False)
+    assert ChainSettings(_env_file=None).state_transition_v10_height == 32_100
+    monkeypatch.setattr(settings, "state_transition_v10_height", 32_100)
+    assert get_block_version_for_height(32_099) == 9
+    assert get_block_version_for_height(32_100) == 10
+
+
+def test_v10_env_still_overrides_the_baked_default(monkeypatch):
+    """STATE_TRANSITION_V10_HEIGHT still wins over the baked default for a process that sets it."""
+    monkeypatch.setenv("STATE_TRANSITION_V10_HEIGHT", "40000")
+    assert ChainSettings(_env_file=None).state_transition_v10_height == 40_000
 
 
 def test_v10_activates_at_its_height(monkeypatch):

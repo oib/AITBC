@@ -736,14 +736,16 @@ class ChainSettings(BaseSettings):
     # hardcoded like v4/v5/v7/v8.
     state_transition_v9_height: int | None = 30400
     # v10: GPU_DEREGISTER. At or above this height the registrant of a gpu_registration row can set it to
-    # ``deactivated`` with a signed GPU_DEREGISTER; GPU_ALLOCATE against a deactivated row is refused. None
-    # (the default) means v10 is NOT active. Below it the type name has no consensus meaning at all and a
-    # block carrying it replays exactly as before (a plain value transfer), so sealed history is untouched.
-    # Every validator and follower must run a build that knows the type BEFORE this height: an older build
-    # leaves the row ``active`` and would accept a later GPU_ALLOCATE the new rules refuse. Env-gated first
-    # (STATE_TRANSITION_V10_HEIGHT, set uniformly on every node); bake the height in here once it has been
-    # proven over a full proposer rotation, as v7 and v8 were. fleet-config-check watches for drift.
-    state_transition_v10_height: int | None = None
+    # ``deactivated`` with a signed GPU_DEREGISTER; GPU_ALLOCATE against a deactivated row is refused. Below
+    # it the type name has no consensus meaning at all and a block carrying it replays exactly as before (a
+    # plain value transfer), so sealed history is untouched; None still disables it the same way. Every
+    # validator and follower must run a build that knows the type BEFORE this height: an older build leaves
+    # the row ``active`` and would accept a later GPU_ALLOCATE the new rules refuse. Activated fleet-wide
+    # at block 32100 on 2026-10-02, proven over a full proposer rotation and the first live GPU_REGISTER /
+    # GPU_DEREGISTER sealed under it (blocks 32803/32804), so the height is now consensus and is hardcoded
+    # like v4 to v9. An environment value (STATE_TRANSITION_V10_HEIGHT) still overrides this default.
+    # fleet-config-check watches for drift.
+    state_transition_v10_height: int | None = 32100
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
