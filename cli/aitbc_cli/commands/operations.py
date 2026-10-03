@@ -20,7 +20,7 @@ from aitbc.utils.validation import validate_address
 
 from ..config import get_config
 from ..utils import DECIMAL, error, output, success
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import find_wallet_file, wallet_dir
@@ -329,18 +329,18 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
             .hex()
         )
 
-        # Get chain_id
-        from ..utils.chain_id import get_chain_id
+        from ..utils.chain_id import resolve_chain_id
 
-        chain_id = get_chain_id(rpc_url)
+        chain_id = resolve_chain_id(None, rpc_url)
 
         # Get actual nonce
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
             account_data = http_client.get(f"/rpc/account/{sender_address}")
-            actual_nonce = account_data.get("nonce", 0)
-        except Exception:
-            actual_nonce = 0
+            actual_nonce = int(account_data["nonce"])
+        except Exception as e:
+            error(f"Could not look up nonce for {sender_address} via {rpc_url}: {e}")
+            raise click.Abort() from e
 
         tx = {
             "type": "TRANSFER",
@@ -364,6 +364,8 @@ def message(agent: str, message: str, wallet: str, password: str | None, passwor
         click.echo(f"To: {agent}")
         click.echo(f"Content: {message}")
         click.echo(f"TX Hash: {result.get('transaction_hash', 'unknown')}")
+    except (CLIError, click.Abort):
+        raise
     except Exception as e:
         error(f"Error sending message: {e}")
 
@@ -404,15 +406,9 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
         # Get RPC URL from config (default local blockchain RPC)
         rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
+        from ..utils.chain_id import resolve_chain_id
 
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+        chain_id = resolve_chain_id(ctx, rpc_url)
 
         # Get wallet address from correct wallet directory
         wallet_path = find_wallet_file(wallet)
@@ -444,6 +440,8 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
+    except (CLIError, click.Abort):
+        raise
     except Exception as e:
         error(f"Error casting vote: {e}")
 
@@ -486,15 +484,9 @@ def proposal(
         # Get RPC URL from config (default local blockchain RPC)
         rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
 
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
+        from ..utils.chain_id import resolve_chain_id
 
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+        chain_id = resolve_chain_id(ctx, rpc_url)
 
         # Get wallet address from correct wallet directory
         wallet_path = find_wallet_file(wallet)
@@ -544,6 +536,8 @@ def proposal(
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
+    except (CLIError, click.Abort):
+        raise
     except Exception as e:
         error(f"Error creating proposal: {e}")
 
@@ -565,16 +559,6 @@ def get_proposal(ctx, proposal_id: str, format: str):
     try:
         # Get RPC URL from config (default local blockchain RPC)
         rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-
-        # Get chain_id
-        try:
-            from ..utils.chain_id import get_chain_id
-
-            _ = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            import os
-
-            _ = os.getenv("CHAIN_ID", "ait-localnet")
 
         # Query proposal from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
