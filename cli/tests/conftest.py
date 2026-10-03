@@ -30,5 +30,9 @@ def _clean_signing_env(monkeypatch):
         "AITBC_WALLET_PASSWORD",
         "SHOP_WALLET_ADDRESS",
         "AGENT_ID",
+        # Modules such as aitbc_cli.commands.coin_requests load /etc/aitbc/*.env
+        # into os.environ at import time — on a live node that leaks the real
+        # CHAIN_ID into tests that exercise chain-id resolution.
+        "CHAIN_ID",
     ):
         monkeypatch.delenv(var, raising=False)

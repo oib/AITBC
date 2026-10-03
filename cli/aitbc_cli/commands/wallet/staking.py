@@ -1,6 +1,7 @@
 """Staking wallet commands"""
 
 import json
+import os
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -43,25 +44,44 @@ def _get_rpc_url(ctx: click.Context) -> str:
     return rpc_url
 
 
-def _get_chain_id(rpc_url: str) -> str:
-    """Resolve chain_id, falling back to the environment default."""
+def _get_chain_id(ctx: click.Context, rpc_url: str) -> str:
+    """Resolve the chain id to sign with; abort when nothing reliable answers.
+
+    An explicit ``--chain-id`` or CHAIN_ID wins over the lookup. The wallet
+    group's earlier resolution against the same RPC is reused next; only when
+    both are absent does this probe ``rpc_url`` — and abort instead of
+    signing a silent default the node may not serve.
+    """
+    explicit = (ctx.obj or {}).get("chain_id_explicit") or os.getenv("CHAIN_ID")
+    if explicit:
+        return explicit
+    resolved = (ctx.obj or {}).get("chain_id") or ""
+    if resolved:
+        return str(resolved)
     try:
         from ...utils.chain_id import get_chain_id
 
-        return get_chain_id(rpc_url, override=None, timeout=5)
-    except Exception:
-        import os
-
-        return os.getenv("CHAIN_ID", "ait-localnet")
+        return get_chain_id(rpc_url, override=None, timeout=5, strict=True)
+    except Exception as e:
+        error(f"Chain ID lookup via {rpc_url} failed: {e}. Pass --chain-id or point --rpc-url at a serving node")
+        raise click.Abort() from e
 
 
 def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
-    """Fetch the on-chain nonce for an address."""
+    """Fetch the on-chain nonce for an address.
+
+    Aborts when the lookup fails — a failed lookup must not mean nonce 0: the
+    wrong nonce produces an already-signed transaction the chain refuses.
+    """
     try:
         account = http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
         return int(account.get("nonce", 0))
-    except Exception:
-        return 0
+    except Exception as e:
+        error(
+            f"Nonce lookup for {address} via {http_client.base_url} failed: {e}. "
+            "Check the node is serving this account or pass --rpc-url"
+        )
+        raise click.Abort() from e
 
 
 def _sign_transaction(wallet_data: dict[str, Any], tx: dict[str, Any]) -> str:
@@ -91,7 +111,7 @@ def _submit_liquidity_transaction(
     """Sign and submit a LIQUIDITY_* transaction, returning the tx hash."""
 
     rpc_url = _get_rpc_url(ctx)
-    chain_id = _get_chain_id(rpc_url)
+    chain_id = _get_chain_id(ctx, rpc_url)
     address = canonical_address(wallet_data["address"])
 
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
@@ -197,7 +217,7 @@ def stake(ctx, amount: Decimal, duration: int):
         error(f"Invalid sender address: {sender_address}")
         return
     rpc_url = _get_rpc_url(ctx)
-    chain_id = _get_chain_id(rpc_url)
+    chain_id = _get_chain_id(ctx, rpc_url)
 
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
     amount_seconds = ait_to_units(amount)
@@ -282,7 +302,7 @@ def unstake(ctx, stake_id: str):
         error(f"Invalid sender address: {sender_address}")
         return
     rpc_url = _get_rpc_url(ctx)
-    chain_id = _get_chain_id(rpc_url)
+    chain_id = _get_chain_id(ctx, rpc_url)
 
     try:
         stake_id_int = int(stake_id)
@@ -377,7 +397,7 @@ def staking_info(ctx, address_override: str | None):
         error(f"Invalid sender address: {sender_address}")
         return
     rpc_url = _get_rpc_url(ctx)
-    chain_id = _get_chain_id(rpc_url)
+    chain_id = _get_chain_id(ctx, rpc_url)
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -449,6 +469,8 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
 
     try:
         tx_hash = _submit_liquidity_transaction(ctx, wallet_data, tx)
+    except click.Abort:
+        raise
     except click.ClickException as e:
         error(str(e))
         ctx.exit(1)
@@ -525,6 +547,8 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal):
 
     try:
         tx_hash = _submit_liquidity_transaction(ctx, wallet_data, tx)
+    except click.Abort:
+        raise
     except click.ClickException as e:
         error(str(e))
         ctx.exit(1)
@@ -580,6 +604,8 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
 
     try:
         tx_hash = _submit_liquidity_transaction(ctx, wallet_data, tx)
+    except click.Abort:
+        raise
     except click.ClickException as e:
         error(str(e))
         ctx.exit(1)
