@@ -47,16 +47,18 @@ def _get_rpc_url(ctx: click.Context) -> str:
 def _get_chain_id(ctx: click.Context, rpc_url: str) -> str:
     """Resolve the chain id to sign with; abort when nothing reliable answers.
 
-    An explicit ``--chain-id`` or CHAIN_ID wins over the lookup. The wallet
-    group's earlier resolution against the same RPC is reused next; only when
-    both are absent does this probe ``rpc_url`` — and abort instead of
-    signing a silent default the node may not serve.
+    An explicit ``--chain-id`` or CHAIN_ID wins over the lookup. The group's
+    earlier resolution is reused only when it ran against the same ``rpc_url``
+    the transaction will be submitted to (``ctx.obj["chain_id_rpc_url"]``);
+    anything else gets a strict probe of ``rpc_url`` — a chain id detected
+    from a different node may not be the chain this node serves.
     """
-    explicit = (ctx.obj or {}).get("chain_id_explicit") or os.getenv("CHAIN_ID")
+    obj = ctx.obj or {}
+    explicit = obj.get("chain_id_explicit") or os.getenv("CHAIN_ID")
     if explicit:
         return explicit
-    resolved = (ctx.obj or {}).get("chain_id") or ""
-    if resolved:
+    resolved = obj.get("chain_id") or ""
+    if resolved and obj.get("chain_id_rpc_url") == rpc_url:
         return str(resolved)
     try:
         from ...utils.chain_id import get_chain_id
@@ -75,7 +77,10 @@ def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str
     """
     try:
         account = http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
-        return int(account.get("nonce", 0))
+        nonce = account.get("nonce")
+        if nonce is None:
+            raise ValueError(f"/rpc/account/{address} response carried no nonce")
+        return int(nonce)
     except Exception as e:
         error(
             f"Nonce lookup for {address} via {http_client.base_url} failed: {e}. "

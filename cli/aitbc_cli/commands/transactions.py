@@ -20,7 +20,7 @@ from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
 from ..utils import DECIMAL, error, success
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import wallet_dir
@@ -120,14 +120,26 @@ def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any],
 
 
 def _resolve_nonce(rpc_url: str, sender_address: str) -> int:
-    """Fetch the sender's on-chain nonce, defaulting to 0 when unreachable."""
+    """Fetch the sender's on-chain nonce; abort the command on failure.
+
+    A failed lookup must not mean nonce 0 — the wrong nonce produces an
+    already-signed transaction the chain refuses.
+    """
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
         account_data = http_client.get(f"/rpc/account/{sender_address}")
-        nonce: int = account_data.get("nonce", 0)
-        return nonce
-    except Exception:
-        return 0
+        nonce = account_data.get("nonce")
+        if nonce is None:
+            raise ValueError(f"/rpc/account/{sender_address} response carried no nonce")
+        return int(nonce)
+    except Exception as e:
+        abort(
+            None,
+            f"Nonce lookup for {sender_address} via {rpc_url} failed: {e}. "
+            "Check the node is serving this account or pass --rpc-url",
+            from_exception=e,
+        )
+        raise AssertionError("unreachable: abort always raises") from e
 
 
 def _send_transaction_impl(
@@ -184,10 +196,23 @@ def _send_transaction_impl(
     if private_key is None:
         return None
 
-    # Resolve chain_id and nonce from the blockchain node
+    # Resolve chain_id and nonce from the blockchain node this transaction
+    # will be submitted to. An explicit CHAIN_ID wins; otherwise the node
+    # must advertise one — a silent default signs a transaction no node
+    # serves. (No ctx here: the send/batch commands carry no --chain-id.)
     from ..utils.chain_id import get_chain_id
 
-    chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+    chain_id = os.getenv("CHAIN_ID") or ""
+    if not chain_id:
+        try:
+            chain_id = get_chain_id(rpc_url, override=None, timeout=5, strict=True)
+        except Exception as e:
+            abort(
+                None,
+                f"Chain ID lookup via {rpc_url} failed: {e}. Set CHAIN_ID or point --rpc-url at a serving node",
+                from_exception=e,
+            )
+            raise AssertionError("unreachable: abort always raises") from e
 
     # Batch callers pass a per-sender offset: the chain's account nonce does not
     # move while earlier batch transactions sit in the mempool, so every entry
@@ -442,6 +467,10 @@ def _process_batch_entry(
         else:
             error(f"Transaction failed: {tx['from_wallet']} → {tx['to_address']}")
 
+    except CLIError:
+        # A lookup failure is systemic (same rpc_url for every entry) —
+        # abort the batch instead of recording the same failure N times.
+        raise
     except Exception as e:
         results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
         error(f"Transaction error: {e}")
