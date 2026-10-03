@@ -72,6 +72,14 @@ class TestWalletCommands:
     """Test wallet command group"""
 
     @pytest.fixture(autouse=True)
+    def stub_chain_id(self, monkeypatch):
+        # Signing paths resolve the chain id strictly and abort on a failed
+        # lookup; CI deliberately dead-ends WALLET_URL/BLOCKCHAIN_RPC_URL, so an
+        # unstubbed probe exits 1. CHAIN_ID wins over every probe — keeps these
+        # tests hermetic on any host, node or none.
+        monkeypatch.setenv("CHAIN_ID", "ait-testchain.local")
+
+    @pytest.fixture(autouse=True)
     def mock_wallet_http(self):
         """Mock HTTP client for wallet daemon"""
         with (
