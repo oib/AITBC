@@ -161,69 +161,11 @@ groups:
           summary: "v9 attestation would have been refused on {{ $labels.instance }}"
           description: "A validator on {{ $labels.instance }} would have refused to attest a block under v9 rules — inspect the v9_would_reject_attest_* counters and the node journal before pinning the v9 height."
 
-      # Authority accounts, from scripts/monitoring/authority-balances-textfile.py (a
-      # node_exporter textfile on hub, once a minute; 1 AIT = 36,000,000 units).
-      #
-      # Escrow release and refund debit max(36, amount // 100) units from the escrow
-      # settlement authority, 1% of the settled amount. When the balance is below the fee
-      # both fail with "Insufficient balance for fee" and the escrowed funds stay locked
-      # until the float is topped up. 9,000,000 units (0.25 AIT) covers about 25 AIT of
-      # settled volume, 1,800,000 (0.05 AIT) about 5 AIT; one escrow larger than that
-      # needs a larger float before it settles. The two rules exclude each other, so one
-      # alert fires at a time.
-      - alert: AuthorityFloatLow
-        expr: |
-          aitbc_authority_balance_units{role="escrow_settlement"} < 9000000
-          and aitbc_authority_balance_units{role="escrow_settlement"} >= 1800000
-        for: 2m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Escrow settlement authority float is low ({{ $labels.address }})"
-          description: "The escrow settlement authority {{ $labels.address }} holds {{ $value | humanize }} units. Releases and refunds debit 1% of the settled amount from it; top it up from the treasury before it runs out."
-
-      - alert: AuthorityFloatCritical
-        expr: aitbc_authority_balance_units{role="escrow_settlement"} < 1800000
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Escrow settlement authority float is nearly gone ({{ $labels.address }})"
-          description: "The escrow settlement authority {{ $labels.address }} holds {{ $value | humanize }} units, about 5 AIT of settled volume at the 1% fee. Escrow release and refund fail once it is below the fee, and the funds stay locked until it is topped up."
-
-      # Nothing debits the bridge release authority: BRIDGE_RELEASE and BRIDGE_REFUND carry
-      # a pseudo-sender (no account, no nonce, no debit) and the authority only signs them.
-      # Its balance therefore cannot run out, but a balance that falls or a nonce that moves
-      # means the key sent a transaction.
-      - alert: BridgeAuthorityAccountMoved
-        expr: |
-          delta(aitbc_authority_balance_units{role="bridge_release"}[15m]) < 0
-          or changes(aitbc_authority_nonce{role="bridge_release"}[15m]) > 0
-        labels:
-          severity: critical
-        annotations:
-          summary: "Bridge release authority account moved ({{ $labels.address }})"
-          description: "The bridge release authority {{ $labels.address }} signs bridge credits but is never debited; its balance fell or its nonce changed, so its key sent a transaction. Treat the key as exposed until explained."
-
-      - alert: AuthorityBalanceUnreadable
-        expr: aitbc_authority_scrape_success == 0
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Authority account {{ $labels.role }} could not be read"
-          description: "authority-balances-textfile.py could not read {{ $labels.role }} ({{ $labels.address }}) from the local RPC for five minutes; the float alerts are blind for it."
-
-      - alert: AuthorityBalanceStale
-        expr: |
-          absent(aitbc_authority_scrape_timestamp_seconds)
-          or time() - aitbc_authority_scrape_timestamp_seconds > 300
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Authority balance export has stopped"
-          description: "The aitbc_authority_* textfile is missing or older than five minutes; check aitbc-authority-balances.timer. The float alerts are blind until it runs again."
+      # Authority-account alerts live in aitbc_hub_rules.yml. They evaluate
+      # series that exist only where aitbc-authority-balances.timer runs (hub);
+      # AuthorityBalanceStale uses absent(), so loading them on a host without
+      # the exporter makes the alert fire permanently. Deploy that file only
+      # alongside the timer.
 
       # The alert watcher writes its own heartbeat into node-exporter's textfile
       # directory every poll (--metrics-file / AITBC_WATCH_METRICS_FILE). If the
