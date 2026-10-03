@@ -20,7 +20,7 @@ from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
 from ..utils.chain_id import resolve_chain_id
 from ..utils.escrow import create_signed_escrow_lock, get_node_wallet
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import (
     AITBCHTTPClient,
     NetworkError,
@@ -480,21 +480,31 @@ def _secure_escrow(
     if payment_amount is None:
         abort(ctx, "coordinator did not return payment_amount")
     payment_token = str(result.get("payment_token") or currency or "AITBC")
-    payment_result = _create_escrow_payment(
-        ctx,
-        http_client,
-        rpc_url,
-        job_id,
-        str(payment_amount),
-        payment_token,
-        buyer_address,
-        str(result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or ""),
-        private_key,
-        str(node_wallet_addr),
-        chain_id,
-        offer_id,
-        offer_quantity,
-    )
+    try:
+        payment_result = _create_escrow_payment(
+            ctx,
+            http_client,
+            rpc_url,
+            job_id,
+            str(payment_amount),
+            payment_token,
+            buyer_address,
+            str(result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or ""),
+            private_key,
+            str(node_wallet_addr),
+            chain_id,
+            offer_id,
+            offer_quantity,
+        )
+    except CLIError as e:
+        # The job was already accepted by the coordinator; name it so the
+        # operator can fund it instead of resubmitting.
+        abort(
+            ctx,
+            f"{e} — job {job_id} was accepted but its escrow could not be secured; "
+            f"set CHAIN_ID and fund it with 'aitbc ai pay-job {job_id}'",
+            from_exception=e,
+        )
     payment_id = payment_result.get("payment_id")
     success(f"Escrow secured: {payment_id}")
     return payment_id
