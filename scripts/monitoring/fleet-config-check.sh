@@ -720,7 +720,7 @@ REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 # Search every change log: relocated entries live in the version file they
 # were curated into, not necessarily the newest one. concat then one grep —
 # xargs batching would false-flag when a hash lands in a different batch.
-LOG_FILES=$(cat "$REPO_DIR"/docs/releases/*/*_change.log "$REPO_DIR"/docs/releases/*_change.log 2>/dev/null)
+LOG_FILES=$(cat "$REPO_DIR"/docs/releases/*/*_change.log "$REPO_DIR"/docs/releases/*_change.log 2>/dev/null || true)
 if [ -z "${latest_tag:-}" ] || [ -z "$LOG_FILES" ]; then
     echo "  NOTE: no tag or changelog found — section skipped"
 else
