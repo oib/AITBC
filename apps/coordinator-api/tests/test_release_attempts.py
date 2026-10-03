@@ -158,12 +158,26 @@ class TestReleaseAttemptBound:
         mock_client_cls.return_value = mock_client
 
         service = PaymentService(payment_session)
-        result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "operator refund"))
+        result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "operator refund", is_admin=True))
 
         assert result is True
         payment = payment_session.get(JobPayment, payment_id)
         assert payment.status == "refunded"
         assert payment.refund_transaction_hash == "0xrealrefund"
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_settlement_failed_client_refund_needs_an_operator(self, mock_client_cls, payment_session):
+        """The same row is 403 for a client: refunds after a release attempt are an arbiter call."""
+        from fastapi import HTTPException
+
+        job_id, payment_id = "job-rb-5b", "pay-rb-5b"
+        _make_job_and_payment(payment_session, job_id, payment_id, payment_status="settlement_failed")
+
+        service = PaymentService(payment_session)
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(service.refund_payment("client-1", job_id, payment_id, "client refund"))
+        assert exc.value.status_code == 403
+        mock_client_cls.assert_not_called()
 
 
 @pytest.mark.unit
