@@ -287,3 +287,77 @@ tests:
             exp_annotations:
               summary: "Journal-error collector has stopped ()"
               description: "aitbc_journal_scan_timestamp_seconds is absent or older than ten minutes on  — aitbc_journal_error_messages is frozen, so AITBCJournalErrors cannot see new service errors. Check systemctl status aitbc-journal-errors.timer."
+
+  # Escrow settlement detector (escrow-settlements-textfile.py). These use
+  # promql_expr_test on ALERTS{...}: alert_rule_test would force the annotation
+  # text into the test file. Cases verified against f739cc175c's rules: exactly
+  # the CheckFailed firing case and the no-series CheckStale case fail there
+  # (no CheckFailed alert existed, and the old absent() arm fired label-less).
+
+  # Unreadable DB: scrape_success 0 fires CheckFailed only after its for: 10m.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_settlement_scrape_success{db="/x/chain.db", instance="n:9100"}'
+        values: '0x25'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowSettlementCheckFailed", alertstate="firing"}
+        eval_time: 9m
+        exp_samples: []
+      - expr: ALERTS{alertname="EscrowSettlementCheckFailed", alertstate="firing"}
+        eval_time: 13m
+        exp_samples:
+          - labels: 'ALERTS{alertname="EscrowSettlementCheckFailed", alertstate="firing", db="/x/chain.db", instance="n:9100", severity="warning"}'
+            value: 1
+
+  # Healthy read: scrape_success 1 never fires CheckFailed.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_settlement_scrape_success{db="/x/chain.db", instance="n:9100"}'
+        values: '1x25'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowSettlementCheckFailed"}
+        eval_time: 20m
+        exp_samples: []
+
+  # No detector series at all (timer never installed): CheckStale must stay
+  # quiet. Deliberately no absent() arm — under per-host evaluation it fires
+  # label-less on every host that lacks the timer.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="x", instance="n:9100"}'
+        values: '1x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowSettlementCheckStale"}
+        eval_time: 35m
+        exp_samples: []
+
+  # Exporter stopped: node-exporter keeps serving the frozen timestamp, so
+  # time() - ts crosses 600s and CheckStale fires after for: 10m.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_settlement_scrape_timestamp_seconds{instance="n:9100"}'
+        values: '0x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowSettlementCheckStale", alertstate="firing"}
+        eval_time: 25m
+        exp_samples:
+          - labels: 'ALERTS{alertname="EscrowSettlementCheckStale", alertstate="firing", instance="n:9100", severity="warning"}'
+            value: 1
+
+  # The disease itself: 7 unlanded rows fire the critical after for: 5m while
+  # a clean host stays silent.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_unlanded_settlements{instance="n:9100"}'
+        values: '7x15'
+      - series: 'aitbc_escrow_unlanded_settlements{instance="m:9100"}'
+        values: '0x15'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowSettlementUnlanded", alertstate="firing"}
+        eval_time: 3m
+        exp_samples: []
+      - expr: ALERTS{alertname="EscrowSettlementUnlanded", alertstate="firing"}
+        eval_time: 8m
+        exp_samples:
+          - labels: 'ALERTS{alertname="EscrowSettlementUnlanded", alertstate="firing", instance="n:9100", severity="critical"}'
+            value: 1
