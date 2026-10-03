@@ -468,8 +468,10 @@ def _process_batch_entry(
             error(f"Transaction failed: {tx['from_wallet']} → {tx['to_address']}")
 
     except CLIError:
-        # A lookup failure is systemic (same rpc_url for every entry) —
-        # abort the batch instead of recording the same failure N times.
+        # Lookup failures abort the batch. A chain-id failure is systemic
+        # (same rpc_url for every entry); a nonce 404 is per sender — but
+        # either way there is nothing valid to sign with, so the caller
+        # prints a partial summary and the command exits non-zero.
         raise
     except Exception as e:
         results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
@@ -528,8 +530,19 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
     nonce_offsets: dict[str, int] = {}
 
     results: list[dict[str, Any]] = []
-    for tx in transactions_data:
-        _process_batch_entry(tx, password, rpc_url, seen_entries, seen_hashes, nonce_offsets, results)
+    for index, tx in enumerate(transactions_data, start=1):
+        try:
+            _process_batch_entry(tx, password, rpc_url, seen_entries, seen_hashes, nonce_offsets, results)
+        except CLIError:
+            # Say what already went out before aborting: earlier entries were
+            # submitted to the node and their hashes are the only receipt.
+            submitted = [r["hash"] for r in results if r.get("hash")]
+            error(
+                f"Batch aborted at entry {index}/{len(transactions_data)} "
+                f"(from_wallet={tx.get('from_wallet', '?')}): {len(submitted)} "
+                f"transaction(s) already submitted: {', '.join(str(h) for h in submitted) or 'none'}"
+            )
+            raise
 
     success(f"Batch completed: {len([r for r in results if r['success']])}/{len(results)} successful")
 
