@@ -605,7 +605,9 @@ def aitbc_market_exchange_withdraw_eth(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_gpu_buy(
     gpu_id: Annotated[str, Field(description="GPU registry ID")],
-    buyer_id: Annotated[str, Field(description="Buyer client ID")],
+    buyer_id: Annotated[
+        str, Field(description="Buyer client ID from the quote (native rail: the funding wallet address 0x...)")
+    ],
     job_id: Annotated[str, Field(description="Job ID from the quote response")],
     duration_hours: Annotated[float, Field(description="Rental duration in hours")],
     settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")],
@@ -677,7 +679,7 @@ def aitbc_market_gpu_buy(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_gpu_quote(
     gpu_id: Annotated[str, Field(description="GPU registry ID")],
-    buyer_id: Annotated[str, Field(description="Buyer client ID")],
+    buyer_id: Annotated[str, Field(description="Buyer client ID (native rail: the funding wallet address 0x...)")],
     duration_hours: Annotated[float | None, Field(description="Rental duration in hours")],
     gpu_count: Annotated[int | None, Field(description="Number of GPUs")],
     max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")],

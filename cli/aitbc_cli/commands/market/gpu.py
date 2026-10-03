@@ -15,6 +15,7 @@ import sys
 from typing import Any
 
 import click
+from eth_utils import is_address
 
 from ...config import get_config
 from ...utils import error, info, output, success, warning
@@ -88,7 +89,7 @@ def gpu():
 
 @gpu.command()
 @click.option("--gpu-id", required=True, help="GPU registry ID")
-@click.option("--buyer-id", required=True, help="Buyer client ID")
+@click.option("--buyer-id", required=True, help="Buyer client ID (native rail: the funding wallet address 0x...)")
 @click.option("--duration-hours", type=float, default=1.0, help="Rental duration in hours")
 @click.option("--gpu-count", type=int, default=1, help="Number of GPUs")
 @click.option("--max-ait", type=float, default=None, help="Maximum AIT buyer cap")
@@ -102,6 +103,20 @@ def gpu():
 @click.pass_context
 def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement, json_output):
     """Request an operator-signed energy quote for a GPU rental."""
+    # On the native rail the coordinator copies --buyer-id into the signed
+    # quote's buyer field verbatim, and `market gpu buy` can only fund a quote
+    # whose buyer equals the signing wallet — a non-address client id mints a
+    # quote that can never be bought. Refuse it before a dead quote and its
+    # bound job are created; the buyer cap is the same either way, so pass the
+    # funding wallet even for a price-only quote.
+    if settlement == "native" and not is_address(buyer_id):
+        error(
+            f"--buyer-id {buyer_id!r} is not a wallet address. On the native rail the quote's "
+            "buyer field is set from --buyer-id and `aitbc market gpu buy` can only fund it when it "
+            "equals the signing wallet — a non-address buyer id produces an unfundable quote. "
+            "Pass the buyer wallet address (0x...) as --buyer-id"
+        )
+        sys.exit(1)
     client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
     payload: dict[str, Any] = {
         "buyer_id": buyer_id,
@@ -157,7 +172,9 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
 
 @gpu.command()
 @click.option("--gpu-id", required=True, help="GPU registry ID")
-@click.option("--buyer-id", required=True, help="Buyer client ID")
+@click.option(
+    "--buyer-id", required=True, help="Buyer client ID from the quote (native rail: the funding wallet address 0x...)"
+)
 @click.option("--job-id", required=True, help="Job ID from the quote response")
 @click.option("--duration-hours", type=float, required=True, help="Rental duration in hours")
 @click.option(
