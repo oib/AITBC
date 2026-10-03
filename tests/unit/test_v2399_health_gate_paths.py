@@ -78,21 +78,10 @@ NON_SPEC_HEALTH_PATHS: dict[int, set[str]] = {
 # grow while that decision is outstanding; 9090 and 9093 are Prometheus and Alertmanager,
 # whose real liveness path is /-/healthy.
 UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = {
-    (8000, "/health"),
     (8000, "/v1/health"),
     (8003, "/api/health"),
     (8004, "/api/health"),
-    (8006, "/health"),
-    (8007, "/health"),
-    (8012, "/api/health"),
-    (8012, "/health"),
-    (8013, "/api/health"),
     (8080, "/health"),
-    # 8020/8021 are aitbc-multimodal / aitbc-modality-optimization unit ports,
-    # but the ExecStart modules (src.app.services.*) are not committed to the
-    # tree -- nothing can actually bind them today.
-    (8020, "/health"),
-    (8021, "/health"),
     (9090, "/-/healthy"),
     (9093, "/-/healthy"),
 }

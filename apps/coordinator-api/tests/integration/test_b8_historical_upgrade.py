@@ -9,7 +9,7 @@ the 2026-08-09 coordinator.db backup (stamped ``236edfbd9728``): a real
 
 This test emulates the historical condition: build the current schema, drop
 the tenant tables, stamp the database back to the revision *before* the
-current head, then ``upgrade head`` and assert the schema converges to the
+tenant-table migration, then ``upgrade head`` and assert the schema converges to the
 declared models — plus a sentinel row in an untouched table survives.
 """
 
@@ -35,16 +35,19 @@ _TENANT_TABLES = [
 ]
 
 
-def _previous_head_revision() -> str:
-    """Resolve the single down_revision of the current head."""
+def _pre_tenant_revision() -> str:
+    """Resolve the single down_revision of the tenant-table migration.
+
+    The emulated era is "before the multitenant feature", so the stamp target is the
+    parent of e7f2a9c4b1d0 — not of the current head, which has gained migrations
+    (add_partner_integration_tables, c3a91f7e5b02) that sit on top of it.
+    """
     cfg = Config(str(_COORDINATOR_ROOT / "alembic.ini"))
     cfg.set_main_option("script_location", str(_COORDINATOR_ROOT / "alembic"))
     script = ScriptDirectory.from_config(cfg)
-    head = script.get_current_head()
-    assert head, "no migration head found"
-    down = script.get_revision(head).down_revision
+    down = script.get_revision("e7f2a9c4b1d0").down_revision
     if isinstance(down, tuple):
-        assert len(down) == 1, f"head has multiple parents: {down}"
+        assert len(down) == 1, f"tenant migration has multiple parents: {down}"
         down = down[0]
     assert isinstance(down, str)
     return down
@@ -55,7 +58,7 @@ def test_historical_schema_upgrade_converges(tmp_path: Path):
     #    stamp the previous revision and drop the tenant tables, emulating a
     #    database created before the multitenant feature existed.
     db_path = _run_alembic(tmp_path, "upgrade", "head")
-    prev = _previous_head_revision()
+    prev = _pre_tenant_revision()
 
     engine = create_engine(f"sqlite:///{db_path}")
     with engine.begin() as conn:
