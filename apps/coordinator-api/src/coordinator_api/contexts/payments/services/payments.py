@@ -170,6 +170,23 @@ async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClie
     return None
 
 
+async def _lookup_escrow_record(blockchain_rpc_url: str, client: AsyncAITBCHTTPClient, job_id: str) -> dict[str, Any] | None:
+    """Return the node's escrow record for job_id, or None on a definitive 404.
+
+    Raises on transport or any other non-2xx so callers do not mistake
+    "could not tell" for "does not exist". The /escrow/create route writes
+    this row synchronously when it submits the lock, so a hit covers a lock
+    that is still pending in the mempool, not only a sealed one.
+    """
+    try:
+        return await client.get(f"{blockchain_rpc_url}/rpc/escrow/{job_id}")
+    except Exception as e:
+        status_error = _find_http_status_error(e)
+        if status_error is not None and status_error.response.status_code == 404:
+            return None
+        raise
+
+
 def _find_http_status_error(exc: BaseException) -> httpx.HTTPStatusError | None:
     """Unwrap the chained exception to find the HTTP refusal, if any.
 
@@ -819,32 +836,96 @@ class PaymentService:
         if meta.get("energy_is_protected"):
             payload["energy_quote"] = meta["energy_quote"]
             payload["energy_quote_digest"] = meta["energy_quote_digest"]
-        response = await client.post(
+        escrow_data = await client.post(
             f"{self.blockchain_rpc_url}/rpc/escrow/create",
             json=payload,
         )
-        escrow_data = response
-        contract_id = escrow_data.get("contract_id")
+        escrow = self._record_escrowed(payment, buyer, provider, contract_id=escrow_data.get("contract_id"))
+        logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
+        return escrow
+
+    def _record_escrowed(
+        self,
+        payment: JobPayment,
+        buyer: str,
+        provider: str,
+        contract_id: str | None,
+        lock_tx_hash: str | None = None,
+        recovered: bool = False,
+    ) -> PaymentEscrow:
+        """Persist the escrowed state and its escrow row for a confirmed lock.
+
+        Shared by the normal create path and the ambiguous-failure recovery:
+        once a lock is confirmed on the node the local bookkeeping is the same
+        either way. ``recovered`` marks rows whose lock was found after the
+        create response was lost, so an operator can tell them apart.
+        """
         payment.escrow_address = contract_id
         payment.status = "escrowed"
         payment.escrowed_at = datetime.now(UTC)
         payment.updated_at = datetime.now(UTC)
-        if payment.meta_data is None:
-            payment.meta_data = {}
-        payment.meta_data["buyer_address"] = buyer
-        payment.meta_data["provider_address"] = provider
+        # A fresh dict: re-assigning the same object would not flag the JSON
+        # column dirty and the party addresses would be lost on commit.
+        meta = dict(payment.meta_data) if isinstance(payment.meta_data, dict) else {}
+        meta["buyer_address"] = buyer
+        meta["provider_address"] = provider
+        if lock_tx_hash:
+            meta["escrow_lock_tx_hash"] = lock_tx_hash
+        if recovered:
+            meta["escrow_recovered"] = True
+        payment.meta_data = meta
         escrow = PaymentEscrow(
             payment_id=payment.id,
             amount=payment.amount,
             currency=payment.currency,
-            address=contract_id,
+            # NOT NULL column; a chain-only recovery has no contract id yet —
+            # the lock tx hash in meta_data is the link until the node heals.
+            address=contract_id or "",
             expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
-        if escrow is not None:
-            self.session.add(escrow)
+        self.session.add(escrow)
         self.session.commit()
-        logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
         return escrow
+
+    async def _recover_ambiguous_escrow(
+        self,
+        payment: JobPayment,
+        buyer: str,
+        provider: str,
+    ) -> tuple[PaymentEscrow | None, bool]:
+        """Resolve an escrow POST whose response was lost before marking failure.
+
+        Returns ``(escrow, absence_confirmed)``. A lost response does not mean
+        a lost lock — the node's /escrow/create may already have submitted it,
+        and a retried *purchase* creates a new job_id, so the chain's per-job
+        dedup cannot rescue it. The escrow record is checked first (the route
+        writes it synchronously at submit, so it covers a mempool-pending
+        lock); a miss then falls back to the chain itself, which catches a
+        lock whose row write never ran. ``(None, True)`` means nothing was
+        submitted and the purchase is safe to retry. When neither lookup can
+        say, the payment is marked ``funding_unknown`` here — the buyer must
+        be told the funding state is unknown, not that the purchase failed
+        cleanly.
+        """
+        client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
+        try:
+            record = await _lookup_escrow_record(self.blockchain_rpc_url, client, payment.job_id)
+            lock_tx_hash = (record or {}).get("lock_tx_hash")
+            contract_id = (record or {}).get("contract_id")
+            if lock_tx_hash is None:
+                lock_tx_hash = await _lookup_chain_lock(self.blockchain_rpc_url, client, payment.job_id)
+        except Exception:
+            self._mark_escrow_failed(
+                payment,
+                "funding_unknown",
+                f"the escrow funding state for job {payment.job_id} could not be "
+                "determined — the lock may have landed; check the job's escrow "
+                "record before retrying",
+            )
+            return None, False
+        if lock_tx_hash is None:
+            return None, True
+        return self._record_escrowed(payment, buyer, provider, contract_id, lock_tx_hash=lock_tx_hash, recovered=True), False
 
     def _mark_escrow_failed(self, payment: JobPayment, kind: str, detail: str) -> None:
         """Mark a payment whose escrow never landed as ``failed`` with a
@@ -855,9 +936,10 @@ class PaymentService:
         used to surface as a successful purchase with no escrow behind it
         (market_gpu rolls the booking back only on ``failed``/``skipped``).
         ``failed`` is correct even for the retryable kinds: the purchase is
-        the retry unit, and the chain deduplicates an ESCROW_LOCK by job_id,
-        so a retried buy resolves to the existing lock instead of
-        double-locking.
+        the retry unit, and a retried buy creates a *new* job_id — the
+        chain's per-job ESCROW_LOCK dedup cannot resolve a lock that landed
+        after a lost response, which is why the ambiguous kinds go through
+        ``_recover_ambiguous_escrow`` before this is called.
         """
         payment.status = "failed"
         payment.updated_at = datetime.now(UTC)
@@ -922,7 +1004,23 @@ class PaymentService:
 
             return await self._submit_escrow_create(payment, buyer, provider, lock_tx, meta)
         except Exception as e:
-            self._mark_escrow_failed(payment, *_escrow_failure_reason(e))
+            kind, detail = _escrow_failure_reason(e)
+            if kind != "unavailable":
+                self._mark_escrow_failed(payment, kind, detail)
+                return None
+            # A refusal or a missing signature is definitive; everything else
+            # (timeout, disconnect, 5xx, an unparseable 2xx) may have committed
+            # the lock anyway — look before declaring failure.
+            recovered, absence_confirmed = await self._recover_ambiguous_escrow(payment, buyer, provider)
+            if recovered is not None:
+                return recovered
+            if absence_confirmed:
+                self._mark_escrow_failed(
+                    payment,
+                    "unavailable",
+                    "the node has no escrow lock for this job; the purchase can be retried",
+                )
+            # else: _recover_ambiguous_escrow already marked it funding_unknown.
             return None
 
     async def _create_crypto_escrow(self, payment: JobPayment) -> PaymentEscrow | None:
