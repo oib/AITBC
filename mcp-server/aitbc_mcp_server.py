@@ -356,9 +356,22 @@ def _is_local_host(host: str) -> bool:
         return False
 
 
+def _execution_context(host: str) -> dict[str, str]:
+    """Describe where a command for ``host`` runs: local shell or SSH.
+
+    Included in tool results so the operator can see the resolved SSH target
+    (including the user) or ``local``, plus the execution mode, before a
+    confirmed call runs.
+    """
+    if _is_local_host(host):
+        return {"host": host, "target": "local", "mode": "local"}
+    return {"host": host, "target": _ssh_target(host), "mode": "ssh"}
+
+
 def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
     """Run a single command on an AITBC host, using a local shell when possible."""
-    if _is_local_host(host):
+    context = _execution_context(host)
+    if context["mode"] == "local":
         try:
             res = subprocess.run(
                 shlex.split(command),
@@ -368,7 +381,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
                 shell=False,
             )
             return {
-                "host": host,
+                **context,
                 "command": command,
                 "returncode": res.returncode,
                 "stdout": res.stdout,
@@ -376,7 +389,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
             }
         except subprocess.TimeoutExpired as e:
             return {
-                "host": host,
+                **context,
                 "command": command,
                 "returncode": -1,
                 "stdout": e.stdout or "",
@@ -384,19 +397,18 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
             }
         except FileNotFoundError as e:
             return {
-                "host": host,
+                **context,
                 "command": command,
                 "returncode": -1,
                 "stdout": "",
                 "stderr": f"command not found: {e.filename}",
             }
 
-    target = _ssh_target(host)
-    cmd = ["ssh"] + _ssh_opts(host) + [target, "--", command]
+    cmd = ["ssh"] + _ssh_opts(host) + [context["target"], "--", command]
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return {
-            "host": host,
+            **context,
             "command": command,
             "returncode": res.returncode,
             "stdout": res.stdout,
@@ -404,7 +416,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
         }
     except subprocess.TimeoutExpired as e:
         return {
-            "host": host,
+            **context,
             "command": command,
             "returncode": -1,
             "stdout": e.stdout or "",
@@ -412,7 +424,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
         }
     except FileNotFoundError:
         return {
-            "host": host,
+            **context,
             "command": command,
             "returncode": -1,
             "stdout": "",
@@ -842,31 +854,43 @@ def _http_read_tool(
     return _json(_run_http(target, service, path, "GET", params, None, timeout))
 
 
-def _build_dry_run(message: str, real_command: str) -> dict[str, Any]:
-    return {
-        "dry_run": True,
-        "command": real_command,
-        "note": message,
-    }
+def _build_dry_run(message: str, real_command: str, host: str | None = None) -> dict[str, Any]:
+    """Build the dry-run response for ``real_command``.
+
+    When ``host`` is given the response names where a confirmed call would
+    run: the SSH target (including the user) or ``local``, plus the execution
+    mode.
+    """
+    result: dict[str, Any] = {"dry_run": True}
+    if host is not None:
+        result.update(_execution_context(host))
+    result["command"] = real_command
+    result["note"] = message
+    return result
 
 
 def _require_confirm(
     dry_run: bool,
     confirm: bool,
     command: str,
+    host: str | None = None,
 ) -> dict[str, Any] | None:
     """Return an error response if the user did not confirm a real run."""
     if dry_run:
         return _build_dry_run(
             "This is a dry run. Set dry_run=false and confirm=true to execute.",
             command,
+            host=host,
         )
     if not confirm:
-        return {
+        result: dict[str, Any] = {
             "error": "Confirmation required",
             "command": command,
             "note": "This is a destructive action. Pass dry_run=false and confirm=true to execute.",
         }
+        if host is not None:
+            result.update(_execution_context(host))
+        return result
     return None
 
 
@@ -882,7 +906,8 @@ def list_nodes() -> str:
     return _json(
         {
             "nodes": [
-                {"role": role, "host": host, "site": _ROLE_SITES.get(role, "live node")} for role, host in roles.items()
+                {"role": role, **_execution_context(host), "site": _ROLE_SITES.get(role, "live node")}
+                for role, host in roles.items()
             ],
             "environment": {
                 "default_host": _default_host(),
@@ -1071,7 +1096,7 @@ def _control_node(
     """Start, stop, or restart all role services on a node."""
     target = _host_for_role(role, host)
     real_command = f"sudo -n {AITBC_CLI} {action} --role {role}"
-    guard = _require_confirm(dry_run, confirm, real_command)
+    guard = _require_confirm(dry_run, confirm, real_command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(_run_remote(target, real_command, timeout=120))
@@ -1178,7 +1203,7 @@ def run_cron_job(
         {"path": script_path},
         output_format="json",
     )
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
 
@@ -1224,7 +1249,7 @@ def run_aitbc_command(
     target = _host_for_role(role, host)
     quoted = " ".join(shlex.quote(t) for t in tokens)
     real_command = f"{AITBC_CLI} {quoted}"
-    guard = _require_confirm(dry_run, confirm, real_command)
+    guard = _require_confirm(dry_run, confirm, real_command, host=target)
     if guard is not None:
         return _json(guard)
 
@@ -1312,13 +1337,14 @@ def run_aitbc_cli(
     destructive = _is_aitbc_subcommand_destructive(subcommand)
 
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
 
     if destructive and not confirm:
         return _json(
             {
                 "error": "Confirmation required",
                 "command": command,
+                **_execution_context(target),
                 "note": ("This aitbc subcommand may mutate state. Pass dry_run=false and confirm=true to execute."),
             }
         )
@@ -2026,7 +2052,7 @@ def restart_service(
         {"service": service},
         output_format="json",
     )
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(
@@ -2258,13 +2284,14 @@ def call_aitbc_http(
 
     if dry_run:
         command = _http_dry_run_command(service, path, method, params, body, auth)
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
 
     if method != "GET" and not confirm:
         return _json(
             {
                 "error": "Confirmation required",
                 "command": _http_dry_run_command(service, path, method, params, body, auth),
+                **_execution_context(target),
                 "note": "Mutating HTTP calls require dry_run=false and confirm=true.",
             }
         )
@@ -2612,7 +2639,7 @@ def submit_ai_job(
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("ai", "submit", None, options, "json")
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "ai", "submit", None, options, "json"))
@@ -2666,7 +2693,7 @@ def pay_for_ai_job(
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("ai", "pay", None, options, "json")
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "ai", "pay", None, options, "json"))
@@ -2728,7 +2755,7 @@ def manage_ai_job(
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("ai", action, None, options, "json")
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "ai", action, None, options, "json"))
@@ -2790,7 +2817,7 @@ def run_zk_refund_sweep(
     options: dict[str, str | None] = {"limit": str(limit), "reason": reason}
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("ai", "refund-sweep", None, options, "json")
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "ai", "refund-sweep", None, options, "json", timeout=120))
@@ -2842,7 +2869,7 @@ def send_aitbc_transaction(
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("transactions", "send", None, options, "json")
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "transactions", "send", None, options, "json"))
@@ -2892,7 +2919,7 @@ def create_performance_bond(
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("bond", "create", [provider_id], options, "json")
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(_run_aitbc_cli(target, "bond", "create", [provider_id], options, "json"))
@@ -2947,7 +2974,7 @@ def stake_aitbc(
         subcommand_options=subcommand_options,
         env=env,
     )
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(
@@ -3008,7 +3035,7 @@ def unstake_aitbc(
         subcommand_options=subcommand_options,
         env=env,
     )
-    guard = _require_confirm(dry_run, confirm, command)
+    guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
     return _json(

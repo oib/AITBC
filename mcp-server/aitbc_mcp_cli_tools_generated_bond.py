@@ -17,6 +17,7 @@ from aitbc_mcp_server import (
     _build_aitbc_cli_command,
     _build_dry_run,
     _collect_options,
+    _execution_context,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -43,6 +44,7 @@ def aitbc_bond_appeal(
         values={"bond_id": "bond-id", "reason": "reason", "evidence": "evidence", "coordinator_url": "coordinator-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "bond",
         subcommand=["appeal"],
@@ -51,16 +53,16 @@ def aitbc_bond_appeal(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -100,6 +102,7 @@ def aitbc_bond_create(
         },
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "bond",
         subcommand=["create"],
@@ -108,16 +111,16 @@ def aitbc_bond_create(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -148,6 +151,7 @@ def aitbc_bond_lock(
         values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "bond",
         subcommand=["lock"],
@@ -156,16 +160,16 @@ def aitbc_bond_lock(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -196,6 +200,7 @@ def aitbc_bond_release(
         values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "bond",
         subcommand=["release"],
@@ -204,16 +209,16 @@ def aitbc_bond_release(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -245,6 +250,7 @@ def aitbc_bond_slash(
         values={"provider_id": "provider-id", "reason": "reason", "coordinator_url": "coordinator-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "bond",
         subcommand=["slash"],
@@ -253,16 +259,16 @@ def aitbc_bond_slash(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -321,6 +327,7 @@ def aitbc_bond_top_up(
         values={"provider_id": "provider-id", "amount": "amount", "bond_id": "bond-id", "coordinator_url": "coordinator-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "bond",
         subcommand=["top-up"],
@@ -329,16 +336,16 @@ def aitbc_bond_top_up(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,

@@ -17,6 +17,7 @@ from aitbc_mcp_server import (
     _build_aitbc_cli_command,
     _build_dry_run,
     _collect_options,
+    _execution_context,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -46,6 +47,7 @@ def aitbc_monitor_alerts(
         values={"name": "name", "alert_type": "type", "threshold": "threshold", "webhook": "webhook"},
     )
     args = [action] if action is not None else []
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "monitor",
         subcommand=["alerts"],
@@ -54,16 +56,16 @@ def aitbc_monitor_alerts(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -89,6 +91,7 @@ def aitbc_monitor_campaign_stats(
     """Show statistics for a monitoring campaign.."""
     options: dict[str, Any] = {}
     args = [campaign_id] if campaign_id is not None else []
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "monitor",
         subcommand=["campaign-stats"],
@@ -97,16 +100,16 @@ def aitbc_monitor_campaign_stats(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -186,6 +189,7 @@ def aitbc_monitor_sweepers(
         values={},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "monitor",
         subcommand=["sweepers"],
@@ -194,16 +198,16 @@ def aitbc_monitor_sweepers(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -236,6 +240,7 @@ def aitbc_monitor_webhooks(
         values={"name": "name", "url": "url", "events": "events"},
     )
     args = [action] if action is not None else []
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "monitor",
         subcommand=["webhooks"],
@@ -244,16 +249,16 @@ def aitbc_monitor_webhooks(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,

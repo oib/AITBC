@@ -17,6 +17,7 @@ from aitbc_mcp_server import (
     _build_aitbc_cli_command,
     _build_dry_run,
     _collect_options,
+    _execution_context,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -40,6 +41,7 @@ def aitbc_dispute_active(
         values={"node_url": "node-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["active"],
@@ -48,16 +50,16 @@ def aitbc_dispute_active(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -92,6 +94,7 @@ def aitbc_dispute_arbitrator_authorize(
         values={"owner_signature": "signature", "node_url": "node-url"},
     )
     args = [arbitrator_address] if arbitrator_address is not None else []
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["arbitrator", "authorize"],
@@ -100,16 +103,16 @@ def aitbc_dispute_arbitrator_authorize(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -165,6 +168,7 @@ def aitbc_dispute_arbitrator_queue(
         values={"node_url": "node-url"},
     )
     args = [arbitrator_address] if arbitrator_address is not None else []
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["arbitrator", "queue"],
@@ -173,16 +177,16 @@ def aitbc_dispute_arbitrator_queue(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -213,6 +217,7 @@ def aitbc_dispute_auto_adjudicate(
         values={"coordinator_url": "coordinator-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["auto-adjudicate"],
@@ -221,16 +226,16 @@ def aitbc_dispute_auto_adjudicate(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -270,6 +275,7 @@ def aitbc_dispute_evidence_add(
         },
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["evidence", "add"],
@@ -278,16 +284,16 @@ def aitbc_dispute_evidence_add(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -346,6 +352,7 @@ def aitbc_dispute_evidence_verify(
         values={"dispute_id": "dispute-id", "evidence_id": "evidence-id", "node_url": "node-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["evidence", "verify"],
@@ -354,16 +361,16 @@ def aitbc_dispute_evidence_verify(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -463,6 +470,7 @@ def aitbc_dispute_resolve(
         values={"outcome": "outcome", "reason": "reason", "coordinator_url": "coordinator-url"},
     )
     args = [job_id] if job_id is not None else []
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["resolve"],
@@ -471,16 +479,16 @@ def aitbc_dispute_resolve(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -511,6 +519,7 @@ def aitbc_dispute_user(
         values={"node_url": "node-url"},
     )
     args = [user_address] if user_address is not None else []
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["user"],
@@ -519,16 +528,16 @@ def aitbc_dispute_user(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
@@ -561,6 +570,7 @@ def aitbc_dispute_vote(
         values={"dispute_id": "dispute-id", "vote": "vote", "reasoning": "reasoning", "node_url": "node-url"},
     )
     args = None
+    target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "dispute",
         subcommand=["vote"],
@@ -569,16 +579,16 @@ def aitbc_dispute_vote(
         output_format="json",
     )
     if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command))
+        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
     if not confirm:
         return _json(
             {
                 "error": "Confirmation required",
+                **_execution_context(target),
                 "command": command,
                 "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
             }
         )
-    target = _host_for_role(role, host)
     return _json(
         _run_aitbc_cli(
             target,
