@@ -480,6 +480,19 @@ def _secure_escrow(
     if payment_amount is None:
         abort(ctx, "coordinator did not return payment_amount")
     payment_token = str(result.get("payment_token") or currency or "AITBC")
+    # Resolve the chain id in its own try: only this failure gets the
+    # CHAIN_ID hint; other errors (amount, nonce, coordinator) get the bare
+    # recovery hint. Resolution stays lazy — it runs only when an escrow is
+    # actually needed, never for already-paid submissions.
+    try:
+        resolved_chain_id = chain_id or resolve_chain_id(ctx, rpc_url)
+    except CLIError as e:
+        abort(
+            ctx,
+            f"{e} — job {job_id} was accepted but its escrow could not be secured; "
+            f"set CHAIN_ID and fund it with 'aitbc ai pay-job {job_id}'",
+            from_exception=e,
+        )
     try:
         payment_result = _create_escrow_payment(
             ctx,
@@ -492,7 +505,7 @@ def _secure_escrow(
             str(result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or ""),
             private_key,
             str(node_wallet_addr),
-            chain_id,
+            resolved_chain_id,
             offer_id,
             offer_quantity,
         )
@@ -501,8 +514,7 @@ def _secure_escrow(
         # operator can fund it instead of resubmitting.
         abort(
             ctx,
-            f"{e} — job {job_id} was accepted but its escrow could not be secured; "
-            f"set CHAIN_ID and fund it with 'aitbc ai pay-job {job_id}'",
+            f"{e} — job {job_id} was accepted but its escrow could not be secured; fund it with 'aitbc ai pay-job {job_id}'",
             from_exception=e,
         )
     payment_id = payment_result.get("payment_id")

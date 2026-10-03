@@ -323,4 +323,45 @@ def test_ai_submit_lookup_failure_names_job_id(runner, ai_patches):
     text = result.output + str(result.exception)
     assert "job-1" in text
     assert "pay-job job-1" in text
+    assert "CHAIN_ID" in text
     escrow_spy.assert_not_called()
+
+
+def test_ai_submit_invalid_amount_omits_chain_hint(runner, ai_patches):
+    """A non-chain escrow failure names the job and the pay-job recovery
+    path but must not suggest CHAIN_ID."""
+    client, escrow_spy = ai_patches
+    client.post.side_effect = [
+        {
+            "job_id": "job-1",
+            "state": "QUEUED",
+            "payment_amount": "notanumber",
+            "payment_token": "AIT",
+            "node_wallet_address": NODE_WALLET,
+            "provider_address": PROVIDER,
+        },
+        {"payment_id": "pay-1"},
+    ]
+    with _ok_probe():
+        result = _invoke_ai(runner, SUBMIT_ARGS)
+    assert result.exit_code != 0
+    text = result.output + str(result.exception)
+    assert "Invalid payment amount" in text
+    assert "job-1" in text
+    assert "pay-job job-1" in text
+    assert "CHAIN_ID" not in text
+
+
+def test_ai_submit_nonce_failure_omits_chain_hint(runner, ai_patches):
+    """A nonce-lookup failure inside escrow signing names the job and the
+    pay-job recovery path but must not suggest CHAIN_ID."""
+    client, escrow_spy = ai_patches
+    escrow_spy.side_effect = CLIError("nonce lookup failed for 0xabc")
+    with _ok_probe():
+        result = _invoke_ai(runner, SUBMIT_ARGS)
+    assert result.exit_code != 0
+    text = result.output + str(result.exception)
+    assert "nonce lookup failed" in text
+    assert "job-1" in text
+    assert "pay-job job-1" in text
+    assert "CHAIN_ID" not in text
