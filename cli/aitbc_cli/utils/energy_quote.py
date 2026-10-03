@@ -237,13 +237,20 @@ def verify_quote_against_oracle(
 def expected_quote_chain_id(ctx, rpc_url: str, *, strict: bool) -> tuple[str | None, str]:
     """Return the chain id a quote must be bound to, and where it came from.
 
-    An explicitly configured ``native_chain_id`` (``NATIVE_CHAIN_ID`` env or
-    the config file) wins. Otherwise the id is resolved exactly the way the
-    signing path resolves it — ``--chain-id`` flag, ``CHAIN_ID`` env, then a
-    strict probe of ``rpc_url`` — so the quote binding and the signed
-    transaction can never disagree.
+    For read-only quote checks only — ``market gpu quote``, ``energy
+    operator verify``, and the EVM buy rail, none of which sign a native
+    transaction. An explicitly configured ``native_chain_id``
+    (``NATIVE_CHAIN_ID`` env or the config file) wins without probing.
+    Otherwise the id is resolved exactly the way the signing path resolves
+    it — ``--chain-id`` flag, ``CHAIN_ID`` env, then a probe of ``rpc_url``.
 
-    ``strict=True`` aborts when resolution fails (buy paths, which sign).
+    The native signing path does NOT use this helper: ``market gpu buy``
+    resolves the signing chain itself once via ``resolve_chain_id`` and
+    treats a configured ``NATIVE_CHAIN_ID`` as an assertion only — see
+    :func:`assert_configured_native_chain` — so a configured value can
+    refuse the buy but can never change what gets signed.
+
+    ``strict=True`` aborts when resolution fails (signing paths).
     ``strict=False`` returns ``(None, "unresolved")`` so read-only paths can
     skip the check with a caveat instead of refusing.
     """
@@ -257,3 +264,24 @@ def expected_quote_chain_id(ctx, rpc_url: str, *, strict: bool) -> tuple[str | N
     if not resolved:
         return None, "unresolved"
     return resolved, "resolved --chain-id/CHAIN_ID/RPC probe"
+
+
+def assert_configured_native_chain(ctx, configured: str | None, signing_id: str) -> None:
+    """Assert a configured ``NATIVE_CHAIN_ID`` agrees with the signing chain.
+
+    The configured value is an assertion about the chain a quote was minted
+    for — it never selects the chain a transaction is signed for. Signing
+    callers resolve the chain once and call this before any wallet load or
+    signing, so a configured value can only refuse the operation, never
+    redirect it onto another chain.
+    """
+    from .error_handling import abort
+
+    configured = (configured or "").strip()
+    if configured and configured != signing_id:
+        abort(
+            ctx,
+            f"NATIVE_CHAIN_ID config ({configured}) does not match the resolved signing "
+            f"chain {signing_id} (--chain-id/CHAIN_ID/RPC probe); "
+            "refusing to verify or sign the quote",
+        )
