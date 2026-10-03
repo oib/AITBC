@@ -313,6 +313,22 @@ def test_update_sh_no_longer_carries_its_own_copy():
     assert not executed, f"update.sh still runs alembic itself: {executed}"
 
 
+# The one deliberate exception: aitbc-coordinator-api.service carries
+# ExecStartPre=alembic upgrade head (c9b3d0c8ac, bounded by 4fe54ff5bc). It migrates the
+# coordinator's own coordinator.db, not the shared chain SQLite the guard protects, and a
+# failed migration is meant to fail the start.
+_ALLOWED_ALEMBIC_UNIT = "apps/coordinator-api/aitbc-coordinator-api.service"
+
+
+def _units_invoking_alembic(root: Path) -> list[Path]:
+    """Repo-relative paths of .service files under root that run alembic at start."""
+    return [
+        unit.relative_to(root)
+        for unit in (root / "apps").rglob("*.service")
+        if "alembic" in unit.read_text() and unit.relative_to(root).as_posix() != _ALLOWED_ALEMBIC_UNIT
+    ]
+
+
 def test_no_unit_gained_an_execstartpre_migration():
     """Deliberately not the fix — recorded so a later sweep does not add one by reflex.
 
@@ -321,8 +337,22 @@ def test_no_unit_gained_an_execstartpre_migration():
     Alembic default also targets a database no node uses (V23-49), and SQLite migrations here
     go through batch_alter_table(recreate="always"), which a unit cannot do safely to its own
     running siblings. Migrations are a deploy step, with the services stopped.
+
+    The guard protects units that SHARE one database; aitbc-coordinator-api.service is the
+    one deliberate exception (own coordinator.db, fail-closed ExecStartPre —
+    c9b3d0c8ac / 4fe54ff5bc).
     """
-    offenders = [
-        unit.relative_to(REPO_ROOT) for unit in (REPO_ROOT / "apps").rglob("*.service") if "alembic" in unit.read_text()
-    ]
+    offenders = _units_invoking_alembic(REPO_ROOT)
     assert not offenders, f"units invoking alembic: {offenders}"
+
+
+def test_the_allowlist_does_not_switch_the_sweep_off(tmp_path):
+    """The exception is one unit, not the check: a second alembic unit is still reported."""
+    unit = tmp_path / "apps" / "fake-app" / "fake-app.service"
+    unit.parent.mkdir(parents=True)
+    unit.write_text("[Service]\nExecStartPre=/usr/bin/alembic upgrade head\n")
+    allowed = tmp_path / "apps" / "coordinator-api" / "aitbc-coordinator-api.service"
+    allowed.parent.mkdir(parents=True)
+    allowed.write_text("[Service]\nExecStartPre=/usr/bin/alembic upgrade head\n")
+
+    assert _units_invoking_alembic(tmp_path) == [Path("apps/fake-app/fake-app.service")]
