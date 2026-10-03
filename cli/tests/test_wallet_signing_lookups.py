@@ -637,3 +637,204 @@ def test_market_safe_load_credentials_hub_uses_env_chain_id(monkeypatch):
     with patch("aitbc_cli.commands.market.load_island_credentials", side_effect=FileNotFoundError("nope")):
         creds = market_mod.safe_load_credentials()
     assert creds["chain_id"] == "ait-env"
+
+
+# ---------------------------------------------------------------------------
+# gpu-onchain commands (the 3 Oct v10 exercise path)
+# ---------------------------------------------------------------------------
+
+
+def _gpu_config(rpc_url="http://127.0.0.1:1", hub=""):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(blockchain_rpc_url=rpc_url, hub_discovery_url=hub)
+
+
+def _invoke_gpu(runner, obj, monkeypatch, args, *, probe, submit=None):
+    """Invoke a gpu-onchain command with config + chain probe mocked."""
+    from aitbc_cli.commands import gpu_resources as gpu_mod
+
+    if submit is None:
+        submit = MagicMock(return_value={"transaction_hash": "0x1"})
+    with (
+        patch("aitbc_cli.commands.gpu_resources.get_config", return_value=_gpu_config()),
+        patch.object(chain_id_mod, "get_chain_id", side_effect=probe),
+        patch("aitbc_cli.utils.gpu_onchain.submit_gpu_register", submit),
+    ):
+        result = runner.invoke(gpu_mod.gpu, args, obj=obj)
+    return result, submit
+
+
+REGISTER_ARGS = [
+    "register",
+    "--gpu-id",
+    "gpu-1",
+    "--miner-id",
+    "m-1",
+    "--model",
+    "RTX",
+    "--memory-gb",
+    "24",
+    "--price-per-hour",
+    "10",
+    "--wallet",
+    "w1",
+]
+
+
+def test_gpu_register_aborts_nonzero_when_chain_probe_fails(runner, monkeypatch):
+    """Failed chain probe aborts register — never a silent ait-localnet."""
+    submit = MagicMock(return_value={"transaction_hash": "0x1"})
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    result, _ = _invoke_gpu(runner, {}, monkeypatch, REGISTER_ARGS, probe=_failing_chain_lookup, submit=submit)
+    assert result.exit_code != 0
+    assert "127.0.0.1:1" in result.output
+    submit.assert_not_called()
+
+
+def test_gpu_register_env_chain_id_wins_without_probe(runner, monkeypatch):
+    """CHAIN_ID env is explicit — the probe must not run at all."""
+    submit = MagicMock(return_value={"transaction_hash": "0x1"})
+    monkeypatch.setenv("CHAIN_ID", "env-chain")
+    probe = MagicMock(side_effect=AssertionError("probe must not be called"))
+    result, _ = _invoke_gpu(runner, {}, monkeypatch, REGISTER_ARGS, probe=probe, submit=submit)
+    assert result.exit_code == 0, result.output
+    probe.assert_not_called()
+    assert submit.call_args[0][2] == "env-chain"
+
+
+def test_gpu_register_root_chain_id_wins(runner, monkeypatch):
+    """aitbc --chain-id X (ctx chain_id_explicit) beats the probe."""
+    submit = MagicMock(return_value={"transaction_hash": "0x1"})
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    probe = MagicMock(side_effect=AssertionError("probe must not be called"))
+    result, _ = _invoke_gpu(
+        runner, {"chain_id_explicit": "root-chain"}, monkeypatch, REGISTER_ARGS, probe=probe, submit=submit
+    )
+    assert result.exit_code == 0, result.output
+    assert submit.call_args[0][2] == "root-chain"
+
+
+def test_gpu_register_nonce_lookup_clierror_exits_nonzero(runner, monkeypatch):
+    """A CLIError from the nonce lookup must not be demoted to exit 0."""
+    from aitbc_cli.utils.error_handling import CLIError
+
+    monkeypatch.setenv("CHAIN_ID", "env-chain")
+    submit = MagicMock(side_effect=CLIError("Nonce lookup failed"))
+    result, _ = _invoke_gpu(runner, {}, monkeypatch, REGISTER_ARGS, probe=_serving_chain_lookup("x"), submit=submit)
+    assert result.exit_code != 0
+
+
+def test_gpu_register_success_exits_zero(runner, monkeypatch):
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    submit = MagicMock(return_value={"transaction_hash": "0xabc"})
+    result, _ = _invoke_gpu(runner, {}, monkeypatch, REGISTER_ARGS, probe=_serving_chain_lookup("ait-test"), submit=submit)
+    assert result.exit_code == 0, result.output
+    assert submit.call_args[0][2] == "ait-test"
+
+
+def test_gpu_allocate_invalid_address_exits_nonzero(runner, monkeypatch):
+    """The old `error(); return` path now aborts instead of exiting 0."""
+    from aitbc_cli.commands import gpu_resources as gpu_mod
+
+    monkeypatch.setenv("CHAIN_ID", "env-chain")
+    with (
+        patch("aitbc_cli.commands.gpu_resources.get_config", return_value=_gpu_config()),
+    ):
+        result = runner.invoke(
+            gpu_mod.gpu,
+            [
+                "allocate",
+                "--gpu-id",
+                "gpu-1",
+                "--client-id",
+                "not-an-address",
+                "--duration-hours",
+                "2",
+                "--total-cost",
+                "20",
+                "--wallet",
+                "w1",
+            ],
+            obj={},
+        )
+    assert result.exit_code != 0
+    assert "Invalid client address" in result.output
+
+
+def test_gpu_list_omits_chain_id_when_probe_fails(runner, monkeypatch):
+    """Read path: unresolved chain id is omitted — the node default applies."""
+    from aitbc_cli.commands import gpu_resources as gpu_mod
+
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+
+    calls = []
+
+    class _C:
+        def __init__(self, base_url="", **kw):
+            self.base_url = base_url
+
+        def get(self, endpoint, params=None, **kw):
+            calls.append((endpoint, params))
+            return {"gpus": []}
+
+    with (
+        patch("aitbc_cli.commands.gpu_resources.get_config", return_value=_gpu_config()),
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_failing_chain_lookup),
+        patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient", _C),
+    ):
+        result = runner.invoke(gpu_mod.gpu, ["list"], obj={})
+    assert result.exit_code == 0, result.output
+    assert calls and calls[0][0] == "/rpc/gpus"
+    assert calls[0][1] == {}
+
+
+def test_gpu_query_omits_chain_id_when_probe_fails(runner, monkeypatch):
+    from aitbc_cli.commands import gpu_resources as gpu_mod
+
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+
+    calls = []
+
+    class _C:
+        def __init__(self, base_url="", **kw):
+            self.base_url = base_url
+
+        def get(self, endpoint, params=None, **kw):
+            calls.append((endpoint, params))
+            return {"gpu_id": "gpu-1"}
+
+    with (
+        patch("aitbc_cli.commands.gpu_resources.get_config", return_value=_gpu_config()),
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_failing_chain_lookup),
+        patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient", _C),
+    ):
+        result = runner.invoke(gpu_mod.gpu, ["query", "--gpu-id", "gpu-1"], obj={})
+    assert result.exit_code == 0, result.output
+    assert calls and calls[0][0] == "/rpc/gpu/info/gpu-1"
+    assert calls[0][1] == {}
+
+
+def test_gpu_query_sends_chain_id_when_probe_succeeds(runner, monkeypatch):
+    from aitbc_cli.commands import gpu_resources as gpu_mod
+
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+
+    calls = []
+
+    class _C:
+        def __init__(self, base_url="", **kw):
+            self.base_url = base_url
+
+        def get(self, endpoint, params=None, **kw):
+            calls.append((endpoint, params))
+            return {"gpu_id": "gpu-1"}
+
+    with (
+        patch("aitbc_cli.commands.gpu_resources.get_config", return_value=_gpu_config()),
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_serving_chain_lookup("ait-test")),
+        patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient", _C),
+    ):
+        result = runner.invoke(gpu_mod.gpu, ["query", "--gpu-id", "gpu-1"], obj={})
+    assert result.exit_code == 0, result.output
+    assert calls[0][1] == {"chain_id": "ait-test"}
