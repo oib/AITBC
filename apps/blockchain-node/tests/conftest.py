@@ -44,6 +44,7 @@ _TEST_CHAIN_IDS = {
     "chain-sig",
     "secondary",
     "default-chain",
+    "ait-test",
     "ait-testnet",
     "ait-mainnet",
 }
