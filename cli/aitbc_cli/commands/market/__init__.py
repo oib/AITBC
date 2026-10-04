@@ -55,7 +55,12 @@ def safe_load_credentials():
 
 
 def get_chain_id() -> str:
-    """Get chain ID from island credentials or blockchain config"""
+    """Get chain ID from island credentials, CHAIN_ID, or the configured node RPC.
+
+    Signing callers must never sign a fabricated chain id — a wrong value
+    produces a transaction no node serves. When no honest source answers,
+    abort instead of guessing one from the hub's hostname.
+    """
     try:
         creds = load_island_credentials()
         # Credentials use 'island_chain_id' key
@@ -64,11 +69,24 @@ def get_chain_id() -> str:
             return str(chain_id)
     except (FileNotFoundError, ValueError):
         logger.debug("Island credentials not available for chain_id", exc_info=True)
-        pass
-    # Fall back to hub discovery URL config
+
+    env_chain_id = os.getenv("CHAIN_ID")
+    if env_chain_id:
+        return env_chain_id
+
     config = get_config()
-    hub = config.hub_discovery_url or "hub.aitbc.invalid"
-    return f"ait-{hub}"
+    rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    try:
+        from ...utils.chain_id import get_chain_id as _probe_chain_id
+
+        return _probe_chain_id(rpc_url, override=None, timeout=5, strict=True)
+    except Exception as e:
+        error(
+            f"Cannot determine the chain id to sign with: no island credentials, CHAIN_ID unset, "
+            f"and the chain-id lookup via {rpc_url} failed: {e}. "
+            "Set CHAIN_ID or point blockchain_rpc_url at a serving node"
+        )
+        raise click.Abort() from e
 
 
 def get_island_id() -> str:
