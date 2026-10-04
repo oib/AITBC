@@ -79,7 +79,10 @@ settlement tx with the settlement-authority key and submits it to the hub
 RPC. On acceptance the local escrow row is **marked at once** —
 `released_at`/`refunded_at` set to now, `status` to `released`/`refunded`,
 the leg's `*_tx_hash` stored. The mark claims settled from RPC acceptance
-onward; it is *not* proof the transaction sealed.
+onward; it is *not* proof the transaction sealed. From v11 the release
+route can also append an `ESCROW_FEE_SWEEP` leg for the job's custody
+residue — see §1.7; the leg is advisory (flag-gated, failure-invisible to
+the release) and leaves no row mark.
 
 ### 1.4 The v2/v3 boundary (`state_transition_v3_height`)
 
@@ -151,11 +154,28 @@ detector uses, so the two never disagree. Demote-only, never submits:
 
 A v3 lock funds the custody account with the full locked amount; the
 release moves only the settlement legs — the platform's fee share has no
-leg and **stays behind as residue in the per-job account**. There is no
-sweep today; residue accumulates in keyless accounts the consensus code
-alone can debit. (A fee-sweep design — an authority-signed `ESCROW_FEE_SWEEP`
-type behind a future transition height — exists as an operator-local
-proposal and is deliberately not described further here: it is not built.)
+leg and **stays behind as residue in the per-job account**. From
+`state_transition_v11_height` (unset ⇒ inert) a distinct authority-signed
+`ESCROW_FEE_SWEEP` transaction drains that residue to the governed
+`escrow_fee_recipient` chain parameter (env fallback `ESCROW_FEE_RECIPIENT`,
+fail-closed when unset): the sender must be the settlement authority, the
+recipient must equal the resolved parameter, and the value is bounded by
+the custody account's balance — the sender pays only the tx fee, the
+custody account pays the swept value, and a job without a custody account
+(v2-era lock, mistyped id) fails the balance check naturally.
+
+At the signer the leg rides `/rpc/escrow/{job_id}/release`, right after
+the final settlement leg (the release plus its change refund when one was
+owed — a metered settle never sweeps early). It is off unless
+`ESCROW_FEE_SWEEP_ENABLED` is set, dedupes on a sealed sweep for the job,
+and never touches the authoritative release: a rejected or failed
+submission is logged and counted in
+`blockchain_escrow_fee_sweep_total{result}`, then retried on later release
+calls for the job — but only when the row proves the residue (custody
+balance equals `amount − released − refunded` exactly; rows without a
+recorded refund leg are ambiguous and skipped rather than guessed).
+Escrow rows are untouched: sweeps are bookkeeping-invisible to the
+claim columns.
 
 ### 1.8 Custody accounts on the fleet (observed 2026-10-04)
 
