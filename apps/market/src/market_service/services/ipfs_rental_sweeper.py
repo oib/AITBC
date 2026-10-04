@@ -113,9 +113,15 @@ class IpfsRentalSweeper:
         async with self._session_factory() as session:
             stmt = (
                 select(IpfsRentalToken)
-                .where(col(IpfsRentalToken.status) == "active")
+                # 'expired' without a settlement hash is an unsettled escrow:
+                # a token the last pass marked expired but could not release or
+                # refund (e.g. a 425 'lock not sealed yet') must be retried, not
+                # stranded — the sweep only ever finished with a tx_hash.
+                .where(col(IpfsRentalToken.status).in_({"active", "expired"}))
+                .where(col(IpfsRentalToken.tx_hash).is_(None))
                 .where(col(IpfsRentalToken.expires_at).is_not(None))
                 .where(col(IpfsRentalToken.expires_at) < cutoff)
+                .where((col(IpfsRentalToken.rental_id) != "") | (col(IpfsRentalToken.escrow_contract_id) != ""))
                 .limit(self.batch_size)
             )
             result = await session.execute(stmt)
