@@ -318,6 +318,59 @@ check "unlisted failed unit counted"               bash -c "grep -q 'HC_ERRORS=1
 check "unlisted failed unit named"                 bash -c "grep -q 'aitbc-rogue.service is in a failed state' '$SBX/health.out'"
 check "role-listed failed unit not double-counted" bash -c "! grep -q 'aitbc-trading.service is in a failed state' '$SBX/health.out'"
 
+# =========================================================================
+echo "== update.sh --gitea resolution — remotes, not a scrub placeholder =="
+GITBOX="$SBX/gitbox"
+git init -q "$GITBOX"
+git -C "$GITBOX" remote add origin "https://gitea.bubuit.net/oib/aitbc.git"
+git -C "$GITBOX" remote add gitea  "https://gitea.example.internal/oib/aitbc.git"
+
+run_parse() { # parse-args… — subshell, echoes resolved GIT_REMOTE or rc
+    local rc=0
+    (
+        set +e
+        export AITBC_ROOT="$GITBOX" AITBC_NODE_ENV_FILE="$ETC_DIR/node.env" \
+               AITBC_BLOCKCHAIN_ENV_FILE="$ETC_DIR/blockchain.env" PATH="$STUB_BIN:$PATH"
+        source "$REPO_ROOT/scripts/deployment/update.sh"
+        parse_args "$@"
+        echo "GIT_REMOTE=$GIT_REMOTE"
+    ) 2>&1 || rc=$?
+    echo "RC=$rc"
+}
+
+# gitea remote wins over origin when both exist
+run_parse --gitea > "$SBX/parse1.out"
+check "--gitea resolves the gitea remote"          bash -c "grep -q 'GIT_REMOTE=https://gitea.example.internal/oib/aitbc.git' '$SBX/parse1.out'"
+
+# no gitea remote → origin is the canonical URL on operator nodes
+git -C "$GITBOX" remote remove gitea
+run_parse --gitea > "$SBX/parse2.out"
+check "--gitea falls back to origin"               bash -c "grep -q 'GIT_REMOTE=https://gitea.bubuit.net/oib/aitbc.git' '$SBX/parse2.out'"
+
+# explicit --gitea <url> beats remotes
+run_parse --gitea "https://other.example/r.git" > "$SBX/parse3.out"
+check "--gitea <url> is honoured"                  bash -c "grep -q 'GIT_REMOTE=https://other.example/r.git' '$SBX/parse3.out'"
+
+# .invalid scrub placeholder is refused, whichever flag produced it
+run_parse --remote "https://gitea.invalid/oib/aitbc.git" > "$SBX/parse4.out"
+check "--remote .invalid refused"                  bash -c "grep -q 'RC=2' '$SBX/parse4.out'"
+check "refusal names the placeholder"              bash -c "grep -q 'scrub-placeholder remote' '$SBX/parse4.out'"
+git -C "$GITBOX" remote add gitea "https://gitea.invalid/oib/aitbc.git"
+run_parse --gitea > "$SBX/parse5.out"
+check "--gitea .invalid remote refused"            bash -c "grep -q 'RC=2' '$SBX/parse5.out'"
+git -C "$GITBOX" remote remove gitea
+
+# =========================================================================
+echo "== island-subscription-check — refuses placeholder-less config =="
+(
+    set +e
+    env -u ISLAND_ID -u COORDINATOR_URL PATH="$STUB_BIN:$PATH" \
+        bash "$REPO_ROOT/scripts/monitoring/island-subscription-check.sh"
+    echo "ISL_RC=$?"
+) > "$SBX/isl.out" 2>&1
+check "unset config exits 3"                       bash -c "grep -q 'ISL_RC=3' '$SBX/isl.out'"
+check "names the env file and both vars"           bash -c "grep -q 'ISLAND_ID and COORDINATOR_URL' '$SBX/isl.out'"
+
 echo
 if [ "$FAILS" -eq 0 ]; then
     echo "ALL CHECKS PASSED"
