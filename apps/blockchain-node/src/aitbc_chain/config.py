@@ -749,6 +749,20 @@ class ChainSettings(BaseSettings):
     # like v4 to v9. An environment value (STATE_TRANSITION_V10_HEIGHT) still overrides this default.
     # fleet-config-check watches for drift.
     state_transition_v10_height: int | None = 32100
+    # v11: ESCROW_FEE_SWEEP. At or above this height the settlement authority may sweep a settled escrow's
+    # custody residue — the withheld platform fee plus rounding dust that v3 custody strands in the
+    # per-escrow account — to the recipient pinned by the on-chain ``escrow_fee_recipient`` chain parameter
+    # (env fallback ESCROW_FEE_RECIPIENT, unset fails closed). Apply-time rules: payload.job_id names the
+    # custody account, sender must equal ``escrow_settlement_authority`` resolved at apply height, recipient
+    # must equal the resolved fee recipient, and value is bounded only by the custody balance — the same
+    # trust bound the authority already holds over each release's amount. Below this height the type name
+    # has no consensus meaning at all and a block carrying it replays exactly as before (a plain value
+    # transfer), so sealed history is untouched. None (the default) means NOT activated and keeps it
+    # disabled. Every validator and follower must run a build that knows the type BEFORE the height is
+    # set: an older build would apply the sweep as a plain transfer and diverge. An environment value
+    # (STATE_TRANSITION_V11_HEIGHT) sets the height; once activated fleet-wide, proven over a full
+    # proposer rotation, hardcode it and tag like v9/v10. fleet-config-check watches for drift.
+    state_transition_v11_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
@@ -761,6 +775,12 @@ class ChainSettings(BaseSettings):
     # never set it. Below v5 an unset authority disables the check (legacy);
     # from state_transition_v5_height the transition fails closed instead.
     escrow_settlement_authority: str = ""
+    # v11: ESCROW_FEE_SWEEP must pay this recipient — the treasury account that
+    # collects the residue v3 custody strands in each per-escrow account.
+    # The on-chain escrow_fee_recipient chain parameter takes precedence; this
+    # setting (or ESCROW_FEE_RECIPIENT env) is the fallback for chains that
+    # never set it. Unset fails closed: the sweep is refused, never misdirected.
+    escrow_fee_recipient: str = ""
     # v5: BRIDGE_RELEASE/BRIDGE_REFUND must carry a secp256k1 signature over
     # the credit's semantic fields that recovers to this authority. The
     # on-chain bridge_release_authority chain parameter takes precedence; this
