@@ -53,6 +53,19 @@ def _escrow_settlement_authority() -> str | None:
     return _to_ait_address(addr)
 
 
+def _escrow_fee_recipient() -> str | None:
+    """Return the canonical fee recipient for v11 ESCROW_FEE_SWEEP txs.
+
+    Env-only fallback — the DB-capable context builder resolves the on-chain
+    ``escrow_fee_recipient`` parameter at the block's height and carries it in
+    the context entry, so this path is for context-free callers only.
+    """
+    addr = settings.escrow_fee_recipient or os.getenv("ESCROW_FEE_RECIPIENT", "")
+    if not addr:
+        return None
+    return _to_ait_address(addr)
+
+
 def _decode_payload(payload: Any) -> dict[str, Any]:
     """Return payload as a dict, decoding JSON string if necessary."""
     if isinstance(payload, str):
@@ -242,6 +255,105 @@ def _escrow_release_refund_delta(
     return _escrow_v2_release_refund_delta(account_map, sender, recipient, value, fee, tx_type, tx_hash)
 
 
+def _escrow_fee_sweep_delta(
+    account_map: dict[str, Account],
+    tx_data: dict[str, Any],
+    sender: str,
+    recipient: str,
+    value: int,
+    fee: int,
+    tx_type: str,
+    tx_hash: str,
+    escrow_context: dict[str, dict[str, Any]] | None,
+) -> StateDelta:
+    """Validate and compute a v11 ESCROW_FEE_SWEEP delta.
+
+    The sweep pays the governed fee recipient out of the job's custody account
+    — the same delta shape as a v3 release/refund (escrow debited via
+    ``extra_debits``, sender pays only the fee) but with the recipient pinned
+    to ``escrow_fee_recipient`` instead of the lock's beneficiary, and no lock
+    requirement: the custody account is derived from ``payload.job_id``, and a
+    job without one (v2-era lock, mistyped id) fails the balance check
+    naturally. Mirrors ``validate_transaction``'s ESCROW_FEE_SWEEP branch.
+    """
+    payload = _decode_payload(tx_data.get("payload", {}) or {})
+    job_id = payload.get("job_id", "")
+    if not job_id:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error="ESCROW_FEE_SWEEP payload must include job_id",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    context = (escrow_context or {}).get(job_id, {})
+    # Like settlement_authority: the DB-capable context builder resolves the
+    # on-chain parameters at the block's height; context-free callers fall
+    # back to the env-only lookups. v11 postdates v5, so an unset authority
+    # always fails closed — no legacy lenient branch exists.
+    if "settlement_authority" in context:
+        authority = context["settlement_authority"]
+    else:
+        authority = _escrow_settlement_authority()
+    if authority is None:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error="ESCROW_FEE_SWEEP requires a settlement authority: set the escrow_settlement_authority chain parameter",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    if sender != authority:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"ESCROW_FEE_SWEEP must be signed by settlement authority {authority}, got {sender}",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    if "fee_recipient" in context:
+        fee_recipient = context["fee_recipient"]
+    else:
+        fee_recipient = _escrow_fee_recipient()
+    if fee_recipient is None:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error="ESCROW_FEE_SWEEP requires a fee recipient: set the escrow_fee_recipient chain parameter",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    if recipient != fee_recipient:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {recipient}",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    return _escrow_v3_release_refund_delta(account_map, sender, recipient, value, fee, tx_type, tx_hash, job_id, context)
+
+
 @dataclass
 class StateDelta:
     """State change resulting from a transaction.
@@ -357,9 +469,11 @@ def compute_state_delta(
         tx_hash: Transaction hash (for duplicate detection).
         existing_tx_hashes: Set of already-processed tx hashes (for duplicate check).
         block_version: State-transition rule version active for the block.
-        escrow_context: Per-job lock metadata needed for ESCROW_RELEASE/ESCROW_REFUND
-            (lock_version, expected_beneficiary, escrow_addr). Callers must supply
-            this when enabling parallel processing for blocks containing those tx types.
+        escrow_context: Per-job metadata needed for ESCROW_RELEASE/ESCROW_REFUND
+            (lock_version, expected_beneficiary, escrow_addr) and — from v11 —
+            ESCROW_FEE_SWEEP (escrow_addr, settlement_authority, fee_recipient).
+            Callers must supply this when enabling parallel processing for
+            blocks containing those tx types.
         bridge_authority: Resolved bridge release authority for v5+ credit
             signature checks. Callers with DB access must pass
             ``state_transition._bridge_release_authority(session, chain_id)``
@@ -675,6 +789,23 @@ def compute_state_delta(
             tx_type,
             tx_hash,
             block_version,
+            escrow_context,
+        )
+
+    # v11: ESCROW_FEE_SWEEP pays the governed fee recipient out of the job's
+    # custody account. Below the gate the type has no consensus meaning and
+    # falls through to the generic transfer path — the same "unknown type"
+    # semantics the sequential path keeps for sealed history.
+    if tx_type == "ESCROW_FEE_SWEEP" and block_version >= 11:
+        return _escrow_fee_sweep_delta(
+            account_map,
+            tx_data,
+            sender,
+            recipient,
+            value,
+            fee,
+            tx_type,
+            tx_hash,
             escrow_context,
         )
 
@@ -1179,7 +1310,7 @@ def _add_ipfs_rw_set(tx_data: dict[str, Any], sender: str, read_set: set[str], w
 
 
 def _add_escrow_rw_set(tx_data: dict[str, Any], read_set: set[str], write_set: set[str]) -> None:
-    """Add per-escrow read/write dependencies for ESCROW_RELEASE/ESCROW_REFUND."""
+    """Add per-escrow read/write dependencies for ESCROW_RELEASE/ESCROW_REFUND/ESCROW_FEE_SWEEP."""
     payload = _decode_payload(tx_data.get("payload", {}) or {})
     job_id = payload.get("job_id", "")
     if job_id:
@@ -1218,7 +1349,7 @@ def extract_read_write_sets(tx_data: dict[str, Any]) -> tuple[frozenset[str], fr
     if tx_type == "IPFS_SUBSCRIPTION":
         _add_ipfs_rw_set(tx_data, sender, read_set, write_set)
 
-    if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
+    if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"):
         _add_escrow_rw_set(tx_data, read_set, write_set)
 
     return frozenset(read_set), frozenset(write_set)
