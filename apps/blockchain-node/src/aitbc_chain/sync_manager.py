@@ -18,7 +18,7 @@ from .config import is_block_producer, settings
 from .database import init_db, session_scope
 from .gossip import TopicSubscription, create_backend, gossip_broker
 from .logger import get_logger
-from .metrics import metrics_registry, sync_lag_blocks
+from .metrics import metrics_registry, sync_lag_blocks, sync_peer_reachable
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
 from .sync_divergence import clear_divergence, report_divergence
@@ -53,6 +53,18 @@ class ChainSyncState:
     gossip_sub: TopicSubscription | None = None
     error_count: int = 0
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
+def _drop_sync_lag(chain_id: str) -> None:
+    """Remove the lag child series for a chain whose remote height is unknown.
+
+    A stale value kept on the gauge would look current to SyncLagHigh and to
+    anyone reading the metric; an absent series is honestly "no reading".
+    """
+    try:
+        sync_lag_blocks.remove(chain_id)
+    except KeyError:
+        pass
 
 
 class SyncManager:
@@ -601,7 +613,24 @@ class SyncManager:
         except Exception as e:
             logger.warning("Failed to get remote head for %s: %s", chain_id, e)
             state.mode = SyncMode.DISCONNECTED
+            state.last_remote_height = -1
+            sync_peer_reachable.labels(chain_id=chain_id).set(0.0)
+            _drop_sync_lag(chain_id)
             return poll
+
+        if remote_height < 0:
+            # peer_head_divergence maps every fetch failure to (None, -1), so a
+            # dead peer arrives here, not in the except branch. -1 is "unknown",
+            # not a height: publishing gap = max(0, -1 - local) = 0 would read as
+            # perfectly synced on a blind node, and the state-sync range below
+            # would be called with to_height=-1.
+            logger.warning("Remote head unknown for %s via %s; peer unreachable", chain_id, source_url)
+            state.mode = SyncMode.DISCONNECTED
+            sync_peer_reachable.labels(chain_id=chain_id).set(0.0)
+            _drop_sync_lag(chain_id)
+            return poll
+
+        sync_peer_reachable.labels(chain_id=chain_id).set(1.0)
 
         state.last_local_height = state.chain_sync.get_local_height()
         gap = max(0, state.last_remote_height - state.last_local_height)
