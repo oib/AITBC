@@ -186,7 +186,7 @@ class IpfsRentalSweeper:
                 token.tx_hash = tx_hash
                 token.settle_deferral_first_at = None
                 return False, True
-            self._settle_deferred(token, job_id, "refund")
+            await self._settle_deferred(token, job_id, "refund")
             return False, False
 
         tx_hash = await self._release_escrow(job_id)
@@ -195,10 +195,10 @@ class IpfsRentalSweeper:
             token.tx_hash = tx_hash
             token.settle_deferral_first_at = None
             return True, False
-        self._settle_deferred(token, job_id, "release")
+        await self._settle_deferred(token, job_id, "release")
         return False, False
 
-    def _settle_deferred(self, token: IpfsRentalToken, job_id: str, direction: str) -> None:
+    async def _settle_deferred(self, token: IpfsRentalToken, job_id: str, direction: str) -> None:
         """A settle that did not land defers, bounded by ``settle_max_seconds``.
 
         Same pattern as the job sweeper's 'not yet' handling: falsy answers
@@ -215,6 +215,23 @@ class IpfsRentalSweeper:
             logger.warning(
                 "Escrow %s for rental %s deferred; retrying on next sweep",
                 direction,
+                job_id,
+            )
+            return
+        # The chain writes the Escrow row when the lock is admitted, so a
+        # job_id with no row at all can never release or refund: the only
+        # absent-row case that could heal is a raw lock still in mempool,
+        # and that lands inside one sweep interval. From the second deferred
+        # pass on, a still-absent row is a phantom (e.g. a rental recorded
+        # on a chain that was later reset) -- fail it now instead of burning
+        # the full settle_max_seconds bound on retries.
+        if await self._escrow_absent(job_id):
+            token.status = "settlement_failed"
+            token.settle_deferral_first_at = None
+            logger.error(
+                "Escrow %s for rental %s impossible: chain has no escrow row for job_id=%s; marking settlement_failed",
+                direction,
+                job_id,
                 job_id,
             )
             return
@@ -236,6 +253,14 @@ class IpfsRentalSweeper:
             elapsed,
             self.settle_max_seconds,
         )
+
+    async def _escrow_absent(self, job_id: str) -> bool:
+        """True when the chain reports no escrow record at all for job_id."""
+        try:
+            return await self._rpc_client.verify_escrow(job_id) is None
+        except Exception as e:
+            logger.warning("Escrow presence probe for %s failed: %s; treating as transient", job_id, e)
+            return False
 
     async def _release_escrow(self, job_id: str) -> str | None:
         """Call the blockchain RPC to release escrow to the provider."""
