@@ -131,7 +131,6 @@ Also observed running, outside AITBC's unit set:
 | Process | Port | Class |
 |---------|------|-------|
 | `ollama` | 11434 | non-AITBC system service (`ollama.service`, enabled) on the GPU nodes node0/node1/node2 |
-| `openclaw gateway` | 18789 | unmanaged user-session process — **no systemd unit** — on node0 and node1; dies with the session unless it gets a unit |
 
 **hub1 note (verified 2026-10-04):** the former hub runs the follower/base
 set only — its hub-era units (`aitbc-api-gateway`, `aitbc-exchange`,
