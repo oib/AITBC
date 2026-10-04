@@ -205,17 +205,22 @@ class TestSettleDeferralBound:
     anything else -> keep deferring.
     """
 
-    def _settle_verify_transport(self, monkeypatch, settle_items, verify):
+    def _settle_verify_transport(self, monkeypatch, settle_items, verify, tx=None):
         """MockTransport: POSTs serve settle_items (callables or Exceptions,
-        clamped at the last item); GETs serve the verify answer."""
+        clamped at the last item); GETs dispatch on path -- /rpc/escrow/
+        serves the verify answer, /rpc/transaction/ serves the tx answer
+        (default: a sealed transaction, so adoption tests stay adoptions)."""
         state = {"posts": 0, "gets": 0}
+        if tx is None:
+            tx = self._sealed_tx
 
         def handler(request: httpx.Request) -> httpx.Response:
             if request.method == "GET":
                 state["gets"] += 1
-                if isinstance(verify, Exception):
-                    raise verify
-                return verify(request)
+                answer = tx if request.url.path.startswith("/rpc/transaction/") else verify
+                if isinstance(answer, Exception):
+                    raise answer
+                return answer(request)
             item = settle_items[min(state["posts"], len(settle_items) - 1)]
             state["posts"] += 1
             if isinstance(item, Exception):
@@ -245,6 +250,18 @@ class TestSettleDeferralBound:
         return httpx.Response(
             200,
             json={"success": False, "message": "could not be settled on-chain", "tx_hash": None},
+            request=request,
+        )
+
+    @staticmethod
+    def _sealed_tx(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "tx_hash": request.url.path.rsplit("/", 1)[-1],
+                "block_height": 34100,
+                "status": "sealed",
+            },
             request=request,
         )
 
@@ -475,3 +492,96 @@ class TestSettleDeferralBound:
         assert job["state"] == "REFUNDED"
         assert job["payment_status"] == "refunded"
         assert job["refund_tx_hash"] == "0xreturned"
+
+    async def test_past_bound_verdict_with_unsealed_hash_keeps_deferring(self, sweeper, monkeypatch) -> None:
+        """The S-8 dead-hash shape made stronger: the row names a hash but
+        the chain has it with no block height -- never adopted."""
+        service, sw, _rpc = sweeper
+
+        def verify_released(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "released", "release_tx_hash": "0xnever-sealed"},
+                request=request,
+            )
+
+        def tx_unsealed(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"tx_hash": "0xnever-sealed", "block_height": None, "status": "pending"},
+                request=request,
+            )
+
+        self._settle_verify_transport(monkeypatch, [self._post_unsettled], verify_released, tx=tx_unsealed)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "unsealed", {"settle_deferral_first_at": first_at})
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.meta_data["settle_deferral_first_at"] == first_at
+
+    async def test_past_bound_verdict_with_unfound_hash_keeps_deferring(self, sweeper, monkeypatch) -> None:
+        """A hash the chain does not have at all is the other dead-hash
+        shape -- 404 on the lookup, keep deferring."""
+        service, sw, _rpc = sweeper
+
+        def verify_refunded(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "refunded", "refund_tx_hash": "0xghost"},
+                request=request,
+            )
+
+        def tx_404(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"detail": "Transaction 0xghost not found"}, request=request)
+
+        self._settle_verify_transport(monkeypatch, [self._post_unsettled], verify_refunded, tx=tx_404)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "ghosttx", {"settle_deferral_first_at": first_at})
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.meta_data["settle_deferral_first_at"] == first_at
+
+    async def test_past_bound_verdict_hash_lookup_error_keeps_deferring(self, sweeper, monkeypatch) -> None:
+        """A failed tx lookup must not be read as 'unsealed' -- an unreadable
+        chain is evidence of nothing, so defer rather than adopt or fail."""
+        service, sw, _rpc = sweeper
+
+        def verify_released(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "released", "release_tx_hash": "0xmaybe"},
+                request=request,
+            )
+
+        self._settle_verify_transport(
+            monkeypatch,
+            [self._post_unsettled],
+            verify_released,
+            tx=httpx.ReadTimeout("node unreachable"),
+        )
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "txlookup-err", {"settle_deferral_first_at": first_at})
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.meta_data["settle_deferral_first_at"] == first_at
