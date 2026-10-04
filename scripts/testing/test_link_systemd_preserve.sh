@@ -53,6 +53,7 @@ case "$cmd" in
     cat)           exit 1 ;;            # no redis-server in the sandbox
     daemon-reload) exit 0 ;;
     --version)     echo "systemd 252"; exit 0 ;;
+    list-units)    cat "$STUB_STATE/failed_units" 2>/dev/null; exit 0 ;;
     show)
         prop=""; unit=""
         while [ $# -gt 0 ]; do
@@ -259,6 +260,63 @@ check "default: escrow-settlements linked"         file_there "$SYSTEMD_DIR/aitb
 check "default: prometheus-watch linked"           file_there "$SYSTEMD_DIR/aitbc-prometheus-watch.service"
 check "default: authority-balances NOT linked"     file_gone  "$SYSTEMD_DIR/aitbc-authority-balances.timer"
 check "default: hub-only unit not linked"          file_gone  "$SYSTEMD_DIR/aitbc-coordinator-api.service"
+
+# =========================================================================
+echo "== update.sh relink verification — vanished unit aborts loudly =="
+chmod +x "$FAKE_REPO/scripts/utils/link-systemd.sh"
+
+rm -rf "$SYSTEMD_DIR"; mkdir -p "$SYSTEMD_DIR"
+mkrole follower customer nogpu
+# aitbc-market is modeled (hub/shop) but excluded on follower:customer — a
+# link-systemd run legitimately removes it. update.sh must flag the loss.
+ln -sf "$FAKE_REPO/apps/market/aitbc-market.service" "$SYSTEMD_DIR/aitbc-market.service"
+(
+    set +e
+    export AITBC_ROOT="$FAKE_REPO" AITBC_SYSTEMD_DIR="$SYSTEMD_DIR" \
+           AITBC_NODE_ENV_FILE="$ETC_DIR/node.env" \
+           AITBC_BLOCKCHAIN_ENV_FILE="$ETC_DIR/blockchain.env" \
+           PATH="$STUB_BIN:$PATH"
+    source "$REPO_ROOT/scripts/deployment/update.sh"
+    relink_systemd
+    echo "RELINK_RC=$?"
+) > "$SBX/verify.out" 2>&1
+check "relink aborts on vanished unit"             bash -c "grep -q 'RELINK_RC=1' '$SBX/verify.out'"
+check "vanished unit named in output"              bash -c "grep -q 'vanished: aitbc-market.service' '$SBX/verify.out'"
+
+# DISABLED_SERVICES-exempted loss must NOT abort — declared demotion.
+rm -rf "$SYSTEMD_DIR"; mkdir -p "$SYSTEMD_DIR"
+mkrole follower customer nogpu 'DISABLED_SERVICES="aitbc-market"'
+ln -sf "$FAKE_REPO/apps/market/aitbc-market.service" "$SYSTEMD_DIR/aitbc-market.service"
+(
+    set +e
+    export AITBC_ROOT="$FAKE_REPO" AITBC_SYSTEMD_DIR="$SYSTEMD_DIR" \
+           AITBC_NODE_ENV_FILE="$ETC_DIR/node.env" \
+           AITBC_BLOCKCHAIN_ENV_FILE="$ETC_DIR/blockchain.env" \
+           PATH="$STUB_BIN:$PATH"
+    source "$REPO_ROOT/scripts/deployment/update.sh"
+    relink_systemd
+    echo "RELINK_RC=$?"
+) > "$SBX/verify2.out" 2>&1
+check "DISABLED demotion does not abort"           bash -c "grep -q 'RELINK_RC=0' '$SBX/verify2.out'"
+
+# =========================================================================
+echo "== health_check.sh — failed unit outside the role list is reported =="
+cat > "$STUB_STATE/failed_units" <<'EOF'
+  aitbc-rogue.service     loaded failed failed  rogue
+  aitbc-trading.service   loaded failed failed  trading
+EOF
+(
+    set +e
+    export PATH="$STUB_BIN:$PATH" TOTAL_ERRORS=0 TOTAL_WARNINGS=0 TOTAL_SKIPPED=0 \
+           BLOCKCHAIN_MODE=follower MARKET_ROLE=customer HARDWARE_PROFILE=nogpu
+    export LOG_DIR="$SBX/logs" HEALTH_CHECK_LOG="$SBX/logs/health.log"
+    source "$REPO_ROOT/scripts/monitoring/health_check.sh"
+    check_failed_units
+    echo "HC_ERRORS=$TOTAL_ERRORS"
+) > "$SBX/health.out" 2>&1
+check "unlisted failed unit counted"               bash -c "grep -q 'HC_ERRORS=1' '$SBX/health.out'"
+check "unlisted failed unit named"                 bash -c "grep -q 'aitbc-rogue.service is in a failed state' '$SBX/health.out'"
+check "role-listed failed unit not double-counted" bash -c "! grep -q 'aitbc-trading.service is in a failed state' '$SBX/health.out'"
 
 echo
 if [ "$FAILS" -eq 0 ]; then
