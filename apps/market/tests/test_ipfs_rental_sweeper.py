@@ -42,6 +42,9 @@ class FakeBlockchainRPCClient:
         self.refunded.append(job_id)
         return {"success": True, "tx_hash": f"0xrefund_{job_id}"}
 
+    async def verify_escrow(self, job_id: str) -> dict[str, Any] | None:
+        return {"job_id": job_id, "status": "locked"}
+
 
 @pytest.fixture
 async def session() -> AsyncIterator[AsyncSession]:
@@ -258,11 +261,13 @@ class ScriptedRPC:
         self,
         fail_release: set[str] | None = None,
         fail_refund: set[str] | None = None,
+        missing: set[str] | None = None,
     ) -> None:
         self.released: list[str] = []
         self.refunded: list[str] = []
         self.fail_release = fail_release or set()
         self.fail_refund = fail_refund or set()
+        self.missing = missing or set()
 
     async def release_escrow(self, job_id: str) -> dict[str, Any] | None:
         self.released.append(job_id)
@@ -275,6 +280,11 @@ class ScriptedRPC:
         if job_id in self.fail_refund:
             return {"success": False, "message": "could not be settled on-chain"}
         return {"success": True, "tx_hash": f"0xrefund_{job_id}"}
+
+    async def verify_escrow(self, job_id: str) -> dict[str, Any] | None:
+        if job_id in self.missing:
+            return None
+        return {"job_id": job_id, "status": "locked"}
 
 
 def _expired_token(access_key: str, rental_id: str, **overrides) -> IpfsRentalToken:
@@ -334,6 +344,45 @@ async def test_deferral_past_bound_goes_terminal() -> None:
         assert token is not None
         assert token.status == "settlement_failed"
         assert token.settle_deferral_first_at is None
+
+
+async def test_phantom_escrow_goes_terminal_before_the_bound() -> None:
+    """A job_id the chain has no escrow row for can never settle: after the
+    first deferral a still-absent verify_escrow probe must mark
+    settlement_failed immediately, not at the settle_max_seconds bound."""
+    first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=10)
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_phantom", "r_phantom", settle_deferral_first_at=first_at))
+        await session.commit()
+
+    rpc = ScriptedRPC(fail_release={"r_phantom"}, missing={"r_phantom"})
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_phantom")
+        assert token is not None
+        assert token.status == "settlement_failed"
+        assert token.settle_deferral_first_at is None
+
+
+async def test_present_escrow_still_defers_until_the_bound() -> None:
+    """A settle failure whose escrow row exists stays in the retry set: the
+    absent-row fast path must not kill rows the chain still knows about."""
+    first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=10)
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_present", "r_present", settle_deferral_first_at=first_at))
+        await session.commit()
+
+    rpc = ScriptedRPC(fail_release={"r_present"})
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_present")
+        assert token is not None
+        assert token.status == "expired"
+        assert token.settle_deferral_first_at is not None
 
 
 async def test_successful_settle_clears_the_deferral_marker() -> None:
