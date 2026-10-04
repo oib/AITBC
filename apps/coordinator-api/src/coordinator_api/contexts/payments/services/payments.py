@@ -236,7 +236,7 @@ def _escrow_failure_reason(exc: BaseException) -> tuple[str, str]:
             body = status_error.response.json()
             if isinstance(body, dict):
                 detail = body.get("detail")
-        except Exception:
+        except ValueError:
             detail = None
         if isinstance(detail, str) and detail:
             return "refused", detail[:200]
