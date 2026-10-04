@@ -243,6 +243,66 @@ tests:
               summary: "remote_write samples being rejected on node2:9090"
               description: "Prometheus on node2:9090 is losing remote_write batches (0.016666666666666666 samples/s rejected over 15m); a rejected batch drops every series it carries. Check the receiver journal for 'duplicate sample' or other non-recoverable 400s."
 
+  # RemoteWriteFailing, promql_expr_test form (ALERTS{...} keeps annotation
+  # text out of the test file — the template style the escrow cases use).
+  # Behaviours: quiet with no series, quiet on a flat-zero counter, fires only
+  # after for: 15m of sustained failures, and resolves once the rate window
+  # drains past the counter's last step.
+
+  # No remote_write series at all (a Prometheus with no remote_write block):
+  # must stay silent.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="prometheus", instance="w0:9090"}'
+        values: '1x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="RemoteWriteFailing"}
+        eval_time: 35m
+        exp_samples: []
+
+  # Flat-zero failure counter: rate() == 0 forever, never even pending.
+  - interval: 1m
+    input_series:
+      - series: 'prometheus_remote_storage_samples_failed_total{instance="w1:9090", job="prometheus"}'
+        values: '0x45'
+    promql_expr_test:
+      - expr: ALERTS{alertname="RemoteWriteFailing"}
+        eval_time: 40m
+        exp_samples: []
+
+  # Sustained ~1/s failures: pending inside the 15m hold, firing after —
+  # severity warning, series labels carried through.
+  - interval: 1m
+    input_series:
+      - series: 'prometheus_remote_storage_samples_failed_total{instance="w2:9090", job="prometheus"}'
+        values: '0+1x80'
+    promql_expr_test:
+      - expr: ALERTS{alertname="RemoteWriteFailing", alertstate="firing"}
+        eval_time: 13m
+        exp_samples: []
+      - expr: ALERTS{alertname="RemoteWriteFailing", alertstate="firing"}
+        eval_time: 17m
+        exp_samples:
+          - labels: 'ALERTS{alertname="RemoteWriteFailing", alertstate="firing", instance="w2:9090", job="prometheus", severity="warning"}'
+            value: 1
+
+  # Failures stop at t=30m: the 15m rate window keeps reporting >0 until it
+  # drains past the last step (~t=45m), so the alert fires at 25m and is
+  # resolved again by 50m.
+  - interval: 1m
+    input_series:
+      - series: 'prometheus_remote_storage_samples_failed_total{instance="w3:9090", job="prometheus"}'
+        values: '0+1x30 31x50'
+    promql_expr_test:
+      - expr: ALERTS{alertname="RemoteWriteFailing", alertstate="firing"}
+        eval_time: 25m
+        exp_samples:
+          - labels: 'ALERTS{alertname="RemoteWriteFailing", alertstate="firing", instance="w3:9090", job="prometheus", severity="warning"}'
+            value: 1
+      - expr: ALERTS{alertname="RemoteWriteFailing"}
+        eval_time: 50m
+        exp_samples: []
+
   # AITBCJournalErrors: an error-count series fires after the 5-minute hold and
   # resolves when the window empties it again.
   - interval: 1m
