@@ -11,8 +11,14 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="${BACKUP_BASE}/${TIMESTAMP}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 # Minimum number of good snapshots pruning must keep. Good = the directory
-# holds a nonzero chain_*_chain.db.gz.
+# holds a nonzero chain_*_chain.db.gz that passes gzip -t (integrity check,
+# on by default; BACKUP_GOOD_REQUIRE_GZIP_TEST=no restores the size-only rule).
 BACKUP_KEEP_MIN_GOOD="${BACKUP_KEEP_MIN_GOOD:-7}"
+BACKUP_GOOD_REQUIRE_GZIP_TEST="${BACKUP_GOOD_REQUIRE_GZIP_TEST:-yes}"
+# BACKUP_PRUNE_DRYRUN=yes: run the full prune decision loop but log
+# "would remove" instead of deleting. First deploy should run this once so the
+# operator sees the one-off deletion list before it happens for real.
+BACKUP_PRUNE_DRYRUN="${BACKUP_PRUNE_DRYRUN:-}"
 LOG_TAG="aitbc-backup"
 # Exit status of the run; legs that leave no usable snapshot set it nonzero.
 _BACKUP_RC=0
@@ -321,7 +327,13 @@ chmod 750 "${BACKUP_DIR}" 2>/dev/null || true
 # the vault during a broken-backup stretch is how the last restorable copy
 # gets lost.
 _is_good_snapshot() {
-    [ -n "$(find "$1" -maxdepth 1 -name 'chain_*_chain.db.gz' -size +0c -print -quit 2>/dev/null)" ]
+    local dir="$1" f
+    while IFS= read -r f; do
+        if [ "$BACKUP_GOOD_REQUIRE_GZIP_TEST" = "no" ] || gzip -t "$f" 2>/dev/null; then
+            return 0
+        fi
+    done < <(find "$dir" -maxdepth 1 -name 'chain_*_chain.db.gz' -size +0c -print 2>/dev/null)
+    return 1
 }
 
 if _is_good_snapshot "${BACKUP_DIR}"; then
@@ -356,8 +368,12 @@ if _is_good_snapshot "${BACKUP_DIR}"; then
             fi
             _good_kept=$((_good_kept - 1))
         fi
-        log "Prune: removing '${_name}' (age ${_age_days}d)"
-        rm -rf "$d"
+        if [ "$BACKUP_PRUNE_DRYRUN" = "yes" ]; then
+            log "Prune: would remove '${_name}' (age ${_age_days}d)"
+        else
+            log "Prune: removing '${_name}' (age ${_age_days}d)"
+            rm -rf "$d"
+        fi
     done
     log "Prune complete"
 else
