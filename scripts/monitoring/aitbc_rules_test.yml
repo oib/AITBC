@@ -447,3 +447,112 @@ tests:
         exp_samples:
           - labels: 'ALERTS{alertname="EscrowSettlementUnlanded", alertstate="firing", instance="n:9100", severity="critical"}'
             value: 1
+
+  # AitbcSystemdUnitFailed (B's Task-86 staged rule, landed as C20):
+  # node_systemd_unit_state{name=~"aitbc-.+", state="failed"} == 1 for 15m.
+  # The matrix: node2's real offender (aitbc-island-subscription-check lost
+  # its API-key env on Oct-3) fires once the hold completes; distro units
+  # that sit permanently failed (openipmi, nvidia-persistenced, rc-local,
+  # zramswap, nvmf-autoconnect) stay silent because the name regex excludes
+  # them; an aitbc unit failed <15m stays pending-only; a unit that
+  # recovers before the hold completes never fires.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{instance="node2:9100", job="node", name="aitbc-island-subscription-check.service", state="failed"}'
+        values: '1x60'
+      - series: 'node_systemd_unit_state{instance="node0:9100", job="node", name="openipmi.service", state="failed"}'
+        values: '1x60'
+      - series: 'node_systemd_unit_state{instance="node0:9100", job="node", name="nvidia-persistenced.service", state="failed"}'
+        values: '1x60'
+      - series: 'node_systemd_unit_state{instance="node1:9100", job="node", name="rc-local.service", state="failed"}'
+        values: '1x60'
+      - series: 'node_systemd_unit_state{instance="hub:9100", job="node", name="zramswap.service", state="failed"}'
+        values: '1x60'
+      - series: 'node_systemd_unit_state{instance="hub1:9100", job="node", name="nvmf-autoconnect.service", state="failed"}'
+        values: '1x60'
+      # Failed only from t=40m: 10m of pending at eval 50m — below the hold.
+      - series: 'node_systemd_unit_state{instance="node1:9100", job="node", name="aitbc-market.service", state="failed"}'
+        values: '0x40 1x20'
+      # Failed 0-10m then active: the pending timer resets at t=11m.
+      - series: 'node_systemd_unit_state{instance="node2:9100", job="node", name="aitbc-prometheus-watch.service", state="failed"}'
+        values: '1x10 0x50'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AitbcSystemdUnitFailed
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: AitbcSystemdUnitFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node2:9100
+              job: node
+              name: aitbc-island-subscription-check.service
+              state: failed
+            exp_annotations:
+              summary: "AITBC unit aitbc-island-subscription-check.service failed on node2:9100"
+              description: "systemd unit aitbc-island-subscription-check.service (job node) has been in the failed state >15m. Check: systemctl status aitbc-island-subscription-check.service ; journalctl -u aitbc-island-subscription-check.service -n 50. On hosts with remote-write, the same unit may alert on both the local and the central Prometheus — the instance label identifies the reporting scraper, not necessarily the host running the unit."
+      - eval_time: 50m
+        alertname: AitbcSystemdUnitFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node2:9100
+              job: node
+              name: aitbc-island-subscription-check.service
+              state: failed
+            exp_annotations:
+              summary: "AITBC unit aitbc-island-subscription-check.service failed on node2:9100"
+              description: "systemd unit aitbc-island-subscription-check.service (job node) has been in the failed state >15m. Check: systemctl status aitbc-island-subscription-check.service ; journalctl -u aitbc-island-subscription-check.service -n 50. On hosts with remote-write, the same unit may alert on both the local and the central Prometheus — the instance label identifies the reporting scraper, not necessarily the host running the unit."
+
+  # Post-hold recovery: a unit failed long enough to fire resolves once it
+  # returns to active (the failed series drops to 0).
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{instance="node2:9100", job="node", name="aitbc-gpu-miner.service", state="failed"}'
+        values: '1x20 0x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AitbcSystemdUnitFailed", alertstate="firing"}
+        eval_time: 19m
+        exp_samples:
+          - labels: 'ALERTS{alertname="AitbcSystemdUnitFailed", alertstate="firing", instance="node2:9100", job="node", name="aitbc-gpu-miner.service", severity="warning", state="failed"}'
+            value: 1
+      - expr: ALERTS{alertname="AitbcSystemdUnitFailed"}
+        eval_time: 30m
+        exp_samples: []
+
+  # Series-gap coverage check + the documented defect.
+  # (a) Coverage: assert the collector series the alert tests rely on are
+  #     actually present in the input — a rename or drop empties them and
+  #     this fails loudly instead of letting the alert tests pass on nothing.
+  # (b) The defect, pinned not fixed: on a host whose node-exporter lacks
+  #     --collector.systemd there are no node_systemd_unit_state series at
+  #     all, so the rule evaluates empty — a silent all-clear that cannot
+  #     distinguish "no failed aitbc unit" from "collector absent". A proper
+  #     fix is a separate absent()-style collector-presence alert, which is
+  #     deliberately out of scope (one rule only); the fleet coverage table
+  #     in the C20 TOPOLOGY note lists where the series is actually scraped.
+  - interval: 1m
+    input_series:
+      - series: 'node_systemd_unit_state{instance="node2:9100", job="node", name="aitbc-x.service", state="failed"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{instance="node0:9100", job="node", name="aitbc-y.service", state="active"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{instance="node0:9100", job="node", name="aitbc-y.service", state="failed"}'
+        values: '0x40'
+    promql_expr_test:
+      - expr: count(node_systemd_unit_state) by (instance)
+        eval_time: 5m
+        exp_samples:
+          - labels: '{instance="node0:9100"}'
+            value: 2
+          - labels: '{instance="node2:9100"}'
+            value: 1
+      - expr: absent(node_systemd_unit_state{instance="node9:9100"})
+        eval_time: 5m
+        exp_samples:
+          - labels: '{instance="node9:9100"}'
+            value: 1
+      - expr: ALERTS{alertname="AitbcSystemdUnitFailed", instance="node9:9100"}
+        eval_time: 30m
+        exp_samples: []
