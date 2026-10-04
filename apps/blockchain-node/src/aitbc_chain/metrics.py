@@ -39,6 +39,12 @@ sync_lag_blocks = Gauge(
     ["chain_id"],
 )
 
+sync_peer_reachable = Gauge(
+    "blockchain_sync_peer_reachable",
+    "Whether the configured sync peer answered the head-height probe on the last tick (1) or not (0)",
+    ["chain_id"],
+)
+
 sync_failures_total = Counter(
     "blockchain_sync_failures_total",
     "Total number of failed sync attempts",
