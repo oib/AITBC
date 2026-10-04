@@ -23,7 +23,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO_APPS_DIR="$REPO_ROOT/apps"
 REPO_SCRIPTS_DIR="$REPO_ROOT/scripts"
 ACTIVE_SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
-NODE_ENV_FILE="${AITBC_NODE_ENV_FILE:-/etc/aitbc/node.env}"
+ETC_AITBC_DIR="${AITBC_ETC_DIR:-/etc/aitbc}"
+NODE_ENV_FILE="${AITBC_NODE_ENV_FILE:-$ETC_AITBC_DIR/node.env}"
 REPO_CONFIG_DIR="$REPO_ROOT/scripts/config"
 ACTIVE_TMPFILES_DIR="${AITBC_TMPFILES_DIR:-/etc/tmpfiles.d}"
 
@@ -60,10 +61,12 @@ fi
 # Falls back to linking everything if role config is unavailable (initial setup).
 # -----------------------------------------------------------------------------
 
+BLOCKCHAIN_ENV_FILE="${AITBC_BLOCKCHAIN_ENV_FILE:-$ETC_AITBC_DIR/blockchain.env}"
+
 get_node_role() {
     local blockchain_mode="" market_role="" hardware_profile=""
-    if [ -f "/etc/aitbc/blockchain.env" ]; then
-        source /etc/aitbc/blockchain.env 2>/dev/null
+    if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
+        source "$BLOCKCHAIN_ENV_FILE" 2>/dev/null
         blockchain_mode="${BLOCKCHAIN_MODE:-}"
         market_role="${MARKET_ROLE:-}"
         hardware_profile="${HARDWARE_PROFILE:-}"
@@ -107,6 +110,12 @@ get_allowed_services() {
         aitbc-governance
         aitbc-chain-isolation-monitor
         aitbc-memory-monitor
+        # Fleet-wide monitoring timers. They live in scripts/monitoring/, not
+        # in any app's unit list, so a role model that omits them makes the
+        # reconcile sweep unlink them — the update that ran on 2026-10-04
+        # dropped exactly these and the detector/journal scans went dark.
+        aitbc-escrow-settlements
+        aitbc-journal-errors
     )
 
     # Hub-specific services (blockchain producer)
@@ -120,11 +129,17 @@ get_allowed_services() {
         aitbc-blockchain-event-bridge
         aitbc-agent-coordinator
         aitbc-blockchain-explorer
+        # Settlement-authority balance textfile collector — hub only, as
+        # deployed.
+        aitbc-authority-balances
     )
 
     # Follower-specific services (blockchain sync, in addition to base)
     local follower_services=(
         aitbc-blockchain-explorer
+        # Prometheus alert watcher — deployed on every follower and deliberately
+        # not on the hub.
+        aitbc-prometheus-watch
     )
 
     # Shop-specific services (market provider, regardless of blockchain mode)
@@ -204,23 +219,35 @@ else
     ROLE_FILTER=true
 fi
 
-# Check if a service basename is in the allowed list
-is_service_allowed() {
-    local basename="$1"
-    # Per-node demotion list — checked before everything else, including
-    # EXTRA_SERVICES and the no-role "all" fallback. /etc/aitbc/node.env may
-    # declare:   DISABLED_SERVICES="aitbc-market aitbc-api-gateway ..."
-    # A unit named there is never linked, so a demoted host's retired units
-    # cannot be re-linked (and therefore never re-enabled) by an update.
+# Per-node demotion list — checked before everything else, including
+# EXTRA_SERVICES and the no-role "all" fallback. /etc/aitbc/node.env may
+# declare:   DISABLED_SERVICES="aitbc-market aitbc-api-gateway ..."
+# A unit named there is never linked, so a demoted host's retired units
+# cannot be re-linked (and therefore never re-enabled) by an update.
+# Loaded lazily once; an env-provided DISABLED_SERVICES wins over the file.
+load_disabled_services() {
     if [[ -z "${DISABLED_SERVICES+x}" && -f "$NODE_ENV_FILE" ]]; then
         DISABLED_SERVICES=$(grep -E '^DISABLED_SERVICES=' "$NODE_ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '"')
     fi
+}
+
+is_disabled() {
+    load_disabled_services
     local disabled
     for disabled in ${DISABLED_SERVICES:-}; do
-        if [ "$basename" = "$disabled" ]; then
-            return 1
+        if [ "$1" = "$disabled" ]; then
+            return 0
         fi
     done
+    return 1
+}
+
+# Check if a service basename is in the allowed list
+is_service_allowed() {
+    local basename="$1"
+    if is_disabled "$basename"; then
+        return 1
+    fi
     # aitbc-cache-monitor is not a role service: it belongs on hosts that run a
     # local redis-server (its optional EnvironmentFile /etc/aitbc/redis.env
     # supplies REDISCLI_AUTH). Gate on Redis presence so a relink does not
@@ -237,7 +264,14 @@ is_service_allowed() {
         # whatever their hub/follower axis says.
         # Gate on the env file the unit itself consumes, mirroring the
         # cache-monitor/redis rule above, so a relink does not delete it.
-        [ -f /etc/aitbc/aitbc-island-ipfs.env ]
+        [ -f "$ETC_AITBC_DIR/aitbc-island-ipfs.env" ]
+        return
+    fi
+    if [ "$basename" = "aitbc-island-subscription-check" ]; then
+        # Same env-file gate as aitbc-island-ipfs: the unit carries no usable
+        # defaults (its script fails clearly when COORDINATOR_URL/ISLAND_ID
+        # are unset), so the env file's presence is the operator's opt-in.
+        [ -f "$ETC_AITBC_DIR/aitbc-island-subscription-check.env" ]
         return
     fi
     # Per-node escape hatch for units the three role axes cannot express (e.g.
@@ -260,17 +294,81 @@ is_service_allowed() {
 
 echo "🔍 Creating symbolic links for AITBC systemd files..."
 
-# Remove existing aitbc-* files and stale drop-in directories
-echo "🧹 Removing existing systemd files..."
-find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*" \( -type f -o -type l \) -delete 2>/dev/null || true
-find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*.d" -type l -exec rm -rf {} + 2>/dev/null || true
-
-# Create symbolic links
-echo "🔗 Creating symbolic links..."
 linked_files=0
 error_count=0
 # Unit names that were actually linked, which drives the enable pass below.
 LINKED_UNITS=()
+
+# Modeled universe: every unit basename this script can decide about — the
+# union of all role lists plus the gated names in is_service_allowed(). A repo
+# unit outside this set is operator-managed: if a host links it deliberately,
+# the sweep below must not remove it. This is what the 2026-10-04 deploy got
+# wrong — a blanket `find -delete` unlinked every monitoring unit fleet-wide
+# because none of them were modeled. New repo units added later keep that
+# property automatically: unmodeled means preserved.
+MODELED_UNITS=$(
+    {
+        get_allowed_services "hub:shop:gpu"
+        get_allowed_services "follower:shop:gpu"
+        printf '%s\n' aitbc-cache-monitor aitbc-island-ipfs aitbc-island-subscription-check
+    } | sort -u
+)
+is_modeled() { printf '%s\n' "$MODELED_UNITS" | grep -qxF "$1"; }
+
+# Selective reconcile sweep. Removes only:
+#   - DISABLED_SERVICES units (demotion enforcement — always wins),
+#   - dangling symlinks (repo file moved or deleted — stale),
+#   - repo-pointed links for modeled units this role deliberately excludes.
+# Preserved: allowed units (the link pass refreshes them), unmodeled
+# repo-linked units (operator-managed), regular files and links that do not
+# point into this repository (not the script's to delete — logged instead).
+echo "🧹 Reconciling existing systemd files..."
+for entry in "$ACTIVE_SYSTEMD_DIR"/aitbc-*; do
+    # -e alone misses dangling symlinks; -L catches them
+    if [ ! -e "$entry" ] && [ ! -L "$entry" ]; then
+        continue
+    fi
+    name=$(basename "$entry")
+    base="${name%.service.d}"; base="${base%.timer.d}"
+    base="${base%.service}";  base="${base%.timer}"
+
+    if is_disabled "$base"; then
+        rm -rf "$entry" 2>/dev/null \
+            && echo "  🗑️  Removed (DISABLED_SERVICES): $name" \
+            || { echo "    ❌ Failed to remove disabled unit: $name"; ((error_count++)); }
+        continue
+    fi
+
+    if [ -L "$entry" ]; then
+        target_path=$(readlink -f "$entry" 2>/dev/null || true)
+        if [ -z "$target_path" ] || [ ! -e "$target_path" ]; then
+            rm -rf "$entry" 2>/dev/null \
+                && echo "  🗑️  Removed (dangling link): $name" \
+                || { echo "    ❌ Failed to remove dangling link: $name"; ((error_count++)); }
+            continue
+        fi
+        case "$target_path" in
+            "$REPO_ROOT"/*)
+                if is_modeled "$base" && ! is_service_allowed "$base"; then
+                    rm -rf "$entry" 2>/dev/null \
+                        && echo "  🗑️  Removed (not in $NODE_ROLE role): $name" \
+                        || { echo "    ❌ Failed to remove role-excluded unit: $name"; ((error_count++)); }
+                else
+                    echo "  🔁 Kept repo link: $name"
+                fi
+                ;;
+            *)
+                echo "  ⚠️  Kept foreign link (not this repo): $name -> $target_path"
+                ;;
+        esac
+    else
+        # A real file is operator-installed config, never a repo link.
+        echo "  ⚠️  Kept operator-installed file (not a link): $name"
+    fi
+done
+
+# Create symbolic links
+echo "🔗 Creating symbolic links..."
 
 # Find all systemd service files in apps directory
 echo "📁 Scanning apps directory..."
@@ -372,6 +470,24 @@ for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.
         fi
 
         ((linked_files++))
+    fi
+done
+
+# Timer/service pairing: a surviving aitbc-*.timer must always have its
+# aitbc-*.service alongside — a timer that triggers a missing unit is how
+# "Unit to trigger vanished" happens. Covers preserved operator links as well
+# as this run's own output, so it runs on the final directory state.
+echo "🔍 Checking timer/service pairs..."
+for timer in "$ACTIVE_SYSTEMD_DIR"/aitbc-*.timer; do
+    [ -e "$timer" ] || [ -L "$timer" ] || continue
+    svc="${timer%.timer}.service"
+    if [ ! -e "$svc" ] && [ ! -L "$svc" ]; then
+        if rm -f "$timer" 2>/dev/null; then
+            echo "  🗑️  Removed orphaned timer (no $(basename "$svc")): $(basename "$timer")"
+        else
+            echo "    ❌ Failed to remove orphaned timer: $(basename "$timer")"
+            ((error_count++))
+        fi
     fi
 done
 
