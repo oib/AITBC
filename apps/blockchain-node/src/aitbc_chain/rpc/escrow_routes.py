@@ -28,6 +28,7 @@ from aitbc.market.energy_pricing import (
 from aitbc.utils import ait_to_units, units_to_ait
 from eth_utils import keccak
 
+from ..config import settings
 from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager
 from ..database import session_scope
 from ..logger import get_logger
@@ -420,13 +421,8 @@ async def _submit_lock_tx(signed_lock_tx: dict[str, Any]) -> str:
     return str(tx_hash)
 
 
-async def _find_existing_lock(job_id: str) -> str | None:
-    """Return the hash of an ESCROW_LOCK already on-chain for ``job_id``, if any.
-
-    The create endpoint must be idempotent like the release/refund paths: a retry
-    whose first attempt already mined must see the settled lock instead of
-    submitting a second ESCROW_LOCK for the same job.
-    """
+async def _find_existing_lock_tx(job_id: str) -> dict[str, Any] | None:
+    """Return the sealed ESCROW_LOCK transaction row for ``job_id``, if any."""
     try:
         r = await SharedHttpClient.get(
             f"{_HUB_RPC_URL}/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
@@ -434,12 +430,68 @@ async def _find_existing_lock(job_id: str) -> str | None:
         if r.status_code != 200:
             return None
         for tx in r.json() or []:
-            if (tx.get("payload") or {}).get("job_id") == job_id:
-                settled_hash = tx.get("tx_hash")
-                return str(settled_hash) if settled_hash else None
+            if isinstance(tx, dict) and (tx.get("payload") or {}).get("job_id") == job_id:
+                return tx
     except Exception as e:
         _logger.warning("ESCROW_LOCK: settled-lock lookup failed for job_id=%s: %s", job_id, e)
     return None
+
+
+async def _find_existing_lock(job_id: str) -> str | None:
+    """Return the hash of an ESCROW_LOCK already on-chain for ``job_id``, if any.
+
+    The create endpoint must be idempotent like the release/refund paths: a retry
+    whose first attempt already mined must see the settled lock instead of
+    submitting a second ESCROW_LOCK for the same job.
+    """
+    lock_tx = await _find_existing_lock_tx(job_id)
+    settled_hash = (lock_tx or {}).get("tx_hash")
+    return str(settled_hash) if settled_hash else None
+
+
+async def _refuse_v2_lock(job_id: str) -> None:
+    """Refuse route settlement for a lock sealed before the v3 custody height.
+
+    A v2-era lock has no per-escrow custody account at apply time, so a route
+    re-drive pays value+fee out of the settlement authority with no apply-time
+    dedup — the late-seal double-pay. The demote-only sweeper clears the dead
+    marks, and the coordinator retry paths re-drive whatever looks unsettled;
+    without this guard the first retry after deploy would replay every v2 row
+    on its own. Repair of these rows goes through the operator path only.
+
+    Probe semantics: the sealed-lock gate runs immediately before this, so a
+    ``None`` here means the era re-read flaked between the two calls — while
+    the hub is unreachable the settlement submit fails anyway, so failing open
+    cannot mint a dead record. A lock that *is* returned must carry its
+    ``block_height``; anything else is a malformed response and refuses. With
+    ``state_transition_v3_height == 0`` (v3 never activated on this chain) no
+    block height is below it and the guard is inert.
+    """
+    lock_tx = await _find_existing_lock_tx(job_id)
+    if lock_tx is None:
+        _logger.warning(
+            "v2-era check could not re-read the lock for job_id=%s after the sealed-lock gate passed; allowing",
+            job_id,
+        )
+        return
+    block_height = lock_tx.get("block_height")
+    if not isinstance(block_height, int):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"escrow lock for job_id={job_id} returned without a readable block_height; "
+                "routes do not settle locks of unverifiable era — retry or repair manually"
+            ),
+        )
+    if block_height < settings.state_transition_v3_height:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"escrow lock for job_id={job_id} sealed at block {block_height}, below "
+                f"state_transition_v3_height={settings.state_transition_v3_height} (v2-era); "
+                "routes do not settle these rows — operator repair only"
+            ),
+        )
 
 
 async def _ensure_lock_sealed(job_id: str) -> None:
@@ -1158,7 +1210,10 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     "tx_hash": release_tx_hash,
                     "released_at": record.released_at.isoformat(),
                 }
-            if record is not None and record.status not in (None, "locked"):
+            # ``settlement_failed`` is a demoted dead mark, not a settled row:
+            # it reaches the gate below and re-drives like a locked row (the
+            # v2-era guard still applies to its lock).
+            if record is not None and record.status not in (None, "locked", "settlement_failed"):
                 raise HTTPException(
                     status_code=409,
                     detail=f"Escrow for job_id={job_id} is not locked (status={record.status})",
@@ -1174,6 +1229,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     # The lock must be sealed before the release can apply — checked before any
     # contract state is touched, like the settlement-key preamble above.
     await _ensure_lock_sealed(job_id)
+    # And it must not be a v2-era lock: re-driving one pays out of the authority
+    # with no apply-time dedup. Demoted settlement_failed rows reach this too,
+    # so the guard is what keeps a sweeper demote + coordinator retry from
+    # replaying the v2 dead-set without an operator go.
+    await _refuse_v2_lock(job_id)
     contract = mgr.escrow_contracts.get(contract_id)
     if contract:
         for ms in contract.milestones:
@@ -1301,6 +1361,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             with session_scope() as session:
                 record = session.get(Escrow, job_id)
                 if record:
+                    # A settlement_failed row carries the dead hash from the mark
+                    # the sweeper demoted; this re-drive's hash must replace it or
+                    # the row would keep pointing at the corpse. Other statuses
+                    # keep fill-if-empty: a settled row's original hash is fact.
+                    was_failed = record.status == "settlement_failed"
                     # A reconciliation retry re-releases an escrow that already settled,
                     # and _submit_payment_tx hands back the transaction that settled it.
                     # Keep the original timestamp: it is when the provider was actually
@@ -1315,9 +1380,9 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                         # refunded_at stays unset: it marks an escrow that was refunded
                         # instead of released, and the release checks above key off it.
                         record.refunded_amount = ait_to_units(refunded_amount)
-                        if refund_tx_hash and not record.refund_tx_hash:
+                        if refund_tx_hash and (not record.refund_tx_hash or was_failed):
                             record.refund_tx_hash = refund_tx_hash
-                    if tx_hash and not record.release_tx_hash:
+                    if tx_hash and (not record.release_tx_hash or was_failed):
                         record.release_tx_hash = tx_hash
                     if job_tx_hash:
                         record.job_tx_hash = job_tx_hash
@@ -1435,6 +1500,9 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     reason = (body or {}).get("reason", "buyer_requested")
     # The lock must be sealed before the refund can apply — same race as release.
     await _ensure_lock_sealed(job_id)
+    # Same v2-era refusal as the release path: no route re-drive on a lock that
+    # predates per-escrow custody — operator repair only.
+    await _refuse_v2_lock(job_id)
     # B: a refund is only final once the on-chain ESCROW_REFUND transaction lands.
     # Apply the in-memory state, then settle on-chain, then roll back if settlement fails.
     async with mgr.release_lock(contract_id):
