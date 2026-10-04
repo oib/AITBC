@@ -22,9 +22,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 REPO_APPS_DIR="$REPO_ROOT/apps"
 REPO_SCRIPTS_DIR="$REPO_ROOT/scripts"
-ACTIVE_SYSTEMD_DIR="/etc/systemd/system"
+ACTIVE_SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
+NODE_ENV_FILE="${AITBC_NODE_ENV_FILE:-/etc/aitbc/node.env}"
 REPO_CONFIG_DIR="$REPO_ROOT/scripts/config"
-ACTIVE_TMPFILES_DIR="/etc/tmpfiles.d"
+ACTIVE_TMPFILES_DIR="${AITBC_TMPFILES_DIR:-/etc/tmpfiles.d}"
 
 echo "=== AITBC SYSTEMD LINKING ==="
 echo "Repository Apps: $REPO_APPS_DIR"
@@ -34,8 +35,9 @@ echo "Config: $REPO_CONFIG_DIR"
 echo "Tmpfiles: $ACTIVE_TMPFILES_DIR"
 echo
 
-# Check if running as root
-if [[ $EUID -ne 0 ]]; then
+# Check if running as root — unless the systemd/etc dirs have been redirected
+# into a sandbox (tests and dry-runs), in which case nothing real is touched.
+if [[ $EUID -ne 0 ]] && [[ "$ACTIVE_SYSTEMD_DIR" == "/etc/systemd/system" ]]; then
    echo "❌ This script must be run as root (use sudo)"
    echo "   sudo $0"
    exit 1
@@ -66,8 +68,8 @@ get_node_role() {
         market_role="${MARKET_ROLE:-}"
         hardware_profile="${HARDWARE_PROFILE:-}"
     fi
-    if [ -f "/etc/aitbc/node.env" ]; then
-        source /etc/aitbc/node.env 2>/dev/null
+    if [ -f "$NODE_ENV_FILE" ]; then
+        source "$NODE_ENV_FILE" 2>/dev/null
         # node.env is node-specific and must override the public blockchain.env.
         blockchain_mode="${BLOCKCHAIN_MODE:-$blockchain_mode}"
         market_role="${MARKET_ROLE:-$market_role}"
@@ -205,6 +207,20 @@ fi
 # Check if a service basename is in the allowed list
 is_service_allowed() {
     local basename="$1"
+    # Per-node demotion list — checked before everything else, including
+    # EXTRA_SERVICES and the no-role "all" fallback. /etc/aitbc/node.env may
+    # declare:   DISABLED_SERVICES="aitbc-market aitbc-api-gateway ..."
+    # A unit named there is never linked, so a demoted host's retired units
+    # cannot be re-linked (and therefore never re-enabled) by an update.
+    if [[ -z "${DISABLED_SERVICES+x}" && -f "$NODE_ENV_FILE" ]]; then
+        DISABLED_SERVICES=$(grep -E '^DISABLED_SERVICES=' "$NODE_ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '"')
+    fi
+    local disabled
+    for disabled in ${DISABLED_SERVICES:-}; do
+        if [ "$basename" = "$disabled" ]; then
+            return 1
+        fi
+    done
     # aitbc-cache-monitor is not a role service: it belongs on hosts that run a
     # local redis-server (its optional EnvironmentFile /etc/aitbc/redis.env
     # supplies REDISCLI_AUTH). Gate on Redis presence so a relink does not
@@ -227,8 +243,9 @@ is_service_allowed() {
     # Per-node escape hatch for units the three role axes cannot express (e.g.
     # a demoted hub that still serves the market). /etc/aitbc/node.env may
     # declare:   EXTRA_SERVICES="aitbc-market aitbc-island-ipfs"
-    if [[ -z "${EXTRA_SERVICES+x}" && -f /etc/aitbc/node.env ]]; then
-        EXTRA_SERVICES=$(grep -E '^EXTRA_SERVICES=' /etc/aitbc/node.env | tail -1 | cut -d= -f2- | tr -d '"')
+    # Its inverse is DISABLED_SERVICES above, which always wins.
+    if [[ -z "${EXTRA_SERVICES+x}" && -f "$NODE_ENV_FILE" ]]; then
+        EXTRA_SERVICES=$(grep -E '^EXTRA_SERVICES=' "$NODE_ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '"')
     fi
     for extra in ${EXTRA_SERVICES:-}; do
         if [ "$basename" = "$extra" ]; then
