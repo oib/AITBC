@@ -258,6 +258,15 @@ def get_supported_chains() -> list[str]:
     return chains
 
 
+def _require_supported_chain(chain_id: str) -> None:
+    """Refuse a chain_id outside supported_chains — shared by every mempool intake branch."""
+    supported_chains = get_supported_chains()
+    if not chain_id:
+        raise ValueError("transaction.chain_id is required")
+    if supported_chains and chain_id not in supported_chains:
+        raise ValueError(f"unsupported chain_id '{chain_id}'. Supported chains: {supported_chains}")
+
+
 def get_chain_db(chain_id: str | None = None) -> Any:
     """Get chain-specific database engine"""
     from ..database import get_engine

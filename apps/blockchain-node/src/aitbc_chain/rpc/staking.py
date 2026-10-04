@@ -19,7 +19,13 @@ from ..mempool import get_mempool
 from ..protocol_escrow import confirmed_lock_txs, queue_protocol_transfer, stake_escrow_address
 from ..models import Account, AgentIdentity, Block, GovernanceProposal, GovernanceVote, Stake
 from ..state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
-from .utils import get_chain_id, sign_transaction_data, validate_chain_id, verify_request_signature
+from .utils import (
+    _require_supported_chain,
+    get_chain_id,
+    sign_transaction_data,
+    validate_chain_id,
+    verify_request_signature,
+)
 
 _logger = get_logger(__name__)
 
@@ -595,6 +601,10 @@ async def execute_governance_proposal(
     proposal as executed.
     """
     chain_id = get_chain_id(chain_id)
+    try:
+        _require_supported_chain(chain_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
 
     executor_key = getattr(settings, "genesis_private_key", None) or getattr(settings, "proposer_key", None)
     if not executor_key:
