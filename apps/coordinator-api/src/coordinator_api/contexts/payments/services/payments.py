@@ -1386,9 +1386,12 @@ class PaymentService:
         job_id: str,
         reason: str | None,
     ) -> bool | None:
-        """Submit the on-chain release. Returns True settled, False failed,
-        None when the node answered 425 'lock not sealed yet' -- a 'not yet',
-        not a failure, so the caller must not spend a release attempt on it."""
+        """Submit the on-chain release. Returns True settled, False failed on a
+        definitive non-425 answer, None when the node answered 425 'lock not
+        sealed yet' -- a 'not yet', not a failure. Transport errors and
+        ambiguous post-send failures (no response received) are re-raised so
+        the caller can keep the 425-deferral marker: an unreachable node says
+        nothing about the lock, so it must not end the deferral streak."""
         try:
             release_body = self._build_release_body(reason, payment, job)
             release_data = await client.post(
@@ -1416,16 +1419,21 @@ class PaymentService:
             self._record_release_outcome(payment, job, payment_id, job_id, release_data)
             return True
         except NetworkError as e:
-            cause = e.__cause__
-            if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 425:
+            status_error = _find_http_status_error(e)
+            if status_error is not None and status_error.response.status_code == 425:
                 logger.info(
                     "Escrow release for job %s refused: lock not yet sealed (HTTP 425); payment %s stays escrowed",
                     job_id,
                     payment_id,
                 )
                 return None
-            logger.error("Failed to release payment: %s", e)
-            return False
+            if status_error is not None:
+                logger.error("Failed to release payment: %s", e)
+                return False
+            # No response was received -- a transport failure or an ambiguous
+            # post-send error. Re-raise: the caller clears the 425-deferral
+            # marker only on a definitive answer, and this error is none.
+            raise
 
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner using the blockchain escrow contract."""
@@ -1491,7 +1499,9 @@ class PaymentService:
                 self.session.add(payment)
                 self.session.commit()
                 return False
-            # Any non-425 outcome ends the deferral streak.
+            # True or False: both are definitive answers (False can only be an
+            # HTTP answer that was not 425 -- transport errors re-raise below),
+            # so the deferral streak is over and the marker is cleared.
             fresh_meta = dict(payment.meta_data or {})
             if fresh_meta.pop(META_RELEASE_425_FIRST_AT, None) is not None:
                 payment.meta_data = fresh_meta
@@ -1499,13 +1509,10 @@ class PaymentService:
                 self.session.commit()
             return submitted
         except Exception as e:
-            # A transport failure is also a non-425 outcome: it ends the
-            # deferral streak, though the attempt it spent already counted.
-            fresh_meta = dict(payment.meta_data or {})
-            if fresh_meta.pop(META_RELEASE_425_FIRST_AT, None) is not None:
-                payment.meta_data = fresh_meta
-                self.session.add(payment)
-                self.session.commit()
+            # No definitive outcome (transport failure, ambiguous post-send
+            # error): the attempt already counted, but the 425-deferral marker
+            # must survive -- an unreachable node is not proof the streak
+            # ended, and clearing the marker would restart the bound's clock.
             logger.error("Error releasing payment: %s", e)
             return False
 
