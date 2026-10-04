@@ -176,6 +176,9 @@ class ChainSettings(BaseSettings):
     # Per-transaction body cap at intake. Anything larger can never fit a block
     # (max_block_size_bytes) and would only squat in the pool until expiry.
     mempool_max_tx_size_bytes: int = 131072  # 128 KiB
+    # Seconds between settlement-mark sweeps (demote-only lite reconciler).
+    # 0 disables it.
+    escrow_settlement_sweep_interval: int = 60
     # How many nonces ahead of the account nonce a pending transaction may sit.
     # Admission rejects beyond this so one sender cannot queue an unbounded
     # pipeline of not-yet-executable transactions.
