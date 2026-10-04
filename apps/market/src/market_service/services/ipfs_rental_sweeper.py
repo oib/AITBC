@@ -49,11 +49,13 @@ class IpfsRentalSweeper:
         interval_seconds: int | None = None,
         batch_size: int | None = None,
         refund_grace_seconds: int | None = None,
+        settle_max_seconds: int | None = None,
         rpc_client: BlockchainRPCClient | None = None,
         session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None,
     ) -> None:
         self.interval_seconds = interval_seconds or _env_int("IPFS_RENTAL_SWEEP_INTERVAL_SECONDS", 300)
         self.batch_size = batch_size or _env_int("IPFS_RENTAL_SWEEP_BATCH_SIZE", 50)
+        self.settle_max_seconds = settle_max_seconds or _env_int("IPFS_RENTAL_SWEEP_SETTLE_MAX_SECONDS", 6 * 3600)
         # Extra grace after expires_at before we act, so a renewal/extension has
         # a small window to land without releasing/refunding the escrow.
         self.refund_grace_seconds = refund_grace_seconds or _env_int("IPFS_RENTAL_SWEEP_GRACE_SECONDS", 60)
@@ -122,6 +124,11 @@ class IpfsRentalSweeper:
                 .where(col(IpfsRentalToken.expires_at).is_not(None))
                 .where(col(IpfsRentalToken.expires_at) < cutoff)
                 .where((col(IpfsRentalToken.rental_id) != "") | (col(IpfsRentalToken.escrow_contract_id) != ""))
+                # Least-recently-processed first: _process_token bumps
+                # updated_at every pass, so a permanently-stuck token rotates
+                # to the back of the queue and >batch_size stuck rows cannot
+                # starve eligible ones behind a fixed limit.
+                .order_by(col(IpfsRentalToken.updated_at).asc())
                 .limit(self.batch_size)
             )
             result = await session.execute(stmt)
@@ -177,15 +184,58 @@ class IpfsRentalSweeper:
             if tx_hash:
                 token.status = "refunded"
                 token.tx_hash = tx_hash
+                token.settle_deferral_first_at = None
                 return False, True
+            self._settle_deferred(token, job_id, "refund")
             return False, False
 
         tx_hash = await self._release_escrow(job_id)
         if tx_hash:
             token.status = "released"
             token.tx_hash = tx_hash
+            token.settle_deferral_first_at = None
             return True, False
+        self._settle_deferred(token, job_id, "release")
         return False, False
+
+    def _settle_deferred(self, token: IpfsRentalToken, job_id: str, direction: str) -> None:
+        """A settle that did not land defers, bounded by ``settle_max_seconds``.
+
+        Same pattern as the job sweeper's 'not yet' handling: falsy answers
+        (404, ``{success: false}``) and raised errors (425, 409, 5xx,
+        transport) all mean 'try again next pass', so the first deferral
+        stamps ``settle_deferral_first_at`` and the row stays in the sweep
+        set. Past the bound the token goes terminal (``settlement_failed``)
+        with an error log -- a row that never settles must not loop every
+        interval forever.
+        """
+        now = datetime.now(UTC).replace(tzinfo=None)
+        if token.settle_deferral_first_at is None:
+            token.settle_deferral_first_at = now
+            logger.warning(
+                "Escrow %s for rental %s deferred; retrying on next sweep",
+                direction,
+                job_id,
+            )
+            return
+        elapsed = (now - token.settle_deferral_first_at).total_seconds()
+        if elapsed <= self.settle_max_seconds:
+            logger.warning(
+                "Escrow %s for rental %s still deferred after %.0fs",
+                direction,
+                job_id,
+                elapsed,
+            )
+            return
+        token.status = "settlement_failed"
+        token.settle_deferral_first_at = None
+        logger.error(
+            "Escrow %s for rental %s deferred %.0fs past the %ss bound -- marking settlement_failed",
+            direction,
+            job_id,
+            elapsed,
+            self.settle_max_seconds,
+        )
 
     async def _release_escrow(self, job_id: str) -> str | None:
         """Call the blockchain RPC to release escrow to the provider."""

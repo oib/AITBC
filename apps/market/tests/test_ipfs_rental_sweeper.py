@@ -249,3 +249,143 @@ async def test_425_lock_not_sealed_is_retried_by_next_sweep(monkeypatch) -> None
     assert token.status == "released"
     assert token.tx_hash == "0xsealed"
     assert state["calls"] == 2
+
+
+class ScriptedRPC:
+    """RPC client whose answers are scripted per job_id (falsy = 'not yet')."""
+
+    def __init__(
+        self,
+        fail_release: set[str] | None = None,
+        fail_refund: set[str] | None = None,
+    ) -> None:
+        self.released: list[str] = []
+        self.refunded: list[str] = []
+        self.fail_release = fail_release or set()
+        self.fail_refund = fail_refund or set()
+
+    async def release_escrow(self, job_id: str) -> dict[str, Any] | None:
+        self.released.append(job_id)
+        if job_id in self.fail_release:
+            return {"success": False, "message": "could not be settled on-chain"}
+        return {"success": True, "tx_hash": f"0xrelease_{job_id}"}
+
+    async def refund_escrow(self, job_id: str) -> dict[str, Any] | None:
+        self.refunded.append(job_id)
+        if job_id in self.fail_refund:
+            return {"success": False, "message": "could not be settled on-chain"}
+        return {"success": True, "tx_hash": f"0xrefund_{job_id}"}
+
+
+def _expired_token(access_key: str, rental_id: str, **overrides) -> IpfsRentalToken:
+    now = datetime.now(UTC)
+    data: dict[str, Any] = {
+        "access_key": access_key,
+        "access_secret": "secret",
+        "rental_id": rental_id,
+        "offer_id": f"offer-{access_key}",
+        "cid": f"Qm{access_key}",
+        "buyer_address": "0xab0797ae8cff09b313c71cab2f894b342b6e1d76",
+        "provider_address": "0x241d3e44d42b6d4c270d0231780913f14386d90c",
+        "escrow_contract_id": rental_id,
+        "pinned": True,
+        "status": "expired",
+        "created_at": now - timedelta(days=2),
+        "expires_at": now - timedelta(hours=1),
+        "updated_at": now - timedelta(days=2),
+    }
+    data.update(overrides)
+    return IpfsRentalToken(**data)
+
+
+async def test_failed_settle_stamps_the_deferral_marker() -> None:
+    """A settle answer that is not success defers: the token stays 'expired'
+    and stamps settle_deferral_first_at instead of looping unmarked."""
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_defer1", "r_defer1"))
+        await session.commit()
+
+    rpc = ScriptedRPC(fail_release={"r_defer1"})
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_defer1")
+        assert token is not None
+        assert token.status == "expired"
+        assert token.tx_hash is None
+        assert token.settle_deferral_first_at is not None
+
+
+async def test_deferral_past_bound_goes_terminal() -> None:
+    """A token whose deferral exceeds the bound leaves the sweep set as
+    settlement_failed instead of looping every interval forever."""
+    first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=7)
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_terminal", "r_terminal", settle_deferral_first_at=first_at))
+        await session.commit()
+
+    rpc = ScriptedRPC(fail_release={"r_terminal"})
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_terminal")
+        assert token is not None
+        assert token.status == "settlement_failed"
+        assert token.settle_deferral_first_at is None
+
+
+async def test_successful_settle_clears_the_deferral_marker() -> None:
+    first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+    async with _session_factory() as session:
+        session.add(_expired_token("ak_clear", "r_clear", settle_deferral_first_at=first_at))
+        await session.commit()
+
+    rpc = ScriptedRPC()
+    sweeper = IpfsRentalSweeper(batch_size=10, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+    await sweeper.sweep_once()
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_clear")
+        assert token is not None
+        assert token.status == "released"
+        assert token.settle_deferral_first_at is None
+
+
+async def test_stuck_rows_cannot_starve_an_eligible_row() -> None:
+    """More stuck rows than the batch limit must not starve an eligible one:
+    least-recently-processed-first ordering plus the updated_at bump rotates
+    stuck rows to the back of the queue."""
+    now = datetime.now(UTC)
+    first_at = now.replace(tzinfo=None) - timedelta(hours=1)
+    stuck_ids = [f"r_stuck{i}" for i in range(50)]
+    async with _session_factory() as session:
+        for i, rid in enumerate(stuck_ids):
+            session.add(
+                _expired_token(
+                    f"ak_stuck{i}",
+                    rid,
+                    settle_deferral_first_at=first_at,
+                    updated_at=now - timedelta(hours=2),
+                )
+            )
+        # Newer updated_at than the stuck set: strictly behind them on the
+        # first pass, strictly ahead once they rotate.
+        session.add(_expired_token("ak_eligible", "r_eligible", updated_at=now - timedelta(hours=1)))
+        await session.commit()
+
+    rpc = ScriptedRPC(fail_release=set(stuck_ids))
+    sweeper = IpfsRentalSweeper(batch_size=50, refund_grace_seconds=0, rpc_client=rpc, session_factory=_session_factory)
+
+    await sweeper.sweep_once()
+    assert "r_eligible" not in rpc.released
+
+    await sweeper.sweep_once()
+    assert "r_eligible" in rpc.released
+
+    async with _session_factory() as session:
+        token = await session.get(IpfsRentalToken, "ak_eligible")
+        assert token is not None
+        assert token.status == "released"
+        assert token.tx_hash == "0xrelease_r_eligible"
