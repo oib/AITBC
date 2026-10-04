@@ -276,6 +276,25 @@ groups:
           summary: "Escrow settlement check cannot read {{ $labels.db }} ({{ $labels.instance }})"
           description: "aitbc_escrow_settlement_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no escrow table, so the unlanded count for it cannot be trusted. Check journalctl -u aitbc-escrow-settlements.service."
 
+      # EscrowOpenTxOnlyLock: a sealed ESCROW_LOCK transaction with no escrow
+      # row and no settlement leg means funds sit in custody that nothing
+      # will settle. The minutely textfile collector counts them minus the
+      # known-artifacts registry (escrow-known-artifacts.yml), so only
+      # unregistered locks alert here. for: 15m outlasts one timer interval
+      # plus the seconds-to-minutes lock-to-row window -- a lock that gets
+      # its row inside the window never leaves pending. No new rules for a
+      # broken registry (scrape_success{db=<registry>} covers it) or a
+      # stopped exporter (CheckStale). Response: "Open tx-only lock" in
+      # docs/ops/escrow-settlement-ops.md.
+      - alert: EscrowOpenTxOnlyLock
+        expr: aitbc_escrow_open_tx_only_locks > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unregistered open tx-only escrow locks on {{ $labels.instance }} ({{ $value }})"
+          description: "{{ $value }} ESCROW_LOCK transaction(s) on {{ $labels.instance }} have no escrow row and no settlement leg — funds sit in custody that nothing will settle. The per-job series aitbc_escrow_open_tx_only_lock{job_id} names them. Response per docs/ops/escrow-settlement-ops.md: decide whether each belongs in the known-artifacts registry (documentation only, no chain write) or needs a chain refund."
+
   - name: aitbc-systemd-units
     rules:
       - alert: AitbcSystemdUnitFailed

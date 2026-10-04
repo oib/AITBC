@@ -448,6 +448,71 @@ tests:
           - labels: 'ALERTS{alertname="EscrowSettlementUnlanded", alertstate="firing", instance="n:9100", severity="critical"}'
             value: 1
 
+  # EscrowOpenTxOnlyLock (C25): aitbc_escrow_open_tx_only_locks > 0 for 15m.
+  # One unregistered lock held 20m fires with the pinned annotations; the
+  # description names the per-job series aitbc_escrow_open_tx_only_lock{job_id}
+  # (present in the input, as in a real run).
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_open_tx_only_locks{instance="n:9100"}'
+        values: '1x25'
+      - series: 'aitbc_escrow_open_tx_only_lock{instance="n:9100", job_id="sw_job_deadbeef"}'
+        values: '1x25'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: EscrowOpenTxOnlyLock
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: EscrowOpenTxOnlyLock
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: n:9100
+            exp_annotations:
+              summary: "Unregistered open tx-only escrow locks on n:9100 (1)"
+              description: "1 ESCROW_LOCK transaction(s) on n:9100 have no escrow row and no settlement leg — funds sit in custody that nothing will settle. The per-job series aitbc_escrow_open_tx_only_lock{job_id} names them. Response per docs/ops/escrow-settlement-ops.md: decide whether each belongs in the known-artifacts registry (documentation only, no chain write) or needs a chain refund."
+
+  # Transient: a count of 1 that only lasts 10m (the normal lock-to-row
+  # window) never reaches the 15m hold — stays silent.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_open_tx_only_locks{instance="n:9100"}'
+        values: '1x10 0x15'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowOpenTxOnlyLock", alertstate="firing"}
+        eval_time: 9m
+        exp_samples: []
+      - expr: ALERTS{alertname="EscrowOpenTxOnlyLock"}
+        eval_time: 20m
+        exp_samples: []
+
+  # Clean host: count 0 forever — no alert at all.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_open_tx_only_locks{instance="n:9100"}'
+        values: '0x25'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowOpenTxOnlyLock"}
+        eval_time: 20m
+        exp_samples: []
+
+  # Registry failure rides the existing CheckFailed rule, not a new one:
+  # an unreadable/malformed registry emits scrape_success 0 with db set to
+  # the registry path — fires after its own 10m hold.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_escrow_settlement_scrape_success{db="/opt/aitbc/scripts/monitoring/escrow-known-artifacts.yml", instance="n:9100"}'
+        values: '0x25'
+    promql_expr_test:
+      - expr: ALERTS{alertname="EscrowSettlementCheckFailed", alertstate="firing"}
+        eval_time: 9m
+        exp_samples: []
+      - expr: ALERTS{alertname="EscrowSettlementCheckFailed", alertstate="firing"}
+        eval_time: 13m
+        exp_samples:
+          - labels: 'ALERTS{alertname="EscrowSettlementCheckFailed", alertstate="firing", db="/opt/aitbc/scripts/monitoring/escrow-known-artifacts.yml", instance="n:9100", severity="warning"}'
+            value: 1
+
   # AitbcSystemdUnitFailed (B's Task-86 staged rule, landed as C20):
   # node_systemd_unit_state{name=~"aitbc-.+", state="failed"} == 1 for 15m.
   # The matrix: node2's real offender (aitbc-island-subscription-check lost
