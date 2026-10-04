@@ -14,13 +14,16 @@ RETENTION_DAYS="${RETENTION_DAYS:-30}"
 # holds the production chain DB dump: a file matching BACKUP_GOOD_CHAIN_GLOB
 # (excluding pre-migration snapshots) of at least BACKUP_GOOD_MIN_BYTES that
 # passes gzip -t (integrity check, on by default;
-# BACKUP_GOOD_REQUIRE_GZIP_TEST=no restores the size-only rule). The glob and
-# floor exist because snapshots also carry near-empty dumps of other DBs
-# (e.g. a ~70-byte empty island chain) — "any nonzero chain_*.gz" once meant
-# a run that lost the real chain dump still counted as good.
+# BACKUP_GOOD_REQUIRE_GZIP_TEST=no restores the size-only rule). The default
+# is the *exact* production filename — a wildcard like
+# chain_ait-hub*_chain.db.gz is too loose: node2 snapshots carry a stray
+# chain_ait-hub_chain.db.gz (~4.6 KB) that matches it and clears any small
+# floor, and broken dumps of the real name down to ~130 bytes exist, so the
+# floor catches stubs/broken dumps while the name selects the right file.
+# Other islands must set the glob to their own dump name.
 BACKUP_KEEP_MIN_GOOD="${BACKUP_KEEP_MIN_GOOD:-7}"
 BACKUP_GOOD_REQUIRE_GZIP_TEST="${BACKUP_GOOD_REQUIRE_GZIP_TEST:-yes}"
-BACKUP_GOOD_CHAIN_GLOB="${BACKUP_GOOD_CHAIN_GLOB:-chain_ait-hub*_chain.db.gz}"
+BACKUP_GOOD_CHAIN_GLOB="${BACKUP_GOOD_CHAIN_GLOB:-chain_ait-hub.aitbc.bubuit.net_chain.db.gz}"
 BACKUP_GOOD_MIN_BYTES="${BACKUP_GOOD_MIN_BYTES:-4096}"
 # BACKUP_PRUNE_DRYRUN=yes: run the full prune decision loop but log
 # "would remove" instead of deleting. First deploy should run this once so the
