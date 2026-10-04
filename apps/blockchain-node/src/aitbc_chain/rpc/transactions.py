@@ -82,6 +82,17 @@ def _refuse_retired_gpu(tx_type: str, payload: Any) -> None:
         raise ValueError(error)
 
 
+def _require_supported_chain(chain_id: str) -> None:
+    """Refuse a chain_id outside supported_chains — shared by every mempool intake branch."""
+    from .utils import get_supported_chains
+
+    supported_chains = get_supported_chains()
+    if not chain_id:
+        raise ValueError("transaction.chain_id is required")
+    if supported_chains and chain_id not in supported_chains:
+        raise ValueError(f"unsupported chain_id '{chain_id}'. Supported chains: {supported_chains}")
+
+
 def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
     """Validate transaction can be admitted to mempool"""
     from ..mempool import compute_tx_hash
@@ -91,13 +102,7 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
         raise ValueError(f"transaction type '{tx_type}' is reserved for internal issuance")
 
     chain_id = tx_data["chain_id"]
-    from .utils import get_supported_chains
-
-    supported_chains = get_supported_chains()
-    if not chain_id:
-        raise ValueError("transaction.chain_id is required")
-    if supported_chains and chain_id not in supported_chains:
-        raise ValueError(f"unsupported chain_id '{chain_id}'. Supported chains: {supported_chains}")
+    _require_supported_chain(chain_id)
 
     compute_tx_hash(tx_data)
 
@@ -391,7 +396,12 @@ async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -
 
         # For GPU registration, use GPU_REGISTER transaction type
         if tx_data_dict.get("type") == "GPU_REGISTER":
-            # This branch skips _validate_transaction_admission, so the retired-id door check is repeated here.
+            # This branch skips _validate_transaction_admission, so the checks it
+            # owns are repeated at their admission-door order: supported chain
+            # first (an unchecked request chain_id used to reach mempool.add
+            # unfiltered, minting foreign-chain mempool entries and gauge series),
+            # then the retired-id door check.
+            _require_supported_chain(chain_id)
             _refuse_retired_gpu("GPU_REGISTER", tx_data_dict.get("payload"))
             tx_data_dict["type"] = "GPU_REGISTER"
             # GPU registration doesn't require amount transfer, only fee
