@@ -487,12 +487,59 @@ relink_systemd() {
         return 1
     fi
 
+    # Snapshot the aitbc-* units present before the relink. The sweep used to
+    # delete every aitbc-* entry and only re-link role-allowed units — the
+    # 2026-10-04 deploy lost the monitoring timers fleet-wide while the run
+    # reported success. Comparing before/after makes a silent drop loud.
+    local before_set
+    before_set=$(
+        for u in "$ACTIVE_SYSTEMD_DIR"/aitbc-*; do
+            [ -e "$u" ] || [ -L "$u" ] || continue
+            basename "$u"
+        done | sort -u
+    )
+
     "$LINK_SYSTEMD_SCRIPT" 2>&1 | sed 's/^/    /'
     link_exit=${PIPESTATUS[0]}
     if [[ $link_exit -eq 0 ]]; then
         success "Systemd unit files relinked (role-aware)"
     else
         warning "link-systemd.sh reported errors (exit $link_exit) — check output above"
+    fi
+
+    local after_set
+    after_set=$(
+        for u in "$ACTIVE_SYSTEMD_DIR"/aitbc-*; do
+            [ -e "$u" ] || [ -L "$u" ] || continue
+            basename "$u"
+        done | sort -u
+    )
+
+    # Units that were linked before and are gone now. DISABLED_SERVICES is a
+    # deliberate demotion — its names may legitimately vanish.
+    if [[ -z "${DISABLED_SERVICES+x}" && -f "$NODE_ENV_FILE" ]]; then
+        DISABLED_SERVICES=$(grep -E '^DISABLED_SERVICES=' "$NODE_ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '"')
+    fi
+    local vanished=() name base
+    while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        printf '%s\n' "$after_set" | grep -qxF "$name" && continue
+        base="${name%.service.d}"; base="${base%.timer.d}"
+        base="${base%.service}";  base="${base%.timer}"
+        local d skip=false
+        for d in ${DISABLED_SERVICES:-}; do
+            [ "$base" = "$d" ] && { skip=true; break; }
+        done
+        [ "$skip" = true ] || vanished+=("$name")
+    done <<< "$before_set"
+
+    if [ "${#vanished[@]}" -gt 0 ]; then
+        error "Relink dropped aitbc-* unit file(s) that were present before:"
+        for name in "${vanished[@]}"; do
+            error "  vanished: $name"
+        done
+        error "Restore them (systemctl link …) or add their basenames to DISABLED_SERVICES in $NODE_ENV_FILE"
+        return 1
     fi
 
     log "Running systemctl daemon-reload..."
@@ -1003,7 +1050,10 @@ main() {
     fi
 
     sync_venv
-    relink_systemd
+    # relink_systemd aborts the update when a previously-linked aitbc-* unit
+    # vanished — continuing into restarts with units dropped is worse than
+    # stopping here.
+    relink_systemd || exit 1
     enable_services
     ensure_env_files
     ensure_aitbc_wrapper
