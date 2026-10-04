@@ -16,6 +16,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from sqlmodel import Session
 
@@ -223,3 +224,67 @@ class TestAdminRetryRelease:
         with pytest.raises(HTTPException) as exc:
             asyncio.run(retry_release(MagicMock(), job_id, payment_session, {"sub": "admin1"}))
         assert exc.value.status_code == 409
+
+
+@pytest.mark.unit
+class TestLockNotSealedRetry:
+    """A node HTTP 425 ('escrow lock not sealed yet') is 'not yet', not a failure.
+
+    The lock-seal gate answers 425 with Retry-After until the ESCROW_LOCK is in
+    a sealed block. That answer must not consume a release attempt -- otherwise
+    a long seal delay (chain stall, slow proposer) burns the bounded retry
+    budget and lands the payment in terminal `settlement_failed` while the
+    escrow is still safely funded.
+    """
+
+    def test_425_does_not_burn_attempt_and_next_call_settles(self, payment_session, monkeypatch):
+        job_id, payment_id = "job-425-1", "pay-425-1"
+        _make_job_and_payment(
+            payment_session,
+            job_id,
+            payment_id,
+            job_state="COMPLETED",
+            payment_status="escrowed",
+        )
+        job = payment_session.get(Job, job_id)
+        job.receipt = {"computation_correct": True, "zk_status": "not_required"}
+        payment_session.add(job)
+        payment_session.commit()
+
+        # Route the real AsyncAITBCHTTPClient through an httpx.MockTransport:
+        # the exercise covers raise_for_status + RetryPolicy + the NetworkError
+        # wrapping, not a stubbed client. Node answers 425 once, then 200.
+        state = {"calls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["calls"] += 1
+            if state["calls"] == 1:
+                return httpx.Response(
+                    425,
+                    json={"detail": "escrow lock is not sealed yet"},
+                    headers={"Retry-After": "5"},
+                    request=request,
+                )
+            return httpx.Response(200, json={"success": True, "tx_hash": "0xsealed"}, request=request)
+
+        transport = httpx.MockTransport(handler)
+        real_async_client = httpx.AsyncClient
+
+        def client_factory(*args, **kwargs):
+            kwargs["transport"] = transport
+            return real_async_client(*args, **kwargs)
+
+        monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+
+        payment = payment_session.get(JobPayment, payment_id)
+        assert payment.status == "escrowed"
+        assert (payment.meta_data or {}).get("release_attempts", 0) == 0
+
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is True
+        payment_session.refresh(payment)
+        assert payment.status == "released"
+        assert payment.transaction_hash == "0xsealed"
+        assert state["calls"] == 2

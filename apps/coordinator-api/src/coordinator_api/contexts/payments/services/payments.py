@@ -1340,7 +1340,10 @@ class PaymentService:
         payment_id: str,
         job_id: str,
         reason: str | None,
-    ) -> bool:
+    ) -> bool | None:
+        """Submit the on-chain release. Returns True settled, False failed,
+        None when the node answered 425 'lock not sealed yet' -- a 'not yet',
+        not a failure, so the caller must not spend a release attempt on it."""
         try:
             release_body = self._build_release_body(reason, payment, job)
             release_data = await client.post(
@@ -1368,6 +1371,14 @@ class PaymentService:
             self._record_release_outcome(payment, job, payment_id, job_id, release_data)
             return True
         except NetworkError as e:
+            cause = e.__cause__
+            if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 425:
+                logger.info(
+                    "Escrow release for job %s refused: lock not yet sealed (HTTP 425); payment %s stays escrowed",
+                    job_id,
+                    payment_id,
+                )
+                return None
             logger.error("Failed to release payment: %s", e)
             return False
 
@@ -1421,7 +1432,18 @@ class PaymentService:
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
-            return await self._submit_release(client, payment, job, payment_id, job_id, reason)
+            submitted = await self._submit_release(client, payment, job, payment_id, job_id, reason)
+            if submitted is None:
+                # 425 'lock not yet sealed' is a 'not yet', not a failure:
+                # restore the attempt budget so a long seal delay cannot burn
+                # the bound and land the payment in settlement_failed while the
+                # escrow is still safely funded.
+                meta[META_RELEASE_ATTEMPTS] = attempts
+                payment.meta_data = meta
+                self.session.add(payment)
+                self.session.commit()
+                return False
+            return submitted
         except Exception as e:
             logger.error("Error releasing payment: %s", e)
             return False
