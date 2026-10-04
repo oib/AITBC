@@ -282,9 +282,146 @@ class TestLockNotSealedRetry:
         payment = payment_session.get(JobPayment, payment_id)
         assert payment.status == "escrowed"
         assert (payment.meta_data or {}).get("release_attempts", 0) == 0
+        # The first 425 stamps when the deferral streak began -- the clock the
+        # time bound counts against.
+        first_deferral = payment.meta_data["release_425_first_at"]
+        assert datetime.fromisoformat(first_deferral) <= datetime.now(UTC)
 
         assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is True
         payment_session.refresh(payment)
         assert payment.status == "released"
         assert payment.transaction_hash == "0xsealed"
         assert state["calls"] == 2
+        # A non-425 outcome (here the settling 200) ends the streak.
+        assert "release_425_first_at" not in payment.meta_data
+
+
+@pytest.mark.unit
+class TestLockNotSealedDeferralBound:
+    """A run of 425s must not suspend the release-attempt budget forever.
+
+    Restoring the budget on every 425 (task 67) fixed the premature
+    settlement_failed, but a lock that never seals -- e.g. the lock tx was
+    dropped from the mempool -- would otherwise be re-asked every sweep with
+    no state change and no alert. Past COORDINATOR_RELEASE_425_MAX_SECONDS the
+    restoration stops and the normal attempt cap applies.
+    """
+
+    def _held_completed_payment(self, payment_session, job_id, payment_id, meta=None):
+        _make_job_and_payment(
+            payment_session,
+            job_id,
+            payment_id,
+            job_state="COMPLETED",
+            payment_status="escrowed",
+            meta=meta,
+        )
+        job = payment_session.get(Job, job_id)
+        job.receipt = {"computation_correct": True, "zk_status": "not_required"}
+        payment_session.add(job)
+        payment_session.commit()
+
+    def _always_425(self, monkeypatch):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                425,
+                json={"detail": "escrow lock is not sealed yet"},
+                headers={"Retry-After": "5"},
+                request=request,
+            )
+
+        transport = httpx.MockTransport(handler)
+        real_async_client = httpx.AsyncClient
+
+        def client_factory(*args, **kwargs):
+            kwargs["transport"] = transport
+            return real_async_client(*args, **kwargs)
+
+        monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+
+    def test_425_past_the_bound_spends_the_attempt(self, payment_session, monkeypatch):
+        """A deferral older than the bound no longer restores the budget."""
+        job_id, payment_id = "job-425b-1", "pay-425b-1"
+        first_at = (datetime.now(UTC) - timedelta(hours=10)).isoformat()
+        self._held_completed_payment(payment_session, job_id, payment_id, meta={"release_425_first_at": first_at})
+        self._always_425(monkeypatch)
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+
+        payment = payment_session.get(JobPayment, payment_id)
+        assert payment.status == "escrowed"
+        assert payment.meta_data["release_attempts"] == 1
+        # The marker keeps the original timestamp -- the streak continues.
+        assert payment.meta_data["release_425_first_at"] == first_at
+
+    def test_past_bound_deferral_reaches_settlement_failed(self, payment_session, monkeypatch):
+        """Past the bound, persistent 425s burn the cap and go terminal."""
+        monkeypatch.setenv("COORDINATOR_RELEASE_MAX_ATTEMPTS", "3")
+        job_id, payment_id = "job-425b-2", "pay-425b-2"
+        first_at = (datetime.now(UTC) - timedelta(hours=10)).isoformat()
+        self._held_completed_payment(payment_session, job_id, payment_id, meta={"release_425_first_at": first_at})
+        self._always_425(monkeypatch)
+
+        service = PaymentService(payment_session)
+        for _ in range(4):
+            assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+
+        payment = payment_session.get(JobPayment, payment_id)
+        job = payment_session.get(Job, job_id)
+        assert payment.status == "settlement_failed"
+        assert job.payment_status == "settlement_failed"
+        assert payment.meta_data["release_attempts"] == 3
+
+    def test_inbound_425s_defer_indefinitely_but_stay_counted(self, payment_session, monkeypatch):
+        """Inside the bound the budget is restored on every pass -- the marker
+        anchors the streak so the bound is still measured from the first 425."""
+        monkeypatch.setenv("COORDINATOR_RELEASE_425_MAX_SECONDS", "3600")
+        job_id, payment_id = "job-425b-3", "pay-425b-3"
+        self._held_completed_payment(payment_session, job_id, payment_id)
+        self._always_425(monkeypatch)
+
+        service = PaymentService(payment_session)
+        for _ in range(3):
+            assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+
+        payment = payment_session.get(JobPayment, payment_id)
+        assert payment.status == "escrowed"
+        assert (payment.meta_data or {}).get("release_attempts", 0) == 0
+        assert payment.meta_data["release_425_first_at"]
+
+    def test_a_non_425_outcome_clears_the_streak(self, payment_session, monkeypatch):
+        """A 5xx between 425s ends the deferral: marker clears, attempt spent."""
+        job_id, payment_id = "job-425b-4", "pay-425b-4"
+        self._held_completed_payment(payment_session, job_id, payment_id)
+        state = {"calls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["calls"] += 1
+            if state["calls"] == 1:
+                return httpx.Response(
+                    425,
+                    json={"detail": "escrow lock is not sealed yet"},
+                    headers={"Retry-After": "5"},
+                    request=request,
+                )
+            return httpx.Response(500, json={"detail": "node exploded"}, request=request)
+
+        transport = httpx.MockTransport(handler)
+        real_async_client = httpx.AsyncClient
+
+        def client_factory(*args, **kwargs):
+            kwargs["transport"] = transport
+            return real_async_client(*args, **kwargs)
+
+        monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+        payment = payment_session.get(JobPayment, payment_id)
+        assert payment.meta_data["release_425_first_at"]
+
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+        payment_session.refresh(payment)
+        assert "release_425_first_at" not in payment.meta_data
+        assert payment.meta_data["release_attempts"] == 1
