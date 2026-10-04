@@ -1,7 +1,7 @@
 # AITBC Setup - Service Selection
 
-**Last Updated**: 2026-07-01
-**Version**: 1.1
+**Last Updated**: 2026-10-04
+**Version**: 1.2
 
 ## Role-Based Service Selection
 
@@ -27,11 +27,11 @@ Every node gets these services enabled and started:
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `aitbc-blockchain-node` | — | Core blockchain node |
+| `aitbc-blockchain-node` | 9009 | Core blockchain node (chain listener on 127.0.0.1:9009) |
 | `aitbc-blockchain-rpc` | 8202 | Blockchain RPC API |
 | `aitbc-wallet` | 8108 | Wallet daemon |
 | `aitbc-recovery` | — | Boot recovery (relinks systemd + loads secrets) |
-| `aitbc-monitoring` | — | System monitoring |
+| `aitbc-monitoring` | 8002 | System monitoring (uvicorn health/metrics HTTP on 127.0.0.1:8002) |
 | `aitbc-backup` | — | Daily backup service |
 | `aitbc-trading` | 8104 | Trading service (inter-chain offer sync, gossip integration) |
 | `aitbc-governance` | 8105 | Governance service (proposals, voting — all nodes participate) |
@@ -70,10 +70,24 @@ In addition to the blockchain mode services, shop nodes get:
 |---------|------|-------------|
 | `aitbc-gpu` | 8101 | GPU service API (advertises hardware to coordinator) |
 | `aitbc-miner` | — | GPU compute provider client (registers with coordinator, sends heartbeats) |
-| `aitbc-coordinator-api` | 8203 | Coordinator API (for local job coordination) |
+| `aitbc-coordinator-api` | 8203 | Coordinator API (for local job coordination) † |
 | `aitbc-edge` | 8111 | Edge compute API (GPU job dispatch, health reporting) |
-| `aitbc-pool-hub` | 8210 | Mining pool hub (pool join/leave, miner registration) |
+| `aitbc-pool-hub` | 8210 | Mining pool hub (pool join/leave, miner registration) † |
 | `aitbc-market` | 8102 | Market service (hardware/software bundle listings — needed by edge) |
+
+† **Fleet divergence (verified 2026-10-04):** both †-marked units are still in
+`setup.sh`'s shop enable list — a fresh `setup.sh` shop install still enables
+them — but neither runs on the fleet shop node2: `aitbc-coordinator-api` was
+removed in the Oct-1 teardown (the miner coordinates against the hub), and
+`aitbc-pool-hub` is excluded from `link-systemd.sh`'s shop link set
+(`EXTRA_SERVICES` opt-in) and runs on the hub only (127.0.0.1:8210).
+
+Two more units run on the fleet shop without being in `setup.sh`'s shop list:
+
+| Service | Port | How it got there |
+|---------|------|------------------|
+| `aitbc-api-gateway` | 8201 | not in `setup.sh`'s shop list at all; active+enabled on node2, listening on 0.0.0.0:8201 |
+| `aitbc-hermes-agent` | 8270 | in `link-systemd.sh`'s shop link set but not `setup.sh`'s enable list; active+enabled on node2, 127.0.0.1:8270 |
 
 > **Note:** Shop services are added regardless of `BLOCKCHAIN_MODE`. A `hub+shop` node gets hub services PLUS shop services. A `follower+shop` node gets follower services PLUS shop services.
 
@@ -99,6 +113,34 @@ The following services are never auto-enabled by `setup.sh`. They remain availab
 sudo systemctl enable aitbc-ai
 sudo systemctl start aitbc-ai
 ```
+
+## Runtime Units Outside the `setup.sh` Role Lists
+
+The following run fleet-wide (verified on all five hosts 2026-10-04) but are
+not in `setup.sh`'s base/hub/follower/shop enable lists — they arrive through
+`link-systemd.sh` gates or were installed by hand:
+
+| Unit | Port | Installed by | Notes |
+|------|------|--------------|-------|
+| `aitbc-island-ipfs` | 4002, 5002, 8081 | `link-systemd.sh`, only when `/etc/aitbc/aitbc-island-ipfs.env` exists or via `EXTRA_SERVICES` | island kubo IPFS; 4002 public, 5002+8081 on 127.0.0.1 |
+| `aitbc-prometheus-watch` | — | no repo installer — host-created unit | watches local Prometheus alerts and writes `alerts.log` |
+| `aitbc-load-secrets` | — | `link-systemd.sh` infra list (all roles) | `Type=oneshot`; runs `load-keystore-secrets.sh` at boot |
+
+Also observed running, outside AITBC's unit set:
+
+| Process | Port | Class |
+|---------|------|-------|
+| `ollama` | 11434 | non-AITBC system service (`ollama.service`, enabled) on the GPU nodes node0/node1/node2 |
+| `openclaw gateway` | 18789 | unmanaged user-session process — **no systemd unit** — on node0 and node1; dies with the session unless it gets a unit |
+
+**hub1 note (verified 2026-10-04):** the former hub runs the follower/base
+set only — its hub-era units (`aitbc-api-gateway`, `aitbc-exchange`,
+`aitbc-market`, `aitbc-agent-coordinator`, `aitbc-blockchain-event-bridge`,
+`aitbc-blockchain-p2p`) were stopped and disabled on 2026-10-04 (their
+symlinks into `/opt/aitbc` removed — the repo unit files still exist),
+leaving `aitbc-blockchain-node` + `aitbc-blockchain-rpc` +
+`aitbc-blockchain-explorer` + the base services behind nginx. Intended role:
+demoted follower.
 
 ## Backup Service
 
