@@ -304,11 +304,11 @@ class MarketJobSweeper:
         the first deferral stamps ``meta_data['settle_deferral_first_at']``.
         Past the bound one ``GET /escrow/{id}`` read converts the guess into
         evidence: absent -> terminal ``settlement_failed``; a released or
-        refunded row with a landed tx hash -> adopt that verdict (reality
+        refunded row with a sealed tx hash -> adopt that verdict (reality
         wins even when the row's kind is not the ``intended`` one -- the row
         is authoritative for where the money went); anything else (still
-        locked, hashless verdict, or a failed read) -> keep deferring with a
-        loud log line.
+        locked, hashless or unsealed verdict, or a failed read) -> keep
+        deferring with a loud log line.
         """
         now = datetime.now(UTC)
         meta = dict(payment.meta_data or {})
@@ -384,6 +384,31 @@ class MarketJobSweeper:
                     payment.id,
                     elapsed,
                     state,
+                )
+                return False
+            # Non-empty is not enough: the S-8 dead-hash shape is a hash that
+            # is present on the row but never sealed in a block. Adopt only
+            # once GET /rpc/transaction/{hash} finds it with a block height.
+            tx: dict[str, Any] | None = None
+            seal_error: Exception | None = None
+            try:
+                tx = await self._rpc_client.get_transaction(tx_hash)
+            except Exception as e:
+                seal_error = e
+            if tx is None or tx.get("block_height") is None:
+                logger.error(
+                    "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
+                    "escrow reports %s but tx %s %s -- still deferring",
+                    job.id,
+                    payment.id,
+                    elapsed,
+                    state,
+                    tx_hash,
+                    f"lookup failed ({seal_error})"
+                    if seal_error is not None
+                    else "is not found on the chain"
+                    if tx is None
+                    else "is present but not sealed (no block height)",
                 )
                 return False
             if state != intended:
