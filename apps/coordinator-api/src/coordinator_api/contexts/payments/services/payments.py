@@ -1280,13 +1280,26 @@ class PaymentService:
         now = now or datetime.now(UTC)
         first_at: datetime | None = None
         raw = meta.get(META_RELEASE_425_FIRST_AT)
-        if raw:
+        if raw is not None:
             try:
                 first_at = datetime.fromisoformat(str(raw))
                 if first_at.tzinfo is None:
                     first_at = first_at.replace(tzinfo=UTC)
             except (TypeError, ValueError):
-                first_at = None
+                # A marker that can no longer be parsed cannot be trusted to
+                # time the streak either. Restamping `now` here would turn a
+                # corrupted clock into a fresh bound (fail-open); the attempt
+                # stays spent instead and the corrupt value is kept in meta
+                # as evidence rather than silently rewritten.
+                logger.error(
+                    "Escrow release for job %s payment %s carries an unparseable "
+                    "425 deferral marker %r; the streak cannot be timed, so the "
+                    "release attempt stays spent",
+                    job_id,
+                    payment_id,
+                    raw,
+                )
+                return False
         if first_at is None:
             first_at = now
             meta[META_RELEASE_425_FIRST_AT] = now.isoformat()
@@ -1435,6 +1448,22 @@ class PaymentService:
             # marker only on a definitive answer, and this error is none.
             raise
 
+    def _end_425_streak(self, payment: JobPayment, meta: dict[str, Any]) -> None:
+        """End the 425-deferral streak on a definitive non-425 outcome.
+
+        The marker anchors the bound's clock only while 425s actually keep
+        arriving. A guard refusal or a definitive submit answer ends the
+        streak locally, so leaving the marker would let stale time poison
+        the next streak -- the first 425 after the blocker clears would
+        measure elapsed from the old stamp and count as instantly
+        past-bound. Transport errors and raised exceptions are *no* answer
+        and deliberately do not come through here.
+        """
+        if meta.pop(META_RELEASE_425_FIRST_AT, None) is not None:
+            payment.meta_data = meta
+            self.session.add(payment)
+            self.session.commit()
+
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner using the blockchain escrow contract."""
         payment = self.session.get(JobPayment, payment_id)
@@ -1463,6 +1492,7 @@ class PaymentService:
         job = self.session.get(Job, job_id)
         if job is None:
             logger.error("Escrow release blocked for job %s: job not found", job_id)
+            self._end_425_streak(payment, meta)
             return False
         if job.state != JobState.completed.value:
             logger.error(
@@ -1472,6 +1502,7 @@ class PaymentService:
                 job.state,
                 JobState.completed.value,
             )
+            self._end_425_streak(payment, meta)
             return False
         receipt = self._get_receipt_of_record(job)
         if not _computation_is_correct(receipt, job):
@@ -1482,6 +1513,7 @@ class PaymentService:
                 receipt.get("zk_status") if receipt else None,
                 receipt.get("computation_correct") if receipt else None,
             )
+            self._end_425_streak(payment, meta)
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
@@ -1502,11 +1534,7 @@ class PaymentService:
             # True or False: both are definitive answers (False can only be an
             # HTTP answer that was not 425 -- transport errors re-raise below),
             # so the deferral streak is over and the marker is cleared.
-            fresh_meta = dict(payment.meta_data or {})
-            if fresh_meta.pop(META_RELEASE_425_FIRST_AT, None) is not None:
-                payment.meta_data = fresh_meta
-                self.session.add(payment)
-                self.session.commit()
+            self._end_425_streak(payment, dict(payment.meta_data or {}))
             return submitted
         except Exception as e:
             # No definitive outcome (transport failure, ambiguous post-send
