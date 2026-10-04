@@ -6,11 +6,16 @@
 
 set -euo pipefail
 
-BACKUP_BASE="/var/backups/aitbc"
+BACKUP_BASE="${BACKUP_BASE:-/var/backups/aitbc}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="${BACKUP_BASE}/${TIMESTAMP}"
-RETENTION_DAYS=30
+RETENTION_DAYS="${RETENTION_DAYS:-30}"
+# Minimum number of good snapshots pruning must keep. Good = the directory
+# holds a nonzero chain_*_chain.db.gz.
+BACKUP_KEEP_MIN_GOOD="${BACKUP_KEEP_MIN_GOOD:-7}"
 LOG_TAG="aitbc-backup"
+# Exit status of the run; legs that leave no usable snapshot set it nonzero.
+_BACKUP_RC=0
 
 # Use the active project Python if available, falling back to whatever is on PATH.
 # This keeps the backup compatible with both Poetry `.venv` and `venv` layouts.
@@ -26,6 +31,11 @@ PYTHON="${PYTHON:-/opt/aitbc/venv/bin/python}"
 BACKUP_GPG_RECIPIENT="${BACKUP_GPG_RECIPIENT:-}"
 BACKUP_OFFSITE_SCRIPT="${BACKUP_OFFSITE_SCRIPT:-}"
 BACKUP_SHRED_PLAINTEXT="${BACKUP_SHRED_PLAINTEXT:-}"
+# Space-separated list of backup artifacts to encrypt for the off-site copy.
+# The default is the long-standing list; extending it to wallets-legacy_*,
+# chain_keystore.db.gz or chain_peer_keys.db.gz is an operator decision —
+# see the off-site allow-list discussion in the restore runbook (§8).
+BACKUP_GPG_ARTIFACTS="${BACKUP_GPG_ARTIFACTS:-keystore.tar.gz wallets.tar.gz etc-aitbc.tar.gz}"
 
 # Log to journal with proper priority levels (info/warning/err).
 # When running interactively (TTY), also echo to console.
@@ -128,7 +138,7 @@ for pg_db in "${PG_DBS[@]}"; do
 done
 
 # ── Blockchain SQLite DB ──────────────────────────────────────────────────────
-CHAIN_DB_DIR="/var/lib/aitbc/data"
+CHAIN_DB_DIR="${CHAIN_DB_DIR:-/var/lib/aitbc/data}"
 if [ -d "$CHAIN_DB_DIR" ]; then
     log "Backing up blockchain SQLite databases..."
     find "$CHAIN_DB_DIR" -name "*.db" | while read -r dbfile; do
@@ -144,7 +154,7 @@ else
 fi
 
 # ── Keystore ──────────────────────────────────────────────────────────────────
-KEYSTORE_DIR="/var/lib/aitbc/keystore"
+KEYSTORE_DIR="${KEYSTORE_DIR:-/var/lib/aitbc/keystore}"
 if [ -d "$KEYSTORE_DIR" ]; then
     log "Backing up keystore..."
     tar czf "${BACKUP_DIR}/keystore.tar.gz" -C "$(dirname "$KEYSTORE_DIR")" "$(basename "$KEYSTORE_DIR")" \
@@ -153,7 +163,7 @@ if [ -d "$KEYSTORE_DIR" ]; then
 fi
 
 # ── Wallet files ──────────────────────────────────────────────────────────────
-WALLETS_DIR="/var/lib/aitbc/wallets"
+WALLETS_DIR="${WALLETS_DIR:-/var/lib/aitbc/wallets}"
 if [ -d "$WALLETS_DIR" ]; then
     log "Backing up wallet files..."
     tar czf "${BACKUP_DIR}/wallets.tar.gz" -C "$(dirname "$WALLETS_DIR")" "$(basename "$WALLETS_DIR")" \
@@ -166,10 +176,8 @@ fi
 # have not yet migrated to /var/lib/aitbc/wallets. Back them up until the
 # migration is complete so private keys are not lost. Backup artifacts are
 # restricted to root:aitbc-services.
-LEGACY_WALLET_DIRS=(
-    "/home/aitbc/.aitbc/wallets"
-    "/root/.aitbc/wallets"
-)
+# Space-separated in env form; defaults are the two historical locations.
+read -ra LEGACY_WALLET_DIRS <<< "${LEGACY_WALLET_DIRS:-/home/aitbc/.aitbc/wallets /root/.aitbc/wallets}"
 for LEGACY_WALLET_DIR in "${LEGACY_WALLET_DIRS[@]}"; do
     if [ -d "$LEGACY_WALLET_DIR" ]; then
         log "Backing up legacy wallet directory ${LEGACY_WALLET_DIR}..."
@@ -183,28 +191,55 @@ for LEGACY_WALLET_DIR in "${LEGACY_WALLET_DIRS[@]}"; do
 done
 
 # ── Service Configuration ─────────────────────────────────────────────────────
+ETC_AITBC_DIR="${ETC_AITBC_DIR:-/etc/aitbc}"
+ETC_PROMETHEUS_DIR="${ETC_PROMETHEUS_DIR:-/etc/prometheus}"
 log "Backing up service configurations..."
-tar czf "${BACKUP_DIR}/etc-aitbc.tar.gz" /etc/aitbc/ 2>/dev/null \
+tar czf "${BACKUP_DIR}/etc-aitbc.tar.gz" "${ETC_AITBC_DIR}" 2>/dev/null \
     && log "/etc/aitbc: OK" || error "/etc/aitbc backup FAILED"
 
-if [ -d /etc/prometheus/ ]; then
-    tar czf "${BACKUP_DIR}/prometheus-config.tar.gz" /etc/prometheus/ 2>/dev/null \
+if [ -d "${ETC_PROMETHEUS_DIR}" ]; then
+    tar czf "${BACKUP_DIR}/prometheus-config.tar.gz" "${ETC_PROMETHEUS_DIR}" 2>/dev/null \
         && log "/etc/prometheus: OK" || error "Prometheus config backup FAILED"
 else
-    warn "/etc/prometheus not found, skipping"
+    warn "${ETC_PROMETHEUS_DIR} not found, skipping"
 fi
 
 # ── Redis RDB Snapshot ────────────────────────────────────────────────────────
-log "Triggering Redis snapshot..."
-redis-cli BGSAVE > /dev/null 2>&1 && sleep 2
-REDIS_RDB=$(redis-cli CONFIG GET dir 2>/dev/null | tail -1)
-REDIS_FILE=$(redis-cli CONFIG GET dbfilename 2>/dev/null | tail -1)
-if [ -f "${REDIS_RDB}/${REDIS_FILE}" ]; then
-    cp "${REDIS_RDB}/${REDIS_FILE}" "${BACKUP_DIR}/redis.rdb" \
-        && log "Redis RDB: OK ($(du -sh "${BACKUP_DIR}/redis.rdb" | cut -f1))" \
-        || error "Redis RDB copy FAILED"
+# REDISCLI_AUTH comes from the backup env file (aitbc-backup.env). redis-cli
+# reads it natively from the environment, so the password never appears on the
+# command line or in process arguments. Exported only when set.
+if [ -n "${REDISCLI_AUTH:-}" ]; then
+    export REDISCLI_AUTH
+fi
+if command -v redis-cli >/dev/null 2>&1; then
+    log "Triggering Redis snapshot..."
+    _redis_rc=0
+    _redis_out="$(redis-cli BGSAVE 2>&1)" || _redis_rc=$?
+    # Only the acknowledged reply passes; NOAUTH/ERR/any other text is a
+    # failure, and a failed BGSAVE means no fresh snapshot -- do not go on to
+    # copy a possibly stale dump file afterwards.
+    if [ "$_redis_rc" -eq 0 ] && [ "$_redis_out" = "Background saving started" ]; then
+        log "Redis BGSAVE: ${_redis_out}"
+        sleep 2
+        REDIS_RDB=$(redis-cli CONFIG GET dir 2>/dev/null | tail -1)
+        REDIS_FILE=$(redis-cli CONFIG GET dbfilename 2>/dev/null | tail -1)
+        if [ -f "${REDIS_RDB}/${REDIS_FILE}" ]; then
+            if cp "${REDIS_RDB}/${REDIS_FILE}" "${BACKUP_DIR}/redis.rdb"; then
+                log "Redis RDB: OK ($(du -sh "${BACKUP_DIR}/redis.rdb" | cut -f1))"
+            else
+                error "Redis RDB copy FAILED"
+                _BACKUP_RC=1
+            fi
+        else
+            error "Redis RDB not found at ${REDIS_RDB}/${REDIS_FILE} after BGSAVE reported started"
+            _BACKUP_RC=1
+        fi
+    else
+        error "Redis BGSAVE FAILED (rc=${_redis_rc}): ${_redis_out:-no output}"
+        _BACKUP_RC=1
+    fi
 else
-    warn "Redis RDB not found, skipping"
+    warn "redis-cli not installed, skipping Redis snapshot"
 fi
 
 # ── Key audit ─────────────────────────────────────────────────────────────────
@@ -226,7 +261,8 @@ fi
 _OFFSITE_OK=false
 if [ -n "$BACKUP_GPG_RECIPIENT" ]; then
     if command -v gpg >/dev/null 2>&1; then
-        for artifact in keystore.tar.gz wallets.tar.gz etc-aitbc.tar.gz; do
+        # Intentionally unquoted: BACKUP_GPG_ARTIFACTS is a space-separated list.
+        for artifact in ${BACKUP_GPG_ARTIFACTS}; do
             src="${BACKUP_DIR}/${artifact}"
             if [ -f "$src" ]; then
                 log "Encrypting ${artifact} for off-site backup..."
@@ -261,6 +297,8 @@ fi
 
 if [ "$BACKUP_SHRED_PLAINTEXT" = "yes" ] && [ -n "$BACKUP_GPG_RECIPIENT" ] && [ "$_OFFSITE_OK" = true ]; then
     log "Removing plaintext key archives after successful off-site upload..."
+    # Deliberately a fixed list, not BACKUP_GPG_ARTIFACTS: shredding covers only
+    # the key-material archives; config artifacts stay plaintext for restore.
     for artifact in keystore.tar.gz wallets.tar.gz; do
         [ -f "${BACKUP_DIR}/${artifact}" ] && shred -u "${BACKUP_DIR}/${artifact}" 2>/dev/null || rm -f "${BACKUP_DIR}/${artifact}"
     done
@@ -275,9 +313,58 @@ find "${BACKUP_DIR}" -type f -exec chmod 600 {} + 2>/dev/null || true
 chmod 750 "${BACKUP_DIR}" 2>/dev/null || true
 
 # ── Prune old backups ─────────────────────────────────────────────────────────
-log "Pruning backups older than ${RETENTION_DAYS} days..."
-find "${BACKUP_BASE}" -maxdepth 1 -type d -mtime "+${RETENTION_DAYS}" -exec rm -rf {} + 2>/dev/null \
-    && log "Prune complete" || true
+# Age is read from the directory NAME (YYYYMMDD_HHMMSS), never mtime — any
+# touch resets mtime (a Sep-8 touch preserved Aug-named dirs on hub/node2).
+# Names that do not parse are never pruned. At least BACKUP_KEEP_MIN_GOOD good
+# snapshots are kept, where good = the dir holds a nonzero chain_*_chain.db.gz.
+# Nothing is pruned when this run produced no good snapshot itself: emptying
+# the vault during a broken-backup stretch is how the last restorable copy
+# gets lost.
+_is_good_snapshot() {
+    [ -n "$(find "$1" -maxdepth 1 -name 'chain_*_chain.db.gz' -size +0c -print -quit 2>/dev/null)" ]
+}
+
+if _is_good_snapshot "${BACKUP_DIR}"; then
+    _good_kept=0
+    for d in "${BACKUP_BASE}"/*/; do
+        [ -d "$d" ] || continue
+        if _is_good_snapshot "${d%/}"; then
+            _good_kept=$((_good_kept + 1))
+        fi
+    done
+    log "Pruning backups older than ${RETENTION_DAYS} days by name-date; ${_good_kept} good snapshot(s), keep-min ${BACKUP_KEEP_MIN_GOOD}"
+    _now_epoch=$(date +%s)
+    for d in "${BACKUP_BASE}"/*/; do
+        [ -d "$d" ] || continue
+        d="${d%/}"
+        _name="$(basename "$d")"
+        [ "$d" = "${BACKUP_DIR}" ] && continue
+        if ! [[ "$_name" =~ ^[0-9]{8}_[0-9]{6}$ ]]; then
+            warn "Prune: '${_name}' does not match YYYYMMDD_HHMMSS — leaving untouched"
+            continue
+        fi
+        _snap_epoch=$(date -d "${_name:0:4}-${_name:4:2}-${_name:6:2} ${_name:9:2}:${_name:11:2}:${_name:13:2}" +%s 2>/dev/null) || {
+            warn "Prune: '${_name}' failed date parse — leaving untouched"
+            continue
+        }
+        _age_days=$(( (_now_epoch - _snap_epoch) / 86400 ))
+        [ "$_age_days" -le "$RETENTION_DAYS" ] && continue
+        if _is_good_snapshot "$d"; then
+            if [ "$_good_kept" -le "$BACKUP_KEEP_MIN_GOOD" ]; then
+                warn "Prune: '${_name}' is old but among the last ${_good_kept} good snapshots (min ${BACKUP_KEEP_MIN_GOOD}) — keeping"
+                continue
+            fi
+            _good_kept=$((_good_kept - 1))
+        fi
+        log "Prune: removing '${_name}' (age ${_age_days}d)"
+        rm -rf "$d"
+    done
+    log "Prune complete"
+else
+    warn "This run produced no good snapshot (no nonzero chain_*_chain.db.gz) — pruning skipped entirely"
+fi
 
 KEPT=$(find "${BACKUP_BASE}" -maxdepth 1 -type d | grep -c "^${BACKUP_BASE}/[0-9]" || echo 0)
 log "Retained backup snapshots: ${KEPT}"
+
+exit "${_BACKUP_RC}"
