@@ -241,6 +241,32 @@ open failure counts as failure by design).
 - **Operator-only:** fixing the DB path (`AITBC_CHAIN_DB` drop-in),
   permissions, or the database itself.
 
+### EscrowOpenTxOnlyLock — warning
+
+`aitbc_escrow_open_tx_only_locks > 0` for 15 m. A sealed `ESCROW_LOCK`
+transaction exists with no escrow row and no settlement leg — the count
+is already minus the known-artifacts registry
+(`scripts/monitoring/escrow-known-artifacts.yml`), so every lock that
+alerts is unregistered and holds custody nothing will settle.
+
+- **Confirm:** the per-job series names them:
+  `aitbc_escrow_open_tx_only_lock{job_id="..."}`. On the alerting host,
+  read-only: `sqlite3 "file:/var/lib/aitbc/data/<chain>/chain.db?mode=ro" \
+  "SELECT tx_hash,status,created_at FROM 'transaction' WHERE tx_type='ESCROW_LOCK' AND data LIKE '%<job_id>%'"`,
+  `SELECT job_id,status FROM escrow WHERE job_id='<job_id>'` — a sealed
+  lock, no escrow row, and no `ESCROW_RELEASE`/`ESCROW_REFUND` leg
+  confirms. A lock younger than ~15 min may still be inside the normal
+  lock-to-row window; the hold exists so those never alert.
+- **Agent-safe:** report `(job_id, lock tx_hash, amount, sender,
+  host)`; check the registry file for a near-miss entry (wrong id
+  spelling) and the mempool for an in-flight row-creating transaction.
+- **Operator-only:** the disposition decision — add a registry entry
+  for a verified known artifact (documentation only, **no chain
+  write**) or run a chain refund via the normal settlement-authority
+  path. If a real lock is misclassified into the registry, the alert
+  goes silently green — registry diffs should name the evidence for
+  each entry.
+
 ### RemoteWriteFailing — warning
 
 `rate(prometheus_remote_storage_samples_failed_total[15m]) > 0` for 15 m:
