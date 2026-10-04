@@ -126,12 +126,12 @@ class TestGaugeConsistencyUnderConcurrency:
 
 
 class TestSyncLagOnRemoteFailure:
-    """When the remote head cannot be read the lag gauge must not read 0.
+    """A dead peer must not read as 'perfectly synced'.
 
-    peer_head_divergence swallows fetch errors into (None, -1); today the
-    tick then computes gap = max(0, -1 - local) = 0 and publishes a
-    fabricated 'perfectly synced' while the node is blind. Desired: skip
-    the update (keep the last known value or stay absent).
+    peer_head_divergence swallows fetch errors into (None, -1). The tick
+    must not publish sync_lag_blocks from an unknown remote height: it
+    marks the peer unreachable via sync_peer_reachable and drops the lag
+    child series so no stale value looks current.
     """
 
     def _tick_with_remote(self, monkeypatch, chain: str, remote: int, local: int = 5):
@@ -150,24 +150,45 @@ class TestSyncLagOnRemoteFailure:
             try:
                 _run(sm._tick(chain))
             except Exception:
-                pass  # the gauge write happens before any downstream failure
+                pass  # the gauge writes happen before any downstream failure
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="remote_height=-1 collapses to gap 0: a dead peer fabricates 'synced' on blockchain_sync_lag_blocks",
-    )
-    def test_failed_remote_fetch_must_not_report_zero(self, monkeypatch):
+    def test_dead_peer_drops_lag_and_marks_unreachable(self, monkeypatch):
         from aitbc_chain.config import settings
 
         monkeypatch.setattr(settings, "auto_sync_threshold", 10)
         chain = "gauge-remote-dead"
-        # A healthy tick first: lag 7 lands on the gauge.
+        # A healthy tick first: lag 7 lands, peer marked reachable.
         self._tick_with_remote(monkeypatch, chain, remote=12)
         assert _metric_value("blockchain_sync_lag_blocks", chain) == 7.0
-        # Now the peer dies (divergence helper returns -1). The gauge must
-        # keep 7 or go absent -- never fabricate 0.
+        assert _metric_value("blockchain_sync_peer_reachable", chain) == 1.0
+        # The peer dies (divergence helper returns -1): the lag child series
+        # is removed rather than left stale or fabricated to 0, and the
+        # reachability gauge reports the dead peer.
         self._tick_with_remote(monkeypatch, chain, remote=-1)
-        assert _metric_value("blockchain_sync_lag_blocks", chain) != 0.0
+        assert _metric_value("blockchain_sync_lag_blocks", chain) is None
+        assert _metric_value("blockchain_sync_peer_reachable", chain) == 0.0
+
+    def test_peer_recovers_publishes_fresh_lag(self, monkeypatch):
+        from aitbc_chain.config import settings
+
+        # Keep the recovery tick off the bulk-pull path -- a 15-block gap with
+        # the default threshold of 10 would spawn a background task.
+        monkeypatch.setattr(settings, "auto_sync_threshold", 100)
+        chain = "gauge-remote-recovers"
+        self._tick_with_remote(monkeypatch, chain, remote=12)
+        self._tick_with_remote(monkeypatch, chain, remote=-1)
+        assert _metric_value("blockchain_sync_peer_reachable", chain) == 0.0
+        # Peer returns at a new height: reachability flips back and a fresh
+        # lag value is published (not the stale 7).
+        self._tick_with_remote(monkeypatch, chain, remote=20)
+        assert _metric_value("blockchain_sync_peer_reachable", chain) == 1.0
+        assert _metric_value("blockchain_sync_lag_blocks", chain) == 15.0
+
+    def test_unknown_remote_at_first_tick_publishes_no_lag(self, monkeypatch):
+        chain = "gauge-remote-never-seen"
+        self._tick_with_remote(monkeypatch, chain, remote=-1)
+        assert _metric_value("blockchain_sync_lag_blocks", chain) is None
+        assert _metric_value("blockchain_sync_peer_reachable", chain) == 0.0
 
 
 class TestMempoolChainLabelCardinality:
