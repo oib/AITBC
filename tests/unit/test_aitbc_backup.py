@@ -32,7 +32,9 @@ STUBS = {
     "sudo": '#!/bin/sh\nwhile [ "$1" = "-u" ]; do shift 2; done; exec "$@"\n',
     "psql": "#!/bin/sh\nexit 0\n",
     "pg_dump": "#!/bin/sh\nexit 1\n",
-    "sqlite3": '#!/bin/sh\necho "CREATE TABLE t(x INTEGER);"\n',
+    # The dump must exceed BACKUP_GOOD_MIN_BYTES once gzipped or the run's own
+    # snapshot fails the good check; ~289KB of text gzips to ~70KB.
+    "sqlite3": "#!/bin/sh\nseq 1 50000\n",
     "redis-cli": """#!/bin/sh
 case "$1" in
   BGSAVE)
@@ -64,15 +66,41 @@ def _snap_name(days_ago: int) -> str:
     return (datetime.now() - timedelta(days=days_ago)).strftime("%Y%m%d_010203")
 
 
-def _make_snapshot(base: Path, name: str, good: bool = True, fresh_mtime: bool = False, corrupt_chain: bool = False) -> Path:
+def _big_gz() -> bytes:
+    """A gzip stream ≥ BACKUP_GOOD_MIN_BYTES compressed — urandom so gzip
+    cannot shrink it below the floor."""
+    return gzip.compress(os.urandom(6000))
+
+
+def _make_snapshot(
+    base: Path,
+    name: str,
+    good: bool = True,
+    fresh_mtime: bool = False,
+    corrupt_chain: bool = False,
+    stub_only: bool = False,
+    small_chain: bool = False,
+    island_only: bool = False,
+) -> Path:
     d = base / name
     d.mkdir(parents=True)
     if corrupt_chain:
-        # Nonzero file with a gzip header but a truncated body — passes the
-        # size check, fails gzip -t.
-        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(b"\x1f\x8bFAKE")
+        # Over the size floor but a broken gzip stream — must reach gzip -t
+        # and fail there, not at the size check.
+        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(b"\x1f\x8bFAKE" + b"x" * 5000)
+    elif small_chain:
+        # Right name, but below BACKUP_GOOD_MIN_BYTES — e.g. a dump that
+        # truncated early. Not good.
+        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(gzip.compress(b"tiny"))
+    elif stub_only:
+        # The ~70-byte empty-db stubs real snapshots carry — e.g. an island
+        # DB that holds nothing. Not the production chain: not good.
+        (d / "chain_aitbc_chain.db.gz").write_bytes(gzip.compress(b""))
+    elif island_only:
+        # A nonzero non-production chain dump (name misses the glob). Not good.
+        (d / "chain_ait-shop-island.aitbc.bubuit.net_chain.db.gz").write_bytes(_big_gz())
     elif good:
-        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(gzip.compress(b"chain"))
+        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(_big_gz())
     else:
         (d / "postgres_aitbc_market.sql.gz").write_bytes(b"\x1f\x8bFAKE")
     if fresh_mtime:
@@ -259,6 +287,46 @@ def test_corrupt_chain_gz_counts_as_good_when_gzip_test_off(env):
     r = _run(env, BACKUP_KEEP_MIN_GOOD="2", BACKUP_GOOD_REQUIRE_GZIP_TEST="no")
     assert r.returncode == 0
     assert corrupt.exists()
+    assert "among the last 2 good snapshots" in _log(env)
+
+
+def test_empty_stub_gz_is_not_a_good_snapshot(env):
+    """The ~70-byte empty-db stubs real snapshots carry must not count."""
+    stub = _make_snapshot(env.base, _snap_name(40), stub_only=True)
+    island = _make_snapshot(env.base, _snap_name(41), island_only=True)
+    for days in (50, 60):
+        _make_snapshot(env.base, _snap_name(days))
+
+    r = _run(env, BACKUP_KEEP_MIN_GOOD="2")
+    assert r.returncode == 0
+    names = _dir_names(env.base)
+    assert not stub.exists()
+    assert not island.exists()
+    # keep-min protected exactly the two real-chain dirs
+    assert _snap_name(50) in names
+    assert _snap_name(60) not in names  # oldest real one was deleted, not kept
+    log = _log(env)
+    assert f"removing '{_snap_name(40)}'" in log
+
+
+def test_small_real_chain_gz_is_not_a_good_snapshot(env):
+    """A correctly-named chain gz below BACKUP_GOOD_MIN_BYTES is not good."""
+    small = _make_snapshot(env.base, _snap_name(40), small_chain=True)
+    for days in (50, 60):
+        _make_snapshot(env.base, _snap_name(days))
+
+    r = _run(env, BACKUP_KEEP_MIN_GOOD="2")
+    assert r.returncode == 0
+    assert not small.exists()
+
+
+def test_valid_real_chain_gz_counts_as_good(env):
+    """A chain gz matching glob + size + integrity is protected by keep-min."""
+    good = _make_snapshot(env.base, _snap_name(40))
+
+    r = _run(env, BACKUP_KEEP_MIN_GOOD="2")
+    assert r.returncode == 0
+    assert good.exists()
     assert "among the last 2 good snapshots" in _log(env)
 
 
