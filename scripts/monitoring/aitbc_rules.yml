@@ -275,3 +275,14 @@ groups:
         annotations:
           summary: "Escrow settlement check cannot read {{ $labels.db }} ({{ $labels.instance }})"
           description: "aitbc_escrow_settlement_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no escrow table, so the unlanded count for it cannot be trusted. Check journalctl -u aitbc-escrow-settlements.service."
+
+  - name: aitbc-systemd-units
+    rules:
+      - alert: AitbcSystemdUnitFailed
+        expr: node_systemd_unit_state{name=~"aitbc-.+", state="failed"} == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AITBC unit {{ $labels.name }} failed on {{ $labels.instance }}"
+          description: "systemd unit {{ $labels.name }} (job {{ $labels.job }}) has been in the failed state >15m. Check: systemctl status {{ $labels.name }} ; journalctl -u {{ $labels.name }} -n 50. On hosts with remote-write, the same unit may alert on both the local and the central Prometheus — the instance label identifies the reporting scraper, not necessarily the host running the unit."
