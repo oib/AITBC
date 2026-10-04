@@ -151,9 +151,19 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 tx_data["from"],
                 block_version=get_block_version_for_height(next_height),
                 block_height=next_height,
+                recipient=tx_data.get("to", ""),
             )
             if authority_error:
                 raise ValueError(authority_error)
+
+        if tx_type == "ESCROW_FEE_SWEEP":
+            # v11 (see state_transition.validate_transaction's sweep branch). Below the activation height the
+            # type has no consensus meaning, so it is refused here rather than sealed as a plain transfer —
+            # the sender/recipient gates above only apply once the type is live.
+            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+            next_height = (head or 0) + 1
+            if get_block_version_for_height(next_height) < 11:
+                raise ValueError("ESCROW_FEE_SWEEP is not active on this chain yet (state_transition_v11_height)")
 
         if tx_type == "GPU_DEREGISTER":
             # v10 (see state/gpu_resources.py::gpu_deregister_error, the rule apply uses too). Below the activation

@@ -57,6 +57,7 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         "ESCROW_LOCK",
         "ESCROW_RELEASE",
         "ESCROW_REFUND",
+        "ESCROW_FEE_SWEEP",
         "BRIDGE_LOCK",
         "BRIDGE_RELEASE",
         "BRIDGE_REFUND",
