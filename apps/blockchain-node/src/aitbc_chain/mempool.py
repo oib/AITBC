@@ -13,7 +13,7 @@ from sqlmodel import Field, Session, create_engine, select, text
 
 from .metadata import ChainBase
 
-from .metrics import metrics_registry
+from .metrics import mempool_pending_count, mempool_pending_size_bytes, metrics_registry
 
 mempool_metadata = MetaData()
 
@@ -143,6 +143,18 @@ class InMemoryMempool:
     def _total_size(self) -> int:
         return sum(len(chain_txs) for chain_txs in self._transactions.values())
 
+    def _update_gauge(self, chain_id: str) -> None:
+        """Refresh both metric surfaces for a chain after a mutation.
+
+        The legacy registry gauge ``mempool_size`` reports the total across
+        chains; the prometheus gauges are per-chain and back the MempoolFull
+        alert. Lock held by caller.
+        """
+        chain_txs = self._get_chain_transactions(chain_id)
+        metrics_registry.set_gauge("mempool_size", float(self._total_size()))
+        mempool_pending_count.labels(chain_id=chain_id).set(float(len(chain_txs)))
+        mempool_pending_size_bytes.labels(chain_id=chain_id).set(float(sum(t.size_bytes for t in chain_txs.values())))
+
     def add(
         self,
         tx: dict[str, Any],
@@ -199,7 +211,7 @@ class InMemoryMempool:
             chain_transactions[tx_hash] = entry
             if slot is not None:
                 self._slots[chain_id][slot] = tx_hash
-            metrics_registry.set_gauge("mempool_size", float(self._total_size()))
+            self._update_gauge(chain_id)
             metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
         return tx_hash
 
@@ -233,7 +245,7 @@ class InMemoryMempool:
             for tx in result:
                 self._drop_entry(chain_id, tx)
 
-            metrics_registry.set_gauge("mempool_size", float(self._total_size()))
+            self._update_gauge(chain_id)
             metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))
             return result
 
@@ -247,7 +259,7 @@ class InMemoryMempool:
             removed = entry is not None
             if entry is not None:
                 self._drop_entry(chain_id, entry)
-                metrics_registry.set_gauge("mempool_size", float(self._total_size()))
+                self._update_gauge(chain_id)
             return removed
 
     def size(self, chain_id: str | None = None) -> int:
@@ -323,8 +335,8 @@ class InMemoryMempool:
                         self._drop_entry(chain_id, entry)
                     metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
                 removed += len(stale)
-            if removed:
-                metrics_registry.set_gauge("mempool_size", float(self._total_size()))
+                if stale:
+                    self._update_gauge(chain_id)
         return removed
 
 
@@ -830,12 +842,25 @@ class DatabaseMempool:
         return [json.loads(e.content) for e in entries]
 
     def _update_gauge(self, chain_id: str | None = None) -> None:
+        """Refresh both metric surfaces for a chain after a mutation.
+
+        The legacy registry gauge is kept for continuity; the prometheus
+        gauges back the MempoolFull alert.
+        """
         from .config import settings
 
         if chain_id is None:
             chain_id = settings.chain_id
-        count = self.size(chain_id)
+        with self._lock:
+            with Session(self._engine) as session:
+                count, total_bytes = session.exec(
+                    select(func.count(), func.coalesce(func.sum(MempoolEntry.size_bytes), 0))
+                    .select_from(MempoolEntry)
+                    .where(MempoolEntry.chain_id == chain_id)
+                ).one()
         metrics_registry.set_gauge(f"mempool_size_{chain_id}", float(count))
+        mempool_pending_count.labels(chain_id=chain_id).set(float(count))
+        mempool_pending_size_bytes.labels(chain_id=chain_id).set(float(total_bytes))
 
 
 # Singleton

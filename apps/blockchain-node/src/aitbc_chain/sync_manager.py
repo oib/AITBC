@@ -18,7 +18,7 @@ from .config import is_block_producer, settings
 from .database import init_db, session_scope
 from .gossip import TopicSubscription, create_backend, gossip_broker
 from .logger import get_logger
-from .metrics import metrics_registry
+from .metrics import metrics_registry, sync_lag_blocks
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
 from .sync_divergence import clear_divergence, report_divergence
@@ -605,6 +605,7 @@ class SyncManager:
 
         state.last_local_height = state.chain_sync.get_local_height()
         gap = max(0, state.last_remote_height - state.last_local_height)
+        sync_lag_blocks.labels(chain_id=chain_id).set(float(gap))
 
         # Equal heights with different head hashes: a symmetric fork (e.g. the
         # isolated proposer rejoining). The bulk path's fork resolver records
