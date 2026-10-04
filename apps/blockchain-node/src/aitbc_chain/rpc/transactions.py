@@ -22,6 +22,7 @@ from ..models import Account, Block, Transaction
 from .utils import (
     OFFER_ACTIONS,
     PREREGISTERED_CREDIT_TX_TYPES,
+    _require_supported_chain,
     _resolved_tx_type,
     get_chain_id,
     normalize_transaction_data,
@@ -80,17 +81,6 @@ def _refuse_retired_gpu(tx_type: str, payload: Any) -> None:
     error = retired_gpu_error(tx_type, payload, settings.gpu_retired_id_set())
     if error:
         raise ValueError(error)
-
-
-def _require_supported_chain(chain_id: str) -> None:
-    """Refuse a chain_id outside supported_chains — shared by every mempool intake branch."""
-    from .utils import get_supported_chains
-
-    supported_chains = get_supported_chains()
-    if not chain_id:
-        raise ValueError("transaction.chain_id is required")
-    if supported_chains and chain_id not in supported_chains:
-        raise ValueError(f"unsupported chain_id '{chain_id}'. Supported chains: {supported_chains}")
 
 
 def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
