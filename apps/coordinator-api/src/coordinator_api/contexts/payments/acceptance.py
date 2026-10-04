@@ -56,12 +56,20 @@ DEFAULT_MAX_WINDOW_SECONDS = 7 * 24 * 3600
 # hammering the chain the same day rather than forever.
 DEFAULT_MAX_RELEASE_ATTEMPTS = 20
 
+# A run of 425 'lock not sealed yet' answers may defer a release only this
+# long. The proposer mempool TTL is 3600 s, so a lock still unsealed after
+# six hours is almost certainly dropped rather than slow -- at that point
+# the normal attempt cap applies so the payment can still reach
+# settlement_failed instead of re-asking forever with no state change.
+DEFAULT_RELEASE_425_MAX_SECONDS = 6 * 3600
+
 META_DEADLINE = "acceptance_deadline"
 META_OPENED_AT = "acceptance_opened_at"
 META_DISPUTE_REASON = "dispute_reason"
 META_DISPUTED_AT = "disputed_at"
 META_RELEASE_ATTEMPTS = "release_attempts"
 META_RELEASE_BLOCKED_AT = "release_blocked_at"
+META_RELEASE_425_FIRST_AT = "release_425_first_at"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -148,9 +156,15 @@ def max_release_attempts() -> int:
     return max(1, _env_int("COORDINATOR_RELEASE_MAX_ATTEMPTS", DEFAULT_MAX_RELEASE_ATTEMPTS))
 
 
+def max_release_425_seconds() -> int:
+    """How long a run of 425 'not yet' answers may shield the release-attempt budget."""
+    return max(0, _env_int("COORDINATOR_RELEASE_425_MAX_SECONDS", DEFAULT_RELEASE_425_MAX_SECONDS))
+
+
 __all__ = [
     "DEFAULT_MAX_RELEASE_ATTEMPTS",
     "DEFAULT_MAX_WINDOW_SECONDS",
+    "DEFAULT_RELEASE_425_MAX_SECONDS",
     "DEFAULT_WINDOW_SECONDS",
     "DISPUTED",
     "HELD_STATES",
@@ -158,6 +172,7 @@ __all__ = [
     "META_DISPUTED_AT",
     "META_DISPUTE_REASON",
     "META_OPENED_AT",
+    "META_RELEASE_425_FIRST_AT",
     "META_RELEASE_ATTEMPTS",
     "META_RELEASE_BLOCKED_AT",
     "PENDING_ACCEPTANCE",
@@ -166,6 +181,7 @@ __all__ = [
     "deadline_from",
     "deadline_passed",
     "default_window_seconds",
+    "max_release_425_seconds",
     "max_release_attempts",
     "max_window_seconds",
     "opened_window",

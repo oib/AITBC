@@ -43,12 +43,14 @@ from ..acceptance import (
     HELD_STATES,
     META_DISPUTE_REASON,
     META_DISPUTED_AT,
+    META_RELEASE_425_FIRST_AT,
     META_RELEASE_ATTEMPTS,
     META_RELEASE_BLOCKED_AT,
     PENDING_ACCEPTANCE,
     REFUNDABLE_STATES,
     SETTLEMENT_FAILED,
     deadline_from,
+    max_release_425_seconds,
     max_release_attempts,
     opened_window,
 )
@@ -1260,6 +1262,49 @@ class PaymentService:
         )
         return True
 
+    def _release_425_within_bound(
+        self,
+        meta: dict[str, Any],
+        job_id: str,
+        payment_id: str,
+        now: datetime | None = None,
+    ) -> bool:
+        """Whether a 425 'not yet' may still restore the release-attempt budget.
+
+        Stamps the first 425 into meta on first sight so a lock that never
+        seals cannot suspend the attempt cap forever: inside the bound this
+        returns True and the caller restores the spent attempt; past it this
+        logs an error naming the job and payment and returns False so the
+        normal attempt cap applies and the payment can still go terminal.
+        """
+        now = now or datetime.now(UTC)
+        first_at: datetime | None = None
+        raw = meta.get(META_RELEASE_425_FIRST_AT)
+        if raw:
+            try:
+                first_at = datetime.fromisoformat(str(raw))
+                if first_at.tzinfo is None:
+                    first_at = first_at.replace(tzinfo=UTC)
+            except (TypeError, ValueError):
+                first_at = None
+        if first_at is None:
+            first_at = now
+            meta[META_RELEASE_425_FIRST_AT] = now.isoformat()
+        elapsed = (now - first_at).total_seconds()
+        limit = max_release_425_seconds()
+        if elapsed <= limit:
+            return True
+        logger.error(
+            "Escrow release for job %s payment %s deferred by 425 'lock not sealed' "
+            "for %.0fs -- past the %ss bound; the release attempt stays spent "
+            "and the normal attempt cap now applies",
+            job_id,
+            payment_id,
+            elapsed,
+            limit,
+        )
+        return False
+
     def _build_release_body(self, reason: str | None, payment: JobPayment, job: Job | None) -> dict[str, Any]:
         release_body: dict[str, Any] = {"reason": reason or "Job completed successfully"}
         meta = payment.meta_data or {}
@@ -1437,14 +1482,30 @@ class PaymentService:
                 # 425 'lock not yet sealed' is a 'not yet', not a failure:
                 # restore the attempt budget so a long seal delay cannot burn
                 # the bound and land the payment in settlement_failed while the
-                # escrow is still safely funded.
-                meta[META_RELEASE_ATTEMPTS] = attempts
+                # escrow is still safely funded. The restoration is itself
+                # time-bounded -- a lock that never seals (e.g. the lock tx
+                # was dropped) cannot keep the budget suspended forever.
+                if self._release_425_within_bound(meta, job_id, payment_id):
+                    meta[META_RELEASE_ATTEMPTS] = attempts
                 payment.meta_data = meta
                 self.session.add(payment)
                 self.session.commit()
                 return False
+            # Any non-425 outcome ends the deferral streak.
+            fresh_meta = dict(payment.meta_data or {})
+            if fresh_meta.pop(META_RELEASE_425_FIRST_AT, None) is not None:
+                payment.meta_data = fresh_meta
+                self.session.add(payment)
+                self.session.commit()
             return submitted
         except Exception as e:
+            # A transport failure is also a non-425 outcome: it ends the
+            # deferral streak, though the attempt it spent already counted.
+            fresh_meta = dict(payment.meta_data or {})
+            if fresh_meta.pop(META_RELEASE_425_FIRST_AT, None) is not None:
+                payment.meta_data = fresh_meta
+                self.session.add(payment)
+                self.session.commit()
             logger.error("Error releasing payment: %s", e)
             return False
 
