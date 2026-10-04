@@ -38,14 +38,35 @@ lock's block is dropped at apply time, while the route would still mark the
 local row settled — the row then serves a dead hash forever. The gate makes
 the route defer exactly the settlements production would have dropped.
 
-Callers see "not yet, retry": the coordinator returns False and re-attempts
-on its next sweep (`payments.py:_submit_release` treats any non-success as
-unsettled and leaves the payment escrowed). The retry consumes a release
-attempt — `meta[META_RELEASE_ATTEMPTS]` is incremented before the submit,
-so each 425 spends one of `COORDINATOR_RELEASE_MAX_ATTEMPTS` (default 20,
-`acceptance.py:max_release_attempts`); exhausting the budget marks the
-payment `settlement_failed`, which the admin retry-release route can
-re-drive once the blocker is fixed.
+Callers see "not yet, retry" — and a genuine 425 does **not** spend a
+release attempt while the deferral stays bounded. `_submit_release`
+(`payments.py`) recognizes 425 only as a chained `httpx.HTTPStatusError`
+inside the client's `NetworkError` (`_find_http_status_error`; the retry
+policy re-raises 4xx status errors unwrapped, so the `__cause__` chain
+holds for every 425 the node returns). On 425 it returns `None` and
+`release_payment` walks the deferral path:
+
+- `meta[META_RELEASE_ATTEMPTS]` is still incremented and committed before
+  the submit, then **restored** while the deferral stays inside
+  `COORDINATOR_RELEASE_425_MAX_SECONDS` (default `6 * 3600` s,
+  `acceptance.py:DEFAULT_RELEASE_425_MAX_SECONDS`).
+- The streak is anchored by `meta["release_425_first_at"]`
+  (`acceptance.py:META_RELEASE_425_FIRST_AT`), an ISO timestamp stamped on
+  the first 425. Past the bound the attempt stays spent, the normal
+  `COORDINATOR_RELEASE_MAX_ATTEMPTS` cap (default 20) applies, and
+  exhaustion still marks the payment `settlement_failed` — a lock that
+  never seals cannot suspend the attempt budget forever; the escrow stays
+  funded and refundable meanwhile.
+- The marker is cleared only on a **definitive** submit outcome (accepted,
+  or a non-425 HTTP answer). A transport failure — no response at all —
+  re-raises out of `_submit_release` and `release_payment` returns False
+  **without** clearing the marker: an unreachable node is not proof the
+  deferral streak ended.
+- Sharp edge: the marker is *not* cleared on the guard early-returns
+  (job missing, wrong `JobState`, unattested receipt — those paths return
+  before the submit), so the deferral clock keeps running across a
+  blocked period; the first post-recovery 425 can count as past-bound
+  immediately.
 
 ### 1.3 Release and refund routes
 
@@ -135,6 +156,39 @@ sweep today; residue accumulates in keyless accounts the consensus code
 alone can debit. (A fee-sweep design — an authority-signed `ESCROW_FEE_SWEEP`
 type behind a future transition height — exists as an operator-local
 proposal and is deliberately not described further here: it is not built.)
+
+### 1.8 Custody accounts on the fleet (observed 2026-10-04)
+
+Deriving every job's account via `_escrow_address(job_id)` over the
+`ESCROW_LOCK` transactions' `payload.job_id` — **not** over node-local
+escrow rows, because a lock whose row was never written still funds an
+account — yields **13 nonzero custody accounts totalling 2,362,184
+units**:
+
+| balance | custody account | job_id |
+|---:|---|---|
+| 450,000 | `0x6aB8ba72E3B21103E6f32157eAE51d3056792116` | `abfe8833b4dc4e19a0b4d2091b74bc23` |
+| 450,000 | `0x2B7A927fb220135F25152436eF1a80ab0e968417` | `b0bca78d791d46b09888d7501a336f36` |
+| 450,000 | `0x19029EFedaFCa362630C12106C86b8cd5B849997` | `b4009a3b888a4055a7f75455bd8d5a9a` |
+| 450,000 | `0x71079672296db787bC03b7e7e3ED40184e2e9f9D` | `f05ada69aa4d46ad9d3681c98fd97f1a` |
+| 425,353 | `0x1d1eEE1e8C368f568da5fE83F5D3F4a32aBcaB7f` | `423712cc00d94246ba5b6136f06294e1` |
+| 90,000 | `0x0776a9A286BFF97706ac052C4003DA441E520E56` | `bd8b5dc5ab39412394c0513b06eb736c` |
+| 18,000 | `0x3d7754875C8c913f3cecCcAB85317cC7E040b884` | `atask_20260913215708_e29a183e` |
+| 18,000 | `0x4AB2dac961Fb09Fe596f7fC6C2833D44f3a0db16` | `atask_20260914072023_936366a8` |
+| 9,000 | `0xBAe2112d67568dEcc872f4b7d67aec9f839796bB` | `sw_job_20260914200636_207d09b8` |
+| 900 | `0x748C863cF060bc9656cb79ECa61Fe0f6E5266f7a` | `canary-escrow-27260` |
+| 900 | `0x0ADfaDCb8483c8f23be4569852941caa175Da4C7` | `canary-escrow-v9r3-1790797967` |
+| 29 | `0x9473a7CC29C3E879Bca7F77ABeb0E93A376A9716` | `sw_job_20260914200726_a558bd8a` |
+| 2 | `0x4CdFA5Dc5B98d850282F51fa13010a472c0baC5F` | `sw_job_20260914200706_88d364d9` |
+
+Read the residue as ~2.5 % of the lock on release-only jobs — the fee the
+release path never moves — not as missing money. The two dust accounts
+(29 and 2 units) are metered-settlement remainders, not a withheld rate.
+`0x0ADfaDCb…` is the **row-less canary**: `ESCROW_LOCK` 36,000 sealed at
+block 29702, `ESCROW_RELEASE` 35,100 at 29705, and **no escrow row on any
+host** — a rows-only census misses it, which is why the account set must
+be derived from transactions. Re-checking is one read-only query: list
+`ESCROW_LOCK` payloads' `job_id`, derive each address, sum balances.
 
 ## 2. Alert response
 
