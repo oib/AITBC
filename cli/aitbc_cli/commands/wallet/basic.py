@@ -743,25 +743,20 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         error(f"Invalid recipient address: {to_address}")
         raise click.Abort()
 
-    # Get RPC URL from context or parameter (use hub for cross-node transfers)
+    # Resolve the RPC endpoint: --rpc-url wins, then a group-injected override
+    # (ctx.obj["rpc_url"], the convention _get_rpc_url in staking.py uses), then
+    # the configured node RPC. A local endpoint is submitted to as configured —
+    # the node relays locally submitted transactions to its mesh peers
+    # (_fanout_transaction_to_peers in rpc/transactions.py), so the hub's public
+    # URL is not needed. Rewriting a local URL to that public name also breaks
+    # on the hub itself, where its own FQDN does not resolve back to the host.
     if not rpc_url:
-        from ...config import get_config
-
-        config = get_config()
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        # Local/follower nodes cannot propagate a transaction to the proposer on
-        # their own. Use the hub's public RPC unless the operator has explicitly
-        # configured a non-local blockchain RPC.
-        if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
-            hub_rpc = (
-                getattr(config, "hub_blockchain_rpc_url", None) or f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
-            )
-            if hub_rpc:
-                hub_rpc = hub_rpc.rstrip("/")
-                if hub_rpc.endswith("/rpc"):
-                    hub_rpc = hub_rpc[:-4]
-                if hub_rpc:
-                    rpc_url = hub_rpc
+        rpc_url = (ctx.obj or {}).get("rpc_url")
+    if not rpc_url:
+        rpc_url = get_config().blockchain_rpc_url
+        if not rpc_url:
+            error("No RPC endpoint configured. Pass --rpc-url or set blockchain_rpc_url in the CLI config")
+            raise click.Abort()
 
     # Get chain_id: an explicit --chain-id or CHAIN_ID wins over the lookup;
     # otherwise the RPC this transaction will be submitted to must advertise
