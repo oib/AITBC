@@ -46,6 +46,7 @@ Operator procedures for the live fleet:
   the node that created the row.
 - [Follower API key](ops/follower-api-key.md),
   [peer keys](ops/peer-keys.md),
+  [island subscription check](ops/island-subscription-check.md),
   [pricing / energy / exchange](ops/pricing-energy-exchange.md).
 
 ## Security
