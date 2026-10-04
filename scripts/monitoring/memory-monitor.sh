@@ -1,10 +1,11 @@
 #!/bin/bash
 # AITBC Memory Monitoring Script
 # Monitors service memory usage and system memory status
+set -euo pipefail
 
 # Configuration
 ALERT_THRESHOLD=90  # System memory usage alert threshold
-LOG_FILE="/var/log/aitbc/memory-monitor.log"
+LOG_FILE="${AITBC_MEMMON_LOG:-/var/log/aitbc/memory-monitor.log}"
 ALERT_EMAIL="admin@aitbc.bubuit.net"  # Optional: configure email alerts
 
 # Colors for output
@@ -54,24 +55,41 @@ check_service_memory() {
     echo ""
     echo "=== Service Memory Status ==="
 
-    local services=$(systemctl list-units --type=service --state=running | grep aitbc | awk '{print $1}')
+    # --no-legend --plain drops the header/footer AND the "●" attention
+    # marker: without --plain a flagged unit's row leads with ●, which used
+    # to be fed to `systemctl show` as a unit name ("Invalid unit name").
+    # The awk also strips any surviving non-unit token in column 1.
+    local services=$(systemctl list-units --type=service --state=running --no-legend --plain 'aitbc*' \
+        | awk '{n=($1=="●")?$2:$1; if(n~/\.service$/) print n}')
     local alert_count=0
 
     for service in $services; do
-        local memory_current=$(systemctl show "$service" -p MemoryCurrent --value)
-        local memory_max=$(systemctl show "$service" -p MemoryMax --value)
-        local memory_limit=$(systemctl show "$service" -p MemoryLimit --value)
+        local memory_current memory_max memory_limit
+        memory_current=$(systemctl show "$service" -p MemoryCurrent --value)
+        memory_max=$(systemctl show "$service" -p MemoryMax --value)
+        memory_limit=$(systemctl show "$service" -p MemoryLimit --value)
+
+        # systemctl --value prints "[not set]"/"infinity" for absent or
+        # unbounded properties. Feeding either into $((...)) used to abort
+        # the run with exit 1; a non-numeric limit is "no limit" instead.
+        if ! [[ "$memory_current" =~ ^[0-9]+$ ]]; then
+            echo "SKIPPED: $service - MemoryCurrent not numeric (${memory_current:-empty})"
+            log_message "WARNING" "$service MemoryCurrent not numeric (${memory_current:-empty})"
+            continue
+        fi
+        local limit_bytes=""
+        local v
+        for v in "$memory_max" "$memory_limit"; do
+            if [[ "$v" =~ ^[0-9]+$ ]] && [ "$v" != "18446744073709551615" ]; then
+                limit_bytes="$v"
+                break
+            fi
+        done
 
         # Convert bytes to MB
         local memory_current_mb=$((memory_current / 1024 / 1024))
-        local memory_max_mb=$((memory_max / 1024 / 1024))
-        local memory_limit_mb=$((memory_limit / 1024 / 1024))
-
-        # Calculate usage percentage
-        local usage_percent=0
-        if [ "$memory_max" != "18446744073709551615" ] && [ "$memory_max" != "infinity" ]; then
-            usage_percent=$((memory_current * 100 / memory_max))
-        fi
+        local memory_limit_mb=""
+        [ -n "$limit_bytes" ] && memory_limit_mb=$((limit_bytes / 1024 / 1024))
 
         # Check if service is near limit. High usage is a warning, not a unit
         # failure: % of MemoryMax counts reclaimable page cache and says nothing
@@ -79,16 +97,17 @@ check_service_memory() {
         # every memory.events counter at 0. The kernel's own pressure counters
         # (oom_kill below, and the max/high events logged alongside) are what
         # mark a real problem, so usage never drives the exit code.
-        if [ "$memory_max" != "18446744073709551615" ] && [ "$memory_max" != "infinity" ]; then
+        if [ -n "$limit_bytes" ]; then
+            local usage_percent=$((memory_current * 100 / limit_bytes))
             if [ $usage_percent -gt 80 ]; then
-                echo -e "${YELLOW}WARNING: $service - ${memory_current_mb}MB/${memory_max_mb}MB (${usage_percent}%)${NC}"
-                log_message "WARNING" "$service memory usage is ${usage_percent}% (${memory_current_mb}MB/${memory_max_mb}MB)"
+                echo -e "${YELLOW}WARNING: $service - ${memory_current_mb}MB/${memory_limit_mb}MB (${usage_percent}%)${NC}"
+                log_message "WARNING" "$service memory usage is ${usage_percent}% (${memory_current_mb}MB/${memory_limit_mb}MB)"
                 alert_count=$((alert_count + 1))
             elif [ $usage_percent -gt 60 ]; then
-                echo -e "${YELLOW}WARNING: $service - ${memory_current_mb}MB/${memory_max_mb}MB (${usage_percent}%)${NC}"
-                log_message "WARNING" "$service memory usage is ${usage_percent}% (${memory_current_mb}MB/${memory_max_mb}MB)"
+                echo -e "${YELLOW}WARNING: $service - ${memory_current_mb}MB/${memory_limit_mb}MB (${usage_percent}%)${NC}"
+                log_message "WARNING" "$service memory usage is ${usage_percent}% (${memory_current_mb}MB/${memory_limit_mb}MB)"
             else
-                echo "OK: $service - ${memory_current_mb}MB/${memory_max_mb}MB (${usage_percent}%)"
+                echo "OK: $service - ${memory_current_mb}MB/${memory_limit_mb}MB (${usage_percent}%)"
             fi
         else
             echo "OK: $service - ${memory_current_mb}MB (no limit)"
@@ -115,7 +134,7 @@ check_oom_events() {
     local oom_total=0
     local found=0
 
-    for unit in $(systemctl list-units --type=service --state=running --no-legend 'aitbc*' | awk '{print $1}'); do
+    for unit in $(systemctl list-units --type=service --state=running --no-legend --plain 'aitbc*' | awk '{n=($1=="●")?$2:$1; if(n~/\.service$/) print n}'); do
         local cgroup
         cgroup=$(systemctl show -p ControlGroup --value "$unit" 2>/dev/null)
         [ -z "$cgroup" ] && continue
@@ -173,11 +192,12 @@ main() {
 
     # Run checks. Usage findings are warnings only; only a recorded OOM kill
     # fails the unit, so a routine high-usage report does not put the timer's
-    # last service run into the failed-units list.
-    check_system_memory
-    check_service_memory
-    check_oom_events
-    local oom_status=$?
+    # last service run into the failed-units list. The two non-fatal checks
+    # must not let set -e kill the run before the summary prints.
+    check_system_memory || true
+    check_service_memory || true
+    local oom_status=0
+    check_oom_events || oom_status=$?
 
     echo ""
     echo "=== Summary ==="
