@@ -544,3 +544,137 @@ class TestDeferralMarkerLifecycle:
         payment = payment_session.get(JobPayment, payment_id)
         assert "release_425_first_at" not in (payment.meta_data or {})
         assert payment.meta_data["release_attempts"] == 1
+
+
+@pytest.mark.unit
+class TestDeferralMarkerGuardExits:
+    """C14 probe, now a regression test: guard early-returns clear the marker.
+
+    `release_payment` clears `release_425_first_at` on every definitive
+    outcome, including the guards between the attempt increment and the
+    submit block. While a guard blocks, a surviving marker would keep
+    anchoring the streak, so the first 425 after the job recovers would
+    count as instantly past-bound and spend an attempt a fresh streak
+    restores.
+
+    (The job-missing guard is unreachable by design: `_require_owned_job`
+    raises 403 before it, so only the two reachable guards are exercised.)
+    """
+
+    @pytest.mark.parametrize(
+        "job_state,receipt",
+        [
+            ("RUNNING", {"computation_correct": True, "zk_status": "not_required"}),
+            ("COMPLETED", {"computation_correct": False, "zk_status": "verified"}),
+        ],
+        ids=["wrong-state", "unattested-receipt"],
+    )
+    def test_guard_return_clears_the_marker(self, payment_session, job_state, receipt):
+        job_id, payment_id = "job-425g-1", "pay-425g-1"
+        first_at = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+        _make_job_and_payment(
+            payment_session,
+            job_id,
+            payment_id,
+            job_state=job_state,
+            payment_status="escrowed",
+            meta={"release_425_first_at": first_at},
+        )
+        job = payment_session.get(Job, job_id)
+        job.receipt = receipt
+        payment_session.add(job)
+        payment_session.commit()
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+
+        payment = payment_session.get(JobPayment, payment_id)
+        # The attempt stays counted -- that part is the guard contract. The
+        # probe is that the streak is over: the marker is gone like after any
+        # other non-425 outcome.
+        assert payment.meta_data["release_attempts"] == 1
+        assert "release_425_first_at" not in (payment.meta_data or {})
+
+
+@pytest.mark.unit
+class TestDeferralMarkerMalformed:
+    """C14 probe, now a regression test: a corrupt marker fails closed.
+
+    `_release_425_within_bound` parses the marker with `fromisoformat`. A
+    parse failure used to fall into the "no streak yet" branch and restamp
+    `now` -- fail-open, a corrupted marker buying a fresh bound. Now it
+    fails closed: the attempt stays spent and the corrupt value is kept
+    as evidence, never silently turned into a fresh timestamp.
+    """
+
+    @pytest.mark.parametrize("bad_marker", ["not-a-timestamp", ""], ids=["garbage", "empty-string"])
+    def test_malformed_marker_does_not_restart_the_clock(self, payment_session, monkeypatch, bad_marker):
+        job_id, payment_id = "job-425x-1", "pay-425x-1"
+        _held_completed_payment(
+            payment_session,
+            job_id,
+            payment_id,
+            meta={"release_425_first_at": bad_marker},
+        )
+        _scripted_transport(monkeypatch, [_resp425])
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+
+        payment = payment_session.get(JobPayment, payment_id)
+        # Desired: an untrustworthy marker must not buy a fresh bound -- the
+        # attempt stays spent and the corrupt value is either kept as
+        # evidence or dropped, never silently restamped.
+        assert payment.meta_data["release_attempts"] == 1
+        assert payment.meta_data.get("release_425_first_at") in (None, bad_marker)
+
+
+@pytest.mark.unit
+class TestDeferralMarkerOtherExits:
+    """The two submit outcomes the marker lifecycle did not pin yet:
+
+    a definitive ``{success:false}`` body on HTTP 200 (answer -> streak
+    ends -> marker cleared) and an unexpected exception inside the submit
+    guard (no answer -> marker kept, attempt counted).
+    """
+
+    def test_success_false_answer_clears_the_marker(self, payment_session, monkeypatch):
+        job_id, payment_id = "job-425sf-1", "pay-425sf-1"
+        _held_completed_payment(payment_session, job_id, payment_id)
+
+        def resp_unsettled(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"success": False, "message": "release rejected by escrow state"},
+                request=request,
+            )
+
+        _scripted_transport(monkeypatch, [_resp425, resp_unsettled])
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+        payment = payment_session.get(JobPayment, payment_id)
+        assert payment.meta_data["release_425_first_at"]
+        assert payment.meta_data["release_attempts"] == 0
+
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+        payment_session.refresh(payment)
+        assert "release_425_first_at" not in payment.meta_data
+        assert payment.meta_data["release_attempts"] == 1
+
+    def test_unexpected_error_in_submit_guard_keeps_the_marker(self, payment_session, monkeypatch):
+        """A non-network exception inside the try is no answer either: the
+        attempt is counted and the marker -- and its clock -- survive."""
+        job_id, payment_id = "job-425e-1", "pay-425e-1"
+        _held_completed_payment(payment_session, job_id, payment_id)
+        _scripted_transport(monkeypatch, [_resp425, RuntimeError("unexpected failure in the submit path")])
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+        payment = payment_session.get(JobPayment, payment_id)
+        first_at = payment.meta_data["release_425_first_at"]
+
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id)) is False
+        payment_session.refresh(payment)
+        assert payment.meta_data["release_attempts"] == 1
+        assert payment.meta_data["release_425_first_at"] == first_at
