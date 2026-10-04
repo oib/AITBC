@@ -44,6 +44,8 @@ AUTHORITY_MESSAGES = (
     "governance_executors chain parameter is not set",
     "must be signed by settlement authority",
     "requires a settlement authority",
+    "requires a fee recipient",
+    "must pay ",
 )
 
 
@@ -137,6 +139,46 @@ def test_unset_settlement_authority_refuses_escrow_from_v5(door) -> None:
         door("ESCROW_RELEASE", AUTHORITY)
 
 
+FEE_RECIPIENT = "0x" + "fe" * 20
+
+
+@pytest.mark.parametrize("v11_height", [None, 999])
+def test_fee_sweep_refused_below_v11_gate(door, session, monkeypatch, v11_height) -> None:
+    """Below the v11 height — unset or not yet reached — the type has no
+    consensus meaning, so the door refuses it rather than sealing it as a
+    plain transfer."""
+    monkeypatch.setattr(settings, "state_transition_v11_height", v11_height)
+    _set(session, "escrow_settlement_authority", AUTHORITY)
+    _set(session, "escrow_fee_recipient", FEE_RECIPIENT)
+    with pytest.raises(ValueError, match="not active on this chain yet"):
+        door("ESCROW_FEE_SWEEP", AUTHORITY, to=FEE_RECIPIENT)
+
+
+def test_fee_sweep_authority_gates_apply_at_v11(door, session, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "state_transition_v11_height", 1)
+    _set(session, "escrow_settlement_authority", AUTHORITY)
+    _set(session, "escrow_fee_recipient", FEE_RECIPIENT)
+    with pytest.raises(ValueError, match="must be signed by settlement authority"):
+        door("ESCROW_FEE_SWEEP", STRANGER, to=FEE_RECIPIENT)
+    with pytest.raises(ValueError, match="must pay"):
+        door("ESCROW_FEE_SWEEP", AUTHORITY, to=STRANGER)
+    door("ESCROW_FEE_SWEEP", AUTHORITY, to=FEE_RECIPIENT)
+
+
+def test_fee_sweep_fails_closed_when_recipient_unset(door, session, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "state_transition_v11_height", 1)
+    _set(session, "escrow_settlement_authority", AUTHORITY)
+    with pytest.raises(ValueError, match="requires a fee recipient"):
+        door("ESCROW_FEE_SWEEP", AUTHORITY, to=FEE_RECIPIENT)
+
+
+def test_fee_sweep_fails_closed_when_authority_unset(door, session, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "state_transition_v11_height", 1)
+    _set(session, "escrow_fee_recipient", FEE_RECIPIENT)
+    with pytest.raises(ValueError, match="requires a settlement authority"):
+        door("ESCROW_FEE_SWEEP", AUTHORITY, to=FEE_RECIPIENT)
+
+
 def test_other_types_are_not_authority_gated(door, session) -> None:
     _set(session, "governance_executors", EXECUTOR)
     _set(session, "escrow_settlement_authority", AUTHORITY)
@@ -153,7 +195,12 @@ def test_earlier_rejections_keep_their_message(door, session) -> None:
 
 
 def test_the_gated_types_are_the_validate_transaction_sender_gates() -> None:
-    assert AUTHORITY_GATED_TYPES == {"GOVERNANCE_EXECUTE", "ESCROW_RELEASE", "ESCROW_REFUND"}
+    assert AUTHORITY_GATED_TYPES == {
+        "GOVERNANCE_EXECUTE",
+        "ESCROW_RELEASE",
+        "ESCROW_REFUND",
+        "ESCROW_FEE_SWEEP",
+    }
 
 
 def _signed(tx: dict[str, Any]) -> dict[str, Any]:
@@ -164,7 +211,7 @@ def _signed(tx: dict[str, Any]) -> dict[str, Any]:
     return {**tx, "signature": sign_transaction_hash(digest, SENDER_KEY)}
 
 
-@pytest.mark.parametrize("block_version", [2, 3, 4, 5, 9])
+@pytest.mark.parametrize("block_version", [2, 3, 4, 5, 9, 11])
 @pytest.mark.parametrize("tx_type", sorted(AUTHORITY_GATED_TYPES))
 @pytest.mark.parametrize("parameter_state", ["unset", "names_sender", "names_other"])
 def test_helper_never_disagrees_with_validate_transaction(
