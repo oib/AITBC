@@ -342,6 +342,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _app_logger.error("Failed to start lease tracker in RPC service: %s", e)
 
     mempool_sweeper = _start_mempool_sweeper()
+    from .rpc.escrow_settlement_sweeper import start_settlement_sweeper
+
+    settlement_sweeper = start_settlement_sweeper()
 
     try:
         yield
@@ -350,12 +353,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # The backends are responsible for fast cleanup; the waits here are a
         # safety net for any component that still blocks.
         async def _shutdown() -> None:
-            if mempool_sweeper is not None:
-                mempool_sweeper.cancel()
-                try:
-                    await asyncio.wait_for(mempool_sweeper, timeout=2.0)
-                except (asyncio.CancelledError, asyncio.TimeoutError):
-                    pass
+            for sweeper in (mempool_sweeper, settlement_sweeper):
+                if sweeper is not None:
+                    sweeper.cancel()
+                    try:
+                        await asyncio.wait_for(sweeper, timeout=2.0)
+                    except (asyncio.CancelledError, asyncio.TimeoutError):
+                        pass
             for proposer in proposers:
                 try:
                     await asyncio.wait_for(proposer.stop(), timeout=10.0)
