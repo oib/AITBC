@@ -1,0 +1,55 @@
+{
+  "_comment": [
+    "Known-artifact registry for open tx-only escrow locks (Task 96/98).",
+    "Content is JSON, which is valid YAML 1.2: escrow-settlements-textfile.py",
+    "parses it with stdlib json, yaml.safe_load reads it identically.",
+    "An ESCROW_LOCK tx with no ESCROW_RELEASE/ESCROW_REFUND leg and no escrow",
+    "row whose job_id is NOT listed here emits aitbc_escrow_open_tx_only_lock",
+    "in the textfile exporter. Adding an entry is documentation, not a chain",
+    "write: it records why the lock is deliberately left open."
+  ],
+  "artifacts": [
+    {
+      "job_id": "sw_job_20260910163039_207d09b8",
+      "kind": "test-artifact",
+      "reason": "Sep-10 test-batch lock, block 1262, 60,912 units, buyer 0x08aB8011 (operator test wallet) -> pool 0x02B8F2C6. Release never sent; no custody account, escrow row, or service row on any host.",
+      "declared_by": "operator",
+      "declared_at": "2026-10-04"
+    },
+    {
+      "job_id": "sw_job_20260910163341_207d09b8",
+      "kind": "test-artifact",
+      "reason": "Sep-10 test-batch lock, block 1265, 25,056 units, buyer 0x08aB8011 (operator test wallet) -> pool 0x02B8F2C6. Release never sent; no custody account, escrow row, or service row on any host.",
+      "declared_by": "operator",
+      "declared_at": "2026-10-04"
+    },
+    {
+      "job_id": "sw_job_20260910163355_88d364d9",
+      "kind": "test-artifact",
+      "reason": "Sep-10 test-batch lock, block 1265, 18,000 units, buyer 0x08aB8011 (operator test wallet) -> pool 0x02B8F2C6. Release never sent; no custody account, escrow row, or service row on any host.",
+      "declared_by": "operator",
+      "declared_at": "2026-10-04"
+    },
+    {
+      "job_id": "ipfs_rental_20260910144545_e01131a8",
+      "kind": "test-artifact",
+      "reason": "Sep-10 test lock, block 1277, 36,000,000 units, buyer 0x08aB8011 (operator test wallet) -> pool 0x02B8F2C6. Operator-designated test artifact; derived custody account was never funded and no escrow or service row exists.",
+      "declared_by": "operator",
+      "declared_at": "2026-10-04"
+    },
+    {
+      "job_id": "sw_job_20260910203053_207d09b8",
+      "kind": "test-artifact",
+      "reason": "Sep-10 test lock, block 1501, 60,500 units, buyer 0x08aB8011 -> pool 0x02B8F2C6. Caveat: the only one of the six with an on-chain completion record (GPU_MARKETPLACE software_job status=completed, same block). Provider 0x4A5b3bf9 is node2's own miner/default wallet (verified in /etc/aitbc/aitbc-miner.env and /var/lib/aitbc/wallets/default.json), so the unrefunded value is operator->operator; refund via the chain path remains an option if the operator decides real work was owed.",
+      "declared_by": "operator",
+      "declared_at": "2026-10-04"
+    },
+    {
+      "job_id": "edge-test-002",
+      "kind": "test-artifact",
+      "reason": "Sep-10 edge-test lock, block 1598, 36,000 units, buyer 0x08aB8011 (operator test wallet) -> pool 0x02B8F2C6. Sibling edge-test-001 released 7 blocks after its lock; this run's release was never sent. No custody account, escrow row, or service row.",
+      "declared_by": "operator",
+      "declared_at": "2026-10-04"
+    }
+  ]
+}

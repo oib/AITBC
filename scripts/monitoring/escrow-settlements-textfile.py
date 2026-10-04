@@ -30,23 +30,40 @@ Writes, atomically, to ``<TEXTFILE_DIR>/aitbc_escrow_settlements.prom``:
     aitbc_escrow_unlanded_settlements                    rows violating the invariant
     aitbc_escrow_unlanded_settlement{job_id=...,kind=...} 1 per violating row
     aitbc_escrow_unlanded_settlement_oldest_seconds      age of the oldest violation
+    aitbc_escrow_open_tx_only_locks                      open tx-only locks not in the registry
+    aitbc_escrow_open_tx_only_lock{job_id=...}           1 per unregistered open tx-only lock
     aitbc_escrow_settlement_scrape_success{db=...}       1 when the DB read worked
     aitbc_escrow_settlement_scrape_timestamp_seconds     when this run finished
 
+A second scan watches the transaction layer the row check cannot see: an
+``ESCROW_LOCK`` transaction with no ``ESCROW_RELEASE``/``ESCROW_REFUND`` leg and
+no escrow row is an open tx-only lock -- nothing selects it, nothing settles
+it, and without this metric nothing would ever notice a new one. Job ids
+listed in the known-artifacts registry (Task 96's six pre-v3 test locks) are
+suppressed; every other such lock emits ``aitbc_escrow_open_tx_only_lock``.
+The registry is JSON-in-YAML (JSON is valid YAML 1.2, so this stays
+stdlib-only); it ships in the repo so every host suppresses the same list.
+
 A DB that cannot be opened or lacks the escrow table reads as failure, not as
-"all clear" -- a broken check must not mask the disease it watches. Run by a
-systemd timer (aitbc-escrow-settlements.timer); stdlib only.
+"all clear" -- a broken check must not mask the disease it watches. An
+unreadable or malformed registry likewise reads as failure (a failing
+``scrape_success`` series, exit 1): without it nothing is suppressible, and
+emitting the raw unsuppressed list would false-alert on every known lock.
+Run by a systemd timer (aitbc-escrow-settlements.timer); stdlib only.
 
 Environment:
     AITBC_CHAIN_DB                          explicit chain.db path (else scan below)
     AITBC_DATA_DIR                          default /var/lib/aitbc; scanned for data/*/chain.db
     AITBC_ESCROW_SETTLEMENT_MAX_AGE_SECONDS default 900
     AITBC_TEXTFILE_DIR                      default /var/lib/prometheus/node-exporter
+    AITBC_ESCROW_KNOWN_ARTIFACTS            known-artifact registry path;
+                                            default escrow-known-artifacts.yml beside this script
 """
 
 from __future__ import annotations
 
 import glob
+import json
 import os
 import sqlite3
 import sys
@@ -146,12 +163,64 @@ def read_db(path: str, now: float, max_age_seconds: float) -> list[Violation] | 
         return None
 
 
+def read_known_artifacts(path: str) -> set[str] | None:
+    """Job ids in the known-artifact registry, or None when it cannot be trusted.
+
+    The file is JSON-in-YAML so stdlib json parses it. Any failure -- missing
+    file, unreadable content, wrong shape -- returns None; the caller turns
+    that into a scrape failure rather than an unsuppressed all-clear.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        artifacts = data["artifacts"]
+        known = {entry["job_id"] for entry in artifacts}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not all(isinstance(job_id, str) and job_id for job_id in known):
+        return None
+    return known
+
+
+def read_open_locks(path: str, known: set[str]) -> set[str] | None:
+    """Open tx-only locks in one chain.db, minus the registry; None on failure.
+
+    Open tx-only = ESCROW_LOCK tx, no ESCROW_RELEASE/ESCROW_REFUND leg, no
+    escrow row. The NOT IN subqueries exclude NULL job ids explicitly -- a
+    NULL in an IN-list would quietly empty the whole result.
+    """
+    query = """
+        SELECT job_id FROM (
+            SELECT DISTINCT json_extract(payload, '$.job_id') AS job_id
+            FROM 'transaction' WHERE type = 'ESCROW_LOCK'
+        )
+        WHERE job_id IS NOT NULL
+          AND job_id NOT IN (
+              SELECT json_extract(payload, '$.job_id') FROM 'transaction'
+              WHERE type IN ('ESCROW_RELEASE', 'ESCROW_REFUND')
+                AND json_extract(payload, '$.job_id') IS NOT NULL
+          )
+          AND job_id NOT IN (SELECT job_id FROM escrow WHERE job_id IS NOT NULL)
+    """
+    try:
+        uri = f"file:{path}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=5.0) as conn:
+            return {row[0] for row in conn.execute(query)} - known
+    except sqlite3.Error:
+        return None
+
+
 def _label(value: str) -> str:
     """A label value that cannot break the exposition format."""
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
-def render(results: dict[str, list[Violation] | None], now: float) -> str:
+def render(
+    results: dict[str, list[Violation] | None],
+    now: float,
+    open_locks: set[str] | None = None,
+    failed_sources: list[str] | None = None,
+) -> str:
     violations = [v for vs in results.values() if vs for v in vs]
     lines = [
         "# HELP aitbc_escrow_unlanded_settlements Escrow rows marked released/refunded whose "
@@ -169,12 +238,25 @@ def render(results: dict[str, list[Violation] | None], now: float) -> str:
     ]
     oldest = max((v.age_seconds for v in violations), default=0)
     lines.append(f"aitbc_escrow_unlanded_settlement_oldest_seconds {int(oldest)}")
+    locks = sorted(open_locks or set())
     lines += [
-        "# HELP aitbc_escrow_settlement_scrape_success 1 when this chain.db was readable and carried the escrow table.",
+        "# HELP aitbc_escrow_open_tx_only_locks ESCROW_LOCK transactions with no settlement leg and no "
+        "escrow row, minus the known-artifacts registry.",
+        "# TYPE aitbc_escrow_open_tx_only_locks gauge",
+        f"aitbc_escrow_open_tx_only_locks {len(locks)}",
+        "# HELP aitbc_escrow_open_tx_only_lock Per-job detail of aitbc_escrow_open_tx_only_locks.",
+        "# TYPE aitbc_escrow_open_tx_only_lock gauge",
+    ]
+    for job_id in locks:
+        lines.append(f'aitbc_escrow_open_tx_only_lock{{job_id="{_label(job_id)}"}} 1')
+    lines += [
+        "# HELP aitbc_escrow_settlement_scrape_success 1 when this source was readable and carried the escrow table.",
         "# TYPE aitbc_escrow_settlement_scrape_success gauge",
     ]
     for db, result in sorted(results.items()):
         lines.append(f'aitbc_escrow_settlement_scrape_success{{db="{_label(db)}"}} {0 if result is None else 1}')
+    for source in failed_sources or []:
+        lines.append(f'aitbc_escrow_settlement_scrape_success{{db="{_label(source)}"}} 0')
     lines += [
         "# HELP aitbc_escrow_settlement_scrape_timestamp_seconds Unix time the last run finished.",
         "# TYPE aitbc_escrow_settlement_scrape_timestamp_seconds gauge",
@@ -210,6 +292,9 @@ def main() -> int:
         print("escrow-settlements: AITBC_ESCROW_SETTLEMENT_MAX_AGE_SECONDS is not a number", file=sys.stderr)
         return 2
     directory = os.environ.get("AITBC_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
+    registry_path = os.environ.get("AITBC_ESCROW_KNOWN_ARTIFACTS", "").strip() or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "escrow-known-artifacts.yml"
+    )
     dbs = resolve_dbs()
     now = time.time()
     if not dbs:
@@ -219,9 +304,29 @@ def main() -> int:
         write_atomic(directory, render({"none": None}, now))
         print("escrow-settlements: no chain.db found to check", file=sys.stderr)
         return 2
-    results = {db: read_db(db, now, max_age) for db in dbs}
-    write_atomic(directory, render(results, now))
+    known = read_known_artifacts(registry_path)
+    results: dict[str, list[Violation] | None] = {}
+    open_locks: set[str] = set()
+    for db in dbs:
+        violations = read_db(db, now, max_age)
+        if violations is None:
+            results[db] = None
+            continue
+        if known is not None:
+            opened = read_open_locks(db, known)
+            if opened is None:
+                results[db] = None
+                continue
+            open_locks |= opened
+        results[db] = violations
+    # When the registry is unreadable the open-lock scan is skipped entirely:
+    # without suppression every known artifact would false-alert, so the scan
+    # emits nothing and the registry's own scrape_success carries the failure.
+    failed_sources = [] if known is not None else [registry_path]
+    write_atomic(directory, render(results, now, open_locks=open_locks, failed_sources=failed_sources))
     failed = [db for db, result in results.items() if result is None]
+    if known is None:
+        failed.append(registry_path)
     if failed:
         print(f"escrow-settlements: could not check {', '.join(failed)}", file=sys.stderr)
         return 1
