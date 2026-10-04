@@ -11,10 +11,17 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="${BACKUP_BASE}/${TIMESTAMP}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 # Minimum number of good snapshots pruning must keep. Good = the directory
-# holds a nonzero chain_*_chain.db.gz that passes gzip -t (integrity check,
-# on by default; BACKUP_GOOD_REQUIRE_GZIP_TEST=no restores the size-only rule).
+# holds the production chain DB dump: a file matching BACKUP_GOOD_CHAIN_GLOB
+# (excluding pre-migration snapshots) of at least BACKUP_GOOD_MIN_BYTES that
+# passes gzip -t (integrity check, on by default;
+# BACKUP_GOOD_REQUIRE_GZIP_TEST=no restores the size-only rule). The glob and
+# floor exist because snapshots also carry near-empty dumps of other DBs
+# (e.g. a ~70-byte empty island chain) — "any nonzero chain_*.gz" once meant
+# a run that lost the real chain dump still counted as good.
 BACKUP_KEEP_MIN_GOOD="${BACKUP_KEEP_MIN_GOOD:-7}"
 BACKUP_GOOD_REQUIRE_GZIP_TEST="${BACKUP_GOOD_REQUIRE_GZIP_TEST:-yes}"
+BACKUP_GOOD_CHAIN_GLOB="${BACKUP_GOOD_CHAIN_GLOB:-chain_ait-hub*_chain.db.gz}"
+BACKUP_GOOD_MIN_BYTES="${BACKUP_GOOD_MIN_BYTES:-4096}"
 # BACKUP_PRUNE_DRYRUN=yes: run the full prune decision loop but log
 # "would remove" instead of deleting. First deploy should run this once so the
 # operator sees the one-off deletion list before it happens for real.
@@ -322,17 +329,23 @@ chmod 750 "${BACKUP_DIR}" 2>/dev/null || true
 # Age is read from the directory NAME (YYYYMMDD_HHMMSS), never mtime — any
 # touch resets mtime (a Sep-8 touch preserved Aug-named dirs on hub/node2).
 # Names that do not parse are never pruned. At least BACKUP_KEEP_MIN_GOOD good
-# snapshots are kept, where good = the dir holds a nonzero chain_*_chain.db.gz.
+# snapshots are kept — good is defined by _is_good_snapshot above.
 # Nothing is pruned when this run produced no good snapshot itself: emptying
 # the vault during a broken-backup stretch is how the last restorable copy
 # gets lost.
 _is_good_snapshot() {
-    local dir="$1" f
+    local dir="$1" f base size
     while IFS= read -r f; do
+        base="$(basename "$f")"
+        case "$base" in
+        *pre-0x-migration*) continue ;;
+        esac
+        size=$(stat -c %s "$f" 2>/dev/null || echo 0)
+        [ "$size" -lt "$BACKUP_GOOD_MIN_BYTES" ] && continue
         if [ "$BACKUP_GOOD_REQUIRE_GZIP_TEST" = "no" ] || gzip -t "$f" 2>/dev/null; then
             return 0
         fi
-    done < <(find "$dir" -maxdepth 1 -name 'chain_*_chain.db.gz' -size +0c -print 2>/dev/null)
+    done < <(find "$dir" -maxdepth 1 -name "$BACKUP_GOOD_CHAIN_GLOB" -print 2>/dev/null)
     return 1
 }
 
