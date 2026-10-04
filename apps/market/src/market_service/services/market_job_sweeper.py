@@ -206,7 +206,9 @@ class MarketJobSweeper:
             # Any raised answer (425 'lock not sealed', 5xx, transport) is a
             # 'not yet' too -- it shares the bounded deferral instead of
             # retrying forever and silently.
-            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id)
+            return await self._settlement_not_yet(
+                session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id, "released"
+            )
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
             job.state = "RELEASED"
@@ -232,7 +234,7 @@ class MarketJobSweeper:
             if result is None
             else f"rolled back by the node, retryable ({result.get('message')})"
         )
-        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id)
+        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id, "released")
 
     async def _refund_payment(
         self,
@@ -252,7 +254,9 @@ class MarketJobSweeper:
         try:
             result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
         except Exception as e:
-            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id)
+            return await self._settlement_not_yet(
+                session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id, "refunded"
+            )
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
             job.state = "REFUNDED"
@@ -276,7 +280,7 @@ class MarketJobSweeper:
             if result is None
             else f"rolled back by the node, retryable ({result.get('message')})"
         )
-        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id)
+        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id, "refunded")
 
     @staticmethod
     def _clear_deferral(payment: MarketJobPayment) -> None:
@@ -292,6 +296,7 @@ class MarketJobSweeper:
         payment: MarketJobPayment,
         outcome: str,
         contract_id: str,
+        intended: str,
     ) -> bool:
         """A 'not yet' settlement answer defers, bounded by settle_max_seconds.
 
@@ -299,8 +304,11 @@ class MarketJobSweeper:
         the first deferral stamps ``meta_data['settle_deferral_first_at']``.
         Past the bound one ``GET /escrow/{id}`` read converts the guess into
         evidence: absent -> terminal ``settlement_failed``; a released or
-        refunded row -> adopt that verdict; anything else (still locked, or
-        the read itself failed) -> keep deferring with a loud log line.
+        refunded row with a landed tx hash -> adopt that verdict (reality
+        wins even when the row's kind is not the ``intended`` one -- the row
+        is authoritative for where the money went); anything else (still
+        locked, hashless verdict, or a failed read) -> keep deferring with a
+        loud log line.
         """
         now = datetime.now(UTC)
         meta = dict(payment.meta_data or {})
@@ -362,9 +370,35 @@ class MarketJobSweeper:
                 self.settle_max_seconds,
             )
             return False
-        if read_error is None and escrow is not None and escrow.get("state") in {"released", "refunded"}:
-            # The node knows the verdict: the escrow settled through another
-            # path. Adopt it rather than marking a settled escrow 'failed'.
+        state = escrow.get("state") if escrow is not None else None
+        if read_error is None and escrow is not None and state in {"released", "refunded"}:
+            tx_hash = escrow.get("release_tx_hash") if state == "released" else escrow.get("refund_tx_hash")
+            if not tx_hash:
+                # A verdict row without a landed hash is the S-8 dead-hash
+                # shape: never adopt 'settled' from a hash that may never
+                # have sealed. Defer and let an operator look.
+                logger.error(
+                    "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
+                    "escrow reports %s but its tx hash is empty -- still deferring",
+                    job.id,
+                    payment.id,
+                    elapsed,
+                    state,
+                )
+                return False
+            if state != intended:
+                # Reality wins: the row is authoritative for where the money
+                # went, so a settled escrow is adopted even when it is not the
+                # kind this sweep intended -- marking it 'failed' would strand
+                # a settled escrow, deferring forever is noise.
+                logger.error(
+                    "Escrow settlement for job %s payment %s: sweeper intended %s but "
+                    "the escrow reports %s -- adopting the row's verdict",
+                    job.id,
+                    payment.id,
+                    intended,
+                    state,
+                )
             self._adopt_escrow_verdict(session, job, payment, meta, escrow, now)
             logger.info(
                 "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
@@ -372,7 +406,7 @@ class MarketJobSweeper:
                 job.id,
                 payment.id,
                 elapsed,
-                escrow["state"],
+                state,
             )
             return True
         logger.error(
