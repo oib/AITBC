@@ -77,7 +77,7 @@ def _make_db(path: Path, rows: list[tuple], landed: list[str] | None = None) -> 
         "CREATE TABLE escrow (job_id TEXT PRIMARY KEY, status TEXT, release_tx_hash TEXT, "
         "refund_tx_hash TEXT, released_at TEXT, refunded_at TEXT)"
     )
-    conn.execute("CREATE TABLE 'transaction' (tx_hash TEXT)")
+    conn.execute("CREATE TABLE 'transaction' (tx_hash TEXT, type TEXT, payload TEXT)")
     conn.executemany(
         "INSERT INTO escrow (job_id, status, release_tx_hash, refund_tx_hash, released_at, refunded_at) "
         "VALUES (?, ?, ?, ?, ?, ?)",
