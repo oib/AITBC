@@ -81,6 +81,7 @@ def _make_snapshot(
     stub_only: bool = False,
     small_chain: bool = False,
     island_only: bool = False,
+    stray_name: bool = False,
 ) -> Path:
     d = base / name
     d.mkdir(parents=True)
@@ -88,6 +89,11 @@ def _make_snapshot(
         # Over the size floor but a broken gzip stream — must reach gzip -t
         # and fail there, not at the size check.
         (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(b"\x1f\x8bFAKE" + b"x" * 5000)
+    elif stray_name:
+        # node2's stray short-name dump (~4.6 KB) — clears the size floor and
+        # passes gzip -t, but the name is not the production dump's. A run that
+        # lost the real dump but kept this file must not count as good.
+        (d / "chain_ait-hub_chain.db.gz").write_bytes(_big_gz())
     elif small_chain:
         # Right name, but below BACKUP_GOOD_MIN_BYTES — e.g. a dump that
         # truncated early. Not good.
@@ -318,6 +324,18 @@ def test_small_real_chain_gz_is_not_a_good_snapshot(env):
     r = _run(env, BACKUP_KEEP_MIN_GOOD="2")
     assert r.returncode == 0
     assert not small.exists()
+
+
+def test_stray_short_name_chain_gz_is_not_a_good_snapshot(env):
+    """chain_ait-hub_chain.db.gz — a real ~4.6 KB file on node2 — clears the
+    floor but is not the production dump name; it must not count as good."""
+    stray = _make_snapshot(env.base, _snap_name(40), stray_name=True)
+    for days in (50, 60):
+        _make_snapshot(env.base, _snap_name(days))
+
+    r = _run(env, BACKUP_KEEP_MIN_GOOD="2")
+    assert r.returncode == 0
+    assert not stray.exists()
 
 
 def test_valid_real_chain_gz_counts_as_good(env):
