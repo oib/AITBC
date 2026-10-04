@@ -5,9 +5,16 @@ After=network.target
 
 [Service]
 Type=oneshot
+# Optional: carries AITBC_API_KEY (the miner API key the CLI resolves via
+# os.environ). Leading '-' — a missing file must not fail the start; the
+# script reports the missing key itself (exit 3). Operator-created,
+# mode 600 root; see docs/ops/island-subscription-check.md.
+EnvironmentFile=-/etc/aitbc/aitbc-island-subscription-check.env
 ExecStart=/usr/local/sbin/aitbc-island-subscription-check.sh
 # Exits 1 when the on-chain island subscription is expired/missing,
-# 2 when the check itself could not complete.
+# 2 when the coordinator is unreachable, 3 when no AITBC_API_KEY is
+# configured, 4 when the configured key is refused (HTTP 401/403),
+# 5 when the check failed inconclusively for any other reason.
 SyslogIdentifier=aitbc-island-sub-check
 
 NoNewPrivileges=true
