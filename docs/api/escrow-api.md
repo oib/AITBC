@@ -129,7 +129,13 @@ Query the current state of an escrow contract.
 
 `POST /rpc/escrow/{job_id}/release`
 
-Release locked funds to the provider after job completion.
+Release locked funds to the provider after job completion. From
+`state_transition_v11_height`, when the node sets `ESCROW_FEE_SWEEP_ENABLED`
+and `ESCROW_FEE_RECIPIENT`, a follow-up `ESCROW_FEE_SWEEP` transaction is
+submitted after the final settlement leg to move the custody-account residue
+(the withheld platform fee plus rounding dust) to the governed fee recipient.
+The sweep is advisory-only: it never changes the release outcome, and it is
+not returned in the response body.
 
 **Path Parameters:**
 

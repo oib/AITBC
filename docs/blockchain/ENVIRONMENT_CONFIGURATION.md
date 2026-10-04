@@ -361,6 +361,8 @@ coverage is enforced by `tests/test_env_doc_coverage.py`.
 | `GOSSIP_BROADCAST_URL` | Gossip broadcast backend (e.g. `redis://…`). |
 | `GOSSIP_MAX_MESSAGE_SIZE` / `GOSSIP_MAX_MESSAGES_PER_MINUTE` / `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | Gossip message-size cap, per-peer rate limit, per-IP connection cap. |
 | `ESCROW_RELEASE_ADDRESS` / `escrow_settlement_authority` | Fallback escrow-settlement authority when the chain parameter is unset. |
+| `ESCROW_FEE_RECIPIENT` / `escrow_fee_recipient` | Env fallback for the v11 `ESCROW_FEE_SWEEP` destination when the chain parameter is unset — consensus fails closed without it. Designate the treasury address at deploy time. |
+| `ESCROW_FEE_SWEEP_ENABLED` | Signer-side switch (default off): when set, the escrow release route submits the `ESCROW_FEE_SWEEP` leg after a job's final settlement leg. |
 | `ESCROW_RELEASE_LOOKUP_LIMIT` | Max sealed rows scanned when resolving a release (default 10). |
 | `BRIDGE_RELEASE_AUTHORITY` | Fallback authority for `BRIDGE_RELEASE`/`BRIDGE_REFUND` signature checks (chain param takes precedence). |
 | `BOND_ESCROW_ADDRESS` / `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | Bond escrow, burn sink, and slash-authority addresses. |
@@ -569,11 +571,12 @@ under the old, lenient rules so sealed history stays valid.
 | `STATE_TRANSITION_V8_HEIGHT` | Stamped-version integrity — the height-derived version governs, mismatched stamps log `block_version_stamp_mismatch_total`. Hardcoded 24800. |
 | `STATE_TRANSITION_V9_HEIGHT` | Sender-signature enforcement at apply + attestation. **Unset = shadow mode**: would-rejects log and count `v9_would_reject_*_total` instead of rejecting. Pin only after shadow counters stay clean. |
 | `STATE_TRANSITION_V10_HEIGHT` | `GPU_DEREGISTER` (the registrant sets its GPU to `deactivated`) and no new `GPU_ALLOCATE` on a deactivated GPU. **Baked default 32100** — hardcoded like v4 to v9 after the fleet-wide activation on 2026-10-02. An env value only overrides that default; keep it identical on every node (`fleet-config-check.sh` flags drift). Below the height a sealed `GPU_DEREGISTER` replays as a plain transfer, and every node must run a build that knows the type *before* the height. |
+| `STATE_TRANSITION_V11_HEIGHT` | `ESCROW_FEE_SWEEP` — the settlement authority drains a settled job's custody residue (withheld platform fee plus dust) to the on-chain `escrow_fee_recipient`. **Default unset = off**; set it identically on every node (`fleet-config-check.sh` flags drift), and only after every validator and follower runs a build that knows the type. Below the height a sealed `ESCROW_FEE_SWEEP` replays as a plain transfer. |
 
 **Effective-heights rule**: heights v4/v5/v7/v8 are consensus and hardcoded in
 `aitbc_chain/config.py` — env files cannot move them (an env-drifted fleet
 would fork), and `fleet-config-check.sh` flags an env-set value that shadows
-a code pin. Only v2/v3/v6/v9/v10 are operator-settable; set them identically on
+a code pin. Only v2/v3/v6/v9/v10/v11 are operator-settable; set them identically on
 every node.
 
 Bridge payout/deposit knobs (`BRIDGE_*`, `PAYOUT_*`, `MIN_ETH_DEPOSIT`) live in
