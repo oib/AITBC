@@ -134,7 +134,7 @@ function renderEvents(body) {
     }
     box.innerHTML = `<table class="alerts-table">
         <thead><tr><th>When</th><th>Event</th><th>Alert</th><th>Node</th><th>Via</th><th>Detail</th></tr></thead>
-        <tbody>${events.map(eventRow).join('')}</tbody>
+        <tbody>${events.slice(0, 20).map(eventRow).join('')}</tbody>
     </table>`;
 }
 
