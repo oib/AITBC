@@ -286,3 +286,21 @@ groups:
         annotations:
           summary: "AITBC unit {{ $labels.name }} failed on {{ $labels.instance }}"
           description: "systemd unit {{ $labels.name }} (job {{ $labels.job }}) has been in the failed state >15m. Check: systemctl status {{ $labels.name }} ; journalctl -u {{ $labels.name }} -n 50. On hosts with remote-write, the same unit may alert on both the local and the central Prometheus — the instance label identifies the reporting scraper, not necessarily the host running the unit."
+
+      # Guards AitbcSystemdUnitFailed's blind spot: a node-exporter running
+      # without --collector.systemd exposes no node_systemd_unit_state
+      # series at all, so the unit-failed rule reads a silent all-clear.
+      # node="" selects locally-scraped series only — remote-written copies
+      # on hub central carry a node=<host> external label and are excluded,
+      # so each host's own Prometheus checks its own exporter and hub
+      # cannot fire a duplicate or ambiguous-instance alert for a remote
+      # host's missing collector. The instance join is safe after the
+      # filter: at most one local candidate remains on each side.
+      - alert: AitbcSystemdCollectorMissing
+        expr: up{job=~"node.*", node=""} == 1 unless on(instance) count by (instance) (node_systemd_unit_state{node=""})
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "node-exporter on {{ $labels.instance }} exposes no systemd-unit series"
+          description: "The node job on {{ $labels.instance }} (job {{ $labels.job }}) is up but has exported no node_systemd_unit_state series for >15m — its --collector.systemd is disabled, so AitbcSystemdUnitFailed is blind there. Enable the collector in the node-exporter unit and restart it."

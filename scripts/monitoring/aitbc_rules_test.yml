@@ -521,17 +521,16 @@ tests:
         eval_time: 30m
         exp_samples: []
 
-  # Series-gap coverage check + the documented defect.
+  # Series-gap coverage check + the collector-missing case.
   # (a) Coverage: assert the collector series the alert tests rely on are
   #     actually present in the input — a rename or drop empties them and
   #     this fails loudly instead of letting the alert tests pass on nothing.
-  # (b) The defect, pinned not fixed: on a host whose node-exporter lacks
-  #     --collector.systemd there are no node_systemd_unit_state series at
-  #     all, so the rule evaluates empty — a silent all-clear that cannot
-  #     distinguish "no failed aitbc unit" from "collector absent". A proper
-  #     fix is a separate absent()-style collector-presence alert, which is
-  #     deliberately out of scope (one rule only); the fleet coverage table
-  #     in the C20 TOPOLOGY note lists where the series is actually scraped.
+  # (b) Former defect, now covered by AitbcSystemdCollectorMissing (C23):
+  #     on a host whose node-exporter lacks --collector.systemd there are
+  #     no node_systemd_unit_state series at all, so AitbcSystemdUnitFailed
+  #     evaluates empty — but the healthy `up` on the node job with no
+  #     unit-state series is exactly what the collector-missing rule fires
+  #     on. The all-clear is no longer silent.
   - interval: 1m
     input_series:
       - series: 'node_systemd_unit_state{instance="node2:9100", job="node", name="aitbc-x.service", state="failed"}'
@@ -540,6 +539,9 @@ tests:
         values: '1x40'
       - series: 'node_systemd_unit_state{instance="node0:9100", job="node", name="aitbc-y.service", state="failed"}'
         values: '0x40'
+      # node9: exporter up, collector absent — the case the new rule covers.
+      - series: 'up{instance="node9:9100", job="node"}'
+        values: '1x40'
     promql_expr_test:
       - expr: count(node_systemd_unit_state) by (instance)
         eval_time: 5m
@@ -548,11 +550,52 @@ tests:
             value: 2
           - labels: '{instance="node2:9100"}'
             value: 1
-      - expr: absent(node_systemd_unit_state{instance="node9:9100"})
-        eval_time: 5m
-        exp_samples:
-          - labels: '{instance="node9:9100"}'
-            value: 1
       - expr: ALERTS{alertname="AitbcSystemdUnitFailed", instance="node9:9100"}
         eval_time: 30m
         exp_samples: []
+      - expr: ALERTS{alertname="AitbcSystemdCollectorMissing", instance="node9:9100"}
+        eval_time: 30m
+        exp_samples:
+          - labels: '{__name__="ALERTS", alertname="AitbcSystemdCollectorMissing", alertstate="firing", instance="node9:9100", job="node", severity="warning"}'
+            value: 1
+
+  # AitbcSystemdCollectorMissing — the firing/silence matrix in one input
+  # universe. exp_alerts at 30m lists every firing alert for the rule, so
+  # each non-firing case is proved by its absence:
+  #   node9  up, no unit-state at all        -> FIRES (collector off)
+  #   node2  up, unit-state present          -> silent (healthy)
+  #   node8  up==0, no unit-state            -> silent (ServiceDown's job)
+  #   node10 up, unit-state gap of 8m < 15m  -> silent (scrape gap)
+  #   remote up, node=node2 external label   -> silent (hub-central copy is
+  #          excluded by node="" — no duplicate/ambiguous firing)
+  - interval: 1m
+    input_series:
+      - series: 'up{instance="node9:9100", job="node"}'
+        values: '1x40'
+      - series: 'up{instance="node2:9100", job="node"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{instance="node2:9100", job="node", name="x.service", state="active"}'
+        values: '1x40'
+      - series: 'up{instance="node8:9100", job="node"}'
+        values: '0x40'
+      - series: 'up{instance="node10:9100", job="node"}'
+        values: '1x40'
+      - series: 'node_systemd_unit_state{instance="node10:9100", job="node", name="x.service", state="active"}'
+        values: '1 _x9 1x30'
+      - series: 'up{instance="127.0.0.1:9100", job="node-exporter-local", node="node2", monitor="aitbc3-central"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: AitbcSystemdCollectorMissing
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: AitbcSystemdCollectorMissing
+        exp_alerts:
+          - exp_labels:
+              alertname: AitbcSystemdCollectorMissing
+              severity: warning
+              instance: node9:9100
+              job: node
+            exp_annotations:
+              summary: "node-exporter on node9:9100 exposes no systemd-unit series"
+              description: "The node job on node9:9100 (job node) is up but has exported no node_systemd_unit_state series for >15m — its --collector.systemd is disabled, so AitbcSystemdUnitFailed is blind there. Enable the collector in the node-exporter unit and restart it."
