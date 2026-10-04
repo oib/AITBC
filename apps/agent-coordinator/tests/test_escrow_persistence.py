@@ -151,6 +151,51 @@ class TestEscrowPersistence:
         assert loaded.tx_hash_refund == "refund-tx"
         assert persisted_row(entry.escrow_id).status == "REFUNDED"
 
+    def test_425_lock_not_sealed_keeps_locked_and_retries(self, escrow_db):
+        """Node answers 425 ('lock not sealed yet') once, then 200.
+
+        The release raises EscrowRPCError, the entry must stay LOCKED (no
+        terminal RELEASED/REFUNDED written on a 'not yet'), and a later retry
+        through the same path settles. Exercises the real ChainEscrowClient
+        over httpx.MockTransport, not a stubbed submitter.
+        """
+        import httpx
+
+        from agent_app.services.chain_escrow import ChainEscrowClient, EscrowRPCError, make_release_submitter
+
+        state = {"calls": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["calls"] += 1
+            if state["calls"] == 1:
+                return httpx.Response(
+                    425,
+                    json={"detail": "escrow lock is not sealed yet"},
+                    headers={"Retry-After": "5"},
+                    request=request,
+                )
+            return httpx.Response(200, json={"success": True, "tx_hash": "0xsealed"}, request=request)
+
+        client = ChainEscrowClient(
+            base_url="http://node.invalid/rpc",
+            transport=httpx.MockTransport(handler),
+        )
+
+        escrow = PaymentEscrow(store=TaskEscrowStore())
+        entry = escrow.create_escrow(task_id="t-425", chain_id="ait-mainnet", requester="buyer", agent="provider", amount=10)
+        escrow.lock(entry.escrow_id, submitter=lambda *a: "lock-tx-425")
+
+        submitter = make_release_submitter(client, "t-425")
+        with pytest.raises(EscrowRPCError):
+            escrow.release(entry.escrow_id, submitter=submitter)
+        assert escrow.get_escrow(entry.escrow_id).status == EscrowStatus.LOCKED
+
+        entry = escrow.release(entry.escrow_id, submitter=submitter)
+        assert entry.status == EscrowStatus.RELEASED
+        assert entry.tx_hash_release == "0xsealed"
+        assert state["calls"] == 2
+        assert persisted_row(entry.escrow_id).status == "RELEASED"
+
     def test_sweeper_sees_locked_rows_after_restart(self, escrow_db):
         """An escrow locked before the restart is expired/refunded after it."""
         escrow = PaymentEscrow(store=TaskEscrowStore())
