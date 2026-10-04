@@ -217,6 +217,32 @@ tests:
               summary: "Alert watcher heartbeat has stopped ()"
               description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
 
+  # RemoteWriteFailing: a sender whose remote_write batches are being rejected
+  # (failed counter climbing 1/s) must fire after the 15-minute hold; a flat
+  # counter on a second host must never fire.
+  - interval: 1m
+    input_series:
+      - series: 'prometheus_remote_storage_samples_failed_total{instance="node2:9090", job="prometheus"}'
+        values: '0+1x80'
+      - series: 'prometheus_remote_storage_samples_failed_total{instance="node9:9090", job="prometheus"}'
+        values: '0x80'
+    alert_rule_test:
+      # Pending since t=1m (rate needs two samples); 9m < the 15m hold.
+      - eval_time: 10m
+        alertname: RemoteWriteFailing
+        exp_alerts: []
+      # 16m of pending -> firing; the flat counter stays silent.
+      - eval_time: 17m
+        alertname: RemoteWriteFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node2:9090
+              job: prometheus
+            exp_annotations:
+              summary: "remote_write samples being rejected on node2:9090"
+              description: "Prometheus on node2:9090 is losing remote_write batches (0.016666666666666666 samples/s rejected over 15m); a rejected batch drops every series it carries. Check the receiver journal for 'duplicate sample' or other non-recoverable 400s."
+
   # AITBCJournalErrors: an error-count series fires after the 5-minute hold and
   # resolves when the window empties it again.
   - interval: 1m

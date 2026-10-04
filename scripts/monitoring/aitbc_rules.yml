@@ -185,6 +185,20 @@ groups:
           summary: "Alert watcher heartbeat has stopped ({{ $labels.instance }})"
           description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
 
+      # RemoteWriteFailing: remote_write batches rejected at the receiver are
+      # dropped whole -- a 400 "duplicate sample" takes every other series in
+      # the batch down with it, so a rising failed counter means real series
+      # loss, not just the duplicates. The counter lives on the sender; a
+      # Prometheus with no remote_write block has no series and stays silent.
+      - alert: RemoteWriteFailing
+        expr: rate(prometheus_remote_storage_samples_failed_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "remote_write samples being rejected on {{ $labels.instance }}"
+          description: "Prometheus on {{ $labels.instance }} is losing remote_write batches ({{ $value }} samples/s rejected over 15m); a rejected batch drops every series it carries. Check the receiver journal for 'duplicate sample' or other non-recoverable 400s."
+
       # AitbcJournalErrors: the journal-errors timer counts err-or-worse journal
       # messages per unit over a rolling 15-minute window into the node-exporter
       # textfile. A unit that logs an error fires until the window moves past it.
