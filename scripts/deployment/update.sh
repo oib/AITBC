@@ -52,8 +52,9 @@ set -o pipefail
 
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="$AITBC_ROOT/venv"
-NODE_ENV_FILE="/etc/aitbc/node.env"
-BLOCKCHAIN_ENV_FILE="/etc/aitbc/blockchain.env"
+NODE_ENV_FILE="${AITBC_NODE_ENV_FILE:-/etc/aitbc/node.env}"
+BLOCKCHAIN_ENV_FILE="${AITBC_BLOCKCHAIN_ENV_FILE:-/etc/aitbc/blockchain.env}"
+ACTIVE_SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
 HEALTH_CHECK_SCRIPT="$AITBC_ROOT/scripts/monitoring/health_check.sh"
 LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
 INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
@@ -509,21 +510,60 @@ enable_services() {
     role=$(get_node_role)
     log "Node role: $role"
 
+    # Per-node demotion list (mirrors link-systemd.sh): a unit basename in
+    # DISABLED_SERVICES is never enabled here, and if it is somehow enabled
+    # already it is disabled now — a demoted host keeps its retired units off.
+    if [[ -z "${DISABLED_SERVICES+x}" && -f "$NODE_ENV_FILE" ]]; then
+        DISABLED_SERVICES=$(grep -E '^DISABLED_SERVICES=' "$NODE_ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '"')
+    fi
+
     # Get list of currently-installed aitbc unit files (after relink)
-    local svc
-    for svc in /etc/systemd/system/aitbc-*.service; do
+    local svc name base
+    for svc in "$ACTIVE_SYSTEMD_DIR"/aitbc-*.service; do
         [ -f "$svc" ] || continue
-        local name
         name=$(basename "$svc")
+        base="${name%.service}"
+        local disabled_unit=false d
+        for d in ${DISABLED_SERVICES:-}; do
+            if [ "$base" = "$d" ]; then disabled_unit=true; break; fi
+        done
+        if [ "$disabled_unit" = "true" ]; then
+            if systemctl is-enabled "$name" >/dev/null 2>&1; then
+                if systemctl disable "$name" >/dev/null 2>&1; then
+                    log "  disabled (DISABLED_SERVICES): $name"
+                else
+                    warning "  could not disable $name (DISABLED_SERVICES)"
+                fi
+            else
+                log "  skipping (DISABLED_SERVICES): $name"
+            fi
+            continue
+        fi
         if systemctl enable "$name" 2>/dev/null | grep -q "Created symlink\|already enabled" ; then
             : # quiet on success
         fi
     done
     # Enable timers too
     local timer
-    for timer in /etc/systemd/system/aitbc-*.timer; do
+    for timer in "$ACTIVE_SYSTEMD_DIR"/aitbc-*.timer; do
         [ -f "$timer" ] || continue
-        systemctl enable "$(basename "$timer")" 2>/dev/null || true
+        name=$(basename "$timer")
+        base="${name%.timer}"
+        local disabled_timer=false d2
+        for d2 in ${DISABLED_SERVICES:-}; do
+            if [ "$base" = "$d2" ]; then disabled_timer=true; break; fi
+        done
+        if [ "$disabled_timer" = "true" ]; then
+            if systemctl is-enabled "$name" >/dev/null 2>&1; then
+                systemctl disable "$name" >/dev/null 2>&1 \
+                    && log "  disabled (DISABLED_SERVICES): $name" \
+                    || warning "  could not disable $name (DISABLED_SERVICES)"
+            else
+                log "  skipping (DISABLED_SERVICES): $name"
+            fi
+            continue
+        fi
+        systemctl enable "$name" 2>/dev/null || true
     done
     success "Service enablement reviewed"
 }
@@ -536,7 +576,7 @@ ensure_env_files() {
     mkdir -p /etc/aitbc
 
     local unit base env_file
-    for unit in /etc/systemd/system/aitbc-*.service /etc/systemd/system/aitbc-*.timer; do
+    for unit in "$ACTIVE_SYSTEMD_DIR"/aitbc-*.service "$ACTIVE_SYSTEMD_DIR"/aitbc-*.timer; do
         [ -e "$unit" ] || continue
         base=$(basename "$unit")
         base="${base%.service}"
@@ -992,4 +1032,8 @@ main() {
     agent_print_followup
 }
 
-main "$@"
+# Run main only when executed directly; sourcing the file exposes its
+# functions for tests without triggering the update.
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
+    main "$@"
+fi
