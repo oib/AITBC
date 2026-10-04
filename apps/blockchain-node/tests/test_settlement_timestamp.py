@@ -82,6 +82,7 @@ def _run_release(routes, record):
         patch.object(routes, "_find_contract_id", AsyncMock(return_value="c-1")),
         patch.object(routes, "_get_settlement_key", return_value="0x" + "22" * 32),
         patch.object(routes, "_get_settlement_address", return_value="0xabc"),
+        patch.object(routes, "_find_existing_lock", AsyncMock(return_value="0xlock")),
         patch.object(routes, "_submit_payment_tx", AsyncMock(return_value="0xdeadbeef")),
         patch.object(routes, "session_scope", fake_scope),
     ):

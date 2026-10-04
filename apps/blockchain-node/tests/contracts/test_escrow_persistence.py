@@ -136,6 +136,7 @@ class TestEscrowRefundRoute:
         """Refunding an active escrow updates the record with refunded_at and refund_tx_hash."""
         _insert_escrow(session, "job-route-refund-2")
 
+        monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value="0xlockhash"))
         monkeypatch.setattr(escrow_routes, "_find_existing_refund", AsyncMock(return_value=None))
         monkeypatch.setattr(escrow_routes, "_submit_refund_tx", AsyncMock(return_value="0xtestrefund"))
 
@@ -151,3 +152,22 @@ class TestEscrowRefundRoute:
 
         contract = manager.escrow_contracts[result["contract_id"]]
         assert contract.state == EscrowState.REFUNDED
+
+    def test_refund_escrow_defers_until_lock_seals(self, manager, session, monkeypatch):
+        """No sealed ESCROW_LOCK means a 425 defer, not a mutation (S-8 gate)."""
+        from fastapi import HTTPException
+
+        _insert_escrow(session, "job-route-refund-3")
+
+        monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value=None))
+        submit = AsyncMock()
+        monkeypatch.setattr(escrow_routes, "_submit_refund_tx", submit)
+
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(refund_escrow("job-route-refund-3", {}))
+
+        assert exc.value.status_code == 425
+        submit.assert_not_called()
+        record = session.get(Escrow, "job-route-refund-3")
+        assert record.refunded_at is None
+        assert record.refund_tx_hash is None
