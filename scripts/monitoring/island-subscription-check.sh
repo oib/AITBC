@@ -4,10 +4,18 @@
 # A subscription that has expired returns "No active IPFS subscription".
 #
 # The response contains the swarm key, so stdout is captured and parsed but
-# never logged.
+# never logged verbatim; classification greps known substrings only.
 #
-# Exit 0 = active, 1 = expired/denied, 2 = check inconclusive (unreachable,
-# auth, wallet problems -- transient, not a subscription state).
+# Exit 0 = active
+#      1 = expired/denied (subscription state -- renew)
+#      2 = coordinator down/unreachable (transient)
+#      3 = no API key resolved -- AITBC_API_KEY unset and every CLI fallback
+#          leg empty (see docs/ops/island-subscription-check.md)
+#      4 = key configured but refused by the service (HTTP 401/403)
+#      5 = check inconclusive for any other reason
+#
+# The unit sources /etc/aitbc/aitbc-island-subscription-check.env when it
+# exists; that file is operator-created and never lives in the repo.
 
 set -euo pipefail
 
@@ -36,8 +44,27 @@ if printf '%s' "$out" | grep -qi "No active IPFS subscription"; then
     exit 1
 fi
 
-# Anything else (HTTP error, unreachable coordinator, wallet/auth issues) is
-# not a subscription verdict -- warn but don't page.
+# No key resolved on any CLI leg (config api_key, AITBC_API_KEY, or the
+# fallback env files). Names the variable and the file, never a value.
+if printf '%s' "$out" | grep -qi "No API key"; then
+    log err "subscription check cannot run: AITBC_API_KEY is not configured -- create /etc/aitbc/aitbc-island-subscription-check.env (mode 600, owner root) containing AITBC_API_KEY=<the node miner API key>; see docs/ops/island-subscription-check.md"
+    exit 3
+fi
+
+# Key was configured but the service refused it.
+if printf '%s' "$out" | grep -qEi "HTTP (401|403)|\b(401|403)\b|[Uu]nauthorized|[Ff]orbidden|[Ii]nvalid (API )?key|[Aa]uthentication (failed|required)"; then
+    log err "subscription check refused: the configured AITBC_API_KEY was rejected by the coordinator (HTTP 401/403) -- rotate or repair the key in /etc/aitbc/aitbc-island-subscription-check.env"
+    exit 4
+fi
+
+# Transport-level failure: coordinator down, DNS, timeout.
+if printf '%s' "$out" | grep -qEi "refused|timed? ?out|unreachable|resolve|connect|network"; then
+    short=$(printf '%s' "$out" | head -3 | tr '\n' ' ')
+    log warning "subscription check inconclusive: coordinator unreachable ($COORD): $short"
+    exit 2
+fi
+
+# Anything else is not a subscription verdict -- warn but don't page.
 short=$(printf '%s' "$out" | head -3 | tr '\n' ' ')
 log warning "subscription check inconclusive: $short"
-exit 2
+exit 5
