@@ -60,9 +60,12 @@ LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
 INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
 RUN_MIGRATIONS_SCRIPT="$AITBC_ROOT/scripts/deployment/run-migrations.sh"
 
-# Public mirror and canonical Gitea source.
+# Public mirror. The canonical Gitea URL is operator-private and is not
+# published in the repo: resolve it per run via --gitea <url>,
+# AITBC_GITEA_REMOTE, or the repo's own `gitea`/`origin` remotes. A
+# gitea.invalid value is a public-scrub placeholder and can never work.
 GITHUB_REMOTE="https://github.com/oib/AITBC.git"
-GITEA_REMOTE="${AITBC_GITEA_REMOTE:-https://gitea.invalid/oib/AITBC.git}"
+GITEA_REMOTE="${AITBC_GITEA_REMOTE:-}"
 
 # Git remote to pull from. setup.sh sets `origin` to whichever source was used
 # (GitHub by default, or Gitea with --gitea). Override with --gitea, --remote
@@ -187,11 +190,39 @@ parse_args() {
         esac
     done
 
-    # If --gitea was given and no --remote override was provided, use the Gitea source.
-    # --remote is detected by the fact that GIT_REMOTE would no longer equal the default.
+    # If --gitea was given and no --remote override was provided, resolve the
+    # canonical Gitea source: --gitea <url> arg, then AITBC_GITEA_REMOTE, then
+    # the checkout's own `gitea` remote, then `origin` (origin is Gitea on
+    # operator nodes). --remote is detected by GIT_REMOTE no longer equaling
+    # the default.
     if [ "$use_gitea" = true ] && [ "$GIT_REMOTE" = "${AITBC_GIT_REMOTE:-origin}" ]; then
-        GIT_REMOTE="${GITEA_REMOTE_ARG:-$GITEA_REMOTE}"
+        if [ -n "$GITEA_REMOTE_ARG" ]; then
+            GIT_REMOTE="$GITEA_REMOTE_ARG"
+        elif [ -n "$GITEA_REMOTE" ]; then
+            GIT_REMOTE="$GITEA_REMOTE"
+        else
+            GIT_REMOTE=$(git -C "$AITBC_ROOT" remote get-url gitea 2>/dev/null || true)
+            if [ -z "$GIT_REMOTE" ]; then
+                GIT_REMOTE=$(git -C "$AITBC_ROOT" remote get-url origin 2>/dev/null || true)
+            fi
+            if [ -z "$GIT_REMOTE" ]; then
+                error "--gitea could not resolve a Gitea URL: pass --gitea <url>, set AITBC_GITEA_REMOTE, or configure a gitea/origin remote in $AITBC_ROOT"
+                exit 2
+            fi
+        fi
     fi
+
+    # A resolved .invalid URL is a public-scrub placeholder — DNS can never
+    # resolve it. Refuse clearly here instead of dying on git fetch mid-run.
+    local effective_url
+    effective_url=$(git -C "$AITBC_ROOT" remote get-url "$GIT_REMOTE" 2>/dev/null || printf '%s' "$GIT_REMOTE")
+    case "$effective_url" in
+        *.invalid*)
+            error "Refusing to pull from a scrub-placeholder remote: $effective_url"
+            error "Pass --remote <url>, --gitea <url>, or set AITBC_GIT_REMOTE / AITBC_GITEA_REMOTE"
+            exit 2
+            ;;
+    esac
 }
 
 # ----------------------------------------------------------------------------
@@ -804,16 +835,18 @@ ensure_gossip_defaults() {
             log "Added gossip_backend=websocket to $BLOCKCHAIN_ENV_FILE"
         fi
         if ! grep -q "^GOSSIP_WEBSOCKET_URL=" "$BLOCKCHAIN_ENV_FILE"; then
-            # Derive from default_peer_rpc_url if present, else assume local.
+            # Derive from default_peer_rpc_url if present. When there is no
+            # usable hub URL there is no safe default — writing a placeholder
+            # host here leaves the node silently misconfigured.
             local hub_url
             hub_url=$(grep "^DEFAULT_PEER_RPC_URL=" "$BLOCKCHAIN_ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')
             if [ -n "$hub_url" ] && [ "$hub_url" != "http://127.0.0.1:8202" ]; then
                 hub_url="$(printf '%s' "$hub_url" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
+                echo "GOSSIP_WEBSOCKET_URL=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
+                log "Added gossip_websocket_url to $BLOCKCHAIN_ENV_FILE"
             else
-                hub_url="wss://hub.aitbc.invalid/rpc/gossip/ws"
+                warning "GOSSIP_WEBSOCKET_URL left unset — set it (or DEFAULT_PEER_RPC_URL) in $BLOCKCHAIN_ENV_FILE to the hub's URL"
             fi
-            echo "GOSSIP_WEBSOCKET_URL=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
-            log "Added gossip_websocket_url to $BLOCKCHAIN_ENV_FILE"
         fi
     fi
 }
