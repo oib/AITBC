@@ -18,7 +18,7 @@ from ..models import Account, Block
 from ..protocol_escrow import confirmed_lock_txs, queue_protocol_transfer, stake_escrow_address
 from ..state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
 from .agent_economics_auth import operator_address, require_int, require_operator_signature
-from .utils import get_chain_id, validate_chain_id
+from .utils import _require_supported_chain, get_chain_id, validate_chain_id
 
 _logger = get_logger(__name__)
 MAX_LOCK_DAYS = 3650
@@ -117,6 +117,10 @@ async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str
 async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
+    try:
+        _require_supported_chain(chain_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     additional = require_int(payload, "additional_amount")
     user = payload.get("user_address")
     if not user:
@@ -198,6 +202,10 @@ async def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, An
 async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
+    try:
+        _require_supported_chain(chain_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     user = payload.get("user_address")
     if not user:
         raise HTTPException(status_code=400, detail="user_address is required")
