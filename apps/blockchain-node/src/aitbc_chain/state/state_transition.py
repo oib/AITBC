@@ -302,6 +302,37 @@ def _bridge_release_authority(session: Session, chain_id: str, block_height: int
     return _escrow_settlement_authority(session, chain_id, block_height)
 
 
+def _escrow_fee_recipient(session: Session, chain_id: str, block_height: int | None = None) -> str | None:
+    """Return the canonical fee recipient for v11+ ESCROW_FEE_SWEEP txs.
+
+    The on-chain ``escrow_fee_recipient`` chain parameter wins (applied
+    identically on every node); ``settings.escrow_fee_recipient`` /
+    ``ESCROW_FEE_RECIPIENT`` is the bootstrap for ``block_height=None``
+    callers only — for a known block height, chain history alone decides.
+    A disagreement between the two is logged. Returns None when nothing is
+    configured — the sweep fails closed: a fee that cannot be pinned to its
+    governed recipient must not move.
+    """
+    onchain_value = _chain_parameter_value(session, chain_id, "escrow_fee_recipient", block_height)
+    env_addr = (settings.escrow_fee_recipient or os.getenv("ESCROW_FEE_RECIPIENT", "")).strip()
+    if onchain_value is not None:
+        # A record at-or-below this height is authoritative — including an
+        # empty value (a deliberate clear), which means unset.
+        if onchain_value.strip():
+            addr = canonical_address(onchain_value.strip())
+            if env_addr and canonical_address(env_addr) != addr:
+                logger.warning(
+                    "escrow fee recipient env value %s disagrees with on-chain escrow_fee_recipient=%s; using the on-chain value",
+                    env_addr,
+                    addr,
+                )
+            return addr
+        return None
+    if block_height is None and env_addr:
+        return canonical_address(env_addr)
+    return None
+
+
 def _get_escrow_lock(session: Session, chain_id: str, job_id: str) -> Transaction | None:
     """Find the on-chain ESCROW_LOCK transaction for ``job_id``."""
     return session.exec(
@@ -342,29 +373,52 @@ def _escrow_beneficiary(lock_tx: Transaction, tx_type: str) -> str | None:
 def build_escrow_context(
     session: Session, chain_id: str, tx_datas: list[dict[str, Any]], block_height: int | None = None
 ) -> dict[str, dict[str, Any]] | None:
-    """Prefetch per-job lock metadata for ESCROW_RELEASE/ESCROW_REFUND txs (S-4).
+    """Prefetch per-job metadata for ESCROW_RELEASE/ESCROW_REFUND/ESCROW_FEE_SWEEP txs (S-4, v11).
 
     The pure/parallel ``compute_state_delta`` cannot touch the DB, so callers
-    that want parallel validation of v3 blocks must supply this map:
+    that want parallel validation of v3+ blocks must supply this map:
     ``{job_id: {"lock_version": int|None, "expected_beneficiary": str|None,
-    "escrow_addr": str, "settlement_authority": str|None}}``.
-    ``settlement_authority`` is chain-level (on-chain parameter, env fallback)
-    rather than per-job, but every entry carries the resolved value so the pure
-    path never needs a session.
+    "escrow_addr": str, "settlement_authority": str|None,
+    "fee_recipient": str|None}}``.
+    ``settlement_authority``/``fee_recipient`` are chain-level (on-chain
+    parameters, env fallback) rather than per-job, but every entry carries the
+    resolved values so the pure path never needs a session.
+
+    A sweep needs no lock: the custody account is derived from the job_id and a
+    v2-era job simply holds no balance there. A release/refund plus a sweep for
+    the same job in one batch is the designed settlement cadence, so a sweep
+    merges into an existing entry instead of forcing the sequential path.
 
     Returns ``None`` when any release/refund references a job_id with no
     on-chain lock — the sequential path applies its own missing-lock rules, so
     the caller must keep sequential processing to stay consensus-identical.
-    Batches with no release/refund txs return ``{}`` (cheap no-op).
+    Batches with no escrow settlement txs return ``{}`` (cheap no-op).
     """
     context: dict[str, dict[str, Any]] = {}
-    # The authority is chain-level, not per-job — resolve it lazily on the
-    # first release/refund so batches without one never pay for the query.
+    # The chain-level parameters are not per-job — resolve them lazily on the
+    # first escrow tx so batches without one never pay for the queries.
     authority: str | None = None
     authority_resolved = False
+    fee_recipient: str | None = None
+    fee_recipient_resolved = False
+
+    def _resolved_authority() -> str | None:
+        nonlocal authority, authority_resolved
+        if not authority_resolved:
+            authority = _escrow_settlement_authority(session, chain_id, block_height)
+            authority_resolved = True
+        return authority
+
+    def _resolved_fee_recipient() -> str | None:
+        nonlocal fee_recipient, fee_recipient_resolved
+        if not fee_recipient_resolved:
+            fee_recipient = _escrow_fee_recipient(session, chain_id, block_height)
+            fee_recipient_resolved = True
+        return fee_recipient
+
     for tx_data in tx_datas:
         tx_type = _tx_type(tx_data)
-        if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND"):
+        if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"):
             continue
         payload = tx_data.get("payload") or {}
         if isinstance(payload, str):
@@ -374,26 +428,48 @@ def build_escrow_context(
                 payload = {}
         job_id = payload.get("job_id") or tx_data.get("job_id") or ""
         if job_id in context:
+            entry = context[job_id]
+            if entry.get("tx_type") == tx_type:
+                continue
+            if tx_type == "ESCROW_FEE_SWEEP":
+                # Release/refund + sweep for one job is the designed settlement
+                # cadence: the sweep adds no beneficiary constraint, it only
+                # needs the chain-level fee recipient on the entry.
+                entry["fee_recipient"] = _resolved_fee_recipient()
+                continue
+            if entry.get("tx_type") == "ESCROW_FEE_SWEEP":
+                # The sweep arrived first; this release/refund still needs its
+                # lock fields resolved against the same entry.
+                lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
+                if lock_tx is None:
+                    return None
+                entry["tx_type"] = tx_type
+                entry["lock_version"] = _get_escrow_lock_block_version(session, chain_id, job_id)
+                entry["expected_beneficiary"] = _escrow_beneficiary(lock_tx, tx_type)
+                continue
             # A second release/refund for the same job with a different tx_type
             # would need a different beneficiary — an invalid batch anyway; let
             # the sequential path apply its own checks.
-            if context[job_id].get("tx_type") != tx_type:
-                return None
+            return None
+        if tx_type == "ESCROW_FEE_SWEEP":
+            context[job_id] = {
+                "tx_type": tx_type,
+                "escrow_addr": _escrow_address(job_id) if job_id else "",
+                "settlement_authority": _resolved_authority(),
+                "fee_recipient": _resolved_fee_recipient(),
+            }
             continue
         lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
         if lock_tx is None:
             return None
-        if not authority_resolved:
-            authority = _escrow_settlement_authority(session, chain_id, block_height)
-            authority_resolved = True
         context[job_id] = {
             "tx_type": tx_type,
             "lock_version": _get_escrow_lock_block_version(session, chain_id, job_id),
             "expected_beneficiary": _escrow_beneficiary(lock_tx, tx_type),
             "escrow_addr": _escrow_address(job_id),
             # The pure path has no DB access — every entry carries the
-            # resolved chain-level value.
-            "settlement_authority": authority,
+            # resolved chain-level values.
+            "settlement_authority": _resolved_authority(),
         }
     return context
 
@@ -568,6 +644,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v11_threshold = getattr(settings, "state_transition_v11_height", None)
+    if v11_threshold and height >= v11_threshold:
+        return 11
     v10_threshold = getattr(settings, "state_transition_v10_height", None)
     if v10_threshold and height >= v10_threshold:
         return 10
@@ -1174,6 +1253,44 @@ class StateTransition:
                     return (False, f"Insufficient balance for fee: {sender_account.balance} < {fee}")
             elif sender_account.balance < total_cost:
                 return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
+        elif tx_type == "ESCROW_FEE_SWEEP" and block_version >= 11:
+            # v11: the settlement authority sweeps a settled escrow's custody
+            # residue to the governed fee recipient. No lock lookup — the
+            # custody account is derived from the job_id, and a v2-era job has
+            # none (a zero balance fails the balance check naturally). Order
+            # matches state/admission_authority.py so the door mirrors apply.
+            job_id = (tx_data.get("payload") or {}).get("job_id", "")
+            if not job_id:
+                return (False, "ESCROW_FEE_SWEEP payload must include job_id")
+            authority = _escrow_settlement_authority(session, chain_id, block_height)
+            # v11 postdates v5, so the fail-closed era check never applies:
+            # an unset authority is always a refusal here.
+            if authority is None:
+                return (
+                    False,
+                    "ESCROW_FEE_SWEEP requires a settlement authority: set the escrow_settlement_authority chain parameter",
+                )
+            if _to_ait_address(sender_addr) != authority:
+                return (
+                    False,
+                    f"ESCROW_FEE_SWEEP must be signed by settlement authority {authority}, got {sender_addr}",
+                )
+            fee_recipient = _escrow_fee_recipient(session, chain_id, block_height)
+            if fee_recipient is None:
+                return (
+                    False,
+                    "ESCROW_FEE_SWEEP requires a fee recipient: set the escrow_fee_recipient chain parameter",
+                )
+            if _to_ait_address(recipient_addr) != fee_recipient:
+                return (False, f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {recipient_addr}")
+            escrow_addr = _escrow_address(job_id)
+            escrow_account = session.get(Account, (chain_id, escrow_addr))
+            if escrow_account is None or escrow_account.balance < value:
+                escrow_bal = escrow_account.balance if escrow_account else 0
+                return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
+            # The settlement authority pays only the fee, not the value.
+            if sender_account.balance < fee:
+                return (False, f"Insufficient balance for fee: {sender_account.balance} < {fee}")
         elif sender_account.balance < total_cost:
             return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
         # v0.25.5: recipient accounts are created on first credit during
@@ -1520,6 +1637,47 @@ class StateTransition:
                     )
                     session.flush()
                     logger.info("S-4: %s moved %s from escrow %s to %s", tx_type, value, escrow_addr, recipient_addr)
+        if tx_type == "ESCROW_FEE_SWEEP" and block_version >= 11:
+            # v11: same custody fix-up as the v3 release/refund branch above,
+            # but unconditional — no lock lookup (a sweep is bookkeeping over
+            # the custody account alone, and a v2-era job has no custody
+            # account, so its balance check already refused at validate).
+            job_id = (tx_data.get("payload") or {}).get("job_id", "")
+            if job_id:
+                escrow_addr = _escrow_address(job_id)
+                # The generic path debited the sender for value+fee and
+                # credited the recipient for value. Undo both — the sender
+                # keeps only the fee debit — then pay the recipient from the
+                # per-escrow custody account.
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :recipient_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
+                )
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance + :value WHERE chain_id = :chain_id AND address = :sender_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "sender_addr": sender_addr},
+                )
+                escrow_account = session.get(Account, (chain_id, escrow_addr))
+                if escrow_account is None or escrow_account.balance < value:
+                    raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :escrow_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "escrow_addr": escrow_addr},
+                )
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance + :value WHERE chain_id = :chain_id AND address = :recipient_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
+                )
+                session.flush()
+                logger.info("v11: %s swept %s from escrow %s to fee recipient %s", tx_type, value, escrow_addr, recipient_addr)
         if tx_type in ("BOND_LOCK", "BOND_RELEASE", "BOND_SLASH"):
             skip_reason = self._handle_bond_transaction(
                 session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value, block_height
