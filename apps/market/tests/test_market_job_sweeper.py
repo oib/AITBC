@@ -248,19 +248,22 @@ class TestSettleDeferralBound:
             request=request,
         )
 
-    async def _deferred_job(self, service, job_suffix, meta):
-        created = await service.create_market_job(
-            {
-                "service_type": "ipfs",
-                "buyer_address": "0x" + "77" * 20,
-                "provider_address": "0x" + "88" * 20,
-                "escrow_contract_id": f"escrow-{job_suffix}",
-                "state": "COMPLETED",
-                "expires_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
-                "payload": {"cid": "QmTest"},
-                "payment": {"amount": "1.0", "status": "escrowed", "meta_data": meta},
-            }
-        )
+    async def _deferred_job(self, service, job_suffix, meta, *, refund: bool = False):
+        data: dict = {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "77" * 20,
+            "provider_address": "0x" + "88" * 20,
+            "escrow_contract_id": f"escrow-{job_suffix}",
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0", "status": "escrowed", "meta_data": meta},
+        }
+        if refund:
+            data["state"] = "CANCELED"
+            data["updated_at"] = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+        else:
+            data["state"] = "COMPLETED"
+            data["expires_at"] = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+        created = await service.create_market_job(data)
         return created["job_id"]
 
     async def test_past_bound_absent_escrow_goes_terminal(self, sweeper, monkeypatch) -> None:
@@ -395,3 +398,80 @@ class TestSettleDeferralBound:
         payment = await _payment_of(job_id)
         assert payment.status == "released"
         assert "settle_deferral_first_at" not in (payment.meta_data or {})
+
+    async def test_past_bound_verdict_without_hash_keeps_deferring(self, sweeper, monkeypatch) -> None:
+        """A row that says 'released' but carries no release hash is the S-8
+        dead-hash shape -- never adopt 'settled' from it."""
+        service, sw, _rpc = sweeper
+
+        def verify_hashless(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "released", "release_tx_hash": None},
+                request=request,
+            )
+
+        self._settle_verify_transport(monkeypatch, [self._post_unsettled], verify_hashless)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "hashless", {"settle_deferral_first_at": first_at})
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.meta_data["settle_deferral_first_at"] == first_at
+
+    async def test_refund_intended_released_verdict_still_adopts(self, sweeper, monkeypatch) -> None:
+        """Kind mismatch, refund sweep sees 'released': reality wins -- the
+        row is authoritative for where the money went, so the verdict is
+        adopted (with an error log naming both kinds)."""
+        service, sw, _rpc = sweeper
+
+        def verify_released(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "released", "release_tx_hash": "0xpaid-anyway"},
+                request=request,
+            )
+
+        self._settle_verify_transport(monkeypatch, [self._post_unsettled], verify_released)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "mix-rl", {"settle_deferral_first_at": first_at}, refund=True)
+
+        await sw.sweep_once()
+
+        job = await service.get_market_job(job_id)
+        assert job["state"] == "RELEASED"
+        assert job["payment_status"] == "released"
+        assert job["tx_hash"] == "0xpaid-anyway"
+
+    async def test_release_intended_refunded_verdict_still_adopts(self, sweeper, monkeypatch) -> None:
+        """Kind mismatch, release sweep sees 'refunded': same rule -- adopt
+        the row's verdict rather than strand a settled escrow."""
+        service, sw, _rpc = sweeper
+
+        def verify_refunded(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "refunded", "refund_tx_hash": "0xreturned"},
+                request=request,
+            )
+
+        self._settle_verify_transport(monkeypatch, [self._post_unsettled], verify_refunded)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "mix-rf", {"settle_deferral_first_at": first_at})
+
+        await sw.sweep_once()
+
+        job = await service.get_market_job(job_id)
+        assert job["state"] == "REFUNDED"
+        assert job["payment_status"] == "refunded"
+        assert job["refund_tx_hash"] == "0xreturned"
