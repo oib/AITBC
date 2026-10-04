@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -171,3 +172,80 @@ async def test_sweeper_skips_active_not_yet_expired(session: AsyncSession) -> No
     assert token.tx_hash is None
     assert rpc.released == []
     assert rpc.refunded == []
+
+
+async def test_425_lock_not_sealed_is_retried_by_next_sweep(monkeypatch) -> None:
+    """Node answers 425 ('lock not sealed yet') once, then 200.
+
+    The token must be marked expired immediately (access keys stop) but stay
+    inside the sweep's retry set until the escrow actually settles -- an
+    'expired' token with no tx_hash is an unsettled escrow, not a settled one.
+    Uses the real BlockchainRPCClient over httpx.MockTransport so raise_for_status
+    behaviour is exercised, not stubbed.
+    """
+    now = datetime.now(UTC)
+    async with _session_factory() as session:
+        token = IpfsRentalToken(
+            access_key="ak_t67_425",
+            access_secret="secret",
+            rental_id="ipfs_rental_425",
+            offer_id="offer-425",
+            cid="QmTest425",
+            buyer_address="0xab0797ae8cff09b313c71cab2f894b342b6e1d76",
+            provider_address="0x241d3e44d42b6d4c270d0231780913f14386d90c",
+            escrow_contract_id="ipfs_rental_425",
+            pinned=True,
+            status="active",
+            created_at=now - timedelta(days=2),
+            expires_at=now - timedelta(hours=1),
+            updated_at=now - timedelta(days=2),
+        )
+        session.add(token)
+        await session.commit()
+
+    state = {"calls": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        state["calls"] += 1
+        if state["calls"] == 1:
+            return httpx.Response(
+                425,
+                json={"detail": "escrow lock is not sealed yet"},
+                headers={"Retry-After": "5"},
+                request=request,
+            )
+        return httpx.Response(200, json={"success": True, "tx_hash": "0xsealed"}, request=request)
+
+    transport = httpx.MockTransport(handler)
+    real_async_client = httpx.AsyncClient
+
+    def client_factory(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+
+    from aitbc.market import BlockchainRPCClient
+
+    sweeper = IpfsRentalSweeper(
+        interval_seconds=3600,
+        batch_size=10,
+        refund_grace_seconds=0,
+        rpc_client=BlockchainRPCClient(rpc_url="http://node.invalid"),
+        session_factory=_session_factory,
+    )
+
+    async def _token() -> IpfsRentalToken:
+        async with _session_factory() as session:
+            return await session.get(IpfsRentalToken, "ak_t67_425")
+
+    await sweeper.sweep_once()
+    token = await _token()
+    assert token.status == "expired"  # access stops immediately — intended
+    assert token.tx_hash is None
+
+    await sweeper.sweep_once()
+    token = await _token()
+    assert token.status == "released"
+    assert token.tx_hash == "0xsealed"
+    assert state["calls"] == 2
