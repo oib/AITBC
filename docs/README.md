@@ -44,6 +44,9 @@ Operator procedures for the live fleet:
   plan, verified inputs, and the known height-11 divergence.
 - [Escrow routing](ops/escrow-routing.md) — escrow operations must reach
   the node that created the row.
+- [Escrow settlement ops](ops/escrow-settlement-ops.md) — the
+  lock→settle pipeline and per-alert response for the escrow settlement,
+  fork, and v9 alerts.
 - [Follower API key](ops/follower-api-key.md),
   [peer keys](ops/peer-keys.md),
   [island subscription check](ops/island-subscription-check.md),
