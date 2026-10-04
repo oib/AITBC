@@ -1,0 +1,14 @@
+# Tolerated known-red for scripts/ci/run-suite-manual.sh.
+#
+# One junit id per line: `<classname>::<testname>` for test failures,
+# `check::<check-name>` for the synthesized check cases. A failure NOT listed
+# here fails the run. Entries that stop firing are reported as stale
+# tolerances — remove them when the debt clears, don't let the list mask a
+# renamed failure. Comment freely; keep one id + tab + reason per entry.
+#
+# Entries as of 2026-10-04 (sources: C7 dry-run TOPOLOGY/2026-10-04-ci-dry-run.md,
+# C8 ratchet attribution):
+check::version-check	README badge v0.25.8 vs aitbc/_version.py 0.10.18 — two different version axes; operator decision on the canonical source is pending
+check::c901-ratchet	15 file regressions vs c901-baseline.txt — Sep-24..Oct-2 commits; C8 attributed each, all keep-verdict; baseline bumps are the operator's call
+check::except-ratchet	15 file regressions vs except-baseline.txt post-C8 (payments.py fixed by dbe4605ffb); same keep-verdict set; baseline bumps are the operator's call
+apps.exchange.tests.test_http_contract.TestRoutingTable::test_id_route_answers_404_for_an_unknown_id[/v1/bridge/deposit/some-id]	gitea-runner host state: /var/lib/aitbc/bridge_deposits.db (Aug 9) predates the `recipient` column; CREATE TABLE IF NOT EXISTS no-ops → 500 not 404. Live hosts verified unaffected (C7 §4); passes with a clean DATA_DIR
