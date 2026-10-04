@@ -38,6 +38,7 @@ const TX_TYPE_COLORS = {
     BRIDGE_LOCK: '#22d3ee',
     BRIDGE_RELEASE: '#06b6d4',
     BRIDGE_REFUND: '#0891b2',
+    ESCROW_FEE_SWEEP: '#a855f7',
     ESCROW_LOCK: '#c4b5fd',
     ESCROW_REFUND: '#7c3aed',
     ESCROW_RELEASE: '#8b5cf6',
