@@ -145,6 +145,27 @@ while IFS= read -r svc; do
     fi
 done < <(_services_for_role "$ROLE")
 
+# Units in systemd's failed state that the role list does not already cover.
+# The role list decides what *should* run; systemd decides what *did* fail —
+# a unit outside the list (operator-linked monitor, demoted leftover) used to
+# be invisible here, so the summary could print "clean" over a failed unit.
+check_failed_units() {
+    local unit base
+    while IFS= read -r unit; do
+        [ -n "$unit" ] || continue
+        base="${unit%.service}"
+        local covered=false svc
+        for svc in "${ROLE_SERVICES[@]:-}"; do
+            if [ "$unit" = "$svc" ] || [ "$base" = "$svc" ]; then
+                covered=true; break
+            fi
+        done
+        [ "$covered" = true ] && continue
+        error "$unit is in a failed state (not in the role list)"
+        TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+    done < <(systemctl list-units --type=service --state=failed --no-legend --plain --no-pager 'aitbc-*' 2>/dev/null | awk '{print $1}')
+}
+
 # Logging functions
 log() {
     local msg
@@ -485,6 +506,7 @@ main() {
                 check_installed_service "$service" || continue
                 check_resource_usage "$service"
             done
+            check_failed_units
             ;;
         "endpoints")
             log "Checking API endpoints..."
@@ -525,6 +547,7 @@ main() {
                 check_installed_service "$service" || continue
                 check_resource_usage "$service"
             done
+            check_failed_units
             echo ""
 
             # Check endpoints
