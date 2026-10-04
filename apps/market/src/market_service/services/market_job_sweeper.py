@@ -26,6 +26,14 @@ from ..storage import get_session_context
 
 logger = get_logger(__name__)
 
+# A 'not yet' settlement answer (404, {success:false}, or any raised error)
+# defers a job's escrow only this long before one confirming read decides
+# its fate. Six hours mirrors the coordinator's 425-deferral bound: far
+# above follower lag and any restart window, bounded churn instead of
+# either instant-terminal or forever-silent.
+DEFAULT_SETTLE_DEFERRAL_MAX_SECONDS = 6 * 3600
+META_SETTLE_DEFERRAL_FIRST_AT = "settle_deferral_first_at"
+
 
 def _env_int(name: str, default: int) -> int:
     try:
@@ -48,9 +56,13 @@ class MarketJobSweeper:
         batch_size: int | None = None,
         min_age_seconds: int | None = None,
         refund_grace_seconds: int | None = None,
+        settle_max_seconds: int | None = None,
         rpc_client: BlockchainRPCClient | None = None,
         session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]] | None = None,
     ) -> None:
+        self.settle_max_seconds = settle_max_seconds or _env_int(
+            "MARKET_JOB_SWEEP_SETTLE_MAX_SECONDS", DEFAULT_SETTLE_DEFERRAL_MAX_SECONDS
+        )
         self.interval_seconds = interval_seconds or _env_int("MARKET_JOB_SWEEP_INTERVAL_SECONDS", 300)
         self.batch_size = batch_size or _env_int("MARKET_JOB_SWEEP_BATCH_SIZE", 50)
         # Give normal cancel/fail/expire handlers time to settle on their own.
@@ -188,7 +200,13 @@ class MarketJobSweeper:
             session.add(job)
             return False
 
-        result = await self._rpc_client.release_escrow(job.escrow_contract_id)
+        try:
+            result = await self._rpc_client.release_escrow(job.escrow_contract_id)
+        except Exception as e:
+            # Any raised answer (425 'lock not sealed', 5xx, transport) is a
+            # 'not yet' too -- it shares the bounded deferral instead of
+            # retrying forever and silently.
+            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id)
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
             job.state = "RELEASED"
@@ -200,20 +218,21 @@ class MarketJobSweeper:
             payment.transaction_hash = tx_hash
             payment.released_at = datetime.now(UTC)
             payment.updated_at = datetime.now(UTC)
+            self._clear_deferral(payment)
 
             session.add(job)
             session.add(payment)
             return True
 
-        logger.warning("Escrow release for job %s was not successful: %s", job.id, result)
-        payment.status = "settlement_failed"
-        payment.updated_at = datetime.now(UTC)
-        job.payment_status = "settlement_failed"
-        job.error = f"release failed: {result}"
-        job.updated_at = datetime.now(UTC)
-        session.add(job)
-        session.add(payment)
-        return False
+        # Falsy answers are 'not yet': a 404 means 'no escrow row on the node
+        # asked' (absent, wrong node, or a lag), {success:false} is the node's
+        # rolled-back retryable reply. Neither may go terminal in one pass.
+        outcome = (
+            "no escrow row on the queried node (404)"
+            if result is None
+            else f"rolled back by the node, retryable ({result.get('message')})"
+        )
+        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id)
 
     async def _refund_payment(
         self,
@@ -230,7 +249,10 @@ class MarketJobSweeper:
             session.add(job)
             return False
 
-        result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
+        try:
+            result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
+        except Exception as e:
+            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id)
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
             job.state = "REFUNDED"
@@ -243,17 +265,156 @@ class MarketJobSweeper:
             payment.refund_transaction_hash = tx_hash
             payment.refunded_at = datetime.now(UTC)
             payment.updated_at = datetime.now(UTC)
+            self._clear_deferral(payment)
 
             session.add(job)
             session.add(payment)
             return True
 
-        logger.warning("Escrow refund for job %s was not successful: %s", job.id, result)
-        payment.status = "settlement_failed"
-        payment.updated_at = datetime.now(UTC)
-        job.payment_status = "settlement_failed"
-        job.error = f"refund failed: {result}"
-        job.updated_at = datetime.now(UTC)
+        outcome = (
+            "no escrow row on the queried node (404)"
+            if result is None
+            else f"rolled back by the node, retryable ({result.get('message')})"
+        )
+        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id)
+
+    @staticmethod
+    def _clear_deferral(payment: MarketJobPayment) -> None:
+        """A definitive answer ends the deferral streak."""
+        meta = dict(payment.meta_data or {})
+        if meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None) is not None:
+            payment.meta_data = meta
+
+    async def _settlement_not_yet(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        outcome: str,
+        contract_id: str,
+    ) -> bool:
+        """A 'not yet' settlement answer defers, bounded by settle_max_seconds.
+
+        Inside the bound the row stays selectable and the next sweep retries;
+        the first deferral stamps ``meta_data['settle_deferral_first_at']``.
+        Past the bound one ``GET /escrow/{id}`` read converts the guess into
+        evidence: absent -> terminal ``settlement_failed``; a released or
+        refunded row -> adopt that verdict; anything else (still locked, or
+        the read itself failed) -> keep deferring with a loud log line.
+        """
+        now = datetime.now(UTC)
+        meta = dict(payment.meta_data or {})
+        first_at: datetime | None = None
+        raw = meta.get(META_SETTLE_DEFERRAL_FIRST_AT)
+        if raw:
+            try:
+                first_at = datetime.fromisoformat(str(raw))
+                if first_at.tzinfo is None:
+                    first_at = first_at.replace(tzinfo=UTC)
+            except (TypeError, ValueError):
+                first_at = None
+        if first_at is None:
+            meta[META_SETTLE_DEFERRAL_FIRST_AT] = now.isoformat()
+            payment.meta_data = meta
+            payment.updated_at = now
+            session.add(payment)
+            logger.warning(
+                "Escrow settlement for job %s payment %s deferred (%s); retrying on next sweep",
+                job.id,
+                payment.id,
+                outcome,
+            )
+            return False
+        elapsed = (now - first_at).total_seconds()
+        if elapsed <= self.settle_max_seconds:
+            logger.warning(
+                "Escrow settlement for job %s payment %s still deferred after %.0fs (%s)",
+                job.id,
+                payment.id,
+                elapsed,
+                outcome,
+            )
+            return False
+
+        # Past the bound: one read decides -- never terminal on a guess.
+        escrow: dict[str, Any] | None = None
+        read_error: Exception | None = None
+        try:
+            escrow = await self._rpc_client.verify_escrow(contract_id)
+        except Exception as e:
+            read_error = e
+        if read_error is None and escrow is None:
+            meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
+            payment.meta_data = meta
+            payment.status = "settlement_failed"
+            payment.updated_at = now
+            job.payment_status = "settlement_failed"
+            job.error = f"settlement deferred {elapsed:.0f}s past bound ({outcome}); escrow confirmed absent"
+            job.updated_at = now
+            session.add(job)
+            session.add(payment)
+            logger.error(
+                "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound "
+                "and the escrow is confirmed absent -- marking settlement_failed",
+                job.id,
+                payment.id,
+                elapsed,
+                self.settle_max_seconds,
+            )
+            return False
+        if read_error is None and escrow is not None and escrow.get("state") in {"released", "refunded"}:
+            # The node knows the verdict: the escrow settled through another
+            # path. Adopt it rather than marking a settled escrow 'failed'.
+            self._adopt_escrow_verdict(session, job, payment, meta, escrow, now)
+            logger.info(
+                "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
+                "escrow read reports %s -- adopting the verdict",
+                job.id,
+                payment.id,
+                elapsed,
+                escrow["state"],
+            )
+            return True
+        logger.error(
+            "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound (%s); escrow %s -- still deferring",
+            job.id,
+            payment.id,
+            elapsed,
+            self.settle_max_seconds,
+            outcome,
+            f"read failed ({read_error}); cannot confirm absent"
+            if read_error is not None
+            else f"still present (state={escrow.get('state') if escrow else 'unreadable'})",
+        )
+        return False
+
+    def _adopt_escrow_verdict(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        meta: dict[str, Any],
+        escrow: dict[str, Any],
+        now: datetime,
+    ) -> None:
+        """Write the escrow row's own verdict onto job and payment."""
+        meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
+        payment.meta_data = meta
+        if escrow["state"] == "released":
+            job.state = "RELEASED"
+            job.payment_status = "released"
+            job.tx_hash = job.tx_hash or escrow.get("release_tx_hash")
+            payment.status = "released"
+            payment.transaction_hash = payment.transaction_hash or escrow.get("release_tx_hash")
+            payment.released_at = payment.released_at or now
+        else:
+            job.state = "REFUNDED"
+            job.payment_status = "refunded"
+            job.refund_tx_hash = job.refund_tx_hash or escrow.get("refund_tx_hash")
+            payment.status = "refunded"
+            payment.refund_transaction_hash = payment.refund_transaction_hash or escrow.get("refund_tx_hash")
+            payment.refunded_at = payment.refunded_at or now
+        job.updated_at = now
+        payment.updated_at = now
         session.add(job)
         session.add(payment)
-        return False
