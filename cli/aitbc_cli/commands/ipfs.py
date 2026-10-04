@@ -676,7 +676,7 @@ def swarm_key(
         chain_id = get_chain_id(resolved_rpc_url, override=None, timeout=5)
         if not chain_id:
             error("Could not auto-detect chain_id; pass --chain-id explicitly")
-            return
+            raise click.Abort()
 
     resolved_coordinator_url = _default_coordinator_url(coordinator_url)
     resolved_api_key = api_key
