@@ -309,7 +309,9 @@ def test_gpu_quote_forwards_configured_window(runner, profile):
         patch("aitbc_cli.commands.market.gpu.verify_quote", verifier),
     ):
         result = runner.invoke(
-            market, ["gpu", "quote", "--gpu-id", "g1", "--buyer-id", "b1"], obj={"output_format": "table", "api_key": "k"}
+            market,
+            ["gpu", "quote", "--gpu-id", "g1", "--buyer-id", "0x" + "b" * 40],
+            obj={"output_format": "table", "api_key": "k"},
         )
     assert result.exit_code == 0, result.output
     assert verifier.call_args.kwargs["max_rate_age_seconds"] == 4242
