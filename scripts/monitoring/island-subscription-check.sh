@@ -21,12 +21,19 @@ set -euo pipefail
 
 TAG="aitbc-island-sub-check"
 WALLET=${ISLAND_WALLET:-default}
-ISLAND_ID=${ISLAND_ID:-ait-localnet-island}
-COORD=${COORDINATOR_URL:-https://hub.aitbc.invalid/c}
 AITBC_WALLET_DIR=${AITBC_WALLET_DIR:-/var/lib/aitbc/wallets}
 export AITBC_WALLET_DIR
 
 log() { logger -t "$TAG" -p "user.$1" -- "$2"; echo "[$1] $2"; }
+
+# No usable defaults exist for the island identity or the coordinator URL —
+# the scrub-era placeholders (ait-localnet-island, hub.aitbc.invalid) would
+# query a host that does not exist and misreport a live subscription state.
+if [ -z "${ISLAND_ID:-}" ] || [ -z "${COORDINATOR_URL:-}" ]; then
+    log err "not configured: ISLAND_ID and COORDINATOR_URL must be set in /etc/aitbc/aitbc-island-subscription-check.env -- there are no defaults"
+    exit 3
+fi
+COORD=$COORDINATOR_URL
 
 out=$(aitbc ipfs island swarm-key \
     --wallet "$WALLET" \
