@@ -32,6 +32,7 @@ from ..config import settings
 from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager
 from ..database import session_scope
 from ..logger import get_logger
+from ..metrics import escrow_fee_sweep_total
 from ..models import Account, Escrow, Stake
 from ..protocol_escrow import queue_protocol_transfer, stake_escrow_address
 
@@ -765,6 +766,219 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
     return None
 
 
+# --- v11: ESCROW_FEE_SWEEP — drain a settled job's custody residue -----------
+#
+# A v3 settlement leaves the withheld platform fee plus rounding dust in the
+# per-job custody account. From state_transition_v11_height a distinct
+# authority-signed ESCROW_FEE_SWEEP pays that residue to the governed
+# escrow_fee_recipient. Cadence (a): one sweep leg right after a job's FINAL
+# settlement leg — release plus its change refund — never during a metered
+# multi-leg settle. Off unless ESCROW_FEE_SWEEP_ENABLED is set.
+#
+# The release is authoritative: a sweep failure must never fail or roll back
+# the release, so _submit_fee_sweep_tx swallows every error (unlike
+# _submit_refund_tx, which re-raises), logs it, and counts it in
+# blockchain_escrow_fee_sweep_total{result=...}. A missed attempt retries on
+# the next release-route call for the job — the already-released path below
+# re-offers it, deduped by _find_existing_fee_sweep.
+
+
+def _fee_sweep_enabled() -> bool:
+    return os.getenv("ESCROW_FEE_SWEEP_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _fee_sweep_recipient() -> str | None:
+    """Env-side fee recipient for sweep signing. Consensus re-checks the ``to``
+    against the on-chain ``escrow_fee_recipient`` parameter at apply height;
+    when they disagree the sweep is refused and stays visible in the metric."""
+    raw = os.getenv("ESCROW_FEE_RECIPIENT", "").strip()
+    return _to_canonical(raw) if raw else None
+
+
+async def _find_existing_fee_sweep(job_id: str) -> str | None:
+    """Return the hash of an ESCROW_FEE_SWEEP already on-chain for ``job_id``, if any.
+
+    Same dedupe contract as _find_existing_release/_find_existing_refund: a
+    sealed sweep makes every later attempt a no-op, which is what lets the
+    retry path offer the leg again safely.
+    """
+    try:
+        r = await SharedHttpClient.get(
+            f"{_HUB_RPC_URL}/transactions?transaction_type=ESCROW_FEE_SWEEP&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
+        )
+        if r.status_code != 200:
+            return None
+        for tx in r.json() or []:
+            if (tx.get("payload") or {}).get("job_id") == job_id:
+                settled_hash = tx.get("tx_hash")
+                return str(settled_hash) if settled_hash else None
+    except Exception as e:
+        _logger.warning("ESCROW_FEE_SWEEP: settled-sweep lookup failed for job_id=%s: %s", job_id, e)
+    return None
+
+
+async def _escrow_custody_balance(job_id: str) -> int | None:
+    """On-chain balance of the job's derived custody account, or None when it
+    cannot be proven (RPC failure / unknown account) — callers must skip rather
+    than guess."""
+    from ..state.pure_state_transition import _escrow_address
+
+    try:
+        r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{_escrow_address(job_id)}")
+        if r.status_code == 200:
+            return int(r.json().get("balance", 0))
+    except Exception as e:
+        _logger.warning("ESCROW_FEE_SWEEP: custody balance lookup failed for job_id=%s: %s", job_id, e)
+    return None
+
+
+async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int) -> str | None:
+    """Submit an ESCROW_FEE_SWEEP draining ``residue_units`` from the job's
+    custody account to the fee recipient. Returns the tx hash, an existing
+    hash when the job was already swept, or None — never raises, the release
+    it follows is authoritative and must not see a sweep error."""
+    if residue_units <= 0:
+        return None
+    try:
+        existing = await _find_existing_fee_sweep(job_id)
+        if existing:
+            _logger.info(
+                "ESCROW_FEE_SWEEP already settled for job_id=%s (%s); not resubmitting",
+                job_id,
+                existing,
+            )
+            return existing
+        recipient = _fee_sweep_recipient()
+        if not recipient:
+            _logger.warning(
+                "ESCROW_FEE_SWEEP skipped for job_id=%s: ESCROW_FEE_RECIPIENT is not configured "
+                "(consensus requires the escrow_fee_recipient chain parameter)",
+                job_id,
+            )
+            escrow_fee_sweep_total.labels(result="skipped").inc()
+            return None
+        settlement_key = _get_settlement_key()
+        settlement_address = _get_settlement_address()
+        if not settlement_key or not settlement_address:
+            _logger.warning("ESCROW_FEE_SWEEP skipped for job_id=%s: settlement key/address not configured", job_id)
+            escrow_fee_sweep_total.labels(result="skipped").inc()
+            return None
+
+        nonce = await _get_account_nonce(settlement_address)
+        tx = {
+            "from": settlement_address,
+            "to": recipient,
+            "amount": residue_units,
+            "fee": _fee_for(residue_units),
+            "nonce": nonce,
+            "type": "ESCROW_FEE_SWEEP",
+            "chain_id": _CHAIN_ID,
+            "payload": {
+                "action": "escrow_fee_sweep",
+                "job_id": job_id,
+                "contract_id": contract_id,
+            },
+        }
+        # Same rule as release/refund: no wall-clock in the payload, an
+        # identical retry at the same nonce must hash identically.
+        signing_hash = _compute_tx_signing_hash(tx)
+        tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
+
+        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            raw_tx_hash = result.get("transaction_hash")
+            actual_tx_hash: str | None = str(raw_tx_hash) if raw_tx_hash else None
+            _logger.info(
+                "ESCROW_FEE_SWEEP TX submitted: hash=%s residue=%s from=%s to=%s job_id=%s",
+                actual_tx_hash,
+                residue_units,
+                settlement_address,
+                recipient,
+                job_id,
+            )
+            escrow_fee_sweep_total.labels(result="submitted").inc()
+            return actual_tx_hash
+        _logger.error(
+            "ESCROW_FEE_SWEEP TX rejected %s for job_id=%s residue=%s — release stands, sweep retries "
+            "on the next settlement call: %s",
+            resp.status_code,
+            job_id,
+            residue_units,
+            resp.text[:200],
+        )
+        escrow_fee_sweep_total.labels(result="rejected").inc()
+    except Exception as e:
+        _logger.error(
+            "ESCROW_FEE_SWEEP TX submission failed for job_id=%s residue=%s — release stands, sweep "
+            "retries on the next settlement call: %s",
+            job_id,
+            residue_units,
+            e,
+        )
+        escrow_fee_sweep_total.labels(result="error").inc()
+    return None
+
+
+async def _maybe_sweep_escrow_residue(
+    job_id: str,
+    contract_id: str,
+    locked_units: int,
+    released_units: int,
+    buyer_units: int,
+) -> str | None:
+    """Post-settlement sweep attempt. ``buyer_units`` reserves the buyer's
+    unbilled change whether or not the refund leg has already sealed, so the
+    sweep can only take what no settlement leg will ever claim: the withheld
+    platform fee plus rounding dust. Off unless ESCROW_FEE_SWEEP_ENABLED."""
+    if not _fee_sweep_enabled():
+        return None
+    residue_units = locked_units - released_units - buyer_units
+    if residue_units <= 0:
+        return None
+    try:
+        return await _submit_fee_sweep_tx(job_id, contract_id, residue_units)
+    except Exception as e:  # belt-and-braces: the release must never see this
+        _logger.error("ESCROW_FEE_SWEEP wrapper failed for job_id=%s — release stands: %s", job_id, e)
+        escrow_fee_sweep_total.labels(result="error").inc()
+        return None
+
+
+async def _retry_sweep_released_escrow(job_id: str, record: Escrow) -> str | None:
+    """Re-offer the sweep for an already-released job — the retry surface.
+
+    The residue claim is only provable from the row when a refund leg was
+    recorded: ``refunded_amount`` is written when the change leg submits, so
+    residue = amount − released − refunded equals the custody balance exactly
+    once every owed leg has sealed (the design's equality check — a balance
+    above it means an owed leg is still pending, below it means the account
+    was touched by something else; either way the job is skipped, never
+    guessed). Rows without a recorded refund are ambiguous — the change may
+    never have been owed or its submission may have failed before the mark —
+    so they are skipped too; the residue stays put for a later leg or the
+    operator's census sweep to take."""
+    if not _fee_sweep_enabled():
+        return None
+    if record.released_amount is None or record.refunded_amount is None:
+        escrow_fee_sweep_total.labels(result="skipped").inc()
+        return None
+    expected = record.amount - record.released_amount - record.refunded_amount
+    if expected <= 0:
+        return None
+    custody = await _escrow_custody_balance(job_id)
+    if custody is None or custody != expected:
+        if custody is not None:
+            _logger.info(
+                "ESCROW_FEE_SWEEP deferred for job_id=%s: custody %s != residue %s — an owed leg may still be pending",
+                job_id,
+                custody,
+                expected,
+            )
+        escrow_fee_sweep_total.labels(result="skipped").inc()
+        return None
+    return await _submit_fee_sweep_tx(job_id, job_id, expected)
+
+
 @router.post("/escrow/create", summary="Create escrow for a job")
 async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     """Create a new escrow contract after the buyer has signed an ESCROW_LOCK transaction.
@@ -1199,6 +1413,10 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     session.add(record)
                     session.commit()
                 release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
+                # v11: re-offer the custody-residue sweep for an already-released
+                # job — the retry surface for a settle-time attempt that was never
+                # admitted or sealed. Deduped on-chain; provable residue only.
+                await _retry_sweep_released_escrow(job_id, record)
                 return {
                     "success": True,
                     "contract_id": getattr(record, "contract_id", None) or "",
@@ -1355,6 +1573,21 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     buyer_addr,
                     unbilled_amount,
                 )
+
+        # v11: every settlement leg for this settlement is now submitted (the
+        # release above, plus the change refund when one was owed). Sweep the
+        # residue — the withheld platform fee plus rounding dust — to the
+        # governed fee recipient. The unbilled amount is reserved whether or
+        # not its leg just landed, so the sweep can never take owed change.
+        # Off unless ESCROW_FEE_SWEEP_ENABLED; a failure is logged/counted and
+        # never touches the authoritative release.
+        await _maybe_sweep_escrow_residue(
+            job_id,
+            contract_id,
+            locked_units=ait_to_units(locked_total),
+            released_units=ait_to_units(released_amount),
+            buyer_units=ait_to_units(unbilled_amount),
+        )
 
         released_at = datetime.now(UTC)
         try:
