@@ -343,6 +343,230 @@ async def test_submit_refund_tx_refuses_unresolvable_buyer(release_key, monkeypa
     assert tx_hash is None
 
 
+# --- v11: ESCROW_FEE_SWEEP post-settlement leg --------------------------------
+
+# Obviously synthetic recipient — the real treasury address is designated at
+# deploy time and must never appear in the repo. The wire form is the EIP-55
+# canonicalisation of this literal.
+from aitbc.crypto.signature_recovery import canonical_address as _canonical
+
+FEE_SWEEP_RECIPIENT_RAW = "0x" + "ee" * 20
+FEE_SWEEP_RECIPIENT = _canonical(FEE_SWEEP_RECIPIENT_RAW)
+
+
+def _enable_fee_sweep(monkeypatch, release_key):
+    monkeypatch.setenv("ESCROW_FEE_SWEEP_ENABLED", "1")
+    monkeypatch.setenv("ESCROW_FEE_RECIPIENT", FEE_SWEEP_RECIPIENT_RAW)
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.delenv("ESCROW_RELEASE_ADDRESS", raising=False)
+    monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    return _reload_routes()
+
+
+@pytest.mark.asyncio
+async def test_fee_sweep_disabled_by_default(release_key, monkeypatch):
+    """The probe's failing half: with the flag unset the sweep must not be
+    submitted even when every other input is configured."""
+    monkeypatch.delenv("ESCROW_FEE_SWEEP_ENABLED", raising=False)
+    monkeypatch.setenv("ESCROW_FEE_RECIPIENT", FEE_SWEEP_RECIPIENT)
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+
+    with patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post:
+        result = await escrow_routes._maybe_sweep_escrow_residue(
+            "job-123", "contract-123", locked_units=1_000_000, released_units=900_000, buyer_units=0
+        )
+
+    assert result is None
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fee_sweep_submits_residue_to_configured_recipient(release_key, monkeypatch):
+    """The passing half: flag on, recipient configured — the sweep drains
+    locked − released − buyer-reserved to the fee recipient, authority-signed."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"transaction_hash": "0xsweep"}
+
+    with (
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=7),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
+    ):
+        tx_hash = await escrow_routes._maybe_sweep_escrow_residue(
+            "job-123", "contract-123", locked_units=1_000_000, released_units=900_000, buyer_units=80_000
+        )
+
+    assert tx_hash == "0xsweep"
+    sent_tx = mock_post.call_args.kwargs["json"]
+    assert sent_tx["type"] == "ESCROW_FEE_SWEEP"
+    assert sent_tx["to"] == FEE_SWEEP_RECIPIENT
+    assert sent_tx["amount"] == 20_000  # locked − released − buyer-reserved
+    assert sent_tx["nonce"] == 7
+    assert sent_tx["payload"]["job_id"] == "job-123"
+    assert sent_tx["from"] == RELEASE_KEY_ADDRESS
+    assert sent_tx["signature"]
+
+
+@pytest.mark.asyncio
+async def test_fee_sweep_skips_when_no_residue(release_key, monkeypatch):
+    """A settlement whose legs claim the whole lock has nothing to sweep."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+
+    with patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post:
+        result = await escrow_routes._maybe_sweep_escrow_residue(
+            "job-123", "contract-123", locked_units=1_000_000, released_units=920_000, buyer_units=80_000
+        )
+
+    assert result is None
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fee_sweep_failure_never_raises(release_key, monkeypatch):
+    """The release is authoritative: a rejected or crashed sweep submission is
+    logged, counted in the metric, and returns None — never raised."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+
+    from aitbc_chain.metrics import escrow_fee_sweep_total
+
+    rejected = MagicMock()
+    rejected.status_code = 400
+    rejected.text = "admission refused"
+    baseline_rejected = escrow_fee_sweep_total.labels(result="rejected")._value.get()
+    baseline_error = escrow_fee_sweep_total.labels(result="error")._value.get()
+
+    with (
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=7),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=rejected),
+    ):
+        assert await escrow_routes._submit_fee_sweep_tx("job-1", "contract-1", 5_000) is None
+
+    with (
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=7),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, side_effect=RuntimeError("down")),
+    ):
+        assert await escrow_routes._submit_fee_sweep_tx("job-1", "contract-1", 5_000) is None
+
+    assert escrow_fee_sweep_total.labels(result="rejected")._value.get() == baseline_rejected + 1
+    assert escrow_fee_sweep_total.labels(result="error")._value.get() == baseline_error + 1
+
+
+@pytest.mark.asyncio
+async def test_fee_sweep_skips_when_recipient_unset(release_key, monkeypatch):
+    """Fail closed at the signer too: with no ESCROW_FEE_RECIPIENT the tx is
+    never built — consensus would refuse it anyway."""
+    monkeypatch.setenv("ESCROW_FEE_SWEEP_ENABLED", "1")
+    monkeypatch.delenv("ESCROW_FEE_RECIPIENT", raising=False)
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+
+    with (
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._submit_fee_sweep_tx("job-1", "contract-1", 5_000) is None
+
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fee_sweep_dedupes_settled_jobs(release_key, monkeypatch):
+    """A job whose sweep already sealed returns the existing hash — the retry
+    surface can offer the leg on every call without double-sweeping."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+
+    with (
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value="0xswept"),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        tx_hash = await escrow_routes._submit_fee_sweep_tx("job-1", "contract-1", 5_000)
+
+    assert tx_hash == "0xswept"
+    mock_post.assert_not_awaited()
+
+
+def _released_record(**overrides):
+    from aitbc_chain.models import Escrow
+
+    record = Escrow(
+        job_id="job-1",
+        chain_id="test-chain",
+        buyer="0x" + "66" * 20,
+        provider="0x" + "77" * 20,
+        amount=1_000_000,
+        released_amount=920_000,
+        refunded_amount=75_000,
+    )
+    for key, value in overrides.items():
+        setattr(record, key, value)
+    return record
+
+
+@pytest.mark.asyncio
+async def test_retry_path_sweeps_only_the_proven_residue(release_key, monkeypatch):
+    """Retry: custody balance must equal locked − released − refunded exactly —
+    the design's equality check. A balance above it means an owed leg is still
+    pending; the job is skipped, never guessed."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"transaction_hash": "0xsweep"}
+
+    record = _released_record()  # residue = 1_000_000 − 920_000 − 75_000 = 5_000
+
+    # Legs fully sealed: custody holds exactly the residue.
+    with (
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=5_000),
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=9),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) == "0xsweep"
+    assert mock_post.call_args.kwargs["json"]["amount"] == 5_000
+
+    # An owed leg still pending: custody holds residue + unbilled change.
+    with (
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=85_000),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) is None
+    mock_post.assert_not_awaited()
+
+    # Custody unprovable: skipped.
+    with (
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) is None
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_retry_path_skips_rows_without_recorded_refund(release_key, monkeypatch):
+    """A released row with no recorded refund leg is ambiguous — the change
+    may never have been owed or its submission may have failed before the
+    mark — so the sweep leaves it for the operator's census instead of
+    guessing."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    record = _released_record(refunded_amount=None)
+
+    with (
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) is None
+    mock_post.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_submit_refund_tx_re_raises_on_submission_failure(release_key, monkeypatch):
     """A transport or unexpected failure during refund submission must propagate, not be swallowed."""

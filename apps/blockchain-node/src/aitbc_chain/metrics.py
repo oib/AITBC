@@ -186,6 +186,14 @@ bridge_initialized = Gauge(
     ["chain_id"],
 )
 
+# v11: ESCROW_FEE_SWEEP legs follow a job's final settlement leg. The release
+# stays authoritative — a failed sweep is counted here, never rolled back.
+escrow_fee_sweep_total = Counter(
+    "blockchain_escrow_fee_sweep_total",
+    "ESCROW_FEE_SWEEP submission attempts after a job's final settlement leg",
+    ["result"],
+)
+
 # Legacy MetricsRegistry for backward compatibility
 from dataclasses import dataclass  # noqa: E402
 from threading import Lock  # noqa: E402
