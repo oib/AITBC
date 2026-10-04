@@ -8,6 +8,7 @@ redis-cli/sqlite3/gpg/systemd-cat/sudo/psql/python are stubs on PATH that
 record what they were asked to do.
 """
 
+import gzip
 import os
 import shutil
 import subprocess
@@ -63,11 +64,15 @@ def _snap_name(days_ago: int) -> str:
     return (datetime.now() - timedelta(days=days_ago)).strftime("%Y%m%d_010203")
 
 
-def _make_snapshot(base: Path, name: str, good: bool = True, fresh_mtime: bool = False) -> Path:
+def _make_snapshot(base: Path, name: str, good: bool = True, fresh_mtime: bool = False, corrupt_chain: bool = False) -> Path:
     d = base / name
     d.mkdir(parents=True)
-    if good:
+    if corrupt_chain:
+        # Nonzero file with a gzip header but a truncated body — passes the
+        # size check, fails gzip -t.
         (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(b"\x1f\x8bFAKE")
+    elif good:
+        (d / "chain_ait-hub.aitbc.bubuit.net_chain.db.gz").write_bytes(gzip.compress(b"chain"))
     else:
         (d / "postgres_aitbc_market.sql.gz").write_bytes(b"\x1f\x8bFAKE")
     if fresh_mtime:
@@ -211,6 +216,50 @@ def test_redis_ok_copies_rdb(env):
     assert r.returncode == 0
     today = [d for d in env.base.iterdir() if d.is_dir()][0]
     assert (today / "redis.rdb").read_bytes() == b"RDBFILE"
+
+
+def test_prune_dryrun_logs_but_deletes_nothing(env):
+    """Dry-run mode runs the same decision loop but must not remove anything."""
+    for days in (45, 50, 60):
+        _make_snapshot(env.base, _snap_name(days))
+    r = _run(env, BACKUP_KEEP_MIN_GOOD="1", BACKUP_PRUNE_DRYRUN="yes")
+    assert r.returncode == 0
+    names = _dir_names(env.base)
+    assert {_snap_name(45), _snap_name(50), _snap_name(60)} <= names
+    log = _log(env)
+    assert f"would remove '{_snap_name(50)}'" in log
+    assert f"would remove '{_snap_name(60)}'" in log
+    assert "Prune: removing" not in log
+
+
+def test_corrupt_chain_gz_is_not_a_good_snapshot(env):
+    """A nonzero but gzip-corrupt chain dump must not count toward keep-min."""
+    # The corrupt dir is the NEWEST old dir so it reaches the loop when only
+    # keep-min protection could save it: with the gzip test on it counts as
+    # nothing and is pruned. (Loop order is lexical = oldest name first; the
+    # 60d and 50d dirs fill/decrement the counter ahead of it.)
+    corrupt = _make_snapshot(env.base, _snap_name(35), corrupt_chain=True)
+    for days in (50, 60):
+        _make_snapshot(env.base, _snap_name(days))
+
+    r = _run(env, BACKUP_KEEP_MIN_GOOD="2")
+    assert r.returncode == 0
+    names = _dir_names(env.base)
+    assert not corrupt.exists()
+    assert _snap_name(60) not in names
+    assert _snap_name(50) in names
+
+
+def test_corrupt_chain_gz_counts_as_good_when_gzip_test_off(env):
+    """Legacy size-only mode still treats the corrupt dir as good."""
+    corrupt = _make_snapshot(env.base, _snap_name(35), corrupt_chain=True)
+    for days in (50, 60):
+        _make_snapshot(env.base, _snap_name(days))
+
+    r = _run(env, BACKUP_KEEP_MIN_GOOD="2", BACKUP_GOOD_REQUIRE_GZIP_TEST="no")
+    assert r.returncode == 0
+    assert corrupt.exists()
+    assert "among the last 2 good snapshots" in _log(env)
 
 
 def test_gpg_default_artifact_list_unchanged(env):
