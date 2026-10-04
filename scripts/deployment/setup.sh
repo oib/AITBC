@@ -6,10 +6,12 @@
 set -e
 
 # Public mirror and canonical Gitea source.
-# Default setup uses the public GitHub mirror; use --gitea (or --gitea <url>)
-# for the canonical operator source.
+# Default setup uses the public GitHub mirror; use --gitea <url> or
+# AITBC_GITEA_REMOTE for the canonical operator source. The Gitea URL is
+# operator-private and intentionally not in the repo — a gitea.invalid value
+# would be the public-scrub placeholder and can never resolve.
 GITHUB_REMOTE="https://github.com/oib/AITBC.git"
-GITEA_REMOTE="${AITBC_GITEA_REMOTE:-https://gitea.invalid/oib/AITBC.git}"
+GITEA_REMOTE="${AITBC_GITEA_REMOTE:-}"
 
 # Parse command line arguments
 OPEN_ISLAND_HUB=""
@@ -55,7 +57,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --open-island HUB_URL  Configure as follower to specified hub (non-interactive)"
             echo "  --node-id NODE_ID      Set node identity (required with --open-island)"
-            echo "  --gitea [URL]          Clone/pull from the canonical Gitea repo (default: $GITEA_REMOTE)"
+            echo "  --gitea <URL>          Clone/pull from the canonical Gitea repo (or set AITBC_GITEA_REMOTE)"
             echo "  --remote URL           Git remote to clone from (overrides --gitea and the default)"
             echo "  --force                Re-run full setup even if already installed"
             echo "  --help                 Show this help message"
@@ -421,8 +423,14 @@ clone_repo() {
     local git_remote="$GITHUB_REMOTE"
     if [ "$USE_GITEA" = true ]; then
         git_remote="${GITEA_REMOTE_ARG:-$GITEA_REMOTE}"
+        if [ -z "$git_remote" ]; then
+            error "--gitea needs the canonical Gitea URL: pass --gitea <url> or set AITBC_GITEA_REMOTE (the URL is operator-private and not published in the repo)"
+        fi
     fi
     git_remote="${AITBC_GIT_REMOTE:-$git_remote}"
+    case "$git_remote" in
+        *.invalid*) error "Refusing to clone from a scrub-placeholder remote: $git_remote" ;;
+    esac
 
     # Clone repository
     cd /opt
@@ -439,14 +447,14 @@ clone_repo() {
         git remote set-url --push github no_push 2>/dev/null || warning "Failed to disable github push (non-fatal)"
     fi
     if ! git remote | grep -q '^gitea$'; then
-        # Add a `gitea` named remote only if origin is not already the canonical Gitea URL.
-        case "$origin_url" in
-            *"${GITEA_REMOTE}"*|*gitea.invalid/oib/aitbc*|*gitea.invalid/oib/AITBC*)
-                ;;
-            *)
-                git remote add gitea "$GITEA_REMOTE" 2>/dev/null || warning "Failed to add Gitea remote (non-fatal)"
-                ;;
-        esac
+        # Add a `gitea` named remote only when a real canonical URL is known
+        # and origin is not already it — an empty/scrub-placeholder URL must
+        # never be written into a node's git config (update.sh --gitea reads
+        # this remote back).
+        local gitea_url="${GITEA_REMOTE_ARG:-$GITEA_REMOTE}"
+        if [ -n "$gitea_url" ] && [ "$origin_url" != "$gitea_url" ]; then
+            git remote add gitea "$gitea_url" 2>/dev/null || warning "Failed to add Gitea remote (non-fatal)"
+        fi
     fi
     # Never store tokens or passwords in the remote URL. If the user passed a
     # credential-included URL via --remote, warn loudly so they can remove it and
