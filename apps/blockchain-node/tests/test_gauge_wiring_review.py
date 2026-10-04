@@ -1,14 +1,15 @@
 """Task 85 adversarial-review probes for 09eadc5999.
 
-Two defect probes are strict-xfail until fixed:
+Two defect probes were strict-xfail until fixed:
 
-- a failed remote-head fetch reports sync_lag_blocks == 0 (fabricated
-  "synced") because peer_head_divergence returns (None, -1) and
-  gap = max(0, -1 - local) collapses to 0.
-- the submit_market_transaction GPU_REGISTER branch skips
-  _validate_transaction_admission, so a request-supplied chain_id reaches
-  mempool.add and mints an unbounded blockchain_mempool_pending_count
-  label series.
+- a failed remote-head fetch reported sync_lag_blocks == 0 (fabricated
+  "synced") because peer_head_divergence returned (None, -1) and
+  gap = max(0, -1 - local) collapsed to 0 — fixed by 015fd9ea57's
+  DISCONNECTED path.
+- the submit_market_transaction GPU_REGISTER branch skipped
+  _validate_transaction_admission, so a request-supplied chain_id reached
+  mempool.add and minted an unbounded blockchain_mempool_pending_count
+  label series — fixed by C18's _require_supported_chain in that branch.
 
 Plus one concurrency consistency check (expected to pass): the gauge must
 equal the real pool size at rest after concurrent add/remove/drain/evict.
@@ -22,7 +23,6 @@ import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from prometheus_client import REGISTRY
 
 from aitbc_chain.mempool import DatabaseMempool, InMemoryMempool
@@ -201,10 +201,6 @@ class TestMempoolChainLabelCardinality:
     (50/min) but unbounded over time: a Prometheus cardinality bomb.
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="GPU_REGISTER branch skips the supported-chain check; request chain_id reaches mempool.add and the label",
-    )
     def test_gpu_register_with_unsupported_chain_mints_no_label(self, monkeypatch, tmp_path):
         from aitbc_chain.rpc import transactions as tx_routes
         from aitbc_chain import mempool as mempool_mod
