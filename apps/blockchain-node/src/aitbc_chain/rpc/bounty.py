@@ -16,7 +16,7 @@ from ..logger import get_logger
 from ..models import Account
 from ..protocol_escrow import bounty_escrow_address, confirmed_lock_total, queue_protocol_transfer
 from .agent_economics_auth import operator_address, require_int, require_operator_signature
-from .utils import get_chain_id, validate_chain_id
+from .utils import _require_supported_chain, get_chain_id, validate_chain_id
 
 _logger = get_logger(__name__)
 
@@ -158,6 +158,10 @@ async def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
 async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
+    try:
+        _require_supported_chain(chain_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     submission_id = payload.get("submission_id")
     verified = bool(payload.get("verified"))
     if not submission_id:
@@ -243,6 +247,10 @@ async def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any])
 async def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
+    try:
+        _require_supported_chain(chain_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     user = payload.get("user_address")
     if not user:
         raise HTTPException(status_code=400, detail="user_address is required")
