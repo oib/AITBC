@@ -6,8 +6,10 @@ Two halves:
   ``transaction`` table. A marked leg whose hash stays unsealed past the
   detector's 900 s threshold AND is absent from the proposer's mempool is
   demoted (timestamps cleared, ``status='settlement_failed'``, dead hash
-  kept); a sealed leg is confirmed/re-marked. The detector uses the same
-  sealed-table probe, so the two never disagree.
+  kept); an *unmarked* leg that is sealed is re-marked. A marked leg whose
+  settlement is sealed is merely verified — healthy rows are never
+  rewritten. The detector uses the same sealed-table probe, so the two
+  never disagree.
 * ``_refuse_v2_lock`` keeps the demote from being an accidental remedy-2: a
   demoted row reaching the release/refund routes re-drives only when its lock
   sealed at or above ``state_transition_v3_height``. V2-era locks answer 409
@@ -100,13 +102,16 @@ def _naive(dt: datetime | None) -> datetime | None:
 # ---------------------------------------------------------------- sweeper
 
 
-def test_marked_leg_sealed_is_confirmed(session):
+def test_marked_leg_sealed_is_verified_untouched(session):
+    """A healthy row is never rewritten: acceptance-time mark and stored hash
+    both stand — the sweep only verifies."""
     _tx(session, "ESCROW_RELEASE", "0xsealed-release")
     _row(session, status="released", released_at=OLD_MARK, release_tx_hash="0xsealed-release")
     stats = ess.sweep_once(session, NOW, set())
     row = _refresh(session, session.get(Escrow, JOB))
-    assert stats["confirmed"] == 1 and stats["demoted"] == 0
-    assert _naive(row.released_at) == _naive(SEALED_AT)  # normalized to the seal record's time
+    assert stats["verified"] == 1 and stats["demoted"] == 0 and stats["remarked"] == 0
+    assert _naive(row.released_at) == _naive(OLD_MARK)  # acceptance time kept
+    assert row.release_tx_hash == "0xsealed-release"
     assert row.status == "released"
 
 
@@ -151,8 +156,8 @@ def test_mixed_row_demotes_only_the_dead_leg(session):
     )
     stats = ess.sweep_once(session, NOW, set())
     row = _refresh(session, session.get(Escrow, JOB))
-    assert stats["demoted"] == 1 and stats["confirmed"] == 1
-    assert _naive(row.released_at) == _naive(SEALED_AT)
+    assert stats["demoted"] == 1 and stats["verified"] == 1
+    assert _naive(row.released_at) == _naive(OLD_MARK)  # verified mark untouched
     assert row.refunded_at is None
     assert row.status == "released"  # the sealed leg keeps the row settled
     assert row.refund_tx_hash == "0xdead-refund"
@@ -188,15 +193,132 @@ def test_status_only_claim_demotes_when_dead(session):
     assert row.release_tx_hash == "0xdead"  # hash kept so the detector still flags it
 
 
-def test_hashless_marked_leg_confirmed_by_job_fallback(session):
-    """Legacy mark without a stored hash is proven by the job's sealed tx."""
+def test_status_only_claim_with_sealed_hash_is_remarked(session):
+    """A status-claimed leg that turns out sealed gets the mark written —
+    the one case besides demote where a write is allowed."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _row(session, status="released", released_at=None, release_tx_hash="0xsealed-release")
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["remarked"] == 1
+    assert _naive(row.released_at) == _naive(SEALED_AT)
+    assert row.status == "released"
+
+
+def test_sealed_stored_hash_is_never_overwritten(session):
+    """Double-settle anomaly (job 46025c0e sealed twice): the stored sealed
+    hash stays even though a second sealed tx exists for the job."""
+    _tx(session, "ESCROW_RELEASE", "0xfirst-seal")
+    _tx(session, "ESCROW_RELEASE", "0xsecond-seal")
+    _row(session, status="released", released_at=OLD_MARK, release_tx_hash="0xfirst-seal")
+    ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert row.release_tx_hash == "0xfirst-seal"
+    assert _naive(row.released_at) == _naive(OLD_MARK)
+
+
+def test_marked_leg_with_missing_hash_stays_flagged(session):
+    """A marked leg whose stored hash is absent is verified via the job's
+    sealed tx — it is *not* demoted — but the row is not rewritten either,
+    so the detector's claim-by-mark still flags the missing audit trail."""
     _tx(session, "ESCROW_RELEASE", "0xsealed-release")
     _row(session, status="released", released_at=OLD_MARK, release_tx_hash=None)
     stats = ess.sweep_once(session, NOW, set())
     row = _refresh(session, session.get(Escrow, JOB))
-    assert stats["confirmed"] == 1 and stats["demoted"] == 0
-    assert _naive(row.released_at) == _naive(SEALED_AT)
-    assert row.release_tx_hash == "0xsealed-release"
+    assert stats["verified"] == 1 and stats["demoted"] == 0
+    assert _naive(row.released_at) == _naive(OLD_MARK)
+    assert row.release_tx_hash is None  # no silent rewrite; flag stays honest
+
+
+def test_dead_stored_hash_on_marked_leg_does_not_demote_when_job_sealed(session):
+    """Mark is true (the job sealed under another hash): no demote, and no
+    rewrite either — the dead stored hash keeps flagging for the operator."""
+    _tx(session, "ESCROW_RELEASE", "0xreal-seal")
+    _row(session, status="released", released_at=OLD_MARK, release_tx_hash="0xdead-hash")
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["verified"] == 1 and stats["demoted"] == 0
+    assert _naive(row.released_at) == _naive(OLD_MARK)
+    assert row.release_tx_hash == "0xdead-hash"
+
+
+def test_unmarked_refund_leg_with_sealed_hash_is_remarked(session):
+    """The metered-row heal: refunded_at NULL + sealed refund hash → re-mark."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _tx(session, "ESCROW_REFUND", "0xsealed-refund")
+    _row(
+        session,
+        status="released",
+        released_at=OLD_MARK,
+        refunded_at=None,
+        release_tx_hash="0xsealed-release",
+        refund_tx_hash="0xsealed-refund",
+    )
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["remarked"] == 1
+    assert _naive(row.refunded_at) == _naive(SEALED_AT)
+    assert _naive(row.released_at) == _naive(OLD_MARK)  # the marked leg untouched
+    assert row.status == "released"
+
+
+# ---------------------------------------------------------- mempool probe
+
+
+@pytest.mark.asyncio
+async def test_truncated_mempool_answer_is_probe_failure(monkeypatch):
+    """count >= limit means the tail could hide the pending hash — fail closed."""
+    monkeypatch.setenv("HUB_BLOCKCHAIN_RPC_URL", "http://proposer:8202/rpc")
+    resp = SimpleNamespace(
+        status_code=200,
+        json=lambda: {"transactions": [{"tx_hash": "0xa"}], "count": ess._MEMPOOL_PROBE_LIMIT},
+    )
+    monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(return_value=resp))
+    assert await ess._proposer_pending_hashes() is None
+
+
+@pytest.mark.asyncio
+async def test_non_200_probe_is_failure(monkeypatch):
+    monkeypatch.setenv("HUB_BLOCKCHAIN_RPC_URL", "http://proposer:8202/rpc")
+    resp = SimpleNamespace(status_code=503, json=lambda: {})
+    monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(return_value=resp))
+    assert await ess._proposer_pending_hashes() is None
+
+
+@pytest.mark.asyncio
+async def test_probe_reads_proposer_env_url_first(monkeypatch):
+    """HUB_BLOCKCHAIN_RPC_URL points at the actual proposer on every host;
+    the local BLOCKCHAIN_RPC_URL (which on followers is the node's own
+    mempool) is only the fallback."""
+    monkeypatch.setenv("HUB_BLOCKCHAIN_RPC_URL", "http://proposer:8202/rpc")
+    seen = {}
+    resp = SimpleNamespace(
+        status_code=200,
+        json=lambda: {"transactions": [], "count": 0},
+    )
+
+    async def _get(url, **kw):
+        seen["url"] = url
+        return resp
+
+    monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(side_effect=_get))
+    assert await ess._proposer_pending_hashes() == set()
+    assert seen["url"].startswith("http://proposer:8202/rpc/mempool")
+
+
+@pytest.mark.asyncio
+async def test_probe_falls_back_to_route_hub_url(monkeypatch):
+    monkeypatch.delenv("HUB_BLOCKCHAIN_RPC_URL", raising=False)
+    seen = {}
+    resp = SimpleNamespace(status_code=200, json=lambda: {"transactions": [], "count": 0})
+
+    async def _get(url, **kw):
+        seen["url"] = url
+        return resp
+
+    monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(side_effect=_get))
+    assert await ess._proposer_pending_hashes() == set()
+    assert seen["url"].startswith(f"{ess._HUB_RPC_URL}/mempool")
 
 
 # ------------------------------------------------------------- v2-era guard
