@@ -1119,4 +1119,10 @@ main() {
 # functions for tests without triggering the update.
 if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
     main "$@"
+    # update.sh can rewrite itself in step 1 (git pull replaces this file
+    # while bash holds it open at a byte offset). After main returns, bash
+    # would resume reading at that offset in the NEW file and could execute
+    # stray text. Exit inside the guard — never when sourced — so nothing
+    # after this line can ever run stale.
+    exit $?
 fi
