@@ -1,7 +1,7 @@
 # v0.25.9 — post-v0.25.8-tag: bridge payout monitor, governance service-local reclassification, v9 shadow window
 
 **Baseline**: `v0.25.8` tagged at `6026404775` (2026-09-29). Sections below accrued on `main` after the tag and are relocated here per the release-tag policy (`AGENTS.md`: the version's changelog is finalised in the tagged commit; later entries go to the next version's log).
-**Date**: 2026-09-30.
+**Date**: 2026-10-04.
 **Tag**: `v0.25.9` (pending).
 
 
@@ -1070,3 +1070,321 @@ only defined inside blocks.js scope). Both data sources (`/api/blocks/latest`,
 
 - `routers/journal.py` gains `GET /api/journal/counts`: per-node error/warning totals aggregated from the fleet-wide `aitbc_journal_error_messages`/`aitbc_journal_warning_messages` series (remote-written into hub Prometheus), with per-unit breakdowns and collector scan age per node; `stale` marks a node whose `aitbc_journal_scan_timestamp_seconds` is absent or past the `AITBCJournalScanStale` threshold. Prometheus down → `prometheus_ok: false`.
 - alerts.html Service Journal card gains a per-node counts strip above the (hub-local) entry list — remote-node journal noise is now visible on the page, naming which node's journal to inspect, before `AITBCJournalErrors` fires.
+
+### Consensus: v10 GPU lifecycle gates + attestation observability (2026-10-01)
+
+- `GPU_DEREGISTER` lets a GPU's registrant deactivate it (`5a0e833492`),
+  gated at the pinned v10 height 32100 (`02bca02b49`, default recorded in
+  the operator docs at `9ed3611280`). `GPU_RETIRED_IDS` refuses
+  `GPU_REGISTER`/`GPU_ALLOCATE` for retired ids at admission (`1abd2f14fb`)
+  and for blocks from v10 (`c06b1876f8`); `GPU_ALLOCATE` of a deactivated
+  GPU is refused at admission (`0eecf6dd59`). `gpu-registry-sweep` repairs
+  databases that replayed the retired-GPU rows (`b154bcb06a`).
+- Attestation path: each validator now counts once toward quorum
+  (`97849fcf59`), a post-quorum linger lets slow attestations land
+  (`17bcce06cc`), and both publish and arrival are logged
+  (`5613a1442d`, `337b763bd5`). Missed-proposer-round warnings fire only at
+  round >= 2 — round 1 is the documented empty-heartbeat landing spot
+  (`87c9909370`).
+- `consensus_state.save_state()` never committed: the insert was rolled
+  back on every call while returning True. It now commits and also saves
+  on every validator-set mutation (`0feb7ddfc3`).
+- Perf/correctness: scalar tip query in the v9 attestation check
+  (`be15bb5d3`), one retry on a locked database (`a5b72f4605`), and
+  unbounded `Block` entity loads replaced by scalar/count queries
+  (`c075daff9f`).
+
+### Signing safety: chain-id and nonce lookups fail loud everywhere (2026-10-01/02)
+
+A configured RPC that cannot answer a chain-id or nonce lookup now aborts
+the signing path with a non-zero exit instead of signing against a guessed
+chain or a stale nonce — every silent fallback that could put an
+unspendable or foreign-chain transaction in the mempool is removed:
+
+- `utils.chain_id` carries the resolution logic (`acb9653e51`,
+  `54d44b8c0f`): probe the configured submit RPC, honour the root
+  `--chain-id` flag (`a622da638b`), and scope the `CHAIN_ID` hint to
+  chain-id failures specifically (`ff61ffa395`).
+- Wallet signing aborts when chain-id or nonce lookup fails
+  (`08094d44cd`), extended across ai/market/island (`cf6d8d5fc0`,
+  `9876035829`, `4c9e279468`, `8e3c057f10`), agent identity (`bc6d532bd5`),
+  and the legacy operations paths (`3ec7b90ca8`, `ac76812947`); batch runs
+  print their partial summary before aborting (`894b409091`) and name the
+  job id when a post-submit escrow lookup fails (`e195812d2a`).
+- `wallet send` fails closed on the configured RPC — no silent rewrite to
+  the hub (`a7324f633b`); protected `gpu buy` is hardened against rpc and
+  buyer-id failures (`3c6ec6bb83`).
+- Tests updated for strict chain-id and abort-on-error (`76bc58a86a`,
+  `003c8fcf0f`, `e81cb46c72`, `0a13d3c445`, `0d9fc1c48d`, `f86c9cd13f`,
+  `55731bfa39`, `4e54c040f2` baseline).
+
+### Escrow settlement pipeline: defer 'not yet', seal-gate, adopt-on-seal (2026-10-02/03)
+
+The end-to-end fix for consensus-refused releases that stayed pending on
+non-proposing nodes:
+
+- Refused escrow funding now marks the payment `failed` instead of silent
+  pending (`db0df5f158`); ambiguous POST failures are resolved before a
+  `failed` mark (`3d87432786`); a settled escrow record is never adopted
+  as this payment's lock (`cefbc012df`).
+- Release/refund defer until the `ESCROW_LOCK` itself is sealed
+  (`c52a9c5431`); 'not yet' (425) answers defer with a bounded clock
+  (`164ab38e27`, `60189b99a1` transport-failure keep, `cbf009568a` no
+  release-attempt spend, `2d174b03ae` narrowed refusal parse,
+  `b0bf98565b` definitive outcomes end the streak, corrupt marker fails
+  closed).
+- Market side: retry expired ipfs rentals whose escrow never settled
+  (`329e4146f6`), defer 'not yet' instead of terminal failure
+  (`872d2b53b5`), adopt a verdict only on a sealed hash (`ff5d9b65e9`,
+  `b627d45783`), bound the unsettled-expired arm (`ff96060c9f`).
+- Proposer probe + verify-only sweeper with batched sealed lookups
+  (`3b677736c2`, T60); demote-only settlement sweeper with v2-era route
+  guard (`ca7592fc0c`, S-8 lite); escrow applies the configured rate
+  window when funding a protected escrow (`d39a308882`).
+- Tests: `dffedb635d`, `6b99af1fae`, `238631d9b7`, `9097f459e1`,
+  `5ab5f193b0` authority-rules repoint.
+
+### Monitoring buildout: watcher push, journal errors, alerts page, detectors (2026-10-01–04)
+
+- Alert watcher: pushes webhooks (`AITBC_WATCH_NOTIFY_URL`), takes
+  silences, replays its own log, reports its own health (`63ade34a84`);
+  reports resolutions and refires with an events-only log (`6901cbfbcd`);
+  heartbeat world-readable for node-exporter (`b8362e8876`); watchdog ping
+  in-process (`b0b3b43304`).
+- Journal errors reach the alerts page (`53ba7ce52d`), stdout-logged
+  levels counted (`6c1543c02b`), per-node counts strip via remote-write
+  labels (`7de684a856`, `f493b3326d`), stale-collector watchdog
+  (`848185bb1e`).
+- Explorer/alerts page lists live Prometheus alerts + watcher history
+  (`423f876e1a`); event table capped at 20 rows and retitled
+  (`789edfc5d3`).
+- Detector rules: authority balances exported with escrow-fee-float alert
+  (`342f2dd872`); authority-balance alerts scoped to exporter host
+  (`242452abe9`); remote_write sample-rejection alert (`90a86a268a`);
+  escrow rows settled-but-never-sealed alert (`f739cc175c`) with two
+  silent-clear gaps closed (`86a9634d61`) and stored-hash legs counted
+  (`b9ca1d556d`); fleet-config-check covers the detector (`e7afaa364e`)
+  with promtool cases (`bd95e29472`); open tx-only locks surfaced behind a
+  known-artifacts registry (`2f5eadb676`); `AitbcSystemdUnitFailed`
+  (`96c3e9511f`), `AitbcSystemdCollectorMissing` (`4ad8a3e073`),
+  `EscrowOpenTxOnlyLock` (`5d088fbb2d`); `RemoteWriteFailing` promql-style
+  cases (`04fbe2e0be`); island-subscription check wires a key file and
+  splits failure exits (`20c72ca0e0`); fleet-config-check changelog
+  section unbroken under `set -e` (`aad2399189`).
+- Gauges wired behind alert rules (`84b718eed8`) — fabricated-zero sync
+  lag on a dead peer is refused (`3bf16a4a27`), adversarial probes
+  (`8d249953d8`).
+
+### Backup: name-date prune, keep-N-good, dry-run mode, visible redis failure (2026-10-03)
+
+`0cf9b9765b` switches pruning to name-date semantics with keep-N-good and
+makes the Redis `NOAUTH` failure visible instead of swallowed; the GPG
+recipient list is configurable. `61ba130b08` adds `BACKUP_PRUNE_DRYRUN`
+and gzip integrity checks for the "good" criterion; `eed40890ae` and
+`cb9d2f1c9e` narrow "good" to the exact production chain-dump name so a
+partial snapshot cannot suppress pruning forever.
+
+### Admission: supported-chain and authority-sender checks (2026-10-03/04)
+
+- Authority-gated tx types refuse the wrong sender at mempool admission
+  (`bb80452c79`, V-8).
+- Supported-chain admission on the GPU_REGISTER market branch
+  (`93b23936aa`) and on the governance/protocol-transfer routes
+  (`7a7a727087`) — foreign-chain transactions can no longer enter the
+  mempool through those surfaces.
+- A cancel/replaces hides a listing only when its sender is the seller
+  (`6ab18f4a2b`, M-1); offer unregister requires a provider signature
+  (`485e5157d3`).
+
+### ESCROW_FEE_SWEEP — v11-gated post-settlement fee leg (2026-10-04, off until set)
+
+`51b98e8523` adds the `ESCROW_FEE_SWEEP` transaction type behind the v11
+consensus gate (no behaviour until the height is set); `ec58bb6a3c` adds
+the post-settlement sweep leg behind `ESCROW_FEE_SWEEP_ENABLED` (default
+off); `75a3eab6a2` covers gate/admission parity and replay equivalence;
+`a08fde4bfe` gives the explorer label, env-config documentation, and
+escrow doc updates.
+
+### Market sweepers: phantom-escrow fast fail (2026-10-04)
+
+`746aa5a873`: an `ipfs_rental_token` whose job_id has no Escrow row
+on-chain can never release or refund (observed live: an Aug-28 rental
+recorded on the pre-Sep-3 chain). From the second deferred pass a
+still-absent `verify_escrow` marks the row `settlement_failed` instead of
+retrying to the 6h bound; present rows and probe failures keep the
+bounded path. The three live phantom rows were terminal-marked by hand.
+
+### Deploy, ops, and fleet hygiene (2026-10-01–04)
+
+- `DISABLED_SERVICES` env exclusion list keeps demoted units off
+  (`65de1de4b7`); setup service-selection tables corrected against the
+  live fleet (`3898c0b5b2`); retired openclaw gateway row dropped
+  (`dcd875c5fb`).
+- K-1 authority rotation recorded (`3c78a133e7`); env-indirected
+  validator/admin keys bound to declared addresses (`8a5cb0a47c`,
+  recorded `3fb736fe09`); SD-1 escrow-rebuild design doc (`4fb9694f00`);
+  next-height payload-binding scope recorded (`ded51d8845`); v9 pin entry
+  moved + re-window exception (`75789555b9`).
+- Follower reset scripts survive a leftover WAL (`b49b5d1457`); opt-in
+  keeper connection stops close-time WAL checkpoint stalls
+  (`3a73157c70`); `replay-chain --checkpoint` seeds state at a checkpoint
+  DB and replays C+1..end (`af7594fc04`, V-5); `security_audit.py`
+  repointed at the renamed coordinator paths (`24abc29b41`); MCP server
+  shows the resolved ssh target in dry-run and remote results
+  (`778af7b61f`).
+- Manual CI runner replays the gitea workflow while Actions is off
+  (`7b05cda195`); package version aligned to the release line at 0.25.8
+  (`ece5ba5bbf`); residual fleet tokens scrubbed (`4f32967727`,
+  `44ea7a5c43`); stale guard tests refreshed (`8845fa4b05`); orphan-check
+  exemption logged (`6f40df4f36`); offer-cancel reachable again with
+  `market offer-cancel` + help names `listing_id` (`53d9267341`,
+  `befb19b45b`); `energy suggest` shows cost-plus and multiplier anchors
+  (`3975731fee`); security leftovers — receipt-circuit cleanup on the
+  deployed tree (`225525bda2`), `/verify` refuses receipt circuits with
+  ZK-mock gate (`8cd4895f5f`), ML-verify docstrings + 503 gate
+  (`755735022c`), dev-flag checks fail the fleet-config gate
+  (`1aa8b6c774`), real bugs surfaced verifying that gate (`07ff234043`),
+  bridge verdict split + float-alert throttle (`a44db9744d`); block
+  content breakdown in Latest Blocks + Live Feed (`ed4a319976`).
+
+### Commit index — every commit since 2026-09-30, cited for the coverage check
+
+Continuation of the 2026-09-30 index above: `### ` sections carry the
+narrative; this list cites each remaining commit by hash so
+`fleet-config-check.sh`'s changelog-coverage section reports zero.
+
+- `6f40df4f36` docs(release): log orphan-check exemption commit
+- `225525bda2` fix(security): apply receipt-circuit cleanup to deployed circuit tree
+- `8cd4895f5f` fix(security): refuse receipt circuits on generic /verify; gate ZK mock
+- `755735022c` fix(security): surface ZK-mock flag; clarify ML verify semantics; 503 gate
+- `07ff234043` fix(fleet-check): real bugs surfaced while verifying the flag gate
+- `a44db9744d` fix(bridge): v9-pin-gate verdict line + float-alert throttle
+- `ded51d8845` docs(release): record next-height payload-binding scope (non-mutating verify + dead-branch removal)
+- `75789555b9` docs(release): move v9 pin entry to post-tag log; record re-window exception + validator load proof
+- `4fb9694f00` docs(design): SD-1 escrow rebuild — derive rows from sealed history, prove before write
+- `3fb736fe09` docs(release): record declared bridge-validator key bindings deployment
+- `af7594fc04` feat(ops): replay-chain --checkpoint — seed state-bearing DB, prove, replay C+1..end (V-5)
+- `24abc29b41` fix(security): point security_audit.py at the renamed coordinator_api paths (B-5)
+- `ed4a319976` feat(website): block content breakdown in Latest Blocks + Live Feed
+- `3a73157c70` feat(db): opt-in keeper connection to stop close-time WAL checkpoint stalls
+- `b49b5d1457` fix(ops): follower reset scripts survive a WAL left on disk
+- `3c78a133e7` docs(release): record K-1 authority rotation deployment
+- `6901cbfbcd` fix(monitoring): alert watcher reports resolutions and refires, keeps an events-only log
+- `53d9267341` fix(cli): offer cancel is reachable again as `market offer-cancel`
+- `befb19b45b` docs(cli): offer-cancel help names the listing_id field
+- `485e5157d3` fix(market): require a provider signature to unregister a software offer
+- `342f2dd872` feat(monitoring): export authority balances and alert on the escrow fee float
+- `337b763bd5` feat(consensus): log each attestation arrival at the proposer
+- `5613a1442d` feat(consensus): log each attestation an attester publishes
+- `17bcce06cc` feat(consensus): post-quorum linger lets slow validators' attestations land
+- `97849fcf59` fix(consensus): count each validator once toward attestation quorum
+- `5a0e833492` feat(consensus): GPU_DEREGISTER lets a GPU's registrant deactivate it (v10, off until set)
+- `be15bb53d3` perf(consensus): scalar tip query in v9 attestation check
+- `63ade34a84` feat(monitoring): prometheus watcher pushes webhooks, takes silences, reads its log, reports its own health
+- `423f876e1a` feat(explorer): alerts page lists live Prometheus alerts and watcher event history
+- `b8362e8876` fix(monitoring): write watcher heartbeat world-readable for node-exporter
+- `b0b3b43304` fix(monitoring): send watchdog ping in-process, not via systemd-notify
+- `53ba7ce52d` feat(monitoring): journal errors reach the alerts page — counter timer, rule, read endpoint
+- `6c1543c02b` fix(monitoring): surface stdout-logged levels in journal coverage
+- `87c9909370` fix(consensus): warn on missed proposer rounds only at round >= 2
+- `6ab18f464f` fix(rpc): a cancel or replaces hides a listing only when its sender is the seller (M-1)
+- `b154bcb06a` feat(ops): gpu-registry-sweep repairs a database that replayed the retired GPU rows
+- `1abd2f14fb` feat(rpc): GPU_RETIRED_IDS refuses GPU_REGISTER and GPU_ALLOCATE for a retired gpu_id
+- `848185bb1e` feat(monitoring): alert when the journal collector goes stale
+- `0feb7ddfc3` fix(consensus): commit the consensus_state save so it actually persists
+- `c06b1876f8` feat(consensus): GPU_RETIRED_IDS refusal applies to blocks from v10
+- `c075daff9f` perf(chain): replace unbounded Block entity loads with scalar/count queries
+- `65e84d233c` test(consensus): pin v9/v10 heights off in v8-era version tests
+- `7de684a856` feat(alerts): per-node journal counts strip on the alerts page
+- `f493b3326d` fix(alerts): group journal counts by the remote-write node label
+- `0eecf6dd59` feat(consensus): refuse GPU_ALLOCATE of deactivated GPUs at admission
+- `02bca02b49` feat(consensus): pin v10 GPU deregistration at block 32100
+- `9ed3611280` docs(v10): record the baked 32100 default in the two operator docs
+- `778af7b61f` fix(mcp-server): show resolved ssh target in dry-run and remote results
+- `08094d44cd` fix(cli): abort wallet signing when chain-id or nonce lookup fails
+- `ac76812947` fix(cli): fail loud on chain-id/nonce lookups in more signing paths
+- `8e3c057f10` fix(cli): gpu-onchain signs the probed chain id and exits non-zero on failure
+- `894b409091` fix(cli): print batch partial summary before aborting on lookup failure
+- `acb9653e51` refactor(cli): move gpu-onchain chain-id resolution into utils.chain_id
+- `cf6d8d5fc0` fix(cli): resolve chain id via the submit RPC on ai/market/island signing paths
+- `e81cb46c72` test(cli): guard against new ait-localnet literals in aitbc_cli
+- `bc6d532bd5` fix(cli): fail loud on chain-id lookups in agent identity commands
+- `3ec7b90ca8` fix(cli): fail loud on chain-id and nonce lookups in legacy operations
+- `0a13d3c445` test(cli): harden the silent chain-id fallback guard
+- `0d9fc1c48d` test(cli): update stale force-sync help assertion
+- `e195812d2a` fix(cli): name the job id when an escrow lookup fails after submit
+- `4e54c040f2` chore(ci): lower except baseline for cleaned-up cli modules
+- `ff61ffa395` fix(cli): scope the CHAIN_ID hint to chain-id lookup failures
+- `a622da638b` fix(cli): honour the root --chain-id flag in operations agent message
+- `4c9e279468` fix(cli): bind energy quotes to the resolved signing chain id
+- `9876035829` fix(cli): sign the resolved chain id on market gpu buy
+- `54d44b8c0f` refactor(cli): extract per-endpoint probe out of get_chain_id_from_health
+- `76bc58a86a` test(cli): update stale assertions for strict chain-id and abort-on-error
+- `003c8fcf0f` test(cli): stub CHAIN_ID in wallet/governance command tests
+- `e61291eccf` fix(cli): apply the operator's rate window when verifying energy quotes
+- `8845fa4b05` test: refresh four stale guards after deliberate product changes
+- `d39a308882` fix(escrow): apply the configured rate window when the node funds a protected escrow
+- `f86c9cd13f` test(cli): exercise the real CLIConfig for the energy rate window
+- `44ea7a5c43` docs(release): scrub residual fleet tokens from the v0.25.8 log
+- `4f32967727` test(security): add ns2 to INTERNAL_HOST_TOKENS and scrub residual hits
+- `3c6ec6bb83` fix(cli): harden protected gpu buy path against rpc and buyer-id failures
+- `242452abe9` fix(monitoring): scope authority-balance alerts to the exporter host
+- `db0df5f158` fix(coordinator): mark refused escrow funding as failed instead of silent pending
+- `3d87432786` fix(coordinator): resolve ambiguous escrow POST failures before marking failed
+- `cefbc012df` fix(coordinator): never adopt a settled escrow record as this payments lock
+- `c52a9c5431` fix(escrow): defer release/refund until the ESCROW_LOCK is sealed
+- `f739cc175c` feat(monitoring): alert on escrow rows settled but never sealed
+- `86a9634d61` fix(monitoring): close two silent-clear gaps in the escrow rules
+- `bd95e29472` test(monitoring): promtool cases for the escrow detector alerts
+- `e7afaa364e` feat(monitoring): fleet-config-check covers the escrow detector
+- `3975731fee` feat(cli): show cost-plus and multiplier anchors in energy suggest
+- `b9ca1d556d` fix(monitoring): count stored settlement hashes as claimed legs
+- `aad2399189` fix(monitoring): unbreak fleet-config-check changelog section under set -e
+- `90a86a268a` feat(monitoring): alert on remote_write sample rejection
+- `9097f459e1` fix(tests,coordinator): repoint authority-rule tests at the hub file and name settled legs
+- `238631d9b7` test(blockchain-node): seed the sealed-lock gate in escrow release/refund tests
+- `55731bfa39` test(cli): use address-shaped buyer id in energy quote test
+- `5ab5f193b0` test(monitoring): point authority-rules tests at aitbc_hub_rules.yml
+- `ca7592fc0c` fix(escrow): demote-only settlement sweeper with v2-era route guard (S-8 lite)
+- `3b677736c2` fix(escrow): proposer probe, verify-only sweeper, batched sealed lookups (T60)
+- `ece5ba5bbf` chore(version): align package version with the release line at 0.25.8
+- `7b05cda195` feat(ci): manual CI runner replaying the gitea workflow while Actions is off
+- `2d174b03ae` fix(coordinator): narrow escrow-refusal detail parse to ValueError
+- `cbf009568a` fix(coordinator): don't spend release attempts on escrow 425 'not yet'
+- `329e4146f6` fix(market): retry expired ipfs rentals whose escrow never settled
+- `dffedb635d` test(agent-coordinator): probe escrow release against a 425 'not yet' node
+- `164ab38e27` fix(coordinator): bound how long 425 'not yet' defers escrow release
+- `6b99af1fae` test(market): probe market_job_sweeper terminal-on-'not yet' handling
+- `60189b99a1` fix(coordinator): keep the 425-deferral clock through transport failures
+- `a7324f633b` fix(cli): fail wallet send closed — configured RPC, no silent hub rewrite
+- `04fbe2e0be` test(monitoring): add promql-style RemoteWriteFailing cases to rules tests
+- `0cf9b9765b` fix(backup): name-date pruning with keep-N-good, visible redis failure, configurable GPG list
+- `872d2b53b5` fix(market): defer 'not yet' escrow answers instead of terminal failure
+- `ff5d9b65e9` fix(market): gate escrow verdict adoption on a landed hash
+- `ff96060c9f` fix(market): bound the IPFS rental sweeper's unsettled-expired arm
+- `84b718eed8` fix(metrics): wire sync_lag_blocks and mempool pending gauges behind alert rules
+- `8d249953d8` test(node): adversarial-review probes for the gauge wiring commit
+- `3bf16a4a27` fix(node): stop publishing a fabricated-zero sync lag on a dead peer
+- `b627d45783` fix(market): adopt an escrow verdict only when its tx hash is sealed
+- `b0bf98565b` fix(coordinator): end the 425 deferral streak on definitive outcomes; fail closed on a corrupt marker
+- `2f5eadb676` feat(monitoring): surface open tx-only escrow locks behind a known-artifacts registry
+- `65de1de4b7` feat(deploy): keep demoted units off via DISABLED_SERVICES exclusion list
+- `93b23936aa` fix(node): supported-chain check in the GPU_REGISTER market branch
+- `7a7a727087` fix(node): supported-chain admission on governance and protocol-transfer routes
+- `96c3e9511f` feat(monitoring): AitbcSystemdUnitFailed alert rule + promtool tests
+- `20c72ca0e0` fix(monitoring): island-subscription check — wire key file, split failure exits
+- `e82b286be7` docs(ops): escrow settlement pipeline and alert-response runbook
+- `61ba130b08` feat(backup): prune dry-run mode and gzip integrity for "good" snapshots
+- `fb7a716073` docs(ops): refresh escrow-settlement runbook for 425 deferral and custody census
+- `eed40890ae` fix(backup): "good" snapshot means the production chain dump
+- `cb9d2f1c9e` fix(backup): good criterion uses the exact production dump name
+- `4ad8a3e073` feat(monitoring): AitbcSystemdCollectorMissing — the collector-presence guard
+- `3898c0b5b2` docs(setup): correct service-selection tables against the live fleet
+- `5d088fbb2d` feat(monitoring): EscrowOpenTxOnlyLock — alert on unregistered open tx-only escrow locks
+- `746aa5a873` fix(market): fail phantom IPFS rental escrows fast via absent-row probe
+- `789edfc5d3` fix(website): cap alert event table at 20 rows and retitle section
+- `dcd875c5fb` docs(setup): drop retired openclaw gateway row
+- `51b98e8523` feat(consensus): ESCROW_FEE_SWEEP tx type behind v11 gate (off until set)
+- `75a3eab6a2` test(consensus): ESCROW_FEE_SWEEP v11 gate, admission parity, replay equivalence
+- `ec58bb6a3c` feat(rpc): post-settlement ESCROW_FEE_SWEEP leg behind ESCROW_FEE_SWEEP_ENABLED
+- `a08fde4bfe` docs+ops: ESCROW_FEE_SWEEP explorer label, config drift, escrow docs
