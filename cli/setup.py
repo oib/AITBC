@@ -23,7 +23,7 @@ def read_requirements() -> list[str]:
 
 setup(
     name="aitbc-cli",
-    version="0.25.8",
+    version="0.25.9",
     author="AITBC Team",
     author_email="team@aitbc.net",
     description="AITBC Command Line Interface Tools",
