@@ -217,6 +217,8 @@ class TestFilesAgree:
     """
 
     def test_every_metric_the_rules_use_is_emitted(self):
+        # T35 scoped the authority alerts to the hub-only file; the shared
+        # rules file no longer references the aitbc_authority_* series.
         rules = (MONITORING / "aitbc_hub_rules.yml").read_text()
         used = set(re.findall(r"\baitbc_authority_[a-z_]+", rules))
         assert used, "the hub rules no longer read the authority series"
