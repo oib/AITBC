@@ -136,8 +136,9 @@ class IpfsRentalToken(MarketBase, table=True):
     disk_quota_mb: int | None = Field(default=None)
     size: int | None = Field(default=None)
     pinned: bool = Field(default=True)  # whether the provider pinned the CID
-    status: str = Field(default="active", index=True)  # active, expired, refunded, released, refund_pending
+    status: str = Field(default="active", index=True)  # active, expired, refunded, released, refund_pending, settlement_failed
     tx_hash: str | None = Field(default=None)
+    settle_deferral_first_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
     expires_at: datetime | None = Field(default=None)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
