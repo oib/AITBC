@@ -56,6 +56,8 @@ write_textfile() { # $1=rate_scaled $2=observed_at $3=version (all may be empty)
             echo "aitbc_native_energy_rate_version $3"
         fi
     } > "$tmp"
+    # mktemp lands 0600 — node_exporter (user prometheus) must be able to read it.
+    chmod 0644 "$tmp"
     mv "$tmp" "$TEXTFILE_DIR/aitbc_native_energy_rate.prom" || \
         log warning "cannot install textfile in $TEXTFILE_DIR — metrics not exported"
 }
