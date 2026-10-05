@@ -328,6 +328,9 @@ def test_v10_env_still_overrides_the_baked_default(monkeypatch):
 
 def test_v10_activates_at_its_height(monkeypatch):
     monkeypatch.setattr(settings, "state_transition_v10_height", 40_000)
+    # Pin v11 off so the v10-era assertions keep their literals regardless of
+    # the baked 35400.
+    monkeypatch.setattr(settings, "state_transition_v11_height", None)
     assert get_block_version_for_height(39_999) == 9
     assert get_block_version_for_height(40_000) == 10
     assert get_block_version_for_height(40_001) == 10
