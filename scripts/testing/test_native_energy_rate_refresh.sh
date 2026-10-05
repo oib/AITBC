@@ -112,6 +112,7 @@ check "8 boundary posts" test "$rc" -eq 0
 rm -f "$PROM_DIR/aitbc_native_energy_rate.prom"
 rc=0; out=$(run_refresh 4000000000000000000) || rc=$?
 check "textfile written" test -f "$PROM_DIR/aitbc_native_energy_rate.prom"
+check "textfile is node_exporter-readable (644)" bash -c 'test "$(stat -c %a "$0")" = 644' "$PROM_DIR/aitbc_native_energy_rate.prom"
 check "textfile has rate 4.0" grep -q "aitbc_native_energy_rate_ait_per_eur 4" "$PROM_DIR/aitbc_native_energy_rate.prom"
 check "textfile has observed ts" grep -q "observed_timestamp_seconds" "$PROM_DIR/aitbc_native_energy_rate.prom"
 check "textfile has version" grep -q "aitbc_native_energy_rate_version" "$PROM_DIR/aitbc_native_energy_rate.prom"
