@@ -5,6 +5,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 
 def _reload_routes():
@@ -721,15 +722,10 @@ def _release_drive_mocks(escrow_routes, *, unsealed=True):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True,
-    reason="C2 desired: the change leg must wait for the release seal or defer to retry — today it signs the same sealed nonce and collides on the (authority, N) mempool slot (F1b)",
-)
-async def test_release_defers_change_leg_until_release_seals(release_key, monkeypatch):
-    """Partial settle whose release is accepted but never seals within the
-    call: the refund leg must not be submitted while the release is still
-    pending. On current main `_submit_refund_tx` fires immediately with the
-    same sealed nonce — losing the slot, or evicting the release."""
+async def test_release_leaves_change_leg_to_sweeper(release_key, monkeypatch):
+    """A6/F1b: a partial settle never signs the change leg in-request — the
+    route submits only the release, returns fast, and reports the owed change
+    explicitly for the settlement sweeper's change pass."""
     monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
     monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
     monkeypatch.setenv("CHAIN_ID", "test-chain")
@@ -737,7 +733,6 @@ async def test_release_defers_change_leg_until_release_seals(release_key, monkey
     mocks = _release_drive_mocks(escrow_routes, unsealed=True)
     refund_spy = AsyncMock(return_value="0xref")
 
-    import asyncio
     import contextlib
 
     with (
@@ -746,13 +741,68 @@ async def test_release_defers_change_leg_until_release_seals(release_key, monkey
     ):
         for m in mocks:
             stack.enter_context(m)
-        # Bound the wait: under the fix a seal-wait may legitimately block;
-        # the contract under test is that no later leg is signed while the
-        # sealed lookup keeps answering None.
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(escrow_routes.release_escrow("job-1", {"amount": "0.6"}), timeout=5)
+        result = await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
 
     refund_spy.assert_not_awaited()
+    assert result["change_owed_amount"] == "0.4"
+    assert result["refunded_amount"] == "0"
+    assert result["refund_tx_hash"] is None
+    assert result["tx_hash"] == "0xrel"
+
+
+@pytest.mark.asyncio
+async def test_release_never_signs_change_leg_even_when_release_sealed(release_key, monkeypatch):
+    """A6/F1b companion: the route defers the change leg unconditionally —
+    a sealed release changes nothing in-request; the change pass owns it."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+    mocks = _release_drive_mocks(escrow_routes, unsealed=False)
+    refund_spy = AsyncMock(return_value="0xref")
+
+    import contextlib
+
+    with (
+        contextlib.ExitStack() as stack,
+        patch.object(escrow_routes, "_submit_refund_tx", refund_spy),
+    ):
+        for m in mocks:
+            stack.enter_context(m)
+        result = await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
+
+    refund_spy.assert_not_awaited()
+    assert result["change_owed_amount"] == "0.4"
+    assert result["refund_tx_hash"] is None
+
+
+@pytest.mark.asyncio
+async def test_release_retry_at_lock_cannot_reenter_submission(release_key, monkeypatch):
+    """A6 re-entry proof: a caller retry that read the row before the first
+    request committed proceeds to the per-contract lock, then sees the
+    already-released contract — release_payment refuses and the handler dies
+    BEFORE _submit_payment_tx or any restore. A restore can therefore only
+    ever fire on the calling handler's own snapshot inside the lock."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    import contextlib
+
+    with contextlib.ExitStack() as stack:
+        for m in _release_drive_mocks(escrow_routes, unsealed=True):
+            stack.enter_context(m)
+        mgr = escrow_routes.get_escrow_manager()
+        # Post-lock state a retry sees: the first handler's release_payment
+        # already ran, so the manager refuses a second release for the same
+        # contract — before any submission or restore can happen.
+        mgr.release_payment = AsyncMock(return_value=(False, "Cannot release payment in released state"))
+        with pytest.raises(HTTPException) as exc:
+            await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
+        assert exc.value.status_code == 400
+        escrow_routes._submit_payment_tx.assert_not_awaited()
+        mgr.restore_after_failed_settlement.assert_not_called()
 
 
 @pytest.mark.asyncio
