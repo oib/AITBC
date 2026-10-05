@@ -922,30 +922,6 @@ async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int
     return None
 
 
-async def _maybe_sweep_escrow_residue(
-    job_id: str,
-    contract_id: str,
-    locked_units: int,
-    released_units: int,
-    buyer_units: int,
-) -> str | None:
-    """Post-settlement sweep attempt. ``buyer_units`` reserves the buyer's
-    unbilled change whether or not the refund leg has already sealed, so the
-    sweep can only take what no settlement leg will ever claim: the withheld
-    platform fee plus rounding dust. Off unless ESCROW_FEE_SWEEP_ENABLED."""
-    if not _fee_sweep_enabled():
-        return None
-    residue_units = locked_units - released_units - buyer_units
-    if residue_units <= 0:
-        return None
-    try:
-        return await _submit_fee_sweep_tx(job_id, contract_id, residue_units)
-    except Exception as e:  # belt-and-braces: the release must never see this
-        _logger.error("ESCROW_FEE_SWEEP wrapper failed for job_id=%s — release stands: %s", job_id, e)
-        escrow_fee_sweep_total.labels(result="error").inc()
-        return None
-
-
 async def _retry_sweep_released_escrow(job_id: str, record: Escrow) -> str | None:
     """Re-offer the sweep for an already-released job — the retry surface.
 
@@ -1576,21 +1552,12 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     unbilled_amount,
                 )
 
-        # v11: every settlement leg for this settlement is now submitted (the
-        # release above, plus the change refund when one was owed). Sweep the
-        # residue — the withheld platform fee plus rounding dust — to the
-        # governed fee recipient. The unbilled amount is reserved whether or
-        # not its leg just landed, so the sweep can never take owed change.
-        # Off unless ESCROW_FEE_SWEEP_ENABLED; a failure is logged/counted and
-        # never touches the authoritative release.
-        await _maybe_sweep_escrow_residue(
-            job_id,
-            contract_id,
-            locked_units=ait_to_units(locked_total),
-            released_units=ait_to_units(released_amount),
-            buyer_units=ait_to_units(unbilled_amount),
-        )
-
+        # No settle-time sweep attempt: every settlement leg is signed at the
+        # sealed authority nonce, so an in-request sweep can only lose the
+        # mempool (sender, nonce) slot to the release/refund that precedes it
+        # (F1). The residue is swept by the periodic pass in the settlement
+        # sweeper and by the retry surface on the next release call — both
+        # derive it from sealed chain legs, never from this request's legs.
         released_at = datetime.now(UTC)
         try:
             with session_scope() as session:
