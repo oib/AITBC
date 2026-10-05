@@ -141,18 +141,34 @@ def test_full_release_has_no_owed(session):
     assert stats["no_owed"] == 1
 
 
-def test_sealed_refund_leg_heals_row_mark(session):
-    """Restart-survivability: a released+unmarked row whose refund leg sealed
-    is marked from chain truth — refunded_amount and refund_tx_hash — without
-    any submission. This is the mark-after-seal rule."""
+@pytest.mark.asyncio
+async def test_sealed_refund_leg_heals_row_mark(session, monkeypatch):
+    """Restart-survivability + persistence (A6b): a released+unmarked row
+    whose refund leg sealed is marked from chain truth — and the mark must
+    survive the session closing. A fresh-session re-read proves it landed in
+    the database; a second tick finds the row already marked and reports
+    nothing (no repeat marks, no inflated counter)."""
     _metered_chain(session)
     _tx(session, "ESCROW_REFUND", "0xref", OWED, job_id=JOB)
-    row = _row(session)
-    candidates, stats = _candidates(session)
-    assert candidates == []
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    _patch_route(monkeypatch, {JOB: FEE})
+    monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))
+    stats = await ess._change_pass_once(NOW)
     assert stats["marked"] == 1
-    assert row.refunded_amount == OWED
-    assert row.refund_tx_hash == "0xref"
+
+    # Fresh session, same engine: the mark must be database state, not the
+    # in-memory object the earlier version of this test only ever checked.
+    engine = session.get_bind()
+    with Session(engine) as fresh:
+        persisted = fresh.get(Escrow, JOB)
+        assert persisted is not None
+        assert persisted.refunded_amount == OWED
+        assert persisted.refund_tx_hash == "0xref"
+
+    stats = await ess._change_pass_once(NOW + timedelta(minutes=2))
+    assert stats["marked"] == 0
+    assert stats["submitted"] == 0
 
 
 def test_partial_refund_marks_sealed_truth(session):
