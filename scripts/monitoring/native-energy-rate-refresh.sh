@@ -8,8 +8,11 @@
 # never invents a price. If no rate row exists it fails loudly instead of
 # picking a number.
 #
-# Env overrides: COORDINATOR_URL, COORDINATOR_DB, COORDINATOR_ENV.
-# Exit 0 = refreshed, 1 = failed (no rate row / bad key / coordinator down).
+# Env overrides: COORDINATOR_URL, COORDINATOR_DB, COORDINATOR_ENV,
+# ENERGY_RATE_MIN_AIT_PER_EUR / ENERGY_RATE_MAX_AIT_PER_EUR (plausibility
+# band, defaults 0.5 / 8 — must match the coordinator's POST bound; the max
+# stays under ~9.22 because the scaled column is int64).
+# Exit 0 = refreshed, 1 = failed (no rate row / out-of-band rate / bad key / coordinator down).
 
 set -euo pipefail
 
@@ -25,6 +28,18 @@ RATE_SCALED=$(sqlite3 "$COORDINATOR_DB" \
     2>/dev/null || true)
 if [ -z "$RATE_SCALED" ]; then
     log err "no enabled native_energy_rates row in $COORDINATOR_DB — set the rate first"
+    exit 1
+fi
+
+# SD-7 guard: refuse to re-attest a stored value outside the plausible band —
+# the stub rate sat reposted for nine days because nothing checked it. The
+# coordinator enforces the same band on POST, but checking here first fails
+# with a clearer journal line and never touches the endpoint.
+MIN_RATE="${ENERGY_RATE_MIN_AIT_PER_EUR:-0.5}"
+MAX_RATE="${ENERGY_RATE_MAX_AIT_PER_EUR:-8}"
+if ! awk -v v="$RATE_SCALED" -v lo="$MIN_RATE" -v hi="$MAX_RATE" \
+    'BEGIN { exit !(v / 1e18 >= lo && v / 1e18 <= hi) }'; then
+    log err "stored rate $RATE_SCALED (scaled) is outside the plausible band [$MIN_RATE, $MAX_RATE] AIT/EUR — refusing to re-attest; fix the native_energy_rates row first"
     exit 1
 fi
 
