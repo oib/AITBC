@@ -515,8 +515,9 @@ async def test_retry_path_sweeps_only_the_proven_residue(release_key, monkeypatc
     mock_response.status_code = 200
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
 
-    record = _released_record()  # residue = 1_000_000 − 920_000 − 75_000 = 5_000
-    legs = {"released_amount": 920_000, "refunded_amount": 75_000}
+    # bps=800: release 920_000 → billed 1_000_000, withheld-fee bound 80_000
+    record = _released_record(energy_fee_basis_points=800)  # residue = 1_000_000 − 920_000 − 75_000 = 5_000
+    legs = {"locked_amount": 1_000_000, "released_amount": 920_000, "refunded_amount": 75_000, "release_values": [920_000]}
 
     # Legs fully sealed: custody holds exactly the residue.
     with (
@@ -572,8 +573,8 @@ async def test_retry_unpoisoned_by_unsealed_row_refund(release_key, monkeypatch)
     mock_response.status_code = 200
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
     # Row claims a refund that never sealed; the chain shows only the release.
-    record = _released_record(refunded_amount=75_000, refund_tx_hash="0xphantom")
-    legs = {"released_amount": 920_000, "refunded_amount": 0}
+    record = _released_record(refunded_amount=75_000, refund_tx_hash="0xphantom", energy_fee_basis_points=800)
+    legs = {"locked_amount": 1_000_000, "released_amount": 920_000, "refunded_amount": 0, "release_values": [920_000]}
 
     with (
         patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
@@ -781,10 +782,12 @@ async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeyp
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
-    record = _released_record(refunded_amount=None)  # residue = 1_000_000 − 920_000 = 80_000
+    record = _released_record(refunded_amount=None, energy_fee_basis_points=800)  # residue = 1_000_000 − 920_000 = 80_000
     legs = {
+        "locked_amount": 1_000_000,
         "released_amount": 920_000,
         "refunded_amount": 0,
+        "release_values": [920_000],
         "release_tx_hash": "0xrel",
         "refund_tx_hash": None,
         "status": "released",
@@ -800,3 +803,51 @@ async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeyp
     ):
         assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) == "0xsweep"
     assert mock_post.call_args.kwargs["json"]["amount"] == 80_000
+
+
+@pytest.mark.asyncio
+async def test_retry_refuses_residue_beyond_fee_bound(release_key, monkeypatch):
+    """D11: the retry applies the same fee-only proof as the pass — a
+    released-marked row whose change refund never sealed leaves custody
+    holding fee+owed change; custody equality alone cannot tell them apart,
+    so the bound refuses. The pre-bound code swept exactly this shape."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    # bps=800: release 460_000 → billed 500_000, withheld fee 40_000. The owed
+    # 500_000 change never sealed, so custody holds 540_000 = fee + change.
+    record = _released_record(energy_fee_basis_points=800)
+    legs = {
+        "locked_amount": 1_000_000,
+        "released_amount": 460_000,
+        "refunded_amount": 0,
+        "release_values": [460_000],
+    }
+
+    with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=540_000),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_retry_refuses_protected_row(release_key, monkeypatch):
+    """D11 companion: energy-protected rows can carry floor-bumped release
+    values where billed reconstruction is unreliable — unprovable, deferred."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    record = _released_record(protected=True, energy_fee_basis_points=800)
+    legs = {
+        "locked_amount": 1_000_000,
+        "released_amount": 920_000,
+        "refunded_amount": 0,
+        "release_values": [920_000],
+    }
+
+    with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
+    mock_post.assert_not_awaited()
