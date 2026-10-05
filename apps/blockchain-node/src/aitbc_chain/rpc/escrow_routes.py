@@ -1392,9 +1392,10 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
 
     # Metered services lock an upper bound and bill what the job actually used, so
     # honour the requested amount instead of always paying out the whole lock. The
-    # unbilled remainder is returned to the buyer below; without that it would sit in
-    # the node wallet with nothing left to claim it. Omitting the amount bills the
-    # whole escrow, which is what a fixed-price job wants.
+    # unbilled remainder is reported as owed change and paid by the settlement
+    # sweeper's change pass once the release seals; without that it would sit in
+    # the job's custody account with nothing left to claim it. Omitting the
+    # amount bills the whole escrow, which is what a fixed-price job wants.
     requested_amount: Decimal | None = None
     raw_amount = request.get("amount")
     if raw_amount is not None:
@@ -1575,11 +1576,6 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 "reinvest_stake_id": None,
             }
 
-        # Return the buyer's change. The provider is already paid, so a failure here
-        # leaves the remainder with the node wallet rather than unwinding the payout;
-        # it is logged loudly so it can be swept, and the release itself still stands.
-        refund_tx_hash: str | None = None
-        refunded_amount = Decimal(0)
         # Owed change (F1b/A6): the change leg is never submitted in-request.
         # Signed now it would carry the release's own sealed nonce and collide
         # on the (sender, N) mempool slot; waited-for it would out-live the
@@ -1621,12 +1617,8 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                         record.released_at = released_at
                     record.status = "released"
                     record.released_amount = ait_to_units(released_amount)
-                    if refunded_amount > 0:
-                        # refunded_at stays unset: it marks an escrow that was refunded
-                        # instead of released, and the release checks above key off it.
-                        record.refunded_amount = ait_to_units(refunded_amount)
-                        if refund_tx_hash and (not record.refund_tx_hash or was_failed):
-                            record.refund_tx_hash = refund_tx_hash
+                    # refunded_amount/refund_tx_hash stay untouched: the change
+                    # pass marks them only from a sealed ESCROW_REFUND leg.
                     if tx_hash and (not record.release_tx_hash or was_failed):
                         record.release_tx_hash = tx_hash
                     if job_tx_hash:
@@ -1662,8 +1654,8 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             "job_id": job_id,
             "message": message,
             "released_amount": str(released_amount),
-            "refunded_amount": str(refunded_amount),
-            "refund_tx_hash": refund_tx_hash,
+            "refunded_amount": "0",
+            "refund_tx_hash": None,
             "change_owed_amount": str(unbilled_amount) if unbilled_amount > 0 else "0",
             "tx_hash": tx_hash,
             "settlement_status": "settled" if tx_hash else "unsettled",
