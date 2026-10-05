@@ -70,18 +70,24 @@ KNOWN_DEAD = DEAD_RELEASES + DEAD_REFUNDS
 
 
 def _make_db(path: Path, rows: list[tuple], landed: list[str] | None = None) -> Path:
-    """A minimal chain.db: the escrow + transaction columns the check reads."""
+    """A minimal chain.db: the escrow + transaction columns the check reads.
+
+    Rows are (job_id, status, release_tx_hash, refund_tx_hash, released_at,
+    refunded_at[, created_at]); a missing created_at defaults to OLD so the
+    created_at age fallback keeps flagging the known dead rows.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute(
         "CREATE TABLE escrow (job_id TEXT PRIMARY KEY, status TEXT, release_tx_hash TEXT, "
-        "refund_tx_hash TEXT, released_at TEXT, refunded_at TEXT)"
+        "refund_tx_hash TEXT, released_at TEXT, refunded_at TEXT, created_at TEXT)"
     )
     conn.execute("CREATE TABLE 'transaction' (tx_hash TEXT, type TEXT, payload TEXT)")
+    padded = [tuple(r) if len(r) == 7 else (*r, _ts(OLD)) for r in rows]
     conn.executemany(
-        "INSERT INTO escrow (job_id, status, release_tx_hash, refund_tx_hash, released_at, refunded_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        rows,
+        "INSERT INTO escrow (job_id, status, release_tx_hash, refund_tx_hash, released_at, refunded_at, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        padded,
     )
     conn.executemany("INSERT INTO 'transaction' (tx_hash) VALUES (?)", [(h,) for h in (landed or [])])
     conn.commit()
@@ -160,7 +166,8 @@ class TestUnlandedRows:
         assert [v.job_id for v in violations] == ["job-nohash"]
 
     def test_missing_timestamp_flags_immediately(self, tmp_path):
-        """A terminal claim with no timestamp cannot age out — flag it now."""
+        """A terminal claim with no leg timestamp ages from created_at —
+        this fixture's row is old, so it flags like any stale claim."""
         db = _make_db(tmp_path / "chain.db", [("job-notime", "released", "0xabsent", None, None, None)])
         violations = self._check(db)
         assert [v.job_id for v in violations] == ["job-notime"]
@@ -203,14 +210,74 @@ class TestUnlandedRows:
         assert [(v.job_id, v.kind) for v in violations] == [("job-metered2", "release")]
 
     def test_hash_only_row_is_a_claim_with_illegible_age(self, tmp_path):
-        """A stored hash with no status or timestamp is still a settlement
-        claim; its unparseable age cannot hide an unsealed hash."""
+        """A stored hash with no status or leg timestamp is still a settlement
+        claim; created_at supplies its age, so it flags like any old row."""
         db = _make_db(
             tmp_path / "chain.db",
             [("job-hashonly", "locked", None, "0xdeadrefund", None, None)],
         )
         violations = self._check(db)
         assert [(v.job_id, v.kind) for v in violations] == [("job-hashonly", "refund")]
+
+    def test_live_row_shape_refunded_with_unsealed_release_flags(self, tmp_path):
+        """The hub crash row (a2-sweep-test-1791201880): status='refunded',
+        a stored release hash that never sealed, released_at NULL, refund leg
+        sealed. The stored release hash is a claim; the NULL leg timestamp
+        falls back to created_at, giving a finite age that renders."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [
+                (
+                    "a2-sweep-test-1791201880",
+                    "refunded",
+                    "0xdeadrelease",
+                    "0xsealedrefund",
+                    None,
+                    _ts(OLD + 200),
+                    _ts(OLD),
+                )
+            ],
+            landed=["0xsealedrefund"],
+        )
+        violations = self._check(db)
+        assert violations is not None
+        assert [(v.job_id, v.kind) for v in violations] == [("a2-sweep-test-1791201880", "release")]
+        assert violations[0].age_seconds == pytest.approx(NOW - OLD, abs=1.0)
+        text = exporter.render({str(db): violations}, now=NOW)
+        assert 'aitbc_escrow_unlanded_settlement{job_id="a2-sweep-test-1791201880",kind="release"} 1' in text
+        assert f"aitbc_escrow_unlanded_settlement_oldest_seconds {int(NOW - OLD)}" in text
+
+    def test_missing_timestamp_falls_back_to_created_at_not_sibling(self, tmp_path):
+        """The sibling leg's seal postdates the claim in normal leg order, so
+        using it would under-report staleness; created_at is the bound."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [("job-fallback", "refunded", "0xdeadrel", "0xlanded", None, _ts(NOW - 300), _ts(OLD))],
+            landed=["0xlanded"],
+        )
+        violations = self._check(db)
+        assert violations[0].age_seconds == pytest.approx(NOW - OLD, abs=1.0)
+
+    def test_no_legible_timestamp_anywhere_still_flags_and_renders(self, tmp_path):
+        """created_at is NOT NULL in the real schema, but a row with every
+        timestamp unreadable must still flag — and render must stay finite."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [("job-nots", "released", "0xabsent", None, None, None, None)],
+        )
+        violations = self._check(db)
+        assert [(v.job_id, v.kind) for v in violations] == [("job-nots", "release")]
+        text = exporter.render({str(db): violations}, now=NOW)
+        assert f"aitbc_escrow_unlanded_settlement_oldest_seconds {int(NOW)}" in text
+
+    def test_young_row_with_missing_leg_timestamp_waits_out_the_threshold(self, tmp_path):
+        """A fresh row whose leg timestamp is missing is in-flight, not dead:
+        created_at makes it age out of the gate like any in-flight leg."""
+        db = _make_db(
+            tmp_path / "chain.db",
+            [("job-young", "released", "0xnewhash", None, None, None, _ts(NOW - 60))],
+        )
+        assert self._check(db) == []
 
     def test_sealed_second_leg_hash_is_not_a_violation(self, tmp_path):
         """Hash-claims-leg must not flag the healed two-leg rows: both stored
@@ -263,6 +330,21 @@ class TestRender:
         )
         lines = [line for line in text.splitlines() if line.startswith("aitbc_escrow_unlanded_settlement{")]
         assert len(lines) == 1 and 'evil\\"\\nname' in lines[0]
+
+    def test_non_finite_ages_render_as_the_scrape_time_not_a_crash(self):
+        """inf (missing timestamps) or NaN ages must not kill the run — the
+        live crash was int(inf) raising OverflowError in this line."""
+        text = exporter.render(
+            {
+                "/db": [
+                    exporter.Violation(job_id="j-inf", kind="release", age_seconds=float("inf")),
+                    exporter.Violation(job_id="j-nan", kind="refund", age_seconds=float("nan")),
+                ]
+            },
+            now=NOW,
+        )
+        assert "aitbc_escrow_unlanded_settlements 2" in text
+        assert f"aitbc_escrow_unlanded_settlement_oldest_seconds {int(NOW)}" in text
 
 
 class TestMain:
@@ -320,6 +402,20 @@ class TestMain:
         self._env(monkeypatch, tmp_path, fleet_db)
         monkeypatch.setenv("AITBC_ESCROW_SETTLEMENT_MAX_AGE_SECONDS", "whenever")
         assert exporter.main() == 2
+
+    def test_exporter_crash_writes_failure_marker_and_exits_1(self, fleet_db, tmp_path, monkeypatch):
+        """Any exception in the scan/render path still leaves a failing series —
+        the alert reads scrape_success, so a raise must never mean silence."""
+        self._env(monkeypatch, tmp_path, fleet_db)
+
+        def boom(*_args, **_kwargs):
+            raise OverflowError("simulated exporter crash")
+
+        monkeypatch.setattr(exporter, "render", boom)
+        assert exporter.main() == 1
+        text = (tmp_path / "out" / exporter.OUTPUT_NAME).read_text()
+        assert 'aitbc_escrow_settlement_scrape_success{db="exporter"} 0' in text
+        assert "aitbc_escrow_settlement_scrape_timestamp_seconds" in text
 
 
 class TestWriteAtomic:
