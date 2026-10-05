@@ -47,6 +47,12 @@ Operator procedures for the live fleet:
 - [Escrow settlement ops](ops/escrow-settlement-ops.md) — the
   lock→settle pipeline and per-alert response for the escrow settlement,
   fork, and v9 alerts.
+- [Legacy escrow residue payout](ops/legacy-escrow-residue-payout.md) —
+  the Option-A batch runbook: one authority-signed ESCROW_RELEASE per
+  legacy custody account, paid to the provider in the sealed lock.
+- [Legacy escrow residue payout](ops/legacy-escrow-residue-payout.md) —
+  the Option-A batch runbook: one authority-signed ESCROW_RELEASE per
+  legacy custody account, paid to the provider in the sealed lock.
 - [Follower API key](ops/follower-api-key.md),
   [peer keys](ops/peer-keys.md),
   [island subscription check](ops/island-subscription-check.md),
