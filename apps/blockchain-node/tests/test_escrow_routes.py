@@ -517,7 +517,13 @@ async def test_retry_path_sweeps_only_the_proven_residue(release_key, monkeypatc
 
     # bps=800: release 920_000 → billed 1_000_000, withheld-fee bound 80_000
     record = _released_record(energy_fee_basis_points=800)  # residue = 1_000_000 − 920_000 − 75_000 = 5_000
-    legs = {"locked_amount": 1_000_000, "released_amount": 920_000, "refunded_amount": 75_000, "release_values": [920_000]}
+    legs = {
+        "locked_amount": 1_000_000,
+        "released_amount": 920_000,
+        "refunded_amount": 75_000,
+        "release_values": [920_000],
+        "min_settlement_height": 36000,
+    }
 
     # Legs fully sealed: custody holds exactly the residue.
     with (
@@ -574,7 +580,13 @@ async def test_retry_unpoisoned_by_unsealed_row_refund(release_key, monkeypatch)
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
     # Row claims a refund that never sealed; the chain shows only the release.
     record = _released_record(refunded_amount=75_000, refund_tx_hash="0xphantom", energy_fee_basis_points=800)
-    legs = {"locked_amount": 1_000_000, "released_amount": 920_000, "refunded_amount": 0, "release_values": [920_000]}
+    legs = {
+        "locked_amount": 1_000_000,
+        "released_amount": 920_000,
+        "refunded_amount": 0,
+        "release_values": [920_000],
+        "min_settlement_height": 36000,
+    }
 
     with (
         patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
@@ -788,6 +800,7 @@ async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeyp
         "released_amount": 920_000,
         "refunded_amount": 0,
         "release_values": [920_000],
+        "min_settlement_height": 36000,
         "release_tx_hash": "0xrel",
         "refund_tx_hash": None,
         "status": "released",
@@ -820,6 +833,7 @@ async def test_retry_refuses_residue_beyond_fee_bound(release_key, monkeypatch):
         "released_amount": 460_000,
         "refunded_amount": 0,
         "release_values": [460_000],
+        "min_settlement_height": 36000,
     }
 
     with (
@@ -842,11 +856,63 @@ async def test_retry_refuses_protected_row(release_key, monkeypatch):
         "released_amount": 920_000,
         "refunded_amount": 0,
         "release_values": [920_000],
+        "min_settlement_height": 36000,
     }
 
     with (
         patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
         patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_retry_refuses_reused_id_with_prefork_leg(release_key, monkeypatch):
+    """A4d: the retry refuses when ANY settlement leg sits below the v11
+    floor — even when the residue is provably all-fee. Two eras of a reused
+    job id, each leaving the same provable 900-unit fee residue: the floor
+    is a policy gate (pre-fork custody is the operator's census decision),
+    so the bound cannot rescue it."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    record = _released_record()  # default 250 bps: 35100 → billed 36000, fee 900/era
+    legs = {
+        "locked_amount": 72_000,  # old-era lock 36_000 + new-era lock 36_000
+        "released_amount": 70_200,  # old-era release 35_100 + new-era 35_100
+        "refunded_amount": 0,
+        "release_values": [35_100, 35_100],
+        "min_settlement_height": 33593,  # a real reused id's old-era leg height
+    }
+
+    with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=1_800),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_retry_refuses_leg_with_null_height(release_key, monkeypatch):
+    """A4d fail-closed: a settlement leg whose block_height is NULL cannot be
+    proven post-floor — refuse, don't guess. Provable residue and matching
+    custody cannot rescue it."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    record = _released_record()
+    legs = {
+        "locked_amount": 36_000,
+        "released_amount": 35_100,
+        "refunded_amount": 0,
+        "release_values": [35_100],
+        "min_settlement_height": None,
+        "null_settlement_height": True,
+    }
+
+    with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=900),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
     ):
         assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None

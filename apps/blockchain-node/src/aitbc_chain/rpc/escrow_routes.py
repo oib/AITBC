@@ -948,6 +948,21 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
     if not legs:
         escrow_fee_sweep_total.labels(result="skipped").inc()
         return None
+    # Same floor the pass applies (A4d): a settlement leg below the fork
+    # height makes the residue a pre-fork census matter — an operator
+    # decision, not the retry's. NULL height fails closed: unproven is
+    # unreadable, never assumed post-floor.
+    min_height = legs.get("min_settlement_height")
+    if legs.get("null_settlement_height") or min_height is None or min_height < settings.escrow_fee_sweep_pass_min_height:
+        _logger.info(
+            "ESCROW_FEE_SWEEP deferred for job_id=%s: settlement leg below floor (min height %s < %s) — "
+            "pre-fork residue is an operator decision",
+            job_id,
+            min_height,
+            settings.escrow_fee_sweep_pass_min_height,
+        )
+        escrow_fee_sweep_total.labels(result="skipped").inc()
+        return None
     lock_units = int(legs.get("locked_amount") or 0)
     expected = lock_units - int(legs.get("released_amount") or 0) - int(legs.get("refunded_amount") or 0)
     if expected <= 0:
