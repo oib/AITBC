@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import glob
 import json
+import math
 import os
 import sqlite3
 import sys
@@ -121,7 +122,7 @@ def _unlanded_rows(conn: sqlite3.Connection, now: float, max_age_seconds: float)
     """
     violations: list[Violation] = []
     rows = conn.execute(
-        "SELECT job_id, status, release_tx_hash, refund_tx_hash, released_at, refunded_at "
+        "SELECT job_id, status, release_tx_hash, refund_tx_hash, released_at, refunded_at, created_at "
         "FROM escrow "
         "WHERE status IN ('released', 'refunded') OR released_at IS NOT NULL OR refunded_at IS NOT NULL "
         "OR release_tx_hash IS NOT NULL OR refund_tx_hash IS NOT NULL"
@@ -137,7 +138,7 @@ def _unlanded_rows(conn: sqlite3.Connection, now: float, max_age_seconds: float)
         # set, so probing each claim beats loading every tx_hash into memory.
         return conn.execute("SELECT 1 FROM 'transaction' WHERE tx_hash = ? LIMIT 1", (tx_hash,)).fetchone() is not None
 
-    for job_id, status, release_hash, refund_hash, released_at, refunded_at in rows:
+    for job_id, status, release_hash, refund_hash, released_at, refunded_at, created_at in rows:
         legs = []
         if status == "released" or released_at is not None or stored(release_hash):
             legs.append(("release", release_hash, released_at))
@@ -146,7 +147,15 @@ def _unlanded_rows(conn: sqlite3.Connection, now: float, max_age_seconds: float)
         for kind, tx_hash, settled_raw in legs:
             if sealed(tx_hash):
                 continue
+            # A leg timestamp that is missing falls back to the row's
+            # created_at: a claim cannot outlive its row, so that is a true
+            # upper bound -- it may over-report the age but can never hide a
+            # stale claim behind a fresh sibling timestamp. A row with no
+            # legible timestamp anywhere keeps an unbounded age and still
+            # flags; render() must emit it as a finite value.
             settled_at = parse_settled_at(settled_raw)
+            if settled_at is None:
+                settled_at = parse_settled_at(created_at)
             age = float("inf") if settled_at is None else now - settled_at.timestamp()
             if age > max_age_seconds:
                 violations.append(Violation(job_id=job_id, kind=kind, age_seconds=age))
@@ -159,7 +168,7 @@ def read_db(path: str, now: float, max_age_seconds: float) -> list[Violation] | 
         uri = f"file:{path}?mode=ro"
         with sqlite3.connect(uri, uri=True, timeout=5.0) as conn:
             return _unlanded_rows(conn, now, max_age_seconds)
-    except sqlite3.Error:
+    except Exception:
         return None
 
 
@@ -206,7 +215,7 @@ def read_open_locks(path: str, known: set[str]) -> set[str] | None:
         uri = f"file:{path}?mode=ro"
         with sqlite3.connect(uri, uri=True, timeout=5.0) as conn:
             return {row[0] for row in conn.execute(query)} - known
-    except sqlite3.Error:
+    except Exception:
         return None
 
 
@@ -236,8 +245,11 @@ def render(
         "# HELP aitbc_escrow_unlanded_settlement_oldest_seconds Age of the oldest unlanded settlement; 0 when none.",
         "# TYPE aitbc_escrow_unlanded_settlement_oldest_seconds gauge",
     ]
-    oldest = max((v.age_seconds for v in violations), default=0)
-    lines.append(f"aitbc_escrow_unlanded_settlement_oldest_seconds {int(oldest)}")
+    # A violation whose age could not be computed from any timestamp is
+    # unbounded; render it as the scrape's own epoch seconds so the series is
+    # finite and always past any sane threshold (int(inf) crashes the run).
+    oldest = max((v.age_seconds if math.isfinite(v.age_seconds) else now for v in violations), default=0.0)
+    lines.append(f"aitbc_escrow_unlanded_settlement_oldest_seconds {int(max(0.0, oldest))}")
     locks = sorted(open_locks or set())
     lines += [
         "# HELP aitbc_escrow_open_tx_only_locks ESCROW_LOCK transactions with no settlement leg and no "
@@ -278,6 +290,19 @@ def write_atomic(directory: str, text: str) -> None:
         raise
 
 
+def _failure_render(now: float) -> str:
+    """Minimal textfile for a crashed exporter run: scrape_success{db="exporter"}
+    0 is the series the alert already reads, so a raise can never leave silence."""
+    return (
+        "# HELP aitbc_escrow_settlement_scrape_success 1 when this source was readable and carried the escrow table.\n"
+        "# TYPE aitbc_escrow_settlement_scrape_success gauge\n"
+        'aitbc_escrow_settlement_scrape_success{db="exporter"} 0\n'
+        "# HELP aitbc_escrow_settlement_scrape_timestamp_seconds Unix time the last run finished.\n"
+        "# TYPE aitbc_escrow_settlement_scrape_timestamp_seconds gauge\n"
+        f"aitbc_escrow_settlement_scrape_timestamp_seconds {int(now)}\n"
+    )
+
+
 def resolve_dbs() -> list[str]:
     explicit = os.environ.get("AITBC_CHAIN_DB", "").strip()
     if explicit:
@@ -304,26 +329,38 @@ def main() -> int:
         write_atomic(directory, render({"none": None}, now))
         print("escrow-settlements: no chain.db found to check", file=sys.stderr)
         return 2
-    known = read_known_artifacts(registry_path)
-    results: dict[str, list[Violation] | None] = {}
-    open_locks: set[str] = set()
-    for db in dbs:
-        violations = read_db(db, now, max_age)
-        if violations is None:
-            results[db] = None
-            continue
-        if known is not None:
-            opened = read_open_locks(db, known)
-            if opened is None:
+    try:
+        known = read_known_artifacts(registry_path)
+        results: dict[str, list[Violation] | None] = {}
+        open_locks: set[str] = set()
+        for db in dbs:
+            violations = read_db(db, now, max_age)
+            if violations is None:
                 results[db] = None
                 continue
-            open_locks |= opened
-        results[db] = violations
-    # When the registry is unreadable the open-lock scan is skipped entirely:
-    # without suppression every known artifact would false-alert, so the scan
-    # emits nothing and the registry's own scrape_success carries the failure.
-    failed_sources = [] if known is not None else [registry_path]
-    write_atomic(directory, render(results, now, open_locks=open_locks, failed_sources=failed_sources))
+            if known is not None:
+                opened = read_open_locks(db, known)
+                if opened is None:
+                    results[db] = None
+                    continue
+                open_locks |= opened
+            results[db] = violations
+        # When the registry is unreadable the open-lock scan is skipped entirely:
+        # without suppression every known artifact would false-alert, so the scan
+        # emits nothing and the registry's own scrape_success carries the failure.
+        failed_sources = [] if known is not None else [registry_path]
+        write_atomic(directory, render(results, now, open_locks=open_locks, failed_sources=failed_sources))
+    except Exception as exc:
+        # The exporter itself raised (like the int(inf) OverflowError that
+        # killed the run on the unsealed-release row): still leave a failing
+        # series behind -- exiting without a textfile is indistinguishable
+        # from a dead timer and only the stale-check alert would notice.
+        try:
+            write_atomic(directory, _failure_render(now))
+        except Exception:
+            pass
+        print(f"escrow-settlements: exporter error: {exc!r}", file=sys.stderr)
+        return 1
     failed = [db for db, result in results.items() if result is None]
     if known is None:
         failed.append(registry_path)
