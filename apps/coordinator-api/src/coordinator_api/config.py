@@ -7,6 +7,7 @@ Provides environment-based adapter selection and consolidated settings.
 import logging
 import os
 import platform
+from decimal import Decimal
 from typing import Annotated, Any
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -269,6 +270,18 @@ class Settings(BaseAITBCConfig):
     )
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime")
     energy_max_rate_age_seconds: int = Field(default=300, description="Maximum age of an energy rate observation")
+    # Plausibility band for POST /market/native-energy/rate (SD-7: the row sat at the stub value 1 for
+    # nine days in Sep/Oct 2026 and nothing refused it). Bounds are AIT per EUR around the ~4.0
+    # operating point — wide enough for real market moves, tight enough to reject stub/zero/scale
+    # slips. A wrong-but-plausible value still passes; staleness is the alert rule's job.
+    # The upper bound must stay under ~9.22 AIT/EUR: ait_per_eur_scaled is an int64 column holding
+    # rate*1e18, so a rate above ~9.223 cannot be stored (the POST would 500 on insert).
+    energy_rate_min_ait_per_eur: Decimal = Field(
+        default=Decimal("0.5"), description="Minimum plausible native AIT/EUR rate accepted by the rate POST"
+    )
+    energy_rate_max_ait_per_eur: Decimal = Field(
+        default=Decimal("8"), description="Maximum plausible native AIT/EUR rate accepted by the rate POST"
+    )
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
     native_chain_id: str = Field(default="ait-localnet", description="Native chain ID for quote binding")
 
