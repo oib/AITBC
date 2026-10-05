@@ -974,6 +974,7 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
         fee_bps=bps,
         protected=bool(record.protected),
         credit_units=record.energy_provider_credit_units,
+        net_floor_units=record.energy_net_floor_units,
         lock_units=lock_units,
     )
     fee_bound = proof[1] if proof else None
