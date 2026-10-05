@@ -516,13 +516,17 @@ async def test_retry_path_sweeps_only_the_proven_residue(release_key, monkeypatc
     mock_response.status_code = 200
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
 
-    # bps=800: release 920_000 → billed 1_000_000, withheld-fee bound 80_000
-    record = _released_record(energy_fee_basis_points=800)  # residue = 1_000_000 − 920_000 − 75_000 = 5_000
+    # bps=800: release 920_000 = billed 1_000_000·0.92 → withheld bound 80_000
+    record = _released_record(
+        energy_fee_basis_points=800,
+        billed_legs=[{"tx_hash": "0xrel", "billed": 1_000_000}],
+    )  # residue = 1_000_000 − 920_000 − 75_000 = 5_000
     legs = {
         "locked_amount": 1_000_000,
         "released_amount": 920_000,
         "refunded_amount": 75_000,
         "release_values": [920_000],
+        "release_legs": [{"tx_hash": "0xrel", "value": 920_000}],
         "min_settlement_height": 36000,
     }
 
@@ -580,12 +584,18 @@ async def test_retry_unpoisoned_by_unsealed_row_refund(release_key, monkeypatch)
     mock_response.status_code = 200
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
     # Row claims a refund that never sealed; the chain shows only the release.
-    record = _released_record(refunded_amount=75_000, refund_tx_hash="0xphantom", energy_fee_basis_points=800)
+    record = _released_record(
+        refunded_amount=75_000,
+        refund_tx_hash="0xphantom",
+        energy_fee_basis_points=800,
+        billed_legs=[{"tx_hash": "0xrel", "billed": 1_000_000}],
+    )
     legs = {
         "locked_amount": 1_000_000,
         "released_amount": 920_000,
         "refunded_amount": 0,
         "release_values": [920_000],
+        "release_legs": [{"tx_hash": "0xrel", "value": 920_000}],
         "min_settlement_height": 36000,
     }
 
@@ -652,7 +662,7 @@ def _locked_contract(released: str = "0.6", locked: str = "1.0"):
     )
 
 
-def _release_drive_mocks(escrow_routes, *, unsealed=True):
+def _release_drive_mocks(escrow_routes, *, unsealed=True, expose: dict | None = None):
     """Patch the module surface release_escrow() touches so a partial
     settle (release + change refund owed) can be driven without a DB or
     network. ``unsealed=True`` means the release's sealed lookup never
@@ -693,7 +703,10 @@ def _release_drive_mocks(escrow_routes, *, unsealed=True):
         energy_fee_basis_points=None,
         energy_provider_credit_units=None,
         energy_net_floor_units=None,
+        billed_legs=None,
     )
+    if expose is not None:
+        expose["record"] = record
 
     session = MagicMock()
     session.get = MagicMock(return_value=record)
@@ -748,6 +761,33 @@ async def test_release_leaves_change_leg_to_sweeper(release_key, monkeypatch):
     assert result["refunded_amount"] == "0"
     assert result["refund_tx_hash"] is None
     assert result["tx_hash"] == "0xrel"
+
+
+@pytest.mark.asyncio
+async def test_release_records_billed_gross_per_submission(release_key, monkeypatch):
+    """A7: the route persists the billed gross it consumed, keyed by the
+    release leg's hash — the settlement passes prove the sealed leg by
+    recomputing the route's own fee rule from it, never by inversion."""
+    from aitbc.utils.units import ait_to_units
+
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+    expose: dict = {}
+    mocks = _release_drive_mocks(escrow_routes, unsealed=True, expose=expose)
+
+    import contextlib
+
+    with contextlib.ExitStack() as stack:
+        for m in mocks:
+            stack.enter_context(m)
+        result = await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
+
+    assert result["tx_hash"] == "0xrel"
+    # billed_gross = min(requested 0.6, locked 1.0) — recorded in units under
+    # the submission's own hash; a same-hash dedup retry must not duplicate.
+    assert expose["record"].billed_legs == [{"tx_hash": "0xrel", "billed": ait_to_units("0.6")}]
 
 
 @pytest.mark.asyncio
@@ -844,12 +884,17 @@ async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeyp
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
-    record = _released_record(refunded_amount=None, energy_fee_basis_points=800)  # residue = 1_000_000 − 920_000 = 80_000
+    record = _released_record(
+        refunded_amount=None,
+        energy_fee_basis_points=800,
+        billed_legs=[{"tx_hash": "0xrel", "billed": 1_000_000}],
+    )  # residue = 1_000_000 − 920_000 = 80_000
     legs = {
         "locked_amount": 1_000_000,
         "released_amount": 920_000,
         "refunded_amount": 0,
         "release_values": [920_000],
+        "release_legs": [{"tx_hash": "0xrel", "value": 920_000}],
         "min_settlement_height": 36000,
         "release_tx_hash": "0xrel",
         "refund_tx_hash": None,
@@ -877,12 +922,16 @@ async def test_retry_refuses_residue_beyond_fee_bound(release_key, monkeypatch):
     escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
     # bps=800: release 460_000 → billed 500_000, withheld fee 40_000. The owed
     # 500_000 change never sealed, so custody holds 540_000 = fee + change.
-    record = _released_record(energy_fee_basis_points=800)
+    record = _released_record(
+        energy_fee_basis_points=800,
+        billed_legs=[{"tx_hash": "0xrel", "billed": 500_000}],
+    )
     legs = {
         "locked_amount": 1_000_000,
         "released_amount": 460_000,
         "refunded_amount": 0,
         "release_values": [460_000],
+        "release_legs": [{"tx_hash": "0xrel", "value": 460_000}],
         "min_settlement_height": 36000,
     }
 
@@ -896,16 +945,22 @@ async def test_retry_refuses_residue_beyond_fee_bound(release_key, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_retry_refuses_protected_row(release_key, monkeypatch):
-    """D11 companion: energy-protected rows can carry floor-bumped release
-    values where billed reconstruction is unreliable — unprovable, deferred."""
+async def test_retry_refuses_protected_recompute_mismatch(release_key, monkeypatch):
+    """D11 companion (A7): a protected row whose sealed value matches neither
+    the net nor the credit bump fails the recompute — deferred."""
     escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
-    record = _released_record(protected=True, energy_fee_basis_points=800)
+    record = _released_record(
+        protected=True,
+        energy_fee_basis_points=800,
+        energy_provider_credit_units=950_000,  # bump expected → 950_000 ≠ 920_000
+        billed_legs=[{"tx_hash": "0xrel", "billed": 1_000_000}],
+    )
     legs = {
         "locked_amount": 1_000_000,
         "released_amount": 920_000,
         "refunded_amount": 0,
         "release_values": [920_000],
+        "release_legs": [{"tx_hash": "0xrel", "value": 920_000}],
         "min_settlement_height": 36000,
     }
 

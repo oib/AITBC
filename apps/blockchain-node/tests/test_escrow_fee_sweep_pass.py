@@ -81,7 +81,7 @@ def _tx(
     return tx
 
 
-def _row(session, job_id: str = JOB, **overrides) -> Escrow:
+def _row(session, job_id: str = JOB, billed: int = JOB2_LOCK, **overrides) -> Escrow:
     fields = {
         "job_id": job_id,
         "chain_id": CHAIN,
@@ -91,6 +91,9 @@ def _row(session, job_id: str = JOB, **overrides) -> Escrow:
         "status": "released",
         "protected": False,
         "energy_fee_basis_points": None,
+        # A7: the route records billed gross per release leg; the chain
+        # helpers mint f"0xrel-{job_id}", so pair on that hash by default.
+        "billed_legs": [{"tx_hash": f"0xrel-{job_id}", "billed": billed}],
     }
     fields.update(overrides)
     row = Escrow(**fields)
@@ -140,7 +143,8 @@ def test_owed_change_residue_is_not_swept(session):
     treasury."""
     _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK)
     _tx(session, "ESCROW_RELEASE", "0xrel", JOB1_RELEASE)
-    _row(session)
+    # proven billed 18000 → fee bound 450 < residue 18450 → not treasury money
+    _row(session, billed_legs=[{"tx_hash": "0xrel", "billed": 18000}])
     candidates, stats = _candidates(session)
     assert candidates == []
     assert stats["deferred_unproven"] == 1
@@ -158,7 +162,7 @@ def test_full_release_residue_is_a_candidate(session):
 def test_change_returned_residue_is_a_candidate(session):
     """Job-1 shape after both legs sealed: residue 450 == withheld fee."""
     _job1_chain(session)
-    _row(session)
+    _row(session, billed=18000)
     candidates, stats = _candidates(session)
     assert stats["candidates"] == 1
     assert candidates[0].expected_units == 450
@@ -202,7 +206,7 @@ def test_mixed_height_job_skips_floor(session):
 def test_leg_at_floor_height_is_eligible(session):
     _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK, height=V11 - 10)
     _tx(session, "ESCROW_RELEASE", "0xrel", JOB2_RELEASE, height=V11)
-    _row(session)
+    _row(session, billed_legs=[{"tx_hash": "0xrel", "billed": JOB2_LOCK}])
     candidates, stats = _candidates(session)
     assert stats["candidates"] == 1
 
@@ -218,33 +222,81 @@ def test_fresh_leg_defers_on_grace(session):
     assert stats["deferred_grace"] == 1
 
 
-def test_protected_row_defers_unproven(session):
-    """Energy-protected rows can carry the floor-bumped release value where
-    billed reconstruction is unreliable — defer unconditionally."""
+def test_protected_bump_release_proves_and_sweeps(session):
+    """A7 census shape (f0d0604b): the sealed release equals the signed
+    provider credit — unreconstructable by inversion, exactly provable by
+    recompute: expected = max(net 267300, credit 267301) = 267301. Residue
+    is fee-shaped (billed == lock) and sweeps."""
+    _tx(session, "ESCROW_LOCK", "0xlock", 274154)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 267301)
+    _row(
+        session,
+        amount=274154,
+        protected=True,
+        energy_fee_basis_points=250,
+        energy_provider_credit_units=267301,
+        energy_net_floor_units=267300,
+        billed_legs=[{"tx_hash": "0xrel", "billed": 274154}],
+    )
+    candidates, stats = _candidates(session)
+    assert stats["candidates"] == 1
+    assert candidates[0].expected_units == 274154 - 267301
+
+
+def test_protected_recompute_mismatch_defers(session):
+    """A protected row whose sealed value matches neither the net nor the
+    credit bump fails the recompute — defer."""
     _job2_chain(session)
-    _row(session, protected=True, energy_fee_basis_points=250)
+    _row(
+        session,
+        protected=True,
+        energy_fee_basis_points=250,
+        energy_provider_credit_units=40000,  # bump expected → 40000 ≠ 35100
+    )
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_legacy_row_without_billed_stays_unproven(session):
+    """A7: rows released before billed recording was added have
+    billed_legs=NULL — unproven forever, no inversion fallback."""
+    _job2_chain(session)
+    _row(session, billed_legs=None)
     candidates, stats = _candidates(session)
     assert candidates == []
     assert stats["deferred_unproven"] == 1
 
 
 def test_non_integral_reconstruction_defers(session):
-    """A release value that does not invert billed*(1-r) integrally came from
-    a non-standard fee path — unprovable."""
+    """A sealed value the recorded billed cannot recompute to came from a
+    non-standard path — unprovable."""
     _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK)
-    _tx(session, "ESCROW_RELEASE", "0xrel", 10000)  # 10000 % 39 != 0
-    _row(session)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 10000)
+    # paired billed recomputes 35100 ≠ sealed 10000 → refuse
+    _row(session, billed_legs=[{"tx_hash": "0xrel", "billed": JOB2_LOCK}])
     candidates, stats = _candidates(session)
     assert candidates == []
     assert stats["deferred_unproven"] == 1
 
 
 def test_billed_above_lock_defers(session):
-    """Reconstructed billed gross exceeding the lock means the release leg
-    did not follow value=billed*(1-r) (e.g. a floor bump) — unprovable."""
+    """A recorded billed gross exceeding the lock is impossible — the route
+    clamps billable to the milestones total — unprovable."""
     _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK)
-    _tx(session, "ESCROW_RELEASE", "0xrel", 35880)  # billed 36800 > lock 36000
-    _row(session)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 35880)
+    _row(session, billed_legs=[{"tx_hash": "0xrel", "billed": 36800}])
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_release_leg_without_billed_entry_defers(session):
+    """A sealed release leg with no billed entry on its hash proves nothing —
+    the pass cannot know what was billed for it."""
+    _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK)
+    _tx(session, "ESCROW_RELEASE", "0xunknown", JOB2_RELEASE)
+    _row(session)  # billed entry keys 0xrel-<job>, leg hashes 0xunknown
     candidates, stats = _candidates(session)
     assert candidates == []
     assert stats["deferred_unproven"] == 1
@@ -361,7 +413,7 @@ async def test_full_release_sweep_submits(session, monkeypatch):
 @pytest.mark.asyncio
 async def test_change_job_sweep_submits_exact_residue(session, monkeypatch):
     _job1_chain(session)
-    _row(session)
+    _row(session, billed=18000)
     _patch_pass_session(monkeypatch, session)
     submit = _patch_route(monkeypatch, {JOB: JOB1_RESIDUE})
     monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))
@@ -376,7 +428,7 @@ async def test_owed_change_never_submits(session, monkeypatch):
     the fee bound before it ever asks the balance."""
     _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK)
     _tx(session, "ESCROW_RELEASE", "0xrel", JOB1_RELEASE)
-    _row(session)
+    _row(session, billed_legs=[{"tx_hash": "0xrel", "billed": 18000}])
     _patch_pass_session(monkeypatch, session)
     submit = _patch_route(monkeypatch, {JOB: OWED_CUSTODY})
     monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))

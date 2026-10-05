@@ -938,7 +938,7 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
     way the job is skipped, never guessed."""
     if not _fee_sweep_enabled():
         return None
-    from ..contracts.escrow import DEFAULT_FEE_BPS, settlement_legs_from_chain, withheld_fee_bound
+    from ..contracts.escrow import DEFAULT_FEE_BPS, recompute_release_proofs, settlement_legs_from_chain
 
     try:
         legs = settlement_legs_from_chain(session, job_id)
@@ -968,11 +968,15 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
     if expected <= 0:
         return None
     bps = record.energy_fee_basis_points if record.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
-    fee_bound = (
-        withheld_fee_bound(legs.get("release_values") or [], fee_bps=bps, lock_units=lock_units)
-        if not record.protected
-        else None
+    proof = recompute_release_proofs(
+        legs.get("release_legs") or [],
+        record.billed_legs,
+        fee_bps=bps,
+        protected=bool(record.protected),
+        credit_units=record.energy_provider_credit_units,
+        lock_units=lock_units,
     )
+    fee_bound = proof[1] if proof else None
     if fee_bound is None or expected > fee_bound:
         _logger.info(
             "ESCROW_FEE_SWEEP deferred for job_id=%s: residue %s exceeds provable fee bound %s — "
@@ -1619,6 +1623,18 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     record.released_amount = ait_to_units(released_amount)
                     # refunded_amount/refund_tx_hash stay untouched: the change
                     # pass marks them only from a sealed ESCROW_REFUND leg.
+                    if tx_hash:
+                        # A7: record the billed gross this submission consumed,
+                        # keyed by the leg's own hash — the passes prove the
+                        # sealed release by recomputing the route's fee rule
+                        # from it. A dropped leg's entry orphans (its hash never
+                        # seals); a same-hash dedup retry does not re-append.
+                        # getattr: the row-update block must never fail on a
+                        # missing attr — released_at is the load-bearing write.
+                        entries = list(getattr(record, "billed_legs", None) or [])
+                        if not any(e.get("tx_hash") == tx_hash for e in entries if isinstance(e, dict)):
+                            entries.append({"tx_hash": tx_hash, "billed": ait_to_units(billed_gross)})
+                            record.billed_legs = entries
                     if tx_hash and (not record.release_tx_hash or was_failed):
                         record.release_tx_hash = tx_hash
                     if job_tx_hash:
