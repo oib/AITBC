@@ -922,25 +922,29 @@ async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int
     return None
 
 
-async def _retry_sweep_released_escrow(job_id: str, record: Escrow) -> str | None:
+async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> str | None:
     """Re-offer the sweep for an already-released job — the retry surface.
 
-    The residue claim is only provable from the row when a refund leg was
-    recorded: ``refunded_amount`` is written when the change leg submits, so
-    residue = amount − released − refunded equals the custody balance exactly
-    once every owed leg has sealed (the design's equality check — a balance
-    above it means an owed leg is still pending, below it means the account
-    was touched by something else; either way the job is skipped, never
-    guessed). Rows without a recorded refund are ambiguous — the change may
-    never have been owed or its submission may have failed before the mark —
-    so they are skipped too; the residue stays put for a later leg or the
-    operator's census sweep to take."""
+    The residue is derived from *sealed chain legs*, never the row's amount
+    columns: a refund the row claims but that never sealed cannot poison the
+    sum, and a NULL ``refunded_amount`` column simply means "no sealed
+    refund" rather than "ambiguous, skip" (F2). Custody equality still
+    gates the submit — a balance above the derived residue means an owed
+    leg is still pending, below it means the account was touched; either
+    way the job is skipped, never guessed."""
     if not _fee_sweep_enabled():
         return None
-    if record.released_amount is None or record.refunded_amount is None:
+    from ..contracts.escrow import settlement_legs_from_chain
+
+    try:
+        legs = settlement_legs_from_chain(session, job_id)
+    except Exception as e:
+        _logger.warning("ESCROW_FEE_SWEEP retry: sealed-leg lookup failed for job_id=%s: %s", job_id, e)
+        legs = None
+    if not legs:
         escrow_fee_sweep_total.labels(result="skipped").inc()
         return None
-    expected = record.amount - record.released_amount - record.refunded_amount
+    expected = record.amount - int(legs.get("released_amount") or 0) - int(legs.get("refunded_amount") or 0)
     if expected <= 0:
         return None
     custody = await _escrow_custody_balance(job_id)
@@ -1392,9 +1396,10 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     session.commit()
                 release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
                 # v11: re-offer the custody-residue sweep for an already-released
-                # job — the retry surface for a settle-time attempt that was never
-                # admitted or sealed. Deduped on-chain; provable residue only.
-                await _retry_sweep_released_escrow(job_id, record)
+                # job — the retry surface for residue a pass or earlier attempt
+                # left behind. Deduped on-chain; residue derived from sealed
+                # chain legs, provable only.
+                await _retry_sweep_released_escrow(job_id, record, session)
                 return {
                     "success": True,
                     "contract_id": getattr(record, "contract_id", None) or "",

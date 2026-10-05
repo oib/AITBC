@@ -376,7 +376,7 @@ async def test_fee_sweep_disabled_by_default(release_key, monkeypatch):
     escrow_routes = _reload_routes()
 
     with patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post:
-        result = await escrow_routes._retry_sweep_released_escrow("job-123", _released_record())
+        result = await escrow_routes._retry_sweep_released_escrow("job-123", _released_record(), None)
 
     assert result is None
     mock_post.assert_not_awaited()
@@ -507,58 +507,82 @@ def _released_record(**overrides):
 
 @pytest.mark.asyncio
 async def test_retry_path_sweeps_only_the_proven_residue(release_key, monkeypatch):
-    """Retry: custody balance must equal locked − released − refunded exactly —
-    the design's equality check. A balance above it means an owed leg is still
-    pending; the job is skipped, never guessed."""
+    """Retry: custody balance must equal lock − sealed releases − sealed
+    refunds exactly — the design's equality check. A balance above it means
+    an owed leg is still pending; the job is skipped, never guessed."""
     escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"transaction_hash": "0xsweep"}
 
     record = _released_record()  # residue = 1_000_000 − 920_000 − 75_000 = 5_000
+    legs = {"released_amount": 920_000, "refunded_amount": 75_000}
 
     # Legs fully sealed: custody holds exactly the residue.
     with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
         patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=5_000),
         patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
         patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=9),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
-        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) == "0xsweep"
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) == "0xsweep"
     assert mock_post.call_args.kwargs["json"]["amount"] == 5_000
 
     # An owed leg still pending: custody holds residue + unbilled change.
     with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
         patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=85_000),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
     ):
-        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) is None
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
     mock_post.assert_not_awaited()
 
     # Custody unprovable: skipped.
     with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
         patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=None),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
     ):
-        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) is None
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
     mock_post.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_retry_path_skips_rows_without_recorded_refund(release_key, monkeypatch):
-    """A released row with no recorded refund leg is ambiguous — the change
-    may never have been owed or its submission may have failed before the
-    mark — so the sweep leaves it for the operator's census instead of
-    guessing."""
+async def test_retry_skips_when_chain_shows_no_sealed_legs(release_key, monkeypatch):
+    """No sealed settlement legs → nothing to derive a residue from; the
+    sweep defers regardless of what the row claims."""
     escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
-    record = _released_record(refunded_amount=None)
+    record = _released_record()
 
     with (
-        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=None),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
     ):
-        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) is None
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
     mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_retry_unpoisoned_by_unsealed_row_refund(release_key, monkeypatch):
+    """F2 companion: a refund the row claims but that never sealed cannot
+    inflate or veto the residue — the sealed legs are the only evidence."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"transaction_hash": "0xsweep"}
+    # Row claims a refund that never sealed; the chain shows only the release.
+    record = _released_record(refunded_amount=75_000, refund_tx_hash="0xphantom")
+    legs = {"released_amount": 920_000, "refunded_amount": 0}
+
+    with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) == "0xsweep"
+    assert mock_post.call_args.kwargs["json"]["amount"] == 80_000
 
 
 @pytest.mark.asyncio
@@ -749,14 +773,10 @@ async def test_release_defers_sweep_until_settlement_legs_seal(release_key, monk
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True,
-    reason="C2 desired: the retry derives residue from sealed chain legs — a NULL refunded_amount row means 'no refund sealed', provable on-chain, not 'ambiguous, skip' (F2)",
-)
 async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeypatch):
-    """A released escrow that owed no change has refunded_amount NULL — the
-    chain still proves the residue (lock − released − 0 sealed refunds).
-    The retry must offer the sweep; today it returns early on the NULL."""
+    """F2 fixed: a released escrow that owed no change has refunded_amount
+    NULL — the chain still proves the residue (lock − released − 0 sealed
+    refunds) and the retry offers the sweep instead of skipping on NULL."""
     escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -778,5 +798,5 @@ async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeyp
         patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=9),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
-        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) == "0xsweep"
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) == "0xsweep"
     assert mock_post.call_args.kwargs["json"]["amount"] == 80_000
