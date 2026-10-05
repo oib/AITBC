@@ -11,7 +11,7 @@ The current plugin system is a small set of Python modules that provide brand-sp
 - Default plugin directory: `plugins/` at the repo root (or override with `AITBC_PLUGINS_DIR`).
 - Each brand is a single `.py` file in that directory.
 - The active brand is selected with `AITBC_ACTIVE_PLUGIN=<name>` (file stem).
-- Example plugins in this checkout: `plugins/hermes.py`, `plugins/openclaw.py`, `plugins/whitelabel_demo.py`.
+- Example plugins in this checkout: `plugins/hermes.py`, `plugins/whitelabel_demo.py`.
 
 ### Plugin file contract
 
@@ -64,7 +64,7 @@ plugin = pm.load("whitelabel_demo")
 
 ### Notes
 
-- `plugins/hermes.py` and `plugins/openclaw.py` are legacy project codenames preserved as valid brand-plugin examples.
+- `plugins/hermes.py` is a legacy project codename preserved as a valid brand-plugin example.
 - The `aitbc` CLI `plugin install/uninstall/package` commands manage **CLI command plugins** in `$HOME/.aitbc/plugins/`, which is a separate extension mechanism.
 
 ## Historical plugin interface (deprecated)

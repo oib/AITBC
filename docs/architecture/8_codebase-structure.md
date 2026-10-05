@@ -12,7 +12,7 @@ aitbc/
 ├── dev/                     # Development tools and configuration
 ├── docs/                    # Markdown documentation (10 numbered sections)
 ├── packages/                # Shared libraries and SDKs
-├── plugins/                 # Plugin integrations (hermes, openclaw, whitelabel_demo — no Ollama plugin)
+├── plugins/                 # Plugin integrations (hermes, whitelabel_demo — no Ollama plugin)
 # (no top-level assets/ or extensions/ directories exist)
 ├── scripts/                 # All scripts, organized by purpose
 │   ├── agent/               # Agent CLI helper scripts
