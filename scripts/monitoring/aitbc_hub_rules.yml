@@ -70,3 +70,50 @@ groups:
         annotations:
           summary: "Authority balance export has stopped"
           description: "The aitbc_authority_* textfile is missing or older than five minutes; check aitbc-authority-balances.timer. The float alerts are blind until it runs again."
+
+  - name: aitbc-native-energy-rate
+    rules:
+      # Native AIT/EUR energy rate, exported by
+      # scripts/monitoring/native-energy-rate-refresh.sh as a node_exporter
+      # textfile on hub (every 12h). SD-7: the stored rate sat at the stub
+      # value 1 for nine days and nothing noticed — a one-hour GPU quote
+      # priced at 2 units instead of ~17M.
+      - alert: NativeEnergyRateOutOfBand
+        # Bounds mirror ENERGY_RATE_MIN/MAX_AIT_PER_EUR defaults (0.5/8) in
+        # coordinator-api config.py and the refresher; keep them in sync.
+        expr: |
+          aitbc_native_energy_rate_ait_per_eur < 0.5
+          or aitbc_native_energy_rate_ait_per_eur > 8
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Native energy rate out of plausible band ({{ $value }} AIT/EUR)"
+          description: "The stored native_energy_rates value is {{ $value }} AIT/EUR, outside the plausible band [0.5, 8]. GPU quotes price against this rate — a stub or scale-slip here misprices every quote until fixed. The refresher is refusing to re-attest it; check aitbc-energy-rate journal."
+
+      - alert: NativeEnergyRateStale
+        # The oracle refuses quotes once observed_at is older than
+        # ENERGY_MAX_RATE_AGE_SECONDS (86400). absent() covers the rate row
+        # being deleted or disabled entirely.
+        expr: |
+          absent(aitbc_native_energy_rate_observed_timestamp_seconds)
+          or time() - aitbc_native_energy_rate_observed_timestamp_seconds > 86400
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Native energy rate stale or missing"
+          description: "The stored rate's observed_at is older than the 86400s quote window or the row is gone; the coordinator is refusing GPU energy quotes until a fresh rate lands. Check aitbc-native-energy-rate-refresh.timer and the coordinator POST endpoint."
+
+      - alert: NativeEnergyRateRefreshStale
+        # Refresher cadence is 12h plus up to 15m random delay; 13h catches a
+        # single missed run without flapping.
+        expr: |
+          absent(aitbc_native_energy_rate_refresh_timestamp_seconds)
+          or time() - aitbc_native_energy_rate_refresh_timestamp_seconds > 46800
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Energy rate refresher has not run"
+          description: "aitbc_native_energy_rate.prom is missing or older than 13h; the NativeEnergyRate* alerts are blind and the stored rate drifts toward the staleness window. Check aitbc-native-energy-rate-refresh.timer on hub."

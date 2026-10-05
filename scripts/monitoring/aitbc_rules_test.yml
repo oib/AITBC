@@ -664,3 +664,109 @@ tests:
             exp_annotations:
               summary: "node-exporter on node9:9100 exposes no systemd-unit series"
               description: "The node job on node9:9100 (job node) is up but has exported no node_systemd_unit_state series for >15m — its --collector.systemd is disabled, so AitbcSystemdUnitFailed is blind there. Enable the collector in the node-exporter unit and restart it."
+
+  # SD-7 native-energy-rate alerts (hub-only group aitbc-native-energy-rate).
+  # time() in promtool tests is the eval_time itself, so "fresh" timestamps
+  # are small constants and "stale" ones are negative (more than the window
+  # behind every eval_time used here).
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_native_energy_rate_ait_per_eur'
+        values: '4x80'                 # in-band throughout
+      - series: 'aitbc_native_energy_rate_observed_timestamp_seconds'
+        values: '0x80'                 # fresh: every eval_time < 86400s
+      - series: 'aitbc_native_energy_rate_refresh_timestamp_seconds'
+        values: '0x80'                 # fresh: every eval_time < 46800s
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: NativeEnergyRateOutOfBand
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: NativeEnergyRateStale
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: NativeEnergyRateRefreshStale
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_native_energy_rate_ait_per_eur'
+        values: '0.1x80'               # stub-scale value, below the 0.5 bound
+      - series: 'aitbc_native_energy_rate_observed_timestamp_seconds'
+        values: '0x80'
+      - series: 'aitbc_native_energy_rate_refresh_timestamp_seconds'
+        values: '0x80'
+    alert_rule_test:
+      # for: 5m — pending at 4m, firing at 6m; the stale/refresh alerts stay quiet.
+      - eval_time: 4m
+        alertname: NativeEnergyRateOutOfBand
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: NativeEnergyRateOutOfBand
+        exp_alerts:
+          - exp_labels:
+              alertname: NativeEnergyRateOutOfBand
+              severity: critical
+            exp_annotations:
+              summary: "Native energy rate out of plausible band (0.1 AIT/EUR)"
+              description: "The stored native_energy_rates value is 0.1 AIT/EUR, outside the plausible band [0.5, 8]. GPU quotes price against this rate — a stub or scale-slip here misprices every quote until fixed. The refresher is refusing to re-attest it; check aitbc-energy-rate journal."
+      - eval_time: 40m
+        alertname: NativeEnergyRateStale
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: NativeEnergyRateRefreshStale
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_native_energy_rate_ait_per_eur'
+        values: '4x80'
+      - series: 'aitbc_native_energy_rate_observed_timestamp_seconds'
+        values: '-90000x80'            # >86400s behind every eval_time
+      - series: 'aitbc_native_energy_rate_refresh_timestamp_seconds'
+        values: '0x80'
+    alert_rule_test:
+      # for: 30m — firing at 31m; out-of-band and refresh alerts stay quiet.
+      - eval_time: 29m
+        alertname: NativeEnergyRateStale
+        exp_alerts: []
+      - eval_time: 31m
+        alertname: NativeEnergyRateStale
+        exp_alerts:
+          - exp_labels:
+              alertname: NativeEnergyRateStale
+              severity: warning
+            exp_annotations:
+              summary: "Native energy rate stale or missing"
+              description: "The stored rate's observed_at is older than the 86400s quote window or the row is gone; the coordinator is refusing GPU energy quotes until a fresh rate lands. Check aitbc-native-energy-rate-refresh.timer and the coordinator POST endpoint."
+      - eval_time: 40m
+        alertname: NativeEnergyRateOutOfBand
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: NativeEnergyRateRefreshStale
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_native_energy_rate_ait_per_eur'
+        values: '4x80'
+      - series: 'aitbc_native_energy_rate_observed_timestamp_seconds'
+        values: '0x80'
+      - series: 'aitbc_native_energy_rate_refresh_timestamp_seconds'
+        values: '-50000x80'            # >46800s behind — a missed 12h run
+    alert_rule_test:
+      - eval_time: 31m
+        alertname: NativeEnergyRateRefreshStale
+        exp_alerts:
+          - exp_labels:
+              alertname: NativeEnergyRateRefreshStale
+              severity: warning
+            exp_annotations:
+              summary: "Energy rate refresher has not run"
+              description: "aitbc_native_energy_rate.prom is missing or older than 13h; the NativeEnergyRate* alerts are blind and the stored rate drifts toward the staleness window. Check aitbc-native-energy-rate-refresh.timer on hub."
+      - eval_time: 40m
+        alertname: NativeEnergyRateOutOfBand
+        exp_alerts: []
+      - eval_time: 40m
+        alertname: NativeEnergyRateStale
+        exp_alerts: []

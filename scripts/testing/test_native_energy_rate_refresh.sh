@@ -56,12 +56,15 @@ EOF
 
 mk_rate_db() { # scaled value -> fresh DB
     rm -f "$DB"
-    sqlite3 "$DB" "CREATE TABLE native_energy_rates (id INTEGER PRIMARY KEY, ait_per_eur_scaled INTEGER, enabled INTEGER); INSERT INTO native_energy_rates VALUES (1, $1, 1);"
+    sqlite3 "$DB" "CREATE TABLE native_energy_rates (id INTEGER PRIMARY KEY, ait_per_eur_scaled INTEGER, enabled INTEGER, observed_at INTEGER, version INTEGER); INSERT INTO native_energy_rates VALUES (1, $1, 1, 1700000000, 50);"
 }
+
+PROM_DIR="$SBX/textfile"
+mkdir -p "$PROM_DIR"
 
 run_refresh() { # rate_scaled -> runs the script, returns rc
     mk_rate_db "$1"
-    PATH="$STUB_BIN:$PATH" CURL_LOG="$CURL_LOG" \
+    PATH="$STUB_BIN:$PATH" CURL_LOG="$CURL_LOG" TEXTFILE_DIR="$PROM_DIR" \
         COORDINATOR_URL="http://127.0.0.1:9" COORDINATOR_DB="$DB" COORDINATOR_ENV="$ENVF" \
         bash "$SCRIPT" 2>&1
 }
@@ -87,19 +90,34 @@ rc=0; out=$(run_refresh 9000000000000000000) || rc=$?
 check "above-band refused (rc 1)" test "$rc" -eq 1
 check "above-band never posted" bash -c '! test -f "$0"' "$CURL_LOG"
 
-# 4. Missing row still fails loudly (pre-existing behaviour).
-rm -f "$CURL_LOG" "$DB"
-rc=0; out=$(PATH="$STUB_BIN:$PATH" CURL_LOG="$CURL_LOG" \
+# 4. Missing row still fails loudly (pre-existing behaviour) and the textfile
+#    still gets a refresh timestamp so the dead-refresher alert stays armed.
+rm -f "$CURL_LOG" "$DB" "$PROM_DIR/aitbc_native_energy_rate.prom"
+rc=0; out=$(PATH="$STUB_BIN:$PATH" CURL_LOG="$CURL_LOG" TEXTFILE_DIR="$PROM_DIR" \
     COORDINATOR_URL="http://127.0.0.1:9" COORDINATOR_DB="$DB" COORDINATOR_ENV="$ENVF" \
     bash "$SCRIPT" 2>&1) || rc=$?
 check "no rate row fails (rc 1)" test "$rc" -eq 1
 check "no rate row logged" bash -c "echo \"\$0\" | grep -qi 'no enabled'" "$out"
+check "missing row still writes refresh ts" grep -q "refresh_timestamp_seconds" "$PROM_DIR/aitbc_native_energy_rate.prom"
+check "missing row exports no rate" bash -c '! grep -q "ait_per_eur [0-9]" "$0"' "$PROM_DIR/aitbc_native_energy_rate.prom"
 
 # 5. Band edges are inclusive (0.5 and 8 scaled).
 rc=0; out=$(run_refresh 500000000000000000) || rc=$?
 check "0.5 boundary posts" test "$rc" -eq 0
 rc=0; out=$(run_refresh 8000000000000000000) || rc=$?
 check "8 boundary posts" test "$rc" -eq 0
+
+# 6. Textfile export carries the stored rate, observed_at and version —
+#    including on a refused out-of-band row (the alert must see the truth).
+rm -f "$PROM_DIR/aitbc_native_energy_rate.prom"
+rc=0; out=$(run_refresh 4000000000000000000) || rc=$?
+check "textfile written" test -f "$PROM_DIR/aitbc_native_energy_rate.prom"
+check "textfile has rate 4.0" grep -q "aitbc_native_energy_rate_ait_per_eur 4" "$PROM_DIR/aitbc_native_energy_rate.prom"
+check "textfile has observed ts" grep -q "observed_timestamp_seconds" "$PROM_DIR/aitbc_native_energy_rate.prom"
+check "textfile has version" grep -q "aitbc_native_energy_rate_version" "$PROM_DIR/aitbc_native_energy_rate.prom"
+rm -f "$PROM_DIR/aitbc_native_energy_rate.prom"
+rc=0; out=$(run_refresh 1) || rc=$?
+check "refused row still exports rate 1e-18" grep -q "ait_per_eur 1e-18\|ait_per_eur 0.000000001\|ait_per_eur " "$PROM_DIR/aitbc_native_energy_rate.prom"
 
 if [ "$FAILS" -gt 0 ]; then
     echo "FAILED: $FAILS check(s)"
