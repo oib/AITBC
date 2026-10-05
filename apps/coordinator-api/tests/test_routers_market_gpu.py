@@ -370,6 +370,24 @@ def test_native_energy_rate_post_rejects_int64_overflow(client, miner_token):
     assert "int64" in resp.json()["detail"]
 
 
+def test_native_energy_rate_post_always_bumps_version(client, miner_token, db_session, native_pricing):
+    """SD-7 inventory: this endpoint is the only repository writer of the
+    native_energy_rates row, and it must bump `version` on every write —
+    an observed_at that moves under a fixed version (hub's protected escrow
+    snapshots showed exactly that, pinned at 5) cannot come from this path.
+    If this test fails, a version-preserving observed_at write exists and
+    the out-of-band-writer conclusion no longer holds."""
+    _seed_energy(db_session)  # seeds version=1, observed_at pinned
+    for expected_version in (2, 3):
+        resp = client.post(
+            "/v1/market/native-energy/rate",
+            headers={"Authorization": f"Bearer {miner_token}"},
+            json={"ait_per_eur": "4.0"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["version"] == expected_version
+
+
 def test_native_energy_floor_get(client, db_session, native_pricing):
     """Floor read matches the shared pricing arithmetic (165W, 0.30 EUR/kWh, 1.5 AIT/EUR)."""
     _seed_energy(db_session)
