@@ -68,7 +68,7 @@ from aitbc.network import SharedHttpClient
 from aitbc.utils import units_to_ait
 
 from ..config import settings
-from ..contracts.escrow import DEFAULT_FEE_BPS, get_escrow_manager, withheld_fee_bound
+from ..contracts.escrow import DEFAULT_FEE_BPS, get_escrow_manager, recompute_release_proofs
 from ..mempool import compute_tx_hash
 from ..database import session_scope
 from ..logger import get_logger
@@ -387,6 +387,7 @@ def _new_leg_acc() -> dict:
     return {
         "lock_units": 0,
         "release_values": [],
+        "release_legs": [],
         "refund_values": [],
         "refund_tx_hash": None,
         "swept_units": 0,
@@ -432,6 +433,7 @@ def _escrow_legs_by_job(session, job_ids: list[str]) -> dict[str, dict]:
         action = (tx.payload or {}).get("action")
         if tx.type == "ESCROW_RELEASE" and action == "escrow_release":
             legs["release_values"].append(tx.value or 0)
+            legs["release_legs"].append({"tx_hash": tx.tx_hash, "value": tx.value or 0})
         elif tx.type == "ESCROW_REFUND" and action == "escrow_refund":
             legs["refund_values"].append(tx.value or 0)
             if tx.tx_hash:
@@ -547,15 +549,20 @@ def fee_sweep_candidates(
         if expected <= 0:
             stats["no_residue"] += 1
             continue
-        # Fee-only proof: bound the withheld platform fee by the shared
-        # helper — anything it cannot explain is owed change or a
-        # non-standard fee path; defer, never guess.
+        # Fee-only proof (A7): recompute the route's own fee rule from the
+        # billed gross it recorded per release leg — the inversion this
+        # replaces could never prove protected bumps or floor-rounded
+        # billings. Anything the recompute cannot match defers, never guesses.
         bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
-        fee_bound = (
-            withheld_fee_bound(legs["release_values"], fee_bps=bps, lock_units=legs["lock_units"])
-            if not row.protected
-            else None
+        proof = recompute_release_proofs(
+            legs["release_legs"],
+            row.billed_legs,
+            fee_bps=bps,
+            protected=bool(row.protected),
+            credit_units=row.energy_provider_credit_units,
+            lock_units=legs["lock_units"],
         )
+        fee_bound = proof[1] if proof else None
         if fee_bound is None or expected > fee_bound:
             stats["deferred_unproven"] += 1
             continue
@@ -672,6 +679,9 @@ def _count_fee_pass(stats: dict[str, int]) -> None:
     try:
         from ..metrics import escrow_fee_sweep_pass_total
 
+        # Heartbeat: one "tick" per executed pass run — an idle pass still
+        # proves it is alive; its absence means dead or flag-disabled.
+        escrow_fee_sweep_pass_total.labels(result="tick").inc()
         for result, n in stats.items():
             if n:
                 escrow_fee_sweep_pass_total.labels(result=result).inc(n)
@@ -687,12 +697,12 @@ def _count_fee_pass(stats: dict[str, int]) -> None:
 # re-entered second submission. This pass pays the owed change instead:
 #
 #   - discovery is row-driven: released escrows whose refund is unmarked;
-#   - owed change is derived ONLY from sealed chain legs:
-#       owed = lock_units − Σrelease − withheld_fee_bound − Σrefund
-#     (withheld_fee_bound reconstructs the billed gross exactly like the fee
-#     pass's bound — released_net + fee = billed; lock − billed − refunded is
-#     the buyer's change). A shape the helper cannot reconstruct integrally
-#     is deferred_unproven — never guessed;
+#   - owed change is derived ONLY from sealed chain legs plus the billed
+#     gross the route recorded per release (A7):
+#       owed = lock_units − Σbilled − Σrefund
+#     (recompute_release_proofs replays the route's own fee rule per leg —
+#     the sealed value must equal the recomputed release or nothing is
+#     proven; legacy rows without recorded billed stay deferred_unproven);
 #   - the refund is submitted only when the proposer mempool holds NO
 #     authority or escrow transaction — the change leg can never share a
 #     mempool window with the release or a fee sweep;
@@ -770,11 +780,12 @@ def change_owed_candidates(
 ) -> tuple[list[_ChangeCandidate], dict[str, int], str]:
     """Pick released rows with provable owed change, from sealed legs only.
 
-    Owed = lock − Σrelease − withheld_fee_bound − Σrefund. The fee inversion
-    is the same helper the fee pass uses; a release shape it cannot
-    reconstruct (non-integral billed, protected key) defers unproven. A
-    sealed refund leg heals the row mark here — marking off chain truth, so
-    a crash between submission and seal re-derives correctly on restart.
+    Owed = lock − Σbilled − Σrefund, with billed proven per release leg by
+    ``recompute_release_proofs`` (A7 — the recorded-billed recompute, not the
+    old inversion). Rows without recorded billed, unpaired legs, or a
+    recompute mismatch defer unproven. A sealed refund leg heals the row
+    mark here — marking off chain truth, so a crash between submission and
+    seal re-derives correctly on restart.
     Returns (candidates, stats, next_watermark).
     """
     stats = {
@@ -828,16 +839,22 @@ def change_owed_candidates(
             # refunding ≈lock here would race the release re-drive (C19).
             stats["no_legs"] += 1
             continue
+        # A7: owed = lock − billed − refunded, with billed proven by the
+        # recompute (never by inversion and never by row columns alone).
         bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
-        fee_bound = (
-            withheld_fee_bound(legs["release_values"], fee_bps=bps, lock_units=legs["lock_units"])
-            if not row.protected
-            else None
+        proof = recompute_release_proofs(
+            legs["release_legs"],
+            row.billed_legs,
+            fee_bps=bps,
+            protected=bool(row.protected),
+            credit_units=row.energy_provider_credit_units,
+            lock_units=legs["lock_units"],
         )
-        if fee_bound is None:
+        if proof is None:
             stats["deferred_unproven"] += 1
             continue
-        owed = legs["lock_units"] - sum(legs["release_values"]) - fee_bound - sum(legs["refund_values"])
+        billed_total = proof[0]
+        owed = legs["lock_units"] - billed_total - sum(legs["refund_values"])
         if owed <= 0:
             stats["no_owed"] += 1
             continue
@@ -963,6 +980,8 @@ def _count_change_pass(stats: dict[str, int]) -> None:
     try:
         from ..metrics import escrow_change_pass_total
 
+        # Heartbeat: one "tick" per executed pass run (see _count_fee_pass).
+        escrow_change_pass_total.labels(result="tick").inc()
         for result, n in stats.items():
             if n:
                 escrow_change_pass_total.labels(result=result).inc(n)
