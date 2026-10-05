@@ -367,6 +367,8 @@ coverage is enforced by `tests/test_env_doc_coverage.py`.
 | `BRIDGE_RELEASE_AUTHORITY` | Fallback authority for `BRIDGE_RELEASE`/`BRIDGE_REFUND` signature checks (chain param takes precedence). |
 | `BOND_ESCROW_ADDRESS` / `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | Bond escrow, burn sink, and slash-authority addresses. |
 | `ENERGY_OPERATOR_ADDRESS` | Operator address for energy-settlement flows. |
+| `ENERGY_MAX_RATE_AGE_SECONDS` | Freshness window for a stored native AIT/EUR rate in quote verification — default `86400` everywhere (shared `DEFAULT_MAX_RATE_AGE_SECONDS` in `aitbc/market/energy_pricing.py`, bound by the coordinator `Settings` field, the node RPC fallback, and the CLI). 24h because the `aitbc-native-energy-rate-refresh` timer re-attests the stored rate every 12h; the window must outlast missed runs. Kept fleet-identical by `tests/unit/test_energy_window_defaults.py`. |
+| `ENERGY_RATE_MIN_AIT_PER_EUR` / `ENERGY_RATE_MAX_AIT_PER_EUR` | Plausibility band for `POST /v1/market/native-energy/rate` and the refresher's pre-post check — defaults `0.5` / `8`. The max must stay under ~9.22: `ait_per_eur_scaled` stores rate×1e18 in an int64 column. |
 | `TRUST_X_WALLET_ADDRESS` | See above — header-trust dev flag. |
 | `LOG_SHIPPER_ENDPOINT` | Remote log-shipping endpoint. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | OpenTelemetry exporter endpoints. |

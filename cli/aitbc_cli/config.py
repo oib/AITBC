@@ -9,6 +9,7 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aitbc.config.hub import hub_agent_url, hub_coordinator_url, hub_exchange_url
+from aitbc.market.energy_pricing import DEFAULT_MAX_RATE_AGE_SECONDS
 
 
 class BaseAITBCConfig(BaseSettings):
@@ -186,11 +187,11 @@ class CLIConfig(BaseAITBCConfig):
     )
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime in seconds")
     energy_max_rate_age_seconds: int = Field(
-        default=86400,
+        default=DEFAULT_MAX_RATE_AGE_SECONDS,
         description=(
             "Maximum age of an energy rate observation accepted when verifying a quote "
-            "(ENERGY_MAX_RATE_AGE_SECONDS; matches the coordinator's configured window, "
-            "86400s on hub where the rate refreshes every 12h)"
+            "(ENERGY_MAX_RATE_AGE_SECONDS; shared DEFAULT_MAX_RATE_AGE_SECONDS, "
+            "86400s — the rate refreshes every 12h on hub)"
         ),
     )
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote signing domain")

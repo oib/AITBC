@@ -14,6 +14,7 @@ from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
+from aitbc.market.energy_pricing import DEFAULT_MAX_RATE_AGE_SECONDS
 from aitbc.constants import LOG_DIR, REPO_DIR
 from aitbc.utils.env import is_production
 from aitbc_shared import DatabaseConfig as BaseDatabaseConfig
@@ -269,7 +270,9 @@ class Settings(BaseAITBCConfig):
         default=False, description="Use coordinator-native tables instead of EVM for energy inputs"
     )
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime")
-    energy_max_rate_age_seconds: int = Field(default=300, description="Maximum age of an energy rate observation")
+    energy_max_rate_age_seconds: int = Field(
+        default=DEFAULT_MAX_RATE_AGE_SECONDS, description="Maximum age of an energy rate observation"
+    )
     # Plausibility band for POST /market/native-energy/rate (SD-7: the row sat at the stub value 1 for
     # nine days in Sep/Oct 2026 and nothing refused it). Bounds are AIT per EUR around the ~4.0
     # operating point — wide enough for real market moves, tight enough to reject stub/zero/scale
