@@ -335,6 +335,13 @@ class Escrow(ChainBase, table=True):
     # written before partial releases existed, where a settlement moved the whole lock.
     released_amount: int | None = None  # compute-units paid to the provider, net of fee
     refunded_amount: int | None = None  # compute-units returned to the buyer unbilled
+    # A7: billed gross the release route consumed, recorded per release
+    # submission as {"tx_hash": <leg hash>, "billed": <units>}. The settlement
+    # passes prove each sealed release leg by recomputing the route's own fee
+    # rule from this instead of inverting the sealed value — the only proof
+    # that covers protected bumps and floor-rounded billings. NULL on legacy
+    # rows means unproven.
+    billed_legs: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON))
     # E1: fixed-duration GPU rental energy floor snapshot, frozen at lock time.
     protected: bool = Field(default=False)
     energy_quote_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
