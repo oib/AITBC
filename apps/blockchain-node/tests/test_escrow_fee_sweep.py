@@ -25,9 +25,13 @@ from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
 from aitbc_chain.base_models import Account, Block, ChainParameter, Transaction
-from aitbc_chain.config import settings
+from aitbc_chain.config import ChainSettings, settings
 from aitbc_chain.state.pure_state_transition import _escrow_address, compute_state_delta
-from aitbc_chain.state.state_transition import StateTransition, build_escrow_context
+from aitbc_chain.state.state_transition import (
+    StateTransition,
+    build_escrow_context,
+    get_block_version_for_height,
+)
 
 CHAIN = "ait-test"
 
@@ -162,6 +166,25 @@ def test_v11_pure_delta_fails_closed_without_authority():
     v11 = compute_state_delta(account_map, sweep, CHAIN, tx_hash="x11", block_version=11)
     assert not v11.success
     assert "settlement authority" in v11.error
+
+
+def test_v11_height_is_baked_at_35400(monkeypatch):
+    """The baked default is consensus: a fresh settings object (no env, no env
+    file) activates v11 at 35400 — a node built with no env line treats the
+    type as a plain transfer below the boundary and applies the sweep rules
+    at it."""
+    monkeypatch.delenv("STATE_TRANSITION_V11_HEIGHT", raising=False)
+    assert ChainSettings(_env_file=None).state_transition_v11_height == 35_400
+    monkeypatch.setattr(settings, "state_transition_v11_height", 35_400)
+    assert get_block_version_for_height(35_399) == 10
+    assert get_block_version_for_height(35_400) == 11
+
+
+def test_v11_env_still_overrides_the_baked_default(monkeypatch):
+    """STATE_TRANSITION_V11_HEIGHT still wins over the baked default for a
+    process that sets it."""
+    monkeypatch.setenv("STATE_TRANSITION_V11_HEIGHT", "40000")
+    assert ChainSettings(_env_file=None).state_transition_v11_height == 40_000
 
 
 # ---------------------------------------------------------------------------
