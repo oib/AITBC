@@ -62,7 +62,13 @@ MIN_FEE_BASIS_POINTS = 0
 MAX_FEE_BASIS_POINTS = 1000  # 10 %, matching AIPowerRental.sol
 
 DEFAULT_QUOTE_LIFETIME_SECONDS = 300
-DEFAULT_MAX_RATE_AGE_SECONDS = 300
+# Single source for the rate-freshness window — coordinator settings, the
+# node RPC fallback, and the CLI default all bind this constant. 86400s (24h)
+# because the refresher (scripts/monitoring/aitbc-native-energy-rate-refresh)
+# re-attests the stored rate every 12h: the window must outlast at least one
+# missed run, and the plausibility band — not this window — carries the
+# correctness guard (SD-7).
+DEFAULT_MAX_RATE_AGE_SECONDS = 86400
 FUTURE_TIMESTAMP_TOLERANCE_SECONDS = 60
 
 MAX_TBP_WATTS = 50_000

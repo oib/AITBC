@@ -20,6 +20,7 @@ from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market.energy_pricing import (
+    DEFAULT_MAX_RATE_AGE_SECONDS,
     EnergyPricingError,
     EnergyQuote,
     SettlementRoute,
@@ -59,7 +60,7 @@ def _energy_operator_address() -> str:
     return os.getenv("ENERGY_OPERATOR_ADDRESS", "").strip()
 
 
-_FALLBACK_MAX_RATE_AGE_SECONDS = 86400
+_FALLBACK_MAX_RATE_AGE_SECONDS = DEFAULT_MAX_RATE_AGE_SECONDS
 
 
 def _energy_max_rate_age_seconds() -> int:
@@ -69,8 +70,9 @@ def _energy_max_rate_age_seconds() -> int:
     ``_energy_operator_address``. The variable name matches the
     coordinator's ``settings.energy_max_rate_age_seconds`` so one operator
     setting aligns the issuance, funding, and node gates. Unset,
-    non-integer, or non-positive values fall back to 86400 seconds — the
-    operator policy the coordinator already runs on hub.
+    non-integer, or non-positive values fall back to the shared
+    ``DEFAULT_MAX_RATE_AGE_SECONDS`` (86400s) — the operator policy the
+    coordinator already runs on hub.
     """
     try:
         value = int(os.getenv("ENERGY_MAX_RATE_AGE_SECONDS", ""))
