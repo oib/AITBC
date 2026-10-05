@@ -164,6 +164,84 @@ class TestSettlementLegsFromChain:
 
         assert settlement_legs_from_chain(session, JOB)["released_amount"] == PAID
 
+    def test_floor_sees_non_matched_action_legs(self, session):
+        """C18 F-A: the height floor counts every release/refund-TYPE leg —
+        like the pass's type-based floor — not only action-matched ones. A
+        pre-fork leg with a missing payload action still pins the min."""
+        _lock(session)
+        session.add(
+            Transaction(
+                chain_id=CHAIN,
+                tx_hash="0xnew",
+                sender=BUYER,
+                recipient=PROVIDER,
+                type="ESCROW_RELEASE",
+                value=PAID,
+                created_at=T0 + timedelta(seconds=2),
+                block_height=36000,
+                payload={"action": "escrow_release", "job_id": JOB},
+            )
+        )
+        session.add(
+            Transaction(
+                chain_id=CHAIN,
+                tx_hash="0xold",
+                sender=BUYER,
+                recipient=PROVIDER,
+                type="ESCROW_RELEASE",
+                value=1,
+                created_at=T0 - timedelta(days=30),
+                block_height=100,
+                payload={"job_id": JOB},  # right type, missing action
+            )
+        )
+        session.commit()
+
+        legs = settlement_legs_from_chain(session, JOB)
+
+        assert legs is not None
+        assert legs["min_settlement_height"] == 100
+        assert legs["null_settlement_height"] is False
+
+    def test_floor_fails_closed_on_null_height_leg(self, session):
+        """A settlement leg whose block_height is NULL cannot be proven
+        post-floor — the poison flag trips even though a matched post-floor
+        leg exists."""
+        _lock(session)
+        session.add(
+            Transaction(
+                chain_id=CHAIN,
+                tx_hash="0xnew",
+                sender=BUYER,
+                recipient=PROVIDER,
+                type="ESCROW_RELEASE",
+                value=PAID,
+                created_at=T0 + timedelta(seconds=2),
+                block_height=36000,
+                payload={"action": "escrow_release", "job_id": JOB},
+            )
+        )
+        session.add(
+            Transaction(
+                chain_id=CHAIN,
+                tx_hash="0xnoh",
+                sender=BUYER,
+                recipient=PROVIDER,
+                type="ESCROW_REFUND",
+                value=1,
+                created_at=T0 - timedelta(days=30),
+                block_height=None,
+                payload={"job_id": JOB},
+            )
+        )
+        session.commit()
+
+        legs = settlement_legs_from_chain(session, JOB)
+
+        assert legs is not None
+        assert legs["null_settlement_height"] is True
+        assert legs["min_settlement_height"] == 36000
+
 
 class TestBackfillSettlementLegs:
     def test_replica_row_learns_what_the_settlement_moved(self, session):
