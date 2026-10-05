@@ -103,7 +103,8 @@ def _candidates(session, **kwargs):
     kwargs.setdefault("max_jobs", 50)
     kwargs.setdefault("grace_seconds", 300)
     kwargs.setdefault("min_height", V11)
-    return ess.fee_sweep_candidates(session, NOW, **kwargs)
+    candidates, stats, _watermark = ess.fee_sweep_candidates(session, NOW, **kwargs)
+    return candidates, stats
 
 
 def _job2_chain(session, job_id: str = JOB):
@@ -173,10 +174,25 @@ def test_already_swept_job_is_done(session):
     assert stats["no_residue"] == 1
 
 
-def test_leg_below_height_floor_is_skipped(session):
-    """Rule 6: a settlement leg below the floor leaves the job alone."""
+def test_leg_below_height_floor_never_examined(session):
+    """Rule 6 (F2): a job whose settlement legs are ALL below the floor is
+    excluded at discovery time — it cannot consume a candidate-cap slot
+    (the A4 bug this fixes was cap-slot starvation by below-floor rows)."""
     _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK, height=V11 - 100)
     _tx(session, "ESCROW_RELEASE", "0xrel", JOB2_RELEASE, height=V11 - 50)
+    _row(session)
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert not any(stats.values())  # invisible to the pass, not "skipped"
+
+
+def test_mixed_height_job_skips_floor(session):
+    """A job that straddles the floor — a settlement leg on both sides —
+    surfaces via its post-floor leg but stays off-limits: any leg below
+    the floor keeps the whole job excluded."""
+    _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK, height=V11 - 100)
+    _tx(session, "ESCROW_RELEASE", "0xrel", JOB2_RELEASE, height=V11 + 5)
+    _tx(session, "ESCROW_REFUND", "0xref", 1000, height=V11 - 50)
     _row(session)
     candidates, stats = _candidates(session)
     assert candidates == []
@@ -243,6 +259,39 @@ def test_candidate_cap_bounds_work(session):
     assert stats["candidates"] == 1
 
 
+def test_below_floor_rows_cannot_consume_cap(session):
+    """F2: sixty settled jobs below the floor plus one eligible job —
+    the cap counts floor-eligible jobs only, so the new job is inspected
+    even though it sorts last."""
+    for i in range(60):
+        job_id = f"old{i:02d}"
+        _tx(session, "ESCROW_LOCK", f"0xlock-{job_id}", JOB2_LOCK, job_id=job_id, height=V11 - 100)
+        _tx(session, "ESCROW_RELEASE", f"0xrel-{job_id}", JOB2_RELEASE, job_id=job_id, height=V11 - 50)
+        _row(session, job_id=job_id)
+    _job2_chain(session, job_id="zznew")
+    _row(session, job_id="zznew")
+    candidates, stats, _ = ess.fee_sweep_candidates(session, NOW, max_jobs=1, grace_seconds=300, min_height=V11)
+    assert stats["candidates"] == 1
+    assert [c.job_id for c in candidates] == ["zznew"]
+
+
+def test_eligible_jobs_rotate_through_the_ring(session):
+    """F2: more eligible jobs than the cap — each pass takes the next
+    max_jobs window in job_id order (watermark ring), so deferred jobs are
+    re-examined every cycle instead of starving behind the first N rows."""
+    for i in range(3):
+        _job2_chain(session, job_id=f"job{i}")
+        _row(session, job_id=f"job{i}")
+    seen = []
+    watermark = ""
+    for _ in range(4):
+        candidates, _stats, watermark = ess.fee_sweep_candidates(
+            session, NOW, max_jobs=1, grace_seconds=300, min_height=V11, after_job_id=watermark
+        )
+        seen.extend(c.job_id for c in candidates)
+    assert seen == ["job0", "job1", "job2", "job0"]  # wraps around, none starved
+
+
 # ------------------------------------------------------------ async driver
 
 
@@ -268,6 +317,33 @@ def _patch_pass_session(monkeypatch, session):
         yield session
 
     monkeypatch.setattr(ess, "session_scope", _scope)
+
+
+def _route_tx(sender: str, tx_type: str, nonce: int = 7) -> dict:
+    """A transaction shaped the way the routes actually submit one —
+    sender under "from", no "tx_hash" key in the body."""
+    return {
+        "from": sender,
+        "to": PROVIDER,
+        "amount": 10,
+        "fee": 5,
+        "nonce": nonce,
+        "type": tx_type,
+        "signature": "0xsig",
+        "chain_id": CHAIN,
+    }
+
+
+def _mempool_pending(*txs: dict) -> list[dict]:
+    """Feed real txs through the actual Mempool and read back exactly what
+    the /mempool endpoint would return — the shape cannot drift from what
+    _proposer_pending_txs sees in production."""
+    from aitbc_chain.mempool import InMemoryMempool
+
+    mp = InMemoryMempool(chain_id=CHAIN)
+    for tx in txs:
+        mp.add(dict(tx), CHAIN)
+    return mp.get_pending_transactions(CHAIN)
 
 
 @pytest.mark.asyncio
@@ -337,12 +413,28 @@ async def test_custody_probe_none_defers(session, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_pending_authority_tx_blocks(session, monkeypatch):
-    """Rule 4: any pending tx from the settlement authority fails closed."""
+    """Rule 4: any pending tx from the settlement authority fails closed —
+    real mempool shape ("from" key, not "sender")."""
     _job2_chain(session)
     _row(session)
     _patch_pass_session(monkeypatch, session)
     submit = _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
-    pending = [{"tx_hash": "0xp", "sender": AUTHORITY, "type": "ESCROW_RELEASE"}]
+    pending = _mempool_pending(_route_tx(AUTHORITY, "ESCROW_RELEASE"))
+    monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=pending))
+    stats = await ess._fee_sweep_pass_once(NOW)
+    assert stats["deferred_pending"] == 1
+    submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_pending_authority_transfer_blocks(session, monkeypatch):
+    """F1: an authority-signed NON-escrow tx (nonce-occupying TRANSFER)
+    must also block — a sweep built now would collide on the nonce slot."""
+    _job2_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    submit = _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
+    pending = _mempool_pending(_route_tx(AUTHORITY, "TRANSFER"))
     monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=pending))
     stats = await ess._fee_sweep_pass_once(NOW)
     assert stats["deferred_pending"] == 1
@@ -357,7 +449,7 @@ async def test_pending_escrow_tx_from_anyone_blocks(session, monkeypatch):
     _row(session)
     _patch_pass_session(monkeypatch, session)
     submit = _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
-    pending = [{"tx_hash": "0xp", "sender": BUYER, "type": "ESCROW_LOCK"}]
+    pending = _mempool_pending(_route_tx(BUYER, "ESCROW_LOCK"))
     monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=pending))
     stats = await ess._fee_sweep_pass_once(NOW)
     assert stats["deferred_pending"] == 1
@@ -382,10 +474,38 @@ async def test_unrelated_pending_tx_does_not_block(session, monkeypatch):
     _row(session)
     _patch_pass_session(monkeypatch, session)
     _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
-    pending = [{"tx_hash": "0xp", "sender": BUYER, "type": "TRANSFER"}]
+    pending = _mempool_pending(_route_tx(BUYER, "TRANSFER"))
     monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=pending))
     stats = await ess._fee_sweep_pass_once(NOW)
     assert stats["submitted"] == 1
+
+
+def test_mempool_content_has_no_tx_hash_key():
+    """F1 proof: get_pending_transactions returns the submitted tx body
+    verbatim — "from" is the sender key and "tx_hash" exists only as the
+    mempool table's primary key, never inside the returned content."""
+    pending = _mempool_pending(_route_tx(AUTHORITY, "TRANSFER"))
+    assert len(pending) == 1
+    assert pending[0]["from"] == AUTHORITY
+    assert "sender" not in pending[0]
+    assert "tx_hash" not in pending[0]
+
+
+@pytest.mark.asyncio
+async def test_proposer_pending_hashes_is_vacuous(monkeypatch):
+    """F1 finding (pre-existing, NOT fixed here): the demote probe reads
+    tx.get("tx_hash") out of mempool content — a key that is never present —
+    so a healthy probe ALWAYS returns an empty set. A still-pending marked
+    leg is therefore seen as "absent" and becomes demotable. Reported for
+    the demote task; this test only locks in the proof."""
+    from types import SimpleNamespace
+
+    txs = _mempool_pending(_route_tx(AUTHORITY, "ESCROW_RELEASE"))
+    body = {"success": True, "transactions": txs, "count": len(txs)}
+    resp = SimpleNamespace(status_code=200, json=lambda: body)
+    monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(return_value=resp))
+    pending_hashes = await ess._proposer_pending_hashes()
+    assert pending_hashes == set()  # a real pending tx, and nothing matched
 
 
 @pytest.mark.asyncio
