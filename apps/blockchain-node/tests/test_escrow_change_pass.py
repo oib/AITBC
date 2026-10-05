@@ -342,6 +342,41 @@ async def test_pending_probe_failure_fails_closed(session, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_second_probe_pending_defers_before_signing(session, monkeypatch):
+    """A6c: the first probe is a stale snapshot by submission time — a leg
+    landing between the two probes is caught by the re-probe right before
+    signing. Deferred, never signed."""
+    _metered_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    submit = _patch_route(monkeypatch, {JOB: LOCK - RELEASE})
+    pending_now = _mempool_pending(_route_tx(AUTHORITY, "ESCROW_RELEASE"))
+    probe = AsyncMock(side_effect=[[], pending_now])
+    monkeypatch.setattr(ess, "_proposer_pending_txs", probe)
+    stats = await ess._change_pass_once(NOW)
+    assert probe.await_count == 2
+    assert stats["deferred_pending"] == 1
+    assert stats["submitted"] == 0
+    submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_second_probe_failure_fails_closed(session, monkeypatch):
+    """A6c: a failing re-probe defers the same as a populated one — never
+    sign on an unreadable mempool."""
+    _metered_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    submit = _patch_route(monkeypatch, {JOB: LOCK - RELEASE})
+    probe = AsyncMock(side_effect=[[], None])
+    monkeypatch.setattr(ess, "_proposer_pending_txs", probe)
+    stats = await ess._change_pass_once(NOW)
+    assert stats["deferred_pending"] == 1
+    assert stats["submitted"] == 0
+    submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_custody_mismatch_defers(session, monkeypatch):
     """Custody must equal exactly what the sealed legs imply — a touched or
     drained escrow account defers rather than pays on a guess."""

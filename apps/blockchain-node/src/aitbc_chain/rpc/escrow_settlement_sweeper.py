@@ -904,6 +904,23 @@ async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:
                 )
                 stats["dry_run"] += 1
                 continue
+            # A6c: re-probe immediately before signing — the earlier check is
+            # a stale snapshot by the time this candidate is reached. The
+            # residual race is a route release landing between this probe and
+            # the POST below; it cannot be closed by a lock around sign+POST
+            # either, because _get_account_nonce reads sealed state only —
+            # a second leg signed while the first is still pending would read
+            # the same sealed nonce and collide anyway. Pending or probe
+            # failure means no authority leg can be signed this tick — done.
+            pending = await _proposer_pending_txs()
+            if pending is None or any(
+                str(tx.get("from") or tx.get("sender") or "").lower() == authority
+                or str(tx.get("type") or "").startswith("ESCROW_")
+                for tx in pending
+            ):
+                stats["deferred_pending"] += 1
+                _count_change_pass(stats)
+                return stats
             contract_id = await escrow_routes._find_contract_id(get_escrow_manager(), cand.job_id)
             tx_hash = await escrow_routes._submit_refund_tx(
                 cand.buyer_address,
