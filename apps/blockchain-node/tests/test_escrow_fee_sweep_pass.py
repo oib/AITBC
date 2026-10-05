@@ -296,9 +296,9 @@ def test_eligible_jobs_rotate_through_the_ring(session):
 
 
 def _patch_route(monkeypatch, custody: dict | None, submit_returns="0xsweephash"):
-    """Wire the route surface the pass calls: enabled, key/address, custody,
+    """Wire the route surface the pass calls: pass flag, key/address, custody,
     submit. custody maps job_id -> balance-or-None."""
-    monkeypatch.setattr("aitbc_chain.rpc.escrow_routes._fee_sweep_enabled", lambda: True)
+    monkeypatch.setenv("ESCROW_FEE_SWEEP_PASS_ENABLED", "1")
     monkeypatch.setattr("aitbc_chain.rpc.escrow_routes._get_settlement_key", lambda: "k")
     monkeypatch.setattr("aitbc_chain.rpc.escrow_routes._get_settlement_address", lambda: AUTHORITY)
     custody_mock = AsyncMock(side_effect=lambda job_id: (custody or {}).get(job_id))
@@ -528,9 +528,25 @@ async def test_dry_run_counts_and_submits_nothing(session, monkeypatch):
 async def test_pass_disabled_is_noop(session, monkeypatch):
     _job2_chain(session)
     _row(session)
-    monkeypatch.setattr("aitbc_chain.rpc.escrow_routes._fee_sweep_enabled", lambda: False)
+    _patch_pass_session(monkeypatch, session)
     submit = _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
-    monkeypatch.setattr("aitbc_chain.rpc.escrow_routes._fee_sweep_enabled", lambda: False)
+    monkeypatch.delenv("ESCROW_FEE_SWEEP_PASS_ENABLED", raising=False)
+    stats = await ess._fee_sweep_pass_once(NOW)
+    assert not any(stats.values())
+    submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_route_flag_alone_does_not_arm_the_pass(session, monkeypatch):
+    """Flag split (A4c): ESCROW_FEE_SWEEP_ENABLED gates the release-route
+    retry only — the pass arms on ESCROW_FEE_SWEEP_PASS_ENABLED, so the pass
+    can be observed without re-arming route emission (C16 deploy note)."""
+    _job2_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    submit = _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
+    monkeypatch.delenv("ESCROW_FEE_SWEEP_PASS_ENABLED", raising=False)
+    monkeypatch.setenv("ESCROW_FEE_SWEEP_ENABLED", "1")
     stats = await ess._fee_sweep_pass_once(NOW)
     assert not any(stats.values())
     submit.assert_not_awaited()
@@ -573,3 +589,146 @@ async def test_sweep_once_runs_demote_then_fee_pass(session, monkeypatch):
     stats = await ess._sweep_once()
     assert stats["verified"] == 1
     fee_pass.assert_awaited_once()
+
+
+# ------------------------------------------------------------ A4c defects
+
+
+def test_ring_wrap_examines_each_job_once(session):
+    """D1: with the watermark inside the eligible set, the wrap-around refill
+    is bounded above by the watermark — every job is examined exactly once.
+    Pre-fix the unbounded refill re-returned the tail (['e','a','b','c','e'])."""
+    for job_id in ("a", "b", "c", "e"):
+        _job2_chain(session, job_id=job_id)
+        _row(session, job_id=job_id)
+    candidates, stats, watermark = ess.fee_sweep_candidates(
+        session, NOW, max_jobs=50, grace_seconds=300, min_height=V11, after_job_id="c"
+    )
+    assert [c.job_id for c in candidates] == ["e", "a", "b", "c"]
+    assert stats["candidates"] == 4
+    assert watermark == "c"
+
+
+def test_ring_wrap_refill_respects_remaining_cap(session):
+    """D1 companion: the refill takes at most the cap remainder, still bounded
+    above by the watermark — a mid-ring pass examines [tail..., head...] with
+    no overlap."""
+    for job_id in ("a", "b", "c", "d", "e"):
+        _job2_chain(session, job_id=job_id)
+        _row(session, job_id=job_id)
+    candidates, _stats, watermark = ess.fee_sweep_candidates(
+        session, NOW, max_jobs=3, grace_seconds=300, min_height=V11, after_job_id="c"
+    )
+    # tail past 'c' = [d, e] (2 < cap) → refill 1 slot from the head → [a]
+    assert [c.job_id for c in candidates] == ["d", "e", "a"]
+    assert watermark == "a"
+
+
+def test_chain_legs_without_row_are_counted(session):
+    """D3: sealed settlement legs whose job has no Escrow row surface in the
+    stats — a rebuilt node's whole history reads that way, and silence made
+    'nothing to sweep' indistinguishable from 'everything invisible'."""
+    _job2_chain(session)  # legs exist, no _row
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["no_row"] == 1
+
+
+def test_lockless_job_is_counted(session):
+    """D5: settlement legs but no ESCROW_LOCK-type leg (foreign-typed lock,
+    import anomaly) — counted, not silently read as a settled no_residue."""
+    _tx(session, "ESCROW_RELEASE", "0xrel", JOB2_RELEASE)
+    _row(session)
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["no_lock"] == 1
+
+
+def test_legs_reader_matches_oracle_membership(session):
+    """D6: the pass's leg membership is the oracle's — release/refund values
+    count only on the oracle's action names, so a mismatched-action leg can
+    never land on the bound side while missing from the expected side."""
+    from aitbc_chain.contracts.escrow import settlement_legs_from_chain
+
+    _job1_chain(session)
+    # A foreign release-typed leg: type matches, payload action does not.
+    session.add(
+        Transaction(
+            chain_id=CHAIN,
+            tx_hash="0xforeign",
+            sender=AUTHORITY,
+            recipient=PROVIDER,
+            type="ESCROW_RELEASE",
+            value=111,
+            block_height=V11 + 6,
+            created_at=OLD,
+            payload={"action": "not_escrow_release", "job_id": JOB},
+        )
+    )
+    session.commit()
+    oracle = settlement_legs_from_chain(session, JOB)
+    legs = ess._escrow_legs_by_job(session, [JOB])[JOB]
+    assert legs["release_values"] == oracle["release_values"] == [JOB1_RELEASE]
+    assert sum(legs["refund_values"]) == oracle["refunded_amount"] == JOB1_REFUND
+    assert legs["lock_units"] == oracle["locked_amount"] == JOB2_LOCK
+    # ...but the mismatched leg still counts as settlement activity for the
+    # floor and grace clocks.
+    assert legs["min_settlement_height"] == V11 + 5
+
+
+@pytest.mark.asyncio
+async def test_rejected_sweep_backs_off_per_job(session, monkeypatch):
+    """D9: a rejected submission records a per-job backoff — the same job is
+    skipped on later ticks instead of resubmitting every pass, and the backoff
+    expires so a transient cause still self-heals."""
+    _job2_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    monkeypatch.setattr(ess, "_pass_submit_failures", {})
+    submit = _patch_route(monkeypatch, {JOB: JOB2_RESIDUE}, submit_returns=None)
+    monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))
+
+    stats = await ess._fee_sweep_pass_once(NOW)
+    assert stats["error"] == 1
+    assert submit.await_count == 1
+
+    # Inside the backoff window: examined but not attempted.
+    stats = await ess._fee_sweep_pass_once(NOW + timedelta(seconds=30))
+    assert stats["deferred_backoff"] == 1
+    assert submit.await_count == 1
+
+    # Past the window: retried.
+    stats = await ess._fee_sweep_pass_once(NOW + timedelta(seconds=61))
+    assert stats["error"] == 1
+    assert submit.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_backoff_does_not_block_other_jobs(session, monkeypatch):
+    """D9: a backed-off job yields its slot — the pass moves on to the next
+    candidate in the same tick."""
+    for job_id in ("job0", "job1"):
+        _job2_chain(session, job_id=job_id)
+        _row(session, job_id=job_id)
+    _patch_pass_session(monkeypatch, session)
+    monkeypatch.setattr(ess, "_pass_submit_failures", {"job0": (1, NOW.timestamp() + 600)})
+    submit = _patch_route(monkeypatch, {"job0": JOB2_RESIDUE, "job1": JOB2_RESIDUE})
+    monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))
+    stats = await ess._fee_sweep_pass_once(NOW)
+    assert stats["deferred_backoff"] == 1
+    assert stats["submitted"] == 1
+    submit.assert_awaited_once_with("job1", "job1", JOB2_RESIDUE)
+
+
+@pytest.mark.asyncio
+async def test_success_clears_backoff(session, monkeypatch):
+    _job2_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    failures = {JOB: (3, NOW.timestamp() - 1)}  # expired backoff
+    monkeypatch.setattr(ess, "_pass_submit_failures", failures)
+    _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
+    monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))
+    stats = await ess._fee_sweep_pass_once(NOW)
+    assert stats["submitted"] == 1
+    assert JOB not in failures
