@@ -374,8 +374,10 @@ async def _proposer_pending_txs() -> list[dict] | None:
                 count,
             )
             return None
-        txs = body.get("transactions", [])
-        return txs if isinstance(txs, list) else []
+        txs = body.get("transactions")
+        # Missing or mistyped "transactions" on a well-formed count is not an
+        # empty mempool — it is an answer we cannot read; defer (C19).
+        return txs if isinstance(txs, list) else None
     except Exception as e:
         _logger.warning("fee-sweep pass: proposer mempool probe failed: %s", e)
         return None
@@ -775,13 +777,13 @@ def change_owed_candidates(
     a crash between submission and seal re-derives correctly on restart.
     Returns (candidates, stats, next_watermark).
     """
-    stats = dict.fromkeys(_CHANGE_PASS_RESULT_LABELS, 0)
-    stats.pop("deferred_pending")
-    stats.pop("deferred_custody")
-    stats.pop("deferred_backoff")
-    stats.pop("submitted")
-    stats.pop("dry_run")
-    stats.pop("error")
+    stats = {
+        "marked": 0,
+        "no_owed": 0,
+        "no_legs": 0,
+        "skipped_floor": 0,
+        "deferred_unproven": 0,
+    }
     ids = _released_unmarked_job_ids(session, after_job_id, max_jobs)
     if len(ids) < max_jobs and after_job_id:
         ids += _released_unmarked_job_ids(session, "", max_jobs - len(ids), through_job_id=after_job_id)
@@ -818,7 +820,12 @@ def change_owed_candidates(
             session.commit()
             stats["marked"] += 1
             continue
-        if legs["lock_units"] <= 0:
+        if legs["lock_units"] <= 0 or not legs["release_values"]:
+            # No lock, or no sealed provider release: the row's released_at
+            # claim has no chain truth behind it (a dead release mark, or a
+            # foreign/mistyped settlement leg feeding min_settlement_height).
+            # Owed change only exists once the provider was actually paid —
+            # refunding ≈lock here would race the release re-drive (C19).
             stats["no_legs"] += 1
             continue
         bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
