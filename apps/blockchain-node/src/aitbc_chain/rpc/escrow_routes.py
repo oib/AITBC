@@ -928,13 +928,17 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
     The residue is derived from *sealed chain legs*, never the row's amount
     columns: a refund the row claims but that never sealed cannot poison the
     sum, and a NULL ``refunded_amount`` column simply means "no sealed
-    refund" rather than "ambiguous, skip" (F2). Custody equality still
-    gates the submit — a balance above the derived residue means an owed
-    leg is still pending, below it means the account was touched; either
+    refund" rather than "ambiguous, skip" (F2). The same fee-only proof the
+    periodic pass applies gates the submit (D11): residue beyond the provable
+    withheld platform fee is owed buyer change — a released-marked row whose
+    release leg is dead while the change refund sealed produces exactly that
+    shape, and custody equality alone cannot tell fee from change. Custody
+    equality still gates too: a balance above the derived residue means an
+    owed leg is still pending, below it means the account was touched; either
     way the job is skipped, never guessed."""
     if not _fee_sweep_enabled():
         return None
-    from ..contracts.escrow import settlement_legs_from_chain
+    from ..contracts.escrow import DEFAULT_FEE_BPS, settlement_legs_from_chain, withheld_fee_bound
 
     try:
         legs = settlement_legs_from_chain(session, job_id)
@@ -944,8 +948,25 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
     if not legs:
         escrow_fee_sweep_total.labels(result="skipped").inc()
         return None
-    expected = record.amount - int(legs.get("released_amount") or 0) - int(legs.get("refunded_amount") or 0)
+    lock_units = int(legs.get("locked_amount") or 0)
+    expected = lock_units - int(legs.get("released_amount") or 0) - int(legs.get("refunded_amount") or 0)
     if expected <= 0:
+        return None
+    bps = record.energy_fee_basis_points if record.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
+    fee_bound = (
+        withheld_fee_bound(legs.get("release_values") or [], fee_bps=bps, lock_units=lock_units)
+        if not record.protected
+        else None
+    )
+    if fee_bound is None or expected > fee_bound:
+        _logger.info(
+            "ESCROW_FEE_SWEEP deferred for job_id=%s: residue %s exceeds provable fee bound %s — "
+            "owed change is not treasury money",
+            job_id,
+            expected,
+            fee_bound,
+        )
+        escrow_fee_sweep_total.labels(result="skipped").inc()
         return None
     custody = await _escrow_custody_balance(job_id)
     if custody is None or custody != expected:
