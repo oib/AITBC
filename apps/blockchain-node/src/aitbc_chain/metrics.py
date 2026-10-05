@@ -194,6 +194,15 @@ escrow_fee_sweep_total = Counter(
     ["result"],
 )
 
+# Periodic fee-residue pass (Task A4): one tick of the sealed-legs sweeper.
+# Results: submitted, dry_run, deferred_custody, deferred_unproven,
+# deferred_pending, deferred_grace, skipped_floor, error.
+escrow_fee_sweep_pass_total = Counter(
+    "blockchain_escrow_fee_sweep_pass_total",
+    "Periodic escrow fee-residue pass outcomes by result",
+    ["result"],
+)
+
 # Legacy MetricsRegistry for backward compatibility
 from dataclasses import dataclass  # noqa: E402
 from threading import Lock  # noqa: E402
