@@ -327,6 +327,7 @@ _FEE_PASS_RESULT_LABELS = (
     "skipped_floor",
     "no_row",
     "no_lock",
+    "no_residue",
     "error",
 )
 
@@ -593,7 +594,7 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
                 )
                 for stale in [j for j in _pass_submit_failures if j not in eligible_ids]:
                     del _pass_submit_failures[stale]
-        for key in ("skipped_floor", "no_row", "no_lock", "deferred_grace", "deferred_unproven"):
+        for key in ("skipped_floor", "no_row", "no_lock", "no_residue", "deferred_grace", "deferred_unproven"):
             stats[key] += sel[key]
         if not candidates:
             _count_fee_pass(stats)
