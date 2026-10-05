@@ -732,3 +732,26 @@ async def test_success_clears_backoff(session, monkeypatch):
     stats = await ess._fee_sweep_pass_once(NOW)
     assert stats["submitted"] == 1
     assert JOB not in failures
+
+
+@pytest.mark.asyncio
+async def test_backoff_map_prunes_departed_jobs(session, monkeypatch):
+    """F2: backoff entries for jobs that are no longer floor-eligible are
+    dropped during the pass — the map does not accumulate stale rows for
+    departed jobs forever. A still-eligible job keeps its backoff."""
+    _job2_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    failures = {
+        JOB: (1, NOW.timestamp() + 600),  # eligible, stays backed off
+        "ghost": (5, NOW.timestamp() + 600),  # no legs anywhere — pruned
+    }
+    monkeypatch.setattr(ess, "_pass_submit_failures", failures)
+    _patch_route(monkeypatch, {JOB: JOB2_RESIDUE})
+    monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))
+
+    stats = await ess._fee_sweep_pass_once(NOW)
+
+    assert "ghost" not in failures
+    assert JOB in failures
+    assert stats["deferred_backoff"] == 1

@@ -180,6 +180,8 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
             "refund_tx_hash": None,
             "released_at": None,
             "refunded_at": None,
+            "min_settlement_height": None,
+            "null_settlement_height": False,
         }
         for tx in session.exec(stmt):
             if tx.type == "ESCROW_LOCK":
@@ -199,6 +201,15 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
                 legs["refund_values"].append(tx.value or 0)
                 legs["refund_tx_hash"] = tx.tx_hash
                 legs["refunded_at"] = tx.created_at
+            else:
+                continue
+            # Lowest settlement-leg height and a poison flag for NULL heights —
+            # the retry's floor gate fails closed on either.
+            h = tx.block_height
+            if h is None:
+                legs["null_settlement_height"] = True
+            elif legs["min_settlement_height"] is None or h < legs["min_settlement_height"]:
+                legs["min_settlement_height"] = h
     except Exception as e:
         logger.warning("Failed to read settlement legs for job %s from chain: %s", job_id, e)
         return None
