@@ -65,9 +65,10 @@ from typing import NamedTuple
 from sqlmodel import select
 
 from aitbc.network import SharedHttpClient
+from aitbc.utils import units_to_ait
 
 from ..config import settings
-from ..contracts.escrow import DEFAULT_FEE_BPS, withheld_fee_bound
+from ..contracts.escrow import DEFAULT_FEE_BPS, get_escrow_manager, withheld_fee_bound
 from ..mempool import compute_tx_hash
 from ..database import session_scope
 from ..logger import get_logger
@@ -385,6 +386,7 @@ def _new_leg_acc() -> dict:
         "lock_units": 0,
         "release_values": [],
         "refund_values": [],
+        "refund_tx_hash": None,
         "swept_units": 0,
         "latest_settlement_at": None,
         "min_settlement_height": None,
@@ -430,6 +432,8 @@ def _escrow_legs_by_job(session, job_ids: list[str]) -> dict[str, dict]:
             legs["release_values"].append(tx.value or 0)
         elif tx.type == "ESCROW_REFUND" and action == "escrow_refund":
             legs["refund_values"].append(tx.value or 0)
+            if tx.tx_hash:
+                legs["refund_tx_hash"] = tx.tx_hash
         elif tx.type == "ESCROW_FEE_SWEEP":
             legs["swept_units"] += tx.value or 0
         if at is not None and (legs["latest_settlement_at"] is None or at > legs["latest_settlement_at"]):
@@ -673,6 +677,271 @@ def _count_fee_pass(stats: dict[str, int]) -> None:
         pass
 
 
+# --------------------------------------------------------------------------
+# Owed-change pass (A6/F1b): the release route never signs the buyer-change
+# leg in-request — it would collide on the release's own (sender, nonce)
+# mempool slot, and an in-request seal-wait would out-live the caller's
+# timeout (nginx 30 s / CLI 10 s vs 60 s+ block intervals) and invite a
+# re-entered second submission. This pass pays the owed change instead:
+#
+#   - discovery is row-driven: released escrows whose refund is unmarked;
+#   - owed change is derived ONLY from sealed chain legs:
+#       owed = lock_units − Σrelease − withheld_fee_bound − Σrefund
+#     (withheld_fee_bound reconstructs the billed gross exactly like the fee
+#     pass's bound — released_net + fee = billed; lock − billed − refunded is
+#     the buyer's change). A shape the helper cannot reconstruct integrally
+#     is deferred_unproven — never guessed;
+#   - the refund is submitted only when the proposer mempool holds NO
+#     authority or escrow transaction — the change leg can never share a
+#     mempool window with the release or a fee sweep;
+#   - the row is marked (refunded_amount/refund_tx_hash) only from a sealed
+#     refund leg — heal runs first every tick, so a restart between submit
+#     and seal re-drives from chain truth, not row state;
+#   - it runs BEFORE the fee pass in the tick: a submitted refund lands in
+#     the proposer mempool, which makes the fee pass's own pending guard
+#     defer — refund and sweep are never in the mempool together.
+#
+# Flags: ESCROW_CHANGE_PASS_ENABLED arms it; ESCROW_CHANGE_PASS_DRY_RUN logs
+# and counts without submitting. Both unset → the pass is inert.
+# --------------------------------------------------------------------------
+
+_change_pass_watermark: str = ""
+_change_pass_failures: dict[str, tuple[int, float]] = {}
+
+_CHANGE_PASS_RESULT_LABELS = (
+    "submitted",
+    "dry_run",
+    "marked",
+    "no_owed",
+    "no_legs",
+    "skipped_floor",
+    "deferred_unproven",
+    "deferred_custody",
+    "deferred_pending",
+    "deferred_backoff",
+    "error",
+)
+
+
+class _ChangeCandidate(NamedTuple):
+    job_id: str
+    buyer_address: str
+    provider_address: str
+    owed_units: int
+    custody_units: int
+
+
+def _change_pass_enabled() -> bool:
+    return os.getenv("ESCROW_CHANGE_PASS_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _change_pass_dry_run() -> bool:
+    return os.getenv("ESCROW_CHANGE_PASS_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _released_unmarked_job_ids(session, after_job_id: str, limit: int, through_job_id: str | None = None) -> list[str]:
+    """job_ids of released escrows whose refund is still unmarked, ordered.
+
+    Same ring mechanics as the fee pass's floor-eligible scan: the watermark
+    bounds the window so every row is inspected once per cycle.
+    """
+    stmt = (
+        select(Escrow.job_id)
+        .where(Escrow.released_at.is_not(None))  # type: ignore[union-attr]
+        .where(Escrow.refunded_amount.is_(None))  # type: ignore[union-attr]
+    )
+    if after_job_id:
+        stmt = stmt.where(Escrow.job_id > after_job_id)
+    if through_job_id is not None:
+        stmt = stmt.where(Escrow.job_id <= through_job_id)
+    stmt = stmt.order_by(Escrow.job_id).limit(limit)
+    return [jid for jid in session.exec(stmt) if isinstance(jid, str)]
+
+
+def change_owed_candidates(
+    session,
+    now: datetime,
+    *,
+    max_jobs: int,
+    min_height: int,
+    after_job_id: str = "",
+) -> tuple[list[_ChangeCandidate], dict[str, int], str]:
+    """Pick released rows with provable owed change, from sealed legs only.
+
+    Owed = lock − Σrelease − withheld_fee_bound − Σrefund. The fee inversion
+    is the same helper the fee pass uses; a release shape it cannot
+    reconstruct (non-integral billed, protected key) defers unproven. A
+    sealed refund leg heals the row mark here — marking off chain truth, so
+    a crash between submission and seal re-derives correctly on restart.
+    Returns (candidates, stats, next_watermark).
+    """
+    stats = dict.fromkeys(_CHANGE_PASS_RESULT_LABELS, 0)
+    stats.pop("deferred_pending")
+    stats.pop("deferred_custody")
+    stats.pop("deferred_backoff")
+    stats.pop("submitted")
+    stats.pop("dry_run")
+    stats.pop("error")
+    ids = _released_unmarked_job_ids(session, after_job_id, max_jobs)
+    if len(ids) < max_jobs and after_job_id:
+        ids += _released_unmarked_job_ids(session, "", max_jobs - len(ids), through_job_id=after_job_id)
+    next_watermark = ids[-1] if ids else ""
+    rows_by_id = {
+        r.job_id: r
+        for r in session.exec(select(Escrow).where(Escrow.job_id.in_(ids))).all()  # type: ignore[attr-defined]
+    }
+    legs_by_id = _escrow_legs_by_job(session, ids)
+    candidates: list[_ChangeCandidate] = []
+    for job_id in ids:
+        row = rows_by_id.get(job_id)
+        if row is None:
+            continue
+        legs = legs_by_id.get(job_id) or _new_leg_acc()
+        # Same floor rule as the fee pass: ANY settlement leg below the
+        # floor (a reused id's old era) poisons the derivation — skip.
+        if legs["min_settlement_height"] is None:
+            stats["no_legs"] += 1
+            continue
+        if legs["min_settlement_height"] < min_height:
+            stats["skipped_floor"] += 1
+            continue
+        # Heal first: a sealed refund leg marks the row regardless of where
+        # the submission came from. refunded_at stays unset — on a released
+        # escrow it means "refunded instead of released" (route semantics).
+        if legs["refund_tx_hash"] and row.refund_tx_hash != legs["refund_tx_hash"]:
+            row.refunded_amount = sum(legs["refund_values"])
+            row.refund_tx_hash = legs["refund_tx_hash"]
+            session.add(row)
+            stats["marked"] += 1
+            continue
+        if legs["lock_units"] <= 0:
+            stats["no_legs"] += 1
+            continue
+        bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
+        fee_bound = (
+            withheld_fee_bound(legs["release_values"], fee_bps=bps, lock_units=legs["lock_units"])
+            if not row.protected
+            else None
+        )
+        if fee_bound is None:
+            stats["deferred_unproven"] += 1
+            continue
+        owed = legs["lock_units"] - sum(legs["release_values"]) - fee_bound - sum(legs["refund_values"])
+        if owed <= 0:
+            stats["no_owed"] += 1
+            continue
+        custody = legs["lock_units"] - sum(legs["release_values"]) - sum(legs["refund_values"]) - legs["swept_units"]
+        candidates.append(_ChangeCandidate(job_id, row.buyer, row.provider, owed, custody))
+    return candidates, stats, next_watermark
+
+
+async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:
+    """One owed-change pass. Never raises; counted in its own metric."""
+    stats = dict.fromkeys(_CHANGE_PASS_RESULT_LABELS, 0)
+    try:
+        if not _change_pass_enabled():
+            return stats
+        settlement_key = escrow_routes._get_settlement_key()
+        settlement_address = escrow_routes._get_settlement_address()
+        if not settlement_key or not settlement_address:
+            return stats
+        now = now or datetime.now(UTC)
+        global _change_pass_watermark
+        with session_scope() as session:
+            candidates, sel, _change_pass_watermark = change_owed_candidates(
+                session,
+                now,
+                max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
+                min_height=settings.escrow_fee_sweep_pass_min_height,
+                after_job_id=_change_pass_watermark,
+            )
+            if _change_pass_failures:
+                # Same prune rule as the fee pass: drop backoff entries for
+                # jobs absent from the eligible (released, unmarked) set.
+                eligible_ids = set(_released_unmarked_job_ids(session, "", _FAILURE_PRUNE_SCAN_LIMIT))
+                for stale in [j for j in _change_pass_failures if j not in eligible_ids]:
+                    del _change_pass_failures[stale]
+        for key, n in sel.items():
+            stats[key] += n
+        if not candidates:
+            _count_change_pass(stats)
+            return stats
+        pending = await _proposer_pending_txs()
+        if pending is None:
+            stats["deferred_pending"] += 1
+            _count_change_pass(stats)
+            return stats
+        authority = settlement_address.lower()
+        if any(
+            str(tx.get("from") or tx.get("sender") or "").lower() == authority
+            or str(tx.get("type") or "").startswith("ESCROW_")
+            for tx in pending
+        ):
+            stats["deferred_pending"] += 1
+            _count_change_pass(stats)
+            return stats
+        dry_run = _change_pass_dry_run()
+        now_ts = now.timestamp()
+        for cand in candidates:
+            failures, retry_at = _change_pass_failures.get(cand.job_id, (0, 0.0))
+            if now_ts < retry_at:
+                stats["deferred_backoff"] += 1
+                continue
+            custody = await escrow_routes._escrow_custody_balance(cand.job_id)
+            if custody is None or custody != cand.custody_units:
+                stats["deferred_custody"] += 1
+                continue
+            if dry_run:
+                _logger.info(
+                    "ESCROW change pass [dry-run] would refund job_id=%s owed=%s to %s",
+                    cand.job_id,
+                    cand.owed_units,
+                    cand.buyer_address,
+                )
+                stats["dry_run"] += 1
+                continue
+            contract_id = await escrow_routes._find_contract_id(get_escrow_manager(), cand.job_id)
+            tx_hash = await escrow_routes._submit_refund_tx(
+                cand.buyer_address,
+                cand.provider_address,
+                units_to_ait(cand.owed_units),
+                cand.job_id,
+                contract_id or "",
+            )
+            if tx_hash:
+                _logger.info(
+                    "ESCROW change pass submitted job_id=%s owed=%s tx=%s",
+                    cand.job_id,
+                    cand.owed_units,
+                    tx_hash,
+                )
+                _change_pass_failures.pop(cand.job_id, None)
+                stats["submitted"] += 1
+            else:
+                _change_pass_failures[cand.job_id] = (
+                    failures + 1,
+                    now_ts + min(_FEE_PASS_BACKOFF_BASE_S * (2**failures), _FEE_PASS_BACKOFF_MAX_S),
+                )
+                stats["error"] += 1
+            break  # at most one submission per pass
+    except Exception as e:
+        _logger.warning("ESCROW change pass failed: %s", e)
+        stats["error"] += 1
+    _count_change_pass(stats)
+    return stats
+
+
+def _count_change_pass(stats: dict[str, int]) -> None:
+    try:
+        from ..metrics import escrow_change_pass_total
+
+        for result, n in stats.items():
+            if n:
+                escrow_change_pass_total.labels(result=result).inc(n)
+    except Exception:  # metrics must never break the pass
+        pass
+
+
 async def _sweep_once() -> dict[str, int]:
     proposer_pending = await _proposer_pending_hashes()
     with session_scope() as session:
@@ -685,9 +954,13 @@ async def _sweep_once() -> dict[str, int]:
             stats["demoted"],
             stats["remarked"],
         )
-    # The fee-residue pass shares this tick: bounded, gated, and never in the
-    # way of the demote path above — its own try/except keeps a pass failure
-    # from touching the mark reconciliation's result.
+    # The owed-change pass runs BEFORE the fee-residue pass: a submitted
+    # refund lands in the proposer mempool, which trips the fee pass's own
+    # pending guard — the change leg and a fee sweep can never share a
+    # mempool window (A6). Both passes are bounded, gated, and never in the
+    # way of the demote path above — their own try/except keeps a pass
+    # failure from touching the mark reconciliation's result.
+    await _change_pass_once()
     await _fee_sweep_pass_once()
     return stats
 
