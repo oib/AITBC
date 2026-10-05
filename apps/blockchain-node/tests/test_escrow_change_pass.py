@@ -264,6 +264,64 @@ def test_protected_bump_release_proves_exactly(session):
     assert stats["no_owed"] == 1
 
 
+def test_protected_billed_below_credit_refuses(session):
+    """A7b: a protected billed below the signed credit is impossible — the
+    route refuses that release outright (billable < target → 422), so the
+    entry is corrupt. Without this guard the bump would mask it: sealed
+    267301 = max(net(200000) 195000, credit) 'proves' and owed inflates to
+    lock − billed = 74154 against custody of only 6853."""
+    _tx(session, "ESCROW_LOCK", "0xlock", 274154)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 267301)
+    _row(
+        session,
+        amount=274154,
+        released_amount=267301,
+        protected=True,
+        energy_fee_basis_points=250,
+        energy_provider_credit_units=267301,
+        energy_net_floor_units=267300,
+        billed_legs=_billed_legs(JOB, billed=200000, tx_hash="0xrel"),
+    )
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_protected_billed_below_net_floor_refuses(session):
+    """A7b companion: the route also refuses billable < energy_net_floor —
+    here the sealed value matches plain net(B) so only the floor
+    precondition refuses it."""
+    _tx(session, "ESCROW_LOCK", "0xlock", 274154)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 195000)  # = net(200000) at 250bps
+    _row(
+        session,
+        amount=274154,
+        released_amount=195000,
+        protected=True,
+        energy_fee_basis_points=250,
+        energy_provider_credit_units=150000,  # bump does not apply: 195000 > 150000
+        energy_net_floor_units=267300,
+        billed_legs=_billed_legs(JOB, billed=200000, tx_hash="0xrel"),
+    )
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_owed_above_custody_refuses(session):
+    """A7b: owed > custody means a leg is missing or treasury over-swept —
+    the chain would refuse the refund regardless; defer as unproven instead
+    of signing into an apply-failure + backoff loop."""
+    _tx(session, "ESCROW_LOCK", "0xlock", LOCK)
+    _tx(session, "ESCROW_RELEASE", "0xrel", RELEASE)
+    _tx(session, "ESCROW_FEE_SWEEP", "0xsweep", 500)  # swept 500 > withheld 450
+    _row(session, billed_legs=_billed_legs(JOB, tx_hash="0xrel"))
+    candidates, stats = _candidates(session)
+    # custody = 36000−17550−500 = 17950 < owed 18000 → refuse
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
 def test_protected_recompute_mismatch_defers(session):
     """Protected + credit recorded: a sealed value equal to NEITHER the net
     nor the credit bump fails the recompute — defer."""

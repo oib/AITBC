@@ -560,6 +560,7 @@ def fee_sweep_candidates(
             fee_bps=bps,
             protected=bool(row.protected),
             credit_units=row.energy_provider_credit_units,
+            net_floor_units=row.energy_net_floor_units,
             lock_units=legs["lock_units"],
         )
         fee_bound = proof[1] if proof else None
@@ -848,6 +849,7 @@ def change_owed_candidates(
             fee_bps=bps,
             protected=bool(row.protected),
             credit_units=row.energy_provider_credit_units,
+            net_floor_units=row.energy_net_floor_units,
             lock_units=legs["lock_units"],
         )
         if proof is None:
@@ -859,6 +861,12 @@ def change_owed_candidates(
             stats["no_owed"] += 1
             continue
         custody = legs["lock_units"] - sum(legs["release_values"]) - sum(legs["refund_values"]) - legs["swept_units"]
+        if owed > custody:
+            # Owed exceeds what custody holds — the chain would refuse the
+            # refund anyway, so never sign it; this shape means a leg is
+            # missing or the row/legs disagree and needs eyes, not backoff.
+            stats["deferred_unproven"] += 1
+            continue
         candidates.append(_ChangeCandidate(job_id, row.buyer, row.provider, owed, custody))
     return candidates, stats, next_watermark
 

@@ -243,6 +243,26 @@ def test_protected_bump_release_proves_and_sweeps(session):
     assert candidates[0].expected_units == 274154 - 267301
 
 
+def test_protected_billed_below_credit_refuses(session):
+    """A7b: a protected billed below the signed credit is impossible via the
+    route (billable < target → refused, no leg submitted) — the bump would
+    otherwise mask it: sealed equals credit and withheld goes negative."""
+    _tx(session, "ESCROW_LOCK", "0xlock", 274154)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 267301)
+    _row(
+        session,
+        amount=274154,
+        protected=True,
+        energy_fee_basis_points=250,
+        energy_provider_credit_units=267301,
+        energy_net_floor_units=267300,
+        billed_legs=[{"tx_hash": "0xrel", "billed": 200000}],
+    )
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
 def test_protected_recompute_mismatch_defers(session):
     """A protected row whose sealed value matches neither the net nor the
     credit bump fails the recompute — defer."""
