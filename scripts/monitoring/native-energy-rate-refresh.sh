@@ -11,8 +11,18 @@
 # Env overrides: COORDINATOR_URL, COORDINATOR_DB, COORDINATOR_ENV,
 # ENERGY_RATE_MIN_AIT_PER_EUR / ENERGY_RATE_MAX_AIT_PER_EUR (plausibility
 # band, defaults 0.5 / 8 — must match the coordinator's POST bound; the max
-# stays under ~9.22 because the scaled column is int64).
+# stays under ~9.22 because the scaled column is int64), TEXTFILE_DIR.
 # Exit 0 = refreshed, 1 = failed (no rate row / out-of-band rate / bad key / coordinator down).
+#
+# Every run also writes <TEXTFILE_DIR>/aitbc_native_energy_rate.prom for the
+# node_exporter textfile collector — including refused and missing rows — so
+# Prometheus sees the real stored rate even when this script refuses to
+# re-attest it (SD-7: the stub value sat unreported for nine days):
+#   aitbc_native_energy_rate_ait_per_eur                 stored rate (AIT/EUR)
+#   aitbc_native_energy_rate_observed_timestamp_seconds  observed_at column
+#   aitbc_native_energy_rate_version                     row version
+#   aitbc_native_energy_rate_refresh_timestamp_seconds   this run's time
+# A write failure is logged and never aborts the refresh.
 
 set -euo pipefail
 
@@ -20,12 +30,43 @@ TAG="aitbc-energy-rate"
 COORDINATOR_URL="${COORDINATOR_URL:-http://127.0.0.1:8203}"
 COORDINATOR_DB="${COORDINATOR_DB:-/var/lib/aitbc/data/coordinator.db}"
 COORDINATOR_ENV="${COORDINATOR_ENV:-/etc/aitbc/aitbc-coordinator-api.env}"
+TEXTFILE_DIR="${TEXTFILE_DIR:-/var/lib/prometheus/node-exporter}"
 
 log() { logger -t "$TAG" -p "user.$1" -- "$2"; echo "[$1] $2"; }
 
-RATE_SCALED=$(sqlite3 "$COORDINATOR_DB" \
-    "SELECT ait_per_eur_scaled FROM native_energy_rates WHERE id=1 AND enabled=1;" \
+write_textfile() { # $1=rate_scaled $2=observed_at $3=version (all may be empty)
+    local tmp
+    tmp=$(mktemp "$TEXTFILE_DIR/.aitbc_native_energy_rate.XXXXXX.prom") || {
+        log warning "cannot create textfile in $TEXTFILE_DIR — metrics not exported"
+        return 0
+    }
+    {
+        echo "# HELP aitbc_native_energy_rate_refresh_timestamp_seconds When the refresher last ran."
+        echo "# TYPE aitbc_native_energy_rate_refresh_timestamp_seconds gauge"
+        echo "aitbc_native_energy_rate_refresh_timestamp_seconds $(date +%s)"
+        if [ -n "${1:-}" ]; then
+            echo "# HELP aitbc_native_energy_rate_ait_per_eur Stored native AIT/EUR rate."
+            echo "# TYPE aitbc_native_energy_rate_ait_per_eur gauge"
+            awk -v v="$1" 'BEGIN { printf "aitbc_native_energy_rate_ait_per_eur %.9g\n", v / 1e18 }'
+            echo "# HELP aitbc_native_energy_rate_observed_timestamp_seconds observed_at of the stored rate row."
+            echo "# TYPE aitbc_native_energy_rate_observed_timestamp_seconds gauge"
+            echo "aitbc_native_energy_rate_observed_timestamp_seconds $2"
+            echo "# HELP aitbc_native_energy_rate_version Version column of the stored rate row."
+            echo "# TYPE aitbc_native_energy_rate_version gauge"
+            echo "aitbc_native_energy_rate_version $3"
+        fi
+    } > "$tmp"
+    mv "$tmp" "$TEXTFILE_DIR/aitbc_native_energy_rate.prom" || \
+        log warning "cannot install textfile in $TEXTFILE_DIR — metrics not exported"
+}
+
+ROW=$(sqlite3 -separator '|' "$COORDINATOR_DB" \
+    "SELECT ait_per_eur_scaled, observed_at, version FROM native_energy_rates WHERE id=1 AND enabled=1;" \
     2>/dev/null || true)
+RATE_SCALED="${ROW%%|*}"
+OBSERVED_AT="$(echo "$ROW" | cut -d'|' -f2)"
+RATE_VERSION="$(echo "$ROW" | cut -d'|' -f3)"
+write_textfile "$RATE_SCALED" "$OBSERVED_AT" "$RATE_VERSION"
 if [ -z "$RATE_SCALED" ]; then
     log err "no enabled native_energy_rates row in $COORDINATOR_DB — set the rate first"
     exit 1
