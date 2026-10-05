@@ -3266,7 +3266,7 @@
             }
           },
           "400": {
-            "description": "ait_per_eur is not a valid number / ait_per_eur must be positive",
+            "description": "ait_per_eur is not a valid number / ait_per_eur must be positive / ait_per_eur exceeds the int64 scaled range / ait_per_eur {rate_ait} outside the plausible band [{settings.energy_rate_min_ait_per_eur}, {settings.energy_rate_max_ait_per_eur}]",
             "content": {
               "application/json": {
                 "schema": {

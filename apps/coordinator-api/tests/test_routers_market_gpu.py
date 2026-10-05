@@ -299,6 +299,77 @@ def test_native_energy_rate_get(client, db_session, native_pricing, miner_token)
     assert data["version"] == 1
 
 
+def test_native_energy_rate_post_accepts_in_band(client, miner_token):
+    """A plausible rate publishes and bumps the version."""
+    resp = client.post(
+        "/v1/market/native-energy/rate",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"ait_per_eur": "4.0"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ait_per_eur_scaled"] == int(Decimal("4.0") * FIXED_POINT_SCALE)
+    assert data["version"] == 1
+
+
+def test_native_energy_rate_post_rejects_below_band(client, miner_token):
+    """SD-7: the stub value 1 sat accepted for nine days — a clearly-absurd rate
+    must now be refused at admission."""
+    resp = client.post(
+        "/v1/market/native-energy/rate",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"ait_per_eur": "0.1"},
+    )
+    assert resp.status_code == 400
+    assert "plausible band" in resp.json()["detail"]
+
+
+def test_native_energy_rate_post_rejects_above_band(client, miner_token):
+    resp = client.post(
+        "/v1/market/native-energy/rate",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"ait_per_eur_scaled": int(Decimal("9") * FIXED_POINT_SCALE)},
+    )
+    assert resp.status_code == 400
+    assert "plausible band" in resp.json()["detail"]
+
+
+def test_native_energy_rate_post_band_is_configurable(client, miner_token, monkeypatch):
+    """The band bounds are config keys — an operator can widen them, and the
+    POST honours the override."""
+    from coordinator_api.config import settings
+
+    monkeypatch.setattr(settings, "energy_rate_min_ait_per_eur", Decimal("0.1"))
+    resp = client.post(
+        "/v1/market/native-energy/rate",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"ait_per_eur": "0.2"},
+    )
+    assert resp.status_code == 200
+
+
+def test_native_energy_rate_post_band_boundaries(client, miner_token):
+    """The configured bounds are inclusive and stay inside the int64 scaled range."""
+    for rate in ("0.5", "8"):
+        resp = client.post(
+            "/v1/market/native-energy/rate",
+            headers={"Authorization": f"Bearer {miner_token}"},
+            json={"ait_per_eur": rate},
+        )
+        assert resp.status_code == 200, f"boundary {rate} refused: {resp.text}"
+
+
+def test_native_energy_rate_post_rejects_int64_overflow(client, miner_token):
+    """A scaled value above int64 must 400 at admission, not 500 on insert."""
+    resp = client.post(
+        "/v1/market/native-energy/rate",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"ait_per_eur_scaled": 10_000_000_000_000_000_000},
+    )
+    assert resp.status_code == 400
+    assert "int64" in resp.json()["detail"]
+
+
 def test_native_energy_floor_get(client, db_session, native_pricing):
     """Floor read matches the shared pricing arithmetic (165W, 0.30 EUR/kWh, 1.5 AIT/EUR)."""
     _seed_energy(db_session)
