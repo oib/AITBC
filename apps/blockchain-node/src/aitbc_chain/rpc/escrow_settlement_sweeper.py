@@ -808,10 +808,14 @@ def change_owed_candidates(
         # Heal first: a sealed refund leg marks the row regardless of where
         # the submission came from. refunded_at stays unset — on a released
         # escrow it means "refunded instead of released" (route semantics).
+        # The commit is explicit: session_scope is a plain autocommit=False
+        # session, so without it the mark rolls back at scope exit and the
+        # row is re-found (and re-counted) every tick (A6b).
         if legs["refund_tx_hash"] and row.refund_tx_hash != legs["refund_tx_hash"]:
             row.refunded_amount = sum(legs["refund_values"])
             row.refund_tx_hash = legs["refund_tx_hash"]
             session.add(row)
+            session.commit()
             stats["marked"] += 1
             continue
         if legs["lock_units"] <= 0:
