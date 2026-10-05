@@ -1580,18 +1580,20 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         # it is logged loudly so it can be swept, and the release itself still stands.
         refund_tx_hash: str | None = None
         refunded_amount = Decimal(0)
+        # Owed change (F1b/A6): the change leg is never submitted in-request.
+        # Signed now it would carry the release's own sealed nonce and collide
+        # on the (sender, N) mempool slot; waited-for it would out-live the
+        # caller's timeout on this block interval and invite a second
+        # submission on retry. The settlement sweeper's change pass pays owed
+        # change from sealed legs on a later tick — custody holds it, provably,
+        # until then. The response reports it explicitly; nothing is marked.
         if unbilled_amount > 0:
-            refund_tx_hash = await _submit_refund_tx(buyer_addr, provider_addr, unbilled_amount, job_id, contract_id)
-            if refund_tx_hash:
-                refunded_amount = unbilled_amount
-            else:
-                _logger.error(
-                    "Escrow change NOT returned on-chain: job_id=%s buyer=%s unbilled=%s. "
-                    "The provider was paid; the remainder is still held by the node wallet.",
-                    job_id,
-                    buyer_addr,
-                    unbilled_amount,
-                )
+            _logger.info(
+                "Escrow change deferred to the change pass: job_id=%s buyer=%s owed=%s",
+                job_id,
+                buyer_addr,
+                unbilled_amount,
+            )
 
         # No settle-time sweep attempt: every settlement leg is signed at the
         # sealed authority nonce, so an in-request sweep can only lose the
@@ -1662,6 +1664,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             "released_amount": str(released_amount),
             "refunded_amount": str(refunded_amount),
             "refund_tx_hash": refund_tx_hash,
+            "change_owed_amount": str(unbilled_amount) if unbilled_amount > 0 else "0",
             "tx_hash": tx_hash,
             "settlement_status": "settled" if tx_hash else "unsettled",
             "released_at": released_at.isoformat(),
