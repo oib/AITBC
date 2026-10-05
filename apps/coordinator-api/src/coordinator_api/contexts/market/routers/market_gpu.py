@@ -1309,6 +1309,17 @@ async def publish_native_energy_rate(
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="ait_per_eur is not a valid number") from None
     if ait_scaled <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="ait_per_eur must be positive")
+    if ait_scaled > 9_223_372_036_854_775_807:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="ait_per_eur exceeds the int64 scaled range")
+    rate_ait = Decimal(ait_scaled) / Decimal(scale)
+    if rate_ait < settings.energy_rate_min_ait_per_eur or rate_ait > settings.energy_rate_max_ait_per_eur:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"ait_per_eur {rate_ait} outside the plausible band "
+                f"[{settings.energy_rate_min_ait_per_eur}, {settings.energy_rate_max_ait_per_eur}]"
+            ),
+        )
 
     now = int(datetime.now(UTC).timestamp())
     existing = session.get(NativeEnergyRate, 1)
