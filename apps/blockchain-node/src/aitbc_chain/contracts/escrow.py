@@ -190,6 +190,16 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
                 # exists" gate below.
                 legs["locked_amount"] += tx.value or 0
                 continue
+            # Floor gate (C18 F-A): every release/refund-TYPE leg feeds the
+            # height floor regardless of its payload action — the pass's
+            # type-based floor counts them all, so a pre-fork leg with an odd
+            # or missing action can't slip the retry's gate. NULL height
+            # fails closed.
+            h = tx.block_height
+            if h is None:
+                legs["null_settlement_height"] = True
+            elif legs["min_settlement_height"] is None or h < legs["min_settlement_height"]:
+                legs["min_settlement_height"] = h
             action = (tx.payload or {}).get("action")
             if action == "escrow_release":
                 legs["released_amount"] += tx.value or 0
@@ -201,15 +211,6 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
                 legs["refund_values"].append(tx.value or 0)
                 legs["refund_tx_hash"] = tx.tx_hash
                 legs["refunded_at"] = tx.created_at
-            else:
-                continue
-            # Lowest settlement-leg height and a poison flag for NULL heights —
-            # the retry's floor gate fails closed on either.
-            h = tx.block_height
-            if h is None:
-                legs["null_settlement_height"] = True
-            elif legs["min_settlement_height"] is None or h < legs["min_settlement_height"]:
-                legs["min_settlement_height"] = h
     except Exception as e:
         logger.warning("Failed to read settlement legs for job %s from chain: %s", job_id, e)
         return None
