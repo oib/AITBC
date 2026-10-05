@@ -113,6 +113,7 @@ def recompute_release_proofs(
     fee_bps: int,
     protected: bool,
     credit_units: int | None,
+    net_floor_units: int | None = None,
     lock_units: int,
 ) -> tuple[int, int] | None:
     """Prove sealed release legs by recomputing the route's own fee rule (A7).
@@ -132,8 +133,12 @@ def recompute_release_proofs(
     re-drive's hash) are tolerated; they never sealed, so they cannot match.
     Multiple sealed release legs mean reused job ids / multiple contracts —
     which contract's protected fields applied is unknowable from the row, so
-    that shape is unproven too. Returns ``(billed_total, withheld_total)`` —
-    withheld being billed minus paid, the fee bound — or ``None``.
+    that shape is unproven too. A protected billed below the credit or the
+    net floor is refused as well — the route rejects that release outright
+    (``billable < target`` / ``< floor`` → 422, no leg submitted), so an
+    entry claiming it is corrupt, and letting it through would report a
+    negative withheld. Returns ``(billed_total, withheld_total)`` — withheld
+    being billed minus paid, the fee bound — or ``None``.
     """
     if not billed_legs or not release_legs or len(release_legs) > 1:
         return None
@@ -143,6 +148,7 @@ def recompute_release_proofs(
         e.get("tx_hash"): e.get("billed") for e in billed_legs if isinstance(e, dict) and isinstance(e.get("tx_hash"), str)
     }
     billed_total = 0
+    sealed_total = 0
     for leg in release_legs:
         tx_hash = leg.get("tx_hash")
         value = leg.get("value")
@@ -151,6 +157,8 @@ def recompute_release_proofs(
             return None
         if billed <= 0 or billed > lock_units:
             return None
+        if protected and (billed < (credit_units or 0) or billed < (net_floor_units or 0)):
+            return None
         net = int((Decimal(billed) * Decimal(10000 - fee_bps) / Decimal(10000)).to_integral_value(rounding=ROUND_HALF_UP))
         expected = max(net, 1)
         if protected and credit_units is not None:
@@ -158,7 +166,10 @@ def recompute_release_proofs(
         if value != expected:
             return None
         billed_total += billed
-    return billed_total, billed_total - sum(leg["value"] for leg in release_legs)
+        sealed_total += value
+    if billed_total - sealed_total < 0:
+        return None
+    return billed_total, billed_total - sealed_total
 
 
 def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | None:
