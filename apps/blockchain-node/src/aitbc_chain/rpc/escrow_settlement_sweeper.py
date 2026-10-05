@@ -286,6 +286,11 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
 
 _FEE_BPS_DEFAULT = 250  # contracts/escrow.py default_fee_rate 0.025
 
+# Rotation cursor for the candidate ring: each pass examines the next
+# max_jobs-sized window of floor-eligible jobs and wraps at the end, so no
+# job waits more than one full cycle regardless of fleet size.
+_fee_pass_watermark: str = ""
+
 _ESCROW_TX_TYPES = ("ESCROW_LOCK", "ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP")
 
 _FEE_PASS_RESULT_LABELS = (
@@ -381,6 +386,27 @@ def _job_escrow_legs(session, job_id: str) -> dict:
     return legs
 
 
+def _floor_eligible_job_ids(session, min_height: int, after_job_id: str, limit: int) -> list[str]:
+    """Distinct job_ids with a sealed settlement leg at or above the floor,
+    job_id-ordered past ``after_job_id``, capped at ``limit``.
+
+    Discovery runs on the tx table — the same source the residue is derived
+    from — so rows that can never be candidates (every leg below the floor)
+    cannot consume the per-pass cap.
+    """
+    jid = Transaction.payload["job_id"].as_string()
+    stmt = (
+        select(jid)
+        .where(Transaction.type.in_(("ESCROW_RELEASE", "ESCROW_REFUND")))  # type: ignore[attr-defined]
+        .where(Transaction.block_height.is_not(None))  # type: ignore[union-attr]
+        .where(Transaction.block_height >= min_height)  # type: ignore[operator]
+    )
+    if after_job_id:
+        stmt = stmt.where(jid > after_job_id)
+    stmt = stmt.distinct().order_by(jid).limit(limit)
+    return [str(j) for j in session.exec(stmt) if j]
+
+
 def fee_sweep_candidates(
     session,
     now: datetime,
@@ -388,12 +414,16 @@ def fee_sweep_candidates(
     max_jobs: int,
     grace_seconds: int,
     min_height: int,
-) -> tuple[list[_FeeSweepCandidate], dict[str, int]]:
+    after_job_id: str = "",
+) -> tuple[list[_FeeSweepCandidate], dict[str, int], str]:
     """Pick sweep-eligible jobs purely from sealed chain legs.
 
-    Bounded to ``max_jobs`` settled-status rows per pass. Residue and the
-    fee-only bound are computed here; the custody/pending gates are async
-    and live in _fee_sweep_pass_once.
+    Bounded to ``max_jobs`` floor-eligible jobs per pass, examined in
+    job_id order starting after ``after_job_id`` and wrapping around — the
+    watermark ring guarantees every eligible job is inspected once per
+    cycle regardless of how many exist. Returns (candidates, stats,
+    next_watermark). Residue and the fee-only bound are computed here;
+    the custody/pending gates are async and live in _fee_sweep_pass_once.
     """
     stats = {
         "candidates": 0,
@@ -402,17 +432,23 @@ def fee_sweep_candidates(
         "deferred_grace": 0,
         "deferred_unproven": 0,
     }
-    rows = session.exec(
-        select(Escrow)
-        .where(Escrow.status.in_(("released", "refunded", "settlement_failed")))  # type: ignore[attr-defined]
-        .order_by(Escrow.job_id)
-        .limit(max_jobs)
-    ).all()
+    ids = _floor_eligible_job_ids(session, min_height, after_job_id, max_jobs)
+    if len(ids) < max_jobs and after_job_id:
+        # Reached the end of the ring: wrap to the start and fill the pass.
+        ids += _floor_eligible_job_ids(session, min_height, "", max_jobs - len(ids))
+    next_watermark = ids[-1] if ids else ""
+    rows_by_id = {
+        r.job_id: r
+        for r in session.exec(select(Escrow).where(Escrow.job_id.in_(ids))).all()  # type: ignore[attr-defined]
+    }
     candidates: list[_FeeSweepCandidate] = []
-    for row in rows:
-        legs = _job_escrow_legs(session, row.job_id)
-        if not legs["release_values"] and not legs["refund_values"]:
-            continue  # row claims settled but the chain shows no leg yet
+    for job_id in ids:
+        row = rows_by_id.get(job_id)
+        if row is None:
+            continue  # chain legs without an escrow row — nothing to bound by
+        legs = _job_escrow_legs(session, job_id)
+        # Mixed-height jobs can surface here via a post-floor leg — a job
+        # with ANY settlement leg below the floor stays off-limits.
         if legs["min_settlement_height"] is None or legs["min_settlement_height"] < min_height:
             stats["skipped_floor"] += 1
             continue
@@ -421,7 +457,7 @@ def fee_sweep_candidates(
             stats["deferred_grace"] += 1
             continue
         # Sealed-legs oracle for the settlement sums (never row columns).
-        chain_legs = settlement_legs_from_chain(session, row.job_id) or {}
+        chain_legs = settlement_legs_from_chain(session, job_id) or {}
         expected = (
             legs["lock_units"]
             - int(chain_legs.get("released_amount") or 0)
@@ -455,9 +491,9 @@ def fee_sweep_candidates(
         if not provable or expected > fee_bound:
             stats["deferred_unproven"] += 1
             continue
-        candidates.append(_FeeSweepCandidate(row.job_id, expected, fee_bound))
+        candidates.append(_FeeSweepCandidate(job_id, expected, fee_bound))
         stats["candidates"] += 1
-    return candidates, stats
+    return candidates, stats, next_watermark
 
 
 async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
@@ -471,13 +507,15 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
         if not settlement_key or not settlement_address:
             return stats
         now = now or datetime.now(UTC)
+        global _fee_pass_watermark
         with session_scope() as session:
-            candidates, sel = fee_sweep_candidates(
+            candidates, sel, _fee_pass_watermark = fee_sweep_candidates(
                 session,
                 now,
                 max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
                 grace_seconds=settings.escrow_fee_sweep_pass_grace_seconds,
                 min_height=settings.escrow_fee_sweep_pass_min_height,
+                after_job_id=_fee_pass_watermark,
             )
         for key in ("skipped_floor", "deferred_grace", "deferred_unproven"):
             stats[key] += sel[key]
@@ -490,8 +528,12 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
             _count_fee_pass(stats)
             return stats
         authority = settlement_address.lower()
+        # Mempool entries are the submitted tx dicts verbatim — the sender key
+        # is "from" (mempool._tx_sender accepts "from" or "sender"); reading
+        # "sender" alone matches nothing real.
         if any(
-            str(tx.get("sender") or "").lower() == authority or str(tx.get("type") or "").startswith("ESCROW_")
+            str(tx.get("from") or tx.get("sender") or "").lower() == authority
+            or str(tx.get("type") or "").startswith("ESCROW_")
             for tx in pending
         ):
             stats["deferred_pending"] += 1
