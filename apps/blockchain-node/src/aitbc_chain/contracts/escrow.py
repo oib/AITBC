@@ -100,6 +100,44 @@ class Milestone:
     verified: bool
 
 
+# The escrow contract's default_fee_rate (0.025) expressed in basis points —
+# the rate a settlement used when the row carries no explicit
+# energy_fee_basis_points.
+DEFAULT_FEE_BPS = 250
+
+
+def withheld_fee_bound(
+    release_values: list[int],
+    *,
+    fee_bps: int,
+    lock_units: int,
+) -> int | None:
+    """Largest custody residue provably attributable to withheld platform fee.
+
+    A release leg's on-chain value is billed*(1-r), so billed reconstructs as
+    value*10000/(10000-bps) and the withheld fee is billed - value. Returns the
+    summed bound, or ``None`` when any leg fails the integral reconstruction
+    (an energy-floor bump or a foreign submission means the leg did not follow
+    value=billed*(1-r)) or the reconstructed billings exceed the lock. Both the
+    periodic pass and the release-route retry gate on this bound: residue the
+    proof cannot explain is owed buyer change, never treasury money.
+    """
+    if not (0 < fee_bps < 10000):
+        return None
+    denom = 10000 - fee_bps
+    bound = 0
+    billed_total = 0
+    for value in release_values:
+        if value <= 0 or (value * 10000) % denom != 0:
+            return None
+        billed = (value * 10000) // denom
+        billed_total += billed
+        bound += billed - value
+    if billed_total > lock_units:
+        return None
+    return bound
+
+
 def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | None:
     """Aggregate a job's settled escrow legs from the canonical on-chain txns.
 
@@ -128,26 +166,37 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
     try:
         stmt = (
             select(Transaction)
-            .where(Transaction.type.in_(("ESCROW_RELEASE", "ESCROW_REFUND")))  # type: ignore[attr-defined]
+            .where(Transaction.type.in_(("ESCROW_LOCK", "ESCROW_RELEASE", "ESCROW_REFUND")))  # type: ignore[attr-defined]
             .where(Transaction.payload["job_id"].as_string() == job_id)
             .order_by(Transaction.id)  # type: ignore[arg-type]
         )
         legs: dict[str, Any] = {
+            "locked_amount": 0,
             "released_amount": 0,
             "refunded_amount": 0,
+            "release_values": [],
+            "refund_values": [],
             "release_tx_hash": None,
             "refund_tx_hash": None,
             "released_at": None,
             "refunded_at": None,
         }
         for tx in session.exec(stmt):
+            if tx.type == "ESCROW_LOCK":
+                # The lock is custody context, not a settlement leg — it feeds
+                # the fee-bound cap without affecting the "any settlement leg
+                # exists" gate below.
+                legs["locked_amount"] += tx.value or 0
+                continue
             action = (tx.payload or {}).get("action")
             if action == "escrow_release":
                 legs["released_amount"] += tx.value or 0
+                legs["release_values"].append(tx.value or 0)
                 legs["release_tx_hash"] = tx.tx_hash
                 legs["released_at"] = tx.created_at
             elif action == "escrow_refund":
                 legs["refunded_amount"] += tx.value or 0
+                legs["refund_values"].append(tx.value or 0)
                 legs["refund_tx_hash"] = tx.tx_hash
                 legs["refunded_at"] = tx.created_at
     except Exception as e:
