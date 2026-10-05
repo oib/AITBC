@@ -58,13 +58,17 @@ def _tx(
     at: datetime = OLD,
     sender: str = AUTHORITY,
     recipient: str = PROVIDER,
+    action: str | None = None,
 ) -> Transaction:
-    action = {
-        "ESCROW_LOCK": "escrow_lock",
-        "ESCROW_RELEASE": "escrow_release",
-        "ESCROW_REFUND": "escrow_refund",
-        "ESCROW_FEE_SWEEP": "escrow_fee_sweep",
-    }[tx_type]
+    action = (
+        action
+        or {
+            "ESCROW_LOCK": "escrow_lock",
+            "ESCROW_RELEASE": "escrow_release",
+            "ESCROW_REFUND": "escrow_refund",
+            "ESCROW_FEE_SWEEP": "escrow_fee_sweep",
+        }[tx_type]
+    )
     tx = Transaction(
         chain_id=CHAIN,
         tx_hash=tx_hash,
@@ -129,6 +133,29 @@ def test_owed_change_derived_exactly(session):
     assert candidates[0].owed_units == OWED
     assert candidates[0].custody_units == LOCK - RELEASE
     assert candidates[0].buyer_address == BUYER
+
+
+def test_no_sealed_release_leg_is_no_legs(session):
+    """C19: a released-marked row whose release leg never sealed has no owed
+    change — the provider was never paid. A foreign/mistyped settlement leg
+    feeding min_settlement_height must not turn that into a ≈lock refund."""
+    _tx(session, "ESCROW_LOCK", "0xlock", LOCK)
+    _tx(session, "ESCROW_RELEASE", "0xodd", RELEASE, action="something_else")
+    _row(session)
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["no_legs"] == 1
+
+
+def test_sweep_leg_alone_is_no_legs(session):
+    """C19 companion: an ESCROW_FEE_SWEEP leg feeds min_settlement_height but
+    is not a provider release — no release leg, no candidate."""
+    _tx(session, "ESCROW_LOCK", "0xlock", LOCK)
+    _tx(session, "ESCROW_FEE_SWEEP", "0xsweep", FEE)
+    _row(session)
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["no_legs"] == 1
 
 
 def test_full_release_has_no_owed(session):
@@ -336,6 +363,24 @@ async def test_pending_probe_failure_fails_closed(session, monkeypatch):
     _patch_pass_session(monkeypatch, session)
     submit = _patch_route(monkeypatch, {JOB: LOCK - RELEASE})
     monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=None))
+    stats = await ess._change_pass_once(NOW)
+    assert stats["deferred_pending"] == 1
+    submit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_malformed_mempool_body_fails_closed(session, monkeypatch):
+    """C19: a 200 mempool answer whose 'transactions' key is missing/mistyped
+    is an unread mempool, not an empty one — the probe returns None and the
+    pass defers instead of signing on a mempool it cannot see."""
+    _metered_chain(session)
+    _row(session)
+    _patch_pass_session(monkeypatch, session)
+    submit = _patch_route(monkeypatch, {JOB: LOCK - RELEASE})
+    from types import SimpleNamespace
+
+    resp = SimpleNamespace(status_code=200, json=lambda: {"count": 3})
+    monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(return_value=resp))
     stats = await ess._change_pass_once(NOW)
     assert stats["deferred_pending"] == 1
     submit.assert_not_awaited()
