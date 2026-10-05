@@ -596,3 +596,199 @@ async def test_submit_refund_tx_re_raises_on_submission_failure(release_key, mon
                 job_id="job-123",
                 contract_id="contract-123",
             )
+
+
+# ---------------------------------------------------------------------------
+# Task C2 desired-behavior contracts — xfail(strict): these FAIL on current
+# main (that is the point of the review) and flip when the multi-leg nonce
+# fix lands. Design: TOPOLOGY/2026-10-05-multileg-nonce-design.md.
+# ---------------------------------------------------------------------------
+
+
+def _locked_contract(released: str = "0.6", locked: str = "1.0"):
+    """Minimal EscrowContract stand-in for release_escrow(): milestones,
+    parties, and the released_amount the manager stamps."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        milestones=[{"amount": locked}],
+        state=None,
+        released_amount=Decimal(released),
+        client_address="0x" + "66" * 20,
+        agent_address="0x" + "77" * 20,
+        fee_rate=Decimal("0.025"),
+    )
+
+
+def _release_drive_mocks(escrow_routes, *, unsealed=True):
+    """Patch the module surface release_escrow() touches so a partial
+    settle (release + change refund owed) can be driven without a DB or
+    network. ``unsealed=True`` means the release's sealed lookup never
+    returns — the multi-leg fix must not let later legs sign while the
+    release is still pending."""
+    import contextlib
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    mgr = MagicMock()
+    contract = _locked_contract()
+    mgr.escrow_contracts = {"c1": contract}
+    mgr.snapshot_release_state = MagicMock(return_value={})
+    mgr.release_payment = AsyncMock(return_value=(True, "ok"))
+    mgr.restore_after_failed_settlement = MagicMock()
+
+    @contextlib.asynccontextmanager
+    async def _lock(_contract_id):
+        yield
+
+    mgr.release_lock = _lock
+
+    record = SimpleNamespace(
+        job_id="job-1",
+        contract_id="c1",
+        status="locked",
+        protected=False,
+        released_at=None,
+        refunded_at=None,
+        released_amount=None,
+        refunded_amount=None,
+        amount=1_000_000,
+        release_tx_hash=None,
+        refund_tx_hash=None,
+        job_tx_hash=None,
+        energy_settlement_asset=None,
+        energy_settlement_unit_scale=None,
+        energy_fee_basis_points=None,
+        energy_provider_credit_units=None,
+        energy_net_floor_units=None,
+    )
+
+    session = MagicMock()
+    session.get = MagicMock(return_value=record)
+
+    @contextlib.contextmanager
+    def _session_scope():
+        yield session
+
+    return (
+        patch.object(escrow_routes, "get_escrow_manager", return_value=mgr),
+        patch.object(escrow_routes, "_get_settlement_key", return_value="0xkey"),
+        patch.object(escrow_routes, "_get_settlement_address", return_value="0xaddr"),
+        patch.object(escrow_routes, "session_scope", _session_scope),
+        patch.object(escrow_routes, "backfill_settlement_legs", MagicMock(return_value=False)),
+        patch.object(escrow_routes, "_find_contract_id", new_callable=AsyncMock, return_value="c1"),
+        patch.object(escrow_routes, "_ensure_lock_sealed", new_callable=AsyncMock),
+        patch.object(escrow_routes, "_refuse_v2_lock", new_callable=AsyncMock),
+        patch.object(escrow_routes, "_submit_payment_tx", new_callable=AsyncMock, return_value="0xrel"),
+        patch.object(
+            escrow_routes,
+            "_find_existing_release",
+            new_callable=AsyncMock,
+            return_value=None if unsealed else "0xrel",
+        ),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True,
+    reason="C2 desired: the change leg must wait for the release seal or defer to retry — today it signs the same sealed nonce and collides on the (authority, N) mempool slot (F1b)",
+)
+async def test_release_defers_change_leg_until_release_seals(release_key, monkeypatch):
+    """Partial settle whose release is accepted but never seals within the
+    call: the refund leg must not be submitted while the release is still
+    pending. On current main `_submit_refund_tx` fires immediately with the
+    same sealed nonce — losing the slot, or evicting the release."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+    mocks = _release_drive_mocks(escrow_routes, unsealed=True)
+    refund_spy = AsyncMock(return_value="0xref")
+
+    import asyncio
+    import contextlib
+
+    with (
+        contextlib.ExitStack() as stack,
+        patch.object(escrow_routes, "_submit_refund_tx", refund_spy),
+        patch.object(escrow_routes, "_maybe_sweep_escrow_residue", new_callable=AsyncMock) as _sweep_spy,
+    ):
+        for m in mocks:
+            stack.enter_context(m)
+        # Bound the wait: under the fix a seal-wait may legitimately block;
+        # the contract under test is that no later leg is signed while the
+        # sealed lookup keeps answering None.
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(escrow_routes.release_escrow("job-1", {"amount": "0.6"}), timeout=5)
+
+    refund_spy.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True,
+    reason="C2 desired: the sweep waits for the settlement legs to seal — today it signs the shared sealed nonce and is rejected by the mempool slot rule on every settle (F1)",
+)
+async def test_release_defers_sweep_until_settlement_legs_seal(release_key, monkeypatch):
+    """The settle-time sweep must not POST while the release leg it follows
+    is still pending. Today it fires in-request, signs the shared sealed
+    nonce, and is rejected — the sweep never lands on the first pass."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("ESCROW_FEE_SWEEP_ENABLED", "1")
+    monkeypatch.setenv("ESCROW_FEE_RECIPIENT", "0x" + "fe" * 20)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+    mocks = _release_drive_mocks(escrow_routes, unsealed=True)
+    sweep_spy = AsyncMock(return_value="0xsweep")
+
+    import asyncio
+    import contextlib
+
+    with (
+        contextlib.ExitStack() as stack,
+        patch.object(escrow_routes, "_submit_refund_tx", new_callable=AsyncMock, return_value="0xref"),
+        patch.object(escrow_routes, "_maybe_sweep_escrow_residue", sweep_spy),
+        patch.object(escrow_routes, "_submit_fee_sweep_tx", sweep_spy),
+    ):
+        for m in mocks:
+            stack.enter_context(m)
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(escrow_routes.release_escrow("job-1", {"amount": "0.6"}), timeout=5)
+
+    sweep_spy.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.xfail(
+    strict=True,
+    reason="C2 desired: the retry derives residue from sealed chain legs — a NULL refunded_amount row means 'no refund sealed', provable on-chain, not 'ambiguous, skip' (F2)",
+)
+async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeypatch):
+    """A released escrow that owed no change has refunded_amount NULL — the
+    chain still proves the residue (lock − released − 0 sealed refunds).
+    The retry must offer the sweep; today it returns early on the NULL."""
+    escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"transaction_hash": "0xsweep"}
+    record = _released_record(refunded_amount=None)  # residue = 1_000_000 − 920_000 = 80_000
+    legs = {
+        "released_amount": 920_000,
+        "refunded_amount": 0,
+        "release_tx_hash": "0xrel",
+        "refund_tx_hash": None,
+        "status": "released",
+        "released_at": None,
+    }
+
+    with (
+        patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
+        patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
+        patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=9),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
+    ):
+        assert await escrow_routes._retry_sweep_released_escrow("job-1", record) == "0xsweep"
+    assert mock_post.call_args.kwargs["json"]["amount"] == 80_000
