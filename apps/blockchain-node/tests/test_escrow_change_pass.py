@@ -7,9 +7,11 @@ seal-wait would out-live every caller timeout on this block interval
 derived only from sealed chain legs, gated on an empty authority mempool,
 marked only from a sealed refund leg.
 
-Owed = lock_units − Σrelease − withheld_fee_bound − Σrefund — the same
-integral billed reconstruction the fee pass trusts; a shape it cannot
-reconstruct defers unproven rather than guessing.
+Owed = lock_units − Σbilled − Σrefund, with billed proven per sealed
+release leg by ``recompute_release_proofs`` (A7): the route records the
+billed gross per submission and the sealed leg must equal the recomputed
+route fee rule exactly. Legacy rows without recorded billed, unpaired
+legs, or recompute mismatches defer unproven rather than guessing.
 """
 
 from decimal import Decimal
@@ -36,7 +38,14 @@ V11 = 35400
 # Metered settle: lock 36000, billed gross 18000 → release leg pays
 # 17550 = billed·(1−250bps), fee bound 450 — the buyer is owed 18000 change
 # (= lock − billed gross), while custody still holds 18450 = owed + fee.
+# A7: the row records billed gross per release leg ({tx_hash, billed}); the
+# pass proves the sealed leg by recomputing the route's own fee rule.
 LOCK, RELEASE, FEE, OWED = 36000, 17550, 450, 18000
+BILLED = 18000
+
+
+def _billed_legs(job_id: str, billed: int = BILLED, tx_hash: str | None = None) -> list[dict]:
+    return [{"tx_hash": tx_hash or f"0xrel-{job_id}", "billed": billed}]
 
 
 @pytest.fixture
@@ -99,6 +108,7 @@ def _row(session, job_id: str = JOB, **overrides) -> Escrow:
         "released_amount": RELEASE,
         "refunded_amount": None,
         "refund_tx_hash": None,
+        "billed_legs": _billed_legs(job_id),
     }
     fields.update(overrides)
     row = Escrow(**fields)
@@ -123,9 +133,10 @@ def _metered_chain(session, job_id: str = JOB):
 
 
 def test_owed_change_derived_exactly(session):
-    """lock 36000 − billed 18000 = owed 18000; the billed gross is rebuilt
-    from the release leg (17550 = 18000·0.975 → fee bound 450); custody the
-    legs imply is the lock minus what already left."""
+    """lock 36000 − billed 18000 = owed 18000; the sealed release leg is
+    proven by recomputing the route's fee rule from the recorded billed
+    (17550 = 18000·0.975); custody the legs imply is the lock minus what
+    already left."""
     _metered_chain(session)
     _row(session)
     candidates, stats = _candidates(session)
@@ -162,7 +173,7 @@ def test_full_release_has_no_owed(session):
     """Full-price settle (release = lock − fee): nothing owed to the buyer."""
     _tx(session, "ESCROW_LOCK", "0xlock", LOCK)
     _tx(session, "ESCROW_RELEASE", "0xrel", 35100)  # billed == lock: 36000·0.975
-    _row(session)
+    _row(session, billed_legs=_billed_legs(JOB, billed=36000, tx_hash="0xrel"))
     candidates, stats = _candidates(session)
     assert candidates == []
     assert stats["no_owed"] == 1
@@ -231,22 +242,108 @@ def test_marked_row_not_discovered(session):
     assert not any(stats.values())
 
 
-def test_protected_row_defers_unproven(session):
-    """Energy-protected rows carry floor-bumped releases — billed
-    reconstruction is unreliable, so the pass refuses to derive."""
+def test_protected_bump_release_proves_exactly(session):
+    """A7 census shape (f0d0604b): protected release bumped to the signed
+    credit — 274154 locked, billed 274154, sealed 267301 = max(net 267300,
+    credit). Inversion could never prove this; recompute proves it exactly
+    and the job has no owed change."""
+    _tx(session, "ESCROW_LOCK", "0xlock", 274154)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 267301)
+    _row(
+        session,
+        amount=274154,
+        released_amount=267301,
+        protected=True,
+        energy_fee_basis_points=250,
+        energy_provider_credit_units=267301,
+        energy_net_floor_units=267300,
+        billed_legs=_billed_legs(JOB, billed=274154, tx_hash="0xrel"),
+    )
+    candidates, stats = _candidates(session)
+    assert candidates == []  # billed == lock → nothing owed
+    assert stats["no_owed"] == 1
+
+
+def test_protected_recompute_mismatch_defers(session):
+    """Protected + credit recorded: a sealed value equal to NEITHER the net
+    nor the credit bump fails the recompute — defer."""
     _metered_chain(session)
-    _row(session, protected=True, energy_fee_basis_points=250)
+    _row(
+        session,
+        protected=True,
+        energy_fee_basis_points=250,
+        energy_provider_credit_units=20000,  # bump would have applied: expected 20000 ≠ 17550
+    )
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_legacy_row_without_billed_stays_unproven(session):
+    """A7: rows released before billed was recorded carry billed_legs=NULL —
+    they remain unproven forever, no inversion fallback."""
+    _metered_chain(session)
+    _row(session, billed_legs=None)
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_sealed_release_without_billed_entry_refuses(session):
+    """A sealed release leg whose hash matches no recorded billed entry is
+    not provable — the pass cannot know what it billed."""
+    _tx(session, "ESCROW_LOCK", "0xlock", LOCK)
+    _tx(session, "ESCROW_RELEASE", "0xother-hash", RELEASE)
+    _row(session)  # billed entry keys 0xrel-<job>, leg hashes 0xother-hash
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_orphaned_billed_entry_tolerated(session):
+    """A dropped re-drive leaves a billed entry whose hash never sealed —
+    it pairs with nothing and is skipped, not fatal."""
+    _metered_chain(session)
+    _row(
+        session,
+        billed_legs=_billed_legs(JOB) + [{"tx_hash": "0xdropped", "billed": BILLED}],
+    )
+    candidates, stats = _candidates(session)
+    assert len(candidates) == 1
+    assert candidates[0].owed_units == OWED
+
+
+def test_tampered_billed_refuses(session):
+    """A recorded billed that recomputes to a different sealed value is
+    proof of nothing — defer, never pay on it."""
+    _metered_chain(session)
+    _row(session, billed_legs=_billed_legs(JOB, billed=12000))  # net 11700 ≠ 17550
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["deferred_unproven"] == 1
+
+
+def test_multiple_release_legs_unproven(session):
+    """Two sealed release legs mean a reused id / second contract — which
+    contract's protected fields applied is unknowable from the row."""
+    _metered_chain(session)
+    _tx(session, "ESCROW_RELEASE", "0xrel2", RELEASE)
+    _row(
+        session,
+        billed_legs=_billed_legs(JOB) + [{"tx_hash": "0xrel2", "billed": BILLED}],
+    )
     candidates, stats = _candidates(session)
     assert candidates == []
     assert stats["deferred_unproven"] == 1
 
 
 def test_non_integral_release_defers_unproven(session):
-    """A release value that does not invert billed·(1−r) integrally cannot
-    yield a provable owed amount — defer, never guess."""
+    """A release value the recompute cannot match (recorded billed 18000 →
+    expected 17550, sealed 10000) yields no provable owed — defer."""
     _tx(session, "ESCROW_LOCK", "0xlock", LOCK)
-    _tx(session, "ESCROW_RELEASE", "0xrel", 10000)  # 10000 % 39 != 0
-    _row(session)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 10000)
+    # billed pairs (hash matches) but recomputes to 17550 ≠ sealed 10000
+    _row(session, billed_legs=_billed_legs(JOB, tx_hash="0xrel"))
     candidates, stats = _candidates(session)
     assert candidates == []
     assert stats["deferred_unproven"] == 1

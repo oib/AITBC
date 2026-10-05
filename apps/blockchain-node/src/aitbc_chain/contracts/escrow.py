@@ -9,7 +9,7 @@ import asyncio
 import hashlib
 import time
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from typing import Any, TYPE_CHECKING
 
@@ -106,36 +106,59 @@ class Milestone:
 DEFAULT_FEE_BPS = 250
 
 
-def withheld_fee_bound(
-    release_values: list[int],
+def recompute_release_proofs(
+    release_legs: list[dict[str, Any]],
+    billed_legs: list[dict[str, Any]] | None,
     *,
     fee_bps: int,
+    protected: bool,
+    credit_units: int | None,
     lock_units: int,
-) -> int | None:
-    """Largest custody residue provably attributable to withheld platform fee.
+) -> tuple[int, int] | None:
+    """Prove sealed release legs by recomputing the route's own fee rule (A7).
 
-    A release leg's on-chain value is billed*(1-r), so billed reconstructs as
-    value*10000/(10000-bps) and the withheld fee is billed - value. Returns the
-    summed bound, or ``None`` when any leg fails the integral reconstruction
-    (an energy-floor bump or a foreign submission means the leg did not follow
-    value=billed*(1-r)) or the reconstructed billings exceed the lock. Both the
-    periodic pass and the release-route retry gate on this bound: residue the
-    proof cannot explain is owed buyer change, never treasury money.
+    The route signs ``V = max(ait_to_units(released_ait), 1)`` where
+    ``released_ait = billed·(1−r)``, bumped to the signed provider credit for
+    energy-protected escrows (E1). Given the billed gross the route recorded
+    per submission (``billed_legs``, keyed by the submission's tx hash), every
+    sealed release leg must match the recompute exactly:
+
+        expected = max(1, round_half_up(B·(1−bps/10⁴)))            unprotected
+        expected = max(net, credit_units)                          protected
+
+    Pairing is strict on tx_hash: a sealed release leg without a recorded
+    billed entry, or a billed entry that recomputes to a different sealed
+    value, proves nothing — ``None``. Orphaned billed entries (a dropped
+    re-drive's hash) are tolerated; they never sealed, so they cannot match.
+    Multiple sealed release legs mean reused job ids / multiple contracts —
+    which contract's protected fields applied is unknowable from the row, so
+    that shape is unproven too. Returns ``(billed_total, withheld_total)`` —
+    withheld being billed minus paid, the fee bound — or ``None``.
     """
+    if not billed_legs or not release_legs or len(release_legs) > 1:
+        return None
     if not (0 < fee_bps < 10000):
         return None
-    denom = 10000 - fee_bps
-    bound = 0
+    by_hash = {
+        e.get("tx_hash"): e.get("billed") for e in billed_legs if isinstance(e, dict) and isinstance(e.get("tx_hash"), str)
+    }
     billed_total = 0
-    for value in release_values:
-        if value <= 0 or (value * 10000) % denom != 0:
+    for leg in release_legs:
+        tx_hash = leg.get("tx_hash")
+        value = leg.get("value")
+        billed = by_hash.get(tx_hash) if isinstance(tx_hash, str) else None
+        if not isinstance(billed, int) or not isinstance(value, int):
             return None
-        billed = (value * 10000) // denom
+        if billed <= 0 or billed > lock_units:
+            return None
+        net = int((Decimal(billed) * Decimal(10000 - fee_bps) / Decimal(10000)).to_integral_value(rounding=ROUND_HALF_UP))
+        expected = max(net, 1)
+        if protected and credit_units is not None:
+            expected = max(expected, credit_units)
+        if value != expected:
+            return None
         billed_total += billed
-        bound += billed - value
-    if billed_total > lock_units:
-        return None
-    return bound
+    return billed_total, billed_total - sum(leg["value"] for leg in release_legs)
 
 
 def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | None:
@@ -175,6 +198,7 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
             "released_amount": 0,
             "refunded_amount": 0,
             "release_values": [],
+            "release_legs": [],
             "refund_values": [],
             "release_tx_hash": None,
             "refund_tx_hash": None,
@@ -204,6 +228,7 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
             if action == "escrow_release":
                 legs["released_amount"] += tx.value or 0
                 legs["release_values"].append(tx.value or 0)
+                legs["release_legs"].append({"tx_hash": tx.tx_hash, "value": tx.value or 0})
                 legs["release_tx_hash"] = tx.tx_hash
                 legs["released_at"] = tx.created_at
             elif action == "escrow_refund":
