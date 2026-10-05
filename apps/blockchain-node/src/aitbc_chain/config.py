@@ -179,6 +179,17 @@ class ChainSettings(BaseSettings):
     # Seconds between settlement-mark sweeps (demote-only lite reconciler).
     # 0 disables it.
     escrow_settlement_sweep_interval: int = 60
+    # Periodic fee-residue pass (Task A4): runs inside the settlement-mark
+    # sweeper's tick, so it shares escrow_settlement_sweep_interval. A job is
+    # only a candidate when its newest sealed settlement leg is older than
+    # the grace period, so a metered multi-leg settle is never interrupted.
+    escrow_fee_sweep_pass_grace_seconds: int = 300
+    # Ignore any job with a settlement leg below this height. Defaults to the
+    # v11 activation: sweeps have no consensus meaning below it, and the
+    # pre-v11 custody census is an operator decision the pass must not take.
+    escrow_fee_sweep_pass_min_height: int = 35400
+    # Bounded work per pass: at most this many settled rows are inspected.
+    escrow_fee_sweep_pass_max_jobs: int = 50
     # How many nonces ahead of the account nonce a pending transaction may sit.
     # Admission rejects beyond this so one sender cannot queue an unbounded
     # pipeline of not-yet-executable transactions.
