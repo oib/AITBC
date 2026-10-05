@@ -203,6 +203,14 @@ escrow_fee_sweep_pass_total = Counter(
     ["result"],
 )
 
+# Periodic owed-change pass (Task A6/F1b): pays buyer change deferred by the
+# release route, derived from sealed chain legs only.
+escrow_change_pass_total = Counter(
+    "blockchain_escrow_change_pass_total",
+    "Periodic escrow owed-change pass outcomes by result",
+    ["result"],
+)
+
 # Legacy MetricsRegistry for backward compatibility
 from dataclasses import dataclass  # noqa: E402
 from threading import Lock  # noqa: E402
