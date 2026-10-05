@@ -295,6 +295,84 @@ groups:
           summary: "Unregistered open tx-only escrow locks on {{ $labels.instance }} ({{ $value }})"
           description: "{{ $value }} ESCROW_LOCK transaction(s) on {{ $labels.instance }} have no escrow row and no settlement leg — funds sit in custody that nothing will settle. The per-job series aitbc_escrow_open_tx_only_lock{job_id} names them. Response per docs/ops/escrow-settlement-ops.md: decide whether each belongs in the known-artifacts registry (documentation only, no chain write) or needs a chain refund."
 
+      # EscrowSettlementPasses: the periodic fee-residue and owed-change
+      # passes (A4/A6/A7) run inside the blockchain-node process and can fail
+      # without any other visible symptom -- a dead pass strands buyer change
+      # and fee residue in custody indefinitely.
+      #
+      # Staleness: each executed tick increments the {result="tick"} series,
+      # so a stale pass is rate(tick)==0. The series only exists once the
+      # pass has run at least once on this instance -- a pass that has never
+      # been enabled (flag unset, by design until its rollout go) emits
+      # nothing and stays invisible, matching the EscrowSettlementCheckStale
+      # no-absent() convention. 20m covers ~20 missed ticks at the 60s
+      # interval.
+      - alert: EscrowChangePassStale
+        expr: sum by (instance) (rate(blockchain_escrow_change_pass_total{result="tick"}[20m])) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Owed-change pass not ticking on {{ $labels.instance }}"
+          description: "blockchain_escrow_change_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so released escrows owing buyer change are not being settled. If ESCROW_CHANGE_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW change pass' errors."
+
+      - alert: EscrowFeeSweepPassStale
+        expr: sum by (instance) (rate(blockchain_escrow_fee_sweep_pass_total{result="tick"}[20m])) == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fee-residue pass not ticking on {{ $labels.instance }}"
+          description: "blockchain_escrow_fee_sweep_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so settled fee residue is not being swept. If ESCROW_FEE_SWEEP_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW fee sweep' errors."
+
+      # Unproven growth: every tick recounts each row the proof cannot cover
+      # (A7: no recorded billed, unpaired release leg, recompute mismatch),
+      # so the counter grows at a constant rate while any such row exists.
+      # This alert therefore stays firing while unproven rows remain — that
+      # is the intent: they never settle automatically and need operator
+      # triage. Post-A7 deploy the hub's pre-recording rows are the expected
+      # baseline; a NEW release landing here means the route failed to record
+      # or signed off-rule — that is the case worth paging on.
+      - alert: EscrowChangePassUnprovenRows
+        expr: increase(blockchain_escrow_change_pass_total{result="deferred_unproven"}[6h]) > 0
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unproven released escrows accumulating on {{ $labels.instance }}"
+          description: "The owed-change pass keeps deferring released escrow rows it cannot prove (missing billed record, unpaired release leg, or sealed value off the route's fee rule). These rows never refund automatically — triage per docs/ops/escrow-settlement-ops.md. Rows released before billed recording was added (A7) are a known baseline on hub."
+
+      - alert: EscrowFeeSweepPassUnprovenRows
+        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_unproven"}[6h]) > 0
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unprovable fee residue accumulating on {{ $labels.instance }}"
+          description: "The fee-residue pass keeps deferring settled escrows whose residue exceeds the provable fee bound — either owed buyer change is still in custody or the row carries an off-rule release shape. The residue is not treasury money until proven; triage per docs/ops/escrow-settlement-ops.md."
+
+      # Errors: a failed submission backs off exponentially but keeps the row
+      # eligible; sustained error increments mean the pass is failing to
+      # settle for real (RPC unreachable, signing failure) rather than
+      # deferring on policy.
+      - alert: EscrowChangePassErrors
+        expr: increase(blockchain_escrow_change_pass_total{result="error"}[1h]) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Owed-change pass submissions failing on {{ $labels.instance }}"
+          description: "The owed-change pass has been erroring for over thirty minutes on {{ $labels.instance }} — change refunds are being attempted and failing (per-job exponential backoff applies). Check the node logs for 'ESCROW change pass' and proposer RPC reachability."
+
+      - alert: EscrowFeeSweepPassErrors
+        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="error"}[1h]) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fee-residue pass submissions failing on {{ $labels.instance }}"
+          description: "The fee-residue pass has been erroring for over thirty minutes on {{ $labels.instance }} — sweeps are being attempted and failing (per-job exponential backoff applies). Check the node logs for 'ESCROW fee sweep' and proposer RPC reachability."
+
   - name: aitbc-systemd-units
     rules:
       - alert: AitbcSystemdUnitFailed
