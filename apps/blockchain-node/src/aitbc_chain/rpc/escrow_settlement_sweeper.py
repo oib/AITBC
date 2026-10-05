@@ -308,8 +308,10 @@ _fee_pass_watermark: str = ""
 _FEE_PASS_BACKOFF_BASE_S = 60.0
 _FEE_PASS_BACKOFF_MAX_S = 3600.0
 _pass_submit_failures: dict[str, tuple[int, float]] = {}
-# Cap on the eligible-id scan used to prune stale backoff entries (F2);
-# beyond it entries simply stay and keep backing off — bounded either way.
+# Cap on the eligible-id scan used to prune stale backoff entries (F2).
+# An entry whose job is absent from the scanned set is deleted — past the
+# cap a still-eligible job loses its backoff (one early retry, harmless),
+# never its eligibility.
 _FAILURE_PRUNE_SCAN_LIMIT = 10_000
 
 _ESCROW_TX_TYPES = ("ESCROW_LOCK", "ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP")
@@ -577,9 +579,10 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
                 after_job_id=_fee_pass_watermark,
             )
             if _pass_submit_failures:
-                # F2: drop backoff entries for jobs no longer floor-eligible —
-                # without this the map grows by one stale entry per departed
-                # job forever. Still-eligible jobs keep their backoff.
+                # F2: drop backoff entries for jobs absent from the eligible
+                # set — without this the map grows by one stale entry per
+                # departed job forever. Eligible jobs inside the scan window
+                # keep their backoff.
                 eligible_ids = set(
                     _floor_eligible_job_ids(
                         session,
