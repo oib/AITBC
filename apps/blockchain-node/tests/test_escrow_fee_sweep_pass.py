@@ -492,20 +492,22 @@ def test_mempool_content_has_no_tx_hash_key():
 
 
 @pytest.mark.asyncio
-async def test_proposer_pending_hashes_is_vacuous(monkeypatch):
-    """F1 finding (pre-existing, NOT fixed here): the demote probe reads
-    tx.get("tx_hash") out of mempool content — a key that is never present —
-    so a healthy probe ALWAYS returns an empty set. A still-pending marked
-    leg is therefore seen as "absent" and becomes demotable. Reported for
-    the demote task; this test only locks in the proof."""
+async def test_proposer_pending_hashes_recognises_pending_tx(monkeypatch):
+    """The demote probe recomputes admission's hash over each returned body
+    (mempool content carries no tx_hash key — proven by
+    test_mempool_content_has_no_tx_hash_key), so a real pending leg's stored
+    hash comes back in the set and is protected from demotion."""
     from types import SimpleNamespace
 
-    txs = _mempool_pending(_route_tx(AUTHORITY, "ESCROW_RELEASE"))
+    from aitbc_chain.mempool import compute_tx_hash
+
+    tx = _route_tx(AUTHORITY, "ESCROW_RELEASE")
+    txs = _mempool_pending(tx)
     body = {"success": True, "transactions": txs, "count": len(txs)}
     resp = SimpleNamespace(status_code=200, json=lambda: body)
     monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(return_value=resp))
     pending_hashes = await ess._proposer_pending_hashes()
-    assert pending_hashes == set()  # a real pending tx, and nothing matched
+    assert pending_hashes == {compute_tx_hash(tx)}
 
 
 @pytest.mark.asyncio

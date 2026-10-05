@@ -68,6 +68,7 @@ from aitbc.network import SharedHttpClient
 
 from ..config import settings
 from ..contracts.escrow import settlement_legs_from_chain
+from ..mempool import compute_tx_hash
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Escrow, Transaction
@@ -127,7 +128,18 @@ async def _proposer_pending_hashes() -> set[str] | None:
                 count,
             )
             return None
-        return {str(tx.get("tx_hash")) for tx in body.get("transactions", []) if tx.get("tx_hash")}
+        txs = body.get("transactions", [])
+        if not isinstance(txs, list):
+            _logger.warning("settlement sweeper: proposer mempool transactions malformed (%r)", type(txs))
+            return None
+        # /mempool returns each pending entry's submitted body verbatim: the
+        # tx_hash is the mempool table's primary key, never a key inside the
+        # body. Recompute it the way admission does (compute_tx_hash over the
+        # canonical body) — the same value the submit response returned and
+        # the row stored. An unhashable body must not silently empty the
+        # answer to "is my leg still pending": fail closed like any other
+        # unreadable probe.
+        return {compute_tx_hash(tx) for tx in txs}
     except Exception as e:
         _logger.warning("settlement sweeper: proposer mempool probe failed: %s", e)
         return None

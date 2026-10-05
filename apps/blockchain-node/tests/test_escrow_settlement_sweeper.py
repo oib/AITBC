@@ -183,6 +183,50 @@ def test_probe_failure_never_demotes(session):
     assert row.status == "released"
 
 
+@pytest.mark.asyncio
+async def test_pending_probe_hashes_bodies_so_marked_leg_survives(session, monkeypatch):
+    """End-to-end for the F1 probe fix: /mempool returns submitted bodies
+    verbatim (no tx_hash key), so the probe recomputes compute_tx_hash over
+    each one. A stale marked leg whose stored hash is still pending must
+    survive demotion — before the fix the probe always returned an empty
+    set and this row was demoted while still pending."""
+    from aitbc_chain.mempool import InMemoryMempool, compute_tx_hash
+
+    body_tx = {
+        "from": "0x03DF9Ed3788E5BA3991e6788036f9D171f027716",
+        "to": "0xD4d85501E6cD447972Db19370307F1E3B1510016",
+        "amount": 10,
+        "fee": 5,
+        "nonce": 7,
+        "type": "ESCROW_RELEASE",
+        "signature": "0xsig",
+        "chain_id": CHAIN,
+    }
+    mp = InMemoryMempool(chain_id=CHAIN)
+    mp.add(dict(body_tx), CHAIN)
+    pending_bodies = mp.get_pending_transactions(CHAIN)
+    stored_hash = compute_tx_hash(pending_bodies[0])  # what the route stored
+
+    _row(session, status="released", released_at=OLD_MARK, release_tx_hash=stored_hash)
+    resp = SimpleNamespace(
+        status_code=200,
+        json=lambda: {"success": True, "transactions": pending_bodies, "count": len(pending_bodies)},
+    )
+    monkeypatch.setattr(ess.SharedHttpClient, "get", AsyncMock(return_value=resp))
+
+    @contextmanager
+    def _scope():
+        yield session
+
+    monkeypatch.setattr(ess, "session_scope", _scope)
+    monkeypatch.setattr(ess, "_fee_sweep_pass_once", AsyncMock(return_value={}))
+    stats = await ess._sweep_once()
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["demoted"] == 0
+    assert row.release_tx_hash == stored_hash
+    assert row.status == "released"
+
+
 def test_status_only_claim_demotes_when_dead(session):
     """A row claiming settled through status alone is swept the same way."""
     _row(session, status="released", released_at=None, release_tx_hash="0xdead")
