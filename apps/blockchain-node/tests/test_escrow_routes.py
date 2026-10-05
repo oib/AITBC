@@ -376,9 +376,7 @@ async def test_fee_sweep_disabled_by_default(release_key, monkeypatch):
     escrow_routes = _reload_routes()
 
     with patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post:
-        result = await escrow_routes._maybe_sweep_escrow_residue(
-            "job-123", "contract-123", locked_units=1_000_000, released_units=900_000, buyer_units=0
-        )
+        result = await escrow_routes._retry_sweep_released_escrow("job-123", _released_record())
 
     assert result is None
     mock_post.assert_not_awaited()
@@ -386,8 +384,8 @@ async def test_fee_sweep_disabled_by_default(release_key, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fee_sweep_submits_residue_to_configured_recipient(release_key, monkeypatch):
-    """The passing half: flag on, recipient configured — the sweep drains
-    locked − released − buyer-reserved to the fee recipient, authority-signed."""
+    """The passing half: flag on, recipient configured — the sweep drains the
+    given residue to the fee recipient, authority-signed."""
     escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -398,15 +396,13 @@ async def test_fee_sweep_submits_residue_to_configured_recipient(release_key, mo
         patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=7),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
-        tx_hash = await escrow_routes._maybe_sweep_escrow_residue(
-            "job-123", "contract-123", locked_units=1_000_000, released_units=900_000, buyer_units=80_000
-        )
+        tx_hash = await escrow_routes._submit_fee_sweep_tx("job-123", "contract-123", 20_000)
 
     assert tx_hash == "0xsweep"
     sent_tx = mock_post.call_args.kwargs["json"]
     assert sent_tx["type"] == "ESCROW_FEE_SWEEP"
     assert sent_tx["to"] == FEE_SWEEP_RECIPIENT
-    assert sent_tx["amount"] == 20_000  # locked − released − buyer-reserved
+    assert sent_tx["amount"] == 20_000
     assert sent_tx["nonce"] == 7
     assert sent_tx["payload"]["job_id"] == "job-123"
     assert sent_tx["from"] == RELEASE_KEY_ADDRESS
@@ -419,9 +415,7 @@ async def test_fee_sweep_skips_when_no_residue(release_key, monkeypatch):
     escrow_routes = _enable_fee_sweep(monkeypatch, release_key)
 
     with patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post:
-        result = await escrow_routes._maybe_sweep_escrow_residue(
-            "job-123", "contract-123", locked_units=1_000_000, released_units=920_000, buyer_units=80_000
-        )
+        result = await escrow_routes._submit_fee_sweep_tx("job-123", "contract-123", 0)
 
     assert result is None
     mock_post.assert_not_awaited()
@@ -712,7 +706,6 @@ async def test_release_defers_change_leg_until_release_seals(release_key, monkey
     with (
         contextlib.ExitStack() as stack,
         patch.object(escrow_routes, "_submit_refund_tx", refund_spy),
-        patch.object(escrow_routes, "_maybe_sweep_escrow_residue", new_callable=AsyncMock) as _sweep_spy,
     ):
         for m in mocks:
             stack.enter_context(m)
@@ -726,14 +719,10 @@ async def test_release_defers_change_leg_until_release_seals(release_key, monkey
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True,
-    reason="C2 desired: the sweep waits for the settlement legs to seal — today it signs the shared sealed nonce and is rejected by the mempool slot rule on every settle (F1)",
-)
 async def test_release_defers_sweep_until_settlement_legs_seal(release_key, monkeypatch):
-    """The settle-time sweep must not POST while the release leg it follows
-    is still pending. Today it fires in-request, signs the shared sealed
-    nonce, and is rejected — the sweep never lands on the first pass."""
+    """F1 fixed: the settle-time sweep attempt is gone — the release route
+    never signs a sweep while its own legs are still pending. Residue is
+    swept by the periodic pass / retry surface instead."""
     monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
     monkeypatch.setenv("ESCROW_FEE_SWEEP_ENABLED", "1")
     monkeypatch.setenv("ESCROW_FEE_RECIPIENT", "0x" + "fe" * 20)
@@ -749,7 +738,6 @@ async def test_release_defers_sweep_until_settlement_legs_seal(release_key, monk
     with (
         contextlib.ExitStack() as stack,
         patch.object(escrow_routes, "_submit_refund_tx", new_callable=AsyncMock, return_value="0xref"),
-        patch.object(escrow_routes, "_maybe_sweep_escrow_residue", sweep_spy),
         patch.object(escrow_routes, "_submit_fee_sweep_tx", sweep_spy),
     ):
         for m in mocks:
