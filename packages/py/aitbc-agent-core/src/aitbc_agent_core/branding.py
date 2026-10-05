@@ -11,7 +11,7 @@ _DEFAULT_BRAND = {
     "token_symbol": "AITBC",
     "token_name": "AITBC Token",
     "network_name": "AITBC Network",
-    "dao_name": "OpenClaw DAO",
+    "dao_name": "AITBC DAO",
     "wallet_name": "AITBC Wallet",
     "explorer_name": "AITBC Explorer",
 }
