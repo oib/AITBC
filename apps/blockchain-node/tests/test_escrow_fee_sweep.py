@@ -553,3 +553,75 @@ def test_context_sweep_entry_keeps_env_resolutions(funded_authority, session, mo
     assert ctx is not None
     assert ctx[JOB]["settlement_authority"] == AUTHORITY
     assert ctx[JOB]["fee_recipient"] == FEE_RECIPIENT
+
+
+# ---------------------------------------------------------------------------
+# Adversarial surface (Task C review): the consensus rule bounds the sweep by
+# the custody account's balance — and only that. These tests pin down the
+# exact preconditions the apply branch does NOT enforce, so a future
+# tightening is a deliberate, test-visible change rather than a silent one.
+# ---------------------------------------------------------------------------
+
+
+def test_v11_sweep_applies_to_never_settled_custody(funded_authority, configured):
+    """No settledness precondition: custody that was funded by a lock but never
+    released still sweeps. The apply branch verifies only signer, recipient
+    and balance (design §4.7: the balance is the only consensus bound) — the
+    authority's key can drain a still-locked job's funds to the fee recipient
+    before any settlement leg exists."""
+    escrow_addr = _seed_custody(configured, balance=12_345)
+    # No ESCROW_LOCK/RELEASE/REFUND rows exist for this job at all.
+    tx = _sweep_tx(AUTHORITY_KEY, FEE_RECIPIENT, 12_345)
+    ok, msg = _apply(configured, tx, "sweep-locked", block_version=11)
+    assert ok, msg  # characterization: not gated on a prior settlement
+    assert _balance(configured, escrow_addr) == 0
+    assert _balance(configured, FEE_RECIPIENT) == 12_345
+
+
+def test_v11_second_sweep_same_job_drains_remainder(funded_authority, configured):
+    """No once-only invariant: a partial first sweep leaves residue reachable
+    by a second sweep — two ESCROW_FEE_SWEEP legs for one job both apply.
+    Harmless only because the route asks for the full remainder; a partial
+    first sweep is not a protocol violation."""
+    escrow_addr = _seed_custody(configured, balance=10_000)
+    first = _sweep_tx(AUTHORITY_KEY, FEE_RECIPIENT, 7_000, nonce=0)
+    ok, msg = _apply(configured, first, "sweep-1", block_version=11)
+    assert ok, msg
+    second = _sweep_tx(AUTHORITY_KEY, FEE_RECIPIENT, 3_000, nonce=1)
+    ok, msg = _apply(configured, second, "sweep-2", block_version=11)
+    assert ok, msg  # characterization: nothing marks a job swept once
+    assert _balance(configured, escrow_addr) == 0
+    assert _balance(configured, FEE_RECIPIENT) == 10_000
+
+
+def test_v11_sweep_value_bounded_only_by_custody_balance(funded_authority, configured):
+    """The apply branch accepts any value <= custody balance — it does not
+    require the sweep to equal the residue the settlement legs left. A sweep
+    naming less than the remainder validates; the leftover stays sweepable."""
+    escrow_addr = _seed_custody(configured, balance=1_000)
+    tx = _sweep_tx(AUTHORITY_KEY, FEE_RECIPIENT, 400)
+    ok, msg = _apply(configured, tx, "sweep-part", block_version=11)
+    assert ok, msg
+    assert _balance(configured, escrow_addr) == 600
+
+
+def test_v11_block_resolves_by_local_env_not_stamp(monkeypatch):
+    """Above the v8 threshold the recorded stamp is advisory: the applied
+    version comes from the local activation settings, not the block. A node
+    missing the v11 env pin resolves a v11-stamped block to v10 — every sweep
+    inside it then applies as a plain transfer (see
+    test_below_gate_sweep_applies_as_plain_transfer), diverging from
+    env-pinned nodes. Until the height is baked into config.py, fleet
+    consensus on a sweep block depends on every node carrying the same
+    STATE_TRANSITION_V11_HEIGHT."""
+    from aitbc_chain.state.state_transition import get_block_version
+
+    monkeypatch.setattr(settings, "state_transition_v8_height", 30_000)
+    monkeypatch.setattr(settings, "state_transition_v9_height", 31_000)
+    monkeypatch.setattr(settings, "state_transition_v10_height", 33_000)
+    monkeypatch.setattr(settings, "state_transition_v11_height", 35_400)
+    block = {"block_metadata": {"state_transition_version": 11}}
+    assert get_block_version(block, 35_400) == 11
+    # Same stamped block on a node without the env pin -> v10 rule set.
+    monkeypatch.setattr(settings, "state_transition_v11_height", None)
+    assert get_block_version(block, 35_400) == 10
