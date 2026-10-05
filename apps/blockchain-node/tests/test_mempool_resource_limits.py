@@ -177,6 +177,57 @@ class TestNonceSlot:
         assert pool.size(CHAIN) == 1
 
 
+class TestEscrowSettlementLegNonceContention:
+    """Task C review finding: the escrow release route submits its legs
+    back-to-back — release, then change refund, then the v11 fee sweep — all
+    signed by the same settlement authority with the same *sealed* nonce
+    (``_get_account_nonce`` reads ``/accounts/{addr}``, which is sealed-state
+    only). The pending release already occupies the (authority, N) slot, so
+    later legs fight it on fee, not on leg order. These tests pin the mempool
+    mechanics that decide which leg survives."""
+
+    def test_settle_time_sweep_loses_to_its_pending_release(self, pool):
+        """The release is submitted first and holds (authority, N); the sweep's
+        fee is ``max(36, residue//100)`` against the release's
+        ``max(36, released//100)`` — residue < released for every escrow that
+        withholds less than it pays out, so the sweep cannot outbid the slot
+        holder and is rejected before it ever reaches admission."""
+        release = _signed_tx(nonce=7, fee=max(36, 900_000 // 100), amount=900_000, type="ESCROW_RELEASE")
+        pool.add(release, chain_id=CHAIN)
+        sweep = _signed_tx(nonce=7, fee=max(36, 20_000 // 100), amount=20_000, type="ESCROW_FEE_SWEEP")
+        with pytest.raises(ValueError, match="nonce slot"):
+            pool.add(sweep, chain_id=CHAIN)
+        assert pool.size(CHAIN) == 1
+
+    def test_change_refund_also_loses_and_can_evict_the_release(self, pool):
+        """The same collision hits the change leg: a refund submitted while
+        its release is pending loses whenever ``unbilled < released`` — and
+        when ``unbilled > released`` (release under half the lock) the refund
+        DISPLACES the release, evicting the provider payment until a re-drive."""
+        release = _signed_tx(nonce=3, fee=max(36, 4_000 // 100), amount=4_000, type="ESCROW_RELEASE")
+        pool.add(release, chain_id=CHAIN)
+        # Small change (unbilled < released): refund loses the slot.
+        small_change = _signed_tx(nonce=3, fee=max(36, 2_000 // 100), amount=2_000, type="ESCROW_REFUND")
+        with pytest.raises(ValueError, match="nonce slot"):
+            pool.add(small_change, chain_id=CHAIN)
+        # Big change (unbilled > released): refund wins and the release dies.
+        big_change = _signed_tx(nonce=3, fee=max(36, 9_000 // 100), amount=9_000, type="ESCROW_REFUND")
+        refund_hash = pool.add(big_change, chain_id=CHAIN)
+        assert pool.size(CHAIN) == 1
+        assert pool.list_transactions(CHAIN)[0].tx_hash == refund_hash
+
+    def test_lookahead_nonce_is_the_working_shape(self, pool):
+        """The safe shape the client never reaches: sweeping at N+1 while the
+        release holds N coexists — the release seals, frees nothing, and the
+        sweep applies in the next block. Admission's bounded nonce lookahead
+        already permits this; the route just never signs it."""
+        release = _signed_tx(nonce=7, fee=max(36, 900_000 // 100), amount=900_000, type="ESCROW_RELEASE")
+        pool.add(release, chain_id=CHAIN)
+        sweep = _signed_tx(nonce=8, fee=max(36, 20_000 // 100), amount=20_000, type="ESCROW_FEE_SWEEP")
+        pool.add(sweep, chain_id=CHAIN)
+        assert pool.size(CHAIN) == 2
+
+
 class TestPendingCost:
     def test_sums_signed_costs(self, pool):
         pool.add(_signed_tx(nonce=0, amount=10, fee=1), chain_id=CHAIN)

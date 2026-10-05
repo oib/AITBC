@@ -53,6 +53,9 @@ Operator procedures for the live fleet:
 - [Legacy escrow residue payout](ops/legacy-escrow-residue-payout.md) —
   the Option-A batch runbook: one authority-signed ESCROW_RELEASE per
   legacy custody account, paid to the provider in the sealed lock.
+- [First-sweep observation](ops/first-sweep-observation.md) — the
+  read-only checker for the first sealed ESCROW_FEE_SWEEP: signer,
+  recipient, remainder equality, custody zero, and cross-host agreement.
 - [Native energy rate guard deploy](ops/native-energy-rate-guard-deploy.md) —
   hub-ordered deploy/rollback for the SD-7 POST band, textfile metrics and
   alert rules.
