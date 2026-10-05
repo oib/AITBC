@@ -67,7 +67,7 @@ from sqlmodel import select
 from aitbc.network import SharedHttpClient
 
 from ..config import settings
-from ..contracts.escrow import settlement_legs_from_chain
+from ..contracts.escrow import DEFAULT_FEE_BPS, withheld_fee_bound
 from ..mempool import compute_tx_hash
 from ..database import session_scope
 from ..logger import get_logger
@@ -296,12 +296,18 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
 # read before it writes.
 # --------------------------------------------------------------------------
 
-_FEE_BPS_DEFAULT = 250  # contracts/escrow.py default_fee_rate 0.025
-
 # Rotation cursor for the candidate ring: each pass examines the next
 # max_jobs-sized window of floor-eligible jobs and wraps at the end, so no
 # job waits more than one full cycle regardless of fleet size.
 _fee_pass_watermark: str = ""
+
+# Per-job submission backoff (D9): a deterministically rejected sweep —
+# consensus refusal, recipient drift — would otherwise resubmit every tick
+# forever and swamp the error metric. In-memory like the watermark: a
+# restart simply retries once.
+_FEE_PASS_BACKOFF_BASE_S = 60.0
+_FEE_PASS_BACKOFF_MAX_S = 3600.0
+_pass_submit_failures: dict[str, tuple[int, float]] = {}
 
 _ESCROW_TX_TYPES = ("ESCROW_LOCK", "ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP")
 
@@ -312,7 +318,10 @@ _FEE_PASS_RESULT_LABELS = (
     "deferred_unproven",
     "deferred_pending",
     "deferred_grace",
+    "deferred_backoff",
     "skipped_floor",
+    "no_row",
+    "no_lock",
     "error",
 )
 
@@ -325,6 +334,14 @@ class _FeeSweepCandidate(NamedTuple):
 
 def _fee_sweep_pass_dry_run() -> bool:
     return os.getenv("ESCROW_FEE_SWEEP_PASS_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _fee_sweep_pass_enabled() -> bool:
+    """The pass's own flag, split from ``ESCROW_FEE_SWEEP_ENABLED`` (the C16
+    deploy note): that flag also gates the release-route retry, so enabling it
+    to observe the pass would re-arm route emission with it. The pass arms on
+    ``ESCROW_FEE_SWEEP_PASS_ENABLED`` alone."""
+    return os.getenv("ESCROW_FEE_SWEEP_PASS_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
 
 
 async def _proposer_pending_txs() -> list[dict] | None:
@@ -357,15 +374,8 @@ async def _proposer_pending_txs() -> list[dict] | None:
         return None
 
 
-def _job_escrow_legs(session, job_id: str) -> dict:
-    """The job's sealed escrow txs, one bounded probe.
-
-    Returns lock value, per-leg settlement values, swept total, the newest
-    settlement-leg timestamp, and the lowest settlement-leg height. Lock and
-    sweep legs are excluded from the settlement sums but counted here because
-    the residue formula needs the full custody flow.
-    """
-    legs: dict = {
+def _new_leg_acc() -> dict:
+    return {
         "lock_units": 0,
         "release_values": [],
         "refund_values": [],
@@ -373,20 +383,46 @@ def _job_escrow_legs(session, job_id: str) -> dict:
         "latest_settlement_at": None,
         "min_settlement_height": None,
     }
+
+
+def _escrow_legs_by_job(session, job_ids: list[str]) -> dict[str, dict]:
+    """All candidate jobs' sealed escrow txs in one scan, grouped by job_id.
+
+    The per-job probes this replaces were O(cap × escrow_rows): payload.job_id
+    carries no index, so each job's query index-scanned the whole ESCROW type
+    range — a multi-second synchronous block on the single-worker RPC loop at
+    100× chain size (D4). One type-indexed scan with the job_ids matched in
+    memory is O(escrow_rows) once.
+
+    Leg membership matches settlement_legs_from_chain exactly (D6): release
+    and refund *values* count only on the oracle's action names, so a leg the
+    oracle would ignore can never inflate the bound side of the fee proof.
+    Settlement timing and height still see every non-lock leg — a
+    mismatched-action leg is settlement activity for floor/grace purposes
+    either way.
+    """
+    wanted = set(job_ids)
+    jid = Transaction.payload["job_id"].as_string()
     stmt = select(Transaction).where(
         Transaction.type.in_(_ESCROW_TX_TYPES),  # type: ignore[attr-defined]
-        Transaction.payload["job_id"].as_string() == job_id,
+        jid.in_(wanted),
     )
+    by_job: dict[str, dict] = {}
     for tx in session.exec(stmt):
+        job_id = (tx.payload or {}).get("job_id")
+        if not isinstance(job_id, str) or job_id not in wanted:
+            continue
+        legs = by_job.setdefault(job_id, _new_leg_acc())
         at = tx.created_at
         if at is not None and at.tzinfo is None:
             at = at.replace(tzinfo=UTC)
         if tx.type == "ESCROW_LOCK":
             legs["lock_units"] += tx.value or 0
             continue
-        if tx.type == "ESCROW_RELEASE":
+        action = (tx.payload or {}).get("action")
+        if tx.type == "ESCROW_RELEASE" and action == "escrow_release":
             legs["release_values"].append(tx.value or 0)
-        elif tx.type == "ESCROW_REFUND":
+        elif tx.type == "ESCROW_REFUND" and action == "escrow_refund":
             legs["refund_values"].append(tx.value or 0)
         elif tx.type == "ESCROW_FEE_SWEEP":
             legs["swept_units"] += tx.value or 0
@@ -395,12 +431,22 @@ def _job_escrow_legs(session, job_id: str) -> dict:
         h = tx.block_height
         if h is not None and (legs["min_settlement_height"] is None or h < legs["min_settlement_height"]):
             legs["min_settlement_height"] = h
-    return legs
+    return by_job
 
 
-def _floor_eligible_job_ids(session, min_height: int, after_job_id: str, limit: int) -> list[str]:
+def _floor_eligible_job_ids(
+    session,
+    min_height: int,
+    after_job_id: str,
+    limit: int,
+    through_job_id: str | None = None,
+) -> list[str]:
     """Distinct job_ids with a sealed settlement leg at or above the floor,
     job_id-ordered past ``after_job_id``, capped at ``limit``.
+
+    ``through_job_id`` bounds the window from above (inclusive) — the ring's
+    wrap-around refill uses it so a job sitting past the watermark is never
+    returned twice by the two halves of one pass (D1).
 
     Discovery runs on the tx table — the same source the residue is derived
     from — so rows that can never be candidates (every leg below the floor)
@@ -415,6 +461,8 @@ def _floor_eligible_job_ids(session, min_height: int, after_job_id: str, limit: 
     )
     if after_job_id:
         stmt = stmt.where(jid > after_job_id)
+    if through_job_id is not None:
+        stmt = stmt.where(jid <= through_job_id)
     stmt = stmt.distinct().order_by(jid).limit(limit)
     return [str(j) for j in session.exec(stmt) if j]
 
@@ -441,66 +489,62 @@ def fee_sweep_candidates(
         "candidates": 0,
         "no_residue": 0,
         "skipped_floor": 0,
+        "no_row": 0,
+        "no_lock": 0,
         "deferred_grace": 0,
         "deferred_unproven": 0,
     }
     ids = _floor_eligible_job_ids(session, min_height, after_job_id, max_jobs)
     if len(ids) < max_jobs and after_job_id:
-        # Reached the end of the ring: wrap to the start and fill the pass.
-        ids += _floor_eligible_job_ids(session, min_height, "", max_jobs - len(ids))
+        # Reached the end of the ring: wrap to the start and fill the pass,
+        # bounded above by the watermark so nothing is examined twice (D1).
+        ids += _floor_eligible_job_ids(session, min_height, "", max_jobs - len(ids), through_job_id=after_job_id)
     next_watermark = ids[-1] if ids else ""
     rows_by_id = {
         r.job_id: r
         for r in session.exec(select(Escrow).where(Escrow.job_id.in_(ids))).all()  # type: ignore[attr-defined]
     }
+    legs_by_id = _escrow_legs_by_job(session, ids)
     candidates: list[_FeeSweepCandidate] = []
     for job_id in ids:
         row = rows_by_id.get(job_id)
         if row is None:
-            continue  # chain legs without an escrow row — nothing to bound by
-        legs = _job_escrow_legs(session, job_id)
+            # Chain legs without an escrow row are invisible without a stat —
+            # a rebuilt node's whole history reads that way (D3).
+            stats["no_row"] += 1
+            continue
+        legs = legs_by_id.get(job_id) or _new_leg_acc()
         # Mixed-height jobs can surface here via a post-floor leg — a job
         # with ANY settlement leg below the floor stays off-limits.
         if legs["min_settlement_height"] is None or legs["min_settlement_height"] < min_height:
             stats["skipped_floor"] += 1
             continue
+        if legs["lock_units"] <= 0:
+            # Settlement legs but no ESCROW_LOCK-type leg (foreign-typed lock,
+            # import anomaly) — previously read as a silent no_residue (D5).
+            stats["no_lock"] += 1
+            continue
         latest = legs["latest_settlement_at"]
         if latest is not None and (now - latest).total_seconds() < grace_seconds:
             stats["deferred_grace"] += 1
             continue
-        # Sealed-legs oracle for the settlement sums (never row columns).
-        chain_legs = settlement_legs_from_chain(session, job_id) or {}
-        expected = (
-            legs["lock_units"]
-            - int(chain_legs.get("released_amount") or 0)
-            - int(chain_legs.get("refunded_amount") or 0)
-            - legs["swept_units"]
-        )
+        # The release/refund value lists are action-matched (D6), so their
+        # sums are exactly what the settlement oracle reports — never row
+        # columns.
+        expected = legs["lock_units"] - sum(legs["release_values"]) - sum(legs["refund_values"]) - legs["swept_units"]
         if expected <= 0:
             stats["no_residue"] += 1
             continue
-        # Fee-only proof: reconstruct each release's billed gross and bound
-        # the withheld platform fee. Anything the bound cannot explain is
-        # owed change or a non-standard fee path — defer, never guess.
-        bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else _FEE_BPS_DEFAULT
-        provable = not row.protected and 0 < bps < 10000
-        fee_bound = 0
-        billed_total = 0
-        if provable:
-            denom = 10000 - bps
-            for value in legs["release_values"]:
-                # value = billed*(1-r) must invert integrally: a non-integral
-                # reconstruction means the leg did not follow the route's
-                # fee split (floor bump, foreign submission) — unprovable.
-                if value <= 0 or (value * 10000) % denom != 0:
-                    provable = False
-                    break
-                billed = (value * 10000) // denom
-                billed_total += billed
-                fee_bound += billed - value
-            if billed_total > legs["lock_units"]:
-                provable = False
-        if not provable or expected > fee_bound:
+        # Fee-only proof: bound the withheld platform fee by the shared
+        # helper — anything it cannot explain is owed change or a
+        # non-standard fee path; defer, never guess.
+        bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
+        fee_bound = (
+            withheld_fee_bound(legs["release_values"], fee_bps=bps, lock_units=legs["lock_units"])
+            if not row.protected
+            else None
+        )
+        if fee_bound is None or expected > fee_bound:
             stats["deferred_unproven"] += 1
             continue
         candidates.append(_FeeSweepCandidate(job_id, expected, fee_bound))
@@ -512,7 +556,7 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
     """One fee-residue pass. Never raises; counted in its own metric."""
     stats = dict.fromkeys(_FEE_PASS_RESULT_LABELS, 0)
     try:
-        if not escrow_routes._fee_sweep_enabled():
+        if not _fee_sweep_pass_enabled():
             return stats
         settlement_key = escrow_routes._get_settlement_key()
         settlement_address = escrow_routes._get_settlement_address()
@@ -529,7 +573,7 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
                 min_height=settings.escrow_fee_sweep_pass_min_height,
                 after_job_id=_fee_pass_watermark,
             )
-        for key in ("skipped_floor", "deferred_grace", "deferred_unproven"):
+        for key in ("skipped_floor", "no_row", "no_lock", "deferred_grace", "deferred_unproven"):
             stats[key] += sel[key]
         if not candidates:
             _count_fee_pass(stats)
@@ -552,7 +596,12 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
             _count_fee_pass(stats)
             return stats
         dry_run = _fee_sweep_pass_dry_run()
+        now_ts = now.timestamp()
         for cand in candidates:
+            failures, retry_at = _pass_submit_failures.get(cand.job_id, (0, 0.0))
+            if now_ts < retry_at:
+                stats["deferred_backoff"] += 1
+                continue
             custody = await escrow_routes._escrow_custody_balance(cand.job_id)
             if custody is None or custody != cand.expected_units:
                 stats["deferred_custody"] += 1
@@ -574,8 +623,15 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
                     cand.expected_units,
                     tx_hash,
                 )
+                _pass_submit_failures.pop(cand.job_id, None)
                 stats["submitted"] += 1
             else:
+                # D9: exponential backoff per job — a permanently rejected
+                # sweep backs off instead of resubmitting every tick.
+                _pass_submit_failures[cand.job_id] = (
+                    failures + 1,
+                    now_ts + min(_FEE_PASS_BACKOFF_BASE_S * (2**failures), _FEE_PASS_BACKOFF_MAX_S),
+                )
                 stats["error"] += 1
             break  # at most one submission per pass
     except Exception as e:
