@@ -1408,6 +1408,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             requested_amount = Decimal(str(raw_amount))
         except (InvalidOperation, ValueError):
             raise HTTPException(status_code=400, detail="amount must be a decimal number") from None
+        # A7e: NaN/sNaN/±Infinity parse fine but must never reach a
+        # comparison or the unit conversion (NaN <= 0 raises, Infinity
+        # raises in ait_to_units).
+        if not requested_amount.is_finite():
+            raise HTTPException(status_code=400, detail="amount must be a finite decimal number") from None
         if requested_amount <= 0:
             raise HTTPException(status_code=400, detail="amount must be positive") from None
         # A7d: quantize to whole compute-units — sub-unit precision cannot be
@@ -1522,6 +1527,16 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             contract.energy_provider_credit_units = escrow_record.energy_provider_credit_units
             contract.energy_net_floor_units = escrow_record.energy_net_floor_units
 
+    # A7e: a cached contract still carries protected=True even when the row
+    # read failed (escrow_record is None). Signing then would drop the
+    # credit/floor inputs the leg is provable under — underpaying the
+    # provider and wedging the row. Refuse instead; a retried read heals it.
+    if contract is not None and getattr(contract, "protected", False) and escrow_record is None:
+        raise HTTPException(
+            status_code=409,
+            detail="escrow row unavailable for a protected contract; refusing to release without the frozen quote terms",
+        )
+
     async with mgr.release_lock(contract_id):
         release_snapshot = mgr.snapshot_release_state(contract_id)
         ok, message = await mgr.release_payment(contract_id, requested_amount)
@@ -1564,15 +1579,20 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         from ..contracts.escrow import DEFAULT_FEE_BPS, expected_release_units
 
         billed_units = ait_to_units(billed_gross)
+        # A7e: mirror the contract side — it only honors the row's quoted
+        # fee rate when the row is protected (escrow.py create/load paths
+        # all gate on record.protected). An unprotected row carrying
+        # energy_fee_basis_points must bill the default rate.
+        record_protected = bool(escrow_record.protected) if escrow_record else False
         fee_bps = (
             escrow_record.energy_fee_basis_points
-            if escrow_record is not None and escrow_record.energy_fee_basis_points is not None
+            if record_protected and escrow_record is not None and escrow_record.energy_fee_basis_points is not None
             else DEFAULT_FEE_BPS
         )
         release_units = expected_release_units(
             billed_units,
             fee_bps=fee_bps,
-            protected=bool(escrow_record.protected) if escrow_record else False,
+            protected=record_protected,
             credit_units=escrow_record.energy_provider_credit_units if escrow_record else None,
         )
         if ait_to_units(released_amount) != release_units:

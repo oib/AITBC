@@ -20702,7 +20702,7 @@
             }
           },
           "400": {
-            "description": "amount must be a decimal number / amount must be positive / amount is below one billable compute-unit",
+            "description": "amount must be a decimal number / amount must be a finite decimal number / amount must be positive / amount is below one billable compute-unit",
             "content": {
               "application/json": {
                 "schema": {
@@ -20732,7 +20732,7 @@
             }
           },
           "409": {
-            "description": "Escrow for job_id={job_id} has already been refunded / Escrow for job_id={job_id} is not locked (status={record.status})",
+            "description": "Escrow for job_id={job_id} has already been refunded / Escrow for job_id={job_id} is not locked (status={record.status}) / escrow row unavailable for a protected contract; refusing to release without the frozen quote terms",
             "content": {
               "application/json": {
                 "schema": {
