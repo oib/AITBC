@@ -44,12 +44,15 @@ def _http_error(code: int, body: dict | None = None) -> urllib.error.HTTPError:
 class FakeRPC:
     """Answers the handful of endpoints the tool touches."""
 
+    FUNDED = 10_000_000  # comfortably above fee + headroom
+
     def __init__(
         self,
         params: dict[str, str] | None = None,
         nonces: dict[str, int] | None = None,
         seal_after: int = 1,
         landed: dict[str, str] | None = None,
+        balances: dict[str, int] | None = None,
     ) -> None:
         self.params = dict(params or {})
         self.nonces = dict(nonces or {})
@@ -58,6 +61,8 @@ class FakeRPC:
         self.seal_after = seal_after
         # param -> value the snapshot reports once a tx has been posted
         self.landed = dict(landed or {})
+        # account rows exist iff the address is in nonces; balance defaults funded
+        self.balances = dict(balances or {})
 
     def get(self, base: str, path: str) -> dict:
         if path == "/rpc/info":
@@ -71,7 +76,12 @@ class FakeRPC:
             address = path.split("/rpc/account/")[1].split("?")[0]
             if address not in self.nonces:
                 raise _http_error(404)
-            return {"address": address, "balance": "0", "nonce": self.nonces[address], "chain_id": CHAIN_ID}
+            return {
+                "address": address,
+                "balance": self.balances.get(address, self.FUNDED),
+                "nonce": self.nonces[address],
+                "chain_id": CHAIN_ID,
+            }
         if path.startswith("/rpc/transaction/"):
             self.tx_polls += 1
             if self.tx_polls < self.seal_after:
@@ -417,7 +427,7 @@ def test_executor_rotation_with_proof_key(
     new_list = f"{proof.address},{OTHER}"  # signer dropped; proof key survives
     rpc = FakeRPC(
         params=_params(governance_executors=signer.address),
-        nonces={signer.address: 0},
+        nonces={signer.address: 0, proof.address: 0},
         landed={"governance_executors": new_list},
     )
     monkeypatch.setattr(tool, "_rpc_get", rpc.get)
@@ -450,6 +460,72 @@ def test_plan_warns_when_executor_dropped(
 ) -> None:
     _run(monkeypatch, _argv("plan", "--parameter", "governance_executors", "--value", f"{TARGET},{OTHER}"))
     assert "permanently locks" in capsys.readouterr().err
+
+
+def test_refuses_underfunded_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    key_path, account = _executor_key_file(tmp_path)
+    low = tool.DEFAULT_TX_FEE_UNITS  # covers the fee but not the headroom
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 0},
+        balances={account.address: low},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, _submit_argv(key_path))
+    err = capsys.readouterr().err
+    assert account.address in err
+    assert str(low) in err
+    assert str(tool.REQUIRED_BALANCE_UNITS) in err
+    assert rpc.posted == []
+
+
+def test_refuses_unfunded_proof_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A surviving executor that cannot afford its own fee is not a survivor."""
+    key_path, signer = _executor_key_file(tmp_path)
+    proof = Account.create()
+    proof_path = _write_key(tmp_path / "broke_executor.key", proof)
+    new_list = f"{proof.address},{OTHER}"
+    rpc = FakeRPC(
+        params=_params(governance_executors=signer.address),
+        nonces={signer.address: 0, proof.address: 0},
+        balances={proof.address: 0},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list, "--proof-key-file", proof_path))
+    assert rpc.posted == []
+
+
+def test_absent_executor_account_is_zero_balance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """404 from /rpc/account reads as nonce 0 / balance 0 — and balance 0 refuses."""
+    key_path, account = _executor_key_file(tmp_path)
+    rpc = FakeRPC(params=_params(governance_executors=account.address), nonces={})
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, _submit_argv(key_path))
+    assert rpc.posted == []
+
+
+def test_plan_warns_on_low_balance_without_failing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    account = Account.create()
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 0},
+        balances={account.address: 0},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    _run(monkeypatch, _argv("plan", "--parameter", "escrow_fee_recipient", "--value", TARGET))
+    captured = capsys.readouterr()
+    assert "balance 0" in captured.out
+    assert "sign-submit would refuse" in captured.err
 
 
 def test_default_proposal_id_carries_parameter_date_and_nonce(

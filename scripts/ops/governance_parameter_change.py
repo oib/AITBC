@@ -57,6 +57,13 @@ AUTHORITY_PARAMETERS = (
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _ZERO_ADDRESS = "0x" + "0" * 40
 
+# The execute tx costs DEFAULT_TX_FEE_UNITS; the headroom keeps the signer
+# (and, on rotation, the surviving executor) funded for follow-up changes
+# instead of being drained to the dust boundary by this one. Five more
+# transactions' worth, stated for the audit trail.
+FEE_HEADROOM_UNITS = 5 * DEFAULT_TX_FEE_UNITS
+REQUIRED_BALANCE_UNITS = DEFAULT_TX_FEE_UNITS + FEE_HEADROOM_UNITS
+
 
 def _fail(message: str) -> NoReturn:
     print(f"error: {message}", file=sys.stderr)
@@ -98,16 +105,26 @@ def _fetch_parameters(rpc_url: str, chain_id: str) -> dict[str, str]:
     return {p["parameter"]: p["value"] for p in snap.get("chain_parameters", [])}
 
 
-def _fetch_nonce(rpc_url: str, chain_id: str, address: str) -> int:
-    """Account nonce; an absent account row means nonce 0."""
+def _fetch_account(rpc_url: str, chain_id: str, address: str) -> tuple[int, int]:
+    """(nonce, balance) in base units; an absent account row is a fresh 0/0 account."""
     try:
-        return int(_rpc_get(rpc_url, f"/rpc/account/{address}?chain_id={chain_id}").get("nonce", 0))
+        row = _rpc_get(rpc_url, f"/rpc/account/{address}?chain_id={chain_id}")
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return 0
+            return 0, 0
         _fail(f"cannot read account {address}: HTTP {e.code}")
     except Exception as e:
         _fail(f"cannot read account {address}: {e}")
+    return int(row.get("nonce", 0)), int(row.get("balance", 0))
+
+
+def _check_fee_balance(label: str, address: str, balance: int) -> None:
+    """Refuse when ``address`` cannot cover the tx fee plus headroom."""
+    if balance < REQUIRED_BALANCE_UNITS:
+        _fail(
+            f"{label} {address} balance {balance} < required {REQUIRED_BALANCE_UNITS} units "
+            f"(fee {DEFAULT_TX_FEE_UNITS} + headroom {FEE_HEADROOM_UNITS}) — fund it first"
+        )
 
 
 def _validate_target(value: str) -> list[str]:
@@ -192,6 +209,25 @@ def _wait_confirmed(rpc_url: str, tx_hash: str, chain_id: str, timeout_s: int, i
     return None
 
 
+def _executor_lockout_reason(executor: str, target_elements: list[str], proof_address: str | None) -> str | None:
+    """Why a governance_executors change would permanently lock out every
+    executor — or None when the signer survives or custody of a listed survivor
+    is proven. A dropped signer without a surviving-key proof means no key can
+    ever sign a GOVERNANCE_EXECUTE again; the only exit is consensus surgery."""
+    new_set = {e.lower() for e in target_elements}
+    if executor.lower() in new_set:
+        return None
+    if proof_address is None:
+        return (
+            f"the signing key {executor} is NOT in the new governance_executors list — "
+            "accepting it would lock every executor out permanently. Pass "
+            "--proof-key-file for one of the listed addresses to prove custody of a surviving key."
+        )
+    if proof_address.lower() not in new_set:
+        return f"proof key derives to {proof_address}, which is not in the new executor list either — refusing"
+    return None
+
+
 def _default_executor(parameters: dict[str, str]) -> str:
     executors = parameters.get("governance_executors", "")
     parts = [e.strip() for e in executors.split(",") if e.strip()]
@@ -225,7 +261,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
-    nonce = _fetch_nonce(args.rpc_url, chain_id, executor)
+    nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
     tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, args.value)
 
@@ -233,7 +269,13 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print(f"parameter:  {args.parameter}")
     print(f"current:    {current if current is not None else '(unset)'}")
     print(f"target:     {args.value}")
-    print(f"executor:   {executor}  (nonce {nonce} at read time — re-fetched on sign-submit)")
+    print(f"executor:   {executor}  (nonce {nonce}, balance {balance} units at read time — re-fetched on sign-submit)")
+    if balance < REQUIRED_BALANCE_UNITS:
+        print(
+            f"warning: executor balance {balance} < required {REQUIRED_BALANCE_UNITS} units "
+            f"(fee {DEFAULT_TX_FEE_UNITS} + headroom {FEE_HEADROOM_UNITS}) — sign-submit would refuse",
+            file=sys.stderr,
+        )
     print(f"proposal_id: {proposal_id}")
     print("unsigned transaction:")
     print(json.dumps(tx, indent=2, sort_keys=True))
@@ -265,6 +307,9 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
             f"governance_executors ({parameters.get('governance_executors', '(unset)')}) — the chain would refuse it"
         )
 
+    nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
+    _check_fee_balance("executor", executor, balance)
+
     # Lock-out guard: a governance_executors change that drops every key the
     # operator holds freezes all parameters forever — no signed executor is
     # left to ever write one. Refuse unless the signing key survives, or
@@ -272,24 +317,19 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     if args.parameter == "governance_executors":
         new_set = {e.lower() for e in target_elements}
         if executor.lower() not in new_set:
-            if not args.proof_key_file:
-                _fail(
-                    f"the signing key {executor} is NOT in the new governance_executors list — "
-                    "accepting it would lock every executor out permanently. Pass "
-                    "--proof-key-file for one of the listed addresses to prove custody of a surviving key."
-                )
-            proof_address = _executor_address(_read_key_file(args.proof_key_file))
-            if proof_address.lower() not in new_set:
-                _fail(
-                    f"proof key {args.proof_key_file} derives to {proof_address}, "
-                    "which is not in the new executor list either — refusing"
-                )
+            proof_address = None
+            if args.proof_key_file:
+                proof_address = _executor_address(_read_key_file(args.proof_key_file))
+            reason = _executor_lockout_reason(executor, target_elements, proof_address)
+            if reason is not None:
+                _fail(reason)
+            assert proof_address is not None
+            _check_fee_balance("surviving executor", proof_address, _fetch_account(args.rpc_url, chain_id, proof_address)[1])
             print(
                 f"executor rotation: signing key {executor} leaves the set; "
                 f"custody of surviving executor {proof_address} proven by --proof-key-file"
             )
 
-    nonce = _fetch_nonce(args.rpc_url, chain_id, executor)
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
     tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, args.value)
     digest = _signing_digest(tx)
