@@ -775,6 +775,21 @@ class ChainSettings(BaseSettings):
     # is now consensus and is hardcoded like v4 to v10. An environment value (STATE_TRANSITION_V11_HEIGHT)
     # still overrides this default. fleet-config-check watches for drift.
     state_transition_v11_height: int | None = 35400
+    # v12: authority-parameter value checks. At or above this height a GOVERNANCE_EXECUTE ``parameter_change``
+    # to one of the five authority chain parameters (governance_executors, bond_slash_authority,
+    # bridge_release_authority, escrow_settlement_authority, escrow_fee_recipient) must carry a well-formed
+    # value: non-empty, every comma-separated element a canonical 0x+40-hex address, no zero address, no
+    # duplicates after canonicalisation, at most one element for the four single-address parameters, and —
+    # for governance_executors — at least one member holding the baked executor minimum (DEFAULT_TX_FEE_UNITS,
+    # the lowest balance that can pay a fee; decided as a constant, not the tx's fee, because consensus has no
+    # minimum fee). Below the height a malformed value seals exactly as before (B9: a typo'd, empty or
+    # never-funded executor list seals and freezes all parameters), so sealed history is untouched; None (the
+    # default) means NOT activated and keeps the lenient rule. Every validator and follower must run a build
+    # that enforces the checks BEFORE the height is set: an older build would seal a transaction the fleet
+    # rejects and diverge. An environment value (STATE_TRANSITION_V12_HEIGHT) sets the height; once activated
+    # fleet-wide, proven over a full proposer rotation, hardcode it and tag like v10/v11.
+    # fleet-config-check watches for drift.
+    state_transition_v12_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
