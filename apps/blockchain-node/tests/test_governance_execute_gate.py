@@ -235,3 +235,180 @@ def test_governance_execute_missing_execution_payload_stays_lenient(session):
     st = StateTransition()
     ok, msg = st.apply_transaction(session, chain_id, tx, "tx_gov_noop")
     assert ok, msg
+
+
+# ---------------------------------------------------------------------------
+# v12 — authority-parameter value checks (A1–A6, design note
+# TOPOLOGY/2026-10-06-authority-parameter-validation-design.md §2). The gate is
+# a ``block_version >= 12`` branch in validate_transaction; below it every value
+# stays lenient exactly as sealed history requires.
+# ---------------------------------------------------------------------------
+
+HUB = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"  # 0x02B8…4c5B — hub validator, executor 9819–30551
+FE04 = "0x04fE87ac0E6a9bcbe7554eb29ea86312BF817cCC"  # executor from 30551
+D9CC = "0xD9CC189c19eF96F6f536E0ea92BEc218d829c694"  # executor from 37259
+BOND_AUTH = "0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76"
+BRIDGE_AUTH = "0x2b0F2399680E2f3BdbBBC06bDc8D9a6b301D2DDe"
+SETTLE_AUTH = "0x03DF9Ed3788E5BA3991e6788036f9D171f027716"
+FEE_RECIP = "0x716a56468DD4A11A91116920F9E8892BbDD7b1B8"
+
+# Every GOVERNANCE_EXECUTE sealed on ait-hub through 2026-10-06, verbatim from
+# the chain.db ``transaction`` rows / ``chain_parameter_history`` (height, fee,
+# parameter, value). The two oldest carries no execution_payload at all — the
+# forward-compat case.
+SEALED_EXECUTES = [
+    (8153, 360000, None, None),
+    (8165, 360000, None, None),
+    (9819, 0, "governance_executors", HUB),
+    (22193, 0, "escrow_settlement_authority", HUB),
+    (22218, 0, "bond_slash_authority", BOND_AUTH),
+    (22469, 0, "bridge_release_authority", HUB),
+    (30551, 360000, "governance_executors", f"{HUB},{FE04}"),
+    (30552, 360000, "governance_executors", FE04),
+    (30563, 360000, "bridge_release_authority", BRIDGE_AUTH),
+    (30564, 360000, "escrow_settlement_authority", SETTLE_AUTH),
+    (35411, 360000, "escrow_fee_recipient", FEE_RECIP),
+    (37259, 360000, "governance_executors", f"{FE04},{D9CC}"),
+]
+
+
+def _gov_param_tx(key: str, chain_id: str, execution_payload: dict | None, *, fee: int = DEFAULT_TX_FEE_UNITS) -> dict:
+    tx_data = {
+        "amount": 0,
+        "value": 0,
+        "fee": fee,
+        "nonce": 0,
+        "type": "GOVERNANCE_EXECUTE",
+        "chain_id": chain_id,
+        "payload": {"proposal_id": "prop-1"},
+    }
+    if execution_payload is not None:
+        tx_data["payload"]["execution_payload"] = execution_payload
+    return _make_tx(key, tx_data)
+
+
+def _seed_v12_gate(session: Session, chain_id: str) -> str:
+    """Executor allowlist = the fixture executor, plus funded rows for every
+    member the sealed executor lists name (the A5 floor needs a funded member)."""
+    executor_addr = _seed_accounts(session, chain_id)
+    session.add(ChainParameter(chain_id=chain_id, parameter="governance_executors", value=executor_addr))
+    for addr in (HUB, FE04, D9CC):
+        session.add(Account(chain_id=chain_id, address=addr, balance=1_000_000, nonce=0))
+    session.commit()
+    return executor_addr
+
+
+@pytest.mark.parametrize("block_height,fee,parameter,value", SEALED_EXECUTES)
+def test_v12_accepts_every_sealed_authority_execute(session, block_height, fee, parameter, value):
+    """Replay table: all twelve sealed GOVERNANCE_EXECUTEs — the ones that name
+    an authority parameter — pass A1–A6 under v12 with their verbatim values."""
+    chain_id = "ait-test"
+    _seed_v12_gate(session, chain_id)
+    ep = None if parameter is None else {"action": "parameter_change", "parameter": parameter, "value": value}
+    tx = _gov_param_tx(EXECUTOR_KEY, chain_id, ep, fee=fee)
+    st = StateTransition()
+    ok, msg = st.validate_transaction(session, chain_id, tx, f"tx_v12_replay_{block_height}", block_version=12)
+    assert ok, f"sealed execute at {block_height} rejected: {msg}"
+
+
+@pytest.mark.parametrize(
+    "parameter,value,why",
+    [
+        ("governance_executors", None, "must not be empty"),  # A1 null
+        ("governance_executors", "", "must not be empty"),  # A1 empty
+        ("escrow_settlement_authority", "   ", "must not be empty"),  # A1 whitespace
+        ("governance_executors", ",,", "at least one address"),  # A1 commas only
+        ("bond_slash_authority", "0x" + "gg" * 20, "0x + 40-hex"),  # A2 non-hex, 42 chars
+        ("escrow_fee_recipient", "0x" + "ab" * 21, "0x + 40-hex"),  # A2 too long
+        ("bridge_release_authority", "0x" + "00" * 20, "zero address"),  # A3
+        ("escrow_fee_recipient", "0x" + "ab" * 20 + ",0x" + "cd" * 20, "exactly one address"),  # A4
+        ("governance_executors", "0x" + "de" * 20 + ",0x" + "ad" * 20, "executor minimum"),  # A5
+        ("governance_executors", "0x" + "ab" * 20 + ",0x" + "AB" * 20, "repeats"),  # A6 case-insensitive dup
+    ],
+)
+def test_v12_rejects_bad_authority_values(session, parameter, value, why):
+    """Each A1–A6 violation refuses at v12 with the parameter-named message."""
+    chain_id = "ait-test"
+    _seed_v12_gate(session, chain_id)
+    tx = _gov_param_tx(EXECUTOR_KEY, chain_id, {"action": "parameter_change", "parameter": parameter, "value": value})
+    st = StateTransition()
+    ok, msg = st.validate_transaction(session, chain_id, tx, f"tx_v12_bad_{parameter}_{str(value)[:8]}", block_version=12)
+    assert not ok, "v12 must refuse this authority-parameter value"
+    assert f"GOVERNANCE_EXECUTE rejected: {parameter} value" in msg
+    assert why in msg
+
+
+def test_v11_still_accepts_garbage_authority_values(session):
+    """Boundary: below v12 the same value the v12 test rejects stays lenient —
+    sealed history's rule. Pin the exact garbage A2 would refuse."""
+    chain_id = "ait-test"
+    _seed_v12_gate(session, chain_id)
+    tx = _gov_param_tx(
+        EXECUTOR_KEY, chain_id, {"action": "parameter_change", "parameter": "bond_slash_authority", "value": "0x" + "gg" * 20}
+    )
+    st = StateTransition()
+    ok, msg = st.validate_transaction(session, chain_id, tx, "tx_v11_lenient", block_version=11)
+    assert ok, msg
+
+
+def test_v12_executor_list_accepts_one_funded_member(session):
+    """A5 is the anti-freeze floor: a list with at least one member holding the
+    executor minimum passes — an unfunded member is dead weight, not a freeze."""
+    chain_id = "ait-test"
+    executor_addr = _seed_v12_gate(session, chain_id)
+    unfunded = "0x" + "de" * 20
+    tx = _gov_param_tx(
+        EXECUTOR_KEY,
+        chain_id,
+        {"action": "parameter_change", "parameter": "governance_executors", "value": f"{executor_addr},{unfunded}"},
+    )
+    st = StateTransition()
+    ok, msg = st.validate_transaction(session, chain_id, tx, "tx_v12_mixed_funding", block_version=12)
+    assert ok, msg
+
+
+def test_v12_other_parameters_and_actions_stay_lenient(session):
+    """Forward-compat escape hatch: non-authority parameters and unknown
+    actions are outside the gate — same behaviour as before v12."""
+    chain_id = "ait-test"
+    _seed_v12_gate(session, chain_id)
+    st = StateTransition()
+    tx = _gov_param_tx(EXECUTOR_KEY, chain_id, {"action": "parameter_change", "parameter": "some_param", "value": ""})
+    ok, msg = st.validate_transaction(session, chain_id, tx, "tx_v12_other_param", block_version=12)
+    assert ok, msg
+    tx = _gov_param_tx(
+        EXECUTOR_KEY,
+        chain_id,
+        {"action": "not_a_real_action", "parameter": "governance_executors", "value": ""},
+    )
+    ok, msg = st.validate_transaction(session, chain_id, tx, "tx_v12_other_action", block_version=12)
+    assert ok, msg
+
+
+def test_v12_absent_action_treated_as_parameter_change(session):
+    """Apply defaults a missing action to ``parameter_change`` (:1867) — the
+    validate trigger must match, so a five-name parameter with no action key
+    is checked rather than waved through."""
+    chain_id = "ait-test"
+    _seed_v12_gate(session, chain_id)
+    tx = _gov_param_tx(EXECUTOR_KEY, chain_id, {"parameter": "governance_executors", "value": ""})
+    st = StateTransition()
+    ok, msg = st.validate_transaction(session, chain_id, tx, "tx_v12_no_action", block_version=12)
+    assert not ok
+    assert "must not be empty" in msg
+
+
+def test_v12_height_defaults_off_and_env_sets_it(monkeypatch):
+    """The baked default is off: a fresh settings object (no env, no env file)
+    leaves v12 inactive; STATE_TRANSITION_V12_HEIGHT pins the height and the
+    height-derived ladder resolves it."""
+    from aitbc_chain.config import ChainSettings, settings
+    from aitbc_chain.state.state_transition import get_block_version_for_height
+
+    monkeypatch.delenv("STATE_TRANSITION_V12_HEIGHT", raising=False)
+    assert ChainSettings(_env_file=None).state_transition_v12_height is None
+    monkeypatch.setenv("STATE_TRANSITION_V12_HEIGHT", "40000")
+    assert ChainSettings(_env_file=None).state_transition_v12_height == 40_000
+    monkeypatch.setattr(settings, "state_transition_v12_height", 40_000)
+    assert get_block_version_for_height(39_999) == 11
+    assert get_block_version_for_height(40_000) == 12
