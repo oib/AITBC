@@ -705,11 +705,12 @@ def _release_drive_mocks(escrow_routes, *, unsealed=True, expose: dict | None = 
         energy_net_floor_units=None,
         billed_legs=None,
     )
-    if expose is not None:
-        expose["record"] = record
-
     session = MagicMock()
     session.get = MagicMock(return_value=record)
+    if expose is not None:
+        expose["record"] = record
+        expose["contract"] = contract
+        expose["session"] = session
 
     @contextlib.contextmanager
     def _session_scope():
@@ -845,6 +846,83 @@ def test_sealed_release_units_match_recompute_sweep():
     # The sweep actually exercised exact .5 ties — the boundary the Decimal
     # AIT path could cross in the wrong direction.
     assert tie_hits > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad", ["NaN", "sNaN", "Infinity", "-Infinity"])
+async def test_release_rejects_non_finite_amount(release_key, monkeypatch, bad):
+    """A7e: non-finite decimals must never reach a comparison or the unit
+    conversion — NaN <= 0 raises InvalidOperation and Infinity raises in
+    ait_to_units, so they were (or became) 500s. Refuse with 400 up front."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    import contextlib
+
+    with contextlib.ExitStack() as stack:
+        for m in _release_drive_mocks(escrow_routes, unsealed=True):
+            stack.enter_context(m)
+        with pytest.raises(HTTPException) as exc:
+            await escrow_routes.release_escrow("job-1", {"amount": bad})
+        assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_release_refuses_protected_contract_without_row(release_key, monkeypatch):
+    """A7e/L3: a cached protected contract whose escrow row cannot be read
+    must not sign — the leg would drop the credit bump and wedge the row
+    unproven while underpaying the signed credit."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+    expose: dict = {}
+    mocks = _release_drive_mocks(escrow_routes, unsealed=True, expose=expose)
+
+    import contextlib
+
+    with contextlib.ExitStack() as stack:
+        for m in mocks:
+            stack.enter_context(m)
+        # Contract is cached and protected; the row read fails.
+        expose["contract"].protected = True
+        expose["session"].get = MagicMock(return_value=None)
+        with pytest.raises(HTTPException) as exc:
+            await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
+        assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_unprotected_row_ignores_stale_fee_basis_points(release_key, monkeypatch):
+    """A7e/L2: the contract only honors energy_fee_basis_points on protected
+    rows — an unprotected row carrying bps=0 must still bill the default
+    250, and the signed leg must match."""
+    from aitbc.utils.units import ait_to_units
+
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+    expose: dict = {}
+    mocks = _release_drive_mocks(escrow_routes, unsealed=True, expose=expose)
+    submit_spy = AsyncMock(return_value="0xrel")
+
+    import contextlib
+
+    with contextlib.ExitStack() as stack:
+        for m in mocks:
+            stack.enter_context(m)
+        stack.enter_context(patch.object(escrow_routes, "_submit_payment_tx", submit_spy))
+        expose["record"].protected = False
+        expose["record"].energy_fee_basis_points = 0
+        result = await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
+
+    assert result["tx_hash"] == "0xrel"
+    sealed_units = ait_to_units(submit_spy.await_args.args[2])
+    # billed 21600000 at default 250bps -> round_half_up(21060000.0)
+    assert sealed_units == 21060000
 
 
 @pytest.mark.asyncio
