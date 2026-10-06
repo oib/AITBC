@@ -771,24 +771,26 @@ tests:
         alertname: NativeEnergyRateStale
         exp_alerts: []
 
-  # EscrowFeeSweepChangePending: a provable row waiting on owed buyer change.
-  # localhost:8202's deferred_change_pending ramps like a blocked row
-  # re-counted every sweep tick, then goes flat when the change pays out:
-  # pending under 15m must not fire, sustained increments must, and the alert
-  # resolves once the counter stops moving (~30m increase window). node2's
-  # flat counter must never fire.
+  # EscrowFeeSweepChangePending: fires only while the blocked-row counter is
+  # still rising past a normal change cycle. localhost:8202 ramps for 20m
+  # (row re-counted every sweep tick) then goes flat when the change pays —
+  # pending under 15m stays silent, sustained rising fires, and the alert
+  # resolves within ~5m of the last increment (the 5m increase window).
+  # node2's two-tick stall must never fire.
   - interval: 30s
     input_series:
       - series: 'blockchain_escrow_fee_sweep_pass_total{result="deferred_change_pending", instance="localhost:8202", job="blockchain-node"}'
-        values: '0+1x20 20x80'
+        values: '0+1x40 40x60'
       - series: 'blockchain_escrow_fee_sweep_pass_total{result="deferred_change_pending", instance="node2:8202", job="blockchain-node"}'
-        values: '0x100'
+        values: '0x10 1x10 2x10 2x70'
     alert_rule_test:
-      # Pending ~9.5m — under the 15m for-window, nothing fires yet.
+      # localhost rising for ~9.5m — under the 15m for-window, not firing.
       - eval_time: 10m
         alertname: EscrowFeeSweepChangePending
         exp_alerts: []
-      # Pending ~19.5m — sustained past a normal change-pass cycle: fires.
+      # localhost has been rising ~19.5m — past a normal change cycle: fires.
+      # node2's stall (two increments ~5m apart) is pending ~10m at most and
+      # does not appear.
       - eval_time: 20m
         alertname: EscrowFeeSweepChangePending
         exp_alerts:
@@ -800,8 +802,8 @@ tests:
             exp_annotations:
               summary: "Provable escrow residue blocked on unpaid change on localhost:8202"
               description: "The fee-residue pass keeps seeing a provable escrow whose residue exceeds the provable fee bound because owed buyer change is still in custody — it must not sweep until the change pass pays out. Check the change pass flags (ESCROW_CHANGE_PASS_ENABLED / ESCROW_CHANGE_PASS_DRY_RUN) and the row's billed_legs; triage per docs/ops/escrow-settlement-ops.md."
-      # Counter flat since t=10m: increase[30m] reaches 0 around t=40m and the
-      # alert resolves — the change was paid, residue swept.
-      - eval_time: 45m
+      # Counter flat since t=20m: increase[5m] empties ~5m later and the alert
+      # resolves — the change was paid, residue swept. node2 never fired.
+      - eval_time: 30m
         alertname: EscrowFeeSweepChangePending
         exp_alerts: []
