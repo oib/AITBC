@@ -284,6 +284,110 @@ async def test_refund_refused_on_keyless_node(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_refund_refusal_increments_settlement_refused_counter(monkeypatch):
+    """op="refund" counts once per refusal; a keyed refund does not count."""
+    from aitbc_chain.metrics import escrow_settlement_refused_total
+
+    monkeypatch.delenv("ESCROW_RELEASE_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr(contract=_funded_contract(er))
+    scope, _session = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    child = escrow_settlement_refused_total.labels(op="refund")
+    before = child._value.get()
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7],
+        patches[8],
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await er.refund_escrow("job-1", {"reason": "test"})
+    assert excinfo.value.status_code == 503
+    assert child._value.get() == before + 1
+
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr(contract=_funded_contract(er))
+    scope, _session = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7],
+        patches[8],
+    ):
+        result = await er.refund_escrow("job-1", {"reason": "test"})
+    assert result["success"] is True
+    assert child._value.get() == before + 1
+
+
+@pytest.mark.asyncio
+async def test_release_refusal_increments_settlement_refused_counter(monkeypatch):
+    """op="release" counts once per refusal; a keyed release does not count."""
+    from aitbc_chain.metrics import escrow_settlement_refused_total
+
+    monkeypatch.delenv("ESCROW_RELEASE_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr()
+    scope, _session = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    child = escrow_settlement_refused_total.labels(op="release")
+    before = child._value.get()
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7],
+        patches[8],
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await er.release_escrow("job-1", {})
+    assert excinfo.value.status_code == 503
+    assert child._value.get() == before + 1
+
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr()
+    scope, _session = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7],
+        patches[8],
+    ):
+        result = await er.release_escrow("job-1", {})
+    assert result["success"] is True
+    assert child._value.get() == before + 1
+
+
+@pytest.mark.asyncio
 async def test_already_released_row_short_circuits_before_the_gate(monkeypatch):
     """The stored-hash short-circuit still runs first — the gate is never reached.
 
