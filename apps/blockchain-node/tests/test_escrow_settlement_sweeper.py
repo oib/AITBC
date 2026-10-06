@@ -303,6 +303,30 @@ def test_unmarked_refund_leg_with_sealed_hash_is_remarked(session):
     assert stats["remarked"] == 1
     assert _naive(row.refunded_at) == _naive(SEALED_AT)
     assert _naive(row.released_at) == _naive(OLD_MARK)  # the marked leg untouched
+    assert row.refunded_amount == 100  # sealed leg value, filled with the mark
+    assert row.status == "released"
+
+
+def test_verified_refund_mark_fills_null_refunded_amount(session):
+    """A row whose refunded_at+hash were already stamped by an earlier heal
+    but whose refunded_amount stayed NULL gets the amount filled on the
+    verified path — the sealed leg proves it. NULL would leave the row in
+    the change pass's refunded_amount-IS-NULL scan forever."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _tx(session, "ESCROW_REFUND", "0xsealed-refund")
+    _row(
+        session,
+        status="released",
+        released_at=OLD_MARK,
+        refunded_at=OLD_MARK,
+        release_tx_hash="0xsealed-release",
+        refund_tx_hash="0xsealed-refund",
+        refunded_amount=None,
+    )
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["verified"] == 2 and stats["remarked"] == 0
+    assert row.refunded_amount == 100
     assert row.status == "released"
 
 

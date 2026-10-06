@@ -231,6 +231,12 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
                     # Verified healthy: the mark stands and the settlement is
                     # sealed — nothing on the row is touched.
                     stats["verified"] += 1
+                if leg_status == "refunded" and row.refunded_amount is None:
+                    # A sealed refund leg proves the amount too — marking
+                    # only time+hash leaves released rows in the change
+                    # pass's refunded_amount-IS-NULL scan forever.
+                    row.refunded_amount = leg_tx.value or 0
+                    changed = True
                 continue
             # Unsealed leg. Claimed by its timestamp mark or by status alone
             # (the detector's claim channels). A claim without a timestamp
@@ -322,6 +328,7 @@ _FEE_PASS_RESULT_LABELS = (
     "dry_run",
     "deferred_custody",
     "deferred_unproven",
+    "deferred_change_pending",
     "deferred_pending",
     "deferred_grace",
     "deferred_backoff",
@@ -507,6 +514,7 @@ def fee_sweep_candidates(
         "no_lock": 0,
         "deferred_grace": 0,
         "deferred_unproven": 0,
+        "deferred_change_pending": 0,
     }
     ids = _floor_eligible_job_ids(session, min_height, after_job_id, max_jobs)
     if len(ids) < max_jobs and after_job_id:
@@ -564,8 +572,15 @@ def fee_sweep_candidates(
             lock_units=legs["lock_units"],
         )
         fee_bound = proof[1] if proof else None
-        if fee_bound is None or expected > fee_bound:
+        if fee_bound is None:
             stats["deferred_unproven"] += 1
+            continue
+        if expected > fee_bound:
+            # The proof holds but custody carries more than the withheld
+            # fee: the excess is owed change the change pass has not paid
+            # (or a legacy row it cannot prove). Provable, just not
+            # sweepable — "unproven" would alert on a healthy transient row.
+            stats["deferred_change_pending"] += 1
             continue
         candidates.append(_FeeSweepCandidate(job_id, expected, fee_bound))
         stats["candidates"] += 1
@@ -611,7 +626,15 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
                 )
                 for stale in [j for j in _pass_submit_failures if j not in eligible_ids]:
                     del _pass_submit_failures[stale]
-        for key in ("skipped_floor", "no_row", "no_lock", "no_residue", "deferred_grace", "deferred_unproven"):
+        for key in (
+            "skipped_floor",
+            "no_row",
+            "no_lock",
+            "no_residue",
+            "deferred_grace",
+            "deferred_unproven",
+            "deferred_change_pending",
+        ):
             stats[key] += sel[key]
         if not candidates:
             _count_fee_pass(stats)
@@ -828,8 +851,13 @@ def change_owed_candidates(
         # The commit is explicit: session_scope is a plain autocommit=False
         # session, so without it the mark rolls back at scope exit and the
         # row is re-found (and re-counted) every tick (A6b).
-        if legs["refund_tx_hash"] and row.refund_tx_hash != legs["refund_tx_hash"]:
-            row.refunded_amount = sum(legs["refund_values"])
+        refund_total = sum(legs["refund_values"])
+        if legs["refund_tx_hash"] and (row.refund_tx_hash != legs["refund_tx_hash"] or row.refunded_amount != refund_total):
+            # The mark-sweeper's own heal only writes refunded_at and the
+            # hash — a row it stamped keeps refunded_amount NULL and would
+            # re-enter this scan every cycle forever. Amount must equal the
+            # sealed sum before the row counts as marked.
+            row.refunded_amount = refund_total
             row.refund_tx_hash = legs["refund_tx_hash"]
             session.add(row)
             session.commit()
