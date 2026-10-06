@@ -264,6 +264,21 @@ def test_protected_bump_release_proves_exactly(session):
     assert stats["no_owed"] == 1
 
 
+def test_zero_fee_rate_proves(session):
+    """A7c: bps=0 is a legal signed quote — net equals billed, withheld is
+    zero, the recompute must not refuse it (owed = lock − billed stands)."""
+    _tx(session, "ESCROW_LOCK", "0xlock", LOCK)
+    _tx(session, "ESCROW_RELEASE", "0xrel", 18000)  # bps=0 → provider gets billed whole
+    _row(
+        session,
+        energy_fee_basis_points=0,
+        billed_legs=_billed_legs(JOB, billed=18000, tx_hash="0xrel"),
+    )
+    candidates, stats = _candidates(session)
+    assert len(candidates) == 1
+    assert candidates[0].owed_units == 18000  # 36000 − 18000
+
+
 def test_protected_billed_below_credit_refuses(session):
     """A7b: a protected billed below the signed credit is impossible — the
     route refuses that release outright (billable < target → 422), so the
@@ -482,6 +497,22 @@ def _mempool_pending(*txs: dict) -> list[dict]:
     for tx in txs:
         mp.add(dict(tx), CHAIN)
     return mp.get_pending_transactions(CHAIN)
+
+
+@pytest.mark.asyncio
+async def test_enabled_but_keyless_still_ticks(session, monkeypatch):
+    """A7c: an enabled pass without a settlement key must still emit its
+    tick heartbeat — otherwise it is invisible to the Stale alerts while
+    being unable to ever submit."""
+    from aitbc_chain.metrics import escrow_change_pass_total
+
+    monkeypatch.setenv("ESCROW_CHANGE_PASS_ENABLED", "1")
+    monkeypatch.setattr("aitbc_chain.rpc.escrow_routes._get_settlement_key", lambda: None)
+    monkeypatch.setattr("aitbc_chain.rpc.escrow_routes._get_settlement_address", lambda: None)
+    before = escrow_change_pass_total.labels(result="tick")._value.get()
+    stats = await ess._change_pass_once(NOW)
+    assert not any(stats.values())
+    assert escrow_change_pass_total.labels(result="tick")._value.get() == before + 1
 
 
 @pytest.mark.asyncio

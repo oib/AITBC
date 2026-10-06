@@ -764,6 +764,28 @@ async def test_release_leaves_change_leg_to_sweeper(release_key, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_release_rejects_sub_unit_amount(release_key, monkeypatch):
+    """A7c: an amount with sub-compute-unit precision can never have its
+    sealed leg agree with the recorded billed — refuse with 422 instead of
+    permanently wedging the row unproven."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    import contextlib
+
+    with contextlib.ExitStack() as stack:
+        for m in _release_drive_mocks(escrow_routes, unsealed=True):
+            stack.enter_context(m)
+        # 1.0000000001 units' worth of AIT — finer than one compute-unit
+        sub_unit = str(Decimal("1.0000000001") / Decimal(36000000))
+        with pytest.raises(HTTPException) as exc:
+            await escrow_routes.release_escrow("job-1", {"amount": sub_unit})
+        assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_release_records_billed_gross_per_submission(release_key, monkeypatch):
     """A7: the route persists the billed gross it consumed, keyed by the
     release leg's hash — the settlement passes prove the sealed leg by
