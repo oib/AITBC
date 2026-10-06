@@ -46,6 +46,7 @@ AUTHORITY_MESSAGES = (
     "requires a settlement authority",
     "requires a fee recipient",
     "must pay ",
+    "GOVERNANCE_EXECUTE rejected:",  # v12 authority-parameter value check — a missed mirror must fail the matrix
 )
 
 
@@ -179,6 +180,33 @@ def test_fee_sweep_fails_closed_when_authority_unset(door, session, monkeypatch)
         door("ESCROW_FEE_SWEEP", AUTHORITY, to=FEE_RECIPIENT)
 
 
+def test_v12_bad_authority_value_refused_at_admission(door, session, monkeypatch) -> None:
+    """v12: the door runs the same authority-parameter value check apply runs —
+    a malformed value is refused at intake instead of sitting in the mempool
+    until a proposer drops it."""
+    monkeypatch.setattr(settings, "state_transition_v12_height", 1)
+    _set(session, "governance_executors", EXECUTOR)
+    bad = {
+        "proposal_id": "p1",
+        "execution_payload": {
+            "action": "parameter_change",
+            "parameter": "escrow_settlement_authority",
+            "value": "0x" + "00" * 20,
+        },
+    }
+    with pytest.raises(ValueError, match="zero address"):
+        door("GOVERNANCE_EXECUTE", EXECUTOR, payload=bad)
+    good = {
+        "proposal_id": "p1",
+        "execution_payload": {
+            "action": "parameter_change",
+            "parameter": "escrow_settlement_authority",
+            "value": AUTHORITY,
+        },
+    }
+    door("GOVERNANCE_EXECUTE", EXECUTOR, payload=good)
+
+
 def test_other_types_are_not_authority_gated(door, session) -> None:
     _set(session, "governance_executors", EXECUTOR)
     _set(session, "escrow_settlement_authority", AUTHORITY)
@@ -211,11 +239,12 @@ def _signed(tx: dict[str, Any]) -> dict[str, Any]:
     return {**tx, "signature": sign_transaction_hash(digest, SENDER_KEY)}
 
 
-@pytest.mark.parametrize("block_version", [2, 3, 4, 5, 9, 11])
+@pytest.mark.parametrize("block_version", [2, 3, 4, 5, 9, 11, 12])
 @pytest.mark.parametrize("tx_type", sorted(AUTHORITY_GATED_TYPES))
 @pytest.mark.parametrize("parameter_state", ["unset", "names_sender", "names_other"])
+@pytest.mark.parametrize("gov_value", ["funded", "empty"])
 def test_helper_never_disagrees_with_validate_transaction(
-    session, monkeypatch, block_version, tx_type, parameter_state
+    session, monkeypatch, block_version, tx_type, parameter_state, gov_value
 ) -> None:
     """Admission may only refuse what apply refuses, with the same message, at every version and parameter state."""
     monkeypatch.setattr(settings, "escrow_settlement_authority", "")
@@ -244,9 +273,16 @@ def test_helper_never_disagrees_with_validate_transaction(
     session.commit()
     if tx_type == "GOVERNANCE_EXECUTE":
         recipient = SENDER
+        # governance_executors is an authority parameter, so at v12 the value
+        # check fires: "empty" must be refused identically on both paths, and
+        # "funded" (SENDER holds the fixture balance) passes them both.
         payload: dict[str, Any] = {
             "proposal_id": "p1",
-            "execution_payload": {"action": "parameter_change", "parameter": "x", "value": "1"},
+            "execution_payload": {
+                "action": "parameter_change",
+                "parameter": "governance_executors",
+                "value": SENDER if gov_value == "funded" else "",
+            },
         }
     else:
         recipient, payload = ("provider1" if tx_type == "ESCROW_RELEASE" else SENDER), {"job_id": "job1"}
@@ -264,9 +300,11 @@ def test_helper_never_disagrees_with_validate_transaction(
         }
     )
     ok, message = StateTransition().validate_transaction(
-        session, CHAIN, tx, f"tx-{block_version}-{tx_type}-{parameter_state}", block_version=block_version
+        session, CHAIN, tx, f"tx-{block_version}-{tx_type}-{parameter_state}-{gov_value}", block_version=block_version
     )
-    mine = sender_authority_error(session, CHAIN, tx_type, SENDER, block_version=block_version)
+    mine = sender_authority_error(
+        session, CHAIN, tx_type, SENDER, block_version=block_version, payload=payload, fee=DEFAULT_TX_FEE_UNITS
+    )
     if mine is not None:
         assert (ok, message) == (False, mine)
     else:
