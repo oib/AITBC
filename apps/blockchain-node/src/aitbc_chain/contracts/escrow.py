@@ -142,7 +142,10 @@ def recompute_release_proofs(
     """
     if not billed_legs or not release_legs or len(release_legs) > 1:
         return None
-    if not (0 < fee_bps < 10000):
+    # fee_bps == 0 is a legal signed quote (energy_pricing allows it): net
+    # equals billed and nothing is withheld. Only negative and >= 100% are
+    # not rates at all.
+    if not (0 <= fee_bps < 10000):
         return None
     by_hash = {
         e.get("tx_hash"): e.get("billed") for e in billed_legs if isinstance(e, dict) and isinstance(e.get("tx_hash"), str)
