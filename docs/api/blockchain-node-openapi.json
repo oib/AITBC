@@ -20702,7 +20702,7 @@
             }
           },
           "400": {
-            "description": "amount must be a decimal number / amount must be positive",
+            "description": "amount must be a decimal number / amount must be positive / amount is below one billable compute-unit",
             "content": {
               "application/json": {
                 "schema": {
