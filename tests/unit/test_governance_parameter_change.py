@@ -406,15 +406,17 @@ def test_executor_list_keeping_signer_passes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     key_path, account = _executor_key_file(tmp_path)
-    new_list = f"{account.address},{OTHER}"
+    added = Account.create()  # every added member needs a custody proof now
+    added_path = _write_key(tmp_path / "added.key", added)
+    new_list = f"{account.address},{added.address}"
     rpc = FakeRPC(
         params=_params(governance_executors=account.address),
-        nonces={account.address: 0},
+        nonces={account.address: 0, added.address: 0},
         landed={"governance_executors": new_list},
     )
     monkeypatch.setattr(tool, "_rpc_get", rpc.get)
     monkeypatch.setattr(tool, "_rpc_post", rpc.post)
-    _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list))
+    _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list, "--proof-key-file", added_path))
     assert len(rpc.posted) == 1
 
 
@@ -424,17 +426,27 @@ def test_executor_rotation_with_proof_key(
     key_path, signer = _executor_key_file(tmp_path)
     proof = Account.create()
     proof_path = _write_key(tmp_path / "new_executor.key", proof)
-    new_list = f"{proof.address},{OTHER}"  # signer dropped; proof key survives
+    second = Account.create()
+    second_path = _write_key(tmp_path / "second_executor.key", second)
+    new_list = f"{proof.address},{second.address}"  # signer dropped; both added members proven
     rpc = FakeRPC(
         params=_params(governance_executors=signer.address),
-        nonces={signer.address: 0, proof.address: 0},
+        nonces={signer.address: 0, proof.address: 0, second.address: 0},
         landed={"governance_executors": new_list},
     )
     monkeypatch.setattr(tool, "_rpc_get", rpc.get)
     monkeypatch.setattr(tool, "_rpc_post", rpc.post)
     _run(
         monkeypatch,
-        _submit_argv(key_path, "governance_executors", new_list, "--proof-key-file", proof_path),
+        _submit_argv(
+            key_path,
+            "governance_executors",
+            new_list,
+            "--proof-key-file",
+            proof_path,
+            "--proof-key-file",
+            second_path,
+        ),
     )
     assert len(rpc.posted) == 1
     assert proof.address in capsys.readouterr().out
@@ -453,6 +465,198 @@ def test_proof_key_not_in_new_list_refused(tmp_path: Path, monkeypatch: pytest.M
             _submit_argv(key_path, "governance_executors", f"{OTHER},{OLD_VALUE}", "--proof-key-file", proof_path),
         )
     assert rpc.posted == []
+
+
+def test_added_member_without_proof_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The signer staying in the list does not waive the rule: every added
+    member must be backed by a --proof-key-file."""
+    key_path, account = _executor_key_file(tmp_path)
+    new_list = f"{account.address},{OTHER}"
+    rpc = FakeRPC(params=_params(governance_executors=account.address), nonces={account.address: 0})
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list))
+    err = capsys.readouterr().err
+    assert OTHER in err
+    assert "--proof-key-file" in err
+    assert rpc.posted == []
+
+
+def test_added_member_with_proof_lands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    key_path, account = _executor_key_file(tmp_path)
+    added = Account.create()
+    added_path = _write_key(tmp_path / "added.key", added)
+    new_list = f"{account.address},{added.address}"
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 0, added.address: 0},
+        landed={"governance_executors": new_list},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list, "--proof-key-file", added_path))
+    assert len(rpc.posted) == 1
+    out = capsys.readouterr().out
+    assert added.address in out  # the proven-added-members line
+    assert "sealed at block 4242" in out
+
+
+def test_proof_key_outside_new_list_refused_when_signer_stays(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every --proof-key-file is validated against the new list — not only the
+    ones needed for a dropped signer."""
+    key_path, account = _executor_key_file(tmp_path)
+    added = Account.create()
+    added_path = _write_key(tmp_path / "added.key", added)
+    stray = Account.create()
+    stray_path = _write_key(tmp_path / "stray.key", stray)
+    new_list = f"{account.address},{added.address}"
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 0, added.address: 0},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(
+            monkeypatch,
+            _submit_argv(
+                key_path,
+                "governance_executors",
+                new_list,
+                "--proof-key-file",
+                added_path,
+                "--proof-key-file",
+                stray_path,
+            ),
+        )
+    assert stray.address in capsys.readouterr().err
+    assert rpc.posted == []
+
+
+def test_same_proof_key_twice_counts_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Repeating the same --proof-key-file proves the same address once."""
+    key_path, account = _executor_key_file(tmp_path)
+    added = Account.create()
+    added_path = _write_key(tmp_path / "added.key", added)
+    new_list = f"{account.address},{added.address}"
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 0, added.address: 0},
+        landed={"governance_executors": new_list},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    _run(
+        monkeypatch,
+        _submit_argv(
+            key_path,
+            "governance_executors",
+            new_list,
+            "--proof-key-file",
+            added_path,
+            "--proof-key-file",
+            added_path,
+        ),
+    )
+    assert len(rpc.posted) == 1
+
+
+def test_removed_member_needs_no_proof(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Shrinking the set keeps the signer and adds nobody — no proof flags."""
+    key_path, account = _executor_key_file(tmp_path)
+    member = OTHER
+    new_list = account.address  # current {signer, member} -> new {signer}
+    rpc = FakeRPC(
+        params=_params(governance_executors=f"{account.address},{member}"),
+        nonces={account.address: 0},
+        landed={"governance_executors": new_list},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list))
+    assert len(rpc.posted) == 1
+
+
+def test_dropped_signer_without_surviving_proof_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Shrinking to {member} while signing with the dropped key still refuses:
+    nothing was added, but the operator holds no surviving key."""
+    key_path, account = _executor_key_file(tmp_path)
+    member = OTHER
+    new_list = member  # current {signer, member} -> new {member}; signer dropped
+    rpc = FakeRPC(
+        params=_params(governance_executors=f"{account.address},{member}"),
+        nonces={account.address: 0},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list))
+    err = capsys.readouterr().err
+    assert "NOT in the new governance_executors list" in err
+    assert "--proof-key-file" in err
+    assert rpc.posted == []
+
+
+def test_two_added_members_only_one_proven_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    key_path, account = _executor_key_file(tmp_path)
+    proven_added = Account.create()
+    proven_path = _write_key(tmp_path / "proven.key", proven_added)
+    new_list = f"{account.address},{proven_added.address},{OTHER}"
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 0, proven_added.address: 0},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(
+            monkeypatch,
+            _submit_argv(key_path, "governance_executors", new_list, "--proof-key-file", proven_path),
+        )
+    err = capsys.readouterr().err
+    assert OTHER in err  # the unproven member is named …
+    assert proven_added.address not in err  # … not the proven one
+    assert rpc.posted == []
+
+
+def test_plan_lists_added_members_and_proof_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    signer = Account.create()
+    added = Account.create()
+    added_path = _write_key(tmp_path / "added.key", added)
+    new_list = f"{signer.address},{added.address},{OTHER}"
+    rpc = FakeRPC(params=_params(governance_executors=signer.address), nonces={signer.address: 0})
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    _run(
+        monkeypatch,
+        _argv(
+            "plan",
+            "--parameter",
+            "governance_executors",
+            "--value",
+            new_list,
+            "--proof-key-file",
+            added_path,
+        ),
+    )
+    captured = capsys.readouterr()
+    lines = captured.out.splitlines()
+    assert any(signer.address in line and "kept" in line for line in lines)
+    assert any(added.address in line and "proof provided" in line for line in lines)
+    assert any(OTHER in line and "proof REQUIRED" in line for line in lines)
+    assert "without a key custody proof" in captured.err
 
 
 def test_plan_warns_when_executor_dropped(
@@ -483,12 +687,14 @@ def test_refuses_underfunded_executor(
     assert rpc.posted == []
 
 
-def test_refuses_unfunded_proof_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_refuses_unfunded_proof_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """A surviving executor that cannot afford its own fee is not a survivor."""
     key_path, signer = _executor_key_file(tmp_path)
     proof = Account.create()
     proof_path = _write_key(tmp_path / "broke_executor.key", proof)
-    new_list = f"{proof.address},{OTHER}"
+    new_list = proof.address  # sole added member: custody proven, but it cannot pay a fee
     rpc = FakeRPC(
         params=_params(governance_executors=signer.address),
         nonces={signer.address: 0, proof.address: 0},
@@ -498,6 +704,9 @@ def test_refuses_unfunded_proof_key(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(tool, "_rpc_post", rpc.post)
     with pytest.raises(SystemExit):
         _run(monkeypatch, _submit_argv(key_path, "governance_executors", new_list, "--proof-key-file", proof_path))
+    err = capsys.readouterr().err
+    assert proof.address in err
+    assert "fund it first" in err
     assert rpc.posted == []
 
 

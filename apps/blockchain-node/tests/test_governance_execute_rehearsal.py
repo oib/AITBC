@@ -203,5 +203,71 @@ def test_chain_seals_executor_lockout_but_tool_refuses(session: Session) -> None
     assert locked is not None and executor not in locked.value
 
     elements = [e.strip() for e in new_list.split(",")]
-    assert tool._executor_lockout_reason(executor, elements, proof_address=None) is not None
-    assert tool._executor_lockout_reason(executor, elements, proof_address=survivors) is None
+    assert tool._executor_lockout_reason(executor, elements, proof_addresses=[]) is not None
+    assert tool._executor_lockout_reason(executor, elements, proof_addresses=[survivors]) is None
+
+
+NEW_MEMBER_KEY = "0x" + "67" * 32
+STRANGER_KEY = "0x" + "ab" * 32
+
+
+def _signed_executors_execute(executor: str, new_member: str) -> dict:
+    """The tool's envelope for ``governance_executors = <executor>,<new_member>``."""
+    tx = tool._build_tx(executor, CHAIN, 0, "rehearsal-rotate", "governance_executors", f"{executor},{new_member}")
+    tx["signature"] = tool.sign_transaction_data(tx, EXECUTOR_KEY)
+    return tx
+
+
+def _member_execute(member_key: str) -> dict:
+    member = derive_ethereum_address(member_key)
+    tx = tool._build_tx(member, CHAIN, 0, "rehearsal-member-1", "escrow_settlement_authority", NEW_AUTHORITY)
+    tx["signature"] = tool.sign_transaction_data(tx, member_key)
+    return tx
+
+
+def test_rotated_executor_set_admits_new_member_and_refuses_stranger(session: Session) -> None:
+    """A tool-built execute writing ``governance_executors = <executor>,
+    <new_member>`` takes effect at its own height: at the next height a
+    GOVERNANCE_EXECUTE signed by the new member's key applies (the membership
+    gate accepts it), while a funded non-member's is refused."""
+    executor, _ = _seed(session)
+    new_member = derive_ethereum_address(NEW_MEMBER_KEY)
+    stranger = derive_ethereum_address(STRANGER_KEY)
+    session.add(Account(chain_id=CHAIN, address=new_member, balance=10_000_000, nonce=0))
+    session.add(Account(chain_id=CHAIN, address=stranger, balance=10_000_000, nonce=0))
+    session.commit()
+
+    ok, msg = StateTransition().apply_transaction(
+        session,
+        CHAIN,
+        _signed_executors_execute(executor, new_member),
+        "rehearsal-rotate",
+        block_version=11,
+        block_height=EXECUTE_HEIGHT,
+    )
+    assert ok, msg
+
+    # The new member is a full executor from EXECUTE_HEIGHT onward — its own
+    # tool-shaped execute applies at the next height.
+    ok, msg = StateTransition().apply_transaction(
+        session,
+        CHAIN,
+        _member_execute(NEW_MEMBER_KEY),
+        "rehearsal-member-exec",
+        block_version=11,
+        block_height=NEXT_HEIGHT,
+    )
+    assert ok, msg
+    assert _chain_parameter_value(session, CHAIN, "escrow_settlement_authority", NEXT_HEIGHT) == NEW_AUTHORITY
+
+    # A funded non-member never reaches apply — the membership gate refuses it.
+    ok, msg = StateTransition().validate_transaction(
+        session,
+        CHAIN,
+        _member_execute(STRANGER_KEY),
+        "rehearsal-stranger-exec",
+        block_version=11,
+        block_height=NEXT_HEIGHT,
+    )
+    assert not ok
+    assert "not an authorized executor" in msg
