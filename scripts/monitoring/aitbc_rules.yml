@@ -314,7 +314,7 @@ groups:
           severity: warning
         annotations:
           summary: "Owed-change pass not ticking on {{ $labels.instance }}"
-          description: "blockchain_escrow_change_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so released escrows owing buyer change are not being settled. If ESCROW_CHANGE_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW change pass' errors."
+          description: "blockchain_escrow_change_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so released escrows owing buyer change are not being settled. The tick fires on every enabled pass run, including an enabled-but-keyless one, so this means a hung or crashing pass, not a missing settlement key. If ESCROW_CHANGE_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW change pass' errors."
 
       - alert: EscrowFeeSweepPassStale
         expr: sum by (instance) (rate(blockchain_escrow_fee_sweep_pass_total{result="tick"}[20m])) == 0
@@ -323,7 +323,7 @@ groups:
           severity: warning
         annotations:
           summary: "Fee-residue pass not ticking on {{ $labels.instance }}"
-          description: "blockchain_escrow_fee_sweep_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so settled fee residue is not being swept. If ESCROW_FEE_SWEEP_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW fee sweep' errors."
+          description: "blockchain_escrow_fee_sweep_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so settled fee residue is not being swept. The tick fires on every enabled pass run, including an enabled-but-keyless one, so this means a hung or crashing pass, not a missing settlement key. If ESCROW_FEE_SWEEP_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW fee sweep' errors."
 
       # Unproven growth: every tick recounts each row the proof cannot cover
       # (A7: no recorded billed, unpaired release leg, recompute mismatch),
