@@ -117,3 +117,22 @@ groups:
         annotations:
           summary: "Energy rate refresher has not run"
           description: "aitbc_native_energy_rate.prom is missing or older than 13h; the NativeEnergyRate* alerts are blind and the stored rate drifts toward the staleness window. Check aitbc-native-energy-rate-refresh.timer on hub."
+
+  - name: aitbc-escrow-gate
+    rules:
+      # EscrowSettlementRefusedOnHub: never-event. Hub holds the settlement
+      # key, so the A10/A11 signing gate must never refuse here -- a firing
+      # means the hub's RPC process lost its settlement key/address config
+      # (env regression, keystore removal, bad deploy) and every escrow
+      # settlement attempt is failing island-wide. The {node=""} selector
+      # matches only hub's own locally scraped series on this Prometheus;
+      # remote-written follower copies carry node=<host> and are covered by
+      # EscrowSettlementRefusedOnFollower in aitbc_rules.yml. Deployed on hub
+      # only, like the rest of this file.
+      - alert: EscrowSettlementRefusedOnHub
+        expr: increase(aitbc_escrow_settlement_refused_total{node=""}[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Escrow settlement gate refused on hub (op {{ $labels.op }})"
+          description: "Hub's own blockchain-rpc process refused an escrow {{ $labels.op }} for missing settlement-signing capability — hub is the settlement node and must always be able to sign, so its settlement key/address config is broken (env regression, missing keystore, unset ESCROW_* / settlement vars after a deploy). Every escrow create/refund/release is now 503ing island-wide. Check the aitbc-blockchain-rpc env file and settlement key material on hub, and any recent pulls."
