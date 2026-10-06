@@ -263,6 +263,36 @@ def _get_settlement_address() -> str | None:
     return configured
 
 
+def _settlement_signing_ready() -> bool:
+    """True when this node can sign settlement legs: a key resolves (the
+    dedicated ESCROW_RELEASE_PRIVATE_KEY or the genesis fallback) and the
+    derived address matches ESCROW_RELEASE_ADDRESS when one is configured."""
+    return bool(_get_settlement_key()) and _get_settlement_address() is not None
+
+
+def _require_settlement_signing(job_id: str, op: str) -> None:
+    """Refuse a settlement-capable escrow op on a node that cannot sign it.
+
+    A node without the settlement key can still accept and submit the buyer's
+    ESCROW_LOCK, yet can never serve the release or refund — every
+    settlement-shaped op must fail before money moves. The 503 names the
+    settlement node's RPC URL when the node knows it (HUB_RPC_URL), so a
+    wrong-routed caller can fix the routing instead of retrying here.
+    """
+    if _settlement_signing_ready():
+        return
+    _logger.error(
+        "%s: refusing job_id=%s - settlement key/address is missing or mismatched",
+        op,
+        job_id,
+    )
+    detail = "Settlement key/address is not configured correctly on this node"
+    hub_rpc = os.getenv("HUB_RPC_URL", "").strip().rstrip("/")
+    if hub_rpc:
+        detail += f"; the settlement node is at {hub_rpc}"
+    raise HTTPException(status_code=503, detail=detail)
+
+
 async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | None = None) -> str | None:
     """Stake a portion of released escrow for the provider without requiring a signature.
 
@@ -1032,6 +1062,13 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
 
+    # Settlement capability gates create: a node that cannot sign the release
+    # or refund would still accept and submit the buyer's ESCROW_LOCK, leaving
+    # the funds locked with no settlement path on this node. The release gate's
+    # own predicate runs here — before the idempotent lock probe, before any
+    # submission, before any row or contract is written.
+    _require_settlement_signing(job_id, "ESCROW_CREATE")
+
     # Idempotency: a retry whose first create already landed an ESCROW_LOCK
     # on-chain must not submit a second lock. Mirrors the
     # _find_existing_release/_find_existing_refund guards on the settlement
@@ -1383,7 +1420,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     # Settlement must be possible before any escrow state is mutated. A node whose
     # settlement key and address disagree cannot pay the provider, and releasing
     # first would leave the escrow marked paid with nothing on-chain.
-    if not _get_settlement_key() or not _get_settlement_address():
+    if not _settlement_signing_ready():
         _logger.error(
             "ESCROW_RELEASE: refusing to release job_id=%s - settlement key/address is missing or mismatched",
             job_id,
@@ -1745,6 +1782,10 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     mgr = get_escrow_manager()
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
+    # The refund leg is settlement-signed like the release: a keyless node
+    # cannot serve it, so it refuses before touching any state — the same gate
+    # create and release already carry.
+    _require_settlement_signing(job_id, "ESCROW_REFUND")
     # Reconciliation/duplicate refund handling: a refund is only final when the
     # same job_id has an ESCROW_REFUND transaction on-chain.
     record_refunded = False
