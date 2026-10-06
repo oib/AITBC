@@ -659,6 +659,27 @@ def test_plan_lists_added_members_and_proof_status(
     assert "without a key custody proof" in captured.err
 
 
+def test_plan_warns_on_out_of_list_proof_without_failing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An out-of-list proof in plan means a typo'd key file — warn, don't fail:
+    sign-submit is the gate, plan only reports."""
+    signer = Account.create()
+    unrelated = Account.create()
+    unrelated_path = _write_key(tmp_path / "unrelated.key", unrelated)
+    new_list = f"{signer.address},{OTHER}"
+    rpc = FakeRPC(params=_params(governance_executors=signer.address), nonces={signer.address: 0})
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    _run(
+        monkeypatch,
+        _argv("plan", "--parameter", "governance_executors", "--value", new_list, "--proof-key-file", unrelated_path),
+    )
+    captured = capsys.readouterr()
+    assert unrelated.address in captured.err
+    assert "not in the new executor list" in captured.err
+    assert any(OTHER in line and "proof REQUIRED" in line for line in captured.out.splitlines())
+
+
 def test_plan_warns_when_executor_dropped(
     fake: FakeRPC, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
