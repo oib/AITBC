@@ -106,6 +106,30 @@ class Milestone:
 DEFAULT_FEE_BPS = 250
 
 
+def expected_release_units(
+    billed_units: int,
+    *,
+    fee_bps: int,
+    protected: bool,
+    credit_units: int | None,
+) -> int:
+    """The release leg value the route signs, in whole compute-units (A7d).
+
+    Integer math only — the sealed leg must equal what
+    ``recompute_release_proofs`` derives from the recorded billed, so both
+    sides share this one function and neither goes through the 28-digit
+    Decimal AIT round-trip (which can cross an exact .5 rounding boundary).
+
+        net      = max(1, round_half_up(B · (10000 − bps) / 10000))
+        expected = max(net, credit_units)   # protected
+    """
+    net = int((Decimal(billed_units) * Decimal(10000 - fee_bps) / Decimal(10000)).to_integral_value(rounding=ROUND_HALF_UP))
+    expected = max(net, 1)
+    if protected and credit_units is not None:
+        expected = max(expected, credit_units)
+    return expected
+
+
 def recompute_release_proofs(
     release_legs: list[dict[str, Any]],
     billed_legs: list[dict[str, Any]] | None,
@@ -162,10 +186,7 @@ def recompute_release_proofs(
             return None
         if protected and (billed < (credit_units or 0) or billed < (net_floor_units or 0)):
             return None
-        net = int((Decimal(billed) * Decimal(10000 - fee_bps) / Decimal(10000)).to_integral_value(rounding=ROUND_HALF_UP))
-        expected = max(net, 1)
-        if protected and credit_units is not None:
-            expected = max(expected, credit_units)
+        expected = expected_release_units(billed, fee_bps=fee_bps, protected=protected, credit_units=credit_units)
         if value != expected:
             return None
         billed_total += billed
