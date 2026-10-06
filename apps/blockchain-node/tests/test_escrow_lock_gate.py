@@ -417,7 +417,7 @@ def test_settlement_refused_children_exist_at_zero_on_import():
             "import json; "
             "from aitbc_chain.metrics import escrow_settlement_refused_total as c; "
             "print(json.dumps({s.labels['op']: s.value for m in c.collect() "
-            "for s in m.samples if s.name == 'aitbc_escrow_settlement_refused_total'}))",
+            "for s in m.samples if s.name == 'blockchain_escrow_settlement_refused_total'}))",
         ],
         capture_output=True,
         text=True,

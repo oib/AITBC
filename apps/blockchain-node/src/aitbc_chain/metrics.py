@@ -214,7 +214,7 @@ escrow_change_pass_total = Counter(
 # Settlement-signing gate refusals (Task A10/A13): a wrong-routed escrow caller
 # otherwise surfaces only in node logs. Label op: create, refund, release.
 escrow_settlement_refused_total = Counter(
-    "aitbc_escrow_settlement_refused_total",
+    "blockchain_escrow_settlement_refused_total",
     "Escrow settlement ops refused because this node cannot sign settlement",
     ["op"],
 )

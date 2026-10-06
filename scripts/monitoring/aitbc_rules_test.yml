@@ -816,13 +816,13 @@ tests:
   # must stay silent. Steps at t=2m (hub, node0) and t=10m (aitbc3).
   - interval: 30s
     input_series:
-      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create"}'
+      - series: 'blockchain_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create"}'
         values: '0x3 1x80'
-      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create", node="node0"}'
+      - series: 'blockchain_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create", node="node0"}'
         values: '0x3 1x80'
-      - series: 'aitbc_escrow_settlement_refused_total{instance="127.0.0.1:8202", job="aitbc3-blockchain-rpc", op="refund", node="aitbc3"}'
+      - series: 'blockchain_escrow_settlement_refused_total{instance="127.0.0.1:8202", job="aitbc3-blockchain-rpc", op="refund", node="aitbc3"}'
         values: '0x19 1x60'
-      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="release", node="node1"}'
+      - series: 'blockchain_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="release", node="node1"}'
         values: '0x80'
       # Cold-start gap — the reason metrics.py pre-creates the op children at
       # 0: a counter that first appears at value 1 has no prior sample for
@@ -830,9 +830,9 @@ tests:
       # Both shapes are pinned here — hub-local (no node) and remote-written
       # follower (node=node9). If either ever fires the expression semantics
       # changed and the pre-init safety net must be revisited.
-      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create", node="node9"}'
+      - series: 'blockchain_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create", node="node9"}'
         values: '1x80'
-      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="refund"}'
+      - series: 'blockchain_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="refund"}'
         values: '1x80'
     alert_rule_test:
       # Before any step: neither alert.
