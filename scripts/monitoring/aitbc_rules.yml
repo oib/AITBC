@@ -388,6 +388,33 @@ groups:
           summary: "Fee-residue pass submissions failing on {{ $labels.instance }}"
           description: "The fee-residue pass has been erroring for over thirty minutes on {{ $labels.instance }} — sweeps are being attempted and failing (per-job exponential backoff applies). Check the node logs for 'ESCROW fee sweep' and proposer RPC reachability."
 
+      # EscrowSettlementRefusedOnFollower: the A10/A11 settlement-signing gate
+      # refuses escrow create/refund/release with HTTP 503 on a node that
+      # cannot sign settlement. On a follower that refusal is the intended
+      # fail-closed behaviour, so this alert is informational: some caller is
+      # still routing settlement-bound escrow requests at a node that cannot
+      # sign them (the 503 detail names the settlement hub; the CLI prints it
+      # verbatim since A12). It keeps alerting until the mis-routed caller is
+      # repointed or stops.
+      #
+      # The {node!=""} selector scopes the alert to follower series. On hub's
+      # central Prometheus remote-written copies carry node=<host>, while
+      # hub's own locally scraped series have no node label and are covered
+      # by EscrowSettlementRefusedOnHub (aitbc_hub_rules.yml) instead. node2's
+      # blockchain jobs carry a target-level node="aitbc3" label, so its local
+      # Prometheus fires this alert too; the other followers only alert via
+      # their remote-written copies on hub. The 15m increase window means the
+      # alert lingers ~15m after the last refusal — it reports "a refusal was
+      # seen recently", not "still refusing right now".
+      - alert: EscrowSettlementRefusedOnFollower
+        expr: increase(aitbc_escrow_settlement_refused_total{node!=""}[15m]) > 0
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Escrow settlement refused on follower {{ $labels.node }} (op {{ $labels.op }})"
+          description: "The settlement-signing gate on {{ $labels.node }} refused an escrow {{ $labels.op }} within the last 15m — intended fail-closed behaviour on a follower, so a caller is still directing settlement-bound escrow calls at a node that cannot sign them. The 503 detail names the settlement hub endpoint; repoint the caller there, or check for a stale script/config still targeting {{ $labels.instance }}."
+
   - name: aitbc-systemd-units
     rules:
       - alert: AitbcSystemdUnitFailed

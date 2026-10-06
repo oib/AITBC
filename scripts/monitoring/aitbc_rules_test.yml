@@ -807,3 +807,107 @@ tests:
       - eval_time: 30m
         alertname: EscrowFeeSweepChangePending
         exp_alerts: []
+
+  # EscrowSettlementRefusedOnFollower / EscrowSettlementRefusedOnHub: the
+  # A13 refusal counter split by the node="" convention. The hub-local
+  # series (no node label) must only fire the hub never-event; remote-written
+  # follower copies (node=<host>) and node2's target-level node="aitbc3" must
+  # only fire the follower info alert. A follower whose counter never moves
+  # must stay silent. Steps at t=2m (hub, node0) and t=10m (aitbc3).
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create"}'
+        values: '0x3 1x80'
+      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create", node="node0"}'
+        values: '0x3 1x80'
+      - series: 'aitbc_escrow_settlement_refused_total{instance="127.0.0.1:8202", job="aitbc3-blockchain-rpc", op="refund", node="aitbc3"}'
+        values: '0x19 1x60'
+      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="release", node="node1"}'
+        values: '0x80'
+    alert_rule_test:
+      # Before any step: neither alert.
+      - eval_time: 1m
+        alertname: EscrowSettlementRefusedOnFollower
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: EscrowSettlementRefusedOnHub
+        exp_alerts: []
+      # t=4m: hub's series stepped at 2m and the never-event has no for ->
+      # firing. The follower alert is still pending (for: 5m) despite node0's
+      # step at the same time.
+      - eval_time: 4m
+        alertname: EscrowSettlementRefusedOnHub
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: localhost:8202
+              job: blockchain-rpc
+              op: create
+            exp_annotations:
+              summary: "Escrow settlement gate refused on hub (op create)"
+              description: "Hub's own blockchain-rpc process refused an escrow create for missing settlement-signing capability — hub is the settlement node and must always be able to sign, so its settlement key/address config is broken (env regression, missing keystore, unset ESCROW_* / settlement vars after a deploy). Every escrow create/refund/release is now 503ing island-wide. Check the aitbc-blockchain-rpc env file and settlement key material on hub, and any recent pulls."
+      - eval_time: 4m
+        alertname: EscrowSettlementRefusedOnFollower
+        exp_alerts: []
+      # t=8m: node0's refusal has been visible 6m — follower alert fires with
+      # the node label identifying the mis-routed target.
+      - eval_time: 8m
+        alertname: EscrowSettlementRefusedOnFollower
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              instance: localhost:8202
+              job: blockchain-rpc
+              op: create
+              node: node0
+            exp_annotations:
+              summary: "Escrow settlement refused on follower node0 (op create)"
+              description: "The settlement-signing gate on node0 refused an escrow create within the last 15m — intended fail-closed behaviour on a follower, so a caller is still directing settlement-bound escrow calls at a node that cannot sign them. The 503 detail names the settlement hub endpoint; repoint the caller there, or check for a stale script/config still targeting localhost:8202."
+      # t=16m: aitbc3's step at 10m has been pending >5m — both follower
+      # series fire (node0 still inside its 15m window, aitbc3 newly firing).
+      # The quiet node1 release series never appears.
+      - eval_time: 16m
+        alertname: EscrowSettlementRefusedOnFollower
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              instance: localhost:8202
+              job: blockchain-rpc
+              op: create
+              node: node0
+            exp_annotations:
+              summary: "Escrow settlement refused on follower node0 (op create)"
+              description: "The settlement-signing gate on node0 refused an escrow create within the last 15m — intended fail-closed behaviour on a follower, so a caller is still directing settlement-bound escrow calls at a node that cannot sign them. The 503 detail names the settlement hub endpoint; repoint the caller there, or check for a stale script/config still targeting localhost:8202."
+          - exp_labels:
+              severity: info
+              instance: 127.0.0.1:8202
+              job: aitbc3-blockchain-rpc
+              op: refund
+              node: aitbc3
+            exp_annotations:
+              summary: "Escrow settlement refused on follower aitbc3 (op refund)"
+              description: "The settlement-signing gate on aitbc3 refused an escrow refund within the last 15m — intended fail-closed behaviour on a follower, so a caller is still directing settlement-bound escrow calls at a node that cannot sign them. The 503 detail names the settlement hub endpoint; repoint the caller there, or check for a stale script/config still targeting 127.0.0.1:8202."
+      # t=18m: the hub/node0 steps aged out of the 15m increase window — hub
+      # resolved; the follower alert still shows only aitbc3 (fires to ~25m).
+      - eval_time: 18m
+        alertname: EscrowSettlementRefusedOnHub
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: EscrowSettlementRefusedOnFollower
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              instance: 127.0.0.1:8202
+              job: aitbc3-blockchain-rpc
+              op: refund
+              node: aitbc3
+            exp_annotations:
+              summary: "Escrow settlement refused on follower aitbc3 (op refund)"
+              description: "The settlement-signing gate on aitbc3 refused an escrow refund within the last 15m — intended fail-closed behaviour on a follower, so a caller is still directing settlement-bound escrow calls at a node that cannot sign them. The 503 detail names the settlement hub endpoint; repoint the caller there, or check for a stale script/config still targeting 127.0.0.1:8202."
+      # t=26m: every step is outside its window — both alerts resolved.
+      - eval_time: 26m
+        alertname: EscrowSettlementRefusedOnFollower
+        exp_alerts: []
+      - eval_time: 26m
+        alertname: EscrowSettlementRefusedOnHub
+        exp_alerts: []
