@@ -31,6 +31,9 @@ NODE_WALLET = "0xADC923a0928B8415E666206D3703a870C1d578CE"
 JOB_ID = "job-orphan"
 CHAIN_ID = "test-chain"
 
+# Deterministic, valid secp256k1 test key (same as test_escrow_routes.py).
+SETTLEMENT_KEY = "0x2222222222222222222222222222222222222222222222222222222222222222"
+
 
 @pytest.fixture
 def mgr() -> EscrowManager:
@@ -42,6 +45,10 @@ def patched(monkeypatch, engine, mgr) -> EscrowManager:
     """Point the route at a fresh manager and the in-memory chain DB, with no lock on-chain."""
     monkeypatch.setattr(escrow_routes, "_NODE_WALLET", NODE_WALLET)
     monkeypatch.setattr(escrow_routes, "_CHAIN_ID", CHAIN_ID)
+    # Keyed like a settlement node: the create guard refuses on keyless nodes.
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", SETTLEMENT_KEY)
+    monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_ADDRESS", "")
     monkeypatch.setattr(escrow_routes, "get_escrow_manager", lambda: mgr)
     monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value=None))
 
@@ -149,3 +156,68 @@ async def test_retry_clears_residue_left_by_a_failed_create(patched, engine, mon
         assert row is not None
         assert row.status == "locked"
         assert row.lock_tx_hash == "0xlockhash"
+
+
+async def test_keyless_node_refuses_create_before_money_moves(patched, engine, monkeypatch):
+    """A node that cannot sign settlement must not take the buyer's lock.
+
+    The guard sits before the idempotent existing-lock probe: nothing is
+    submitted, no Escrow row is written, no in-memory contract is created.
+    """
+    mgr = patched
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", "")
+    monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
+    submit = AsyncMock(return_value="0xlockhash")
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(_lock_body())
+
+    assert exc_info.value.status_code == 503
+    assert escrow_routes._find_existing_lock.await_count == 0  # gate precedes the probe
+    assert submit.await_count == 0
+    assert not any(c.job_id == JOB_ID for c in mgr.escrow_contracts.values())
+    with Session(engine) as session:
+        assert session.get(Escrow, JOB_ID) is None
+
+
+async def test_create_503_detail_names_hub_url_when_configured(patched, monkeypatch):
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", "")
+    monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
+    monkeypatch.setenv("HUB_RPC_URL", "https://hub.example.net")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(_lock_body())
+
+    assert exc_info.value.status_code == 503
+    assert "https://hub.example.net" in exc_info.value.detail
+
+
+async def test_create_503_detail_omits_hub_url_when_unset(patched, monkeypatch):
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", "")
+    monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
+    monkeypatch.delenv("HUB_RPC_URL", raising=False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(_lock_body())
+
+    assert exc_info.value.status_code == 503
+    assert "http" not in exc_info.value.detail
+
+
+async def test_mismatched_settlement_address_refuses_create(patched, monkeypatch):
+    """Key present but disagreeing with ESCROW_RELEASE_ADDRESS is unkeyed for
+    settlement purposes — same refusal, still before any submission."""
+    monkeypatch.setattr(
+        escrow_routes,
+        "_ESCROW_RELEASE_ADDRESS",
+        "0x000000000000000000000000000000000000dEaD",
+    )
+    submit = AsyncMock(return_value="0xlockhash")
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(_lock_body())
+
+    assert exc_info.value.status_code == 503
+    assert submit.await_count == 0
