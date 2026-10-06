@@ -130,7 +130,7 @@ groups:
       # EscrowSettlementRefusedOnFollower in aitbc_rules.yml. Deployed on hub
       # only, like the rest of this file.
       - alert: EscrowSettlementRefusedOnHub
-        expr: increase(aitbc_escrow_settlement_refused_total{node=""}[15m]) > 0
+        expr: increase(blockchain_escrow_settlement_refused_total{node=""}[15m]) > 0
         labels:
           severity: critical
         annotations:

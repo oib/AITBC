@@ -407,7 +407,7 @@ groups:
       # alert lingers ~15m after the last refusal — it reports "a refusal was
       # seen recently", not "still refusing right now".
       - alert: EscrowSettlementRefusedOnFollower
-        expr: increase(aitbc_escrow_settlement_refused_total{node!=""}[15m]) > 0
+        expr: increase(blockchain_escrow_settlement_refused_total{node!=""}[15m]) > 0
         for: 5m
         labels:
           severity: info
