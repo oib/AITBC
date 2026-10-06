@@ -11,7 +11,8 @@ whose key lives only on the operator workstation. This tool is the offline-key
 path:
 
     plan         Read the parameter from the chain, print the unsigned
-                 transaction and its signing digest. Needs no key.
+                 transaction and its signing digest. Needs no signing key;
+                 --proof-key-file files are read to report custody status.
     sign-submit  Sign with the key from --key-file (never argv, never
                  printed), POST to the node's /rpc/transaction, wait for the
                  seal, and read the parameter back. Requires --confirm and
@@ -213,23 +214,33 @@ def _wait_confirmed(rpc_url: str, tx_hash: str, chain_id: str, timeout_s: int, i
     return None
 
 
-def _proof_addresses(proof_files: list[str], target_elements: list[str]) -> list[str]:
+def _proof_addresses(
+    proof_files: list[str], target_elements: list[str], *, strict: bool = True
+) -> tuple[list[str], list[str]]:
     """The executor addresses the ``--proof-key-file`` keys prove custody of.
 
     Each file's key derives to one address, and that address must be a member
     of the new executor list — proving a key outside it demonstrates custody
     of nothing the change keeps. Deduped by lowercased address: the same key
-    passed twice still counts once. Returns deduped addresses in first-seen
-    order (original spelling); addresses and file paths only, never keys.
+    passed twice still counts once. Returns ``(proven, invalid)``: deduped
+    member addresses in first-seen order (original spelling) plus one message
+    per out-of-list proof. ``strict=False`` collects those messages instead of
+    failing — plan reports them as warnings; sign-submit leaves the default.
+    Addresses and file paths only, never keys.
     """
     new_set = {e.lower() for e in target_elements}
     proven: dict[str, str] = {}
+    invalid: list[str] = []
     for path in proof_files:
         address = _executor_address(_read_key_file(path))
         if address.lower() not in new_set:
-            _fail(f"proof key file {path} derives to {address}, which is not in the new executor list — refusing")
+            message = f"proof key file {path} derives to {address}, which is not in the new executor list"
+            if strict:
+                _fail(message + " — refusing")
+            invalid.append(message)
+            continue
         proven.setdefault(address.lower(), address)
-    return list(proven.values())
+    return list(proven.values()), invalid
 
 
 def _executor_lockout_reason(executor: str, target_elements: list[str], proof_addresses: list[str]) -> str | None:
@@ -285,7 +296,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
     proven: set[str] = set()
     if args.parameter == "governance_executors":
-        proven = {a.lower() for a in _proof_addresses(args.proof_key_file, target_elements)}
+        proven_list, invalid_proofs = _proof_addresses(args.proof_key_file, target_elements, strict=False)
+        proven = {a.lower() for a in proven_list}
+        for message in invalid_proofs:
+            print(f"warning: {message} — it proves nothing this change keeps", file=sys.stderr)
 
     nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
@@ -361,7 +375,7 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     # is left to ever sign a GOVERNANCE_EXECUTE again.
     if args.parameter == "governance_executors":
         new_set = {e.lower() for e in target_elements}
-        proven = _proof_addresses(args.proof_key_file, target_elements)
+        proven, _ = _proof_addresses(args.proof_key_file, target_elements)
         proven_set = {a.lower() for a in proven}
         added = [e for e in target_elements if e.lower() not in executors]
         unproven = [e for e in added if e.lower() not in proven_set]
@@ -443,7 +457,7 @@ def main() -> int:
             ),
         )
 
-    plan = sub.add_parser("plan", help="Show the change and the unsigned transaction digest (no key)")
+    plan = sub.add_parser("plan", help="Show the change and the unsigned transaction digest (no signing key)")
     add_common(plan)
     plan.set_defaults(func=cmd_plan)
 
