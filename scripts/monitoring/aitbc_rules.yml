@@ -351,6 +351,20 @@ groups:
           summary: "Unprovable fee residue accumulating on {{ $labels.instance }}"
           description: "The fee-residue pass keeps deferring settled escrows whose residue exceeds the provable fee bound — either owed buyer change is still in custody or the row carries an off-rule release shape. The residue is not treasury money until proven; triage per docs/ops/escrow-settlement-ops.md."
 
+      # deferred_change_pending is a PROVABLE row whose custody still carries
+      # owed buyer change — the fee pass correctly refuses to sweep. Expected
+      # for roughly one change-pass cycle (the first live metered settle sat
+      # here ~6 minutes); sustained increments mean the change pass is off or
+      # in dry-run, or the row's billed record blocks the refund.
+      - alert: EscrowFeeSweepChangePending
+        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_change_pending"}[30m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Provable escrow residue blocked on unpaid change on {{ $labels.instance }}"
+          description: "The fee-residue pass keeps seeing a provable escrow whose residue exceeds the provable fee bound because owed buyer change is still in custody — it must not sweep until the change pass pays out. Check the change pass flags (ESCROW_CHANGE_PASS_ENABLED / ESCROW_CHANGE_PASS_DRY_RUN) and the row's billed_legs; triage per docs/ops/escrow-settlement-ops.md."
+
       # Errors: a failed submission backs off exponentially but keeps the row
       # eligible; sustained error increments mean the pass is failing to
       # settle for real (RPC unreachable, signing failure) rather than
