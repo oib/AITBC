@@ -19,6 +19,7 @@ from sqlmodel import Session
 
 import aitbc_chain.rpc.escrow_routes as escrow_routes
 from aitbc_chain.contracts.escrow import EscrowManager, EscrowState
+from aitbc_chain.metrics import escrow_settlement_refused_total
 from aitbc_chain.models import Account, Escrow
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import ait_to_units
@@ -203,6 +204,29 @@ async def test_create_503_detail_omits_hub_url_when_unset(patched, monkeypatch):
 
     assert exc_info.value.status_code == 503
     assert "http" not in exc_info.value.detail
+
+
+async def test_create_refusal_increments_settlement_refused_counter(patched, engine, monkeypatch):
+    """Each refused create counts once under op="create"; a keyed create does not count."""
+    mgr = patched
+    child = escrow_settlement_refused_total.labels(op="create")
+    before = child._value.get()
+
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", "")
+    submit = AsyncMock(return_value="0xlockhash")
+    monkeypatch.setattr(escrow_routes, "_submit_lock_tx", submit)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await escrow_routes.create_escrow(_lock_body())
+    assert exc_info.value.status_code == 503
+    assert child._value.get() == before + 1
+
+    # Keyed again: a successful create must not move the refusal counter.
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", SETTLEMENT_KEY)
+    result = await escrow_routes.create_escrow(_lock_body())
+    assert result["success"] is True
+    assert mgr.escrow_contracts
+    assert child._value.get() == before + 1
 
 
 async def test_mismatched_settlement_address_refuses_create(patched, monkeypatch):
