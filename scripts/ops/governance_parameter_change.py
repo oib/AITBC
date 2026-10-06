@@ -16,6 +16,10 @@ path:
                  printed), POST to the node's /rpc/transaction, wait for the
                  seal, and read the parameter back. Requires --confirm and
                  refuses when the current value already equals the target.
+                 For governance_executors it also refuses unless every member
+                 the new list adds is proven by a --proof-key-file (repeatable)
+                 deriving to it, and a dropped signing key leaves at least one
+                 proven survivor.
 
 Submissions go to whatever --rpc-url names — the transaction-intake endpoint is
 unauthenticated (the sender signature is the credential). The envelope matches
@@ -209,22 +213,40 @@ def _wait_confirmed(rpc_url: str, tx_hash: str, chain_id: str, timeout_s: int, i
     return None
 
 
-def _executor_lockout_reason(executor: str, target_elements: list[str], proof_address: str | None) -> str | None:
+def _proof_addresses(proof_files: list[str], target_elements: list[str]) -> list[str]:
+    """The executor addresses the ``--proof-key-file`` keys prove custody of.
+
+    Each file's key derives to one address, and that address must be a member
+    of the new executor list — proving a key outside it demonstrates custody
+    of nothing the change keeps. Deduped by lowercased address: the same key
+    passed twice still counts once. Returns deduped addresses in first-seen
+    order (original spelling); addresses and file paths only, never keys.
+    """
+    new_set = {e.lower() for e in target_elements}
+    proven: dict[str, str] = {}
+    for path in proof_files:
+        address = _executor_address(_read_key_file(path))
+        if address.lower() not in new_set:
+            _fail(f"proof key file {path} derives to {address}, which is not in the new executor list — refusing")
+        proven.setdefault(address.lower(), address)
+    return list(proven.values())
+
+
+def _executor_lockout_reason(executor: str, target_elements: list[str], proof_addresses: list[str]) -> str | None:
     """Why a governance_executors change would permanently lock out every
     executor — or None when the signer survives or custody of a listed survivor
-    is proven. A dropped signer without a surviving-key proof means no key can
-    ever sign a GOVERNANCE_EXECUTE again; the only exit is consensus surgery."""
-    new_set = {e.lower() for e in target_elements}
-    if executor.lower() in new_set:
+    is proven. ``proof_addresses`` are new-list members already proven via
+    --proof-key-file (validated by _proof_addresses); a dropped signer without
+    one leaves the operator holding no key able to ever sign a
+    GOVERNANCE_EXECUTE again — the only exit is consensus surgery."""
+    if executor.lower() in {e.lower() for e in target_elements}:
         return None
-    if proof_address is None:
+    if not proof_addresses:
         return (
             f"the signing key {executor} is NOT in the new governance_executors list — "
             "accepting it would lock every executor out permanently. Pass "
             "--proof-key-file for one of the listed addresses to prove custody of a surviving key."
         )
-    if proof_address.lower() not in new_set:
-        return f"proof key derives to {proof_address}, which is not in the new executor list either — refusing"
     return None
 
 
@@ -261,6 +283,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
+    proven: set[str] = set()
+    if args.parameter == "governance_executors":
+        proven = {a.lower() for a in _proof_addresses(args.proof_key_file, target_elements)}
+
     nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
     tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, args.value)
@@ -269,6 +295,24 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print(f"parameter:  {args.parameter}")
     print(f"current:    {current if current is not None else '(unset)'}")
     print(f"target:     {args.value}")
+    if args.parameter == "governance_executors":
+        current_set = {e.strip().lower() for e in (current or "").split(",") if e.strip()}
+        unproven: list[str] = []
+        for element in target_elements:
+            if element.lower() in current_set:
+                mark = "kept"
+            elif element.lower() in proven:
+                mark = "added — proof provided"
+            else:
+                mark = "added — proof REQUIRED"
+                unproven.append(element)
+            print(f"  member:   {element}  {mark}")
+        if unproven:
+            print(
+                f"warning: added member(s) without a key custody proof: {', '.join(unproven)} — "
+                "sign-submit refuses until every added member has a --proof-key-file",
+                file=sys.stderr,
+            )
     print(f"executor:   {executor}  (nonce {nonce}, balance {balance} units at read time — re-fetched on sign-submit)")
     if balance < REQUIRED_BALANCE_UNITS:
         print(
@@ -310,25 +354,34 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
     _check_fee_balance("executor", executor, balance)
 
-    # Lock-out guard: a governance_executors change that drops every key the
-    # operator holds freezes all parameters forever — no signed executor is
-    # left to ever write one. Refuse unless the signing key survives, or
-    # --proof-key-file demonstrates custody of a listed survivor.
+    # Custody guard for governance_executors: every member the new list adds
+    # must come with a --proof-key-file deriving to it — the chain only gates
+    # on a listed address, so an unproven entry could be a key nobody holds.
+    # And a dropped signer must leave a proven survivor behind, or no held key
+    # is left to ever sign a GOVERNANCE_EXECUTE again.
     if args.parameter == "governance_executors":
         new_set = {e.lower() for e in target_elements}
+        proven = _proof_addresses(args.proof_key_file, target_elements)
+        proven_set = {a.lower() for a in proven}
+        added = [e for e in target_elements if e.lower() not in executors]
+        unproven = [e for e in added if e.lower() not in proven_set]
+        if unproven:
+            _fail(
+                f"new governance_executors member(s) without a key custody proof: {', '.join(unproven)} — "
+                "pass --proof-key-file for every added address"
+            )
+        reason = _executor_lockout_reason(executor, target_elements, proven)
+        if reason is not None:
+            _fail(reason)
+        for address in proven:
+            _check_fee_balance("executor member", address, _fetch_account(args.rpc_url, chain_id, address)[1])
         if executor.lower() not in new_set:
-            proof_address = None
-            if args.proof_key_file:
-                proof_address = _executor_address(_read_key_file(args.proof_key_file))
-            reason = _executor_lockout_reason(executor, target_elements, proof_address)
-            if reason is not None:
-                _fail(reason)
-            assert proof_address is not None
-            _check_fee_balance("surviving executor", proof_address, _fetch_account(args.rpc_url, chain_id, proof_address)[1])
             print(
                 f"executor rotation: signing key {executor} leaves the set; "
-                f"custody of surviving executor {proof_address} proven by --proof-key-file"
+                f"custody of surviving executor {', '.join(proven)} proven by --proof-key-file"
             )
+        if added:
+            print(f"new executor members with custody proven by --proof-key-file: {', '.join(added)}")
 
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
     tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, args.value)
@@ -378,6 +431,17 @@ def main() -> int:
         p.add_argument("--value", required=True, help="New value (0x address; comma-separated list for governance_executors)")
         p.add_argument("--executor", default=None, help="Executor address (default: the single on-chain executor)")
         p.add_argument("--proposal-id", default=None, help="Proposal label (default: manual-<parameter>-<date>)")
+        p.add_argument(
+            "--proof-key-file",
+            action="append",
+            default=[],
+            metavar="PATH",
+            help=(
+                "Key file proving custody of a governance_executors member — repeat once per address the new "
+                "list adds. sign-submit refuses unless every added member is proven, and a signing key dropped "
+                "from the list additionally needs a proven survivor. On plan it only affects the member report."
+            ),
+        )
 
     plan = sub.add_parser("plan", help="Show the change and the unsigned transaction digest (no key)")
     add_common(plan)
@@ -386,11 +450,6 @@ def main() -> int:
     submit = sub.add_parser("sign-submit", help="Sign with --key-file and submit")
     add_common(submit)
     submit.add_argument("--key-file", required=True, help="File containing the executor's raw-hex private key (mode 600)")
-    submit.add_argument(
-        "--proof-key-file",
-        default=None,
-        help="Second key file proving custody of a surviving executor — required when the signing key is dropped from a new governance_executors list",
-    )
     submit.add_argument("--confirm", action="store_true", help="Required — refuse without it")
     submit.add_argument("--timeout", type=int, default=240, help="Seconds to wait for the seal (default 240)")
     submit.set_defaults(func=cmd_sign_submit)
