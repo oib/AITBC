@@ -387,6 +387,46 @@ async def test_release_refusal_increments_settlement_refused_counter(monkeypatch
     assert child._value.get() == before + 1
 
 
+def test_settlement_refused_children_exist_at_zero_on_import():
+    """All three op children must exist at 0 straight after metrics import.
+
+    increase() cannot see a counter child that first appears at value 1 —
+    Prometheus needs a prior sample to diff against — so a lazily created
+    child hides the FIRST refusal from the EscrowSettlementRefusedOn* alerts
+    entirely. metrics.py pre-creates the children at import; verify that in
+    a fresh interpreter so increments by earlier tests in this session
+    cannot mask a regression.
+    """
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    import aitbc_chain
+
+    # pytest resolves aitbc_chain via the ini `pythonpath` option, which
+    # mutates this process's sys.path only — export the same src dir to the
+    # child via PYTHONPATH so it can import the module at all.
+    src_dir = Path(aitbc_chain.__file__).resolve().parent.parent
+    env = {**os.environ, "PYTHONPATH": f"{src_dir}{os.pathsep}{os.environ.get('PYTHONPATH', '')}"}
+    out = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; "
+            "from aitbc_chain.metrics import escrow_settlement_refused_total as c; "
+            "print(json.dumps({s.labels['op']: s.value for m in c.collect() "
+            "for s in m.samples if s.name == 'aitbc_escrow_settlement_refused_total'}))",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
+    )
+    assert json.loads(out.stdout) == {"create": 0.0, "refund": 0.0, "release": 0.0}
+
+
 @pytest.mark.asyncio
 async def test_already_released_row_short_circuits_before_the_gate(monkeypatch):
     """The stored-hash short-circuit still runs first — the gate is never reached.
