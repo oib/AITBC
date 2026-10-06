@@ -1,10 +1,14 @@
 """Safe local integration tests for market and escrow commands."""
 
+import json
 import os
 from types import SimpleNamespace
 
 import pytest
+import requests
 from click.testing import CliRunner
+
+from aitbc.exceptions import NetworkError
 
 os.environ["AITBC_SKIP_ENV_FILES"] = "1"
 
@@ -16,6 +20,7 @@ def mock_market_config(monkeypatch):
     """Patch get_config for local endpoints and a known hub proposer."""
     config = SimpleNamespace(
         market_service_url="http://127.0.0.1:8102",
+        coordinator_api_url="http://127.0.0.1:8203",
         blockchain_rpc_url="http://127.0.0.1:8202",
         exchange_service_url="http://127.0.0.1:8106",
         hub_discovery_url="",
@@ -96,3 +101,87 @@ def test_market_escrow_create_posts_to_local_blockchain(mock_market_config, mock
     payload = kwargs["json"]
     assert payload["job_id"] == "job-1"
     assert payload["amount"] == "2.5"
+
+
+def _refusing_client_cls(detail: str):
+    """AITBCHTTPClient stand-in whose POSTs fail with a 503 carrying ``detail``.
+
+    Mirrors the production chain: requests.HTTPError (with ``.response``)
+    wrapped in NetworkError via ``raise ... from``.
+    """
+
+    class RefusingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get(self, path, **kwargs):
+            return {"supported_chains": ["ait-testchain.local"]}
+
+        def post(self, path, **kwargs):
+            response = requests.Response()
+            response.status_code = 503
+            response._content = json.dumps({"detail": detail}).encode()
+            try:
+                raise requests.HTTPError("503 Server Error", response=response)
+            except requests.HTTPError as e:
+                raise NetworkError(f"POST request failed: {e}") from e
+
+    return RefusingClient
+
+
+_REFUSAL_DETAIL = (
+    "this node cannot sign escrow settlement transactions; "
+    "the settlement node is at http://hub.aitbc.invalid"
+)
+
+
+def test_market_escrow_create_503_shows_detail(mock_market_config, monkeypatch):
+    """A settlement-gate 503 surfaces the node's detail and exits non-zero."""
+    monkeypatch.setattr(
+        "aitbc_cli.commands.market.escrow.AITBCHTTPClient",
+        _refusing_client_cls(_REFUSAL_DETAIL),
+    )
+    monkeypatch.setattr(
+        "aitbc_cli.utils.escrow.AITBCHTTPClient",
+        _refusing_client_cls(_REFUSAL_DETAIL),
+    )
+    monkeypatch.setattr(
+        "aitbc_cli.utils.http_client.AITBCHTTPClient",
+        _refusing_client_cls(_REFUSAL_DETAIL),
+    )
+    monkeypatch.setattr(
+        "aitbc_cli.utils.escrow.create_signed_escrow_lock",
+        lambda *args, **kwargs: ({"type": "ESCROW_LOCK"}, "0x" + "ab" * 64),
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "market",
+            "escrow",
+            "create",
+            "--job-id",
+            "job-1",
+            "--buyer",
+            "0x11a01cb7F3C01AE8E8a992FE72fbDF3B530ccdD7",
+            "--provider",
+            "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450",
+            "--amount",
+            "2.5",
+        ],
+    )
+    assert result.exit_code != 0
+    assert _REFUSAL_DETAIL in result.output
+
+
+def test_market_escrow_refund_503_shows_detail(mock_market_config, monkeypatch):
+    """The refund path prints the follower's 503 detail instead of failing silently."""
+    refusing = _refusing_client_cls(_REFUSAL_DETAIL)
+    monkeypatch.setattr("aitbc_cli.commands.market.escrow.AITBCHTTPClient", refusing)
+    monkeypatch.setattr("aitbc_cli.utils.http_client.AITBCHTTPClient", refusing)
+
+    result = CliRunner().invoke(
+        cli,
+        ["market", "escrow", "refund", "--job-id", "job-1"],
+    )
+    assert _REFUSAL_DETAIL in result.output

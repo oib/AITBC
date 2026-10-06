@@ -13,7 +13,7 @@ from aitbc.utils.units import units_to_ait
 from ...auth import AuthManager
 from ...config import get_config
 from ...utils import error, info, output, success
-from ...utils.http_client import AITBCHTTPClient, get_logger
+from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -62,6 +62,13 @@ def _get_blockchain_rpc_url(config) -> str:
     if url.endswith("/rpc"):
         url = url[:-4]
     return url
+
+
+def _http_503_detail(exc: BaseException) -> str | None:
+    """Return the node's ``detail`` text when ``exc`` carries an HTTP 503 reply, else None."""
+    if http_response_status(exc) != 503:
+        return None
+    return http_error_detail(exc)
 
 
 def _escrow_create(
@@ -156,7 +163,11 @@ def _escrow_create(
             success(f"Escrow created: contract_id={contract_id}")
         return contract_id
     except Exception as e:
-        error(f"Escrow creation failed: {e}")
+        detail = _http_503_detail(e)
+        if detail:
+            error(f"Escrow creation refused: {detail}")
+        else:
+            error(f"Escrow creation failed: {e}")
         raise click.Abort() from e
 
 
@@ -175,24 +186,26 @@ def escrow_release(ctx, job_id: str):
         rpc_url = _get_blockchain_rpc_url(config)
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
         result = None
+        refusal_detail: str | None = None
         try:
             http_client = _get_rpc_client(config, rpc_url, timeout=10)
             result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
-        except Exception:
+        except Exception as exc:
+            refusal_detail = _http_503_detail(exc)
             logger.debug("Escrow request failed", exc_info=True)
-            pass
         if not result:
             try:
                 http_client = _get_rpc_client(config, hub_url, timeout=10)
                 result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
-            except Exception:
+            except Exception as exc:
+                refusal_detail = refusal_detail or _http_503_detail(exc)
                 logger.debug("Escrow request failed", exc_info=True)
-                pass
         if result:
             success(f"Escrow released for job {job_id}")
             output(result, ctx.obj.get("output_format", "table"))
         else:
-            error(f"Failed to release escrow for job {job_id}")
+            suffix = f": {refusal_detail}" if refusal_detail else ""
+            error(f"Failed to release escrow for job {job_id}{suffix}")
     except Exception as e:
         error(f"Error releasing escrow: {e}")
         raise click.Abort() from e
@@ -247,23 +260,26 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
         rpc_url = _get_blockchain_rpc_url(config)
         hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
         result = None
+        refusal_detail: str | None = None
         try:
             http_client = _get_rpc_client(config, rpc_url, timeout=10)
             result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
-        except Exception:
+        except Exception as exc:
+            refusal_detail = _http_503_detail(exc)
             logger.debug("Escrow request failed", exc_info=True)
-            pass
         if not result:
             try:
                 http_client = _get_rpc_client(config, hub_url, timeout=10)
                 result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
-            except Exception:
+            except Exception as exc:
+                refusal_detail = refusal_detail or _http_503_detail(exc)
                 logger.debug("Escrow request failed", exc_info=True)
-                pass
         if result:
             success(f"Escrow refunded for job {job_id}")
             output(result, ctx.obj.get("output_format", "table"))
             return result
+        if refusal_detail:
+            error(f"Escrow refund refused: {refusal_detail}")
         return None
     except Exception as e:
         error(f"Error refunding escrow: {e}")
@@ -355,5 +371,7 @@ def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, passwor
             {"contract_id": contract_id, "job_id": job_id, "buyer": buyer, "provider": provider},
             ctx.obj.get("output_format", "table"),
         )
+    except click.Abort:
+        raise
     except Exception as e:
         error(f"Error creating escrow: {e}")
