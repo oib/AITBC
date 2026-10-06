@@ -824,6 +824,16 @@ tests:
         values: '0x19 1x60'
       - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="release", node="node1"}'
         values: '0x80'
+      # Cold-start gap — the reason metrics.py pre-creates the op children at
+      # 0: a counter that first appears at value 1 has no prior sample for
+      # increase() to diff against, so it stays 0 forever and must NOT fire.
+      # Both shapes are pinned here — hub-local (no node) and remote-written
+      # follower (node=node9). If either ever fires the expression semantics
+      # changed and the pre-init safety net must be revisited.
+      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="create", node="node9"}'
+        values: '1x80'
+      - series: 'aitbc_escrow_settlement_refused_total{instance="localhost:8202", job="blockchain-rpc", op="refund"}'
+        values: '1x80'
     alert_rule_test:
       # Before any step: neither alert.
       - eval_time: 1m

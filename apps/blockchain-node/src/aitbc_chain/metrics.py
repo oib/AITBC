@@ -218,6 +218,12 @@ escrow_settlement_refused_total = Counter(
     "Escrow settlement ops refused because this node cannot sign settlement",
     ["op"],
 )
+# Pre-instantiate every op child at 0: a child first created by a refusal
+# would appear at value 1 with no prior sample, and increase() over such a
+# series is 0 — the first refusal would be invisible to the
+# EscrowSettlementRefusedOn* alerts until a second one landed.
+for _refused_op in ("create", "refund", "release"):
+    escrow_settlement_refused_total.labels(op=_refused_op)
 
 # Legacy MetricsRegistry for backward compatibility
 from dataclasses import dataclass  # noqa: E402
