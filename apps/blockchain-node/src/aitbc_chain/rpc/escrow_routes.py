@@ -26,7 +26,7 @@ from aitbc.market.energy_pricing import (
     SettlementRoute,
     evaluate_quote,
 )
-from aitbc.utils import ait_to_units, units_to_ait
+from aitbc.utils import ait_to_units, units_to_ait, UNITS_PER_AIT
 from eth_utils import keccak
 
 from ..config import settings
@@ -1410,6 +1410,16 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             raise HTTPException(status_code=400, detail="amount must be a decimal number") from None
         if requested_amount <= 0:
             raise HTTPException(status_code=400, detail="amount must be positive") from None
+        # A7c: the sealed leg and the billed_legs record must agree on one
+        # billed value. Anything finer than a compute-unit can't round-trip
+        # the Decimal→units conversion the recompute does, so it would wedge
+        # the row permanently unproven — refuse instead of silently rounding
+        # a payment.
+        if ait_to_units(requested_amount) != requested_amount * UNITS_PER_AIT:
+            raise HTTPException(
+                status_code=422,
+                detail="amount must be a whole number of compute-units (precision finer than 1/36000000 AIT is not billable)",
+            )
 
     # Reconciliation/duplicate release handling: if the row is already released,
     # return the stored result without resubmitting.
@@ -1501,8 +1511,6 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 detail=f"Protected escrow settlement asset {escrow_record.energy_settlement_asset} is not supported for native release",
             )
         if escrow_record.energy_settlement_unit_scale is not None:
-            from aitbc.utils.units import UNITS_PER_AIT
-
             if escrow_record.energy_settlement_unit_scale != UNITS_PER_AIT:
                 raise HTTPException(
                     status_code=422,

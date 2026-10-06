@@ -243,6 +243,17 @@ def test_protected_bump_release_proves_and_sweeps(session):
     assert candidates[0].expected_units == 274154 - 267301
 
 
+def test_zero_fee_rate_leaves_no_residue(session):
+    """A7c: a legal bps=0 quote withholds nothing — lock − sealed release is
+    zero, so the job reports no_residue instead of refusing the proof."""
+    _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK)
+    _tx(session, "ESCROW_RELEASE", "0xrel", JOB2_LOCK)  # bps=0 → release == billed
+    _row(session, energy_fee_basis_points=0)
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["no_residue"] == 1
+
+
 def test_protected_billed_below_credit_refuses(session):
     """A7b: a protected billed below the signed credit is impossible via the
     route (billable < target → refused, no leg submitted) — the bump would
