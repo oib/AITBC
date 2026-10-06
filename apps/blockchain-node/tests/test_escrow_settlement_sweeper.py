@@ -330,6 +330,61 @@ def test_verified_refund_mark_fills_null_refunded_amount(session):
     assert row.status == "released"
 
 
+def test_demoted_release_leg_clears_released_amount(session):
+    """C21 I1: a demote cleared released_at but kept released_amount, so the
+    row went on reporting a never-sealed payout as money moved."""
+    _row(
+        session,
+        status="released",
+        released_at=OLD_MARK,
+        release_tx_hash="0xdead",
+        released_amount=17550,
+    )
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["demoted"] == 1
+    assert row.released_at is None
+    assert row.released_amount is None
+    assert row.status == "settlement_failed"
+    assert row.release_tx_hash == "0xdead"  # hash still kept for the detector
+
+
+def test_demoted_refund_leg_clears_refunded_amount(session):
+    """Same demote, refund leg: a dead change leg must not keep claiming the
+    buyer's change was returned."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _row(
+        session,
+        status="released",
+        released_at=OLD_MARK,
+        refunded_at=OLD_MARK,
+        release_tx_hash="0xsealed-release",
+        refund_tx_hash="0xdead-refund",
+        released_amount=17550,
+        refunded_amount=18000,
+    )
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["demoted"] == 1 and stats["verified"] == 1
+    assert row.refunded_at is None
+    assert row.refunded_amount is None
+    assert row.released_amount == 17550  # the sealed leg's amount stands
+    assert row.status == "released"
+
+
+def test_remarked_release_leg_heals_released_amount(session):
+    """Mirror of the refunded_amount heal: a demoted release leg that seals
+    late re-marks time+hash and must refill the amount the demote cleared."""
+    _tx(session, "ESCROW_RELEASE", "0xlate-seal")
+    _row(session, status="settlement_failed", released_at=None, release_tx_hash="0xlate-seal")
+    stats = ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert stats["remarked"] == 1
+    assert _naive(row.released_at) == _naive(SEALED_AT)
+    assert row.released_amount == 100  # sealed leg value, filled with the mark
+    assert row.status == "released"
+
+
 # ---------------------------------------------------------- mempool probe
 
 
