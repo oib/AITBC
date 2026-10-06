@@ -1410,16 +1410,16 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             raise HTTPException(status_code=400, detail="amount must be a decimal number") from None
         if requested_amount <= 0:
             raise HTTPException(status_code=400, detail="amount must be positive") from None
-        # A7c: the sealed leg and the billed_legs record must agree on one
-        # billed value. Anything finer than a compute-unit can't round-trip
-        # the Decimal→units conversion the recompute does, so it would wedge
-        # the row permanently unproven — refuse instead of silently rounding
-        # a payment.
-        if ait_to_units(requested_amount) != requested_amount * UNITS_PER_AIT:
-            raise HTTPException(
-                status_code=422,
-                detail="amount must be a whole number of compute-units (precision finer than 1/36000000 AIT is not billable)",
-            )
+        # A7d: quantize to whole compute-units — sub-unit precision cannot be
+        # billed on-chain and would wedge billed_legs vs the sealed leg (the
+        # real CLI sends e.g. str(Decimal(tokens)/1000*price): 1234 tokens at
+        # 0.0073 AIT/1k = 324295.2 units). ROUND_HALF_UP via ait_to_units; the
+        # sub-unit dust stays in custody as unbilled change. An amount that
+        # quantizes to zero units cannot be billed at all — refuse it rather
+        # than sign a 1-unit leg against a recorded billed of 0.
+        requested_amount = units_to_ait(ait_to_units(requested_amount))
+        if ait_to_units(requested_amount) == 0:
+            raise HTTPException(status_code=400, detail="amount is below one billable compute-unit")
 
     # Reconciliation/duplicate release handling: if the row is already released,
     # return the stored result without resubmitting.
@@ -1557,6 +1557,35 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         locked_total = sum((Decimal(str(ms["amount"])) for ms in contract.milestones), Decimal(0)) if contract else Decimal(0)
         billed_gross = locked_total if requested_amount is None else min(requested_amount, locked_total)
         unbilled_amount = locked_total - billed_gross
+        # A7d: the sealed leg value is derived on whole compute-units by the
+        # same integer formula the settlement passes recompute with — the
+        # Decimal AIT path can cross an exact .5 rounding boundary and would
+        # leave the row permanently unproven.
+        from ..contracts.escrow import DEFAULT_FEE_BPS, expected_release_units
+
+        billed_units = ait_to_units(billed_gross)
+        fee_bps = (
+            escrow_record.energy_fee_basis_points
+            if escrow_record is not None and escrow_record.energy_fee_basis_points is not None
+            else DEFAULT_FEE_BPS
+        )
+        release_units = expected_release_units(
+            billed_units,
+            fee_bps=fee_bps,
+            protected=bool(escrow_record.protected) if escrow_record else False,
+            credit_units=escrow_record.energy_provider_credit_units if escrow_record else None,
+        )
+        if ait_to_units(released_amount) != release_units:
+            # Pathological divergence (e.g. an earlier milestone payout left
+            # contract.released_amount above billable−fee): sign the
+            # provable billed-derived value, not the contract's residue.
+            _logger.warning(
+                "Escrow release leg for job_id=%s: contract released_amount %s units != recomputed %s — signing the recomputed value",
+                job_id,
+                ait_to_units(released_amount),
+                release_units,
+            )
+        released_amount = units_to_ait(release_units)
         # Reinvestment must be paid to the escrow's recorded provider; the caller must
         # not be able to name an arbitrary stake address (CHOKE-POINT).
         reinvest_address = provider_addr
@@ -1642,7 +1671,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                         # missing attr — released_at is the load-bearing write.
                         entries = list(getattr(record, "billed_legs", None) or [])
                         if not any(e.get("tx_hash") == tx_hash for e in entries if isinstance(e, dict)):
-                            entries.append({"tx_hash": tx_hash, "billed": ait_to_units(billed_gross)})
+                            entries.append({"tx_hash": tx_hash, "billed": billed_units})
                             record.billed_legs = entries
                     if tx_hash and (not record.release_tx_hash or was_failed):
                         record.release_tx_hash = tx_hash

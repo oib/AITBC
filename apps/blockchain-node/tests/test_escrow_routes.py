@@ -764,25 +764,87 @@ async def test_release_leaves_change_leg_to_sweeper(release_key, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_release_rejects_sub_unit_amount(release_key, monkeypatch):
-    """A7c: an amount with sub-compute-unit precision can never have its
-    sealed leg agree with the recorded billed — refuse with 422 instead of
-    permanently wedging the row unproven."""
+async def test_release_quantizes_sub_unit_amount(release_key, monkeypatch):
+    """A7d: sub-compute-unit precision is what the real CLI sends
+    (``str(Decimal(tokens)/1000 * price)`` — e.g. 1234 tokens at 0.0073
+    AIT/1k = 0.0090082 AIT = 324295.2 units). The route quantizes to whole
+    units ROUND_HALF_UP and signs the integer-derived leg, so the sealed
+    value and the recorded billed prove under recompute — no 422, no wedge.
+    """
+    from aitbc_chain.contracts.escrow import recompute_release_proofs
+    from aitbc.utils.units import ait_to_units
+
     monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
     monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
     monkeypatch.setenv("CHAIN_ID", "test-chain")
     escrow_routes = _reload_routes()
+    expose: dict = {}
+    mocks = _release_drive_mocks(escrow_routes, unsealed=True, expose=expose)
+    submit_spy = AsyncMock(return_value="0xrel")
 
     import contextlib
 
     with contextlib.ExitStack() as stack:
-        for m in _release_drive_mocks(escrow_routes, unsealed=True):
+        for m in mocks:
             stack.enter_context(m)
-        # 1.0000000001 units' worth of AIT — finer than one compute-unit
-        sub_unit = str(Decimal("1.0000000001") / Decimal(36000000))
-        with pytest.raises(HTTPException) as exc:
-            await escrow_routes.release_escrow("job-1", {"amount": sub_unit})
-        assert exc.value.status_code == 422
+        # Entered last so this spy (not the helper's patch) captures the amount.
+        stack.enter_context(patch.object(escrow_routes, "_submit_payment_tx", submit_spy))
+        # The CLI's real shape: Decimal("1234")/1000 * Decimal("0.0073")
+        result = await escrow_routes.release_escrow("job-1", {"amount": "0.0090082"})
+
+    assert result["tx_hash"] == "0xrel"
+    # ROUND_HALF_UP(324295.2) = 324295 billed units, recorded under the leg's hash.
+    assert expose["record"].billed_legs == [{"tx_hash": "0xrel", "billed": 324295}]
+    # The sealed leg: ait_to_units(units_to_ait(E)) round-trips to E exactly.
+    sealed_ait = submit_spy.await_args.args[2]
+    sealed_units = ait_to_units(sealed_ait)
+    # round_half_up(324295 * 0.975) = round_half_up(316187.625) = 316188.
+    assert sealed_units == 316188
+    # End-to-end: the sealed leg + recorded billed prove under recompute.
+    proof = recompute_release_proofs(
+        [{"tx_hash": "0xrel", "value": sealed_units}],
+        expose["record"].billed_legs,
+        fee_bps=250,
+        protected=False,
+        credit_units=None,
+        net_floor_units=None,
+        lock_units=1_000_000,
+    )
+    # proof = (billed_total, withheld_total): the sealed leg pays billed−fee.
+    assert proof == (324295, 324295 - sealed_units)
+
+
+def test_sealed_release_units_match_recompute_sweep():
+    """A7d sweep: for every billed N in the boundary window — including every
+    exact .5 rounding tie (N·(10000−bps) ≡ 5000 mod 10000) — the value the
+    route signs (``ait_to_units(units_to_ait(E))``) equals what
+    ``recompute_release_proofs`` derives, for protected and unprotected rows."""
+    from aitbc_chain.contracts.escrow import expected_release_units, recompute_release_proofs
+    from aitbc.utils.units import ait_to_units, units_to_ait
+
+    tie_hits = 0
+    for bps in (0, 1, 250, 9999):
+        for billed in range(1, 40001):
+            for protected, credit in ((False, None), (True, None), (True, billed)):
+                expected = expected_release_units(billed, fee_bps=bps, protected=protected, credit_units=credit)
+                # What the route signs: quantized AIT -> tx amount units.
+                sealed = max(ait_to_units(units_to_ait(expected)), 1)
+                proof = recompute_release_proofs(
+                    [{"tx_hash": "0xrel", "value": sealed}],
+                    [{"tx_hash": "0xrel", "billed": billed}],
+                    fee_bps=bps,
+                    protected=protected,
+                    credit_units=credit,
+                    net_floor_units=None,
+                    lock_units=billed + 1_000_000,
+                )
+                assert proof is not None, (bps, billed, protected, credit, sealed)
+                assert proof == (billed, billed - sealed)
+            if billed * (10000 - bps) % 10000 == 5000:
+                tie_hits += 1
+    # The sweep actually exercised exact .5 ties — the boundary the Decimal
+    # AIT path could cross in the wrong direction.
+    assert tie_hits > 0
 
 
 @pytest.mark.asyncio
