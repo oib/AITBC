@@ -581,6 +581,9 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
         settlement_key = escrow_routes._get_settlement_key()
         settlement_address = escrow_routes._get_settlement_address()
         if not settlement_key or not settlement_address:
+            # Still tick (A7c): the pass IS enabled — a keyless-enabled pass
+            # that emits nothing would be invisible to the Stale alerts.
+            _count_fee_pass(stats)
             return stats
         now = now or datetime.now(UTC)
         global _fee_pass_watermark
@@ -880,6 +883,9 @@ async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:
         settlement_key = escrow_routes._get_settlement_key()
         settlement_address = escrow_routes._get_settlement_address()
         if not settlement_key or not settlement_address:
+            # Still tick (A7c): the pass IS enabled — a keyless-enabled pass
+            # that emits nothing would be invisible to the Stale alerts.
+            _count_change_pass(stats)
             return stats
         now = now or datetime.now(UTC)
         global _change_pass_watermark
