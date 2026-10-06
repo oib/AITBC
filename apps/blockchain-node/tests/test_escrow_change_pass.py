@@ -209,6 +209,25 @@ async def test_sealed_refund_leg_heals_row_mark(session, monkeypatch):
     assert stats["submitted"] == 0
 
 
+def test_hash_marked_row_fills_null_refunded_amount(session):
+    """w1 live shape: the mark sweeper stamped refund_tx_hash (and
+    refunded_at) when the leg sealed but never wrote refunded_amount.
+    Without the amount the row re-enters this scan every cycle forever —
+    the heal must fill it from the sealed leg sum and drop the row out."""
+    _metered_chain(session)
+    _tx(session, "ESCROW_REFUND", "0xref", OWED, job_id=JOB)
+    row = _row(session, refund_tx_hash="0xref")
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert stats["marked"] == 1
+    assert row.refunded_amount == OWED
+    assert row.refund_tx_hash == "0xref"
+    # Fully marked now: the row leaves discovery entirely.
+    candidates, stats = _candidates(session)
+    assert candidates == []
+    assert not any(stats.values())
+
+
 def test_partial_refund_marks_sealed_truth(session):
     """A sealed under-paid refund on an unmarked row: the heal records the
     sealed sum — the row marks what the chain proves, never what was asked.

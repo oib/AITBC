@@ -140,14 +140,17 @@ def test_owed_change_residue_is_not_swept(session):
     """Rule 3 (first acceptance test): release sealed, owed change refund
     never landed — custody holds fee+change and the residue exceeds the fee
     bound, so the job defers instead of paying the buyer's change to the
-    treasury."""
+    treasury. The release itself IS proven: the defer reports
+    change-pending, not unproven, so the unproven alert only fires on rows
+    the recompute actually cannot cover."""
     _tx(session, "ESCROW_LOCK", "0xlock", JOB2_LOCK)
     _tx(session, "ESCROW_RELEASE", "0xrel", JOB1_RELEASE)
     # proven billed 18000 → fee bound 450 < residue 18450 → not treasury money
     _row(session, billed_legs=[{"tx_hash": "0xrel", "billed": 18000}])
     candidates, stats = _candidates(session)
     assert candidates == []
-    assert stats["deferred_unproven"] == 1
+    assert stats["deferred_change_pending"] == 1
+    assert stats["deferred_unproven"] == 0
 
 
 def test_full_release_residue_is_a_candidate(session):
@@ -465,7 +468,8 @@ async def test_owed_change_never_submits(session, monkeypatch):
     monkeypatch.setattr(ess, "_proposer_pending_txs", AsyncMock(return_value=[]))
     stats = await ess._fee_sweep_pass_once(NOW)
     assert stats["submitted"] == 0
-    assert stats["deferred_unproven"] == 1
+    assert stats["deferred_change_pending"] == 1
+    assert stats["deferred_unproven"] == 0
     submit.assert_not_awaited()
 
 
