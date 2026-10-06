@@ -8,7 +8,8 @@ transaction: it sat in the mempool until a proposer drained it, dropped it unsea
 executor") and wrote nothing. This module asks the same question at admission, from the same chain parameters, with the
 same version rules and the same messages, so a transaction that apply would refuse is refused at the door.
 
-It mirrors the sender gates in ``validate_transaction`` instead of being called by it: the apply path is consensus
+It mirrors the sender gates in ``validate_transaction`` — plus, from v12, the authority-parameter value checks a
+GOVERNANCE_EXECUTE ``parameter_change`` must pass — instead of being called by it: the apply path is consensus
 code and stays untouched. ``tests/test_admission_authority.py`` runs both over a matrix of block versions, parameter
 states and senders and fails if they ever disagree. BOND_SLASH is not covered here: its authority check lives in the
 apply function, not in ``validate_transaction``. The below-v11 refusal of ESCROW_FEE_SWEEP is *not* part of this
@@ -18,10 +19,17 @@ transfer; the "not active yet" refusal lives in ``rpc/transactions.py`` next to 
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlmodel import Session
 
 from ..base_models import _to_ait_address
-from .state_transition import _escrow_fee_recipient, _escrow_settlement_authority, _governance_executors
+from .state_transition import (
+    _authority_parameter_change_error,
+    _escrow_fee_recipient,
+    _escrow_settlement_authority,
+    _governance_executors,
+)
 
 # The types whose sender ``validate_transaction`` checks against an on-chain authority.
 AUTHORITY_GATED_TYPES = frozenset({"GOVERNANCE_EXECUTE", "ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"})
@@ -36,13 +44,17 @@ def sender_authority_error(
     block_version: int,
     block_height: int | None = None,
     recipient: str = "",
+    payload: Any = None,
+    fee: int = 0,
 ) -> str | None:
     """Why ``sender`` may not send ``tx_type`` under the rules of ``block_version``, or None when it may.
 
     ``block_version`` and ``block_height`` are those of the block the transaction would land in: the authority
     parameters resolve to the value in force at ``block_height`` (None means the current value). ``recipient`` is
-    the transaction's ``to`` address — only ESCROW_FEE_SWEEP pins it (to the resolved fee recipient). Types that
-    carry no sender authority return None.
+    the transaction's ``to`` address — only ESCROW_FEE_SWEEP pins it (to the resolved fee recipient). ``payload``
+    and ``fee`` are the transaction's own fields — from v12 a GOVERNANCE_EXECUTE ``parameter_change`` to an
+    authority parameter must pass the same value check apply runs. Types that carry no sender authority and
+    pre-v12 transactions return None.
     """
     sender_addr = _to_ait_address(sender or "")
     if tx_type == "GOVERNANCE_EXECUTE":
@@ -53,6 +65,12 @@ def sender_authority_error(
                 return "GOVERNANCE_EXECUTE rejected: governance_executors chain parameter is not set"
         elif sender_addr not in executors:
             return f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor"
+        # v12 (after the sender gates, matching validate_transaction's order):
+        # refuse a parameter_change whose authority-parameter value apply would
+        # refuse — same helper, same messages.
+        value_error = _authority_parameter_change_error(session, chain_id, payload, fee, block_version=block_version)
+        if value_error is not None:
+            return value_error
     elif tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND") and block_version >= 3:
         authority = _escrow_settlement_authority(session, chain_id, block_height)
         if authority is None:

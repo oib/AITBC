@@ -152,6 +152,8 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 block_version=get_block_version_for_height(next_height),
                 block_height=next_height,
                 recipient=tx_data.get("to", ""),
+                payload=tx_data.get("payload"),
+                fee=tx_data.get("fee", 0),
             )
             if authority_error:
                 raise ValueError(authority_error)

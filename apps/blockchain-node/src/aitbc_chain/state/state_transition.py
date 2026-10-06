@@ -30,6 +30,7 @@ from ..base_models import (
     record_chain_parameter_history,
 )
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_request_signature, verify_transaction_signature
 from .bridge_credit import (
@@ -331,6 +332,121 @@ def _escrow_fee_recipient(session: Session, chain_id: str, block_height: int | N
     if block_height is None and env_addr:
         return canonical_address(env_addr)
     return None
+
+
+# The five authority chain parameters — each names the address(es) allowed to
+# sign a class of chain-side actions. From v12 a GOVERNANCE_EXECUTE
+# ``parameter_change`` to one of them is value-checked by
+# ``_validate_authority_parameter_value``; other parameter names stay outside
+# the gate (the forward-compat escape hatch — unknown actions and parameters
+# keep today's lenient apply).
+_AUTHORITY_PARAMETERS = frozenset(
+    {
+        "bond_slash_authority",
+        "bridge_release_authority",
+        "escrow_fee_recipient",
+        "escrow_settlement_authority",
+        "governance_executors",
+    }
+)
+
+# All but governance_executors name exactly one address.
+_SINGLE_ADDRESS_PARAMETERS = _AUTHORITY_PARAMETERS - {"governance_executors"}
+
+# v12/A5 floor (operator decision, 2026-10-06): a governance_executors value is
+# refused unless at least one listed member holds this balance at apply height —
+# the minimum that can pay one fee, so a never-funded or all-typo'd executor list
+# cannot seal a governance freeze. Consensus has no minimum fee (gap-era executes
+# sealed with fee=0), so the floor is a baked constant, not the tx's fee. The a16
+# ops tool enforces the stricter fee+headroom policy off-chain; the chain keeps
+# the minimum.
+_EXECUTOR_MIN_BALANCE_UNITS = DEFAULT_TX_FEE_UNITS
+
+_ZERO_ADDRESS = "0x" + "00" * 20
+
+
+def _validate_authority_parameter_value(session: Session, chain_id: str, parameter: str, value: Any, fee: int) -> str | None:
+    """v12 value check for a ``parameter_change`` to an authority parameter.
+
+    Returns the rejection message — ``GOVERNANCE_EXECUTE rejected: <parameter>
+    value <why>`` — or None when the value is acceptable. Callers handle the
+    trigger: ``block_version >= 12``, action ``parameter_change`` (or absent,
+    matching the apply default), and ``parameter`` in ``_AUTHORITY_PARAMETERS``.
+
+    ``fee`` is the transaction fee. It is unused while the A5 floor is the
+    baked ``_EXECUTOR_MIN_BALANCE_UNITS`` constant; it stays in the signature
+    so a fee-relative floor could replace the constant without churning the
+    call sites.
+    """
+    prefix = f"GOVERNANCE_EXECUTE rejected: {parameter} value"
+    # ``value: null`` applies as a deliberate clear (""); validate the same
+    # string apply would store so admission and apply cannot disagree.
+    raw = "" if value is None else str(value)
+    if not raw.strip():
+        return f"{prefix} must not be empty"
+    elements = [e.strip() for e in raw.split(",") if e.strip()]
+    if not elements:
+        return f"{prefix} must name at least one address"
+    canonical: list[str] = []
+    for element in elements:
+        try:
+            canonical.append(canonical_address(element, strict=True))
+        except ValueError:
+            return f"{prefix} element {element!r:.60} is not a 0x + 40-hex address"
+    seen: set[str] = set()
+    for address in canonical:
+        if address == _ZERO_ADDRESS:
+            return f"{prefix} element {address} is the zero address"
+        if address in seen:
+            return f"{prefix} repeats {address}"
+        seen.add(address)
+    if parameter in _SINGLE_ADDRESS_PARAMETERS and len(canonical) > 1:
+        return f"{prefix} must name exactly one address, got {len(canonical)}"
+    if parameter == "governance_executors":
+        funded = False
+        for address in canonical:
+            account = session.get(Account, (chain_id, address))
+            if account is not None and account.balance >= _EXECUTOR_MIN_BALANCE_UNITS:
+                funded = True
+                break
+        if not funded:
+            return (
+                f"{prefix} has no member holding the executor minimum "
+                f"{_EXECUTOR_MIN_BALANCE_UNITS} units — an executor list that cannot pay a fee freezes governance"
+            )
+    return None
+
+
+def _authority_parameter_change_error(
+    session: Session, chain_id: str, tx_payload: Any, fee: int, *, block_version: int
+) -> str | None:
+    """The v12 value check for a GOVERNANCE_EXECUTE payload, shared by apply
+    validation and mempool admission so the door refuses exactly what apply
+    refuses.
+
+    Returns None below v12, for a non-dict payload or execution_payload, for
+    actions other than ``parameter_change`` (an absent action defaults to it,
+    matching apply), and for parameters outside ``_AUTHORITY_PARAMETERS``.
+    """
+    if block_version < 12:
+        return None
+    payload = tx_payload
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            payload = {}
+    if not isinstance(payload, dict):
+        return None
+    execution_payload = payload.get("execution_payload")
+    if not isinstance(execution_payload, dict):
+        return None
+    if execution_payload.get("action", "parameter_change") != "parameter_change":
+        return None
+    parameter = execution_payload.get("parameter")
+    if parameter not in _AUTHORITY_PARAMETERS:
+        return None
+    return _validate_authority_parameter_value(session, chain_id, parameter, execution_payload.get("value"), fee)
 
 
 def _get_escrow_lock(session: Session, chain_id: str, job_id: str) -> Transaction | None:
@@ -644,6 +760,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v12_threshold = getattr(settings, "state_transition_v12_height", None)
+    if v12_threshold and height >= v12_threshold:
+        return 12
     v11_threshold = getattr(settings, "state_transition_v11_height", None)
     if v11_threshold and height >= v11_threshold:
         return 11
@@ -1200,6 +1319,15 @@ class StateTransition:
                     False,
                     "GOVERNANCE_EXECUTE action 'set_governance_address' is reserved and not implemented",
                 )
+            # v12: the five authority parameters get deterministic value checks.
+            # Below the height — and for other parameters/actions — behaviour is
+            # unchanged. Mempool admission runs the same helper so the door
+            # refuses exactly what apply would refuse.
+            authority_value_error = _authority_parameter_change_error(
+                session, chain_id, gov_payload, fee, block_version=block_version
+            )
+            if authority_value_error:
+                return (False, authority_value_error)
         if tx_type == "STAKE_RELEASE" and block_version >= 4:
             ok, why = _validate_stake_release_locks(session, chain_id, tx_data, tx_hash, value, recipient_addr)
             if not ok:
