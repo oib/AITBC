@@ -208,9 +208,9 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
     for row in rows:
         stats["rows"] += 1
         changed = False
-        for leg_mark, leg_hash, tx_type, leg_status in (
-            ("released_at", "release_tx_hash", "ESCROW_RELEASE", "released"),
-            ("refunded_at", "refund_tx_hash", "ESCROW_REFUND", "refunded"),
+        for leg_mark, leg_hash, leg_amount, tx_type, leg_status in (
+            ("released_at", "release_tx_hash", "released_amount", "ESCROW_RELEASE", "released"),
+            ("refunded_at", "refund_tx_hash", "refunded_amount", "ESCROW_REFUND", "refunded"),
         ):
             mark = getattr(row, leg_mark)
             stored = getattr(row, leg_hash)
@@ -231,11 +231,12 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
                     # Verified healthy: the mark stands and the settlement is
                     # sealed — nothing on the row is touched.
                     stats["verified"] += 1
-                if leg_status == "refunded" and row.refunded_amount is None:
-                    # A sealed refund leg proves the amount too — marking
-                    # only time+hash leaves released rows in the change
-                    # pass's refunded_amount-IS-NULL scan forever.
-                    row.refunded_amount = leg_tx.value or 0
+                if getattr(row, leg_amount) is None:
+                    # A sealed leg proves the amount too — marking only
+                    # time+hash leaves released rows in the change pass's
+                    # refunded_amount-IS-NULL scan forever, and a demote that
+                    # cleared the amount must heal when the leg seals.
+                    setattr(row, leg_amount, leg_tx.value or 0)
                     changed = True
                 continue
             # Unsealed leg. Claimed by its timestamp mark or by status alone
@@ -247,6 +248,11 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
             if claimed and stale and proposer_pending is not None and (stored or "") not in proposer_pending:
                 if mark is not None:
                     setattr(row, leg_mark, None)
+                if getattr(row, leg_amount) is not None:
+                    # The amount makes the same settlement claim as the mark:
+                    # a demoted leg proves it never sealed, so the amount must
+                    # not keep reporting money as moved (C21 I1).
+                    setattr(row, leg_amount, None)
                 changed = True
                 stats["demoted"] += 1
 
