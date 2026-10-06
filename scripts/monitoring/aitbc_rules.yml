@@ -354,10 +354,11 @@ groups:
       # deferred_change_pending is a PROVABLE row whose custody still carries
       # owed buyer change — the fee pass correctly refuses to sweep. Expected
       # for roughly one change-pass cycle (the first live metered settle sat
-      # here ~6 minutes); sustained increments mean the change pass is off or
-      # in dry-run, or the row's billed record blocks the refund.
+      # here ~6 minutes). The 5m increase window inside for:15m means the
+      # alert fires only while the counter is still rising for >15m and
+      # resolves ~5m after the increments stop; a short stall stays silent.
       - alert: EscrowFeeSweepChangePending
-        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_change_pending"}[30m]) > 0
+        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_change_pending"}[5m]) > 0
         for: 15m
         labels:
           severity: warning
