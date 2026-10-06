@@ -114,6 +114,18 @@ class TestEscrowManagerPersistence:
 class TestEscrowRefundRoute:
     """The /escrow/{job_id}/refund route is idempotent and updates the DB."""
 
+    @pytest.fixture(autouse=True)
+    def _settlement_keyed(self, monkeypatch):
+        """Refund is settlement-signed: the route refuses on keyless nodes, so
+        these tests run keyed like the settlement node."""
+        monkeypatch.setattr(
+            escrow_routes,
+            "_ESCROW_RELEASE_PRIVATE_KEY",
+            "0x2222222222222222222222222222222222222222222222222222222222222222",
+        )
+        monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
+        monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_ADDRESS", "")
+
     def test_refund_escrow_is_idempotent(self, manager, session):
         """Calling refund on an already-refunded contract returns the stored tx hash."""
         _insert_escrow(
