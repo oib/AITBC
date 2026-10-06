@@ -251,6 +251,39 @@ async def test_refund_after_lock_seals_proceeds_unchanged(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_refund_refused_on_keyless_node(monkeypatch):
+    """A node that cannot sign settlement must refuse the refund op entirely —
+    same gate as release/create, before any row read, state change or
+    submission."""
+    monkeypatch.delenv("ESCROW_RELEASE_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("GENESIS_WALLET_PRIVATE_KEY", raising=False)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr(contract=_funded_contract(er))
+    scope, session = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7],
+        patches[8] as submit_refund,
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await er.refund_escrow("job-1", {"reason": "test"})
+    assert excinfo.value.status_code == 503
+    mgr.refund_contract.assert_not_awaited()
+    submit_refund.assert_not_awaited()
+    assert record.refunded_at is None
+    assert record.status == "locked"
+    assert not session.committed
+
+
+@pytest.mark.asyncio
 async def test_already_released_row_short_circuits_before_the_gate(monkeypatch):
     """The stored-hash short-circuit still runs first — the gate is never reached.
 

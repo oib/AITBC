@@ -122,6 +122,14 @@ def route(monkeypatch):
     """Patch every collaborator create_escrow touches except the energy gate."""
     monkeypatch.delenv("ENERGY_OPERATOR_ADDRESS", raising=False)
     monkeypatch.setattr(escrow_routes, "_NODE_WALLET", NODE_WALLET)
+    # Keyed like a settlement node — the create guard refuses on keyless nodes.
+    monkeypatch.setattr(
+        escrow_routes,
+        "_ESCROW_RELEASE_PRIVATE_KEY",
+        "0x2222222222222222222222222222222222222222222222222222222222222222",
+    )
+    monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
+    monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_ADDRESS", "")
     mgr = MagicMock()
     mgr.escrow_contracts = {}
     mgr.active_contracts = set()
