@@ -33,7 +33,7 @@ from ..config import settings
 from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager
 from ..database import session_scope
 from ..logger import get_logger
-from ..metrics import escrow_fee_sweep_total
+from ..metrics import escrow_fee_sweep_total, escrow_settlement_refused_total
 from ..models import Account, Escrow, Stake
 from ..protocol_escrow import queue_protocol_transfer, stake_escrow_address
 
@@ -286,6 +286,7 @@ def _require_settlement_signing(job_id: str, op: str) -> None:
         op,
         job_id,
     )
+    escrow_settlement_refused_total.labels(op=op.removeprefix("ESCROW_").lower()).inc()
     detail = "Settlement key/address is not configured correctly on this node"
     hub_rpc = os.getenv("HUB_RPC_URL", "").strip().rstrip("/")
     if hub_rpc:
@@ -1425,6 +1426,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             "ESCROW_RELEASE: refusing to release job_id=%s - settlement key/address is missing or mismatched",
             job_id,
         )
+        escrow_settlement_refused_total.labels(op="release").inc()
         raise HTTPException(
             status_code=503,
             detail="Settlement key/address is not configured correctly; escrow was not released",
