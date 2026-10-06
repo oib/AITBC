@@ -24,6 +24,10 @@ Covered eras:
   sequential-only apply with strict signed nonce.
 - h4 **v8 TRANSFER**: height/stamp-derived current-era rules — signed nonce is
   authoritative end to end.
+- h5 **v12 GOVERNANCE_EXECUTE**: authority-parameter value checks — the executor
+  writes ``escrow_settlement_authority`` with a well-formed value, which the
+  v12 gate accepts. ``chain_parameter`` rows are outside the account state root,
+  so the frozen roots only see the sender's fee debit.
 """
 
 from __future__ import annotations
@@ -38,6 +42,7 @@ from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.state.state_transition import get_block_version
 from aitbc_chain.sync import ChainSync
 from aitbc.crypto.crypto import derive_ethereum_address
+from aitbc.utils import DEFAULT_TX_FEE_UNITS
 from aitbc_chain.rpc.utils import sign_transaction_data
 from aitbc_chain.state.bridge_credit import sign_bridge_credit
 from sqlmodel import Session, create_engine, select
@@ -93,6 +98,11 @@ def _seed_genesis(session_factory) -> None:
             )
         )
         session.add(ChainParameter(chain_id=CHAIN, parameter="bridge_release_authority", value=ADDR_BRIDGE, applied_height=0))
+        # The v12-era block's GOVERNANCE_EXECUTE needs ADDR_A in the on-chain
+        # executor list (the v5 fail-closed gate); chain_parameter rows are
+        # outside the account state root, so this does not disturb the frozen
+        # genesis/v1–v8 roots.
+        session.add(ChainParameter(chain_id=CHAIN, parameter="governance_executors", value=ADDR_A, applied_height=0))
         session.commit()
         genesis = session.exec(select(Block).where(Block.chain_id == CHAIN, Block.height == 0)).one()
         genesis.state_root = compute_state_root_full(session, CHAIN)
@@ -168,6 +178,28 @@ def _gpu_register_tx(nonce: int) -> dict[str, Any]:
     )
 
 
+def _gov_execute_tx(nonce: int = 4) -> dict[str, Any]:
+    """v12-era GOVERNANCE_EXECUTE: the executor writes a valid authority value."""
+    return _signed_tx(
+        KEY_A,
+        ADDR_A,
+        nonce,
+        tx_type="GOVERNANCE_EXECUTE",
+        amount=0,
+        fee=DEFAULT_TX_FEE_UNITS,
+        to=ADDR_A,
+        tx_hash="0x" + "c5" * 32,
+        payload={
+            "proposal_id": "replay-v12",
+            "execution_payload": {
+                "action": "parameter_change",
+                "parameter": "escrow_settlement_authority",
+                "value": ADDR_B,
+            },
+        },
+    )
+
+
 def _build_chain() -> list[dict[str, Any]]:
     """The fixture chain. Transaction *content* is deterministic; the recorded
     ``state_root`` per block is asserted against EXPECTED_ROOTS."""
@@ -180,6 +212,7 @@ def _build_chain() -> list[dict[str, Any]]:
         _block(2, "0x" + "01" * 16, 5, [_bridge_release_tx()], EXPECTED_ROOTS[2]),
         _block(3, "0x" + "02" * 16, 7, [_gpu_register_tx(nonce=2)], EXPECTED_ROOTS[3]),
         _block(4, "0x" + "03" * 16, 8, [_signed_tx(KEY_A, ADDR_A, nonce=3, amount=7)], EXPECTED_ROOTS[4]),
+        _block(5, "0x" + "04" * 16, 12, [_gov_execute_tx()], EXPECTED_ROOTS[5]),
     ]
     for b in blocks[1:]:
         b["parent_hash"] = blocks[b["height"] - 2]["hash"]  # hash = f"0x{h:064x}"
@@ -195,10 +228,11 @@ EXPECTED_ROOTS: dict[int, str] = {
     2: "0x40082b3630a44456a40ceff6758ea6d38bc788b52a1e9e71686d94dc2247ba82",
     3: "0x3faf51a01b0670b5743e29a966b5a5c726b3641b3662f18e9889026bdb74f273",
     4: "0x95b3d015e93ac365fd0f9d94545df7bb35e48205e86c93d3d98030df5f468f78",
+    5: "0x69a3ea1e00258b4ee7096ba2997352e4ee8290b50cf8c79ce7974e4c648db0d6",  # v12 era — frozen like the rest
 }
 
 EXPECTED_FINAL: dict[str, tuple[int, int]] = {
-    ADDR_A: (999999970, 4),  # (balance, nonce) after h4
+    ADDR_A: (999999970 - 360000, 5),  # (balance, nonce) after h5's 360000-unit fee
     ADDR_B: (527, 0),
 }
 
@@ -206,7 +240,7 @@ EXPECTED_FINAL: dict[str, tuple[int, int]] = {
 class TestHistoricalReplay:
     def test_each_fixture_block_replays_its_era(self, session_factory, monkeypatch):
         # The eras the fixture asserts must resolve from the metadata stamps.
-        for h, v in ((1, 5), (2, 5), (3, 7), (4, 8)):
+        for h, v in ((1, 5), (2, 5), (3, 7), (4, 8), (5, 12)):
             assert get_block_version({"block_metadata": f'{{"state_transition_version": {v}}}'}, h) == v
 
         # Exercise the parallel path like the fleet does — a 2-tx same-sender
