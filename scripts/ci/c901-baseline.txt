@@ -20,43 +20,50 @@
       1 apps/blockchain-explorer/routers/analytics.py
       1 apps/blockchain-explorer/routers/blocks.py
       1 apps/blockchain-explorer/routers/search.py
-      1 apps/blockchain-node/src/aitbc_chain/app.py
+      2 apps/blockchain-node/src/aitbc_chain/app.py
       1 apps/blockchain-node/src/aitbc_chain/aux_state.py
       1 apps/blockchain-node/src/aitbc_chain/chain_sync.py
       3 apps/blockchain-node/src/aitbc_chain/consensus/pbft.py
-      3 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
-      1 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py
-      2 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
+      6 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
+      1 apps/blockchain-node/src/aitbc_chain/consensus/proposal_freshness.py
+      3 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py
+      3 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py
-      3 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
+      4 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
+      1 apps/blockchain-node/src/aitbc_chain/database.py
       2 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py
       5 apps/blockchain-node/src/aitbc_chain/main.py
+      3 apps/blockchain-node/src/aitbc_chain/mempool.py
       3 apps/blockchain-node/src/aitbc_chain/p2p_network.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/accounts.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/agent_staking.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/blocks.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/bridge.py
       4 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/market.py
-      2 apps/blockchain-node/src/aitbc_chain/rpc/staking.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/sync.py
-      2 apps/blockchain-node/src/aitbc_chain/rpc/transactions.py
+      5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_settlement_sweeper.py
+      1 apps/blockchain-node/src/aitbc_chain/rpc/staking.py
+      2 apps/blockchain-node/src/aitbc_chain/rpc/sync.py
+      3 apps/blockchain-node/src/aitbc_chain/rpc/transactions.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/utils.py
       3 apps/blockchain-node/src/aitbc_chain/rpc/websocket.py
+      1 apps/blockchain-node/src/aitbc_chain/state/admission_authority.py
+      4 apps/blockchain-node/src/aitbc_chain/state/block_deltas.py
       1 apps/blockchain-node/src/aitbc_chain/state/liquidity_transition.py
       1 apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py
       2 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
-      5 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
-      2 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
-      2 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
+      9 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
+      3 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
+      3 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
       2 apps/blockchain-node/src/aitbc_chain/sync_manager.py
-      1 apps/blockchain-node/src/aitbc_chain/sync_state.py
+      2 apps/blockchain-node/src/aitbc_chain/sync_state.py
       2 apps/blockchain-node/src/aitbc_chain/sync_validator.py
       1 apps/blockchain-node/tests/consensus/test_pbft.py
+      1 apps/blockchain-node/tests/test_gauge_wiring_review.py
       1 apps/blockchain-node/tests/test_parallel_performance.py
       1 apps/blockchain-node/tests/test_performance.py
-      1 apps/bridge-monitor/src/bridge_monitor/main.py
+      1 apps/bridge-monitor/src/bridge_monitor/admin.py
+      4 apps/bridge-monitor/src/bridge_monitor/main.py
       1 apps/bridge-monitor/src/bridge_monitor/storage.py
       1 apps/coordinator-api/alembic/versions/1c58c844d95e_add_client_ref_and_foreign_keys_to_job_.py
       1 apps/coordinator-api/scripts/migrate_complete.py
@@ -86,7 +93,8 @@
       2 apps/governance/src/governance_service/services/governance_service.py
       1 apps/gpu/src/gpu_service/main.py
       1 apps/hermes_agent/main.py
-      3 apps/market/src/market_service/services/market_service.py
+      1 apps/market/src/market_service/services/market_job_sweeper.py
+      5 apps/market/src/market_service/services/market_service.py
       1 apps/miner/production_miner.py
       1 apps/pool-hub/src/poolhub/services/validation.py
       3 apps/trading/examples/main.py
@@ -115,9 +123,10 @@
       2 cli/aitbc_cli/commands/monitor.py
       1 cli/aitbc_cli/commands/node/island.py
       1 cli/aitbc_cli/commands/node/monitor.py
-      1 cli/aitbc_cli/commands/prometheus.py
+      2 cli/aitbc_cli/commands/prometheus.py
       2 cli/aitbc_cli/commands/simulate.py
       1 cli/aitbc_cli/commands/sync.py
+      1 cli/aitbc_cli/commands/transactions.py
       1 cli/aitbc_cli/commands/wallet/__init__.py
       1 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/bridge.py
@@ -132,26 +141,33 @@
       2 cli/miner_management.py
       1 cli/tests/run_cli_tests.py
       1 cli_gap_analysis.py
-      1 dev/gpu/gpu_miner_host.py
       1 mcp-server/aitbc_mcp_cli_tools.py
       3 mcp-server/aitbc_mcp_server.py
       1 packages/py/aitbc-agent-sdk/src/aitbc_agent/cli_contract_client.py
       1 packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py
-      1 scripts/dev/convert_positional_args.py
+      1 scripts/docs/check_feature_status.py
       1 scripts/docs/check_links.py
+      1 scripts/docs/check_orphan_docs.py
       1 scripts/dump_mcp_tools.py
-      1 scripts/fix_b008_comprehensive.py
-      1 scripts/fix_b008_libcst.py
       2 scripts/lint/no_float_money.py
+      1 scripts/monitoring/bridge-payout-audit.py
+      2 scripts/monitoring/escrow-settlements-textfile.py
       1 scripts/monitoring/monitor-prs.py
+      1 scripts/monitoring/state-digest-remote.py
       2 scripts/openapi_error_responses.py
-      2 scripts/performance/profile_db_queries.py
+      1 scripts/ops/first-sweep-check.py
+      2 scripts/ops/governance_parameter_change.py
+      2 scripts/ops/key_residue_census.py
+      2 scripts/ops/rebuild-escrows.py
+      1 scripts/ops/register_bridge_validators.py
+      2 scripts/ops/replay-chain.py
       1 scripts/security/migrate_secrets_to_env_files.py
       2 scripts/security/security_audit.py
       1 scripts/services/gpu/gpu_miner_host.py
       1 scripts/testing/chaos_orchestrator.py
       1 scripts/utils/claim-task.py
       3 scripts/utils/verify-db-schema.py
+      1 tests/cli/test_market_command_names.py
       1 tests/cli/test_wallet.py
       1 tests/fixtures/cli_mocks.py
       1 tests/verification/run_test_suite.py
