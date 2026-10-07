@@ -28,6 +28,7 @@ from .state_transition import (
     _authority_parameter_change_error,
     _escrow_fee_recipient,
     _escrow_settlement_authority,
+    _governance_binding_error,
     _governance_executors,
 )
 
@@ -71,6 +72,11 @@ def sender_authority_error(
         value_error = _authority_parameter_change_error(session, chain_id, payload, fee, block_version=block_version)
         if value_error is not None:
             return value_error
+        # v13 (after the v12 value check, matching validate_transaction's
+        # order): the payload must equal the sealed PROPOSE's stored payload.
+        return _governance_binding_error(
+            session, chain_id, tx_type, payload, block_version=block_version, block_height=block_height
+        )
     elif tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND") and block_version >= 3:
         authority = _escrow_settlement_authority(session, chain_id, block_height)
         if authority is None:
