@@ -47,6 +47,9 @@ Operator procedures for the live fleet:
 - [Escrow settlement ops](ops/escrow-settlement-ops.md) — the
   lock→settle pipeline and per-alert response for the escrow settlement,
   fork, and v9 alerts.
+- [Manual escrow refund](ops/manual-refund-runbook.md) — the operator path
+  for refunding a still-held escrow (no auto-refund sweeper): refundable
+  states, the admin refund call, pre-checks, and the double-settlement stop.
 - [Legacy escrow residue payout](ops/legacy-escrow-residue-payout.md) —
   the Option-A batch runbook: one authority-signed ESCROW_RELEASE per
   legacy custody account, paid to the provider in the sealed lock.
