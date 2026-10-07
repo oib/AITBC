@@ -16,6 +16,7 @@ from __future__ import annotations
 import pytest
 from sqlmodel import select
 
+from aitbc_chain import database
 from aitbc_chain.base_models import ChainParameter
 from aitbc_chain.database import init_db, session_scope
 
@@ -88,3 +89,17 @@ def test_existing_rows_are_untouched_and_unwarned(isolated_chain_env, caplog):
         assert row.value == _AUTHORITY
         assert row.proposal_id == "test-preset"
     assert not any("authority parameter" in r.message for r in caplog.records)
+
+
+def test_advisory_warns_once_per_process_per_parameter(isolated_chain_env, caplog):
+    """init_db runs on every chain DB open — a multi-island node repeats the
+    same advisory tens of times a day. Each (chain, parameter) warns once."""
+    database._authority_warning_emitted.clear()
+    chain = "repeat-open-authority-check"
+    init_db(chain)
+    warned = [r for r in caplog.records if "authority parameter" in r.message and chain in r.message]
+    assert len(warned) == len(_PARAMS)
+
+    caplog.clear()
+    init_db(chain)
+    assert not any("authority parameter" in r.message and chain in r.message for r in caplog.records)
