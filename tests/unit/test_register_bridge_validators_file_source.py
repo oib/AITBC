@@ -31,6 +31,12 @@ def _clean_validator_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "BRIDGE_VALIDATOR_PRIVATE_KEY_2",
         "BRIDGE_VALIDATOR_PRIVATE_KEY_SOURCE_2",
         "BRIDGE_VALIDATOR_PRIVATE_KEY_FILE_2",
+        "BRIDGE_ADMIN_PRIVATE_KEY",
+        "BRIDGE_ADMIN_PRIVATE_KEY_FILE",
+        "BRIDGE_ADMIN_PRIVATE_KEY_SOURCE",
+        "BRIDGE_ADMIN_ADDRESS",
+        "PROPOSER_KEY",
+        "GENESIS_PRIVATE_KEY",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -97,3 +103,47 @@ def test_no_key_material_in_die_output(tmp_path: Path, monkeypatch: pytest.Monke
     out = capsys.readouterr()
     assert KEY_HEX not in out.out and KEY_HEX not in out.err
     assert str(f) in out.err  # path is named, contents never are
+
+
+# --- admin BRIDGE_ADMIN_PRIVATE_KEY_FILE: same hardening (A34-5) ---
+
+
+def test_admin_file_collects_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Identical behaviour for a correctly protected file."""
+    f = _key_file(tmp_path)
+    monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(f))
+    assert rbv._get_admin_private_key() == KEY_HEX
+
+
+def test_admin_file_refuses_group_readable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    f = _key_file(tmp_path, mode=0o640)
+    monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(f))
+    with pytest.raises(SystemExit):
+        rbv._get_admin_private_key()
+
+
+def test_admin_file_refuses_wrong_owner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    f = _key_file(tmp_path)
+    monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(f))
+    monkeypatch.setattr(os, "geteuid", lambda: 99999)
+    with pytest.raises(SystemExit):
+        rbv._get_admin_private_key()
+
+
+def test_admin_file_refuses_symlink_out_of_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    target = _key_file(outside)
+    link = tmp_path / "key.link"
+    link.symlink_to(target)
+    monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(link))
+    with pytest.raises(SystemExit):
+        rbv._get_admin_private_key()
+
+
+def test_admin_file_allows_symlink_within_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = _key_file(tmp_path)
+    link = tmp_path / "key.link"
+    link.symlink_to(target)
+    monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(link))
+    assert rbv._get_admin_private_key() == KEY_HEX
