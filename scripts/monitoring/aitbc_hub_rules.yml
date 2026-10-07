@@ -124,19 +124,18 @@ groups:
       # GOVERNANCE_PROPOSE/VOTE/EXECUTE on the server-signed path) that is not
       # a chain parameter — watched as an AITBC_WATCH_ACCOUNTS extra, so the
       # env entry must move when the key rotates. Funded at exactly ten fees;
-      # the warn band is the whole balance, so the first real submission
-      # fires the low alert — that is the intended early signal on a thin
-      # float. Bands exclude each other.
+      # the warn band starts below five fees, so up to four submissions pass
+      # before it warns. Bands exclude each other.
       - alert: GovernanceProposerFloatLow
         expr: |
-          aitbc_authority_balance_units{role="governance_proposer"} < 3600000
+          aitbc_authority_balance_units{role="governance_proposer"} < 1800000
           and aitbc_authority_balance_units{role="governance_proposer"} >= 720000
         for: 2m
         labels:
           severity: warning
         annotations:
           summary: "Governance proposer float is low ({{ $labels.address }})"
-          description: "Governance proposer {{ $labels.address }} holds {{ $value | humanize }} units — fewer than ten governance-tx fees (360,000 each). Top it up before the next on-chain submission."
+          description: "Governance proposer {{ $labels.address }} holds {{ $value | humanize }} units — fewer than five governance-tx fees (360,000 each). Top it up before the next on-chain submission."
 
       - alert: GovernanceProposerFloatCritical
         expr: aitbc_authority_balance_units{role="governance_proposer"} < 720000
