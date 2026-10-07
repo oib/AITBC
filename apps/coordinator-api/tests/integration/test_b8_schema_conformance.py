@@ -1,10 +1,11 @@
 """
 B-8: Schema-conformance test for the coordinator-api migration graph.
 
-The 001_initial migration uses SQLModel.metadata.create_all() dynamically —
-a fresh deploy gets today's models, not a historical schema. Subsequent
-migrations then add columns that may already exist (handled by checkfirst
-and idempotence guards).
+The 001_initial migration is a frozen baseline: explicit ``create_table`` /
+``create_index`` DDL generated at commit f7df5b478 (it previously ran
+``SQLModel.metadata.create_all`` dynamically, so a fresh deploy received
+whatever the current models declared). Subsequent migrations add columns on
+top, guarded by ``if_not_exists`` / inspect helpers.
 
 This test asserts that a fresh `alembic upgrade head` produces a schema that
 matches the declared models. If it doesn't, there's drift between the
@@ -107,7 +108,7 @@ def test_fresh_upgrade_head_matches_declared_models(tmp_path: Path):
     This catches:
     - Model columns added without a migration (schema would be missing them)
     - Migration columns that no longer exist in models (schema would have extras)
-    - The 001_initial dynamic create_all drifting from the migration graph
+    - The frozen 001_initial baseline drifting from the migration graph
     """
     db_path = _run_alembic(tmp_path, "upgrade", "head")
 
@@ -155,3 +156,18 @@ def test_alembic_head_is_not_initial_migration(tmp_path: Path):
 
     assert version is not None, "alembic_version table is empty after upgrade head"
     assert version != "initial_migration", "upgrade head stopped at initial_migration — subsequent migrations didn't run"
+
+
+def test_001_baseline_is_frozen() -> None:
+    """Regression guard: 001_initial_migration must stay explicit DDL.
+
+    The baseline was frozen because a dynamic ``create_all`` gives every fresh
+    install a different schema (whatever today's models are) and lets the
+    migration graph depend on tables it never created. If 001 ever imports
+    application code or calls ``create_all``/``drop_all`` again, this fails.
+    """
+    src = (_COORDINATOR_ROOT / "alembic" / "versions" / "001_initial_migration.py").read_text()
+    assert "create_all(" not in src, "001 must not call SQLModel.metadata.create_all"
+    assert "drop_all(" not in src, "001 must not call SQLModel.metadata.drop_all"
+    assert "import coordinator_api" not in src, "001 must not import the application"
+    assert "op.create_table" in src, "001 must contain frozen create_table DDL"
