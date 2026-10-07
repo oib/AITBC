@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time
 from collections import defaultdict
 from collections.abc import AsyncIterator, Callable
@@ -102,6 +103,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+# A GET 404 on the account routes is the ordinary "no account row" answer —
+# the authority-balance scraper polls a deliberately-absent account every
+# minute — so it logs below WARNING. Every other client error still warns.
+_ACCOUNT_MISS_PATH = re.compile(r"/rpc/accounts?/[^/]+/?$")
+
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Log all requests with timing and error details."""
 
@@ -133,8 +140,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     duration * 1000,
                 )
             elif response.status_code >= 400:
+                # The counter stays exact for every client error — alerts read
+                # it — only the log level differs for an expected account miss.
                 metrics_registry.increment("rpc_client_errors_total")
-                _app_logger.warning(
+                log = (
+                    _app_logger.info
+                    if method == "GET" and response.status_code == 404 and _ACCOUNT_MISS_PATH.fullmatch(path)
+                    else _app_logger.warning
+                )
+                log(
                     "Client error: %s %s from %s (UA: %s) → %d (%.1fms)",
                     method,
                     path_with_qs,

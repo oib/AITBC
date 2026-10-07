@@ -1,6 +1,13 @@
 """The node's /ready probe: chain database and a non-empty chain set are
 always required; a node told to produce blocks must additionally hold the key
-for its declared proposer identity — the same gate startup applies."""
+for its declared proposer identity — the same gate startup applies.
+
+Also covers the request-logging middleware's 4xx levels: an expected account
+404 (polled every minute by the authority-balance scraper) logs at INFO while
+every other client error still logs at WARNING.
+"""
+
+import logging
 
 import pytest
 from fastapi.testclient import TestClient
@@ -79,3 +86,39 @@ def test_env_override_takes_precedence(monkeypatch):
     assert _effective_block_production_enabled() is False
     monkeypatch.delenv("AITBC_FORCE_ENABLE_BLOCK_PRODUCTION")
     assert _effective_block_production_enabled() is False
+
+
+_MISSING_ADDR = "0x" + "ca" * 20
+
+
+def _client_errors(caplog):
+    return [r for r in caplog.records if "Client error" in r.getMessage()]
+
+
+class TestRequestLoggingLevels:
+    """Expected account 404s stay below WARNING; other client errors warn."""
+
+    def test_missing_account_404_logs_info_not_warning(self, client, caplog):
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.get(f"/rpc/accounts/{_MISSING_ADDR}?chain_id=ait-mainnet")
+        assert resp.status_code == 404
+        records = _client_errors(caplog)
+        assert [r.levelno for r in records] == [logging.INFO]
+
+    def test_missing_account_alias_route_also_quiet(self, client, caplog):
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.get(f"/rpc/account/{_MISSING_ADDR}?chain_id=ait-mainnet")
+        assert resp.status_code == 404
+        assert not [r for r in _client_errors(caplog) if r.levelno >= logging.WARNING]
+
+    def test_unknown_route_404_still_warns(self, client, caplog):
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.get("/rpc/no-such-endpoint")
+        assert resp.status_code == 404
+        assert any(r.levelno == logging.WARNING for r in _client_errors(caplog))
+
+    def test_invalid_account_address_400_still_warns(self, client, caplog):
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.get("/rpc/accounts/not-an-address?chain_id=ait-mainnet")
+        assert resp.status_code == 400
+        assert any(r.levelno == logging.WARNING for r in _client_errors(caplog))
