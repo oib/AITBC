@@ -216,9 +216,9 @@ configure_environment() {
 
     # Setup blockchain.env if it doesn't exist
     if [[ ! -f /etc/aitbc/blockchain.env ]]; then
-        if [[ -f "$REPO_ROOT/examples/blockchain.env.open-island" ]]; then
+        if [[ -f "$REPO_ROOT/examples/blockchain.env.example" ]]; then
             # Copy example and strip comments for production use
-            grep -v '^#' "$REPO_ROOT/examples/blockchain.env.open-island" | grep -v '^$' > /etc/aitbc/blockchain.env || true
+            grep -v '^#' "$REPO_ROOT/examples/blockchain.env.example" | grep -v '^$' > /etc/aitbc/blockchain.env || true
         fi
 
         # Add defaults if file is empty

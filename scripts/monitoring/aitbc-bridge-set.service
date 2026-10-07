@@ -9,10 +9,15 @@ Type=oneshot
 # validator-set gauges: active rows, members that are also current
 # consensus attesters (VALIDATOR_SET), configured threshold, set age, and
 # the freshness flag the release path enforces
-# (_check_validator_set_freshness, bridge_validator.py:461). VALIDATOR_SET
-# comes from the node env file so the possible-signers count follows
-# consensus rotations without an edit here.
-EnvironmentFile=-/etc/aitbc/blockchain-node.env
+# (_check_validator_set_freshness, bridge_validator.py:461).
+#
+# VALIDATOR_SET comes from a dedicated env file, never from the node env:
+# /etc/aitbc/bridge-set.env is root-owned mode 0600 and holds exactly one
+# VALIDATOR_SET= line extracted from /etc/aitbc/blockchain-node.env
+# (e.g. grep '^VALIDATOR_SET=' blockchain-node.env into it). Sourcing the
+# whole node env would hand PROPOSER_KEY, VALIDATOR_KEYS and
+# BRIDGE_RELEASE_PRIVATE_KEY to a monitoring unit.
+EnvironmentFile=-/etc/aitbc/bridge-set.env
 Environment=AITBC_CHAIN_DB=/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db
 Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
 ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/bridge-set-textfile.py

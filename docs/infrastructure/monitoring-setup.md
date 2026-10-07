@@ -269,8 +269,23 @@ Hub's `rule_files:` in `/etc/prometheus/prometheus.yml` lists `aitbc_hub_rules.y
 
 Two details that bit in practice:
 
-- The unit sources `EnvironmentFile=-/etc/aitbc/blockchain-node.env` for one variable only — `VALIDATOR_SET` — so `possible_signers` follows consensus rotations without a unit edit. `AITBC_CHAIN_DB` and `AITBC_TEXTFILE_DIR` are `Environment=` lines in the unit itself.
+- The unit needs exactly one variable from the node's configuration — `VALIDATOR_SET` — so `possible_signers` follows consensus rotations. It must come from a **dedicated env file**: `/etc/aitbc/bridge-set.env`, root-owned mode `0600`, holding exactly one `VALIDATOR_SET=` line. Never point the unit at `/etc/aitbc/blockchain-node.env` — that file also carries `PROPOSER_KEY`, `VALIDATOR_KEYS` and `BRIDGE_RELEASE_PRIVATE_KEY`, and `EnvironmentFile=` loads every line into the unit's process environment. `AITBC_CHAIN_DB` and `AITBC_TEXTFILE_DIR` are `Environment=` lines in the unit itself.
 - The `.prom` file is written mode `0644` before the atomic rename — `node_exporter` scrapes as the `prometheus` user, so a `0600` file would exist on disk while Prometheus saw no series (and `absent()`-style alerts silently evaluated nothing).
+
+Create the env file without printing the set — extract the existing line straight into place:
+
+```bash
+sudo install -m 600 -o root -g root /dev/null /etc/aitbc/bridge-set.env
+sudo sh -c "grep '^VALIDATOR_SET=' /etc/aitbc/blockchain-node.env >> /etc/aitbc/bridge-set.env"
+```
+
+If a drop-in is used to point an older unit at the env file, remember that `EnvironmentFile=` entries in a drop-in are **appended**, not replaced — reset the base list first or the unit keeps sourcing the old file too:
+
+```ini
+[Service]
+EnvironmentFile=
+EnvironmentFile=/etc/aitbc/bridge-set.env
+```
 
 `set_fresh` mirrors `_check_validator_set_freshness` in `bridge_validator.py`: the **latest registered epoch never decays** — only a *superseded* epoch burns the grace window (`AITBC_BRIDGE_SET_GRACE_SECONDS`, default 7200). The gauge does not fall just because time has passed since registration.
 
