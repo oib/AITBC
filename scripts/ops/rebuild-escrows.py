@@ -232,9 +232,13 @@ def _load_escrow_rows(conn: sqlite3.Connection) -> dict[tuple[str, str], dict[st
         " energy_settlement_route, energy_settlement_asset, energy_settlement_unit_scale,"
         " energy_net_floor_units, energy_provider_credit_units, energy_fee_basis_points"
     )
-    rows = conn.execute(f"SELECT {cols} FROM escrow").fetchall()  # nosec B608 - fixed literal column list
     names = [c.strip() for c in cols.split(",")]
-    return {(r[1], r[0]): dict(zip(names, r, strict=True)) for r in rows}
+    # Older chain.db files predate billed_legs/energy_* — intersect the wanted
+    # columns with the table's real schema and leave the rest NULL.
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(escrow)").fetchall()}
+    wanted = [c for c in names if c in existing]
+    rows = conn.execute(f"SELECT {','.join(wanted)} FROM escrow").fetchall()  # nosec B608 - fixed literal column list
+    return {(r[1], r[0]): {**dict.fromkeys(names), **dict(zip(wanted, r, strict=True))} for r in rows}
 
 
 def _load_accounts(conn: sqlite3.Connection) -> dict[tuple[str, str], int]:
