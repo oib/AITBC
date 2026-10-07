@@ -1,7 +1,7 @@
 """B-8 residual: historical-schema upgrade regression.
 
-The eight tenant_* tables are only created by ``001_initial_migration``'s
-``create_all``, which never runs on an already-stamped database — proven on
+The eight tenant_* tables are only created by the ``001_initial_migration``
+baseline, which never runs on an already-stamped database — proven on
 the 2026-08-09 coordinator.db backup (stamped ``236edfbd9728``): a real
 ``alembic upgrade head`` left all eight missing until migration
 ``e7f2a9c4b1d0`` was added. That upgrade also surfaced a non-constant
