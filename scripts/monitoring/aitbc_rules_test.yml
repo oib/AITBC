@@ -82,6 +82,11 @@ tests:
         values: '36000000x8 1500000x7 500000x7 36000000x10'
       - series: 'aitbc_authority_balance_units{role="governance_executor", address="0xE2"}'
         values: '36000000x32'
+      # Bond slash authority: funded at ten fees, drops into the low band at
+      # t=4m, critical at t=7.5m, topped up at t=11m — same timeline as 0xE1,
+      # scaled to the 3,600,000/720,000 bands.
+      - series: 'aitbc_authority_balance_units{role="bond_slash", address="0xA"}'
+        values: '10800000x8 2000000x7 400000x7 10800000x10'
 
     alert_rule_test:
       # Healthy float: neither float alert fires.
@@ -213,6 +218,48 @@ tests:
         exp_alerts: []
       - eval_time: 14m
         alertname: GovernanceExecutorFloatCritical
+        exp_alerts: []
+
+      # Bond slash authority: 0xA quiet at t=3m; 2M from t=4.5m fires low at
+      # t=6.5m; 400k from t=8m fires critical at t=10.5m and resolves low; the
+      # top-up at t=11.5m clears both.
+      - eval_time: 3m
+        alertname: BondSlashAuthorityFloatLow
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: BondSlashAuthorityFloatCritical
+        exp_alerts: []
+      - eval_time: 6m30s
+        alertname: BondSlashAuthorityFloatLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              role: bond_slash
+              address: 0xA
+            exp_annotations:
+              summary: "Bond slash authority float is low (0xA)"
+              description: "Bond slash authority 0xA holds 2M units — fewer than ten BOND_SLASH fees (360,000 each). Top it up before the sweeper or a router-triggered slash needs it."
+      - eval_time: 6m30s
+        alertname: BondSlashAuthorityFloatCritical
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: BondSlashAuthorityFloatCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              role: bond_slash
+              address: 0xA
+            exp_annotations:
+              summary: "Bond slash authority float is nearly gone (0xA)"
+              description: "Bond slash authority 0xA holds 400k units — fewer than two BOND_SLASH fees. A slash submitted by the coordinator will be refused at admission until funded."
+      - eval_time: 11m
+        alertname: BondSlashAuthorityFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: BondSlashAuthorityFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: BondSlashAuthorityFloatCritical
         exp_alerts: []
 
   # PrometheusWatchStale: the watcher's own heartbeat. In production a dead

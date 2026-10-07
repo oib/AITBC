@@ -95,6 +95,31 @@ groups:
           summary: "Governance executor float is nearly gone ({{ $labels.address }})"
           description: "Governance executor {{ $labels.address }} holds {{ $value | humanize }} units — fewer than two GOVERNANCE_EXECUTE fees. A parameter change signed by it will be refused at admission until funded."
 
+      # BOND_SLASH pays BOND_SLASH_TX_FEE (360,000 units on hub) per submitted
+      # slash from the bond_slash_authority account; an account with no row
+      # fails admission at "sender account not found" and slashing is silently
+      # disarmed. Warn below ten slashes, critical below two. The bands
+      # exclude each other.
+      - alert: BondSlashAuthorityFloatLow
+        expr: |
+          aitbc_authority_balance_units{role="bond_slash"} < 3600000
+          and aitbc_authority_balance_units{role="bond_slash"} >= 720000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Bond slash authority float is low ({{ $labels.address }})"
+          description: "Bond slash authority {{ $labels.address }} holds {{ $value | humanize }} units — fewer than ten BOND_SLASH fees (360,000 each). Top it up before the sweeper or a router-triggered slash needs it."
+
+      - alert: BondSlashAuthorityFloatCritical
+        expr: aitbc_authority_balance_units{role="bond_slash"} < 720000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Bond slash authority float is nearly gone ({{ $labels.address }})"
+          description: "Bond slash authority {{ $labels.address }} holds {{ $value | humanize }} units — fewer than two BOND_SLASH fees. A slash submitted by the coordinator will be refused at admission until funded."
+
   - name: aitbc-native-energy-rate
     rules:
       # Native AIT/EUR energy rate, exported by
