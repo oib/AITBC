@@ -398,15 +398,14 @@ def test_v12_absent_action_treated_as_parameter_change(session):
     assert "must not be empty" in msg
 
 
-def test_v12_height_defaults_off_and_env_sets_it(monkeypatch):
-    """The baked default is off: a fresh settings object (no env, no env file)
-    leaves v12 inactive; STATE_TRANSITION_V12_HEIGHT pins the height and the
-    height-derived ladder resolves it."""
+def test_v12_env_still_overrides_the_baked_default(monkeypatch):
+    """STATE_TRANSITION_V12_HEIGHT wins over the baked 37500 for a process
+    that sets it — the height-derived ladder resolves the env value. The
+    baked default itself is pinned in test_escrow_fee_sweep.py next to the
+    v11 pair."""
     from aitbc_chain.config import ChainSettings, settings
     from aitbc_chain.state.state_transition import get_block_version_for_height
 
-    monkeypatch.delenv("STATE_TRANSITION_V12_HEIGHT", raising=False)
-    assert ChainSettings(_env_file=None).state_transition_v12_height is None
     monkeypatch.setenv("STATE_TRANSITION_V12_HEIGHT", "40000")
     assert ChainSettings(_env_file=None).state_transition_v12_height == 40_000
     monkeypatch.setattr(settings, "state_transition_v12_height", 40_000)
