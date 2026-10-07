@@ -5497,7 +5497,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     raise RuntimeError(
-        "001_initial_migration is a frozen baseline snapshot; downgrading below "
-        "it would drop every coordinator table. Destroy and rebuild the database "
-        "explicitly if that is really intended."
+        "the baseline cannot be downgraded: 001_initial_migration is a frozen "
+        "schema snapshot and downgrading below it would drop every coordinator "
+        "table. Destroy and rebuild the database explicitly if that is really "
+        "intended."
     )
