@@ -414,6 +414,12 @@ def ensure_bond_accounts(session: Session, chain_id: str) -> None:
 
 _AUTHORITY_PARAMETERS = ("governance_executors", "escrow_settlement_authority", "bond_slash_authority")
 
+# (chain_id, parameter) pairs already warned about in this process. init_db
+# runs on every chain DB open, which on a multi-island node repeats the same
+# advisory tens of times a day; the warning is still emitted at the same
+# level, just only on the first sighting of each unset parameter.
+_authority_warning_emitted: set[tuple[str, str]] = set()
+
 
 def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
     """Report authority chain parameters that are unset on this chain.
@@ -427,9 +433,12 @@ def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
     blocks mined before it was legitimately set. They can therefore only
     ever be set through chain history — genesis, or a GOVERNANCE_EXECUTE —
     never from a node's startup code or its environment. init reports the
-    gap so an operator sees it; it does not write.
+    gap so an operator sees it; it does not write. Each (chain, parameter)
+    warns once per process — repeats add no information.
     """
     for parameter in _AUTHORITY_PARAMETERS:
+        if (chain_id, parameter) in _authority_warning_emitted:
+            continue
         row = session.exec(
             select(ChainParameter).where(
                 ChainParameter.chain_id == chain_id,
@@ -438,6 +447,7 @@ def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
         ).first()
         if row and row.value.strip():
             continue
+        _authority_warning_emitted.add((chain_id, parameter))
         logger.warning(
             "chain %s: authority parameter %s is not set; below its gate height the lenient "
             "branch applies — set it through genesis or governance, not env",
