@@ -614,7 +614,7 @@ def aitbc_operations_governance_vote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cast a vote on a governance proposal using a wallet.."""
+    """Cast a vote on a governance proposal using a wallet. Votes are advisory (V-7) — the tally does not decide execution.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

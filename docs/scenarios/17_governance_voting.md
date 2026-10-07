@@ -36,6 +36,11 @@ Live two-node validation so far has proven `aitbc governance status`. Propose/vo
 
 A network participant wants to propose a parameter change (e.g., adjusting the block gas limit), gather votes from stakeholders during the voting period, and execute the proposal once it passes.
 
+> **Votes are advisory (V-7).** The tally informs execution but does not decide
+> it: `GOVERNANCE_EXECUTE` is an administrative action gated only by the
+> `governance_executors` chain parameter — an executor may execute an unpopular
+> proposal or decline a passed one.
+
 ### What You'll Learn
 
 - How to inspect the live governance service with `aitbc governance status`

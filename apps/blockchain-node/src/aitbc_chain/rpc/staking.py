@@ -442,7 +442,9 @@ async def create_governance_proposal(request: Request, proposal_data: dict[str, 
     """
     Create a governance proposal on the blockchain.
 
-    Records governance proposals for DAO decision-making.
+    Voting on it is advisory (V-7): the tally informs execution but does not
+    decide it — GOVERNANCE_EXECUTE is gated only by the governance_executors
+    chain parameter.
     """
     chain_id = get_chain_id(proposal_data.get("chain_id"))
     proposal_id = proposal_data.get("proposal_id")
@@ -503,7 +505,10 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
     """
     Cast a vote on a governance proposal.
 
-    Records votes on-chain for proposal decision-making.
+    Votes are advisory (V-7): the tally informs execution but does not decide
+    it — apply never reads the vote count, and GOVERNANCE_EXECUTE is gated only
+    by the governance_executors chain parameter. The vote row is written only
+    on this node and never propagates.
     """
     chain_id = get_chain_id(vote_data.get("chain_id"))
     proposal_id = vote_data.get("proposal_id")

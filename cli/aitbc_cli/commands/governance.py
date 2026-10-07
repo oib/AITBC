@@ -2,7 +2,7 @@
 
 Provides commands for on-chain governance operations:
 - ``governance propose`` — create a governance proposal
-- ``governance vote`` — cast a vote on a proposal
+- ``governance vote`` — cast an advisory vote on a proposal (V-7)
 - ``governance list`` — list proposals (with optional status filter)
 - ``governance execute`` — execute a passed proposal after timelock
 - ``governance status`` — get governance service status
@@ -254,7 +254,7 @@ def vote(
     password: str | None,
     format: str,
 ):
-    """Vote for, against, or abstain on a governance proposal."""
+    """Vote for, against, or abstain on a governance proposal. Votes are advisory (V-7) — the tally informs but does not decide execution; GOVERNANCE_EXECUTE is gated only by the governance_executors chain parameter."""
     try:
         client = _get_client(ctx)
         vote_data = {
@@ -353,7 +353,7 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def execute(ctx, proposal_id: str, executor_address: str, wallet_name: str | None, password: str | None, format: str):
-    """Execute an approved governance proposal on-chain."""
+    """Execute a governance proposal on-chain as a governance executor (the vote tally is advisory and does not decide execution; V-7)."""
     try:
         client = _get_client(ctx)
         query = ""
@@ -497,7 +497,7 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def aggregate_votes(ctx, proposal_id: str, format: str):
-    """Aggregate and tally cross-chain votes for a proposal."""
+    """Aggregate and tally votes for a proposal (informational only — votes are advisory, V-7)."""
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes")
