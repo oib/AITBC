@@ -147,13 +147,19 @@ def _check_fee_balance(label: str, address: str, balance: int) -> None:
 
 
 def _validate_target(value: str) -> list[str]:
-    """Every comma-separated element must be a 0x address and not the zero address."""
+    """Every comma-separated element must be a 0x address, not the zero
+    address, and unique — a repeated member is refused on-chain anyway, so
+    fail before the wire."""
     elements = [v.strip() for v in value.split(",")]
+    seen: set[str] = set()
     for element in elements:
         if not _ADDRESS_RE.match(element):
             _fail(f"invalid target address {element!r} — expected 0x + 40 hex")
         if element.lower() == _ZERO_ADDRESS:
             _fail("target is the zero address — refusing")
+        if element.lower() in seen:
+            _fail(f"target list repeats {element} — refusing")
+        seen.add(element.lower())
     return elements
 
 
@@ -212,7 +218,11 @@ def _executor_address(private_key: str) -> str:
 
 
 def _wait_confirmed(rpc_url: str, tx_hash: str, chain_id: str, timeout_s: int, interval_s: float = 5.0) -> dict | None:
-    """Poll /rpc/transaction/{hash} until the row is confirmed; None on timeout."""
+    """Poll /rpc/transaction/{hash} until the row is confirmed; None on timeout.
+    A falsy hash means the submission never produced one — polling would
+    hammer /rpc/transaction/None with 404s for the whole timeout, so refuse."""
+    if not tx_hash:
+        _fail("cannot wait for a transaction with no hash — the submission response did not return one")
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         try:
@@ -452,7 +462,9 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     status, body = _rpc_post(args.rpc_url, "/rpc/transaction", {"signed_tx": tx, **tx})
     if status != 200 or not (isinstance(body, dict) and body.get("success")):
         _fail(f"submission refused: HTTP {status} {body}")
-    tx_hash = str(body["transaction_hash"])
+    tx_hash = str(body.get("transaction_hash") or "")
+    if not tx_hash:
+        _fail(f"submission accepted but the response carries no transaction_hash — refusing to poll: {body}")
     print(f"submitted {tx_hash} — digest was {digest}")
     print(f"waiting for a block to seal it (timeout {args.timeout}s)…")
 
