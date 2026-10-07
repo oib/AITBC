@@ -42,8 +42,9 @@ def _index_or_constraint_exists(table: str, name: str) -> bool:
 
     On Postgres a model-level UniqueConstraint creates a backing index with the
     constraint's own name, which ``get_indexes`` lists; on SQLite the same
-    constraint surfaces only as ``sqlite_autoindex_…``, so the explicit index
-    is still created there (harmless — enforcement is identical).
+    constraint is reported by ``get_unique_constraints`` under its declared
+    name while physically living as a ``sqlite_autoindex_…``. Either way the
+    explicit index is skipped when the constraint already exists.
     """
     if context.is_offline_mode():
         return False
