@@ -941,8 +941,10 @@ class BridgeTransferMixin(BridgeBase):
             logger.warning("Proof signature verification failed (threshold or single-sig)")
             return False
 
-        # Step 6: Validator set epoch grace period check (B6)
-        if not self._check_validator_set_freshness(record_chain_id):
+        # Step 6: Validator set epoch grace period check (B6) — epoch-aware:
+        # the current epoch is authoritative; superseded epochs get the grace
+        # window. A proof's validator_epoch of 0/absent resolves to latest.
+        if not self._check_validator_set_freshness(record_chain_id, proof.get("validator_epoch") or None):
             logger.warning("Validator set for chain=%s is stale (grace period expired)", record_chain_id)
             return False
 
