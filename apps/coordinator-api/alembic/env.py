@@ -34,6 +34,7 @@ from coordinator_api.config import settings as app_settings
 # missing/renamed model module never blocks running migrations.
 try:
     import coordinator_api.main  # noqa: F401 - imports routers to populate metadata
+    import coordinator_api.models.multitenant  # noqa: F401 - tenant tables are not reached via routers
     from sqlmodel import SQLModel
 
     target_metadata = SQLModel.metadata
