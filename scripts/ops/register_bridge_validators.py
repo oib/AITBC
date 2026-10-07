@@ -166,8 +166,32 @@ def _get_admin_private_key() -> str:
     )
 
 
+def _read_key_file(path_str: str, label: str) -> str:
+    """Read a private key from ``path_str``, refusing unsafe files.
+
+    Fails closed: the file must be unreadable by group/other (mode bits
+    ``0o077`` clear) and owned by the effective user or root. Messages name
+    the path only — never key material.
+    """
+    try:
+        st = Path(path_str).stat()
+    except OSError as exc:
+        _die(f"{label} key file {path_str!r} could not be read: {exc.strerror or exc}")
+    if st.st_mode & 0o077:
+        _die(f"{label} key file {path_str!r} is group/world-readable (mode {oct(st.st_mode & 0o777)}); refusing")
+    if st.st_uid not in (os.geteuid(), 0):
+        _die(f"{label} key file {path_str!r} is owned by uid {st.st_uid}, not the current user or root; refusing")
+    try:
+        contents = Path(path_str).read_text().strip()
+    except OSError as exc:
+        _die(f"{label} key file {path_str!r} could not be read: {exc.strerror or exc}")
+    if not contents:
+        _die(f"{label} key file {path_str!r} is empty")
+    return contents
+
+
 def _collect_validator_private_keys() -> list[tuple[str, str]]:
-    """Collect validator private keys from BRIDGE_VALIDATOR_PRIVATE_KEY(_SOURCE)_<N>.
+    """Collect validator private keys from BRIDGE_VALIDATOR_PRIVATE_KEY(_SOURCE|_FILE)_<N>.
 
     Validator ``N`` is bound to ``BRIDGE_VALIDATOR_ADDRESS_<N>`` (required whenever its key
     comes through an env var name), so slot ``N`` is the same identity on every host.
@@ -177,17 +201,22 @@ def _collect_validator_private_keys() -> list[tuple[str, str]]:
     while True:
         source_var = f"BRIDGE_VALIDATOR_PRIVATE_KEY_SOURCE_{n}"
         literal_var = f"BRIDGE_VALIDATOR_PRIVATE_KEY_{n}"
+        file_var = f"BRIDGE_VALIDATOR_PRIVATE_KEY_FILE_{n}"
         address_var = f"BRIDGE_VALIDATOR_ADDRESS_{n}"
 
         literal = os.environ.get(literal_var, "").strip()
         source = os.environ.get(source_var, "").strip()
+        key_file = os.environ.get(file_var, "").strip()
 
-        if not literal and not source:
+        if not literal and not source and not key_file:
             break
 
         key: str
         if literal:
             key = _bind_address(f"validator {n}", literal.removeprefix("0x"), address_var, None)
+        elif key_file:
+            contents = _read_key_file(key_file, f"validator {n}")
+            key = _bind_address(f"validator {n}", contents.removeprefix("0x"), address_var, None)
         else:
             if source not in os.environ:
                 _die(f"validator {n} private key source env var {source!r} is not set")
@@ -198,8 +227,9 @@ def _collect_validator_private_keys() -> list[tuple[str, str]]:
 
     if not validators:
         _die(
-            "no validator private keys found. Set BRIDGE_VALIDATOR_PRIVATE_KEY_1 "
-            "or BRIDGE_VALIDATOR_PRIVATE_KEY_SOURCE_1 (and increment for more)."
+            "no validator private keys found. Set BRIDGE_VALIDATOR_PRIVATE_KEY_1, "
+            "BRIDGE_VALIDATOR_PRIVATE_KEY_FILE_1, or BRIDGE_VALIDATOR_PRIVATE_KEY_SOURCE_1 "
+            "(and increment for more)."
         )
 
     return validators
