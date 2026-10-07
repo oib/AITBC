@@ -215,7 +215,11 @@ groups:
           summary: "Block processing p95 exceeds 1 second"
 
       - alert: RpcErrorsSpiking
-        expr: rate(blockchain_rpc_requests_total{status=~"4xx|5xx"}[5m]) > 0.05
+        expr: |
+          (
+            rate(rpc_client_errors_total[5m])
+            + rate(rpc_server_errors_total[5m])
+          ) / clamp_min(rate(rpc_requests_total[5m]), 1) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -264,7 +268,7 @@ Hub's `rule_files:` in `/etc/prometheus/prometheus.yml` lists `aitbc_hub_rules.y
 
 | Alert | meaning | severity |
 |---|---|---|
-| `BridgeSetCannotMeetThreshold` | `possible_signers` below the multisig threshold — releases cannot collect enough signatures | critical |
+| `BridgeSetCannotMeetThreshold` | `possible_signers` below the multisig threshold — releases cannot collect enough signatures | warning |
 | `BridgeSetStale` | the freshness flag is 0 | warning |
 
 Two details that bit in practice:
@@ -293,7 +297,7 @@ Install is the same manual shape as the authority exporter — copy `aitbc-bridg
 
 ## Scrape configuration
 
-By default Prometheus only scrapes the local node. Remote targets are not planned, so the sample `/etc/prometheus/prometheus.yml` only lists `localhost` jobs:
+Prometheus scrapes only local targets — the shipped `/etc/prometheus/prometheus.yml` sample lists `localhost` jobs only. Remote series still reach the hub: every node's Prometheus pushes to hub over `remote_write` (hub runs `--web.enable-remote-write-receiver`), which is how the public alerts page shows a fleet-wide firing list and how the hub-side rules see follower series. The scrape list itself stays local:
 
 ```yaml
 global:
@@ -356,7 +360,7 @@ scrape_configs:
 
 Since `<node2>` has more hardware than `hub`:
 
-1. **Run Prometheus on the local node.** The default configuration scrapes only `localhost`. If a central view is needed later, deploy a separate central Prometheus with an explicit remote-write or federation plan.
+1. **Run Prometheus on the local node.** Deployed fleet-wide; each node scrapes only `localhost` targets. The central view is hub: every node's Prometheus remote-writes to hub's `--web.enable-remote-write-receiver`, so hub's `aitbc_hub_rules.yml` and the public alerts page see fleet series.
 2. **Add recording rules** for expensive queries used in alerts and ad-hoc investigation:
    ```yaml
    - record: aitbc:block_interval_seconds:rate5m
@@ -364,7 +368,7 @@ Since `<node2>` has more hardware than `hub`:
    ```
 3. **Expose process and chain metrics.** The blockchain node main process now serves `/metrics` on port `9009` via `AITBC_NODE_METRICS_PORT` and exports chain height, valid subscriber counts and broadcast-skip counters.
 4. **Promote operational log lines.** `BROADCAST SKIPPED` and similar events are now logged at `WARNING` and counted in `blockchain_poa_broadcast_skipped_total` so an agent sees both the event and the metric.
-5. **Run `prometheus-node-exporter` on every node.** System metrics are cheap and make it easy to distinguish code bugs from resource exhaustion.
+5. **`prometheus-node-exporter` runs on every node** (deployed). System metrics are cheap and make it easy to distinguish code bugs from resource exhaustion; its textfile directory is also how the alert watcher, journal-errors and authority-balance collectors publish their series.
 6. **Use the fleet retention standard.** `<node2>` runs the same Prometheus retention as every other node (see *Maintenance → Retention standard*); there is no per-node override. Size the disk from `node_filesystem_avail_bytes`.
 7. **Use the Prometheus expression API for checks.** Example:
    ```bash
