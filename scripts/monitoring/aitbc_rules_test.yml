@@ -87,11 +87,11 @@ tests:
       # scaled to the 3,600,000/720,000 bands.
       - series: 'aitbc_authority_balance_units{role="bond_slash", address="0xA"}'
         values: '10800000x8 2000000x7 400000x7 10800000x10'
-      # Governance proposer: funded at exactly the warn edge (3,600,000 = ten
-      # fees); one fee spent puts it in the low band at t=4m, critical from
-      # t=7.5m, topped back to the edge at t=11m — the bond_slash timeline.
+      # Governance proposer: funded at ten fees (3,600,000); 1,500,000 is in
+      # the low band (below five fees) from t=4m, critical from t=7.5m, topped
+      # back up at t=11m — the bond_slash timeline.
       - series: 'aitbc_authority_balance_units{role="governance_proposer", address="0xP"}'
-        values: '3600000x8 3000000x7 500000x7 3600000x10'
+        values: '3600000x8 1500000x7 500000x7 3600000x10'
       # Hub validator float and retired proposer residue: flat, then the
       # balance falls at t=5.5m and the nonce moves at t=8.5m — same shape as
       # the bridge authority series; the moved-watch fires on the drop.
@@ -278,9 +278,10 @@ tests:
         alertname: BondSlashAuthorityFloatCritical
         exp_alerts: []
 
-      # Governance proposer: at the warn edge exactly (3,600,000) nothing
-      # fires; 3,000,000 from t=4m fires low at t=6.5m; 500,000 from t=7.5m
-      # fires critical and resolves low; back to the edge clears both.
+      # Governance proposer: funded at ten fees (3,600,000) nothing fires —
+      # the warn band only opens below five fees; 1,500,000 from t=4m fires
+      # low at t=6.5m; 500,000 from t=7.5m fires critical and resolves low;
+      # the top-up clears both.
       - eval_time: 3m
         alertname: GovernanceProposerFloatLow
         exp_alerts: []
@@ -296,7 +297,7 @@ tests:
               address: 0xP
             exp_annotations:
               summary: "Governance proposer float is low (0xP)"
-              description: "Governance proposer 0xP holds 3M units — fewer than ten governance-tx fees (360,000 each). Top it up before the next on-chain submission."
+              description: "Governance proposer 0xP holds 1.5M units — fewer than five governance-tx fees (360,000 each). Top it up before the next on-chain submission."
       - eval_time: 6m30s
         alertname: GovernanceProposerFloatCritical
         exp_alerts: []
