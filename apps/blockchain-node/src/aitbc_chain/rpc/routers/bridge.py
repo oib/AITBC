@@ -101,6 +101,10 @@ class ValidatorRegisterRequest(BaseModel):
     epoch: int = Field(default=0, ge=0, description="Epoch number (defaults to 0)")
     admin_address: str | None = Field(default=None, description="Bridge admin address authorizing registration")
     admin_signature: str | None = Field(default=None, description="Admin signature over the registration payload")
+    issued_at: str | None = Field(default=None, description="Replay-guard issue time (ISO-8601 or epoch seconds)")
+    nonce: str | None = Field(default=None, description="Single-use replay-guard nonce")
+    target_chain_id: str | None = Field(default=None, description="Replay-guard destination chain binding")
+    target_node_id: str | None = Field(default=None, description="Optional replay-guard destination node binding")
 
 
 class BlockHeaderRequest(BaseModel):
@@ -118,6 +122,10 @@ class BlockHeaderRequest(BaseModel):
     finality_confirmed: bool = Field(default=False, description="Whether finality is confirmed")
     admin_address: str | None = Field(default=None, description="Bridge admin address authorizing ingestion")
     admin_signature: str | None = Field(default=None, description="Admin signature over the header payload")
+    issued_at: str | None = Field(default=None, description="Replay-guard issue time (ISO-8601 or epoch seconds)")
+    nonce: str | None = Field(default=None, description="Single-use replay-guard nonce")
+    target_chain_id: str | None = Field(default=None, description="Replay-guard destination chain binding")
+    target_node_id: str | None = Field(default=None, description="Optional replay-guard destination node binding")
 
 
 # Optional imports - will be None if module not available
