@@ -346,6 +346,53 @@ class TestReconcile:
         out = capsys.readouterr().out
         assert "R1: FAIL" in out
 
+    def test_legacy_escrow_schema_without_new_columns(self, tool, tmp_path, capsys):
+        """A chain.db whose escrow table predates billed_legs/energy_* must not crash."""
+        path = tmp_path / "chain.db"
+        conn = sqlite3.connect(path)
+        conn.executescript(
+            """
+            CREATE TABLE block (chain_id TEXT, height INTEGER, hash TEXT, parent_hash TEXT,
+                                timestamp TEXT, block_metadata TEXT);
+            CREATE TABLE "transaction" (id INTEGER PRIMARY KEY, chain_id TEXT, tx_hash TEXT,
+                                        block_height INTEGER, sender TEXT, recipient TEXT,
+                                        payload TEXT, created_at TEXT, value INTEGER, type TEXT);
+            CREATE TABLE escrow (job_id TEXT PRIMARY KEY, chain_id TEXT, buyer TEXT,
+                                 provider TEXT, amount INTEGER, status TEXT, created_at TEXT,
+                                 lock_tx_hash TEXT);
+            CREATE TABLE account (chain_id TEXT, address TEXT, balance INTEGER);
+            """
+        )
+        conn.execute(
+            "INSERT INTO block VALUES (?,?,?,?,?,?)",
+            (CHAIN, 1, "0xblock0001", "0x0", "2026-10-01 00:00:00.000000", "{}"),
+        )
+        conn.execute(
+            'INSERT INTO "transaction" VALUES (?,?,?,?,?,?,?,?,?,?)',
+            (
+                1,
+                CHAIN,
+                "0xtx0001",
+                1,
+                BUYER,
+                PROVIDER,
+                json.dumps({"action": "escrow_lock", "job_id": "job-OLD00001", "provider": PROVIDER}),
+                "2026-10-01 00:00:00.000000",
+                100,
+                "ESCROW_LOCK",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO escrow (job_id, chain_id, buyer, provider, amount, status, lock_tx_hash) VALUES (?,?,?,?,?,?,?)",
+            ("job-OLD00001", CHAIN, _canon(BUYER), _canon(PROVIDER), 100, "locked", "0xtx0001"),
+        )
+        for addr in (BUYER, PROVIDER):
+            conn.execute("INSERT INTO account VALUES (?,?,?)", (CHAIN, _canon(addr), 0))
+        conn.commit()
+        conn.close()
+        assert tool.main(["--db", str(path)]) == 0
+        assert "proof: CLEAN" in capsys.readouterr().out
+
     def test_job_id_filter_scopes_the_proof(self, tool, tmp_path, capsys):
         db = _build_fixture(tmp_path / "chain.db")
         code = tool.main(["--db", str(db), "--job-id", "job-AAAA0001"])
