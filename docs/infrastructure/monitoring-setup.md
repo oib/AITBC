@@ -258,6 +258,24 @@ curl -s localhost:9100/metrics | grep '^aitbc_authority_'
 
 Hub's `rule_files:` in `/etc/prometheus/prometheus.yml` lists `aitbc_hub_rules.yml` after `aitbc_rules.yml`; non-hub hosts list `aitbc_rules.yml` only. Roll back with `systemctl disable --now aitbc-authority-balances.timer`, removing `/var/lib/prometheus/node-exporter/aitbc_authority.prom`, and restoring the previous rules file. Nothing here touches a validator, a node process or the chain.
 
+## Bridge validator-set health
+
+`scripts/monitoring/bridge-set-textfile.py` reads `chain.db` read-only (`mode=ro`) and exports the bridge validator-set gauges — active rows, how many are also current consensus attesters (`possible_signers`), the multisig threshold, set age, a freshness flag, and scrape success. `aitbc-bridge-set.timer` runs it minutely on the hub:
+
+| Alert | meaning | severity |
+|---|---|---|
+| `BridgeSetCannotMeetThreshold` | `possible_signers` below the multisig threshold — releases cannot collect enough signatures | critical |
+| `BridgeSetStale` | the freshness flag is 0 | warning |
+
+Two details that bit in practice:
+
+- The unit sources `EnvironmentFile=-/etc/aitbc/blockchain-node.env` for one variable only — `VALIDATOR_SET` — so `possible_signers` follows consensus rotations without a unit edit. `AITBC_CHAIN_DB` and `AITBC_TEXTFILE_DIR` are `Environment=` lines in the unit itself.
+- The `.prom` file is written mode `0644` before the atomic rename — `node_exporter` scrapes as the `prometheus` user, so a `0600` file would exist on disk while Prometheus saw no series (and `absent()`-style alerts silently evaluated nothing).
+
+`set_fresh` mirrors `_check_validator_set_freshness` in `bridge_validator.py`: the **latest registered epoch never decays** — only a *superseded* epoch burns the grace window (`AITBC_BRIDGE_SET_GRACE_SECONDS`, default 7200). The gauge does not fall just because time has passed since registration.
+
+Install is the same manual shape as the authority exporter — copy `aitbc-bridge-set.service` and `.timer` to `/etc/systemd/system/` on the node that runs the exporter (hub), `daemon-reload`, `enable --now aitbc-bridge-set.timer`, `promtool check rules` after copying `aitbc_hub_rules.yml`, then `systemctl reload prometheus`. Only the hub needs it; the rules live in `aitbc_hub_rules.yml`.
+
 ## Scrape configuration
 
 By default Prometheus only scrapes the local node. Remote targets are not planned, so the sample `/etc/prometheus/prometheus.yml` only lists `localhost` jobs:
