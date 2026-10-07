@@ -87,6 +87,22 @@ tests:
       # scaled to the 3,600,000/720,000 bands.
       - series: 'aitbc_authority_balance_units{role="bond_slash", address="0xA"}'
         values: '10800000x8 2000000x7 400000x7 10800000x10'
+      # Governance proposer: funded at exactly the warn edge (3,600,000 = ten
+      # fees); one fee spent puts it in the low band at t=4m, critical from
+      # t=7.5m, topped back to the edge at t=11m — the bond_slash timeline.
+      - series: 'aitbc_authority_balance_units{role="governance_proposer", address="0xP"}'
+        values: '3600000x8 3000000x7 500000x7 3600000x10'
+      # Hub validator float and retired proposer residue: flat, then the
+      # balance falls at t=5.5m and the nonce moves at t=8.5m — same shape as
+      # the bridge authority series; the moved-watch fires on the drop.
+      - series: 'aitbc_authority_balance_units{role="validator_hub", address="0xV"}'
+        values: '36000000x11 35000000x30'
+      - series: 'aitbc_authority_nonce{role="validator_hub", address="0xV"}'
+        values: '0x17 1x30'
+      - series: 'aitbc_authority_balance_units{role="proposer_retired", address="0xR"}'
+        values: '36000000000000000000x11 35999000000000000000x30'
+      - series: 'aitbc_authority_nonce{role="proposer_retired", address="0xR"}'
+        values: '89x17 90x30'
 
     alert_rule_test:
       # Healthy float: neither float alert fires.
@@ -261,6 +277,77 @@ tests:
       - eval_time: 14m
         alertname: BondSlashAuthorityFloatCritical
         exp_alerts: []
+
+      # Governance proposer: at the warn edge exactly (3,600,000) nothing
+      # fires; 3,000,000 from t=4m fires low at t=6.5m; 500,000 from t=7.5m
+      # fires critical and resolves low; back to the edge clears both.
+      - eval_time: 3m
+        alertname: GovernanceProposerFloatLow
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: GovernanceProposerFloatCritical
+        exp_alerts: []
+      - eval_time: 6m30s
+        alertname: GovernanceProposerFloatLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              role: governance_proposer
+              address: 0xP
+            exp_annotations:
+              summary: "Governance proposer float is low (0xP)"
+              description: "Governance proposer 0xP holds 3M units — fewer than ten governance-tx fees (360,000 each). Top it up before the next on-chain submission."
+      - eval_time: 6m30s
+        alertname: GovernanceProposerFloatCritical
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: GovernanceProposerFloatCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              role: governance_proposer
+              address: 0xP
+            exp_annotations:
+              summary: "Governance proposer float is nearly gone (0xP)"
+              description: "Governance proposer 0xP holds 500k units — fewer than two governance-tx fees. A service-submitted proposal/vote will be refused at admission until funded."
+      - eval_time: 11m
+        alertname: GovernanceProposerFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: GovernanceProposerFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: GovernanceProposerFloatCritical
+        exp_alerts: []
+
+      # Moved-watches: flat through t=4m; the balance drop at t=5.5m fires
+      # both by t=6m (the nonce would also trigger it once the window sees it).
+      - eval_time: 4m
+        alertname: ValidatorHubAccountMoved
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: ValidatorHubAccountMoved
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              role: validator_hub
+              address: 0xV
+            exp_annotations:
+              summary: "Hub validator account moved (0xV)"
+              description: "Hub validator 0xV signs consensus messages and is never debited; its balance fell or its nonce changed, so its key sent a transaction. Treat the key as exposed until explained."
+      - eval_time: 4m
+        alertname: ProposerRetiredAccountMoved
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: ProposerRetiredAccountMoved
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              role: proposer_retired
+              address: 0xR
+            exp_annotations:
+              summary: "Retired proposer account moved (0xR)"
+              description: "Retired proposer 0xR holds a large residue and still names legacy genesis/admin roles; a falling balance or moving nonce means the custodied key signed a transaction — check whether it was expected."
 
   # PrometheusWatchStale: the watcher's own heartbeat. In production a dead
   # watcher leaves a stale textfile behind, so the series keeps its frozen value

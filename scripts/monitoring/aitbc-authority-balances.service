@@ -11,8 +11,11 @@ Type=oneshot
 # chain parameters every run (GET /rpc/state/snapshot), so a rotation needs no
 # edit here; these entries are the fallback when the parameter read fails — the
 # run still reports scrape_success 0 for a fallback role — and extra
-# role:address pairs for anything else worth watching.
-Environment=AITBC_WATCH_ACCOUNTS=escrow_settlement:0x11741E1A83E85117712113A29954583B1f2A2B1F,bridge_release:0xCA78267E500A0cfbf603AEb34b116841A099D1ed,bond_slash:0x9aCCbF54E8564E5c9585f8833AE6b4A83cE05A04
+# role:address pairs for anything else worth watching. The three extras
+# below are service/validator identities that are not chain parameters, so
+# they never auto-follow a rotation: update them when the identity rotates
+# (governance proposer, hub validator) or is retired again.
+Environment=AITBC_WATCH_ACCOUNTS=escrow_settlement:0x11741E1A83E85117712113A29954583B1f2A2B1F,bridge_release:0xCA78267E500A0cfbf603AEb34b116841A099D1ed,bond_slash:0x9aCCbF54E8564E5c9585f8833AE6b4A83cE05A04,governance_proposer:0xD8168A8bC4817B8e4fcBc966Af67F74878869BE7,validator_hub:0x2aD555A9e5208A6438b24FbdA4BC83c4c2453e64,proposer_retired:0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B
 Environment=AITBC_RPC_URL=http://127.0.0.1:8202
 Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
 ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/authority-balances-textfile.py
