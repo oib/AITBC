@@ -13,7 +13,24 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 BASELINE="scripts/ci/c901-baseline.txt"
-PYTHON="${PYTHON:-python3}"
+
+# Same PYTHON resolution as scripts/ci/mypy-precommit.sh: the caller's PYTHON
+# wins, then the repo venv, then whatever python3 is on PATH — worktrees have
+# no venv/ of their own.
+PYTHON="${PYTHON:-}"
+if [ -z "$PYTHON" ]; then
+  if [ -x ./venv/bin/python ]; then PYTHON=./venv/bin/python; else PYTHON=python3; fi
+fi
+
+# `python -m ruff` with ruff absent produces no findings, which below reads as
+# "no violations". Same preflight as the mypy hook: it checked nothing; this is
+# not a pass.
+if ! "$PYTHON" -c 'import ruff' >/dev/null 2>&1; then
+  echo "ruff is not installed for '$PYTHON'. The C901 ratchet checked nothing; this is not a pass." >&2
+  echo "   Install it:  $PYTHON -m pip install ruff" >&2
+  echo "   Or point PYTHON at an interpreter that has it (PYTHON=/opt/aitbc/venv/bin/python)." >&2
+  exit 1
+fi
 
 current="$(mktemp)"
 trap 'rm -f "$current"' EXIT
@@ -45,5 +62,15 @@ done < "$current"
 
 if [ "$status" -eq 0 ]; then
     echo "C901 ratchet: no complexity growth ($(wc -l < "$BASELINE") baselined files)"
+else
+    cat >&2 <<'EOF'
+
+A function crossed the cyclomatic-complexity threshold or a baselined file
+grew a violation. Reduce the new complexity (extract a helper, split the
+branch) — do NOT regenerate the baseline to hide growth. Re-run with
+--update only after a deliberate refactor that actually reduced the count:
+
+    scripts/ci/check-c901-ratchet.sh --update
+EOF
 fi
 exit "$status"
