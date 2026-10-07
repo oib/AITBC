@@ -641,9 +641,10 @@ async def test_submit_refund_tx_re_raises_on_submission_failure(release_key, mon
 
 
 # ---------------------------------------------------------------------------
-# Task C2 desired-behavior contracts — xfail(strict): these FAIL on current
-# main (that is the point of the review) and flip when the multi-leg nonce
-# fix lands. Design: TOPOLOGY/2026-10-05-multileg-nonce-design.md.
+# Task C2 desired-behavior contracts — landed: the multi-leg nonce fix shipped
+# (release route submits only the release; the change pass owns the owed-change
+# leg), so these are live assertions, not xfails.
+# Design: TOPOLOGY/2026-10-05-multileg-nonce-design.md.
 # ---------------------------------------------------------------------------
 
 
