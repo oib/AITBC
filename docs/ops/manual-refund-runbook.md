@@ -40,7 +40,7 @@ Two additional gates in `refund_payment`
   `refund_payment(..., is_admin=True)` bypasses the delivered-gate but still
   requires `REFUNDABLE_STATES` + `escrowed_at`.
 - The route first **reconciles against the on-chain escrow**
-  (`_reconcile_refund_state`, `payments.py` ~L1455+): if the chain says the
+  (`_reconcile_refund_state`, `payments.py:1612`): if the chain says the
   escrow is already `refunded`, the row is repaired locally and the call
   returns success without a new transaction; if the chain says it is
   **settled**, the call refuses — a settled escrow cannot be refunded.
