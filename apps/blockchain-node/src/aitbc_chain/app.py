@@ -105,8 +105,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 # A GET 404 on the account routes is the ordinary "no account row" answer —
 # the authority-balance scraper polls a deliberately-absent account every
-# minute — so it logs below WARNING. Every other client error still warns.
+# minute — so it logs below WARNING. A GET 404 for a well-formed transaction
+# hash is the same shape: "not sealed yet" is what a pending-tx poller sees.
+# Only a full 0x+64-hex hash qualifies — non-hash ids still warn, as does
+# every other client error.
 _ACCOUNT_MISS_PATH = re.compile(r"/rpc/accounts?/[^/]+/?$")
+_TX_MISS_PATH = re.compile(r"/rpc/transaction/0x[0-9a-fA-F]{64}/?$")
+
+
+def _expected_get_404(method: str, status_code: int, path: str) -> bool:
+    if method != "GET" or status_code != 404:
+        return False
+    return bool(_ACCOUNT_MISS_PATH.fullmatch(path) or _TX_MISS_PATH.fullmatch(path))
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -143,11 +153,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 # The counter stays exact for every client error — alerts read
                 # it — only the log level differs for an expected account miss.
                 metrics_registry.increment("rpc_client_errors_total")
-                log = (
-                    _app_logger.info
-                    if method == "GET" and response.status_code == 404 and _ACCOUNT_MISS_PATH.fullmatch(path)
-                    else _app_logger.warning
-                )
+                log = _app_logger.info if _expected_get_404(method, response.status_code, path) else _app_logger.warning
                 log(
                     "Client error: %s %s from %s (UA: %s) → %d (%.1fms)",
                     method,
