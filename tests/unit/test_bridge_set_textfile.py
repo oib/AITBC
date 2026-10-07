@@ -111,6 +111,23 @@ def test_json_validator_set_env(tmp_path, monkeypatch) -> None:
     assert "aitbc_bridge_possible_signers 1\n" in text
 
 
+def test_parse_consensus_set_csv() -> None:
+    assert exporter.parse_consensus_set("0xAA, 0xBB ,0xcc") == {"0xaa", "0xbb", "0xcc"}
+    assert exporter.parse_consensus_set("") == set()
+
+
+def test_parse_consensus_set_json_strings() -> None:
+    assert exporter.parse_consensus_set('["0xAA", "0xBB"]') == {"0xaa", "0xbb"}
+    # malformed JSON yields the empty set rather than raising
+    assert exporter.parse_consensus_set("[{") == set()
+    assert exporter.parse_consensus_set("[not-json") == set()
+
+
+def test_parse_consensus_set_json_objects() -> None:
+    raw = '[{"address": "0xAA", "stake": "1000"}, {"address": "0xBB", "stake": "0"}, {"stake": "5"}]'
+    assert exporter.parse_consensus_set(raw) == {"0xaa", "0xbb"}
+
+
 def test_no_db_is_failure(tmp_path, monkeypatch) -> None:
     rc, text = _run(tmp_path, monkeypatch)
     assert rc == 1

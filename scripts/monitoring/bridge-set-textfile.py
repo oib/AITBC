@@ -27,8 +27,9 @@ matters when locks are re-enabled.
 Environment:
     AITBC_CHAIN_DB                      explicit chain.db path (else AITBC_DATA_DIR scan)
     AITBC_DATA_DIR                      default /var/lib/aitbc; scanned for data/*/chain.db
-    VALIDATOR_SET                       current consensus validators (JSON list
-                                        or comma-separated addresses)
+    VALIDATOR_SET                       current consensus validators (JSON list of
+                                        addresses or {"address": ...} objects, or
+                                        comma-separated addresses)
     BRIDGE_MULTISIG_THRESHOLD           configured threshold (default 2)
     BRIDGE_VALIDATOR_SET_GRACE_PERIOD   freshness window seconds (default 7200)
     AITBC_TEXTFILE_DIR                  default /var/lib/prometheus/node-exporter
@@ -57,7 +58,12 @@ class Result:
 
 
 def parse_consensus_set(raw: str) -> set[str]:
-    """VALIDATOR_SET may be a JSON list or a comma-separated string."""
+    """VALIDATOR_SET may be a JSON list or a comma-separated string.
+
+    JSON items may be bare addresses or objects carrying an ``address``
+    field (the ``[{"address": ..., "stake": ...}]`` form node env files
+    use); anything else is stringified like before.
+    """
     raw = raw.strip()
     if not raw:
         return set()
@@ -68,7 +74,11 @@ def parse_consensus_set(raw: str) -> set[str]:
             items = []
     else:
         items = raw.split(",")
-    return {str(a).strip().strip('"').lower() for a in items if str(a).strip()}
+    return {
+        a.strip().strip('"').lower()
+        for a in (i.get("address", "") if isinstance(i, dict) else str(i) for i in items)
+        if a.strip()
+    }
 
 
 def scan_db(db_path: str) -> Result:
