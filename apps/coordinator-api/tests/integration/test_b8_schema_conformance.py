@@ -207,7 +207,10 @@ def _semantic_schema(db_path: Path) -> dict[str, dict]:
         indexes: set[tuple] = set()
         for _seq, iname, unique, _origin, _partial in con.execute(f'PRAGMA index_list("{table}")'):
             icols = tuple(r[2] for r in con.execute(f'PRAGMA index_info("{iname}")'))
-            idx_name = "<autoindex>" if iname.startswith("sqlite_autoindex") else iname
+            # Unique enforcement is the semantic content; the name is cosmetic
+            # (``sqlite_autoindex_*`` numbering and constraint-vs-standalone
+            # naming differ between build paths).
+            idx_name = "<unique>" if unique else iname
             indexes.add((idx_name, bool(unique), icols))
         fks: set[tuple] = set()
         for row in con.execute(f'PRAGMA foreign_key_list("{table}")'):
