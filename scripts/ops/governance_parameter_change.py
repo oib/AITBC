@@ -20,7 +20,10 @@ path:
                  For governance_executors it also refuses unless every member
                  the new list adds is proven by a --proof-key-file (repeatable)
                  deriving to it, and a dropped signing key leaves at least one
-                 proven survivor.
+                 proven survivor. For escrow_settlement_authority and
+                 bond_slash_authority it also refuses when the new authority
+                 cannot pay its own tx fees, unless --allow-unfunded-target is
+                 passed deliberately.
 
 Submissions go to whatever --rpc-url names — the transaction-intake endpoint is
 unauthenticated (the sender signature is the credential). The envelope matches
@@ -57,6 +60,17 @@ AUTHORITY_PARAMETERS = (
     "bond_slash_authority",
     "bridge_release_authority",
     "escrow_fee_recipient",
+)
+
+# Authority parameters whose target must already hold a fee-paying balance
+# when the change seals — the new authority sends its own fee-paying
+# transactions, so rotating to an unfunded address silently disables the
+# capability. bridge_release_authority signs in-state bridge credits (no
+# account fees) and escrow_fee_recipient only receives fees, so neither is
+# gated here.
+FEE_PAYING_TARGET_PARAMETERS = (
+    "escrow_settlement_authority",
+    "bond_slash_authority",
 )
 
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
@@ -327,6 +341,17 @@ def cmd_plan(args: argparse.Namespace) -> int:
                 "sign-submit refuses until every added member has a --proof-key-file",
                 file=sys.stderr,
             )
+    if args.parameter in FEE_PAYING_TARGET_PARAMETERS:
+        for address in target_elements:
+            _, target_balance = _fetch_account(args.rpc_url, chain_id, address)
+            print(f"  target:   {address}  balance {target_balance} units")
+            if target_balance < REQUIRED_BALANCE_UNITS:
+                print(
+                    f"warning: new {args.parameter} {address} cannot cover its own tx fees "
+                    f"(balance {target_balance} < required {REQUIRED_BALANCE_UNITS}) — "
+                    "sign-submit refuses unless funded or --allow-unfunded-target",
+                    file=sys.stderr,
+                )
     print(f"executor:   {executor}  (nonce {nonce}, balance {balance} units at read time — re-fetched on sign-submit)")
     if balance < REQUIRED_BALANCE_UNITS:
         print(
@@ -397,6 +422,23 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
         if added:
             print(f"new executor members with custody proven by --proof-key-file: {', '.join(added)}")
 
+    # Funded-authority gate (FEE_PAYING_TARGET_PARAMETERS): the target pays
+    # its own tx fees after the rotation, so an unfunded target silently
+    # disables the capability. --allow-unfunded-target is the deliberate
+    # escape hatch for intentionally parking a capability unfunded.
+    if args.parameter in FEE_PAYING_TARGET_PARAMETERS:
+        for address in target_elements:
+            _, target_balance = _fetch_account(args.rpc_url, chain_id, address)
+            if args.allow_unfunded_target:
+                if target_balance < REQUIRED_BALANCE_UNITS:
+                    print(
+                        f"warning: --allow-unfunded-target — new {args.parameter} {address} "
+                        f"balance {target_balance} < required {REQUIRED_BALANCE_UNITS} units",
+                        file=sys.stderr,
+                    )
+            else:
+                _check_fee_balance(f"new {args.parameter}", address, target_balance)
+
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
     tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, args.value)
     digest = _signing_digest(tx)
@@ -465,6 +507,14 @@ def main() -> int:
     add_common(submit)
     submit.add_argument("--key-file", required=True, help="File containing the executor's raw-hex private key (mode 600)")
     submit.add_argument("--confirm", action="store_true", help="Required — refuse without it")
+    submit.add_argument(
+        "--allow-unfunded-target",
+        action="store_true",
+        help=(
+            "Deliberately rotate escrow_settlement_authority/bond_slash_authority to an address that "
+            "cannot yet pay its own tx fees — the capability stays disabled until the address is funded"
+        ),
+    )
     submit.add_argument("--timeout", type=int, default=240, help="Seconds to wait for the seal (default 240)")
     submit.set_defaults(func=cmd_sign_submit)
 
