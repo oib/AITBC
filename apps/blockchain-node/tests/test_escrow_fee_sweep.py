@@ -187,6 +187,31 @@ def test_v11_env_still_overrides_the_baked_default(monkeypatch):
     assert ChainSettings(_env_file=None).state_transition_v11_height == 40_000
 
 
+def test_v12_height_is_baked_at_37500(monkeypatch):
+    """The baked default is consensus: a fresh settings object (no env, no env
+    file) activates the v12 authority-parameter value checks at 37500 — a node
+    built with no env line enforces them above the boundary and replays the
+    lenient rule below it."""
+    monkeypatch.delenv("STATE_TRANSITION_V12_HEIGHT", raising=False)
+    assert ChainSettings(_env_file=None).state_transition_v12_height == 37_500
+
+
+def test_v12_env_still_overrides_the_baked_default(monkeypatch):
+    """STATE_TRANSITION_V12_HEIGHT still wins over the baked default for a
+    process that sets it."""
+    monkeypatch.setenv("STATE_TRANSITION_V12_HEIGHT", "40000")
+    assert ChainSettings(_env_file=None).state_transition_v12_height == 40_000
+
+
+def test_v12_version_boundary_with_baked_default(monkeypatch):
+    """With the baked default the height ladder stamps 11 at 37499 and 12 at
+    37500 — the exact activation boundary sealed on the fleet."""
+    monkeypatch.delenv("STATE_TRANSITION_V12_HEIGHT", raising=False)
+    monkeypatch.setattr(settings, "state_transition_v12_height", 37_500)
+    assert get_block_version_for_height(37_499) == 11
+    assert get_block_version_for_height(37_500) == 12
+
+
 # ---------------------------------------------------------------------------
 # Gate on: the v11 rule set.
 # ---------------------------------------------------------------------------
