@@ -271,6 +271,12 @@ Execute a passed proposal with logging.
 
 ## Vote Endpoints
 
+> **Votes are advisory (V-7, 2026-09-30).** The tally informs execution but does
+> not decide it — apply never reads the vote count, and `GOVERNANCE_EXECUTE` is
+> an administrative action gated only by the `governance_executors` chain
+> parameter. Votes recorded through these endpoints are written only on the
+> receiving node and never propagate.
+
 ### List Votes
 
 #### GET /v1/governance/votes
@@ -440,7 +446,7 @@ These routes exist on the service but are not yet fully documented above:
 |---|---|---|
 | `POST` | `/v1/governance/proposals/{proposal_id}/close` | Close a proposal |
 | `POST` | `/v1/governance/proposals/{proposal_id}/propagate` | Propagate a proposal to target chains |
-| `POST` | `/v1/governance/proposals/{proposal_id}/aggregate-votes` | Aggregate votes for a proposal |
+| `POST` | `/v1/governance/proposals/{proposal_id}/aggregate-votes` | Aggregate votes for a proposal (tallies for information only — votes are advisory) |
 | `POST` | `/v1/governance/proposals/{proposal_id}/execute-cross-chain` | Execute a proposal across chains |
 | `GET` | `/v1/governance/params` | Current governance parameters (quorum, thresholds, `voting_power_calculation`) |
 | `GET` | `/metrics` | Prometheus metrics (root level, no `/v1` prefix) |

@@ -6,7 +6,7 @@
 
 ## Overview
 
-AITBC v0.4.12 introduces comprehensive governance capabilities for the the network, enabling decentralized decision-making through token-weighted voting, staking, and delegation mechanisms.
+AITBC v0.4.12 introduces comprehensive governance capabilities for the the network, enabling decentralized decision-making through token-weighted voting, staking, and delegation mechanisms. Votes are advisory (V-7): the tally informs but does not decide execution — `GOVERNANCE_EXECUTE` is gated only by the `governance_executors` chain parameter.
 
 ## Documentation Index
 

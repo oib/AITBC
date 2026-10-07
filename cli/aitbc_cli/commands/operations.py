@@ -400,7 +400,7 @@ def governance():
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reason: str | None, format: str):
-    """Cast a vote on a governance proposal using a wallet."""
+    """Cast a vote on a governance proposal using a wallet. Votes are advisory (V-7) — the tally does not decide execution."""
     config = get_config()
 
     try:
