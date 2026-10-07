@@ -29,9 +29,14 @@ The extra env file should contain the admin key and one or more validator keys::
     BRIDGE_VALIDATOR_PRIVATE_KEY_2=0x...
     BRIDGE_RPC_URLS=http://127.0.0.1:8202/rpc,http://aitbc1:8202/rpc
 
-If ``BRIDGE_ADMIN_PRIVATE_KEY_SOURCE`` is set, the script reads the admin key from
-that environment variable name (e.g. ``PROPOSER_KEY`` or ``GENESIS_PRIVATE_KEY``).
-Alternatively set ``BRIDGE_ADMIN_PRIVATE_KEY`` to a literal hex value.
+The admin key resolves in this order (first match wins):
+
+  - ``BRIDGE_ADMIN_PRIVATE_KEY`` — a literal hex value
+  - ``BRIDGE_ADMIN_PRIVATE_KEY_FILE`` — a path to a file holding the hex key
+    (e.g. the workstation-custody ``keys/bridge_admin.key``)
+  - ``BRIDGE_ADMIN_PRIVATE_KEY_SOURCE`` — the *name* of an environment variable
+    holding the key (e.g. ``PROPOSER_KEY`` or ``GENESIS_PRIVATE_KEY``)
+  - fallbacks ``PROPOSER_KEY`` / ``GENESIS_PRIVATE_KEY``
 
 Validator private keys can be supplied similarly with either:
   - ``BRIDGE_VALIDATOR_PRIVATE_KEY_SOURCE_<N>`` referencing an env var name
@@ -46,9 +51,9 @@ where the script runs. Every key reached that way (including the admin fallback 
 ``PROPOSER_KEY``/``GENESIS_PRIVATE_KEY``) must therefore be bound to the address it
 must have, via ``BRIDGE_ADMIN_ADDRESS`` / ``BRIDGE_VALIDATOR_ADDRESS_<N>``, with the
 same value in the env file on every host. A host whose key derives a different address
-stops with an error instead of registering the wrong identity. A literal key needs no
-declaration, but one that is declared is enforced too. ``--dry-run`` performs the same
-checks without POSTing anything.
+stops with an error instead of registering the wrong identity. A literal or file key
+needs no declaration, but one that is declared is enforced too. ``--dry-run`` performs
+the same checks without POSTing anything.
 """
 
 from __future__ import annotations
@@ -131,6 +136,18 @@ def _get_admin_private_key() -> str:
     if literal:
         return _bind_address("admin", literal.removeprefix("0x"), address_var, None)
 
+    key_file = os.environ.get("BRIDGE_ADMIN_PRIVATE_KEY_FILE", "").strip()
+    if key_file:
+        try:
+            contents = Path(key_file).read_text().strip()
+        except OSError as exc:
+            _die(f"admin private key file {key_file!r} could not be read: {exc.strerror or exc}")
+        if not contents:
+            _die(f"admin private key file {key_file!r} is empty")
+        # A file holds one fixed key — literal class: the address declaration is
+        # optional but enforced when present.
+        return _bind_address("admin", contents.removeprefix("0x"), address_var, None)
+
     source_var = os.environ.get("BRIDGE_ADMIN_PRIVATE_KEY_SOURCE", "").strip()
     if source_var:
         if source_var not in os.environ:
@@ -144,7 +161,8 @@ def _get_admin_private_key() -> str:
 
     _die(
         "no admin private key found. Set BRIDGE_ADMIN_PRIVATE_KEY, "
-        "BRIDGE_ADMIN_PRIVATE_KEY_SOURCE, PROPOSER_KEY, or GENESIS_PRIVATE_KEY."
+        "BRIDGE_ADMIN_PRIVATE_KEY_FILE, BRIDGE_ADMIN_PRIVATE_KEY_SOURCE, "
+        "PROPOSER_KEY, or GENESIS_PRIVATE_KEY."
     )
 
 
