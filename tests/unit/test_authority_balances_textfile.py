@@ -38,6 +38,7 @@ EXECUTOR_1 = "0x" + "fa" * 20
 EXECUTOR_2 = "0x" + "d9" * 20
 SETTLEMENT_OLD = "0x" + "03" * 20
 BRIDGE_OLD = "0x" + "04" * 20
+SLASH = "0x" + "9a" * 20
 UNKNOWN = "0x" + "ee" * 20
 
 
@@ -85,6 +86,7 @@ def rpc():
             "parameters": {
                 "escrow_settlement_authority": SETTLEMENT,
                 "bridge_release_authority": BRIDGE,
+                "bond_slash_authority": SLASH,
                 "governance_executors": f"{EXECUTOR_1},{EXECUTOR_2}",
             },
         },
@@ -143,6 +145,7 @@ class TestFetchParameters:
         assert exporter.fetch_parameters(url) == {
             "escrow_settlement_authority": SETTLEMENT,
             "bridge_release_authority": BRIDGE,
+            "bond_slash_authority": SLASH,
             "governance_executors": f"{EXECUTOR_1},{EXECUTOR_2}",
         }
 
@@ -184,6 +187,7 @@ class TestResolveAccounts:
     _PARAMS = {
         "escrow_settlement_authority": SETTLEMENT,
         "bridge_release_authority": BRIDGE,
+        "bond_slash_authority": SLASH,
         "governance_executors": f"{EXECUTOR_1},{EXECUTOR_2}",
     }
 
@@ -192,6 +196,7 @@ class TestResolveAccounts:
         assert resolved == [
             ("escrow_settlement", SETTLEMENT),
             ("bridge_release", BRIDGE),
+            ("bond_slash", SLASH),
             ("governance_executor", EXECUTOR_1),
             ("governance_executor", EXECUTOR_2),
         ]
@@ -213,15 +218,17 @@ class TestResolveAccounts:
         )
         assert ("bridge_release", BRIDGE_OLD) in resolved
         assert ("escrow_settlement", SETTLEMENT_OLD) in resolved
+        assert ("bond_slash", "") in resolved
         assert ("governance_executor", "") in resolved
-        assert stale == {"escrow_settlement", "bridge_release", "governance_executor"}
+        assert stale == {"escrow_settlement", "bridge_release", "bond_slash", "governance_executor"}
 
     def test_no_fallback_leaves_the_role_blind(self):
         resolved, stale = exporter.resolve_accounts(None, [])
         assert ("escrow_settlement", "") in resolved
         assert ("bridge_release", "") in resolved
+        assert ("bond_slash", "") in resolved
         assert ("governance_executor", "") in resolved
-        assert stale == {"escrow_settlement", "bridge_release", "governance_executor"}
+        assert stale == {"escrow_settlement", "bridge_release", "bond_slash", "governance_executor"}
 
     def test_malformed_parameter_value_is_a_failed_read(self):
         params = dict(self._PARAMS)

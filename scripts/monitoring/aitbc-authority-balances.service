@@ -6,13 +6,13 @@ After=aitbc-blockchain-rpc.service
 [Service]
 Type=oneshot
 # Optional role:address pairs, public addresses. The exporter derives the
-# escrow_settlement and bridge_release watch addresses plus one
+# escrow_settlement, bridge_release and bond_slash watch addresses plus one
 # governance_executor series per governance_executors member from the live
 # chain parameters every run (GET /rpc/state/snapshot), so a rotation needs no
 # edit here; these entries are the fallback when the parameter read fails — the
 # run still reports scrape_success 0 for a fallback role — and extra
 # role:address pairs for anything else worth watching.
-Environment=AITBC_WATCH_ACCOUNTS=escrow_settlement:0x11741E1A83E85117712113A29954583B1f2A2B1F,bridge_release:0xCA78267E500A0cfbf603AEb34b116841A099D1ed
+Environment=AITBC_WATCH_ACCOUNTS=escrow_settlement:0x11741E1A83E85117712113A29954583B1f2A2B1F,bridge_release:0xCA78267E500A0cfbf603AEb34b116841A099D1ed,bond_slash:0x9aCCbF54E8564E5c9585f8833AE6b4A83cE05A04
 Environment=AITBC_RPC_URL=http://127.0.0.1:8202
 Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
 ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/authority-balances-textfile.py
