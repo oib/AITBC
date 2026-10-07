@@ -186,6 +186,46 @@ def test_executor_list_value_validates() -> None:
     assert tool._validate_target(f"{TARGET}, {OLD_VALUE}") == [TARGET, OLD_VALUE]
 
 
+def test_validate_target_rejects_duplicate_elements() -> None:
+    """The chain refuses a repeated executor — refuse it before the wire."""
+    with pytest.raises(SystemExit):
+        tool._validate_target(f"{TARGET},{TARGET}")
+    with pytest.raises(SystemExit):  # case-variant repeat still repeats
+        tool._validate_target(f"{EXECUTOR},{EXECUTOR.lower()}")
+
+
+# --- wait-for-seal guards ----------------------------------------------------
+
+
+def test_wait_confirmed_falsy_hash_fails_without_polling() -> None:
+    """A missing hash means the submission produced nothing to wait on —
+    the old behaviour polled /rpc/transaction/None for the whole timeout."""
+    with pytest.raises(SystemExit):
+        tool._wait_confirmed("http://fake", "", CHAIN_ID, 1)
+
+
+def test_submit_success_without_hash_stops_before_polling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A 200 + success response carrying no transaction_hash must fail
+    loudly instead of being stringified into a 'None' poll loop."""
+
+    class NoHashRPC(FakeRPC):
+        def post(self, base: str, path: str, body: dict) -> tuple[int, dict]:
+            self.posted.append((path, body))
+            return 200, {"success": True}
+
+    key_path, account = _executor_key_file(tmp_path)
+    rpc = NoHashRPC(params=_params(governance_executors=account.address), nonces={account.address: 0})
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, _submit_argv(key_path))
+    assert "transaction_hash" in capsys.readouterr().err
+    assert len(rpc.posted) == 1  # the submission itself went out
+    assert rpc.tx_polls == 0  # but nothing was polled
+
+
 # --- sign-submit refusals ---------------------------------------------------
 
 
