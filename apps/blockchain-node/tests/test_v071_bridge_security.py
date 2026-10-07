@@ -26,7 +26,7 @@ from sqlmodel import Session, create_engine
 from aitbc_chain.metadata import chain_metadata
 
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
-from aitbc_chain.models import Account, Block, BridgeBlockHeader, CrossChainTransfer
+from aitbc_chain.models import Account, Block, BridgeBlockHeader, BridgeValidator, CrossChainTransfer
 from aitbc_chain.rpc.router import router
 
 
@@ -380,6 +380,37 @@ class TestGetValidatorSet:
 
 class TestSecurityStatus:
     """GET /bridge/security/status endpoint (v0.7.1 §B5)."""
+
+    def test_validator_count_latest_epoch_only(self, rpc_setup, rpc_engine) -> None:
+        """validator_count counts active rows of the latest epoch, not all epochs."""
+        _bridge, client = rpc_setup
+        with Session(rpc_engine) as session:
+            session.add(BridgeValidator(chain_id="chain-a", address="0xoldval", public_key="0xpub0", epoch=0, is_active=True))
+            for i in range(4):
+                session.add(
+                    BridgeValidator(
+                        chain_id="chain-a",
+                        address=f"0xval{i}",
+                        public_key=f"0xpub{i + 1}",
+                        epoch=1,
+                        is_active=True,
+                    )
+                )
+            session.commit()
+        resp = client.get("/bridge/security/status")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["validator_count"] == 4
+        assert body["current_epoch"] == 1
+
+    def test_validator_count_empty_table(self, rpc_setup) -> None:
+        """Empty bridge_validators table reports validator_count 0."""
+        _bridge, client = rpc_setup
+        resp = client.get("/bridge/security/status")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["validator_count"] == 0
+        assert body["current_epoch"] == 0
 
 
 # ---------------------------------------------------------------------------
