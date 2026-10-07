@@ -127,8 +127,8 @@ class TestKeysAreNotHubCredentials:
     def test_startup_says_so_when_the_list_is_empty(self, monkeypatch, caplog):
         """V23-68c: `validate_api_keys` only rejects an empty list in production.
 
-        The deployed hub runs ENVIRONMENT=development, where an unset `MINER_API_KEYS` is
-        accepted and then refuses every miner. Startup logs it instead of passing silently.
+        Outside production an unset `MINER_API_KEYS` is accepted and then refuses
+        every miner. Startup logs it instead of passing silently.
         """
         import logging
 
@@ -154,7 +154,7 @@ class TestKeysAreNotHubCredentials:
         assert "MINER_API_KEYS is empty" not in caplog.text
 
     def test_the_check_runs_outside_production(self, monkeypatch):
-        """The deployed hub runs ENVIRONMENT=development, where the empty-list guard is off."""
+        """Outside production the empty-list guard stays off."""
         from pydantic import ValidationError
 
         from coordinator_api.config import Settings

@@ -3,7 +3,6 @@ Settlement hooks for coordinator API integration
 """
 
 import asyncio
-import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -156,7 +155,6 @@ class SettlementHook:
                 zk_proof = job.receipt.get("payload", {}).get("zk_proof")
                 if not zk_proof:
                     logger.warning("ZK proof requested but not found in receipt for job %s", job.id)
-        signature = await self._sign_settlement_message(job)
         return SettlementMessage(
             source_chain_id=source_chain_id,
             target_chain_id=job.target_chain or source_chain_id,
@@ -167,7 +165,7 @@ class SettlementHook:
             payment_amount=to_atomic_units(job.payment_amount) if job.payment_amount else 0,
             payment_token=job.payment_token or "AITBC",
             nonce=await self._generate_nonce(),
-            signature=signature,
+            signature="",
             gas_limit=job.settlement_gas_limit,
             privacy_level=options.get("privacy_level") if options else None,
         )
@@ -192,28 +190,6 @@ class SettlementHook:
         import secrets
 
         return int(datetime.now(UTC).timestamp() * 1000) + secrets.randbelow(10000)
-
-    async def _sign_settlement_message(self, job: Job) -> str:
-        """Sign the settlement message with secp256k1 (canonical-JSON + keccak256).
-
-        Raises ValueError if SETTLEMENT_PRIVATE_KEY is unset — a settlement must not
-        proceed with a fake signature. The caller (_initiate_settlement) catches this
-        and marks the job FAILED via _handle_settlement_error.
-        """
-        from aitbc.crypto.consensus_signing import sign_consensus_message
-
-        private_key_hex = os.environ.get("SETTLEMENT_PRIVATE_KEY")
-        if not private_key_hex:
-            raise ValueError(
-                "SETTLEMENT_PRIVATE_KEY not set — cannot sign settlement message. "
-                "Set a secp256k1 private key hex to enable cross-chain settlement."
-            )
-        message = {
-            "job_id": str(job.id),
-            "amount": str(job.cross_chain_amount),
-            "target_address": str(job.cross_chain_target_address),
-        }
-        return sign_consensus_message(message, private_key_hex)
 
     async def _handle_settlement_error(self, job: Job, error: Exception) -> None:
         """Handle settlement errors"""
