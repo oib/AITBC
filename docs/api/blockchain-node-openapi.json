@@ -21476,6 +21476,54 @@
             ],
             "title": "Admin Signature",
             "description": "Admin signature over the header payload"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At",
+            "description": "Replay-guard issue time (ISO-8601 or epoch seconds)"
+          },
+          "nonce": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nonce",
+            "description": "Single-use replay-guard nonce"
+          },
+          "target_chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Chain Id",
+            "description": "Replay-guard destination chain binding"
+          },
+          "target_node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Node Id",
+            "description": "Optional replay-guard destination node binding"
           }
         },
         "type": "object",
@@ -22833,6 +22881,54 @@
             ],
             "title": "Admin Signature",
             "description": "Admin signature over the registration payload"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At",
+            "description": "Replay-guard issue time (ISO-8601 or epoch seconds)"
+          },
+          "nonce": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nonce",
+            "description": "Single-use replay-guard nonce"
+          },
+          "target_chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Chain Id",
+            "description": "Replay-guard destination chain binding"
+          },
+          "target_node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Node Id",
+            "description": "Optional replay-guard destination node binding"
           }
         },
         "type": "object",
