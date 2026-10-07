@@ -12,6 +12,7 @@ edit:
 
     escrow_settlement   <- escrow_settlement_authority
     bridge_release      <- bridge_release_authority
+    bond_slash          <- bond_slash_authority
     governance_executor <- governance_executors (every list member)
 
 ``AITBC_WATCH_ACCOUNTS`` (``role:address`` pairs) is no longer required: an
@@ -64,6 +65,7 @@ _ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 PARAMETER_ROLES = {
     "escrow_settlement": "escrow_settlement_authority",
     "bridge_release": "bridge_release_authority",
+    "bond_slash": "bond_slash_authority",
 }
 
 # Same, for parameters holding a comma-separated list — every valid member is
