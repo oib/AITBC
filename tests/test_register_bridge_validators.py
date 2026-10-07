@@ -94,6 +94,46 @@ class TestAdminBinding:
             reg._get_admin_private_key()
         assert priv not in capsys.readouterr().err
 
+    def test_key_file_resolves(self, reg, monkeypatch, tmp_path):
+        """keys/bridge_admin.key custody: one file, one key, read by path."""
+        priv, _ = _key(6)
+        key_file = tmp_path / "bridge_admin.key"
+        key_file.write_text("0x" + priv + "\n")
+        monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(key_file))
+        assert reg._get_admin_private_key() == priv
+
+    def test_key_file_with_matching_declaration_binds(self, reg, monkeypatch, tmp_path):
+        priv, addr = _key(6)
+        key_file = tmp_path / "bridge_admin.key"
+        key_file.write_text(priv)
+        monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(key_file))
+        monkeypatch.setenv("BRIDGE_ADMIN_ADDRESS", addr.lower())
+        assert reg._get_admin_private_key() == priv
+        _, other = _key(7)
+        monkeypatch.setenv("BRIDGE_ADMIN_ADDRESS", other)
+        with pytest.raises(SystemExit):
+            reg._get_admin_private_key()
+
+    def test_missing_key_file_is_refused(self, reg, monkeypatch, capsys):
+        monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", "/nonexistent/bridge_admin.key")
+        with pytest.raises(SystemExit):
+            reg._get_admin_private_key()
+        err = capsys.readouterr().err
+        assert "BRIDGE_ADMIN_PRIVATE_KEY_FILE" in err or "bridge_admin.key" in err
+
+    def test_key_file_beats_source_and_literal_beats_file(self, reg, monkeypatch, tmp_path):
+        file_priv, _ = _key(8)
+        literal_priv, _ = _key(9)
+        source_priv, _ = _key(10)
+        key_file = tmp_path / "bridge_admin.key"
+        key_file.write_text(file_priv)
+        monkeypatch.setenv("PROPOSER_KEY", source_priv)
+        monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_SOURCE", "PROPOSER_KEY")
+        monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(key_file))
+        assert reg._get_admin_private_key() == file_priv  # file wins over source
+        monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY", literal_priv)
+        assert reg._get_admin_private_key() == literal_priv  # literal wins over file
+
 
 class TestValidatorBinding:
     def test_same_declaration_on_two_hosts_catches_the_wrong_one(self, reg, monkeypatch, capsys):
