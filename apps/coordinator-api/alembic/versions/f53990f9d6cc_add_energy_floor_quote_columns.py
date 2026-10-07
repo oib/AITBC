@@ -69,6 +69,19 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Remove energy floor columns."""
+    # SQLite refuses DROP COLUMN while an index references the column; the
+    # indexes on model_id/resource_id are baseline-owned, so drop them first.
+    # The downgrade is lossy by nature: a later upgrade re-adds the columns
+    # but not these indexes, which belong to revision 001.
+    for index_name, table in (
+        ("ix_gpu_bookings_model_id", "gpu_bookings"),
+        ("ix_gpu_bookings_resource_id", "gpu_bookings"),
+        ("ix_gpu_registry_model_id", "gpu_registry"),
+        ("ix_gpu_registry_resource_id", "gpu_registry"),
+        ("ix_job_model_id", "job"),
+        ("ix_job_resource_id", "job"),
+    ):
+        op.drop_index(index_name, table_name=table, if_exists=True)
     op.drop_column("gpu_bookings", "energy_quote_snapshot")
     op.drop_column("gpu_bookings", "duration_seconds")
     op.drop_column("gpu_bookings", "gpu_count")
