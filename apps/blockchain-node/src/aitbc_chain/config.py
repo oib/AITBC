@@ -40,6 +40,16 @@ class ProposerConfig(BaseModel):
 # Default island ID for new installations
 DEFAULT_ISLAND_ID = str(uuid.uuid4())
 
+# NOT an activation height — a deliberately unreachable sentinel for
+# ``state_transition_v13_height``. v13 binds GOVERNANCE_EXECUTE to the sealed
+# GOVERNANCE_PROPOSE's stored execution_payload (V-2); the chain can never
+# produce block 2**62, so the default keeps every v13 rule dead code on every
+# node. Arming it is an operator decision (V-7 made the binding process
+# hygiene, not a trust boundary): pick a real height and set
+# STATE_TRANSITION_V13_HEIGHT only after the whole fleet runs a build that
+# carries the v13 rules.
+V13_HEIGHT_NOT_ARMED = 2**62
+
 
 class ChainSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -790,6 +800,14 @@ class ChainSettings(BaseSettings):
     # version 12 — so the height is now consensus and is hardcoded like v4 to v11. An environment value
     # (STATE_TRANSITION_V12_HEIGHT) still overrides this default. fleet-config-check watches for drift.
     state_transition_v12_height: int | None = 37500
+    # v13 (V-2): GOVERNANCE_EXECUTE applies the sealed GOVERNANCE_PROPOSE's
+    # stored execution_payload; an execute naming no earlier-sealed proposal —
+    # or carrying a payload that differs from it — is refused in admission and
+    # block verification, and a GOVERNANCE_PROPOSE must carry the
+    # execution_payload it commits to. The default is V13_HEIGHT_NOT_ARMED, an
+    # unreachable sentinel: the rules stay dead code until the operator arms a
+    # real activation height via STATE_TRANSITION_V13_HEIGHT.
+    state_transition_v13_height: int | None = V13_HEIGHT_NOT_ARMED
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
