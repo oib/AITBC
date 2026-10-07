@@ -1,0 +1,31 @@
+# v0.25.11 — authority monitoring from chain parameters, ops-tool gates, census tooling
+
+**Baseline**: `v0.25.10` tagged at `6fc1ed373b` (2026-10-07). Sections below cover `v0.25.10..HEAD` — commits accrued on `main` after the tag, per the release-tag policy (`AGENTS.md`: the version's changelog is finalised in the tagged commit; later entries go to the next version's log).
+**Date**: 2026-10-07.
+**Tag**: `v0.25.11` (pending).
+
+### Monitoring: authority watch list derived from live chain parameters
+
+The authority-balance exporter used to read `AITBC_WATCH_ACCOUNTS` — a static env list the unit's own comment said to "edit when an authority is rotated". After the KR-2/KR-3 rotations it watched the *retired* addresses: `AuthorityFloatCritical` fired for hours on the zeroed old settlement account while the live authorities — and both governance executors — went unwatched.
+
+- `f5dda3594e` — `authority-balances-textfile.py` now reads `GET <RPC>/rpc/state/snapshot` every minutely run and resolves `escrow_settlement` and `bridge_release` from the live `chain_parameters`, so a rotation is picked up at the next tick with no unit edit. `AITBC_WATCH_ACCOUNTS` becomes optional fallback + extras; a role that falls back still reports `scrape_success` 0 so `AuthorityBalanceUnreadable` fires instead of silently trusting a stale address. A missing account row (HTTP 404) reads as balance 0 / nonce 0 / success 1 — an unfunded authority is *readable*, not an error. The unit's env line now carries the current authorities as the fallback. `tests/unit/test_authority_balances_textfile.py` rewritten for the new behaviour (snapshot-derived addresses, fallback, rotation between runs).
+- `026356a029` — the `governance_executors` chain parameter becomes a list-valued role: every member gets its own `governance_executor` series (a malformed member marks the role stale without dropping the valid ones). New hub alerts `GovernanceExecutorFloatLow` (< 2,160,000 units — six `GOVERNANCE_EXECUTE` fees) and `GovernanceExecutorFloatCritical` (< 720,000 — two fees), exclusive bands matching the settlement pair. `bond_slash` is deliberately unwatched: it signs no account transaction.
+- **Live result (2026-10-07)**: deployed on hub; the exporter reports all four current authorities/executors with `scrape_success` 1, the false `AuthorityFloatCritical` resolved on its own when the retired series disappeared — no silence needed.
+
+### Ops tooling: rotation safety gates, admin-key file source, census tool
+
+- `f3a54237d6` — `governance_parameter_change.py` funded-authority gate: `escrow_settlement_authority` and `bond_slash_authority` pay their own transaction fees after rotation, so sign-submit now refuses a target below the fee+headroom floor unless `--allow-unfunded-target` is passed deliberately (the failure mode seen when the settlement authority rotated to an address with no account row). `plan` prints each target's balance. `bridge_release_authority` (in-state credits, no account fees) and `escrow_fee_recipient` (receives only) are not gated.
+- `49d8cc159e` — `register_bridge_validators.py` gains `BRIDGE_ADMIN_PRIVATE_KEY_FILE` — a path to a file holding the admin key (the workstation-custody `keys/bridge_admin.key` created for the dedicated bridge-admin address). A file key is single-source, so it is literal-class: `BRIDGE_ADMIN_ADDRESS` stays optional but is enforced when declared; `*_SOURCE` indirection still requires the binding declaration. `BRIDGE_ADMIN_ADDRESSES` service-side is untouched.
+- `220d8f303a` — `scripts/ops/key_residue_census.py`: read-only scanner for the KR-7 residue census — walks files/units/scripts, reports file/line/variable plus *which retired address* matched (never the value), and derives the public address of every 64-hex key literal or `*_PRIVATE_KEY` value to report only the derived address and whether it is retired. Refuses out-of-root symlinks, skips binary files, reports file modes, exits non-zero on a retired hit, writes nothing.
+
+### Operations, not code
+
+On-chain and env-side state changes executed in this window (each under its own operator go; no code change):
+
+- **KR-2** — `escrow_settlement_authority` rotated to `0x11741E1A…` at block 37770; funded 32,975,761 units at 37789.
+- **KR-3** — `bond_slash_authority` → `0x9aCCbF54…` at 37781; `bridge_release_authority` → `0xCA78267E…` at 37782.
+- **KR-4** — `escrow_fee_recipient` set to `0x34FFfAd1…` at 37797.
+- **KR-4b** — `governance_executors` set to `0xFa80864c…,0xD9CC189c…` at 37803.
+- **Bridge admin** — `BRIDGE_ADMIN_ADDRESSES` moved off the bond-slash key to dedicated workstation-custody `0xD80372cb…` on all five hosts (env + rpc restarts only; admin signatures need no funded account).
+- **KR-5** — all four validator identities rotated (node1 first proposal 37820, node2 37830, hub1 proposal 37849, hub 37856); old keys custodied.
+- **v12 consequence** — with the value checks live at 37500, malformed authority values are refused at admission; the tool-side gates above (custody proof, funded target) cover what consensus deliberately does not.
