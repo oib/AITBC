@@ -367,7 +367,7 @@ class Settings(BaseAITBCConfig):
         has no boundary left between them, so this raises rather than warns.
 
         Checked in every environment, not just production: the reuse is wrong wherever it
-        happens, and the deployed hub runs with ENVIRONMENT=development.
+        happens.
         """
         hub_credentials = {
             value for value in (os.getenv("COORDINATOR_API_KEY"), os.getenv("SECRET_KEY"), self.secret_key) if value
@@ -393,12 +393,6 @@ if os.getenv("TEST_MODE") == "true":
 
 def validate_critical_environment_variables() -> None:
     """Validate critical environment variables at startup."""
-    # Minimal validation for critical variables not in Pydantic settings.
-    # SETTLEMENT_PRIVATE_KEY is used in settlement/hooks.py but not in config.py.
-    if _is_production():
-        if not os.getenv("SETTLEMENT_PRIVATE_KEY"):
-            raise ValueError("SETTLEMENT_PRIVATE_KEY must be set in production")
-
     # An empty miner list is only *validated* in production, so on a development-flagged
     # deployment it passes silently and then answers 401 to every miner. Say so at startup,
     # where an operator restarting the service will actually see it (V23-68c).
