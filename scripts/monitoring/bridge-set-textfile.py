@@ -2,11 +2,13 @@
 """Export bridge validator-set health as a node_exporter textfile (A36-4).
 
 The bridge release path fails closed when the registered validator set can
-no longer meet the multisig threshold — either because membership drifted
-away from the live consensus attesters (KR-5 left the registered set
-empty-intersect) or because the newest ``registered_at`` row is older than
-the freshness grace window (bridge_validator.py:461). Neither condition is
-visible without this metric.
+no longer meet the multisig threshold — because membership drifted away
+from the live consensus attesters (KR-5 left the registered set
+empty-intersect). Freshness mirrors the epoch-aware semantics in
+bridge_validator.py:461-525: the chain's LATEST epoch is authoritative and
+never decays (supersession, not wall time, is the rotation mechanism), so
+``aitbc_bridge_set_fresh`` tracks set existence, not age — the raw age
+stays visible in ``aitbc_bridge_set_age_seconds``.
 
 Reads the chain DB read-only (SQLite URI mode=ro) and writes, atomically,
 to ``<TEXTFILE_DIR>/aitbc_bridge_set.prom``:
@@ -15,7 +17,9 @@ to ``<TEXTFILE_DIR>/aitbc_bridge_set.prom``:
     aitbc_bridge_possible_signers      active members present in VALIDATOR_SET
     aitbc_bridge_threshold             configured multisig threshold (env)
     aitbc_bridge_set_age_seconds       now - newest registered_at
-    aitbc_bridge_set_fresh             1 when age <= grace, else 0
+    aitbc_bridge_set_fresh             1 when a registered set exists
+                                       (latest epoch never decays — mirrors
+                                       bridge_validator.py:461-525)
     aitbc_bridge_set_scrape_success    1 when the DB read worked
     aitbc_bridge_set_scrape_timestamp_seconds
 
@@ -138,8 +142,14 @@ def render(results: list[Result], consensus: set[str], threshold: int, grace: in
         possible_total += possible
         if r.newest_registered_at is not None:
             age = max(age, now - r.newest_registered_at)
-    if results:
-        fresh = 1 if (age >= 0 and age <= grace) else 0
+    # Mirrors bridge_validator.py:461-525 epoch=None ("the current set")
+    # semantics: the latest epoch is authoritative and never decays —
+    # supersession, not the clock, retires a set. A readable DB means a
+    # latest epoch exists (an empty table is also "fresh" there — the
+    # signer count fails first), so fresh follows scrape success.
+    # `grace` keeps its rpc meaning — the superseded-epoch window — which
+    # this gauge does not exercise.
+    fresh = 1 if results else 0
     lines += [
         "# HELP aitbc_bridge_active_validators Active bridge validator rows (latest epoch)",
         "# TYPE aitbc_bridge_active_validators gauge",
@@ -153,7 +163,7 @@ def render(results: list[Result], consensus: set[str], threshold: int, grace: in
         "# HELP aitbc_bridge_set_age_seconds Seconds since the newest registration row",
         "# TYPE aitbc_bridge_set_age_seconds gauge",
         f"aitbc_bridge_set_age_seconds {age:.0f}",
-        "# HELP aitbc_bridge_set_fresh 1 when the newest registration is inside the grace window",
+        "# HELP aitbc_bridge_set_fresh 1 when a registered set exists (latest epoch never decays)",
         "# TYPE aitbc_bridge_set_fresh gauge",
         f"aitbc_bridge_set_fresh {fresh}",
         "# HELP aitbc_bridge_set_scrape_success 1 when the chain DB read worked",
@@ -172,6 +182,9 @@ def write_atomic(directory: str, text: str) -> None:
     try:
         with os.fdopen(fd, "w") as f:
             f.write(text)
+        # node-exporter scrapes as a different user — mkstemp's 0600 would
+        # hide the file and mark every scrape an error.
+        os.chmod(tmp, 0o644)
         os.replace(tmp, os.path.join(directory, "aitbc_bridge_set.prom"))
     except BaseException:
         try:

@@ -68,10 +68,55 @@ def test_degraded_set_metrics(tmp_path, monkeypatch) -> None:
     assert "aitbc_bridge_active_validators 2\n" in text
     assert "aitbc_bridge_possible_signers 0\n" in text
     assert "aitbc_bridge_threshold 2\n" in text
-    assert "aitbc_bridge_set_fresh 0\n" in text
+    # Latest epoch never decays (bridge_validator.py:461-525 mirror) —
+    # an old but unsuperseded set still reads fresh; only signer drift alerts.
+    assert "aitbc_bridge_set_fresh 1\n" in text
     age = float([ln for ln in text.splitlines() if ln.startswith("aitbc_bridge_set_age_seconds")][0].split()[1])
-    assert age > 21 * 86400 - 60  # ~21 days
+    assert age > 21 * 86400 - 60  # ~21 days — age still surfaces the drift
     assert "aitbc_bridge_set_scrape_success 1\n" in text
+
+
+def test_latest_epoch_never_decays(tmp_path, monkeypatch) -> None:
+    """bridge_validator.py:461-525 mirror: the chain's LATEST epoch is the
+    authoritative set and does not decay — supersession, not wall time, is
+    the rotation mechanism. A set far past the grace window stays fresh
+    while it is still the newest epoch."""
+    ancient = (datetime.now(UTC) - timedelta(days=365)).isoformat()
+    _db(tmp_path, [(a, 0, 1, ancient) for a in CONSENSUS.split(",")])
+    rc, text = _run(tmp_path, monkeypatch)
+    assert rc == 0
+    assert "aitbc_bridge_set_fresh 1\n" in text
+    assert "aitbc_bridge_possible_signers 4\n" in text
+
+
+def test_empty_table_reads_fresh(tmp_path, monkeypatch) -> None:
+    """Mirror of the rpc's 'no validators registered -> True' branch: an
+    empty table does not trip the freshness gauge; the threshold alert is
+    what catches it."""
+    d = tmp_path / "data" / "c"
+    d.mkdir(parents=True)
+    conn = sqlite3.connect(d / "chain.db")
+    conn.execute(
+        "CREATE TABLE bridge_validators (chain_id TEXT, address TEXT,"
+        " public_key TEXT, epoch INTEGER, is_active INTEGER, registered_at TEXT)"
+    )
+    conn.commit()
+    conn.close()
+    rc, text = _run(tmp_path, monkeypatch)
+    assert rc == 0
+    assert "aitbc_bridge_set_fresh 1\n" in text
+    assert "aitbc_bridge_possible_signers 0\n" in text
+
+
+def test_prom_file_mode_0644(tmp_path, monkeypatch) -> None:
+    """node-exporter scrapes the textfile dir as user prometheus — a
+    mkstemp-default 0600 file is invisible to it (permission denied shows
+    up as node_textfile_scrape_error, not as a missing metric)."""
+    _db(tmp_path, [("0xAA", 0, 1, datetime.now(UTC).isoformat())])
+    out = tmp_path / "prom"
+    _run(tmp_path, monkeypatch)
+    mode = (out / "aitbc_bridge_set.prom").stat().st_mode & 0o777
+    assert mode == 0o644, f"prom file mode {mode:o} — must be 0644"
 
 
 def test_healthy_set_metrics(tmp_path, monkeypatch) -> None:
