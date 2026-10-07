@@ -120,6 +120,60 @@ groups:
           summary: "Bond slash authority float is nearly gone ({{ $labels.address }})"
           description: "Bond slash authority {{ $labels.address }} holds {{ $value | humanize }} units — fewer than two BOND_SLASH fees. A slash submitted by the coordinator will be refused at admission until funded."
 
+      # The governance proposer is a fee-paying service identity (360,000 per
+      # GOVERNANCE_PROPOSE/VOTE/EXECUTE on the server-signed path) that is not
+      # a chain parameter — watched as an AITBC_WATCH_ACCOUNTS extra, so the
+      # env entry must move when the key rotates. Funded at exactly ten fees;
+      # the warn band is the whole balance, so the first real submission
+      # fires the low alert — that is the intended early signal on a thin
+      # float. Bands exclude each other.
+      - alert: GovernanceProposerFloatLow
+        expr: |
+          aitbc_authority_balance_units{role="governance_proposer"} < 3600000
+          and aitbc_authority_balance_units{role="governance_proposer"} >= 720000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Governance proposer float is low ({{ $labels.address }})"
+          description: "Governance proposer {{ $labels.address }} holds {{ $value | humanize }} units — fewer than ten governance-tx fees (360,000 each). Top it up before the next on-chain submission."
+
+      - alert: GovernanceProposerFloatCritical
+        expr: aitbc_authority_balance_units{role="governance_proposer"} < 720000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Governance proposer float is nearly gone ({{ $labels.address }})"
+          description: "Governance proposer {{ $labels.address }} holds {{ $value | humanize }} units — fewer than two governance-tx fees. A service-submitted proposal/vote will be refused at admission until funded."
+
+      # Neither account below has a legitimate sender role today: the hub
+      # validator signs consensus messages, which never move its account, and
+      # the retired proposer's live bindings are gone. A falling balance or a
+      # moving nonce means the key sent a transaction. validator_hub is
+      # critical (nothing should ever move it); proposer_retired is a warning
+      # because 0x02B8 still names legacy genesis/admin roles whose use is
+      # possible though not expected.
+      - alert: ValidatorHubAccountMoved
+        expr: |
+          delta(aitbc_authority_balance_units{role="validator_hub"}[15m]) < 0
+          or changes(aitbc_authority_nonce{role="validator_hub"}[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hub validator account moved ({{ $labels.address }})"
+          description: "Hub validator {{ $labels.address }} signs consensus messages and is never debited; its balance fell or its nonce changed, so its key sent a transaction. Treat the key as exposed until explained."
+
+      - alert: ProposerRetiredAccountMoved
+        expr: |
+          delta(aitbc_authority_balance_units{role="proposer_retired"}[15m]) < 0
+          or changes(aitbc_authority_nonce{role="proposer_retired"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Retired proposer account moved ({{ $labels.address }})"
+          description: "Retired proposer {{ $labels.address }} holds a large residue and still names legacy genesis/admin roles; a falling balance or moving nonce means the custodied key signed a transaction — check whether it was expected."
+
   - name: aitbc-native-energy-rate
     rules:
       # Native AIT/EUR energy rate, exported by
