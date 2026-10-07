@@ -1,0 +1,30 @@
+[Unit]
+Description=AITBC bridge validator-set health for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=aitbc-blockchain-rpc.service
+
+[Service]
+Type=oneshot
+# Reads hub chain.db read-only (SQLite mode=ro) and emits the bridge
+# validator-set gauges: active rows, members that are also current
+# consensus attesters (VALIDATOR_SET), configured threshold, set age, and
+# the freshness flag the release path enforces
+# (_check_validator_set_freshness, bridge_validator.py:461). VALIDATOR_SET
+# comes from the node env file so the possible-signers count follows
+# consensus rotations without an edit here.
+EnvironmentFile=-/etc/aitbc/blockchain-node.env
+Environment=AITBC_CHAIN_DB=/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/bridge-set-textfile.py
+# Exits 1 when no chain.db could be scanned (aitbc_bridge_set_scrape_success 0).
+SyslogIdentifier=aitbc-bridge-set
+
+# Reads one SQLite file and writes one file in the textfile directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
