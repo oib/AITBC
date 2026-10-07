@@ -20,7 +20,7 @@ The authority-balance exporter used to read `AITBC_WATCH_ACCOUNTS` — a static 
 
 ### Operations, not code
 
-On-chain and env-side state changes executed in this window (each under its own operator go; no code change):
+On-chain and env-side state changes recorded in this window (no code change):
 
 - **KR-2** — `escrow_settlement_authority` rotated to `0x11741E1A…` at block 37770; funded 32,975,761 units at 37789.
 - **KR-3** — `bond_slash_authority` → `0x9aCCbF54…` at 37781; `bridge_release_authority` → `0xCA78267E…` at 37782.
