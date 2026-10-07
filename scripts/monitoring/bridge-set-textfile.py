@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""Export bridge validator-set health as a node_exporter textfile (A36-4).
+
+The bridge release path fails closed when the registered validator set can
+no longer meet the multisig threshold — either because membership drifted
+away from the live consensus attesters (KR-5 left the registered set
+empty-intersect) or because the newest ``registered_at`` row is older than
+the freshness grace window (bridge_validator.py:461). Neither condition is
+visible without this metric.
+
+Reads the chain DB read-only (SQLite URI mode=ro) and writes, atomically,
+to ``<TEXTFILE_DIR>/aitbc_bridge_set.prom``:
+
+    aitbc_bridge_active_validators     active rows in the latest epoch
+    aitbc_bridge_possible_signers      active members present in VALIDATOR_SET
+    aitbc_bridge_threshold             configured multisig threshold (env)
+    aitbc_bridge_set_age_seconds       now - newest registered_at
+    aitbc_bridge_set_fresh             1 when age <= grace, else 0
+    aitbc_bridge_set_scrape_success    1 when the DB read worked
+    aitbc_bridge_set_scrape_timestamp_seconds
+
+A DB that cannot be opened reads as failure (scrape_success 0, exit 1) —
+a broken check must not mask the disease it watches. LOCKS_PAUSED means
+the underlying path is dormant today; the alert text says so — this
+matters when locks are re-enabled.
+
+Environment:
+    AITBC_CHAIN_DB                      explicit chain.db path (else AITBC_DATA_DIR scan)
+    AITBC_DATA_DIR                      default /var/lib/aitbc; scanned for data/*/chain.db
+    VALIDATOR_SET                       current consensus validators (JSON list
+                                        or comma-separated addresses)
+    BRIDGE_MULTISIG_THRESHOLD           configured threshold (default 2)
+    BRIDGE_VALIDATOR_SET_GRACE_PERIOD   freshness window seconds (default 7200)
+    AITBC_TEXTFILE_DIR                  default /var/lib/prometheus/node-exporter
+
+Run by a systemd timer (aitbc-bridge-set.timer); stdlib only.
+"""
+
+from __future__ import annotations
+
+import argparse
+import glob
+import json
+import os
+import sqlite3
+import sys
+import tempfile
+import time
+from dataclasses import dataclass
+
+
+@dataclass
+class Result:
+    db: str
+    active: list[str]  # active addresses in latest epoch
+    newest_registered_at: float | None  # epoch seconds
+
+
+def parse_consensus_set(raw: str) -> set[str]:
+    """VALIDATOR_SET may be a JSON list or a comma-separated string."""
+    raw = raw.strip()
+    if not raw:
+        return set()
+    if raw.startswith("["):
+        try:
+            items = json.loads(raw)
+        except json.JSONDecodeError:
+            items = []
+    else:
+        items = raw.split(",")
+    return {str(a).strip().strip('"').lower() for a in items if str(a).strip()}
+
+
+def scan_db(db_path: str) -> Result:
+    """Read active bridge set + newest registered_at from a chain DB (mode=ro)."""
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        chain_id = conn.execute("SELECT chain_id FROM bridge_validators LIMIT 1").fetchone()
+        chain_id = chain_id[0] if chain_id else ""
+        epoch_row = conn.execute("SELECT MAX(epoch) FROM bridge_validators WHERE chain_id = ?", (chain_id,)).fetchone()
+        epoch = epoch_row[0] if epoch_row and epoch_row[0] is not None else 0
+        active = [
+            r[0]
+            for r in conn.execute(
+                "SELECT address FROM bridge_validators WHERE chain_id = ? AND epoch = ? AND is_active = 1",
+                (chain_id, epoch),
+            )
+        ]
+        ts_row = conn.execute(
+            "SELECT MAX(registered_at) FROM bridge_validators WHERE chain_id = ?",
+            (chain_id,),
+        ).fetchone()
+        newest = _parse_ts(ts_row[0]) if ts_row and ts_row[0] else None
+    finally:
+        conn.close()
+    return Result(db=db_path, active=active, newest_registered_at=newest)
+
+
+def _parse_ts(raw: str) -> float | None:
+    """registered_at is stored as ISO text; accept space or T separator,
+    naive (UTC) or offset-aware."""
+    from datetime import UTC, datetime
+
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.timestamp()
+
+
+def find_dbs(explicit: str | None, data_dir: str) -> list[str]:
+    if explicit:
+        return [explicit]
+    return sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db")))
+
+
+def render(results: list[Result], consensus: set[str], threshold: int, grace: int, now: float) -> str:
+    lines = []
+    active_total = 0
+    possible_total = 0
+    age = -1.0
+    fresh = 0
+    for r in results:
+        possible = sum(1 for a in r.active if a.lower() in consensus)
+        active_total += len(r.active)
+        possible_total += possible
+        if r.newest_registered_at is not None:
+            age = max(age, now - r.newest_registered_at)
+    if results:
+        fresh = 1 if (age >= 0 and age <= grace) else 0
+    lines += [
+        "# HELP aitbc_bridge_active_validators Active bridge validator rows (latest epoch)",
+        "# TYPE aitbc_bridge_active_validators gauge",
+        f"aitbc_bridge_active_validators {active_total}",
+        "# HELP aitbc_bridge_possible_signers Active members in the current consensus set",
+        "# TYPE aitbc_bridge_possible_signers gauge",
+        f"aitbc_bridge_possible_signers {possible_total}",
+        "# HELP aitbc_bridge_threshold Configured bridge multisig threshold",
+        "# TYPE aitbc_bridge_threshold gauge",
+        f"aitbc_bridge_threshold {threshold}",
+        "# HELP aitbc_bridge_set_age_seconds Seconds since the newest registration row",
+        "# TYPE aitbc_bridge_set_age_seconds gauge",
+        f"aitbc_bridge_set_age_seconds {age:.0f}",
+        "# HELP aitbc_bridge_set_fresh 1 when the newest registration is inside the grace window",
+        "# TYPE aitbc_bridge_set_fresh gauge",
+        f"aitbc_bridge_set_fresh {fresh}",
+        "# HELP aitbc_bridge_set_scrape_success 1 when the chain DB read worked",
+        "# TYPE aitbc_bridge_set_scrape_success gauge",
+        f"aitbc_bridge_set_scrape_success {1 if results else 0}",
+        "# HELP aitbc_bridge_set_scrape_timestamp_seconds When this run finished",
+        "# TYPE aitbc_bridge_set_scrape_timestamp_seconds gauge",
+        f"aitbc_bridge_set_scrape_timestamp_seconds {now:.0f}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def write_atomic(directory: str, text: str) -> None:
+    """Write beside the target and rename: node_exporter never reads a half-written file."""
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".aitbc_bridge_set.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        os.replace(tmp, os.path.join(directory, "aitbc_bridge_set.prom"))
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--db", default=os.environ.get("AITBC_CHAIN_DB") or None)
+    args = p.parse_args(argv)
+
+    now = time.time()
+    data_dir = os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc")
+    textfile_dir = os.environ.get("AITBC_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
+    threshold = int(os.environ.get("BRIDGE_MULTISIG_THRESHOLD", "2"))
+    grace = int(os.environ.get("BRIDGE_VALIDATOR_SET_GRACE_PERIOD", "7200"))
+    consensus = parse_consensus_set(os.environ.get("VALIDATOR_SET", ""))
+
+    results = []
+    for db in find_dbs(args.db, data_dir):
+        try:
+            results.append(scan_db(db))
+        except (sqlite3.Error, OSError):
+            continue  # unreadable DB -> scrape_success 0 via empty results
+
+    text = render(results, consensus, threshold, grace, now)
+    write_atomic(textfile_dir, text)
+    return 0 if results else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

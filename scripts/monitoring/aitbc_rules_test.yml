@@ -1104,3 +1104,57 @@ tests:
       - eval_time: 26m
         alertname: EscrowSettlementRefusedOnHub
         exp_alerts: []
+
+  # Bridge validator-set alerts (A36-4). The exporter emits
+  # aitbc_bridge_possible_signers / aitbc_bridge_threshold /
+  # aitbc_bridge_set_age_seconds / aitbc_bridge_set_fresh from the hub
+  # chain.db; promql_expr_test keeps the annotation text out of the file.
+
+  # Degraded set: 0 possible signers vs threshold 2, fresh=0. Both alerts
+  # are for: 10m — pending at 9m, firing at 11m.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_bridge_possible_signers{instance="hub:9100"}'
+        values: '0x25'
+      - series: 'aitbc_bridge_threshold{instance="hub:9100"}'
+        values: '2x25'
+      - series: 'aitbc_bridge_set_age_seconds{instance="hub:9100"}'
+        values: '1900000x25'
+      - series: 'aitbc_bridge_set_fresh{instance="hub:9100"}'
+        values: '0x25'
+    promql_expr_test:
+      - expr: ALERTS{alertname="BridgeSetCannotMeetThreshold", alertstate="firing"}
+        eval_time: 9m
+        exp_samples: []
+      - expr: ALERTS{alertname="BridgeSetCannotMeetThreshold", alertstate="firing"}
+        eval_time: 11m
+        exp_samples:
+          - labels: 'ALERTS{alertname="BridgeSetCannotMeetThreshold", alertstate="firing", instance="hub:9100", severity="warning"}'
+            value: 1
+      - expr: ALERTS{alertname="BridgeSetStale", alertstate="firing"}
+        eval_time: 9m
+        exp_samples: []
+      - expr: ALERTS{alertname="BridgeSetStale", alertstate="firing"}
+        eval_time: 11m
+        exp_samples:
+          - labels: 'ALERTS{alertname="BridgeSetStale", alertstate="firing", instance="hub:9100", severity="warning"}'
+            value: 1
+
+  # Healthy set (4 possible signers, fresh=1): neither alert ever fires.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_bridge_possible_signers{instance="hub:9100"}'
+        values: '4x25'
+      - series: 'aitbc_bridge_threshold{instance="hub:9100"}'
+        values: '2x25'
+      - series: 'aitbc_bridge_set_age_seconds{instance="hub:9100"}'
+        values: '60x25'
+      - series: 'aitbc_bridge_set_fresh{instance="hub:9100"}'
+        values: '1x25'
+    promql_expr_test:
+      - expr: ALERTS{alertname="BridgeSetCannotMeetThreshold"}
+        eval_time: 25m
+        exp_samples: []
+      - expr: ALERTS{alertname="BridgeSetStale"}
+        eval_time: 25m
+        exp_samples: []
