@@ -1513,7 +1513,7 @@ def cast_governance_vote(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Cast a vote on a governance proposal."""
+    """Cast a vote on a governance proposal. Votes are advisory (V-7) — the tally does not decide execution; GOVERNANCE_EXECUTE is gated by the governance_executors chain parameter."""
     body: dict[str, Any] = {
         "proposal_id": proposal_id,
         "voter_address": voter_address,
@@ -1558,7 +1558,7 @@ def execute_governance_proposal(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Execute a passed governance proposal on the blockchain."""
+    """Execute a passed governance proposal on the blockchain. Execution is executor-gated; the vote tally is advisory (V-7) and does not decide it."""
     body: dict[str, Any] = {}
     if executor_address is not None:
         body["executor_address"] = executor_address

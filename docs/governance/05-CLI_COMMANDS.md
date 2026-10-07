@@ -52,7 +52,7 @@ aitbc governance propose --title "Lower tx fee" --description "Reduce the base f
 
 ### vote
 
-Vote on a governance proposal.
+Vote on a governance proposal. Votes are advisory (V-7): the tally informs but does not decide execution — `GOVERNANCE_EXECUTE` is gated only by the `governance_executors` chain parameter.
 
 ```bash
 aitbc governance vote --proposal-id <id> --voter-id <id> --vote <option>
