@@ -53,9 +53,41 @@ def _stub_with(rows: list[tuple[str, int, datetime]]) -> _Stub:
 NOW = datetime.now(UTC)
 
 
-def test_registered_three_hours_ago_fails() -> None:
+def test_current_epoch_does_not_decay() -> None:
+    """A37-1: a set registered once at the latest epoch stays fresh forever
+    — supersession, not wall time, ends validity."""
     stub = _stub_with([("0xA", 0, NOW - timedelta(hours=3))])
-    assert stub._check_validator_set_freshness("c") is False
+    assert stub._check_validator_set_freshness("c") is True
+    assert stub._check_validator_set_freshness("c", epoch=0) is True
+
+
+def test_superseded_epoch_stale_after_grace() -> None:
+    """A37-1: an epoch superseded more than grace ago fails closed."""
+    stub = _stub_with(
+        [
+            ("0xA", 0, NOW - timedelta(days=30)),
+            ("0xB", 1, NOW - timedelta(hours=3)),
+        ]
+    )
+    assert stub._check_validator_set_freshness("c", epoch=0) is False
+    assert stub._check_validator_set_freshness("c", epoch=1) is True
+
+
+def test_superseded_epoch_fresh_within_grace() -> None:
+    """A37-1: an epoch superseded within the grace window still verifies —
+    in-flight proofs against the lock-time set survive a rotation."""
+    stub = _stub_with(
+        [
+            ("0xA", 0, NOW - timedelta(days=30)),
+            ("0xB", 1, NOW - timedelta(hours=1)),
+        ]
+    )
+    assert stub._check_validator_set_freshness("c", epoch=0) is True
+
+
+def test_unknown_future_epoch_is_not_fresh() -> None:
+    stub = _stub_with([("0xA", 1, NOW)])
+    assert stub._check_validator_set_freshness("c", epoch=5) is False
 
 
 def test_registered_one_hour_ago_passes() -> None:
@@ -76,16 +108,18 @@ def test_newer_epoch_row_refreshes_set() -> None:
     assert stub._check_validator_set_freshness("c") is True
 
 
-def test_stale_old_epoch_still_fails_with_stale_new_epoch() -> None:
-    """If the NEWEST row is stale, all-epoch staleness fails — the docstring's
-    'no newer epoch exists' is misleading: epochs are never inspected."""
+def test_stale_superseded_epoch_fails_regardless_of_latest_age() -> None:
+    """A37-1: what 'stale' means now — epoch 0 was superseded 5h ago
+    (>grace), so epoch-0 verification fails while the current epoch-1
+    set stays fresh no matter its own registered_at age."""
     stub = _stub_with(
         [
             ("0xA", 0, NOW - timedelta(days=21)),
             ("0xC", 1, NOW - timedelta(hours=5)),
         ]
     )
-    assert stub._check_validator_set_freshness("c") is False
+    assert stub._check_validator_set_freshness("c") is True
+    assert stub._check_validator_set_freshness("c", epoch=0) is False
 
 
 def test_empty_table_passes_freshness() -> None:

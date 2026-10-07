@@ -784,24 +784,42 @@ class TestValidatorSetEpochTracking:
         assert bridge._check_validator_set_freshness("chain-a") is True
 
     def test_validator_set_stale_after_grace_period(self, bridge: CrossChainBridge, rpc_engine) -> None:
-        """A validator set older than the grace period is stale."""
-        # Register a validator with an old timestamp
+        """A SUPERSEDED epoch older than its supersession+grace is stale.
+
+        A37-1: the check is epoch-aware — the latest epoch is the
+        authoritative set and never decays; staleness applies to epochs
+        replaced by a newer registration more than grace_period ago.
+        """
+        now = datetime.now(UTC)
         with Session(rpc_engine) as session:
-            old_time = datetime.now(UTC) - timedelta(seconds=7200)
-            v = BridgeValidator(
-                chain_id="chain-a",
-                address="0xvalidator",
-                public_key="0xpubkey",
-                epoch=0,
-                is_active=True,
-                registered_at=old_time,
+            # epoch 0 superseded 2h ago by epoch 1
+            session.add(
+                BridgeValidator(
+                    chain_id="chain-a",
+                    address="0xvalidator",
+                    public_key="0xpubkey",
+                    epoch=0,
+                    is_active=True,
+                    registered_at=now - timedelta(days=30),
+                )
             )
-            session.add(v)
+            session.add(
+                BridgeValidator(
+                    chain_id="chain-a",
+                    address="0xvalidator2",
+                    public_key="0xpubkey",
+                    epoch=1,
+                    is_active=True,
+                    registered_at=now - timedelta(seconds=7200),
+                )
+            )
             session.commit()
 
         with patch("aitbc_chain.config.settings.bridge_validator_set_grace_period", 3600):
-            result = bridge._check_validator_set_freshness("chain-a")
-        assert result is False
+            assert bridge._check_validator_set_freshness("chain-a", epoch=0) is False
+            # The current epoch itself does not decay.
+            assert bridge._check_validator_set_freshness("chain-a") is True
+            assert bridge._check_validator_set_freshness("chain-a", epoch=1) is True
 
     def test_no_validators_is_fresh(self, bridge: CrossChainBridge) -> None:
         """No validators registered → fresh enough (will fail elsewhere)."""
