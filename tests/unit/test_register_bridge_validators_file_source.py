@@ -75,7 +75,7 @@ def test_file_source_refuses_wrong_owner(tmp_path: Path, monkeypatch: pytest.Mon
     if os.geteuid() == 0:
         # Running as root the tmp file is uid-0-owned — allowed by the check
         # (st_uid in (euid, 0)). Chown to a foreign uid so the refusal is real.
-        os.chown(f, 12345)
+        os.chown(f, 12345, 12345)
     monkeypatch.setenv("BRIDGE_VALIDATOR_PRIVATE_KEY_FILE_1", str(f))
     monkeypatch.setattr(os, "geteuid", lambda: 99999)  # file owned by us, not 99999 or root
     with pytest.raises(SystemExit) as exc:
@@ -129,7 +129,7 @@ def test_admin_file_refuses_group_readable(tmp_path: Path, monkeypatch: pytest.M
 def test_admin_file_refuses_wrong_owner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     f = _key_file(tmp_path)
     if os.geteuid() == 0:
-        os.chown(f, 12345)
+        os.chown(f, 12345, 12345)
     monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(f))
     monkeypatch.setattr(os, "geteuid", lambda: 99999)
     with pytest.raises(SystemExit):
