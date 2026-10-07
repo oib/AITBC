@@ -412,6 +412,30 @@ class TestSecurityStatus:
         assert body["validator_count"] == 0
         assert body["current_epoch"] == 0
 
+    def test_validator_count_inactive_latest_epoch_excluded(self, rpc_setup, rpc_engine) -> None:
+        """Inactive rows of the latest epoch do not count toward validator_count."""
+        _bridge, client = rpc_setup
+        with Session(rpc_engine) as session:
+            session.add(BridgeValidator(chain_id="chain-a", address="0xe0act", public_key="0xpe0a", epoch=0, is_active=True))
+            session.add(BridgeValidator(chain_id="chain-a", address="0xe0ina", public_key="0xpe0i", epoch=0, is_active=False))
+            for i in range(4):
+                session.add(
+                    BridgeValidator(
+                        chain_id="chain-a",
+                        address=f"0xiv{i}",
+                        public_key=f"0xpi{i}",
+                        epoch=1,
+                        is_active=True,
+                    )
+                )
+            session.add(BridgeValidator(chain_id="chain-a", address="0xret", public_key="0xprt", epoch=1, is_active=False))
+            session.commit()
+        resp = client.get("/bridge/security/status")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["validator_count"] == 4
+        assert body["current_epoch"] == 1
+
 
 # ---------------------------------------------------------------------------
 # Multi-Sig Threshold Verification Tests (B6)
