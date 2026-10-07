@@ -251,7 +251,6 @@ ADMIN_API_KEYS=key5
 # Auth / signing
 JWT_SECRET=<secret>
 HMAC_SECRET=<secret>
-SETTLEMENT_PRIVATE_KEY=<hex>          # signs settlement txs
 
 # Chain integration
 BLOCKCHAIN_RPC_URL=http://localhost:8202
