@@ -39,6 +39,24 @@ The bridge derives finality from `bridge_finality_blocks` confirmations. This mu
 
 Do not set `bridge_finality_blocks` lower than the consensus finality the bridge is expected to trust.
 
+### Lock intake controls (operator runbook)
+
+Two `aitbc-blockchain-rpc` env keys govern whether the node accepts *new* bridge locks. Both are read once into the cached `ChainSettings` at process start — a change only takes effect after an `aitbc-blockchain-rpc` restart.
+
+| env key | default | meaning |
+|---|---|---|
+| `BRIDGE_LOCKS_PAUSED` | `false` | `true` fences off new locks on `POST /bridge/lock`, `POST /bridge/batch/lock`, `/swap`, `/cross-chain/bridge` and internal `initiate_transfer`. Refund, status-read and confirm paths stay available, so in-flight transfers can still settle. |
+| `BRIDGE_MAX_LOCK_AMOUNT` | `0` (unlimited) | Per-lock maximum in compute units. `1 AIT = 36,000,000 units`; `36,000,000,000` = a 1,000 AIT per-lock cap — the value the live fleet runs. |
+
+Normal state is **locks open** (`BRIDGE_LOCKS_PAUSED=false`) with a per-lock cap. To pause intake again — e.g. while rotating the bridge validator set — edit `/etc/aitbc/blockchain.env` on the host:
+
+```bash
+sudo sed -i 's/^BRIDGE_LOCKS_PAUSED=.*/BRIDGE_LOCKS_PAUSED=true/' /etc/aitbc/blockchain.env
+sudo systemctl restart aitbc-blockchain-rpc
+```
+
+Verify the running value in `/proc/<rpc pid>/environ` — the pause flag is not exposed on any read endpoint; `/rpc/bridge/health` does report `bridge_max_lock_amount`. A paused node answers lock requests with a "bridge locks paused" error. Reopen by setting the value back to `false` with another rpc restart. A host with an empty `bridge_validators` set can still accept locks it cannot yet release — releases fail closed below the multisig threshold — so the pause is the fence, not the validator set.
+
 ### Bridge Operations
 
 | Feature | Description | Documentation | Status | Release |
