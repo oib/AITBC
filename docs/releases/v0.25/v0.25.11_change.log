@@ -38,3 +38,11 @@ On-chain and env-side state changes recorded in this window (no code change):
 - **v12 consequence** — with the value checks live at 37500, malformed authority values are refused at admission; the tool-side gates above (custody proof, funded target) cover what consensus deliberately does not.
 
 **Deploy status (verifiable)**: `origin/main` head `88db185daa`; host checkouts hub `88db185daa`, hub1/node0/node1/node2 `88db185daa`; the deployed hub rule set is the `88db185daa` one (17 alert rules, all inactive at deploy time). The `d70099eeaf` warn-band variant and `9b9c4577c4` drift check are local commits pending push.
+
+### Bridge operations program: guarded unlock, set monitoring, fleet cap, proposer drain (2026-10-07)
+
+A controlled rollout closed out the bridge hardening program on the live fleet. The four-attester epoch-1 set registered on all five nodes; the hub `aitbc-bridge-set` textfile exporter now reports `possible_signers=4` to Prometheus (`9812a91d51` object-form `VALIDATOR_SET` parse; `04b56ef9bb` 0644 output + latest-epoch-never-decays freshness matching `bridge_validator.py`), with `BridgeSetCannotMeetThreshold`/`BridgeSetStale` loaded and inactive.
+
+- `BRIDGE_LOCKS_PAUSED=false` went live on all five hosts after the preconditions held (`possible_signers=4` + the registered epoch-1 set); `BRIDGE_MAX_LOCK_AMOUNT=36000000000` (1,000 AIT per-lock cap) rides with it in every `blockchain.env` and running rpc environment. Restart order: node2, node0, node1, hub1, hub.
+- The retired proposer/proposer-account residue was drained in one `TRANSFER` (`0x54b547da…f2c` — 35,999,913,326,931,922 units to live `escrow_fee_recipient` `0x34FFfAd1…`, sealed at block 38368, nonce 90), keeping the 36,000,000,000-unit reserve. The account's ~36T-unit float no longer sits on a genesis-era identity.
+- **Live result**: all five hosts at `04b56ef9bb`, `bridge/health` reporting `bridge_max_lock_amount: 36000000000`, `bridge_validators` latest epoch 1 with 4 active rows fleet-wide, no firing alerts, `BRIDGE_LOCKS_PAUSED=false` everywhere. The B43 persistence audit confirmed no deploy/update script can clobber these values; this version adds them to `blockchain.env.open-island` and documents the ops surface.
