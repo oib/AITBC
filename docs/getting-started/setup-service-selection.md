@@ -123,7 +123,7 @@ not in `setup.sh`'s base/hub/follower/shop enable lists — they arrive through
 | Unit | Port | Installed by | Notes |
 |------|------|--------------|-------|
 | `aitbc-island-ipfs` | 4002, 5002, 8081 | `link-systemd.sh`, only when `/etc/aitbc/aitbc-island-ipfs.env` exists or via `EXTRA_SERVICES` | island kubo IPFS; 4002 public, 5002+8081 on 127.0.0.1 |
-| `aitbc-prometheus-watch` | — | no repo installer — host-created unit | watches local Prometheus alerts and writes `alerts.log` |
+| `aitbc-prometheus-watch` | — | repo ships `scripts/monitoring/aitbc-prometheus-watch.service`; manual install (`cp` or symlink into the checkout) — not in `setup.sh` role lists | watches local Prometheus alerts and writes `alerts.log` |
 | `aitbc-load-secrets` | — | `link-systemd.sh` infra list (all roles) | `Type=oneshot`; runs `load-keystore-secrets.sh` at boot |
 
 Also observed running, outside AITBC's unit set:
