@@ -17,11 +17,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 
 _COORDINATOR_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -156,6 +159,149 @@ def test_alembic_head_is_not_initial_migration(tmp_path: Path):
 
     assert version is not None, "alembic_version table is empty after upgrade head"
     assert version != "initial_migration", "upgrade head stopped at initial_migration — subsequent migrations didn't run"
+
+    # The chain must end at the single head reported by alembic.
+    cfg = Config(str(_COORDINATOR_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(_COORDINATOR_ROOT / "alembic"))
+    heads = ScriptDirectory.from_config(cfg).get_heads()
+    assert len(heads) == 1, f"expected exactly one alembic head, got {heads}"
+    assert version == heads[0], f"database ended at {version}, not the single head {heads[0]}"
+
+
+def _norm_col_type(declared: str) -> str:
+    """sqlite ignores VARCHAR lengths and NUMERIC precision — normalize away."""
+    return re.sub(r"\(\s*\d+(\s*,\s*\d+)?\s*\)", "", (declared or "").upper()).strip()
+
+
+def _semantic_schema(db_path: Path) -> dict[str, dict]:
+    """Per-table semantic signature: columns, primary key, indexes, foreign keys.
+
+    Normalizations (all verified cosmetic — sqlite treats the variants
+    identically):
+    - column position is ignored: later migrations add columns via ALTER TABLE,
+      which appends; the models declare them in place.
+    - VARCHAR(N)/NUMERIC(P,S) spellings are normalized to their base type.
+    - ``sqlite_autoindex_*`` names depend on constraint declaration order and
+      differ between the chain's create order and the models'; they compare by
+      (unique, columns).
+    - ``agent_executions.agent_id`` FKs ``agent_reputation_old`` on the chain
+      side — a rename artifact kept by a table-rebuild migration; the model
+      targets ``agent_reputation``. Allowlisted explicitly.
+    """
+    engine = create_engine(f"sqlite:///{db_path}")
+    con = engine.raw_connection().connection
+    out: dict[str, dict] = {}
+    tables = sorted(
+        r[0]
+        for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name != 'alembic_version' AND name NOT LIKE 'sqlite_%'"
+        )
+    )
+    for table in tables:
+        cols: set[tuple] = set()
+        pk: set[str] = set()
+        for _cid, name, typ, notnull, _dflt, pkn in con.execute(f'PRAGMA table_info("{table}")'):
+            cols.add((name, _norm_col_type(typ), bool(notnull), bool(pkn)))
+            if pkn:
+                pk.add(name)
+        indexes: set[tuple] = set()
+        for _seq, iname, unique, _origin, _partial in con.execute(f'PRAGMA index_list("{table}")'):
+            icols = tuple(r[2] for r in con.execute(f'PRAGMA index_info("{iname}")'))
+            idx_name = "<autoindex>" if iname.startswith("sqlite_autoindex") else iname
+            indexes.add((idx_name, bool(unique), icols))
+        fks: set[tuple] = set()
+        for row in con.execute(f'PRAGMA foreign_key_list("{table}")'):
+            target = "agent_reputation" if row[2] == "agent_reputation_old" else row[2]
+            fks.add((row[3], target, row[4]))
+        out[table] = {"cols": cols, "pk": pk, "indexes": indexes, "fks": fks}
+    engine.dispose()
+    return out
+
+
+def _build_metadata_db(tmp_path: Path) -> Path:
+    """Build a database straight from SQLModel.metadata in a clean subprocess."""
+    db_path = tmp_path / "test_conformance_meta.db"
+    script = """
+import coordinator_api.main  # noqa: F401
+import coordinator_api.models.multitenant  # noqa: F401
+from sqlalchemy import create_engine
+from sqlmodel import SQLModel
+import sys
+SQLModel.metadata.create_all(create_engine(sys.argv[1]))
+"""
+    env = os.environ.copy()
+    env["AITBC_SKIP_ENV_FILES"] = "1"
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
+    env["AUDIT_LOG_DIR"] = str(tmp_path / "audit_meta")
+    env["TEST_MODE"] = "true"
+    result = subprocess.run(
+        [sys.executable, "-c", script, f"sqlite:///{db_path}"],
+        cwd=_COORDINATOR_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.fail(f"failed to build metadata db:\n{result.stderr}")
+    return db_path
+
+
+def test_chain_schema_matches_model_schema_semantically(tmp_path: Path):
+    """Deep compare: the chain-built schema must equal the model-built schema.
+
+    Beyond table/column name sets this checks nullability, primary keys,
+    indexes and foreign keys, tolerating only the documented cosmetic classes
+    (column position, VARCHAR/NUMERIC spellings, autoindex numbering, the
+    agent_reputation->_old FK rename artifact). Any real drift prints the
+    differing table and column.
+    """
+    chain_db = _run_alembic(tmp_path, "upgrade", "head")
+    meta_db = _build_metadata_db(tmp_path)
+
+    chain = _semantic_schema(chain_db)
+    meta = _semantic_schema(meta_db)
+
+    missing = sorted(set(meta) - set(chain))
+    extra = sorted(set(chain) - set(meta))
+    assert not missing, f"tables missing from chain-built DB: {missing}"
+    assert not extra, f"extra tables in chain-built DB: {extra}"
+
+    problems: list[str] = []
+    for table in sorted(set(chain) & set(meta)):
+        for key in ("cols", "pk", "indexes", "fks"):
+            only_chain = chain[table][key] - meta[table][key]
+            only_meta = meta[table][key] - chain[table][key]
+            for item in sorted(only_chain, key=str):
+                problems.append(f"{table}.{key} only in chain DB: {item}")
+            for item in sorted(only_meta, key=str):
+                problems.append(f"{table}.{key} only in model schema: {item}")
+    assert not problems, "semantic schema drift:\n" + "\n".join(problems)
+
+
+def test_001_downgrade_raises(tmp_path: Path):
+    """Downgrading below the frozen baseline must fail loudly, not drop all."""
+    _run_alembic(tmp_path, "upgrade", "initial_migration")
+
+    db_path = tmp_path / "test_conformance.db"
+    env = os.environ.copy()
+    env["AITBC_SKIP_ENV_FILES"] = "1"
+    for var in ("SQLITE_URL", "MARKET_DATABASE_URL", "DATABASE_ADAPTER", "DB_TYPE", "ENVIRONMENT", "APP_ENV", "NODE_ENV"):
+        env.pop(var, None)
+    env["DATABASE_URL"] = f"sqlite:///{db_path}"
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
+    env["AUDIT_LOG_DIR"] = str(tmp_path / "audit")
+    env["TEST_MODE"] = "true"
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "downgrade", "base"],
+        cwd=_COORDINATOR_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0, "downgrade below the baseline unexpectedly succeeded"
+    assert "the baseline cannot be downgraded" in result.stderr, (
+        f"expected the frozen-baseline error, got:\n{result.stderr[-2000:]}"
+    )
 
 
 def test_001_baseline_is_frozen() -> None:
