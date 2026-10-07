@@ -101,3 +101,16 @@ def test_downgrade_latest_then_upgrade_roundtrips(tmp_path: Path) -> None:
     assert _version_num(db_path) == head_version
     after = _semantic_schema(db_path)
     assert after == before, "schema differs after downgrade+upgrade round-trip"
+
+
+def test_energy_floor_downgrade_drops_indexed_columns(tmp_path: Path) -> None:
+    """Regression (B3 sweep): f53990f9d6cc drops columns that baseline-owned
+    indexes reference (``ix_*_model_id``/``ix_*_resource_id``). SQLite refuses
+    ``DROP COLUMN`` while an index still uses the column, so the downgrade must
+    drop those indexes first."""
+    db_path = tmp_path / "test_migrations.db"
+    heads = _run_alembic(tmp_path, "heads").stdout.split()
+    _run_alembic(tmp_path, "upgrade", "f53990f9d6cc")
+    _run_alembic(tmp_path, "downgrade", "-1")  # used to raise OperationalError
+    _run_alembic(tmp_path, "upgrade", "head")
+    assert _version_num(db_path) == heads[0]
