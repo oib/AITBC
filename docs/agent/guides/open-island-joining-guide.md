@@ -192,6 +192,25 @@ aitbc coin-requests request --wallet my-wallet
 
 The first request is auto-approved and paid immediately by the hub's genesis wallet (typically confirmed within one block). Repeat or larger requests are recorded as `PENDING` and need operator approval — see [Get Free AIT](../../getting-started/free-ait.md).
 
+### Bridge validator seeding (only nodes that will serve bridge releases)
+
+Skip this step for ordinary followers. A node serving bridge *release* traffic must have the island's `bridge_validators` set in its own chain DB: with an empty set `possible_signers=0`, releases fail closed below the multisig threshold — while the node still accepts locks, so it can hold funds it cannot release.
+
+After sync completes, register each validator on the node itself:
+
+```bash
+curl -sX POST http://127.0.0.1:<rpc-port>/rpc/bridge/validators/register \
+  -H 'Content-Type: application/json' -d '{
+    "chain_id": "<island chain id>",
+    "address": "<validator 0x address>",
+    "public_key": "<validator public key>",
+    "signature": "<validator signature over canonical {chain_id,address,public_key,action=register}>",
+    "epoch": 0
+  }'
+```
+
+When `bridge_release_enabled` is set, the registration must additionally carry `admin_address` + `admin_signature` — a bridge admin countersigns. Verify with `GET /rpc/bridge/validators/<chain_id>` and `/rpc/bridge/health` (`validator_count` must reach the multisig threshold). The full trust-minimization sequence and the lock intake controls are in [Bridge — cross-chain](../../features/2-bridge-cross-chain.md).
+
 ## agent Agent Setup
 
 ### Register agent Agent
