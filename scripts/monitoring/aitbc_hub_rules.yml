@@ -71,6 +71,30 @@ groups:
           summary: "Authority balance export has stopped"
           description: "The aitbc_authority_* textfile is missing or older than five minutes; check aitbc-authority-balances.timer. The float alerts are blind until it runs again."
 
+      # Governance executors pay 360,000 units per GOVERNANCE_EXECUTE — a member
+      # that cannot cover the fee cannot rotate parameters at all. The exporter
+      # derives one series per governance_executors member; warn below six
+      # executes, critical below two. The bands exclude each other.
+      - alert: GovernanceExecutorFloatLow
+        expr: |
+          aitbc_authority_balance_units{role="governance_executor"} < 2160000
+          and aitbc_authority_balance_units{role="governance_executor"} >= 720000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Governance executor float is low ({{ $labels.address }})"
+          description: "Governance executor {{ $labels.address }} holds {{ $value | humanize }} units — fewer than six GOVERNANCE_EXECUTE fees (360,000 each). Top it up before the next rotation."
+
+      - alert: GovernanceExecutorFloatCritical
+        expr: aitbc_authority_balance_units{role="governance_executor"} < 720000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Governance executor float is nearly gone ({{ $labels.address }})"
+          description: "Governance executor {{ $labels.address }} holds {{ $value | humanize }} units — fewer than two GOVERNANCE_EXECUTE fees. A parameter change signed by it will be refused at admission until funded."
+
   - name: aitbc-native-energy-rate
     rules:
       # Native AIT/EUR energy rate, exported by

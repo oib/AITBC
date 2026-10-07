@@ -34,6 +34,8 @@ _spec.loader.exec_module(exporter)
 
 SETTLEMENT = "0x" + "11" * 20
 BRIDGE = "0x" + "2b" * 20
+EXECUTOR_1 = "0x" + "fa" * 20
+EXECUTOR_2 = "0x" + "d9" * 20
 SETTLEMENT_OLD = "0x" + "03" * 20
 BRIDGE_OLD = "0x" + "04" * 20
 UNKNOWN = "0x" + "ee" * 20
@@ -83,6 +85,7 @@ def rpc():
             "parameters": {
                 "escrow_settlement_authority": SETTLEMENT,
                 "bridge_release_authority": BRIDGE,
+                "governance_executors": f"{EXECUTOR_1},{EXECUTOR_2}",
             },
         },
     )
@@ -140,6 +143,7 @@ class TestFetchParameters:
         assert exporter.fetch_parameters(url) == {
             "escrow_settlement_authority": SETTLEMENT,
             "bridge_release_authority": BRIDGE,
+            "governance_executors": f"{EXECUTOR_1},{EXECUTOR_2}",
         }
 
     def test_connection_refused_is_none(self):
@@ -177,18 +181,27 @@ class TestReadAccount:
 
 
 class TestResolveAccounts:
+    _PARAMS = {
+        "escrow_settlement_authority": SETTLEMENT,
+        "bridge_release_authority": BRIDGE,
+        "governance_executors": f"{EXECUTOR_1},{EXECUTOR_2}",
+    }
+
     def test_parameter_addresses_win(self):
-        resolved, stale = exporter.resolve_accounts(
-            {"escrow_settlement_authority": SETTLEMENT, "bridge_release_authority": BRIDGE},
-            [("escrow_settlement", SETTLEMENT_OLD)],
-        )
-        assert resolved == [("escrow_settlement", SETTLEMENT), ("bridge_release", BRIDGE)]
+        resolved, stale = exporter.resolve_accounts(dict(self._PARAMS), [("escrow_settlement", SETTLEMENT_OLD)])
+        assert resolved == [
+            ("escrow_settlement", SETTLEMENT),
+            ("bridge_release", BRIDGE),
+            ("governance_executor", EXECUTOR_1),
+            ("governance_executor", EXECUTOR_2),
+        ]
         assert stale == set()
 
     def test_missing_parameter_falls_back_to_env_and_marks_stale(self):
+        params = dict(self._PARAMS)
+        del params["bridge_release_authority"]
         resolved, stale = exporter.resolve_accounts(
-            {"escrow_settlement_authority": SETTLEMENT},  # bridge param absent
-            [("escrow_settlement", SETTLEMENT_OLD), ("bridge_release", BRIDGE_OLD)],
+            params, [("escrow_settlement", SETTLEMENT_OLD), ("bridge_release", BRIDGE_OLD)]
         )
         assert ("bridge_release", BRIDGE_OLD) in resolved
         assert ("escrow_settlement", SETTLEMENT) in resolved
@@ -198,29 +211,53 @@ class TestResolveAccounts:
         resolved, stale = exporter.resolve_accounts(
             None, [("escrow_settlement", SETTLEMENT_OLD), ("bridge_release", BRIDGE_OLD)]
         )
-        assert sorted(resolved) == [("bridge_release", BRIDGE_OLD), ("escrow_settlement", SETTLEMENT_OLD)]
-        assert stale == {"escrow_settlement", "bridge_release"}
+        assert ("bridge_release", BRIDGE_OLD) in resolved
+        assert ("escrow_settlement", SETTLEMENT_OLD) in resolved
+        assert ("governance_executor", "") in resolved
+        assert stale == {"escrow_settlement", "bridge_release", "governance_executor"}
 
     def test_no_fallback_leaves_the_role_blind(self):
         resolved, stale = exporter.resolve_accounts(None, [])
         assert ("escrow_settlement", "") in resolved
         assert ("bridge_release", "") in resolved
-        assert stale == {"escrow_settlement", "bridge_release"}
+        assert ("governance_executor", "") in resolved
+        assert stale == {"escrow_settlement", "bridge_release", "governance_executor"}
 
     def test_malformed_parameter_value_is_a_failed_read(self):
-        resolved, stale = exporter.resolve_accounts(
-            {"escrow_settlement_authority": "0x1234", "bridge_release_authority": BRIDGE}, []
-        )
+        params = dict(self._PARAMS)
+        params["escrow_settlement_authority"] = "0x1234"
+        resolved, stale = exporter.resolve_accounts(params, [])
         assert ("escrow_settlement", "") in resolved
         assert stale == {"escrow_settlement"}
 
     def test_unmanaged_roles_are_always_extras(self):
-        resolved, stale = exporter.resolve_accounts(
-            {"escrow_settlement_authority": SETTLEMENT, "bridge_release_authority": BRIDGE},
-            [("treasury", SETTLEMENT_OLD)],
-        )
+        resolved, stale = exporter.resolve_accounts(dict(self._PARAMS), [("treasury", SETTLEMENT_OLD)])
         assert ("treasury", SETTLEMENT_OLD) in resolved
         assert stale == set()
+
+    def test_executor_list_parameter_yields_one_entry_per_member(self):
+        resolved, stale = exporter.resolve_accounts(dict(self._PARAMS), [])
+        assert ("governance_executor", EXECUTOR_1) in resolved
+        assert ("governance_executor", EXECUTOR_2) in resolved
+        assert stale == set()
+
+    def test_executor_list_with_a_bad_member_watches_the_valid_and_marks_stale(self):
+        params = dict(self._PARAMS)
+        params["governance_executors"] = f"{EXECUTOR_1},not-an-address,{EXECUTOR_2}"
+        resolved, stale = exporter.resolve_accounts(params, [])
+        assert ("governance_executor", EXECUTOR_1) in resolved
+        assert ("governance_executor", EXECUTOR_2) in resolved
+        assert "governance_executor" in stale
+
+    def test_executor_list_missing_falls_back_per_entry(self):
+        params = dict(self._PARAMS)
+        params["governance_executors"] = ""
+        resolved, stale = exporter.resolve_accounts(
+            params, [("governance_executor", EXECUTOR_1), ("governance_executor", EXECUTOR_2)]
+        )
+        assert ("governance_executor", EXECUTOR_1) in resolved
+        assert ("governance_executor", EXECUTOR_2) in resolved
+        assert "governance_executor" in stale
 
 
 class TestRender:
@@ -340,6 +377,19 @@ class TestMain:
         assert samples[f'aitbc_authority_balance_units{{role="escrow_settlement",address="{SETTLEMENT}"}}'] == 32_975_761
         assert not [k for k in samples if SETTLEMENT_OLD in k]
 
+    def test_executors_are_watched_from_the_parameter_list(self, rpc, tmp_path, monkeypatch, capsys):
+        url, accounts, _ = rpc
+        accounts[SETTLEMENT] = {"balance": 32_975_761, "nonce": 0}
+        accounts[BRIDGE] = {"balance": 0, "nonce": 0}
+        accounts[EXECUTOR_1] = {"balance": 9_640_000, "nonce": 1}
+        accounts[EXECUTOR_2] = {"balance": 36_000_000, "nonce": 0}
+        self._env(monkeypatch, tmp_path, url)
+        assert exporter.main() == 0
+        samples = _metrics((tmp_path / exporter.OUTPUT_NAME).read_text())
+        assert samples[f'aitbc_authority_balance_units{{role="governance_executor",address="{EXECUTOR_1}"}}'] == 9_640_000
+        assert samples[f'aitbc_authority_balance_units{{role="governance_executor",address="{EXECUTOR_2}"}}'] == 36_000_000
+        assert capsys.readouterr().err == ""
+
     def test_extras_run_alongside_derived_roles(self, rpc, tmp_path, monkeypatch):
         url, accounts, _ = rpc
         accounts[SETTLEMENT] = {"balance": 32_975_761, "nonce": 0}
@@ -379,7 +429,7 @@ class TestFilesAgree:
         unit = (MONITORING / "aitbc-authority-balances.service").read_text()
         raw = re.search(r"^Environment=AITBC_WATCH_ACCOUNTS=(\S+)$", unit, re.M)
         unit_roles = {role for role, _ in exporter.parse_accounts(raw.group(1), allow_empty=True)} if raw else set()
-        covered = unit_roles | set(exporter.PARAMETER_ROLES)
+        covered = unit_roles | set(exporter.PARAMETER_ROLES) | set(exporter.LIST_PARAMETER_ROLES)
         rules = (MONITORING / "aitbc_hub_rules.yml").read_text()
         labelled = set(re.findall(r'aitbc_authority_[a-z_]+\{role="([a-z_]+)"', rules))
         assert labelled and labelled <= covered, (labelled, covered)
