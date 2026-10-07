@@ -12,6 +12,7 @@ edit:
 
     escrow_settlement   <- escrow_settlement_authority
     bridge_release      <- bridge_release_authority
+    governance_executor <- governance_executors (every list member)
 
 ``AITBC_WATCH_ACCOUNTS`` (``role:address`` pairs) is no longer required: an
 entry for a parameter-managed role is the fallback used only when the parameter
@@ -63,6 +64,13 @@ _ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 PARAMETER_ROLES = {
     "escrow_settlement": "escrow_settlement_authority",
     "bridge_release": "bridge_release_authority",
+}
+
+# Same, for parameters holding a comma-separated list — every valid member is
+# watched under the role. A member that fails the address check marks the role
+# stale without dropping the valid members.
+LIST_PARAMETER_ROLES = {
+    "governance_executor": "governance_executors",
 }
 
 
@@ -128,6 +136,7 @@ def resolve_accounts(
     """
     resolved: list[tuple[str, str]] = []
     stale: set[str] = set()
+    managed = set(PARAMETER_ROLES) | set(LIST_PARAMETER_ROLES)
     for role, parameter in PARAMETER_ROLES.items():
         value = (parameters or {}).get(parameter, "")
         address = value.strip()
@@ -137,7 +146,21 @@ def resolve_accounts(
         fallback = next((a for r, a in env_accounts if r == role), "")
         resolved.append((role, fallback))
         stale.add(role)
-    resolved.extend((role, address) for role, address in env_accounts if role not in PARAMETER_ROLES)
+    for role, parameter in LIST_PARAMETER_ROLES.items():
+        members = [a.strip() for a in (parameters or {}).get(parameter, "").split(",") if a.strip()]
+        valid = [a for a in members if _ADDRESS.match(a)]
+        if valid:
+            resolved.extend((role, a) for a in valid)
+            if len(valid) != len(members):
+                stale.add(role)
+            continue
+        fallbacks = [a for r, a in env_accounts if r == role]
+        if fallbacks:
+            resolved.extend((role, a) for a in fallbacks)
+        else:
+            resolved.append((role, ""))
+        stale.add(role)
+    resolved.extend((role, address) for role, address in env_accounts if role not in managed)
     return resolved, stale
 
 

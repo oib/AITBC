@@ -76,6 +76,12 @@ tests:
         values: '1x10 0x50'
       - series: 'aitbc_authority_scrape_timestamp_seconds'
         values: '0 30 60 90 120 150 180 210 240 270 300 330 360 390 420 450 480 510 540 570 600'
+      # Governance executors: 0xE1 is healthy, drops into the low band at t=4m,
+      # critical at t=7.5m, topped up at t=11m; 0xE2 stays funded throughout.
+      - series: 'aitbc_authority_balance_units{role="governance_executor", address="0xE1"}'
+        values: '36000000x8 1500000x7 500000x7 36000000x10'
+      - series: 'aitbc_authority_balance_units{role="governance_executor", address="0xE2"}'
+        values: '36000000x32'
 
     alert_rule_test:
       # Healthy float: neither float alert fires.
@@ -166,6 +172,48 @@ tests:
             exp_annotations:
               summary: "Authority balance export has stopped"
               description: "The aitbc_authority_* textfile is missing or older than five minutes; check aitbc-authority-balances.timer. The float alerts are blind until it runs again."
+
+      # Governance executors: 0xE1 healthy at t=3m; 1.5M from t=4.5m fires low at
+      # t=6.5m; 500k from t=8.5m fires critical at t=10.5m and resolves low; the
+      # top-up at t=12.5m clears both. 0xE2 never fires.
+      - eval_time: 3m
+        alertname: GovernanceExecutorFloatLow
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: GovernanceExecutorFloatCritical
+        exp_alerts: []
+      - eval_time: 6m30s
+        alertname: GovernanceExecutorFloatLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              role: governance_executor
+              address: 0xE1
+            exp_annotations:
+              summary: "Governance executor float is low (0xE1)"
+              description: "Governance executor 0xE1 holds 1.5M units — fewer than six GOVERNANCE_EXECUTE fees (360,000 each). Top it up before the next rotation."
+      - eval_time: 6m30s
+        alertname: GovernanceExecutorFloatCritical
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: GovernanceExecutorFloatCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              role: governance_executor
+              address: 0xE1
+            exp_annotations:
+              summary: "Governance executor float is nearly gone (0xE1)"
+              description: "Governance executor 0xE1 holds 500k units — fewer than two GOVERNANCE_EXECUTE fees. A parameter change signed by it will be refused at admission until funded."
+      - eval_time: 11m
+        alertname: GovernanceExecutorFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: GovernanceExecutorFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: GovernanceExecutorFloatCritical
+        exp_alerts: []
 
   # PrometheusWatchStale: the watcher's own heartbeat. In production a dead
   # watcher leaves a stale textfile behind, so the series keeps its frozen value
