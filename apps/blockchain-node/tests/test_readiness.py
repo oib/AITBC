@@ -122,3 +122,25 @@ class TestRequestLoggingLevels:
         resp = client.get("/rpc/accounts/not-an-address?chain_id=ait-mainnet")
         assert resp.status_code == 400
         assert any(r.levelno == logging.WARNING for r in _client_errors(caplog))
+
+    def test_pending_tx_hash_404_logs_info_not_warning(self, client, caplog):
+        """A well-formed hash that is not sealed yet is the same expected
+        miss shape as a missing account — the pending-tx poller's normal 404."""
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.get(f"/rpc/transaction/{'0x' + 'ab' * 32}?chain_id=ait-mainnet")
+        assert resp.status_code == 404
+        records = _client_errors(caplog)
+        assert [r.levelno for r in records] == [logging.INFO]
+
+    def test_non_hash_transaction_id_still_warns(self, client, caplog):
+        """Only a 0x+64-hex id is expected-miss; a malformed id warns."""
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.get("/rpc/transaction/None?chain_id=ait-mainnet")
+        assert resp.status_code in (400, 404)
+        assert any(r.levelno == logging.WARNING for r in _client_errors(caplog))
+
+    def test_post_transaction_error_still_warns(self, client, caplog):
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.post("/rpc/transaction", json={})
+        assert resp.status_code >= 400
+        assert any(r.levelno == logging.WARNING for r in _client_errors(caplog))
