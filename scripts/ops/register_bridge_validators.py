@@ -138,12 +138,7 @@ def _get_admin_private_key() -> str:
 
     key_file = os.environ.get("BRIDGE_ADMIN_PRIVATE_KEY_FILE", "").strip()
     if key_file:
-        try:
-            contents = Path(key_file).read_text().strip()
-        except OSError as exc:
-            _die(f"admin private key file {key_file!r} could not be read: {exc.strerror or exc}")
-        if not contents:
-            _die(f"admin private key file {key_file!r} is empty")
+        contents = _read_key_file(key_file, "admin")
         # A file holds one fixed key — literal class: the address declaration is
         # optional but enforced when present.
         return _bind_address("admin", contents.removeprefix("0x"), address_var, None)
@@ -173,8 +168,11 @@ def _read_key_file(path_str: str, label: str) -> str:
     ``0o077`` clear) and owned by the effective user or root. Messages name
     the path only — never key material.
     """
+    path = Path(path_str)
+    if path.is_symlink() and path.resolve().parent != path.parent:
+        _die(f"{label} key file {path_str!r} is a symlink resolving outside its own directory; refusing")
     try:
-        st = Path(path_str).stat()
+        st = path.stat()
     except OSError as exc:
         _die(f"{label} key file {path_str!r} could not be read: {exc.strerror or exc}")
     if st.st_mode & 0o077:
