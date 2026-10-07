@@ -34,7 +34,7 @@ def aitbc_governance_aggregate_votes(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Aggregate and tally cross-chain votes for a proposal.."""
+    """Aggregate and tally votes for a proposal (informational only — votes are advisory, V-7).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -135,7 +135,7 @@ def aitbc_governance_execute(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Execute an approved governance proposal on-chain.."""
+    """Execute a governance proposal on-chain as a governance executor (the vote tally is advisory and does not decide execution; V-7).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -391,7 +391,7 @@ def aitbc_governance_vote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Vote for, against, or abstain on a governance proposal.."""
+    """Vote for, against, or abstain on a governance proposal. Votes are advisory (V-7) — the tally informs but does not decide execution; GOVERNANCE_EXECUTE is gated only by the governance_executors chain parameter.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

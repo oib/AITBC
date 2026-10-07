@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AITBC Governance system consists of two live components — the **Governance Service** (port 8105) and the **CLI Commands** — plus a set of **reference Solidity contracts** under `contracts/governance/` that document the EVM design but are **not** the operating path of the live Python chain. There is also a chain-side governance surface on the blockchain node (`/rpc/v1/governance/*`, `X-API-Key` gated; `GOVERNANCE_EXECUTE` senders must be listed in the `governance_executors` chain parameter). These components work together to enable decentralized decision-making through token-weighted voting, staking, and delegation.
+The AITBC Governance system consists of two live components — the **Governance Service** (port 8105) and the **CLI Commands** — plus a set of **reference Solidity contracts** under `contracts/governance/` that document the EVM design but are **not** the operating path of the live Python chain. There is also a chain-side governance surface on the blockchain node (`/rpc/v1/governance/*`, `X-API-Key` gated; `GOVERNANCE_EXECUTE` senders must be listed in the `governance_executors` chain parameter). These components work together to enable decentralized decision-making through token-weighted voting (advisory — see the Voting Flow note), staking, and delegation.
 
 ## Components
 
