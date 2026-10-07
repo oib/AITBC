@@ -266,3 +266,19 @@ repos:
         additional_dependencies: ["bandit[toml]"]
         pass_filenames: false
         stages: [pre-push]
+
+  # C901 cyclomatic-complexity ratchet. The rule is globally ignored in
+  # pyproject.toml so `ruff check` stays green; this per-file-count gate
+  # against scripts/ci/c901-baseline.txt is what actually stops growth. It
+  # used to be CI-only — Gitea Actions is off and the GitHub workflow is
+  # workflow_dispatch, so it ran nowhere and 35 files regressed unnoticed.
+  # Pre-push, not pre-commit: the check is repo-wide, not per-file.
+  - repo: local
+    hooks:
+      - id: c901-ratchet
+        name: c901-complexity-ratchet
+        entry: bash scripts/ci/check-c901-ratchet.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

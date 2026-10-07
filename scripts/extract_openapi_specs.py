@@ -4,8 +4,10 @@ Extract OpenAPI specs from FastAPI applications and publish to docs/api/
 """
 
 import argparse
+import atexit
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -42,11 +44,20 @@ os.environ.setdefault("WALLET_BIND_PORT", "8108")
 # A keystore directory, so not a fixed path: `/tmp/test_wallet` is guessable and shared, and
 # two people generating specs on one host would have written keys into each other's. The
 # wallet app only has to be able to construct its settings here; nothing reads this back.
-os.environ.setdefault("WALLET_DIR", tempfile.mkdtemp(prefix="aitbc-openapi-wallet-"))
+_wallet_dir = tempfile.mkdtemp(prefix="aitbc-openapi-wallet-")
+os.environ.setdefault("WALLET_DIR", _wallet_dir)
 # The API key manager creates a file lock alongside its storage path. On a fresh CI runner
 # /var/lib/aitbc does not exist and is not writable, so point it at a temp directory.
 api_keys_dir = tempfile.mkdtemp(prefix="aitbc-openapi-apikeys-")
 os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(api_keys_dir, "api_keys.json"))
+# Neither directory is read back after this process exits, and the mkdtemp
+# calls above run on import even when the env var was already set -- every
+# hook or test run used to leave a pair of empty 0700 dirs in /tmp. Only the
+# dirs created here are registered: a preset WALLET_DIR is not ours to delete.
+# atexit covers every exit path short of SIGKILL, including the subprocess
+# import this file gets under runpy in tests/unit/test_openapi_drift_guard.py.
+for _tmpdir in (_wallet_dir, api_keys_dir):
+    atexit.register(shutil.rmtree, _tmpdir, ignore_errors=True)
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
 os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
