@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from eth_utils import keccak
-from sqlmodel import select
+from sqlmodel import func, select
 
 from aitbc.bridge import ValidatorInfo, ValidatorSet
 
@@ -458,37 +458,68 @@ class BridgeValidatorMixin(BridgeBase):
         logger.debug("Threshold met: %d/%d valid signers for chain %s", count, vset.total, source_chain)
         return True
 
-    def _check_validator_set_freshness(self, chain_id: str) -> bool:
+    def _check_validator_set_freshness(self, chain_id: str, epoch: int | None = None) -> bool:
         """Check that the validator set for a chain is not stale (B6).
 
-        Validates that the validator set's epoch is within the grace period.
-        If the latest validator registration is older than the grace period
-        and no newer epoch exists, the set is considered stale.
+        Epoch-aware semantics matching the config comment ("old epoch
+        valid during rotation"): the chain's LATEST epoch is the
+        authoritative set and does not decay — supersession, not wall
+        time, is the rotation mechanism. A SUPERSEDED epoch stays
+        verifiable only for ``bridge_validator_set_grace_period`` seconds
+        after the superseding registration (the newest ``registered_at``
+        of any newer-epoch row).
+
+        ``epoch=None`` means "the current set" and is fresh whenever any
+        set exists. ``epoch`` newer than the latest registered epoch is
+        unknown → False (the set lookup fails on its own anyway).
         """
         grace_period = getattr(settings, "bridge_validator_set_grace_period", 7200)
         now = datetime.now(UTC)
 
         with self._session_for(chain_id) as session:
-            # Get the latest validator registration for this chain
-            latest = session.exec(
+            latest_epoch_row = session.exec(
+                select(func.max(BridgeValidator.epoch)).where(BridgeValidator.chain_id == chain_id)
+            ).first()
+            if latest_epoch_row is None:
+                # No validators registered — fresh enough (will fail elsewhere)
+                return True
+            latest_epoch = int(latest_epoch_row)
+
+            if epoch is None or epoch == latest_epoch:
+                return True
+            if epoch > latest_epoch:
+                logger.warning(
+                    "Validator set epoch %d for chain=%s unknown (latest=%d)",
+                    epoch,
+                    chain_id,
+                    latest_epoch,
+                )
+                return False
+
+            # Superseded epoch: grace runs from the superseding
+            # registration — the newest registered_at among newer epochs.
+            superseded_by = session.exec(
                 select(BridgeValidator)
-                .where(BridgeValidator.chain_id == chain_id)
+                .where(
+                    BridgeValidator.chain_id == chain_id,
+                    BridgeValidator.epoch > epoch,
+                )
                 .order_by(BridgeValidator.registered_at.desc())  # type: ignore[attr-defined]
                 .limit(1)
             ).first()
-            if latest is None:
-                # No validators registered — fresh enough (will fail elsewhere)
+            if superseded_by is None:
+                # Latest epoch advanced without a visible newer row — treat
+                # as fresh; the set lookup governs.
                 return True
-
-            # Check if the registration is within the grace period
+            registered = superseded_by.registered_at
             # SQLite may return timezone-naive datetimes — normalize to UTC
-            registered = latest.registered_at
             if registered.tzinfo is None:
                 registered = registered.replace(tzinfo=UTC)
             age = now - registered
             if age > timedelta(seconds=grace_period):
                 logger.warning(
-                    "Validator set for chain=%s is stale (last registration %s ago, grace=%ss)",
+                    "Validator set epoch %d for chain=%s is stale (superseded %s ago, grace=%ss)",
+                    epoch,
                     chain_id,
                     age,
                     grace_period,
