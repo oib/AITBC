@@ -265,6 +265,64 @@ def _sign_dict(private_key_hex: str, data: dict[str, Any]) -> str:
     return _sign_hash(private_key_hex, keccak(_canonical_json(data)))
 
 
+def _self_sign_data(chain_id: str, address: str, public_key: str) -> dict[str, Any]:
+    """The exact field set the handler verifies the validator self-signature over."""
+    return {
+        "chain_id": chain_id,
+        "address": address,
+        "public_key": public_key,
+        "action": "register",
+    }
+
+
+def _recover_address(data: dict[str, Any], signature_hex: str) -> str:
+    """ecrecover the signer of ``data`` (canonical-JSON + keccak) via eth_keys."""
+    from eth_keys import keys
+    from eth_utils import keccak
+
+    sig = keys.Signature(signature_bytes=bytes.fromhex(signature_hex.removeprefix("0x")))
+    return str(sig.recover_public_key_from_msg_hash(keccak(_canonical_json(data))).to_checksum_address())
+
+
+def _load_validator_blobs(paths: list[str], chain_id: str) -> list[dict[str, str]]:
+    """Load pre-signed validator blobs and verify each self-signature.
+
+    A blob carries ``{chain_id, address, public_key, signature}`` — public
+    fields only, produced on the key-owning host via ``--emit-blobs``. The
+    self-signature must recover to the declared address over the exact
+    ``{chain_id, address, public_key, action: register}`` dict, else the
+    blob is refused. Blob ``chain_id`` must match ``--chain-id``.
+    """
+    import json as _json
+
+    out: list[dict[str, str]] = []
+    for path in paths:
+        try:
+            blob = _json.loads(Path(path).read_text())
+        except Exception as exc:
+            _die(f"validator blob {path!r} could not be read: {exc}")
+        for field in ("chain_id", "address", "public_key", "signature"):
+            if not blob.get(field):
+                _die(f"validator blob {path!r} is missing {field!r}")
+        if blob["chain_id"] != chain_id:
+            _die(f"validator blob {path!r} is for chain {blob['chain_id']!r}, not {chain_id!r}")
+        try:
+            recovered = _recover_address(_self_sign_data(chain_id, blob["address"], blob["public_key"]), blob["signature"])
+        except Exception as exc:
+            _die(f"validator blob {path!r} signature could not be recovered: {exc}")
+        if _normalize_address(recovered) != _normalize_address(blob["address"]):
+            _die(f"validator blob {path!r} signature recovers to {recovered}, not declared address {blob['address']}")
+        out.append(
+            {
+                "name": Path(path).stem,
+                "address": blob["address"],
+                "public_key": blob["public_key"],
+                "signature": blob["signature"],
+            }
+        )
+    return out
+
+
 def _post_registration(rpc_url: str, payload: dict[str, Any]) -> dict[str, Any]:
     """POST the signed payload to the bridge validator registration RPC."""
     import httpx
@@ -313,6 +371,20 @@ def _main() -> int:
         action="store_true",
         help="Build and print the payloads without POSTing them.",
     )
+    parser.add_argument(
+        "--emit-blobs",
+        metavar="DIR",
+        default="",
+        help="Write each validator's public self-signature blob to DIR and exit "
+        "(run on the key-owning host; keys never leave it).",
+    )
+    parser.add_argument(
+        "--validator-blob",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Pre-signed validator blob produced by --emit-blobs (repeatable). Skips validator key collection entirely.",
+    )
 
     args = parser.parse_args()
 
@@ -325,26 +397,53 @@ def _main() -> int:
         urls = os.environ.get("BRIDGE_RPC_URLS", "http://127.0.0.1:8202/rpc").split(",")
         args.rpc_url = [u.strip() for u in urls if u.strip()]
 
+    if args.validator_blob:
+        # Consume pre-signed blobs: address/public_key/self_signature already
+        # produced on the key-owning host — no validator keys needed here.
+        identities = _load_validator_blobs(args.validator_blob, args.chain_id)
+    else:
+        identities = []
+        for name, validator_key in _collect_validator_private_keys():
+            address, public_key = _derive_address_and_public_key(validator_key)
+            identities.append(
+                {
+                    "name": name,
+                    "address": address,
+                    "public_key": public_key,
+                    "signature": _sign_dict(validator_key, _self_sign_data(args.chain_id, address, public_key)),
+                }
+            )
+
+    if args.emit_blobs:
+        import json as _json
+
+        out_dir = Path(args.emit_blobs)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for ident in identities:
+            blob = {
+                "chain_id": args.chain_id,
+                "address": ident["address"],
+                "public_key": ident["public_key"],
+                "signature": ident["signature"],
+            }
+            target = out_dir / f"{ident['name']}.json"
+            target.write_text(_json.dumps(blob, indent=2) + "\n")
+            print(f"wrote {target}: address={ident['address']}")
+        return 0
+
     admin_key = _get_admin_private_key()
     admin_address, _ = _derive_address_and_public_key(admin_key)
 
-    validators = _collect_validator_private_keys()
     all_ok = True
 
     print(f"Admin address (derived): {admin_address}")
-    print(f"Registering {len(validators)} validator(s) against {len(args.rpc_url)} RPC endpoint(s)")
+    print(f"Registering {len(identities)} validator(s) against {len(args.rpc_url)} RPC endpoint(s)")
 
-    for name, validator_key in validators:
-        address, public_key = _derive_address_and_public_key(validator_key)
-
-        # Validator self-signature over the registration fields.
-        self_sign_data = {
-            "chain_id": args.chain_id,
-            "address": address,
-            "public_key": public_key,
-            "action": "register",
-        }
-        self_signature = _sign_dict(validator_key, self_sign_data)
+    for ident in identities:
+        name = ident["name"]
+        address = ident["address"]
+        public_key = ident["public_key"]
+        self_signature = ident["signature"]
 
         # Build the full payload that the admin will co-sign.
         payload: dict[str, Any] = {
