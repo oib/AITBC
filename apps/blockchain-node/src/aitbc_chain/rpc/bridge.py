@@ -766,10 +766,19 @@ async def bridge_security_status(request: Request) -> dict[str, Any]:
             from ..models import BridgeValidator
 
             with bridge._session_factory() as session:  # type: ignore[union-attr]
-                validator_count = len(session.exec(_select(BridgeValidator).where(BridgeValidator.is_active)).all())
                 # Get max epoch
                 epochs = session.exec(_select(BridgeValidator.epoch)).all()
                 current_epoch = max(epochs) if epochs else 0
+                # Count only the latest epoch's active rows — earlier epochs keep
+                # inert active rows that are no longer used for validator selection.
+                validator_count = len(
+                    session.exec(
+                        _select(BridgeValidator).where(
+                            BridgeValidator.is_active,
+                            BridgeValidator.epoch == current_epoch,
+                        )
+                    ).all()
+                )
 
         multisig_enabled = getattr(settings, "bridge_multisig_enabled", False)
         require_merkle = getattr(settings, "bridge_require_merkle_proof", False)
