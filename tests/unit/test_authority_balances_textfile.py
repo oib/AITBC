@@ -1,8 +1,11 @@
 """The authority balance exporter: ``scripts/monitoring/authority-balances-textfile.py``.
 
 Hub's Prometheus had no balance series, so nothing warned that the escrow settlement
-authority was running out of fee float. The exporter reads two accounts from the local RPC
-and writes a node_exporter textfile; the alert rules in ``aitbc_rules.yml`` read it.
+authority was running out of fee float. The exporter derives its watch addresses from the
+live chain parameters (``/rpc/state/snapshot``) so a rotation needs no unit edit, reads the
+accounts from the local RPC and writes a node_exporter textfile; the alert rules in
+``aitbc_hub_rules.yml`` read it. ``AITBC_WATCH_ACCOUNTS`` is the fallback when the parameter
+read fails and an extras list for unmanaged roles.
 
 The tests run against a stub RPC server and check what lands on disk, plus the contract
 between the three files that have to agree: the metric names and role labels the rules use
@@ -29,15 +32,31 @@ assert _spec is not None and _spec.loader is not None
 exporter = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(exporter)
 
-SETTLEMENT = "0x" + "03" * 20
+SETTLEMENT = "0x" + "11" * 20
 BRIDGE = "0x" + "2b" * 20
+SETTLEMENT_OLD = "0x" + "03" * 20
+BRIDGE_OLD = "0x" + "04" * 20
 UNKNOWN = "0x" + "ee" * 20
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
     accounts: dict[str, object] = {}
+    parameters: dict[str, object] = {}
 
     def do_GET(self) -> None:  # noqa: N802 - http.server API
+        if self.path.startswith("/rpc/state/snapshot"):
+            if self.parameters is None:
+                self.send_response(500)
+                self.end_headers()
+                return
+            body = json.dumps(
+                {"chain_parameters": [{"parameter": k, "value": v} for k, v in self.parameters.items()]}
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         address = self.path.rsplit("/", 1)[-1]
         if not self.path.startswith("/rpc/accounts/") or address not in self.accounts:
             self.send_response(404)
@@ -56,12 +75,22 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
 @pytest.fixture
 def rpc():
-    handler = type("Handler", (_Handler,), {"accounts": {}})
+    handler = type(
+        "Handler",
+        (_Handler,),
+        {
+            "accounts": {},
+            "parameters": {
+                "escrow_settlement_authority": SETTLEMENT,
+                "bridge_release_authority": BRIDGE,
+            },
+        },
+    )
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"http://127.0.0.1:{server.server_address[1]}", handler.accounts
+        yield f"http://127.0.0.1:{server.server_address[1]}", handler.accounts, handler.parameters
     finally:
         server.shutdown()
         server.server_close()
@@ -84,6 +113,10 @@ class TestParseAccounts:
             ("bridge_release", BRIDGE),
         ]
 
+    def test_empty_is_allowed_as_extras_list(self):
+        assert exporter.parse_accounts("", allow_empty=True) == []
+        assert exporter.parse_accounts(" , ", allow_empty=True) == []
+
     @pytest.mark.parametrize(
         "raw",
         [
@@ -101,15 +134,27 @@ class TestParseAccounts:
             exporter.parse_accounts(raw)
 
 
+class TestFetchParameters:
+    def test_reads_the_snapshot(self, rpc):
+        url, _, _ = rpc
+        assert exporter.fetch_parameters(url) == {
+            "escrow_settlement_authority": SETTLEMENT,
+            "bridge_release_authority": BRIDGE,
+        }
+
+    def test_connection_refused_is_none(self):
+        assert exporter.fetch_parameters("http://127.0.0.1:9", timeout=1.0) is None
+
+
 class TestReadAccount:
     def test_reads_balance_and_nonce(self, rpc):
-        url, accounts = rpc
+        url, accounts, _ = rpc
         accounts[SETTLEMENT] = {"address": SETTLEMENT, "balance": 39_728_900, "nonce": 2}
         assert exporter.read_account(url, SETTLEMENT) == (39_728_900, 2)
 
-    def test_unknown_account_is_a_failed_read(self, rpc):
-        url, _ = rpc
-        assert exporter.read_account(url, UNKNOWN) is None
+    def test_missing_account_row_is_a_zero_account(self, rpc):
+        url, _accounts, _ = rpc
+        assert exporter.read_account(url, UNKNOWN) == (0, 0)
 
     @pytest.mark.parametrize(
         "body",
@@ -123,7 +168,7 @@ class TestReadAccount:
         ],
     )
     def test_unusable_answers_are_a_failed_read(self, rpc, body):
-        url, accounts = rpc
+        url, accounts, _ = rpc
         accounts[SETTLEMENT] = body
         assert exporter.read_account(url, SETTLEMENT) is None
 
@@ -131,10 +176,59 @@ class TestReadAccount:
         assert exporter.read_account("http://127.0.0.1:9", SETTLEMENT, timeout=1.0) is None
 
 
+class TestResolveAccounts:
+    def test_parameter_addresses_win(self):
+        resolved, stale = exporter.resolve_accounts(
+            {"escrow_settlement_authority": SETTLEMENT, "bridge_release_authority": BRIDGE},
+            [("escrow_settlement", SETTLEMENT_OLD)],
+        )
+        assert resolved == [("escrow_settlement", SETTLEMENT), ("bridge_release", BRIDGE)]
+        assert stale == set()
+
+    def test_missing_parameter_falls_back_to_env_and_marks_stale(self):
+        resolved, stale = exporter.resolve_accounts(
+            {"escrow_settlement_authority": SETTLEMENT},  # bridge param absent
+            [("escrow_settlement", SETTLEMENT_OLD), ("bridge_release", BRIDGE_OLD)],
+        )
+        assert ("bridge_release", BRIDGE_OLD) in resolved
+        assert ("escrow_settlement", SETTLEMENT) in resolved
+        assert stale == {"bridge_release"}
+
+    def test_failed_parameter_read_falls_back_and_marks_every_managed_role_stale(self):
+        resolved, stale = exporter.resolve_accounts(
+            None, [("escrow_settlement", SETTLEMENT_OLD), ("bridge_release", BRIDGE_OLD)]
+        )
+        assert sorted(resolved) == [("bridge_release", BRIDGE_OLD), ("escrow_settlement", SETTLEMENT_OLD)]
+        assert stale == {"escrow_settlement", "bridge_release"}
+
+    def test_no_fallback_leaves_the_role_blind(self):
+        resolved, stale = exporter.resolve_accounts(None, [])
+        assert ("escrow_settlement", "") in resolved
+        assert ("bridge_release", "") in resolved
+        assert stale == {"escrow_settlement", "bridge_release"}
+
+    def test_malformed_parameter_value_is_a_failed_read(self):
+        resolved, stale = exporter.resolve_accounts(
+            {"escrow_settlement_authority": "0x1234", "bridge_release_authority": BRIDGE}, []
+        )
+        assert ("escrow_settlement", "") in resolved
+        assert stale == {"escrow_settlement"}
+
+    def test_unmanaged_roles_are_always_extras(self):
+        resolved, stale = exporter.resolve_accounts(
+            {"escrow_settlement_authority": SETTLEMENT, "bridge_release_authority": BRIDGE},
+            [("treasury", SETTLEMENT_OLD)],
+        )
+        assert ("treasury", SETTLEMENT_OLD) in resolved
+        assert stale == set()
+
+
 class TestRender:
     def test_failed_read_has_no_balance_or_nonce_and_says_so(self):
         text = exporter.render(
-            [("escrow_settlement", SETTLEMENT, (123, 4)), ("bridge_release", BRIDGE, None)], now=1_700_000_000.9
+            [("escrow_settlement", SETTLEMENT, (123, 4)), ("bridge_release", BRIDGE, None)],
+            stale_roles=set(),
+            now=1_700_000_000.9,
         )
         samples = _metrics(text)
         assert samples[f'aitbc_authority_balance_units{{role="escrow_settlement",address="{SETTLEMENT}"}}'] == 123
@@ -145,6 +239,24 @@ class TestRender:
         assert not [k for k in samples if "bridge_release" in k and ("balance_units" in k or "nonce" in k)]
         assert samples["aitbc_authority_scrape_timestamp_seconds"] == 1_700_000_000
         assert text.endswith("\n")
+
+    def test_fallback_role_reports_scrape_failure_even_when_the_read_worked(self):
+        text = exporter.render(
+            [("escrow_settlement", SETTLEMENT_OLD, (123, 4)), ("bridge_release", BRIDGE, (9, 0))],
+            stale_roles={"escrow_settlement"},
+            now=1_700_000_000,
+        )
+        samples = _metrics(text)
+        # the fallback address's real balance is exported, but scrape_success says the
+        # parameter-derived read failed — a stale address must not look clean
+        assert samples[f'aitbc_authority_balance_units{{role="escrow_settlement",address="{SETTLEMENT_OLD}"}}'] == 123
+        assert samples[f'aitbc_authority_scrape_success{{role="escrow_settlement",address="{SETTLEMENT_OLD}"}}'] == 0
+        assert samples[f'aitbc_authority_scrape_success{{role="bridge_release",address="{BRIDGE}"}}'] == 1
+
+    def test_blind_role_reports_empty_address(self):
+        text = exporter.render([("escrow_settlement", "", None)], stale_roles={"escrow_settlement"}, now=1_700_000_000)
+        samples = _metrics(text)
+        assert samples['aitbc_authority_scrape_success{role="escrow_settlement",address=""}'] == 0
 
 
 class TestWriteAtomic:
@@ -170,42 +282,79 @@ class TestWriteAtomic:
 
 
 class TestMain:
-    def _env(self, monkeypatch, tmp_path, url, accounts):
+    def _env(self, monkeypatch, tmp_path, url, accounts=""):
         monkeypatch.setenv("AITBC_WATCH_ACCOUNTS", accounts)
         monkeypatch.setenv("AITBC_RPC_URL", url)
         monkeypatch.setenv("AITBC_TEXTFILE_DIR", str(tmp_path))
 
-    def test_all_reads_succeed(self, rpc, tmp_path, monkeypatch, capsys):
-        url, accounts = rpc
-        accounts[SETTLEMENT] = {"balance": 8_000_000, "nonce": 2}
+    def test_parameter_derived_reads_succeed(self, rpc, tmp_path, monkeypatch, capsys):
+        url, accounts, _ = rpc
+        accounts[SETTLEMENT] = {"balance": 32_975_761, "nonce": 0}
         accounts[BRIDGE] = {"balance": 1_800_000, "nonce": 0}
-        self._env(monkeypatch, tmp_path, url, f"escrow_settlement:{SETTLEMENT},bridge_release:{BRIDGE}")
+        self._env(monkeypatch, tmp_path, url)
         assert exporter.main() == 0
         samples = _metrics((tmp_path / exporter.OUTPUT_NAME).read_text())
-        assert samples[f'aitbc_authority_balance_units{{role="escrow_settlement",address="{SETTLEMENT}"}}'] == 8_000_000
+        assert samples[f'aitbc_authority_balance_units{{role="escrow_settlement",address="{SETTLEMENT}"}}'] == 32_975_761
         assert samples[f'aitbc_authority_balance_units{{role="bridge_release",address="{BRIDGE}"}}'] == 1_800_000
         assert capsys.readouterr().err == ""
 
-    def test_one_failed_read_exits_1_but_still_writes_the_file(self, rpc, tmp_path, monkeypatch, capsys):
-        url, accounts = rpc
-        accounts[SETTLEMENT] = {"balance": 8_000_000, "nonce": 2}
-        self._env(monkeypatch, tmp_path, url, f"escrow_settlement:{SETTLEMENT},bridge_release:{BRIDGE}")
+    def test_unfunded_authority_is_a_zero_account_not_a_failed_read(self, rpc, tmp_path, monkeypatch, capsys):
+        url, accounts, _ = rpc
+        accounts[SETTLEMENT] = {"balance": 32_975_761, "nonce": 0}
+        # BRIDGE has no account row: the stub answers 404
+        self._env(monkeypatch, tmp_path, url)
+        assert exporter.main() == 0
+        samples = _metrics((tmp_path / exporter.OUTPUT_NAME).read_text())
+        assert samples[f'aitbc_authority_balance_units{{role="bridge_release",address="{BRIDGE}"}}'] == 0
+        assert samples[f'aitbc_authority_nonce{{role="bridge_release",address="{BRIDGE}"}}'] == 0
+        assert samples[f'aitbc_authority_scrape_success{{role="bridge_release",address="{BRIDGE}"}}'] == 1
+        assert capsys.readouterr().err == ""
+
+    def test_failed_parameter_read_falls_back_and_reports_stale(self, tmp_path, monkeypatch, capsys):
+        self._env(
+            monkeypatch,
+            tmp_path,
+            "http://127.0.0.1:9",  # nothing listens: snapshot AND accounts both fail
+            f"escrow_settlement:{SETTLEMENT_OLD},bridge_release:{BRIDGE_OLD}",
+        )
         assert exporter.main() == 1
         samples = _metrics((tmp_path / exporter.OUTPUT_NAME).read_text())
-        assert samples[f'aitbc_authority_scrape_success{{role="bridge_release",address="{BRIDGE}"}}'] == 0
-        assert samples[f'aitbc_authority_scrape_success{{role="escrow_settlement",address="{SETTLEMENT}"}}'] == 1
-        assert "bridge_release" in capsys.readouterr().err
+        assert samples[f'aitbc_authority_scrape_success{{role="escrow_settlement",address="{SETTLEMENT_OLD}"}}'] == 0
+        assert "fallback" in capsys.readouterr().err
+
+    def test_rotation_replaces_the_series(self, rpc, tmp_path, monkeypatch):
+        url, accounts, parameters = rpc
+        accounts[SETTLEMENT_OLD] = {"balance": 33_335_761, "nonce": 48}
+        parameters["escrow_settlement_authority"] = SETTLEMENT_OLD
+        self._env(monkeypatch, tmp_path, url)
+        assert exporter.main() == 0
+        first = _metrics((tmp_path / exporter.OUTPUT_NAME).read_text())
+        assert f'aitbc_authority_balance_units{{role="escrow_settlement",address="{SETTLEMENT_OLD}"}}' in first
+        # the parameter rotates: the next run watches the new address and the old
+        # series disappears from the file entirely, so its alerts resolve
+        del accounts[SETTLEMENT_OLD]
+        parameters["escrow_settlement_authority"] = SETTLEMENT
+        accounts[SETTLEMENT] = {"balance": 32_975_761, "nonce": 0}
+        assert exporter.main() == 0
+        samples = _metrics((tmp_path / exporter.OUTPUT_NAME).read_text())
+        assert samples[f'aitbc_authority_balance_units{{role="escrow_settlement",address="{SETTLEMENT}"}}'] == 32_975_761
+        assert not [k for k in samples if SETTLEMENT_OLD in k]
+
+    def test_extras_run_alongside_derived_roles(self, rpc, tmp_path, monkeypatch):
+        url, accounts, _ = rpc
+        accounts[SETTLEMENT] = {"balance": 32_975_761, "nonce": 0}
+        accounts[BRIDGE] = {"balance": 1_800_000, "nonce": 0}
+        accounts[SETTLEMENT_OLD] = {"balance": 0, "nonce": 49}
+        self._env(monkeypatch, tmp_path, url, f"settlement_retired:{SETTLEMENT_OLD}")
+        assert exporter.main() == 0
+        samples = _metrics((tmp_path / exporter.OUTPUT_NAME).read_text())
+        assert samples[f'aitbc_authority_balance_units{{role="settlement_retired",address="{SETTLEMENT_OLD}"}}'] == 0
 
     def test_bad_config_exits_2_and_writes_nothing(self, tmp_path, monkeypatch, capsys):
         self._env(monkeypatch, tmp_path, "http://127.0.0.1:9", "not-a-pair")
         assert exporter.main() == 2
         assert list(tmp_path.iterdir()) == []
         assert "expected role:0x" in capsys.readouterr().err
-
-    def test_missing_config_exits_2(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("AITBC_WATCH_ACCOUNTS", raising=False)
-        monkeypatch.setenv("AITBC_TEXTFILE_DIR", str(tmp_path))
-        assert exporter.main() == 2
 
 
 class TestFilesAgree:
@@ -222,17 +371,18 @@ class TestFilesAgree:
         rules = (MONITORING / "aitbc_hub_rules.yml").read_text()
         used = set(re.findall(r"\baitbc_authority_[a-z_]+", rules))
         assert used, "the hub rules no longer read the authority series"
-        emitted = set(re.findall(r"\baitbc_authority_[a-z_]+", exporter.render([("r", SETTLEMENT, (1, 1))], now=1)))
+        emitted = set(re.findall(r"\baitbc_authority_[a-z_]+", exporter.render([("r", SETTLEMENT, (1, 1))], set(), now=1)))
         assert used <= emitted, used - emitted
 
-    def test_unit_file_roles_match_the_rule_labels(self):
+    def test_roles_the_rules_use_are_covered(self):
+        """Rule-labelled roles must be produced by the unit env list or the parameters."""
         unit = (MONITORING / "aitbc-authority-balances.service").read_text()
         raw = re.search(r"^Environment=AITBC_WATCH_ACCOUNTS=(\S+)$", unit, re.M)
-        assert raw, "the unit does not set AITBC_WATCH_ACCOUNTS"
-        roles = {role for role, _ in exporter.parse_accounts(raw.group(1))}
+        unit_roles = {role for role, _ in exporter.parse_accounts(raw.group(1), allow_empty=True)} if raw else set()
+        covered = unit_roles | set(exporter.PARAMETER_ROLES)
         rules = (MONITORING / "aitbc_hub_rules.yml").read_text()
         labelled = set(re.findall(r'aitbc_authority_[a-z_]+\{role="([a-z_]+)"', rules))
-        assert labelled and labelled <= roles, (labelled, roles)
+        assert labelled and labelled <= covered, (labelled, covered)
 
     def test_shared_rules_file_has_no_authority_rules(self):
         rules = (MONITORING / "aitbc_rules.yml").read_text()
