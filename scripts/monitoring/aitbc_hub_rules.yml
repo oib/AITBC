@@ -271,3 +271,47 @@ groups:
         annotations:
           summary: "Bridge validator set is past its freshness window"
           description: "The set's freshness gauge is 0 (newest bridge_validators registration older than the grace window) — _check_validator_set_freshness now fails closed. Dormant while locks are paused; a live blocker when locks are re-enabled. Re-register the validator set or run the standing refresh job."
+
+  # State-sync guards (C10). These series come from the node's own metrics
+  # registry and reach hub via remote_write from every host. They cover the
+  # follower's periodic state sync path that was disabled fleet-wide after
+  # the 27207 incident (STATE_SYNC_MAX_GAP=-1) and is re-enabled per
+  # TOPOLOGY/2026-10-08-v6-state-sync-runbook.md.
+  #
+  # state_sync_refused_total is incremented ONLY on a refusal — the series
+  # does not exist until the first refusal (metrics_registry creates
+  # counters lazily), so a rule on it would be dead-on-arrival the same way
+  # blockchain_poa_broadcast_skipped_total was in the C4 audit. Until it is
+  # pre-registered at startup (metrics.py:297-306 tuple) the refused path
+  # is watched via the journal lines it emits, not by a rule here.
+  - name: aitbc-state-sync
+    rules:
+      # ChainDiverged: a follower's block history disagrees with its sync
+      # source — report_divergence set the sync_diverged gauge and the node
+      # accepts no further blocks from that peer until resolved
+      # (reset-follower-to-snapshot.sh). Critical: a diverged node is
+      # silently off the chain, and this state does not self-heal.
+      - alert: ChainDiverged
+        expr: sync_diverged == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Follower block history diverged from its sync source ({{ $labels.instance }})"
+          description: "sync_diverged is set — this node's block at the divergence height differs from the peer's. No block from that peer is imported until resolved; the node is off the canonical chain. Runbook: scripts/ops/reset-follower-to-snapshot.sh (see TOPOLOGY/2026-10-08-v6-state-sync-runbook.md for the abort context)."
+          runbook: "TOPOLOGY/2026-10-08-v6-state-sync-runbook.md"
+
+      # ChainDivergenceSeen: the divergence counter ticked — a detection
+      # fired even if the gauge is not currently set (e.g. cleared between
+      # scrapes by an operator running clear_divergence). Warning companion
+      # to ChainDiverged so a transitory, already-resolved divergence still
+      # leaves an alert trail.
+      - alert: ChainDivergenceSeen
+        expr: increase(sync_divergence_detected_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chain divergence was detected and logged ({{ $labels.instance }})"
+          description: "sync_divergence_detected_total increased in the last 15m — a divergence was noticed and logged (throttled). If the gauge is now clear it was already resolved; check the journal for 'Chain divergence'. Runbook: TOPOLOGY/2026-10-08-v6-state-sync-runbook.md."
+          runbook: "TOPOLOGY/2026-10-08-v6-state-sync-runbook.md"
