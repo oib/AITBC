@@ -276,6 +276,41 @@ groups:
           summary: "Escrow settlement check cannot read {{ $labels.db }} ({{ $labels.instance }})"
           description: "aitbc_escrow_settlement_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no escrow table, so the unlanded count for it cannot be trusted. Check journalctl -u aitbc-escrow-settlements.service."
 
+      # EscrowResidueStale: a terminal escrow row still holds custody residue
+      # (the withheld platform fee, plus dust) older than the exporter's
+      # threshold (7d default). Sweepable via an operator-approved
+      # ESCROW_FEE_SWEEP batch to escrow_fee_recipient (v11+, block 35400);
+      # see scripts/ops/escrow_residue_dryrun.py for the listing.
+      - alert: EscrowResidueStale
+        expr: aitbc_escrow_residue_accounts > 0
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stale escrow custody residue on {{ $labels.instance }} ({{ $value }} rows)"
+          description: "Terminal escrow rows on {{ $labels.instance }} still hold residue older than the threshold — the fee leg v3 custody strands in each per-escrow account. List them with scripts/ops/escrow_residue_dryrun.py; sweeping is an operator-approved chain write (ESCROW_FEE_SWEEP to the governed escrow_fee_recipient)."
+
+      # EscrowResidueCheckStale / EscrowResidueCheckFailed: the residue check
+      # itself must run and read its DBs, same reasoning as the settlement
+      # exporter's guards.
+      - alert: EscrowResidueCheckStale
+        expr: time() - aitbc_escrow_residue_scrape_timestamp_seconds > 86400
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Escrow residue check has stopped ({{ $labels.instance }})"
+          description: "aitbc_escrow_residue_scrape_timestamp_seconds is older than a day on {{ $labels.instance }} — stale residue is invisible again. Check the aitbc-escrow-residue timer."
+
+      - alert: EscrowResidueCheckFailed
+        expr: aitbc_escrow_residue_scrape_success == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Escrow residue check cannot read {{ $labels.db }} ({{ $labels.instance }})"
+          description: "aitbc_escrow_residue_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the residue count for that DB cannot be trusted."
+
       # EscrowOpenTxOnlyLock: a sealed ESCROW_LOCK transaction with no escrow
       # row and no settlement leg means funds sit in custody that nothing
       # will settle. The minutely textfile collector counts them minus the
