@@ -48,7 +48,7 @@ Two `aitbc-blockchain-rpc` env keys govern whether the node accepts *new* bridge
 | `BRIDGE_LOCKS_PAUSED` | `false` | `true` fences off new locks on `POST /bridge/lock`, `POST /bridge/batch/lock`, `/swap`, `/cross-chain/bridge` and internal `initiate_transfer`. Refund, status-read and confirm paths stay available, so in-flight transfers can still settle. |
 | `BRIDGE_MAX_LOCK_AMOUNT` | `0` (unlimited) | Per-lock maximum in compute units. `1 AIT = 36,000,000 units`; `36,000,000,000` = a 1,000 AIT per-lock cap — the value the live fleet runs. |
 
-Normal state is **locks open** (`BRIDGE_LOCKS_PAUSED=false`) with a per-lock cap. To pause intake again — e.g. while rotating the bridge validator set — edit `/etc/aitbc/blockchain.env` on the host:
+Normal state is **locks open** (`BRIDGE_LOCKS_PAUSED=false`) with a per-lock cap. The cap is **fail-closed in production**: when `BRIDGE_LOCKS_PAUSED` is false and `BRIDGE_MAX_LOCK_AMOUNT` is unset or `0`, `initiate_transfer` refuses locks with a logged reason instead of running uncapped. Development and test environments keep `0 = unlimited`. To pause intake again — e.g. while rotating the bridge validator set — edit `/etc/aitbc/blockchain.env` on the host:
 
 ```bash
 sudo sed -i 's/^BRIDGE_LOCKS_PAUSED=.*/BRIDGE_LOCKS_PAUSED=true/' /etc/aitbc/blockchain.env
@@ -56,6 +56,28 @@ sudo systemctl restart aitbc-blockchain-rpc
 ```
 
 Verify the running value in `/proc/<rpc pid>/environ` — the pause flag is not exposed on any read endpoint; `/rpc/bridge/health` does report `bridge_max_lock_amount`. A paused node answers lock requests with a "bridge locks paused" error. Reopen by setting the value back to `false` with another rpc restart. A host with an empty `bridge_validators` set can still accept locks it cannot yet release — releases fail closed below the multisig threshold — so the pause is the fence, not the validator set.
+
+### Safety flag defaults vs the production fleet
+
+Most bridge safety flags default off in code so isolated dev chains stay
+simple; the fleet sets them explicitly in `/etc/aitbc/blockchain.env`. The
+documented production intent for each flag:
+
+| env key | code default | production fleet | notes |
+|---|---|---|---|
+| `BRIDGE_LOCKS_PAUSED` | `false` | `false` | intake fence; matches code default. |
+| `BRIDGE_MAX_LOCK_AMOUNT` | `0` (unlimited) | `36000000000` | **fail-closed** in production when unset; fresh-node configs carry the fleet value. |
+| `BRIDGE_RELEASE_ENABLED` | `false` | `true` | release fence; stays `false` until proofs/multisig are configured. |
+| `BRIDGE_REQUIRE_MERKLE_PROOF` | `false` | `true` | rejects proof-less releases; set `true` wherever releases move real value. |
+| `BRIDGE_MULTISIG_ENABLED` | `false` | `true` | M-of-N validator signatures for confirm. |
+| `BRIDGE_MULTISIG_THRESHOLD` | `3` | `2` | M: signatures required per confirm. |
+| `BRIDGE_MULTISIG_VALIDATORS` | `5` | `2` | N: registered validator count. |
+| `BRIDGE_SUPPORTED_CHAINS` | `""` | fleet chain IDs | deployment-specific; set per island. |
+| `BRIDGE_ADMIN_ADDRESSES` | `""` | per-node | deny-by-default when empty; already fail-closed. |
+
+`setup.sh` writes `BRIDGE_MAX_LOCK_AMOUNT=36000000000` (plus the pause flag)
+into a fresh minimal `blockchain.env`, and `examples/blockchain.env*` carry
+the same values.
 
 ### Bridge Operations
 
