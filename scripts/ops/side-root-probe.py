@@ -93,6 +93,51 @@ CONTROL_TABLES: tuple[str, ...] = (
 # digest, reported by name so nothing hides silently.
 VOLATILE_COLUMNS = frozenset({"created_at", "updated_at"})
 
+# --- V-3 activation candidate rules (--canonical) ------------------------------
+#
+# The 10 tables whose raw digests already agree fleet-wide at head 38952.
+# These are the proposed committed set for a v14-style aux_state_root.
+RESTRICTED_TABLES: tuple[str, ...] = (
+    "account",
+    "bond",
+    "chain_parameter",
+    "chain_parameter_history",
+    "edge_node_registration",
+    "ipfs_subscription",
+    "liquidity_distribution",
+    "liquidity_pool",
+    "liquidity_stake",
+    "receipt",
+)
+
+# The 3 dual-writer tables (apply + RPC paths write them): they diverge today
+# only in locally-stamped columns/encodings. Under --canonical they are
+# digested with the activation rules below and reported as "canonicalized"
+# — probationary members that may join the committed set only if the
+# canonical digests agree fleet-wide.
+CANONICALIZED_TABLES: tuple[str, ...] = (
+    "gpu_allocation",
+    "gpu_registration",
+    "stake",
+)
+
+
+# Canonical rule 1: every column whose name ends in ``_at`` is a locally
+# stamped timestamp (registered_at, allocated_at, completed_at, created_at,
+# updated_at) — excluded, matching the operator's "*_at exclusions" decision.
+def _is_local_stamp(col: str) -> bool:
+    return col in VOLATILE_COLUMNS or col.endswith("_at")
+
+
+# Canonical rule 2: 0x-prefixed identifiers are EVM-style addresses; case is
+# an encoding artifact (hub stores stake.address checksummed, followers
+# lowercased). Lowercased before hashing.
+def _canonical_hex_cell(value: Any) -> Any:
+    if isinstance(value, str) and value[:2].lower() == "0x":
+        return value.lower()
+    return value
+
+
 # History/journal tables are deliberately not probed: block, transaction,
 # receipt-adjacent journals (block_state_delta), mempool artefacts are either
 # already bound by the block hash or per-block journals, not side state.
@@ -127,27 +172,32 @@ def _canonical_cell(value: Any) -> str:
     return "s:" + str(value)
 
 
-def table_digest(conn: sqlite3.Connection, table: str) -> dict[str, Any]:
+def table_digest(conn: sqlite3.Connection, table: str, *, canonical: bool = False) -> dict[str, Any]:
     """Row count + digest over canonically ordered rows for one table.
 
-    Returns a dict so the JSON and text outputs share one shape:
-    ``{"rows": n, "digest": "…", "skipped": [volatile col names]}`` or
-    ``{"status": "absent"}`` when the table does not exist in this database.
+    With ``canonical=True`` the V-3 activation rules apply: every ``*_at``
+    column is excluded (not just created_at/updated_at) and 0x-prefixed
+    identifiers are lowercased. Returns a dict so the JSON and text outputs
+    share one shape: ``{"rows": n, "digest": "…", "skipped": [col names]}``
+    or ``{"status": "absent"}`` when the table does not exist.
     """
     cols = [r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')]
     if not cols:
         return {"status": "absent"}
-    keep = [c for c in cols if c not in VOLATILE_COLUMNS]
-    skipped = [c for c in cols if c in VOLATILE_COLUMNS]
+    drop = _is_local_stamp if canonical else lambda c: c in VOLATILE_COLUMNS
+    keep = [c for c in cols if not drop(c)]
+    skipped = [c for c in cols if drop(c)]
     quoted = ", ".join(f'"{c}"' for c in keep)
     rows = conn.execute(f'SELECT {quoted} FROM "{table}"').fetchall()  # nosec B608 - quoted identifiers from PRAGMA table_info
-    canonical = sorted("\x1f".join(_canonical_cell(v) for v in row) for row in rows)
+    if canonical:
+        rows = [tuple(_canonical_hex_cell(v) for v in row) for row in rows]
+    canonical_rows = sorted("\x1f".join(_canonical_cell(v) for v in row) for row in rows)
     h = hashlib.sha256()
     h.update(table.encode())
     h.update(b"\x00")
     h.update(",".join(keep).encode())
     h.update(b"\x00")
-    for row in canonical:
+    for row in canonical_rows:
         h.update(row.encode())
         h.update(b"\x1e")
     return {"rows": len(rows), "digest": h.hexdigest()[:DIGEST_LEN], "skipped_cols": skipped}
@@ -166,17 +216,24 @@ def head_height(conn: sqlite3.Connection) -> dict[str, int | None]:
     return out
 
 
-def collect(conn: sqlite3.Connection) -> dict[str, Any]:
+def collect(conn: sqlite3.Connection, *, canonical: bool = False) -> dict[str, Any]:
     result: dict[str, Any] = {"head": head_height(conn), "candidates": {}, "controls": {}}
     for table in CANDIDATE_TABLES:
-        result["candidates"][table] = table_digest(conn, table)
+        result["candidates"][table] = table_digest(conn, table, canonical=canonical)
+    if canonical:
+        # V-3 activation view: the committed set is the 10 agreeing tables;
+        # the 3 dual-writer tables are digested under the canonicalization
+        # rules and listed separately as probationary.
+        result["committed_set"] = {t: result["candidates"].pop(t) for t in RESTRICTED_TABLES}
+        result["canonicalized"] = {t: result["candidates"].pop(t) for t in CANONICALIZED_TABLES}
     for table in CONTROL_TABLES:
         result["controls"][table] = table_digest(conn, table)
-    # Fleet fingerprint over candidates only: one line a human can eyeball
-    # across five runs without diffing tables.
+    # Fleet fingerprint over the proposed committed set only: one line a
+    # human can eyeball across five runs without diffing tables.
     h = hashlib.sha256()
-    for table in sorted(result["candidates"]):
-        entry = result["candidates"][table]
+    source = result.get("committed_set", result["candidates"])
+    for table in sorted(source):
+        entry = source[table]
         h.update(table.encode())
         h.update(b"=")
         h.update((entry["digest"] if "digest" in entry else entry["status"]).encode())
@@ -199,6 +256,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Per-table state digests over a chain.db, read-only (V-3 fleet probe).")
     ap.add_argument("--db", required=True, help="path to chain.db")
     ap.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    ap.add_argument(
+        "--canonical",
+        action="store_true",
+        help="apply the proposed V-3 activation rules: committed set = the 10 agreeing tables, "
+        "the 3 dual-writer tables are digested with *_at columns excluded and 0x identifiers lowercased",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -207,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"cannot open {args.db} read-only: {e}", file=sys.stderr)
         return 2
 
-    result = collect(conn)
+    result = collect(conn, canonical=args.canonical)
     conn.close()
 
     if args.json:
@@ -217,7 +280,11 @@ def main(argv: list[str] | None = None) -> int:
     print("connection: sqlite file:?mode=ro + PRAGMA query_only=ON (read-only, WAL-aware)")
     heads = ", ".join(f"{cid}@{h}" for cid, h in result["head"].items())
     print(f"head: {heads}")
-    _print_group("candidate tables (apply-written; V-3 committable iff digests agree fleet-wide)", result["candidates"])
+    if args.canonical:
+        _print_group("committed set (proposed aux_state_root members)", result["committed_set"])
+        _print_group("canonicalized (probationary — must agree under the rules first)", result["canonicalized"])
+    else:
+        _print_group("candidate tables (apply-written; V-3 committable iff digests agree fleet-wide)", result["candidates"])
     _print_group("control tables (node-local; expected to differ)", result["controls"])
     print(f"candidate fingerprint: {result['candidate_fingerprint']}")
     return 0
