@@ -34,6 +34,45 @@ from .state_transition import (
 # The types whose sender ``validate_transaction`` checks against an on-chain authority.
 AUTHORITY_GATED_TYPES = frozenset({"GOVERNANCE_EXECUTE", "ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"})
 
+# V-8 completeness: every transaction type the chain knows has a sender
+# rule. Gated types are checked here; ``PREREGISTERED_CREDIT_TX_TYPES``
+# (BRIDGE_RELEASE/BRIDGE_REFUND) are refused at the door outright; the rest
+# are open to any funded sender whose balance and nonce pass. Some open
+# types carry *payload* authority enforced at apply (BRIDGE_LOCK's
+# bridge_signature from v9, the bond-slash authority) — that is a different
+# axis from sender authority and does not gate this door. The enumeration
+# test in tests/test_admission_authority.py fails CI when a type is added
+# to the known-types registry without a class here.
+AUTHORITY_OPEN_TX_TYPES = frozenset(
+    {
+        "TRANSFER",
+        "MESSAGE",
+        "AI_JOB",
+        "ESCROW_LOCK",
+        "BRIDGE_LOCK",
+        "BRIDGE_WITHDRAW",
+        "GPU_REGISTER",
+        "GPU_ALLOCATE",
+        "GPU_DEREGISTER",
+        "GPU_MARKET",
+        "STAKE_LOCK",
+        "STAKE_RELEASE",
+        "BOND_LOCK",
+        "BOND_RELEASE",
+        "BOND_SLASH",
+        "BOUNTY_LOCK",
+        "BOUNTY_PAYOUT",
+        "BOUNTY_REFUND",
+        "GOVERNANCE_PROPOSE",
+        "GOVERNANCE_VOTE",
+        "LIQUIDITY_DEPOSIT",
+        "LIQUIDITY_WITHDRAW",
+        "LIQUIDITY_CLAIM",
+        "RECEIPT_CLAIM",
+        "IPFS_SUBSCRIPTION",
+    }
+)
+
 
 def sender_authority_error(
     session: Session,
