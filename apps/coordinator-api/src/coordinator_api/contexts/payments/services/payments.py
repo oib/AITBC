@@ -271,7 +271,7 @@ def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> 
     if receipt.get("computation_correct") is not True:
         return False
     zk_status = receipt.get("zk_status")
-    if zk_status in ("verified", "not_required"):
+    if zk_status in ("verified", "not_required", "tee_attested"):
         return True
     return _tee_attests_computation(receipt, job)
 
