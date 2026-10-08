@@ -133,7 +133,9 @@ class TestServiceLevelConsistency:
     def test_accepts_matching_tx(self):
         tx = _signed_tx(PRIVKEY)
         GovernanceService._verify_client_signed_tx(
-            tx, "GOVERNANCE_PROPOSE", _address(PRIVKEY),
+            tx,
+            "GOVERNANCE_PROPOSE",
+            _address(PRIVKEY),
             {"proposal_id": "prop_test1", "proposer": _address(PRIVKEY)},
         )
 
@@ -141,14 +143,20 @@ class TestServiceLevelConsistency:
         tx = _signed_tx(PRIVKEY, tx_type="GOVERNANCE_VOTE")
         with pytest.raises(ValueError, match="GOVERNANCE_PROPOSE"):
             GovernanceService._verify_client_signed_tx(
-                tx, "GOVERNANCE_PROPOSE", _address(PRIVKEY), {},
+                tx,
+                "GOVERNANCE_PROPOSE",
+                _address(PRIVKEY),
+                {},
             )
 
     def test_rejects_wrong_signer_claim(self):
         tx = _signed_tx(PRIVKEY)
         with pytest.raises(ValueError, match="acting address"):
             GovernanceService._verify_client_signed_tx(
-                tx, "GOVERNANCE_PROPOSE", _address(OTHER_PRIVKEY), {},
+                tx,
+                "GOVERNANCE_PROPOSE",
+                _address(OTHER_PRIVKEY),
+                {},
             )
 
     def test_rejects_reattached_proposal_id(self):
@@ -156,6 +164,8 @@ class TestServiceLevelConsistency:
         tx = _signed_tx(PRIVKEY)
         with pytest.raises(ValueError, match="payload.proposal_id"):
             GovernanceService._verify_client_signed_tx(
-                tx, "GOVERNANCE_PROPOSE", _address(PRIVKEY),
+                tx,
+                "GOVERNANCE_PROPOSE",
+                _address(PRIVKEY),
                 {"proposal_id": "prop_other"},
             )

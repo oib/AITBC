@@ -396,9 +396,7 @@ class TestCompleteReinvestWiring:
         signed_at = int(time.time())
         # The verifier rebuilds the signed fields as
         # {action, task_id, signed_at, amount_units:0} when the body omits it.
-        sig = sign_transaction_data(
-            {"action": "complete", "task_id": "t-rv", "signed_at": signed_at, "amount_units": 0}, pk
-        )
+        sig = sign_transaction_data({"action": "complete", "task_id": "t-rv", "signed_at": signed_at, "amount_units": 0}, pk)
         resp = client.post("/v1/tasks/t-rv/complete", json={"signed_at": signed_at, "signature": sig})
 
         assert resp.status_code == 200, resp.text
