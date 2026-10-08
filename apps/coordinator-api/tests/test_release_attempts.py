@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from aitbc_shared import JobPayment, PaymentEscrow
 
@@ -678,3 +678,81 @@ class TestDeferralMarkerOtherExits:
         payment_session.refresh(payment)
         assert payment.meta_data["release_attempts"] == 1
         assert payment.meta_data["release_425_first_at"] == first_at
+
+
+@pytest.mark.unit
+class TestHashlessReleaseClaim:
+    """S-10: a release answer with no settlement hash is a claim without
+    proof. Stamping 'released' on it produced a false-paid row for a job the
+    chain never settled. The outcome must be settlement_failed (terminal for
+    the sweepers, still inside REFUNDABLE_STATES for the manual path).
+    """
+
+    def test_no_tx_hash_marks_settlement_failed(self, payment_session, monkeypatch):
+        _held_completed_payment(payment_session, "job-nh-1", "pay-nh-1")
+        _scripted_transport(
+            monkeypatch,
+            [lambda request: httpx.Response(200, json={"success": True}, request=request)],
+        )
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", "job-nh-1", "pay-nh-1")) is False
+
+        payment = payment_session.get(JobPayment, "pay-nh-1")
+        assert payment.status == "settlement_failed"
+        assert payment.transaction_hash is None
+        assert payment.released_at is None
+        # The hashless answer is a definitive attempt: counted, not deferred.
+        assert payment.meta_data["release_attempts"] == 1
+        assert payment.meta_data.get("release_blocked_at")
+        job = payment_session.get(Job, "job-nh-1")
+        assert job.payment_status == "settlement_failed"
+        escrow = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == "pay-nh-1")).first()
+        assert escrow is not None and not escrow.is_released
+
+    def test_tx_hash_response_releases_as_before(self, payment_session, monkeypatch):
+        _held_completed_payment(payment_session, "job-nh-2", "pay-nh-2")
+        _scripted_transport(
+            monkeypatch,
+            [
+                lambda request: httpx.Response(
+                    200,
+                    json={"success": True, "tx_hash": "0xsealedrelease"},
+                    request=request,
+                )
+            ],
+        )
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", "job-nh-2", "pay-nh-2")) is True
+
+        payment = payment_session.get(JobPayment, "pay-nh-2")
+        assert payment.status == "released"
+        assert payment.transaction_hash == "0xsealedrelease"
+        job = payment_session.get(Job, "job-nh-2")
+        assert job.payment_status == "released"
+
+    def test_no_hash_row_stays_admin_refundable(self, payment_session, monkeypatch):
+        """The S-10 state must remain reachable by the manual refund runbook."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            path = request.url.path
+            if request.method == "POST" and path.endswith("/release"):
+                return httpx.Response(200, json={"success": True}, request=request)
+            if request.method == "POST" and path.endswith("/refund"):
+                return httpx.Response(200, json={"success": True, "refund_tx_hash": "0xrealrefund"}, request=request)
+            return httpx.Response(200, json={"state": "locked"}, request=request)
+
+        _scripted_transport(monkeypatch, [handler])
+        _held_completed_payment(payment_session, "job-nh-3", "pay-nh-3")
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", "job-nh-3", "pay-nh-3")) is False
+        payment = payment_session.get(JobPayment, "pay-nh-3")
+        assert payment.status == "settlement_failed"
+
+        result = asyncio.run(service.refund_payment("client-1", "job-nh-3", "pay-nh-3", "operator refund", is_admin=True))
+        assert result is True
+        payment_session.refresh(payment)
+        assert payment.status == "refunded"
+        assert payment.refund_transaction_hash == "0xrealrefund"
