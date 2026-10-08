@@ -25,9 +25,7 @@ def test_parse_line_logfmt() -> None:
 
 
 def test_parse_line_kubo_native() -> None:
-    level, component, message = parse_line(
-        "2026-09-24T10:00:00.000+02:00\tERROR\tcore\tapi.go:99\tboom"
-    )
+    level, component, message = parse_line("2026-09-24T10:00:00.000+02:00\tERROR\tcore\tapi.go:99\tboom")
     # Native format: ts level component caller message
     if level == "ERROR":
         assert component == "core"
@@ -42,7 +40,7 @@ def test_parse_line_fallback_banner() -> None:
 
 def test_parse_logfmt_requires_level_and_msg() -> None:
     assert _parse_logfmt("foo=bar baz=qux") is None
-    assert _parse_logfmt('level=info msg=hello') is not None
+    assert _parse_logfmt("level=info msg=hello") is not None
 
 
 def test_component_from_source_strips_go_suffix() -> None:

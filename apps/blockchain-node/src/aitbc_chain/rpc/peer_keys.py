@@ -52,10 +52,7 @@ def _connect() -> sqlite3.Connection:
     )
     # Active node_ids are unique; revoked rows keep their node_id so a node can
     # re-join after an operator revocation.
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_peer_keys_active_node"
-        " ON peer_keys(node_id) WHERE revoked_at IS NULL"
-    )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_peer_keys_active_node ON peer_keys(node_id) WHERE revoked_at IS NULL")
     return conn
 
 

@@ -129,10 +129,7 @@ def _refusing_client_cls(detail: str):
     return RefusingClient
 
 
-_REFUSAL_DETAIL = (
-    "this node cannot sign escrow settlement transactions; "
-    "the settlement node is at http://hub.aitbc.invalid"
-)
+_REFUSAL_DETAIL = "this node cannot sign escrow settlement transactions; the settlement node is at http://hub.aitbc.invalid"
 
 
 def test_market_escrow_create_503_shows_detail(mock_market_config, monkeypatch):

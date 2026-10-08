@@ -79,9 +79,7 @@ def probe_gpus(timeout: int = 10) -> list[GpuInfo]:
 def probe_cpu_model(timeout: int = 10) -> str | None:
     """CPU model string from lscpu ("Model name:"), or None when unavailable."""
     try:
-        result = subprocess.run(
-            ["lscpu"], capture_output=True, text=True, timeout=timeout
-        )
+        result = subprocess.run(["lscpu"], capture_output=True, text=True, timeout=timeout)
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
         logger.warning("lscpu probe unavailable: %s", exc)
         return None
