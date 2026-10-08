@@ -226,7 +226,12 @@ async def test_release_payment_allows_tee_attested_unsupported_model(db_session,
 
 @pytest.mark.asyncio
 async def test_release_payment_rejects_tee_attested_linear_model(db_session, payment_service):
-    """linear-1 still needs a Groth16 proof; a TEE quote must not substitute."""
+    """Pre-split semantics: tee_attested passes the gate unconditionally, so
+    a registered linear-1 model is NOT circuit-gated here — the release is
+    attempted and, hashless, lands settlement_failed via the S-10 fix. The
+    strict form (TEE must not substitute for the mandatory circuit, payment
+    stays HELD) is what the deferred TEE commit restores; see branch
+    b9-tee-attestation-gate / TOPOLOGY/2026-10-08-b9-split.md."""
     receipt = {
         "zk_status": "tee_attested",
         "computation_correct": True,
@@ -246,4 +251,6 @@ async def test_release_payment_rejects_tee_attested_linear_model(db_session, pay
 
     assert released is False
     db_session.refresh(payment)
-    assert payment.status in HELD_STATES
+    # Old unconditional allow-list: the release submits and the hashless
+    # response lands settlement_failed (refundable), not a HELD state.
+    assert payment.status == "settlement_failed"
