@@ -169,3 +169,48 @@ def test_connection_is_query_only(tool, tmp_path):
     with pytest.raises(sqlite3.OperationalError):
         conn.execute("INSERT INTO cross_chain_transfer VALUES ('x','y',1,'z')")
     conn.close()
+
+
+def test_wal_contents_visible(tool, tmp_path):
+    """Plain mode=ro must honor the WAL: a live node holds its newest commits
+    in chain.db-wal and immutable=1 would skip them, so a lock sealed in an
+    uncheckpointed page must still be audited."""
+    db = tmp_path / "wal.db"
+    writer = sqlite3.connect(db)
+    writer.execute("PRAGMA journal_mode=WAL")
+    writer.executescript(
+        """
+        CREATE TABLE block (chain_id TEXT, height INTEGER, hash TEXT,
+                            bridge_state_root TEXT);
+        CREATE TABLE "transaction" (
+            chain_id TEXT, tx_hash TEXT, block_height INTEGER,
+            payload TEXT, envelope TEXT, type TEXT);
+        CREATE TABLE cross_chain_transfer (
+            transfer_id TEXT, source_chain TEXT, amount INTEGER,
+            target_chain TEXT);
+        """
+    )
+    writer.execute(
+        'INSERT INTO "transaction" VALUES (?, ?, ?, ?, ?, ?)',
+        (
+            CHAIN,
+            "wal1",
+            9,
+            json.dumps({"transfer_id": "wal1", "amount": 3, "target_chain": "ait-dest"}),
+            None,
+            "BRIDGE_LOCK",
+        ),
+    )
+    writer.execute(
+        "INSERT INTO block (chain_id, height, hash, bridge_state_root) VALUES (?, ?, ?, ?)",
+        (CHAIN, 9, "h9", None),
+    )
+    writer.commit()
+    try:
+        assert (tmp_path / "wal.db-wal").exists(), "fixture must hold uncheckpointed WAL pages"
+        conn = tool.connect_ro(str(db))
+        res = tool.audit(conn, use_trie=False)
+        conn.close()
+        assert res["locks_sealed"] == 1  # the WAL row — invisible under immutable=1
+    finally:
+        writer.close()

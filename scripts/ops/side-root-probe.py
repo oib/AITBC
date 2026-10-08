@@ -9,9 +9,11 @@ at the first committed block — committing it is only safe for tables whose
 digest matches on every node at the same head height.
 
 READ-ONLY BY CONSTRUCTION: the only connection this program opens is SQLite
-``mode=ro&immutable=1`` plus ``PRAGMA query_only=ON``; there is no write flag,
-no second connection, no ATTACH. Output is table name, row count and a short
-digest — never row data, never an address.
+``mode=ro`` plus ``PRAGMA query_only=ON``; there is no write flag, no second
+connection, no ATTACH. ``immutable=1`` is deliberately absent: a live
+chain.db holds its newest pages in the WAL and immutable mode would skip
+them, so the probe would digest a stale snapshot. Output is table name,
+row count and a short digest — never row data, never an address.
 
 Digest construction (deterministic across hosts):
 
@@ -100,8 +102,11 @@ DIGEST_LEN = 16
 
 
 def connect_ro(db_path: str) -> sqlite3.Connection:
-    """The ONLY connection this program creates: mode=ro&immutable=1 + query_only."""
-    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro&immutable=1"
+    """The ONLY connection this program creates: mode=ro + query_only.
+
+    Plain ``mode=ro`` (not ``immutable=1``) so the probe honors the WAL of a
+    live database and reads the rows the node just committed."""
+    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.execute("PRAGMA query_only=ON")
     return conn
@@ -209,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
-    print("connection: sqlite file:?mode=ro&immutable=1 + PRAGMA query_only=ON (read-only by construction)")
+    print("connection: sqlite file:?mode=ro + PRAGMA query_only=ON (read-only, WAL-aware)")
     heads = ", ".join(f"{cid}@{h}" for cid, h in result["head"].items())
     print(f"head: {heads}")
     _print_group("candidate tables (apply-written; V-3 committable iff digests agree fleet-wide)", result["candidates"])
