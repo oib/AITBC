@@ -10,7 +10,7 @@ PYTHON ?= $(shell \
 	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
 	else command -v python3; fi)
 
-.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance live-dry-run openapi openapi-check version-check ci
+.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance test-migrations-slow live-dry-run openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, fail on any finding (the CI lint gate)"
@@ -27,6 +27,7 @@ help:
 	@echo "make no-float-money  check for float money violations"
 	@echo "make live-dry-run    live scenario dry-run"
 	@echo "make test-governance just the governance suite (a bare pytest also covers it)"
+	@echo "make test-migrations-slow  the ~15 min whole-chain alembic downgrade/upgrade sweep"
 	@echo "make openapi         regenerate docs/api/*-openapi.json from the running apps"
 	@echo "make openapi-check   fail if the committed specs differ from what the apps produce"
 	@echo "make version-check   verify all version references match aitbc/_version.py"
@@ -91,6 +92,12 @@ live-dry-run:
 # target runs tests/unit only.)
 test-governance:
 	$(PYTHON) -m pytest apps/governance/tests -q
+
+# The whole-chain alembic downgrade/upgrade sweep (plus any future slow-marked
+# coordinator migration test) takes ~15 min and sits behind the slow marker so
+# the default gates stay fast; this is the only way it runs.
+test-migrations-slow:
+	$(PYTHON) -m pytest apps/coordinator-api/tests/integration/test_migrations.py -m slow -q
 
 # The required gate for suites CI never ran even though testpaths collected
 # them: exchange matching, gateway retries, wallet sends, market and
