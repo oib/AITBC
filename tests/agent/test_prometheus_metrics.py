@@ -84,8 +84,8 @@ class TestCounter:
 
         values = counter.get_all_values()
         assert len(values) == 2
-        assert "method=GET" in values
-        assert "method=POST" in values
+        assert 'method="GET"' in values
+        assert 'method="POST"' in values
 
     def test_counter_reset(self):
         """Test resetting counter"""

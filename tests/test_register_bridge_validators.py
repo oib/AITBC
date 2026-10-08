@@ -99,6 +99,7 @@ class TestAdminBinding:
         priv, _ = _key(6)
         key_file = tmp_path / "bridge_admin.key"
         key_file.write_text("0x" + priv + "\n")
+        key_file.chmod(0o600)
         monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(key_file))
         assert reg._get_admin_private_key() == priv
 
@@ -106,6 +107,7 @@ class TestAdminBinding:
         priv, addr = _key(6)
         key_file = tmp_path / "bridge_admin.key"
         key_file.write_text(priv)
+        key_file.chmod(0o600)
         monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(key_file))
         monkeypatch.setenv("BRIDGE_ADMIN_ADDRESS", addr.lower())
         assert reg._get_admin_private_key() == priv
@@ -127,6 +129,7 @@ class TestAdminBinding:
         source_priv, _ = _key(10)
         key_file = tmp_path / "bridge_admin.key"
         key_file.write_text(file_priv)
+        key_file.chmod(0o600)
         monkeypatch.setenv("PROPOSER_KEY", source_priv)
         monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_SOURCE", "PROPOSER_KEY")
         monkeypatch.setenv("BRIDGE_ADMIN_PRIVATE_KEY_FILE", str(key_file))
