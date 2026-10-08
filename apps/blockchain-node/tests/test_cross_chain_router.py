@@ -38,9 +38,7 @@ def engine_fixture():
     per-thread SQLite pool would hand the request handler a different (empty)
     in-memory database. ``StaticPool`` shares one connection.
     """
-    engine = create_engine(
-        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     chain_metadata.create_all(engine)
     try:
         yield engine
@@ -351,9 +349,7 @@ class TestCrossChainReadOnly:
 class TestSwapFinalityRelay:
     """The relayer path moves a real lock through the genuine lifecycle."""
 
-    def test_relay_confirm_with_real_proof(
-        self, client: TestClient, engine, bridge: CrossChainBridge, sender_account
-    ) -> None:
+    def test_relay_confirm_with_real_proof(self, client: TestClient, engine, bridge: CrossChainBridge, sender_account) -> None:
         """A sealed + finalized lock can be confirmed through the real path.
 
         This exercises build_proof (persisted tx.type detection), header
@@ -376,9 +372,7 @@ class TestSwapFinalityRelay:
         # chain would and store it, so the check verifies real data.
         with Session(engine) as session:
             lock_tx = session.exec(
-                select(Transaction).where(
-                    Transaction.chain_id == "chain-a", Transaction.tx_hash == transfer_id
-                )
+                select(Transaction).where(Transaction.chain_id == "chain-a", Transaction.tx_hash == transfer_id)
             ).first()
             assert lock_tx is not None
             lock_tx.block_height = 5
@@ -433,9 +427,7 @@ class TestBlockScopedRelease:
     even recorded.
     """
 
-    def test_confirm_block_scoped_release_serializes_timestamp(
-        self, engine, bridge: CrossChainBridge, monkeypatch
-    ) -> None:
+    def test_confirm_block_scoped_release_serializes_timestamp(self, engine, bridge: CrossChainBridge, monkeypatch) -> None:
         from aitbc_chain import mempool as mempool_mod
         from aitbc_chain.config import settings
 
@@ -492,9 +484,7 @@ class TestBlockScopedRefund:
     ``record.status`` ever reached "refunded", so refunds could never queue.
     """
 
-    def test_block_scoped_refund_serializes_timestamp(
-        self, engine, bridge: CrossChainBridge, monkeypatch
-    ) -> None:
+    def test_block_scoped_refund_serializes_timestamp(self, engine, bridge: CrossChainBridge, monkeypatch) -> None:
         from aitbc_chain import mempool as mempool_mod
         from aitbc_chain.config import settings
 

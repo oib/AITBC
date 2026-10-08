@@ -232,7 +232,6 @@ class TestGPUResourcesCommands:
         assert result.exit_code == 0, result.output
         assert '"mined": false' in result.output
 
-
     @patch("aitbc_cli.utils.gpu_onchain.wait_for_tx")
     @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deregister")
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")

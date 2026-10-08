@@ -35,8 +35,7 @@ def _get_postgres_dsn() -> str:
     dsn = os.getenv("DATABASE_URL") or os.getenv("SQLITE_URL") or os.getenv("POOLHUB_POSTGRES_DSN")
     if not dsn:
         raise RuntimeError(
-            "no database DSN configured: set DATABASE_URL or "
-            "POOLHUB_POSTGRES_DSN (source /etc/aitbc/aitbc-pool-hub.env)"
+            "no database DSN configured: set DATABASE_URL or POOLHUB_POSTGRES_DSN (source /etc/aitbc/aitbc-pool-hub.env)"
         )
     return dsn
 
