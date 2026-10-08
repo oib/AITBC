@@ -214,3 +214,41 @@ def test_wal_contents_visible(tool, tmp_path):
         assert res["locks_sealed"] == 1  # the WAL row — invisible under immutable=1
     finally:
         writer.close()
+
+
+# --- V-4 grandfathering boundary fixtures -------------------------------------
+
+
+def test_lock_class_without_boundary(tool):
+    assert tool.lock_class("payload", 100, None) == "derivable"
+    assert tool.lock_class("envelope", 100, None) == "derivable"
+    assert tool.lock_class("unreadable", 100, None) == "underivable"
+
+
+def test_lock_class_boundary_split(tool):
+    """Below the activation height an unreadable lock is grandfathered;
+    at/above it the same lock is a missing_data defect the guard must block."""
+    assert tool.lock_class("unreadable", 9999, 10000) == "grandfathered"
+    assert tool.lock_class("unreadable", 10000, 10000) == "missing_data"
+    assert tool.lock_class("unreadable", 10001, 10000) == "missing_data"
+    assert tool.lock_class("payload", 50, 10000) == "derivable"
+
+
+def test_audit_boundary_counts(tool, tmp_path):
+    """End-to-end: one legacy empty-payload lock below the boundary is
+    grandfathered; an identical lock above it counts as missing_data."""
+    rows = [
+        ("tx_legacy", 8259, {}, None, None),  # like the 4 live legacy locks
+        ("tx_future", 30000, {}, None, None),  # same shape after the boundary
+        ("tx_derivable", 31000, {"transfer_id": "t1", "amount": 5, "target_chain": "ait-dest"}, None, None),
+    ]
+    db = _mk_db(tmp_path / "b.db", rows)
+    conn = tool.connect_ro(str(db))
+    result = tool.audit(conn, use_trie=False, boundary=10000)
+    conn.close()
+    lc = result["lock_classes"]
+    assert lc == {"derivable": 1, "grandfathered": 1, "missing_data": 1}
+    # and the unit-level function pins which tx lands in which class
+    assert tool.lock_class("unreadable", 8259, 10000) == "grandfathered"
+    assert tool.lock_class("unreadable", 30000, 10000) == "missing_data"
+    assert tool.lock_class("payload", 31000, 10000) == "derivable"

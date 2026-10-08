@@ -108,6 +108,26 @@ def derived_leaf(tx_hash: str, payload: dict[str, Any], envelope: dict[str, Any]
     return f"lock:{tid}:{amount}:{target}", source
 
 
+def lock_class(der_src: str, height: int, boundary: int | None) -> str:
+    """V-4 grandfathering classification for one sealed lock.
+
+    ``boundary`` is the proposed activation height: at or above it every
+    sealed BRIDGE_LOCK must carry derivable data (payload, or the GAP-47
+    envelope fallback). Below it, an underivable lock is ``grandfathered`` —
+    the sealed header root stands as-is and is never recomputed, because the
+    legacy rows cannot be reconstructed deterministically. Above it an
+    underivable lock is a ``missing_data`` defect: the seal path that wrote
+    it dropped both payload fields and the envelope, which the activation
+    guard must make impossible. With ``boundary=None`` the classification is
+    descriptive only (``derivable``/``underivable``).
+    """
+    if boundary is None:
+        return "underivable" if der_src == "unreadable" else "derivable"
+    if der_src != "unreadable":
+        return "derivable"
+    return "grandfathered" if height < boundary else "missing_data"
+
+
 def _load_trie():
     try:
         from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
@@ -121,7 +141,7 @@ def short_hash(tx_hash: str) -> str:
     return f"{tx_hash[:10]}…{tx_hash[-4:]}" if len(tx_hash) > 16 else tx_hash
 
 
-def audit(conn: sqlite3.Connection, *, use_trie: bool = True) -> dict[str, Any]:
+def audit(conn: sqlite3.Connection, *, use_trie: bool = True, boundary: int | None = None) -> dict[str, Any]:
     locks = conn.execute(
         """
         SELECT chain_id, tx_hash, block_height, payload, envelope
@@ -146,6 +166,7 @@ def audit(conn: sqlite3.Connection, *, use_trie: bool = True) -> dict[str, Any]:
         "current_leaf": {"row": 0, "missing-row": 0},
         "derived_leaf": {"payload": 0, "envelope": 0, "unreadable": 0},
         "leaves": {"agree": 0, "differ": 0, "differ_only_missing_row": 0, "underivable": 0},
+        "lock_classes": {"derivable": 0, "grandfathered": 0, "missing_data": 0},
         "blocks": [],
         "root_verdicts": {
             "derived_matches_header": 0,
@@ -163,8 +184,11 @@ def audit(conn: sqlite3.Connection, *, use_trie: bool = True) -> dict[str, Any]:
         envelope = _as_json(envelope_raw)
         cur, cur_src = current_leaf(tx_hash, transfers.get((chain_id, tx_hash)))
         der, der_src = derived_leaf(tx_hash, payload, envelope)
+        cls = lock_class(der_src, height, boundary)
         result["current_leaf"][cur_src] += 1
         result["derived_leaf"][der_src] += 1
+        if cls in result["lock_classes"]:
+            result["lock_classes"][cls] += 1
         if der is None:
             result["leaves"]["underivable"] += 1
         elif der == cur:
@@ -174,7 +198,7 @@ def audit(conn: sqlite3.Connection, *, use_trie: bool = True) -> dict[str, Any]:
             if cur_src == "missing-row":
                 result["leaves"]["differ_only_missing_row"] += 1
         per_block.setdefault((chain_id, height), []).append(
-            {"tx_hash": tx_hash, "cur": cur, "cur_src": cur_src, "der": der, "der_src": der_src}
+            {"tx_hash": tx_hash, "cur": cur, "cur_src": cur_src, "der": der, "der_src": der_src, "class": cls}
         )
 
     trie_cls = _load_trie() if use_trie else None
@@ -260,6 +284,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--db", required=True, help="path to chain.db")
     ap.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     ap.add_argument("--no-trie", action="store_true", help="leaf audit only; skip MerklePatriciaTrie root rebuild")
+    ap.add_argument(
+        "--boundary",
+        type=int,
+        default=None,
+        metavar="HEIGHT",
+        help="proposed activation height: classify each underivable lock as grandfathered (below) "
+        "or missing_data defect (at/above) — the V-4 boundary rule",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -268,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"cannot open {args.db} read-only: {e}", file=sys.stderr)
         return 2
 
-    result = audit(conn, use_trie=not args.no_trie)
+    result = audit(conn, use_trie=not args.no_trie, boundary=args.boundary)
     result["head"] = head_height(conn)
     conn.close()
 
@@ -288,6 +320,12 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"leaves: agree={lv['agree']} differ={lv['differ']} (of which current-is-missing-row={lv['differ_only_missing_row']}) underivable={lv['underivable']}"
     )
+    if args.boundary is not None:
+        lc = result["lock_classes"]
+        print(
+            f"boundary {args.boundary}: derivable={lc['derivable']} grandfathered={lc['grandfathered']} "
+            f"missing_data(activation-blocking defect)={lc['missing_data']}"
+        )
     if not result["trie_rebuilt"]:
         print("trie rebuild: SKIPPED (aitbc_chain not importable or --no-trie)")
     else:
