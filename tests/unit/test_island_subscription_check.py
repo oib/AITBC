@@ -51,6 +51,10 @@ def env(tmp_path):
         "STUB_LOG": str(log),
         "AITBC_STUB_OUT": "",
         "AITBC_WALLET_DIR": str(tmp_path / "wallets"),
+        # ISLAND_ID/COORDINATOR_URL have no defaults since 95063e2543 — the
+        # gate exits 3 before the stub is ever reached without them.
+        "ISLAND_ID": "test-island",
+        "COORDINATOR_URL": "http://stub.invalid",
     }
     return SimpleNamespace(env=e, tmp=tmp_path, log=log)
 

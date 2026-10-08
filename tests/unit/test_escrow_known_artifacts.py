@@ -58,7 +58,7 @@ def _fixture_db(tmp_path: Path, txs: list[tuple[str, str, str]], escrow_jobs: li
     conn.execute("CREATE TABLE 'transaction' (tx_hash TEXT, type TEXT, payload TEXT)")
     conn.execute(
         "CREATE TABLE escrow (job_id TEXT PRIMARY KEY, status TEXT, release_tx_hash TEXT, "
-        "refund_tx_hash TEXT, released_at TEXT, refunded_at TEXT)"
+        "refund_tx_hash TEXT, released_at TEXT, refunded_at TEXT, created_at TEXT)"
     )
     conn.executemany("INSERT INTO 'transaction' (tx_hash, type, payload) VALUES (?,?,?)", txs)
     conn.executemany("INSERT INTO escrow (job_id, status) VALUES (?, 'locked')", [(j,) for j in (escrow_jobs or [])])
