@@ -246,6 +246,22 @@ def _notify(urls: tuple[str, ...], record: dict[str, Any], stats: dict[str, Any]
                     logger.warning("notify POST to %s failed: %s", notify_url, exc)
 
 
+_SEVERITY_ORDER = {"info": 0, "warning": 1, "critical": 2}
+
+
+def _severity_at_least(severity: str | None, floor: str | None) -> bool:
+    """Whether a record's severity reaches the notify floor (SD-2).
+
+    Alert records carry ``labels.severity``; lifecycle events like
+    ``prometheus_watch_started`` carry none and are not alerts — they still
+    notify so a watcher restart (a possible delivery gap) stays visible.
+    Unset floor keeps the historical behaviour: everything is pushed.
+    """
+    if floor is None or severity is None:
+        return True
+    return _SEVERITY_ORDER.get(str(severity).lower(), 0) >= _SEVERITY_ORDER[floor.lower()]
+
+
 def _write_metrics_file(path: str, gauges: dict[str, float], warn: dict[str, bool]) -> None:
     """Atomically write the watcher's own heartbeat as a node-exporter textfile.
 
@@ -382,6 +398,15 @@ def _event_epoch(record: dict[str, Any]) -> float | None:
     help="POST every alert event as a JSON body to this webhook URL; repeatable (env: space-separated) (watch mode)",
 )
 @click.option(
+    "--notify-min-severity",
+    "notify_min_severity",
+    envvar="AITBC_WATCH_NOTIFY_MIN_SEVERITY",
+    type=click.Choice(["info", "warning", "critical"], case_sensitive=False),
+    default=None,
+    help="Push only alerts at or above this severity; lower-severity alerts are still recorded to the alert log "
+    "but not pushed. Non-alert lifecycle events (e.g. watch started) always notify (watch mode)",
+)
+@click.option(
     "--silence-file",
     "silence_file",
     type=click.Path(dir_okay=False),
@@ -415,6 +440,7 @@ def alerts(
     emit: bool,
     alert_log_path: str | None,
     notify_urls: tuple[str, ...],
+    notify_min_severity: str | None,
     silence_file: str | None,
     remind_interval: int,
     metrics_file: str | None,
@@ -510,7 +536,9 @@ def alerts(
                 logger.info(line)
         # A silence suppresses the push, not the record: the event still lands in
         # the alert log and the journal so "what happened" stays auditable.
-        if silenced is None:
+        # The severity floor works the same way: below-floor alerts are logged
+        # (the daily digest reads them) but never pushed.
+        if silenced is None and _severity_at_least(record.get("severity"), notify_min_severity):
             _notify(notify_urls, record, stats)
 
     # Alert state is tracked across polls: an alert is reported when it starts firing (again, if it had resolved) and

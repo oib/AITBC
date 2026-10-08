@@ -138,8 +138,10 @@ get_allowed_services() {
     local follower_services=(
         aitbc-blockchain-explorer
         # Prometheus alert watcher — deployed on every follower and deliberately
-        # not on the hub.
+        # not on the hub. aitbc-alert-digest pairs with it: the watcher writes
+        # the alert log the daily digest reads.
         aitbc-prometheus-watch
+        aitbc-alert-digest
     )
 
     # Shop-specific services (market provider, regardless of blockchain mode)

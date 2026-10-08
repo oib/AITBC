@@ -1,0 +1,12 @@
+[Unit]
+Description=AITBC daily warning-severity alert digest (SD-2)
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+# One digest a day, mid-morning local time; Persistent catches up after downtime.
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+Unit=aitbc-alert-digest.service
+
+[Install]
+WantedBy=timers.target
