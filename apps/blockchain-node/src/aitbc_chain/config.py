@@ -493,7 +493,8 @@ class ChainSettings(BaseSettings):
     # (v0.7.2 §B5), and multi-sig threshold signatures (v0.7.1 §B6).
     # v0.10.16: fail-closed by default. The release path must be explicitly
     # enabled in production configuration after Merkle proof verification and
-    # validator-set admission control are operational.
+    # validator-set admission control are operational. Production fleet:
+    # BRIDGE_RELEASE_ENABLED=true.
     bridge_release_enabled: bool = False
 
     # Operator pause switch for NEW bridge locks (BRIDGE_LOCKS_PAUSED). While
@@ -520,7 +521,11 @@ class ChainSettings(BaseSettings):
     bridge_header_sync_batch: int = 500  # Max block headers mirrored into the bridge table per finalizer pass
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
     bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
-    bridge_max_lock_amount: int = 0  # Maximum amount that can be locked in a single transfer (0 = unlimited)
+    # Maximum per-lock amount in compute units. 0 = unlimited in
+    # development only: production nodes refuse locks when this is unset
+    # (fail-closed, see BridgeTransferMixin._enforce_lock_cap). The
+    # production fleet sets BRIDGE_MAX_LOCK_AMOUNT=36000000000 (1,000 AIT).
+    bridge_max_lock_amount: int = 0
     # GAP-47: in-process relayer. When True the bridge finalizer loop also
     # mirrors locally produced/synced block headers into bridge_block_header
     # and confirms pending transfers whose lock has reached finality (the
@@ -544,9 +549,9 @@ class ChainSettings(BaseSettings):
     # fence (bridge_release_enabled) stays in place until v0.7.2 completes
     # Merkle proof verification — multi-sig is an additional layer, not a
     # replacement for the fence.
-    bridge_multisig_enabled: bool = False  # require multi-sig for confirm
-    bridge_multisig_threshold: int = 3  # M-of-N minimum signatures
-    bridge_multisig_validators: int = 5  # N total validators
+    bridge_multisig_enabled: bool = False  # require multi-sig for confirm (production fleet: true)
+    bridge_multisig_threshold: int = 3  # M-of-N minimum signatures (production fleet: 2)
+    bridge_multisig_validators: int = 5  # N total validators (production fleet: 2)
     bridge_multisig_timeout: int = 3600  # seconds to collect signatures
     bridge_validator_set_grace_period: int = 7200  # seconds — old epoch valid during rotation
     bridge_block_signature_required: bool = True  # require block header signatures
@@ -575,6 +580,7 @@ class ChainSettings(BaseSettings):
     # default is False to preserve the v0.7.2 "field + signature" verification
     # mode used by isolated/dev networks; set BRIDGE_REQUIRE_MERKLE_PROOF=true
     # before enabling the release path on networks that move real value.
+    # Production fleet: BRIDGE_REQUIRE_MERKLE_PROOF=true.
     bridge_require_merkle_proof: bool = False
 
     # External oracle configuration (v0.7.4). When bridge_verification_mode
