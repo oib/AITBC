@@ -10,7 +10,7 @@ it with the stored table, and prints the reconciliation proof (per-job
 invariants R1-R5, global invariants G1-G4).
 
 READ-ONLY BY CONSTRUCTION. There is no write mode and no write path: the only
-connection this program ever opens is SQLite ``mode=ro&immutable=1`` plus
+connection this program ever opens is SQLite ``mode=ro`` plus
 ``PRAGMA query_only=ON``, so the kernel itself refuses any write. There is no
 ``--apply``/``--write`` flag, no ``ATTACH``, and no second connection
 function. A write mode (per the design's §6) must be a separate change gated
@@ -115,13 +115,15 @@ def _canonicalizers():
 def _connect_ro(db_path: str) -> sqlite3.Connection:
     """Open the chain database strictly read-only.
 
-    The ONLY connection this program creates: a ``mode=ro&immutable=1`` URI —
-    SQLite refuses to open it writable, so no later code path can modify the
-    file. ``PRAGMA query_only=ON`` adds a second refusal layer.
+    The ONLY connection this program creates: a ``mode=ro`` URI — SQLite
+    refuses to open it writable, so no later code path can modify the file.
+    ``PRAGMA query_only=ON`` adds a second refusal layer. ``immutable=1`` is
+    deliberately absent: a live chain.db holds its newest pages in the WAL
+    and immutable mode would read a stale snapshot.
     """
     if not os.path.isfile(db_path):
         raise FileNotFoundError(db_path)
-    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro&immutable=1"
+    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.execute("PRAGMA query_only=ON")
     return conn
@@ -541,10 +543,122 @@ def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[
     return report, failures
 
 
+# The deferred-residue conflict class (A4/R5): the stored row holds the billed
+# net amount of the primary release leg while the sealed legs also carried the
+# ~2.5% deferred-residue leg, so derived released_amount > stored; the stored
+# release_tx_hash names the primary leg while the derivation takes the latest
+# sealed leg. Only that shape is ever eligible for an UPDATE in the write
+# phase — anything touching another field, or shrinking the released amount,
+# is manual review.
+_DEFERRED_RESIDUE_FIELDS = {"released_amount", "released_at", "release_tx_hash", "status"}
+
+
+def _build_write_plan(report: dict[str, Any]) -> dict[str, Any]:
+    """Translate the reconcile report into the A7 write-phase dry run.
+
+    Returns the ordered list of what the write phase WOULD do on this host —
+    this program never performs it. Classes (design §5): ``insert`` for
+    missing rows derived from sealed transactions, ``update`` for the
+    deferred-residue conflict class only, ``manual_review`` for any other
+    conflict, ``report_only`` for orphans and dangling legs. An R2 double
+    settlement aborts the plan entirely: it is stop-and-escalate, never
+    repaired by a tool.
+    """
+    jobs = report.get("jobs", {})
+    plan: dict[str, Any] = {
+        "abort": [],
+        "insert": [],
+        "update": [],
+        "manual_review": [],
+        "report_only": [],
+        "unchanged": 0,
+    }
+    r2 = report.get("checks", {}).get("R2", {})
+    if r2.get("status") == "FAIL":
+        plan["abort"].append(
+            f"R2 double settlement on {len(r2.get('violations', []))} job(s): the write phase refuses to "
+            "run on this host — escalate per SD-1, never auto-repair"
+        )
+    for jid in report.get("missing_rows", []):
+        job = jobs.get(jid, {})
+        plan["insert"].append(
+            {
+                "job_id": jid,
+                "table": "escrow",
+                "class": "missing",
+                "derived": {
+                    k: job.get(k) for k in ("status", "amount", "released", "refunded", "swept", "locks", "lock_version")
+                },
+            }
+        )
+    for jid, job in sorted(jobs.items()):
+        if job["row"] == "MISSING":
+            continue
+        conflicts = job.get("conflicts", [])
+        if not conflicts:
+            plan["unchanged"] += 1
+            continue
+        fields = {c["field"] for c in conflicts}
+        bump = next((c for c in conflicts if c["field"] == "released_amount"), None)
+        deferred_residue = (
+            fields <= _DEFERRED_RESIDUE_FIELDS
+            and bump is not None
+            and isinstance(bump["stored"], int)
+            and isinstance(bump["derived"], int)
+            and bump["derived"] > bump["stored"]
+        )
+        entry = {
+            "job_id": jid,
+            "table": "escrow",
+            "class": "deferred-residue" if deferred_residue else "foreign-field",
+            "set": [{"field": c["field"], "stored": c["stored"], "derived": c["derived"]} for c in conflicts],
+        }
+        (plan["update"] if deferred_residue else plan["manual_review"]).append(entry)
+    for item in report.get("orphan_rows", []):
+        plan["report_only"].append({"job_id": item["job_id"], "chain_id": item["chain_id"], "class": "orphan-row"})
+    if report.get("legs_dangling_block"):
+        plan["report_only"].append({"class": "dangling-legs", "count": report["legs_dangling_block"]})
+    return plan
+
+
+def _print_write_plan(plan: dict[str, Any]) -> None:
+    print("write-phase dry run (classes only — no writes performed or possible):")
+    for reason in plan["abort"]:
+        print(f"  ABORT: {reason}")
+    if plan["abort"]:
+        print("  plan aborted: the write phase cannot run until the abort reason is resolved")
+        return
+    print(f"  step 1 — INSERT missing rows derived from sealed txs: {len(plan['insert'])}")
+    for item in plan["insert"]:
+        d = item["derived"]
+        print(
+            f"    job={_short(item['job_id'])} INSERT escrow:"
+            f" status={d['status']} amount={d['amount']} released={d['released']}"
+            f" refunded={d['refunded']} swept={d['swept']} locks={d['locks']} lock_version={d['lock_version']}"
+        )
+    print(f"  step 2 — UPDATE deferred-residue conflicts (released_amount := sum of sealed legs): {len(plan['update'])}")
+    for item in plan["update"]:
+        sets = "; ".join(f"{s['field']} {_short(s['stored'])} -> {_short(s['derived'])}" for s in item["set"])
+        print(f"    job={_short(item['job_id'])} UPDATE escrow: {sets}")
+    if plan["manual_review"]:
+        print(
+            f"  manual review — conflicts outside the deferred-residue class, never auto-written: {len(plan['manual_review'])}"
+        )
+        for item in plan["manual_review"]:
+            sets = "; ".join(f"{s['field']} {_short(s['stored'])} -> {_short(s['derived'])}" for s in item["set"])
+            print(f"    job={_short(item['job_id'])} {sets}")
+    print(f"  report-only (never repaired by the tool): {len(plan['report_only'])} item(s)")
+    for item in plan["report_only"]:
+        print(f"    {item}")
+    print(f"  unchanged rows verified identical to chain derivation: {plan['unchanged']}")
+    print("  order on approval: snapshot file, class-1 inserts, class-2 updates, re-run this proof;")
+    print("  rollback is restoring the snapshot. Host order per design: node2 -> node0 -> node1 -> hub1 -> hub.")
+
+
 def _print_report(db_path: str, report: dict[str, Any], failures: list[str]) -> None:
     counts = report.get("counts", {})
     print(f"SD-1 escrow reconciliation — {db_path}")
-    print("connection: sqlite file:?mode=ro&immutable=1 + PRAGMA query_only=ON (read-only by construction)")
+    print("connection: sqlite file:?mode=ro + PRAGMA query_only=ON (read-only, WAL-aware)")
     if report.get("scoped_to_job"):
         print(f"scope: job {_short(report['scoped_to_job'])} only")
     if "fatal" in report.get("checks", {}):
@@ -604,13 +718,18 @@ def main(argv: list[str] | None = None) -> int:
         description=(
             "Derive expected escrow rows from sealed chain transactions and prove the stored "
             "escrow table against them (SD-1). READ-ONLY BY CONSTRUCTION: the database is opened "
-            "mode=ro&immutable=1 with PRAGMA query_only=ON — there is no write flag, no writable "
+            "mode=ro with PRAGMA query_only=ON — there is no write flag, no writable "
             "connection and no ATTACH anywhere in this tool."
         )
     )
     parser.add_argument("--db", required=True, help="path to the local chain.db (opened read-only)")
     parser.add_argument("--job-id", help="restrict the proof to one job_id (globals are scoped too)")
     parser.add_argument("--report", help="also write the JSON report to this path")
+    parser.add_argument(
+        "--plan",
+        action="store_true",
+        help="print the write-phase dry run (per-class insert/update/manual-review list) — no writes",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -623,6 +742,10 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         conn.close()
     _print_report(args.db, report, failures)
+    if args.plan:
+        plan = _build_write_plan(report)
+        report["write_plan"] = plan
+        _print_write_plan(plan)
     if args.report:
         try:
             with open(args.report, "w") as fh:

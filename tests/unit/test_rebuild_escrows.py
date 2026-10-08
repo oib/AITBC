@@ -257,6 +257,21 @@ class TestReadOnly:
             conn.execute("INSERT INTO escrow (job_id) VALUES ('x')")
         conn.close()
 
+    def test_connect_ro_honors_wal(self, tool, tmp_path):
+        """Plain mode=ro (not immutable=1) must see rows living only in the
+        WAL — a live node's newest commits sit there uncheckpointed."""
+        writer = _mk_db(tmp_path / "chain.db")
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("INSERT INTO escrow (job_id, chain_id) VALUES ('job-wal', ?)", (CHAIN,))
+        writer.commit()
+        try:
+            assert (tmp_path / "chain.db-wal").exists(), "fixture must hold uncheckpointed WAL pages"
+            conn = tool._connect_ro(str(tmp_path / "chain.db"))
+            assert conn.execute("SELECT COUNT(*) FROM escrow").fetchone()[0] == 1
+            conn.close()
+        finally:
+            writer.close()
+
     def test_script_has_no_write_flags(self, tool):
         # argparse exposes exactly the three documented options.
         with pytest.raises(SystemExit) as exc:
@@ -399,3 +414,112 @@ class TestReconcile:
         out = capsys.readouterr().out
         assert code == 0
         assert "jobs=1" in out and "proof: CLEAN" in out
+
+
+class TestWritePlan:
+    """--plan: the write-phase dry run (SD-1). Lists classes only — the tool
+    still has no write path; the plan is what an operator-approved write
+    phase would do."""
+
+    def test_plan_lists_per_class_actions(self, tool, tmp_path, capsys):
+        db = _build_fixture(tmp_path / "chain.db")
+        code = tool.main(["--db", str(db), "--plan"])
+        out = capsys.readouterr().out
+        assert code == 1  # divergent state — proof red
+        assert "write-phase dry run" in out
+        # job-C has no escrow row → step-1 INSERT with derived values.
+        assert "INSERT" in out and "CCCC" in out
+        # job-D's conflict is field=amount — not the deferred-residue class,
+        # so it lands in manual review, never in the update list.
+        assert "manual review" in out and "DDDD" in out
+        # job-E's orphan row is report-only, never repaired.
+        assert "report-only" in out
+        assert "unchanged rows" in out
+
+    def test_plan_deferred_residue_is_the_only_update_class(self, tool, tmp_path):
+        """Stored billed-net while the deferred-residue leg also sealed:
+        released_amount stored < derived on release-shaped fields only —
+        the single conflict shape the write phase may UPDATE."""
+        conn = _mk_db(tmp_path / "chain.db")
+        for h in range(6):
+            _block(conn, h)
+        _tx(
+            conn,
+            1,
+            1,
+            "ESCROW_LOCK",
+            "job-RESIDUE1",
+            1000,
+            BUYER,
+            _escrow_addr("job-RESIDUE1"),
+            {"provider": PROVIDER},
+        )
+        _tx(conn, 2, 2, "ESCROW_RELEASE", "job-RESIDUE1", 975, PROVIDER2, PROVIDER)
+        _tx(conn, 3, 3, "ESCROW_RELEASE", "job-RESIDUE1", 25, PROVIDER2, PROVIDER)
+        _row(
+            conn,
+            "job-RESIDUE1",
+            buyer=_canon(BUYER),
+            provider=_canon(PROVIDER),
+            amount=1000,
+            status="released",
+            released_amount=975,
+            lock_tx_hash="0xtx0001",
+            release_tx_hash="0xtx0002",
+        )
+        for addr in (BUYER, PROVIDER, PROVIDER2):
+            _account(conn, _canon(addr))
+        _account(conn, _escrow_addr("job-RESIDUE1"), 0)
+        conn.commit()
+        conn.close()
+        db = tmp_path / "chain.db"
+        code = tool.main(["--db", str(db), "--plan", "--report", str(tmp_path / "r.json")])
+        plan = json.loads((tmp_path / "r.json").read_text())["write_plan"]
+        assert code == 1  # the conflict is still an R5 failure
+        assert plan["manual_review"] == []
+        assert len(plan["update"]) == 1
+        item = plan["update"][0]
+        assert item["class"] == "deferred-residue" and item["job_id"] == "job-RESIDUE1"
+        upd = {s["field"]: s for s in item["set"]}
+        assert upd["released_amount"]["stored"] == 975
+        assert upd["released_amount"]["derived"] == 1000
+
+    def test_plan_aborts_on_r2_double_settlement(self, tool, tmp_path, capsys):
+        """R2 is stop-and-escalate: the plan prints ABORT and no steps."""
+        conn = _mk_db(tmp_path / "chain.db")
+        for h in range(4):
+            _block(conn, h)
+        _tx(
+            conn,
+            1,
+            1,
+            "ESCROW_LOCK",
+            "job-DOUBLE01",
+            100,
+            BUYER,
+            _escrow_addr("job-DOUBLE01"),
+            {"provider": PROVIDER},
+        )
+        _tx(conn, 2, 2, "ESCROW_RELEASE", "job-DOUBLE01", 80, PROVIDER2, PROVIDER)
+        _tx(conn, 3, 3, "ESCROW_RELEASE", "job-DOUBLE01", 80, PROVIDER2, PROVIDER)
+        conn.commit()
+        conn.close()
+        db = tmp_path / "chain.db"
+        code = tool.main(["--db", str(db), "--plan", "--report", str(tmp_path / "r.json")])
+        out = capsys.readouterr().out
+        plan = json.loads((tmp_path / "r.json").read_text())["write_plan"]
+        assert code == 1
+        assert plan["abort"] and "R2" in plan["abort"][0]
+        assert "ABORT" in out
+        # An abort means no write steps are ever listed for this host.
+        assert "step 1" not in out
+
+    def test_plan_flag_changes_no_report_fields(self, tool, tmp_path):
+        """--plan is presentation only: the underlying report is identical."""
+        db = _build_fixture(tmp_path / "chain.db")
+        tool.main(["--db", str(db), "--report", str(tmp_path / "plain.json")])
+        tool.main(["--db", str(db), "--plan", "--report", str(tmp_path / "plan.json")])
+        plain = json.loads((tmp_path / "plain.json").read_text())
+        with_plan = json.loads((tmp_path / "plan.json").read_text())
+        assert with_plan.pop("write_plan")  # present and non-empty
+        assert with_plan == plain
