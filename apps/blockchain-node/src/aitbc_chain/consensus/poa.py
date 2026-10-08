@@ -1643,6 +1643,14 @@ class PoAProposer:
                     )
                     session.add(genesis)
                     try:
+                        # The RPC payload carries no canonical timestamp (the row gets
+                        # datetime.now()), so the claimed hash cannot recompute here;
+                        # only the allocations/state_root claim is checked.
+                        self._verify_genesis_claims(
+                            source="RPC bootstrap",
+                            genesis_state_root=genesis_state_root,
+                            allocations=genesis_allocations,
+                        )
                         session.commit()
                         self._logger.info(
                             "Successfully created genesis block from RPC bootstrap: hash=%s, state_root=%s",
@@ -1703,6 +1711,13 @@ class PoAProposer:
             )
             session.add(genesis)
             try:
+                self._verify_genesis_claims(
+                    source=f"genesis file (chain {self._config.chain_id})",
+                    genesis_state_root=genesis_state_root,
+                    allocations=genesis_allocations,
+                    genesis_hash=genesis_hash,
+                    timestamp=timestamp,
+                )
                 session.commit()
                 self._logger.info(
                     "Successfully created genesis block from genesis.json: hash=%s, state_root=%s, timestamp=%s",
@@ -1732,6 +1747,75 @@ class PoAProposer:
                     "bridge_state_root": genesis.bridge_state_root,
                 },
             )
+
+    def _verify_genesis_claims(
+        self,
+        *,
+        source: str,
+        genesis_state_root: str,
+        allocations: list[Any],
+        genesis_hash: str | None = None,
+        timestamp: datetime | None = None,
+    ) -> None:
+        """Refuse to bootstrap from genesis claims that do not recompute (V-5).
+
+        ``_ensure_genesis_block`` historically wrote whatever hash and state_root a
+        genesis file or the RPC bootstrap claimed. The fleet's genesis.json files
+        turned out to be abandoned pre-migration stubs carrying a placeholder
+        ``0x00`` root, and nothing noticed until a fresh node's first synced block
+        failed its parent_hash check. Recomputing the claims *before* anything is
+        committed turns that silent fork into a clear refusal at the moment it
+        happens — a RuntimeError here propagates out of ``_ensure_genesis_block``
+        and refuses startup instead of writing a genesis the chain will reject.
+
+        The root is rebuilt with ``StateManager.update_account`` over the
+        allocation set — the same code path ``compute_state_root_full`` uses —
+        evaluated before seeding, not after: ``_create_accounts_from_allocations``
+        commits internally, so a post-seed check could not roll back cleanly.
+        Duplicated allocation addresses are refused outright because the seeder is
+        first-wins while ``update_account`` is last-wins — a file carrying dupes
+        would claim a root the seeded state can never match.
+
+        The hash check runs only when ``timestamp`` is what the block row will
+        carry. The RPC bootstrap stamps ``datetime.now()`` instead of a
+        transported timestamp, so its claimed hash can never recompute locally;
+        callers pass no hash/timestamp for that path.
+        """
+        seen: set[str] = set()
+        for alloc in allocations or []:
+            addr = str(alloc.get("address", "")).strip().lower()
+            if addr in seen:
+                raise RuntimeError(f"Genesis {source} carries duplicated allocation address(es); refusing to bootstrap")
+            seen.add(addr)
+
+        from ..state.merkle_patricia_trie import StateManager
+
+        state = StateManager()
+        for alloc in allocations or []:
+            state.update_account(str(alloc["address"]), int(alloc["balance"]), int(alloc.get("nonce", 0)))
+        computed_root = "0x" + state.get_root().hex()
+        if computed_root.lower() != str(genesis_state_root).lower():
+            raise RuntimeError(
+                f"Genesis {source} state_root mismatch: claimed {str(genesis_state_root)[:10]}… recomputes to "
+                f"{computed_root[:10]}… over {len(seen)} allocation(s); refusing to bootstrap"
+            )
+
+        if genesis_hash is not None and timestamp is not None:
+            computed_hash = compute_block_hash(
+                self._config.chain_id,
+                0,
+                "0x00",
+                timestamp,
+                [],
+                "genesis",
+                state_root=genesis_state_root,
+                bridge_state_root=self._empty_bridge_root(),
+            )
+            if computed_hash.lower() != genesis_hash.lower():
+                raise RuntimeError(
+                    f"Genesis {source} hash mismatch: claimed {str(genesis_hash)[:10]}… recomputes to "
+                    f"{computed_hash[:10]}… over the fields the block row would carry; refusing to bootstrap"
+                )
 
     async def _initialize_genesis_allocations(self, session: Session) -> None:
         """Create Account entries from the genesis allocations file or RPC bootstrap."""
