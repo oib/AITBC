@@ -363,6 +363,10 @@ coverage is enforced by `tests/test_env_doc_coverage.py`.
 | `ESCROW_RELEASE_ADDRESS` / `escrow_settlement_authority` | Fallback escrow-settlement authority when the chain parameter is unset. |
 | `ESCROW_FEE_RECIPIENT` / `escrow_fee_recipient` | Env fallback for the v11 `ESCROW_FEE_SWEEP` destination when the chain parameter is unset — consensus fails closed without it. Designate the treasury address at deploy time. |
 | `ESCROW_FEE_SWEEP_ENABLED` | Signer-side switch (default off): when set, the escrow release route submits the `ESCROW_FEE_SWEEP` leg after a job's final settlement leg. |
+| `ESCROW_FEE_SWEEP_PASS_ENABLED` / `ESCROW_FEE_SWEEP_PASS_DRY_RUN` | Settlement-sweeper fee-sweep pass controls (default off): `_ENABLED` arms the pass — split from `ESCROW_FEE_SWEEP_ENABLED`, which also gates the release-route retry; `_DRY_RUN` logs and counts without submitting. |
+| `ESCROW_CHANGE_PASS_ENABLED` / `ESCROW_CHANGE_PASS_DRY_RUN` | Settlement-sweeper change-return pass controls (default off): `_ENABLED` arms it, `_DRY_RUN` logs and counts without submitting. Both unset → the pass is inert. |
+| `HUB_BLOCKCHAIN_RPC_URL` | The proposer's RPC URL for the settlement sweeper's pending-tx probe; conventionally carries the `/rpc` suffix (bare base URLs accepted). Set on every host — a host whose `HUB_RPC_URL`/`BLOCKCHAIN_RPC_URL` points at itself would probe its own mempool, not the proposer's. |
+| `GPU_RETIRED_IDS` | Comma-separated `gpu_id`s that `GPU_REGISTER`/`GPU_ALLOCATE` must not name — consensus-level since v10, so the value must be identical on every node (`fleet-config-check.sh` flags drift). |
 | `ESCROW_RELEASE_LOOKUP_LIMIT` | Max sealed rows scanned when resolving a release (default 10). |
 | `BRIDGE_RELEASE_AUTHORITY` | Fallback authority for `BRIDGE_RELEASE`/`BRIDGE_REFUND` signature checks (chain param takes precedence). |
 | `BOND_ESCROW_ADDRESS` / `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | Bond escrow, burn sink, and slash-authority addresses. |

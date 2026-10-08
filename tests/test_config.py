@@ -130,5 +130,8 @@ class TestProductionSecretValidation:
     def test_missing_secret_passes_length_check_in_production(self, monkeypatch):
         """Requiredness belongs to validate_production_settings, not the length check."""
         monkeypatch.setenv("NODE_ENV", "production")
+        # tests/agent/conftest.py sets a process-wide SECRET_KEY sentinel at
+        # collection time — the config would legitimately pick it up here.
+        monkeypatch.delenv("SECRET_KEY", raising=False)
         config = BaseAITBCConfig(environment="development")
         assert config.secret_key in (None, "")
