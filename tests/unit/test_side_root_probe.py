@@ -111,6 +111,32 @@ def test_connection_is_query_only(tool, tmp_path):
     conn.close()
 
 
+def test_wal_contents_visible(tool, tmp_path):
+    """Plain mode=ro must honor the WAL: a live node holds its newest commits
+    in chain.db-wal and immutable=1 would skip them. Keep a WAL writer open
+    (no checkpoint) and prove the probe sees the uncheckpointed row."""
+    db = tmp_path / "wal.db"
+    writer = sqlite3.connect(db)
+    writer.execute("PRAGMA journal_mode=WAL")
+    writer.executescript(
+        """
+        CREATE TABLE block (chain_id TEXT, height INTEGER, hash TEXT);
+        CREATE TABLE bond (chain_id TEXT, address TEXT, amount INTEGER, created_at TEXT);
+        INSERT INTO block VALUES ('ait-test', 7, 'h7');
+        """
+    )
+    writer.execute("INSERT INTO bond VALUES ('ait-test', 'addr1', 100, 'stamp')")
+    writer.commit()
+    try:
+        assert (tmp_path / "wal.db-wal").exists(), "fixture must hold uncheckpointed WAL pages"
+        conn = tool.connect_ro(str(db))
+        entry = tool.table_digest(conn, "bond")
+        conn.close()
+        assert entry["rows"] == 1  # the WAL row — invisible under immutable=1
+    finally:
+        writer.close()
+
+
 def test_output_prints_no_row_data(tool, tmp_path, capsys):
     db = _mk_db(tmp_path / "a.db", ROWS_A)
     assert tool.main(["--db", str(db)]) == 0

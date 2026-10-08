@@ -16,10 +16,11 @@ audit answers: *would a transaction-derived root already equal every sealed
 header's bridge_state_root, and where do today's service-local leaves read
 0:unknown?*
 
-READ-ONLY BY CONSTRUCTION: the only connection opened is SQLite
-``mode=ro&immutable=1`` plus ``PRAGMA query_only=ON``. Output is counts,
-verdicts and truncated hash references — never row contents, recipients or
-addresses.
+READ-ONLY BY CONSTRUCTION: the only connection opened is SQLite ``mode=ro``
+plus ``PRAGMA query_only=ON``. ``immutable=1`` is deliberately absent so a
+live database's WAL contents are honored instead of skipped. Output is
+counts, verdicts and truncated hash references — never row contents,
+recipients or addresses.
 
 Usage (on a node, so ``aitbc_chain`` resolves):
 
@@ -47,8 +48,11 @@ UNKNOWN_LEAF_TEMPLATE = "lock:{tx_hash}:0:unknown"
 
 
 def connect_ro(db_path: str) -> sqlite3.Connection:
-    """The ONLY connection this program creates: mode=ro&immutable=1 + query_only."""
-    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro&immutable=1"
+    """The ONLY connection this program creates: mode=ro + query_only.
+
+    Plain ``mode=ro`` (not ``immutable=1``) so the audit honors the WAL of a
+    live database and sees rows the node just committed."""
+    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.execute("PRAGMA query_only=ON")
     return conn
@@ -272,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
-    print("connection: sqlite file:?mode=ro&immutable=1 + PRAGMA query_only=ON (read-only by construction)")
+    print("connection: sqlite file:?mode=ro + PRAGMA query_only=ON (read-only, WAL-aware)")
     heads = ", ".join(f"{cid}@{h}" for cid, h in result["head"].items())
     print(f"head: {heads}")
     print(f"sealed BRIDGE_LOCKs: {result['locks_sealed']}")
