@@ -106,6 +106,24 @@ def test_state_root_recompute_against_fixture(tool, tmp_path):
     assert m["state_root"]["match"] is False
 
 
+def test_connect_ro_honors_wal(tool, tmp_path):
+    """Plain mode=ro (not immutable=1) must see rows living only in the WAL —
+    a live node's newest commits sit there uncheckpointed."""
+    db = tmp_path / "wal.db"
+    writer = sqlite3.connect(db)
+    writer.execute("PRAGMA journal_mode=WAL")
+    writer.executescript("CREATE TABLE block (chain_id TEXT, height INTEGER, hash TEXT, state_root TEXT);")
+    writer.execute("INSERT INTO block VALUES (?, ?, ?, ?)", (CHAIN, 9, "hwal", "0xr"))
+    writer.commit()
+    try:
+        assert (tmp_path / "wal.db-wal").exists(), "fixture must hold uncheckpointed WAL pages"
+        conn = tool.connect_ro(str(db))
+        assert conn.execute("SELECT COUNT(*) FROM block").fetchone()[0] == 1
+        conn.close()
+    finally:
+        writer.close()
+
+
 def test_connection_is_query_only(tool, tmp_path):
     db = _mk_db(tmp_path / "a.db")
     conn = tool.connect_ro(str(db))
