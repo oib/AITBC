@@ -511,8 +511,11 @@ class TestWritePlan:
         assert code == 1
         assert plan["abort"] and "R2" in plan["abort"][0]
         assert "ABORT" in out
-        # An abort means no write steps are ever listed for this host.
-        assert "step 1" not in out
+        # The classes still print — the operator reviews them — but the
+        # output must state nothing may run while the abort stands.
+        assert "nothing may run" in out
+        assert "step 1" in out  # the missing R2 job's row would be an insert
+        assert len(plan["insert"]) == 1
 
     def test_plan_flag_changes_no_report_fields(self, tool, tmp_path):
         """--plan is presentation only: the underlying report is identical."""
