@@ -1,0 +1,171 @@
+"""Tests for scripts/ops/bridge-leaf-audit.py (V-4 recompute audit).
+
+Fixtures are tiny chain.db files carrying just the columns the audit selects:
+``transaction`` (chain_id, tx_hash, block_height, payload, envelope, type),
+``cross_chain_transfer`` and ``block``. The cases mirror the three real-world
+leaf shapes: transfer row present, row missing (0:unknown), and a GAP-47
+block-scoped lock whose payload is empty so the envelope supplies the body.
+"""
+
+import importlib.util
+import json
+import sqlite3
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = REPO_ROOT / "scripts" / "ops" / "bridge-leaf-audit.py"
+CHAIN = "ait-test"
+
+
+def _load():
+    spec = importlib.util.spec_from_file_location("bridge_leaf_audit", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["bridge_leaf_audit"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def tool():
+    return _load()
+
+
+def _mk_db(path: Path, rows: list[tuple]) -> Path:
+    """rows: (tx_hash, height, payload_dict, envelope_dict, transfer_or_None)
+    transfer_or_None: (transfer_id, amount, target_chain) for the local row."""
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE block (chain_id TEXT, height INTEGER, hash TEXT,
+                            bridge_state_root TEXT);
+        CREATE TABLE "transaction" (
+            chain_id TEXT, tx_hash TEXT, block_height INTEGER,
+            payload TEXT, envelope TEXT, type TEXT);
+        CREATE TABLE cross_chain_transfer (
+            transfer_id TEXT, source_chain TEXT, amount INTEGER,
+            target_chain TEXT);
+        """
+    )
+    for tx_hash, height, payload, envelope, transfer in rows:
+        conn.execute(
+            'INSERT INTO "transaction" VALUES (?, ?, ?, ?, ?, ?)',
+            (CHAIN, tx_hash, height, json.dumps(payload), json.dumps(envelope) if envelope else None, "BRIDGE_LOCK"),
+        )
+        conn.execute(
+            "INSERT INTO block (chain_id, height, hash, bridge_state_root) VALUES (?, ?, ?, ?)",
+            (CHAIN, height, "h" + str(height), None),
+        )
+        if transfer is not None:
+            conn.execute(
+                "INSERT INTO cross_chain_transfer VALUES (?, ?, ?, ?)",
+                (transfer[0], CHAIN, transfer[1], transfer[2]),
+            )
+    conn.commit()
+    conn.close()
+    return path
+
+
+def test_leaf_with_row_agrees(tool):
+    cur, src = tool.current_leaf("txhash1", ("txhash1", 500, "ait-dest"))
+    assert src == "row" and cur == "lock:txhash1:500:ait-dest"
+    der, dsrc = tool.derived_leaf(
+        "txhash1",
+        {"transfer_id": "txhash1", "amount": 500, "target_chain": "ait-dest"},
+        {},
+    )
+    assert dsrc == "payload" and der == cur
+
+
+def test_missing_row_leaf(tool):
+    cur, src = tool.current_leaf("txhash2", None)
+    assert src == "missing-row" and cur == "lock:txhash2:0:unknown"
+    der, dsrc = tool.derived_leaf(
+        "txhash2",
+        {"transfer_id": "txhash2", "amount": 7, "target_chain": "ait-dest"},
+        {},
+    )
+    # Derived is still available — this is the divergence V-4 removes.
+    assert der == "lock:txhash2:7:ait-dest" and der != cur
+
+
+def test_envelope_fallback_gap47(tool):
+    """Empty payload (block-scoped lock) → envelope supplies the body."""
+    der, src = tool.derived_leaf(
+        "txhash3",
+        {},
+        {"transfer_id": "txhash3", "amount": 900, "target_chain": "ait-dest"},
+    )
+    assert src == "envelope" and der == "lock:txhash3:900:ait-dest"
+
+
+def test_unreadable_lock(tool):
+    der, src = tool.derived_leaf("txhash4", {}, {})
+    assert der is None and src == "unreadable"
+
+
+def test_audit_counts(tool, tmp_path):
+    db = _mk_db(
+        tmp_path / "a.db",
+        [
+            ("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d")),
+            ("bb22", 1, {"transfer_id": "bb22", "amount": 6, "target_chain": "d"}, None, None),
+            ("cc33", 2, {}, {"transfer_id": "cc33", "amount": 7, "target_chain": "d"}, ("cc33", 7, "d")),
+        ],
+    )
+    conn = tool.connect_ro(str(db))
+    res = tool.audit(conn, use_trie=False)
+    conn.close()
+    assert res["locks_sealed"] == 3
+    assert res["current_leaf"] == {"row": 2, "missing-row": 1}
+    assert res["derived_leaf"] == {"payload": 2, "envelope": 1, "unreadable": 0}
+    assert res["leaves"]["agree"] == 2
+    assert res["leaves"]["differ"] == 1
+    assert res["leaves"]["differ_only_missing_row"] == 1
+
+
+def test_root_rebuild_matches_consensus_encoding(tool, tmp_path):
+    """Rebuild the same root consensus produces and compare against a header
+    value computed with the real MerklePatriciaTrie."""
+    mpt = pytest.importorskip("aitbc_chain.state.merkle_patricia_trie")
+    leaves = {"aa11": "lock:aa11:5:d", "bb22": "lock:bb22:6:d"}
+    trie = mpt.MerklePatriciaTrie()
+    for k, v in leaves.items():
+        trie.put(k.encode(), v.encode())
+    expected_root = "0x" + trie.get_root().hex()
+
+    db = _mk_db(
+        tmp_path / "a.db",
+        [
+            ("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d")),
+            ("bb22", 1, {"transfer_id": "bb22", "amount": 6, "target_chain": "d"}, None, ("bb22", 6, "d")),
+        ],
+    )
+    conn = tool.connect_ro(str(db))
+    res = tool.audit(conn)
+    conn.close()
+    assert res["trie_rebuilt"] is True
+    assert res["blocks"][0]["derived_root"] == expected_root
+    # Header absent (bridge_state_root NULL) → counted, not a mismatch.
+    assert res["root_verdicts"]["header_absent"] == 1
+
+
+def test_no_row_data_in_output(tool, tmp_path, capsys):
+    db = _mk_db(
+        tmp_path / "a.db",
+        [("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d"))],
+    )
+    assert tool.main(["--db", str(db), "--no-trie"]) == 0
+    out = capsys.readouterr().out
+    assert "aa11" not in out  # even truncated refs only appear when breaking
+    assert "sealed BRIDGE_LOCKs: 1" in out
+
+
+def test_connection_is_query_only(tool, tmp_path):
+    db = _mk_db(tmp_path / "a.db", [])
+    conn = tool.connect_ro(str(db))
+    with pytest.raises(sqlite3.OperationalError):
+        conn.execute("INSERT INTO cross_chain_transfer VALUES ('x','y',1,'z')")
+    conn.close()
