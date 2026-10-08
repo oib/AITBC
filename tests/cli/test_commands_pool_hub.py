@@ -204,9 +204,7 @@ class TestPoolHubCommands:
         result = runner.invoke(pool_hub, ["sla", "--violations", "--miner", "miner-1", "--resolved"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once_with(
-            "/v1/sla/violations", params={"resolved": "true", "miner_id": "miner-1"}
-        )
+        mock_client.get.assert_called_once_with("/v1/sla/violations", params={"resolved": "true", "miner_id": "miner-1"})
 
 
 if __name__ == "__main__":

@@ -238,16 +238,12 @@ class TestPushPathForkChoice:
         # different validator — rejected even though its key would win.
         monkeypatch.setattr(sync_settings, "multi_validator_consensus_enabled", True)
         monkeypatch.setattr(sync_settings, "bridge_block_signature_required", False)
-        monkeypatch.setattr(
-            sync_settings, "validator_set", json.dumps([{"address": VAL_A}, {"address": VAL_B}])
-        )
+        monkeypatch.setattr(sync_settings, "validator_set", json.dumps([{"address": VAL_A}, {"address": VAL_B}]))
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160), proposer=VAL_A)
         _store(session_factory, ours4)
         # height 4 round 0 belongs to sorted[0] = VAL_A; rival claims VAL_B
-        rival = _mk_block(
-            4, blocks[-1]["hash"], T0 + timedelta(seconds=95), proposer=VAL_B, hash_salt="rival"
-        )
+        rival = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), proposer=VAL_B, hash_salt="rival")
 
         result = _sync(session_factory).import_block(rival, transactions=[])
 
@@ -259,9 +255,7 @@ class TestPushPathForkChoice:
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
         _store(session_factory, ours4)
-        rival = _mk_block(
-            4, blocks[-1]["hash"], datetime.now(UTC) + timedelta(seconds=3600), hash_salt="rival"
-        )
+        rival = _mk_block(4, blocks[-1]["hash"], datetime.now(UTC) + timedelta(seconds=3600), hash_salt="rival")
 
         result = _sync(session_factory).import_block(rival, transactions=[])
 

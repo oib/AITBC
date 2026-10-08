@@ -12,9 +12,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-_spec = importlib.util.spec_from_file_location(
-    "aitbc_ffmpeg_main", Path(__file__).resolve().parents[1] / "main.py"
-)
+_spec = importlib.util.spec_from_file_location("aitbc_ffmpeg_main", Path(__file__).resolve().parents[1] / "main.py")
 ffmpeg_main = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(ffmpeg_main)
