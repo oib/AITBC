@@ -968,6 +968,10 @@ GOSSIP_BACKEND=broadcast
 DEFAULT_PEER_RPC_URL=http://127.0.0.1:8202
 BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true
 SYNC_STATE_ROOT_VALIDATION_ENABLED=true
+# Bridge intake: explicit per-lock cap (1,000 AIT). Production refuses
+# locks when this is unset or 0 (fail-closed) — keep it set.
+BRIDGE_LOCKS_PAUSED=false
+BRIDGE_MAX_LOCK_AMOUNT=36000000000
 EOF
         log "Created /etc/aitbc/blockchain.env with unique IDs"
     fi

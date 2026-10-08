@@ -12,6 +12,8 @@ from typing import Any
 from sqlalchemy.orm import raiseload
 from sqlmodel import select
 
+from aitbc.utils.env import is_production
+
 from ..config import settings
 from ..logger import get_logger
 from ..models import Account, Block, BridgeBlockHeader, CrossChainTransfer, Transaction
@@ -33,6 +35,32 @@ class BridgeTransferMixin(BridgeBase):
     # Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     BRIDGE_FEE_BASIS_POINTS = 10
+
+    def _enforce_lock_cap(self, amount: int) -> None:
+        """Per-lock cap gate for ``initiate_transfer``.
+
+        Fail-closed (BR-3): when locks are enabled and
+        ``bridge_max_lock_amount`` is unset or 0 on a production node
+        (``ENVIRONMENT``/``APP_ENV``/``NODE_ENV``), the lock is refused with
+        an explicit error and a clear log line — an uncapped production node
+        can never lock by accident. Development and test environments keep
+        the historical "0 = unlimited" behaviour. With a positive cap the
+        over-cap lock is refused in every environment.
+        """
+        max_amount = getattr(settings, "bridge_max_lock_amount", 0)
+        if not max_amount:
+            if is_production():
+                logger.error(
+                    "bridge lock refused: BRIDGE_MAX_LOCK_AMOUNT is unset or 0 "
+                    "while locks are enabled in production (fail-closed)"
+                )
+                raise ValueError(
+                    "Bridge locks refused: BRIDGE_MAX_LOCK_AMOUNT is unset or 0; "
+                    "production nodes must set an explicit per-lock cap"
+                )
+            return
+        if amount > max_amount:
+            raise ValueError(f"Amount {amount} exceeds bridge max lock amount {max_amount}")
 
     def _sign_bridge_credit(self, credit: dict[str, Any], tx_hash: str, payload: dict[str, Any] | None = None) -> None:
         """Attach the bridge authority signature to an issued credit (in place).
@@ -88,9 +116,7 @@ class BridgeTransferMixin(BridgeBase):
         if release_amount is not None and release_amount < 0:
             raise ValueError("release_amount must be non-negative")
 
-        max_amount = getattr(settings, "bridge_max_lock_amount", 0)
-        if max_amount and amount > max_amount:
-            raise ValueError(f"Amount {amount} exceeds bridge max lock amount {max_amount}")
+        self._enforce_lock_cap(amount)
 
         # v0.24.1: bridge locks must be initiated on the node that produces
         # the source chain. Initiating a lock on a follower would update the
