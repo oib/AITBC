@@ -93,7 +93,9 @@ class TestOfferDisableIsSigned:
         monkeypatch.setattr(offers, "get_config", lambda: _Config())
         monkeypatch.setattr(offers, "get_chain_id", lambda: self.CHAIN_ID)
         monkeypatch.setattr(offers, "AITBCHTTPClient", _Client)
-        monkeypatch.setattr(offers, "get_market_wallet", lambda ctx, require_private_key=False: (signer.address, signer.key.hex(), "shop"))
+        monkeypatch.setattr(
+            offers, "get_market_wallet", lambda ctx, require_private_key=False: (signer.address, signer.key.hex(), "shop")
+        )
         return offers, signer, sent
 
     def test_the_removal_carries_a_proof_the_service_accepts(self, wired):
@@ -120,7 +122,9 @@ class TestOfferDisableIsSigned:
         offers, _, sent = wired
         CliRunner().invoke(offers.offer_disable, ["--plugin-id", "ipfs-ipfs-host"], obj={})
 
-        error, _ = verify_offer_registration({"plugin_id": "ipfs-ipfs-host", **sent["params"]}, self.CHAIN_ID, action="register")
+        error, _ = verify_offer_registration(
+            {"plugin_id": "ipfs-ipfs-host", **sent["params"]}, self.CHAIN_ID, action="register"
+        )
         assert error is not None
 
     def test_without_a_wallet_key_it_refuses_instead_of_sending_unsigned(self, wired, monkeypatch):

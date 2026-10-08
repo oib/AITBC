@@ -686,10 +686,14 @@ class TestClientProofChainVerification:
         )
 
         lock = build_lock_proof("src", "0xl", 100, "alice", "bob", 10, "0xb10", timestamp=1.0)
-        ver = build_verification_proof("dst", "0xv", "e", 20, "0xb20", previous_proof_hash=compute_proof_hash(lock), timestamp=2.0)
+        ver = build_verification_proof(
+            "dst", "0xv", "e", 20, "0xb20", previous_proof_hash=compute_proof_hash(lock), timestamp=2.0
+        )
         exe = build_execution_proof("dst", "0xx", "e", 21, "0xb21", previous_proof_hash=compute_proof_hash(ver), timestamp=3.0)
         rel = build_release_proof("dst", "0xr", "e", 22, "0xb22", previous_proof_hash=compute_proof_hash(exe), timestamp=4.0)
-        stl = build_settlement_proof("src", "0xs", "e", 11, "0xb11", previous_proof_hash=compute_proof_hash(rel), timestamp=5.0)
+        stl = build_settlement_proof(
+            "src", "0xs", "e", 11, "0xb11", previous_proof_hash=compute_proof_hash(rel), timestamp=5.0
+        )
         return [self._wire(p) for p in (lock, ver, exe, rel, stl)]
 
     async def test_valid_chain_verifies(self):

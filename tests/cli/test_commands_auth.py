@@ -136,7 +136,7 @@ class TestAuthCommands:
         non_expiring_token = f"{_b64({'alg': 'none'})}.{_b64({'sub': 'user-1', 'role': 'admin'})}."
 
         store = tmp_path / "creds.json"
-        store.write_text('{}')
+        store.write_text("{}")
         mgr = AuthManager(store_path=store)
 
         mock_get_credential.return_value = non_expiring_token
