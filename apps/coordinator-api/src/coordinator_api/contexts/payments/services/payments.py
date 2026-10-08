@@ -271,7 +271,7 @@ def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> 
     if receipt.get("computation_correct") is not True:
         return False
     zk_status = receipt.get("zk_status")
-    if zk_status in ("verified", "not_required", "tee_attested"):
+    if zk_status in ("verified", "not_required"):
         return True
     return _tee_attests_computation(receipt, job)
 
@@ -1344,7 +1344,34 @@ class PaymentService:
         payment_id: str,
         job_id: str,
         release_data: dict[str, Any],
-    ) -> None:
+    ) -> bool:
+        # S-10: a release answer carrying no settlement hash is a claim without
+        # proof -- stamping "released" here is what produced a false-paid row
+        # for a job the chain never settled. Mark the payment settlement_failed
+        # instead: it leaves every sweeper's held set (no automatic re-release)
+        # but stays inside REFUNDABLE_STATES, so the manual refund path and the
+        # admin retry-release route still reach it. The attempt was already
+        # counted by release_payment -- unlike a 425 deferral, this answer is
+        # definitive and is not refunded from the retry budget.
+        tx_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
+        if not tx_hash:
+            meta = dict(payment.meta_data or {})
+            meta[META_RELEASE_BLOCKED_AT] = datetime.now(UTC).isoformat()
+            payment.meta_data = meta
+            payment.status = SETTLEMENT_FAILED
+            payment.updated_at = datetime.now(UTC)
+            if job is not None:
+                job.payment_status = SETTLEMENT_FAILED
+                self.session.add(job)
+            self.session.add(payment)
+            self.session.commit()
+            logger.critical(
+                "Escrow release for job %s payment %s returned no settlement hash; "
+                "marked settlement_failed -- verify the chain before any manual settle",
+                job_id,
+                payment_id,
+            )
+            return False
         # Prefer the settlement time the chain reports. On a reconciliation
         # retry that is the original settlement, not this retry, so the payment
         # keeps the time the provider was actually paid.
@@ -1352,36 +1379,11 @@ class PaymentService:
         payment.status = "released"
         payment.released_at = settled_at
         payment.updated_at = datetime.now(UTC)
-        payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
+        payment.transaction_hash = tx_hash
         if job is not None:
             job.payment_status = payment.status
             self.session.add(job)
-        reinvest_stake_id = release_data.get("reinvest_stake_id")
-        reinvest_amount = release_data.get("reinvest_amount")
-        if reinvest_stake_id or reinvest_amount:
-            meta = dict(payment.meta_data or {})
-            if reinvest_stake_id:
-                meta["reinvest_stake_id"] = str(reinvest_stake_id)
-            if reinvest_amount:
-                meta["reinvest_amount"] = str(reinvest_amount)
-            meta["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
-            payment.meta_data = meta
-            # Mirror onto the denormalised job receipt so the JobView and
-            # the CLI can show it. The JobReceipt payload is the signed
-            # record and is not touched; job.receipt is only a display
-            # copy. Doing it here rather than in the miner-result router
-            # is what matters: the release may equally come from the
-            # acceptance sweeper, the client-accept route, the admin
-            # retry, or the reconciler, and none of those ran the router
-            # helper (GAP-43).
-            if job.receipt:
-                receipt_with_reinvest = dict(job.receipt)
-                receipt_with_reinvest["reinvest_status"] = meta["reinvest_status"]
-                if reinvest_stake_id:
-                    receipt_with_reinvest["reinvest_stake_id"] = meta["reinvest_stake_id"]
-                if reinvest_amount:
-                    receipt_with_reinvest["reinvest_amount"] = meta["reinvest_amount"]
-                job.receipt = receipt_with_reinvest
+        self._mirror_reinvest_on_receipt(payment, job, release_data)
         escrow = self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
         if escrow:
             escrow.is_released = True
@@ -1389,6 +1391,41 @@ class PaymentService:
         self._release_gpu_if_rental(job)
         self.session.commit()
         logger.info("Released payment %s for job %s", payment_id, job_id)
+        return True
+
+    def _mirror_reinvest_on_receipt(
+        self,
+        payment: JobPayment,
+        job: Job,
+        release_data: dict[str, Any],
+    ) -> None:
+        reinvest_stake_id = release_data.get("reinvest_stake_id")
+        reinvest_amount = release_data.get("reinvest_amount")
+        if not reinvest_stake_id and not reinvest_amount:
+            return
+        meta = dict(payment.meta_data or {})
+        if reinvest_stake_id:
+            meta["reinvest_stake_id"] = str(reinvest_stake_id)
+        if reinvest_amount:
+            meta["reinvest_amount"] = str(reinvest_amount)
+        meta["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
+        payment.meta_data = meta
+        # Mirror onto the denormalised job receipt so the JobView and
+        # the CLI can show it. The JobReceipt payload is the signed
+        # record and is not touched; job.receipt is only a display
+        # copy. Doing it here rather than in the miner-result router
+        # is what matters: the release may equally come from the
+        # acceptance sweeper, the client-accept route, the admin
+        # retry, or the reconciler, and none of those ran the router
+        # helper (GAP-43).
+        if job.receipt:
+            receipt_with_reinvest = dict(job.receipt)
+            receipt_with_reinvest["reinvest_status"] = meta["reinvest_status"]
+            if reinvest_stake_id:
+                receipt_with_reinvest["reinvest_stake_id"] = meta["reinvest_stake_id"]
+            if reinvest_amount:
+                receipt_with_reinvest["reinvest_amount"] = meta["reinvest_amount"]
+            job.receipt = receipt_with_reinvest
 
     async def _submit_release(
         self,
@@ -1422,15 +1459,10 @@ class PaymentService:
                     payment_id,
                 )
                 return False
-            if not release_data.get("tx_hash"):
-                logger.error(
-                    "Escrow release for job %s succeeded without a settlement hash; payment %s stays escrowed",
-                    job_id,
-                    payment_id,
-                )
-                return False
-            self._record_release_outcome(payment, job, payment_id, job_id, release_data)
-            return True
+            # A response claiming settlement without a hash is a claim without
+            # proof (S-10): _record_release_outcome records it as
+            # settlement_failed, never released, and returns False.
+            return self._record_release_outcome(payment, job, payment_id, job_id, release_data)
         except NetworkError as e:
             status_error = _find_http_status_error(e)
             if status_error is not None and status_error.response.status_code == 425:
