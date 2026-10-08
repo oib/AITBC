@@ -81,6 +81,22 @@ chmod 600 /etc/aitbc/blockchain-secrets.env
 
 If your `node_id` is already enrolled (`409`), pick another or ask the operator to revoke the old key (`scripts/ops/manage-peer-keys.sh`) — a node can then re-join.
 
+**Verify `genesis.json` before first start.** The node recomputes the file's
+allocation state root and block hash at bootstrap and **refuses to start on a
+mismatch** — a stale or corrupted file can no longer pass silently. You can
+pre-check the downloaded file yourself:
+
+```bash
+cd /opt/aitbc
+PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/verify-genesis-root.py /etc/aitbc/genesis.json
+```
+
+`PASS` means the file is self-consistent. `FAIL` means the hub is serving a
+known-stale placeholder (the allocation set behind the original block 0 is
+unavailable): ask the operator for a signed snapshot manifest and bootstrap via
+`scripts/ops/reset-follower-to-snapshot.sh` — a checkpoint DB transplant is the
+working join path until a corrected genesis is published.
+
 **There is no endpoint for `blockchain-secrets.env`, and there must not be.** It holds live
 credentials. Request them from the hub operator over an authenticated channel **only** if you
 also run `aitbc-wallet`, `aitbc-agent-coordinator`, or `aitbc-blockchain-event-bridge`, and
