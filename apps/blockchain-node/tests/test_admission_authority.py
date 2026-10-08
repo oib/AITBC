@@ -26,7 +26,7 @@ from aitbc_chain.base_models import Account, ChainParameter, Transaction
 from aitbc_chain.config import settings
 from aitbc_chain.database import chain_metadata
 from aitbc_chain.rpc.transactions import _validate_transaction_admission
-from aitbc_chain.state.admission_authority import AUTHORITY_GATED_TYPES, sender_authority_error
+from aitbc_chain.state.admission_authority import AUTHORITY_GATED_TYPES, AUTHORITY_OPEN_TX_TYPES, sender_authority_error
 from aitbc_chain.state.state_transition import StateTransition
 
 CHAIN = "ait-test"
@@ -309,3 +309,76 @@ def test_helper_never_disagrees_with_validate_transaction(
         assert (ok, message) == (False, mine)
     else:
         assert ok or not any(m in message for m in AUTHORITY_MESSAGES), message
+
+
+# --- V-8 enumeration: every transaction type has a sender-authority rule -----
+
+
+def test_every_known_type_has_a_sender_authority_class() -> None:
+    """The supported-type registry (V9_METRIC_KNOWN_TX_TYPES, whose
+    completeness vs the apply path is already tested) must partition
+    exactly into authority-gated, reserved-for-internal-issuance and open —
+    a type added to the chain without a class fails here."""
+    from aitbc_chain.rpc.utils import PREREGISTERED_CREDIT_TX_TYPES
+    from aitbc_chain.state.v9_policy import V9_METRIC_KNOWN_TX_TYPES
+
+    seen: dict[str, str] = {}
+    for label, members in (
+        ("gated", AUTHORITY_GATED_TYPES),
+        ("reserved", PREREGISTERED_CREDIT_TX_TYPES),
+        ("open", AUTHORITY_OPEN_TX_TYPES),
+    ):
+        for tx_type in members:
+            assert tx_type not in seen, f"{tx_type} classified as both {seen[tx_type]} and {label}"
+            seen[tx_type] = label
+    unclassified = sorted(V9_METRIC_KNOWN_TX_TYPES - set(seen))
+    unknown = sorted(set(seen) - V9_METRIC_KNOWN_TX_TYPES)
+    assert not unclassified, f"types with no sender-authority class: {unclassified}"
+    assert not unknown, f"classified names that are not transaction types: {unknown}"
+
+
+@pytest.mark.parametrize("tx_type", sorted(AUTHORITY_GATED_TYPES))
+def test_gated_type_actually_refuses_a_stranger(session, tx_type) -> None:
+    """'Has a rule' means the door refuses: with the authority parameters
+    unset every gated type fails closed at armed versions — a rule that only
+    exists on paper (never fires) would show up as None here."""
+    error = sender_authority_error(
+        session,
+        CHAIN,
+        tx_type,
+        STRANGER,
+        block_version=12,
+        block_height=1,
+        recipient=STRANGER,
+        payload={},
+        fee=DEFAULT_TX_FEE_UNITS,
+    )
+    assert error is not None
+
+
+@pytest.mark.parametrize("block_version", [1, 5, 9, 12])
+@pytest.mark.parametrize("tx_type", sorted(AUTHORITY_OPEN_TX_TYPES))
+def test_open_types_carry_no_sender_gate(session, tx_type, block_version) -> None:
+    """Open = any funded sender: the authority helper must return None for a
+    stranger at every armed version (other rules — signature, balance,
+    version gates, payload authority — are enforced elsewhere)."""
+    error = sender_authority_error(
+        session,
+        CHAIN,
+        tx_type,
+        STRANGER,
+        block_version=block_version,
+        block_height=1,
+        recipient=STRANGER,
+        payload={},
+        fee=0,
+    )
+    assert error is None, error
+
+
+@pytest.mark.parametrize("tx_type", ["BRIDGE_RELEASE", "BRIDGE_REFUND"])
+def test_reserved_types_refuse_the_door_outright(tx_type) -> None:
+    """Reserved-for-internal-issuance is the strongest sender rule there is:
+    the admission door refuses before sender, balance or nonce checks."""
+    with pytest.raises(ValueError, match="reserved for internal issuance"):
+        _validate_transaction_admission({"type": tx_type}, None)
