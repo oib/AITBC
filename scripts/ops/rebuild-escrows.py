@@ -649,7 +649,10 @@ def _print_write_plan(plan: dict[str, Any]) -> None:
             print(f"    job={_short(item['job_id'])} {sets}")
     print(f"  report-only (never repaired by the tool): {len(plan['report_only'])} item(s)")
     for item in plan["report_only"]:
-        print(f"    {item}")
+        if "job_id" in item:
+            print(f"    job={_short(item['job_id'])} chain={item['chain_id']} class={item['class']}")
+        else:
+            print(f"    {item}")
     print(f"  unchanged rows verified identical to chain derivation: {plan['unchanged']}")
     print("  order on approval: snapshot file, class-1 inserts, class-2 updates, re-run this proof;")
     print("  rollback is restoring the snapshot. Host order per design: node2 -> node0 -> node1 -> hub1 -> hub.")
