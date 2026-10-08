@@ -144,3 +144,101 @@ def test_output_prints_no_row_data(tool, tmp_path, capsys):
     assert "addr1" not in out and "addr2" not in out
     assert "bond" in out and "digest=" in out
     assert "candidate fingerprint:" in out
+
+
+# --- V-3 activation-rule fixtures (--canonical) -------------------------------
+
+
+def _mk_dual_writer_db(path: Path, *, address: str, registered_at: str, locked_until: str | None = None) -> Path:
+    """Fixture shaped like the dual-writer tables: 0x address columns plus
+    locally-stamped *_at timestamps."""
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE block (chain_id TEXT, height INTEGER, hash TEXT);
+        CREATE TABLE gpu_registration (
+            id INTEGER PRIMARY KEY, chain_id TEXT, gpu_id TEXT, miner_id TEXT,
+            registered_by TEXT, registered_at TEXT, status TEXT, updated_at TEXT
+        );
+        CREATE TABLE stake (
+            id INTEGER PRIMARY KEY, chain_id TEXT, address TEXT, amount INTEGER,
+            locked_until TEXT, created_at TEXT, updated_at TEXT, status TEXT
+        );
+        INSERT INTO block VALUES ('ait-test', 7, 'h7');
+        """
+    )
+    conn.execute(
+        "INSERT INTO gpu_registration VALUES (1, 'ait-test', 'gpu1', ?, ?, ?, 'active', 'u1')",
+        (address, address, registered_at),
+    )
+    conn.execute(
+        "INSERT INTO stake VALUES (1, 'ait-test', ?, 100, ?, 'c1', 'u1', 'locked')",
+        (address, locked_until),
+    )
+    conn.commit()
+    conn.close()
+    return path
+
+
+ADDR_LOWER = "0xaabbccddee0011223344556677889900aabbcc"
+ADDR_MIXED = "0xaabbccDDEE0011223344556677889900AABBcc"
+
+
+def test_canonical_address_case_ignored(tool, tmp_path):
+    """Hub stores stake.address checksummed, followers lowercase — under the
+    activation rules the encodings are the same logical value."""
+    db1 = _mk_dual_writer_db(tmp_path / "a.db", address=ADDR_LOWER, registered_at="t1")
+    db2 = _mk_dual_writer_db(tmp_path / "b.db", address=ADDR_MIXED, registered_at="t1")
+    d1 = tool.table_digest(tool.connect_ro(str(db1)), "stake", canonical=True)
+    d2 = tool.table_digest(tool.connect_ro(str(db2)), "stake", canonical=True)
+    assert d1["digest"] == d2["digest"]
+    # …and raw mode still sees the divergence — canonical is opt-in.
+    r1 = tool.table_digest(tool.connect_ro(str(db1)), "stake")
+    r2 = tool.table_digest(tool.connect_ro(str(db2)), "stake")
+    assert r1["digest"] != r2["digest"]
+
+
+def test_canonical_star_at_columns_excluded(tool, tmp_path):
+    """registered_at/allocated_at/completed_at diverge legitimately per host;
+    the *_at rule must exclude them all, not just created_at/updated_at."""
+    db1 = _mk_dual_writer_db(tmp_path / "a.db", address=ADDR_LOWER, registered_at="2026-01-01")
+    db2 = _mk_dual_writer_db(tmp_path / "b.db", address=ADDR_LOWER, registered_at="2026-10-08")
+    d1 = tool.table_digest(tool.connect_ro(str(db1)), "gpu_registration", canonical=True)
+    d2 = tool.table_digest(tool.connect_ro(str(db2)), "gpu_registration", canonical=True)
+    assert d1["digest"] == d2["digest"]
+    assert "registered_at" in d1["skipped_cols"] and "updated_at" in d1["skipped_cols"]
+
+
+def test_canonical_real_divergence_still_detected(tool, tmp_path):
+    """Canonicalization is not a blanket suppressor: a semantically different
+    row (different amount) must still diverge."""
+    db1 = _mk_dual_writer_db(tmp_path / "a.db", address=ADDR_LOWER, registered_at="t1")
+    db2 = _mk_dual_writer_db(tmp_path / "b.db", address=ADDR_LOWER, registered_at="t1")
+    conn = sqlite3.connect(db2)
+    conn.execute("UPDATE stake SET amount = 200")
+    conn.commit()
+    conn.close()
+    d1 = tool.table_digest(tool.connect_ro(str(db1)), "stake", canonical=True)
+    d2 = tool.table_digest(tool.connect_ro(str(db2)), "stake", canonical=True)
+    assert d1["digest"] != d2["digest"]
+
+
+def test_canonical_collect_partitions_sets(tool, tmp_path):
+    """--canonical partitions candidates into committed set (10 tables) and
+    the 3 probationary dual-writer tables; fingerprint covers committed only."""
+    db = _mk_dual_writer_db(tmp_path / "a.db", address=ADDR_LOWER, registered_at="t1")
+    conn = tool.connect_ro(str(db))
+    result = tool.collect(conn, canonical=True)
+    conn.close()
+    assert set(result["committed_set"]) == set(tool.RESTRICTED_TABLES)
+    assert set(result["canonicalized"]) == set(tool.CANONICALIZED_TABLES)
+    assert not result["candidates"]
+    assert result["canonicalized"]["stake"]["digest"]
+    assert "candidate fingerprint" not in result or result["candidate_fingerprint"]
+
+
+def test_canonical_sets_cover_candidates(tool):
+    """The classification must be exhaustive: every apply-written candidate
+    lands in exactly one set, so a new table cannot be silently half-committed."""
+    assert set(tool.RESTRICTED_TABLES).isdisjoint(tool.CANONICALIZED_TABLES)
+    assert set(tool.RESTRICTED_TABLES) | set(tool.CANONICALIZED_TABLES) == set(tool.CANDIDATE_TABLES)
