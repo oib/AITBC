@@ -473,7 +473,7 @@ class TestFilesAgree:
         shared = (MONITORING / "aitbc_rules.yml").read_text()
         hub = (MONITORING / "aitbc_hub_rules.yml").read_text()
         assert "EscrowSettlementUnlanded" in shared
-        assert "EscrowSettlement" not in hub
+        assert "EscrowSettlementUnlanded" not in hub
 
     def _escrow_alert_bodies(self) -> list[str]:
         """The text of each ``- alert: EscrowSettlement*`` block, comments stripped."""

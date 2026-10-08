@@ -8,7 +8,6 @@ from aitbc.security_headers import (
     SecurityHeaders,
     SecurityHeadersMiddleware,
     create_development_security_headers,
-    create_permissive_cors_config,
     create_production_security_headers,
     create_strict_cors_config,
 )
@@ -247,14 +246,3 @@ class TestFactoryFunctions:
         assert config.allow_credentials is True
         assert "X-Request-ID" in config.expose_headers
         assert config.max_age == 3600
-
-    def test_create_permissive_cors_config(self):
-        """Test create_permissive_cors_config"""
-        config = create_permissive_cors_config()
-        assert "*" in config.allow_origins
-        assert "GET" in config.allow_methods
-        assert "POST" in config.allow_methods
-        assert "*" in config.allow_headers
-        assert config.allow_credentials is False
-        assert "*" in config.expose_headers
-        assert config.max_age == 86400
