@@ -57,6 +57,9 @@ Run the relevant checks for the code or docs you touched:
 # table names onto SQLModel's global metadata, so the two cannot be imported together.
 make test-governance
 
+# The whole-chain migration downgrade/upgrade sweep is slow-marked and takes ~15 min
+make test-migrations-slow
+
 # Docs link check (required for any docs change)
 bash scripts/validate_docs.sh
 
