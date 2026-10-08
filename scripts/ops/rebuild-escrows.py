@@ -626,8 +626,8 @@ def _print_write_plan(plan: dict[str, Any]) -> None:
     for reason in plan["abort"]:
         print(f"  ABORT: {reason}")
     if plan["abort"]:
-        print("  plan aborted: the write phase cannot run until the abort reason is resolved")
-        return
+        print("  the write phase is blocked on this host until the abort reason is resolved;")
+        print("  the classes below are shown for the operator's review only — nothing may run")
     print(f"  step 1 — INSERT missing rows derived from sealed txs: {len(plan['insert'])}")
     for item in plan["insert"]:
         d = item["derived"]
