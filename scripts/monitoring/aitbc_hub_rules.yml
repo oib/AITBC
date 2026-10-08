@@ -243,26 +243,25 @@ groups:
     rules:
       # BridgeSetCannotMeetThreshold: the registered active bridge validator
       # set shares fewer members with the current consensus set than the
-      # multisig threshold — every release-path proof fails closed. This is
-      # the state the fleet is in since KR-5 rotated the attesters; it is a
-      # warning (not critical) because LOCKS_PAUSED means nothing flows
-      # today — it matters the moment locks are re-enabled. Emitted by
+      # multisig threshold — every release-path proof fails closed. Locks are
+      # OPEN (locks are no longer paused fleet-wide), so this is a live
+      # blocker, not a dormant one — critical. Emitted by
       # scripts/monitoring/bridge-set-textfile.py via aitbc-bridge-set.timer.
       - alert: BridgeSetCannotMeetThreshold
         expr: aitbc_bridge_possible_signers < aitbc_bridge_threshold
         for: 10m
         labels:
-          severity: warning
+          severity: critical
         annotations:
           summary: "Bridge validator set cannot meet multisig threshold"
-          description: "{{ $value }} active bridge validator(s) are current consensus attesters — below the configured multisig threshold — every bridge release proof fails closed. Dormant while locks are paused; a live blocker when locks are re-enabled. Register the current attester set per the A36 addendum."
+          description: "{{ $value }} active bridge validator(s) are current consensus attesters — below the configured multisig threshold — every bridge release proof fails closed while locks are open. Register the current attester set per the A36 addendum."
 
       # BridgeSetStale: the newest bridge_validators row is older than the
       # freshness grace window (bridge_validator_set_grace_period, default
       # 7200 s). _check_validator_set_freshness fails closed once the newest
       # registered_at ages out — a working set must be re-registered
-      # inside the window. Warning, not critical: dormant while locks are
-      # paused; a live blocker when locks are re-enabled.
+      # inside the window. Locks are open, so a stale set is a live blocker;
+      # kept at warning because it precedes actual settlement failure.
       - alert: BridgeSetStale
         expr: aitbc_bridge_set_fresh == 0
         for: 10m
@@ -270,7 +269,7 @@ groups:
           severity: warning
         annotations:
           summary: "Bridge validator set is past its freshness window"
-          description: "The set's freshness gauge is 0 (newest bridge_validators registration older than the grace window) — _check_validator_set_freshness now fails closed. Dormant while locks are paused; a live blocker when locks are re-enabled. Re-register the validator set or run the standing refresh job."
+          description: "The set's freshness gauge is 0 (newest bridge_validators registration older than the grace window) — _check_validator_set_freshness now fails closed; with locks open, release proofs fail until the set is re-registered. Re-register the validator set or run the standing refresh job."
 
   # State-sync guards (C10). These series come from the node's own metrics
   # registry and reach hub via remote_write from every host. They cover the
