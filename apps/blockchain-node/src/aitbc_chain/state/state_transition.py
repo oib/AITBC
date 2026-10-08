@@ -453,6 +453,25 @@ def _sealed_propose_execution_payload(
     return (True, (row.payload or {}).get("execution_payload"))
 
 
+def _sealed_execute_exists(session: Session, chain_id: str, proposal_id: str, before_height: int) -> bool:
+    """True when a GOVERNANCE_EXECUTE naming ``proposal_id`` already sealed in
+    a block strictly below ``before_height``. Canonical like the proposal
+    lookup — the transaction table holds the same sealed rows on every node.
+    The strict ``<`` bound keeps the current transaction's own row (if it is
+    already flushed mid-apply) from rejecting itself."""
+    return (
+        session.exec(
+            select(Transaction.id).where(
+                Transaction.chain_id == chain_id,
+                Transaction.type == "GOVERNANCE_EXECUTE",
+                Transaction.payload.op("->>")("proposal_id") == proposal_id,  # type: ignore
+                Transaction.block_height < before_height,  # type: ignore[operator]
+            )
+        ).first()
+        is not None
+    )
+
+
 def _governance_propose_binding_error(payload: dict[str, Any]) -> str | None:
     """v13: a GOVERNANCE_PROPOSE must carry the ``execution_payload`` it commits
     to, as a dict within ``_V13_MAX_EXECUTION_PAYLOAD_BYTES``."""
@@ -484,6 +503,8 @@ def _governance_execute_binding_error(
         return f"GOVERNANCE_EXECUTE rejected: no GOVERNANCE_PROPOSE for proposal '{proposal_id}' sealed in an earlier block"
     if stored != payload.get("execution_payload"):
         return f"GOVERNANCE_EXECUTE rejected: execution_payload does not match sealed proposal '{proposal_id}'"
+    if _sealed_execute_exists(session, chain_id, str(proposal_id), block_height):
+        return f"GOVERNANCE_EXECUTE rejected: proposal '{proposal_id}' already executed"
     return None
 
 
@@ -2137,6 +2158,9 @@ class StateTransition:
             found, stored_payload = _sealed_propose_execution_payload(session, chain_id, str(proposal_id), block_height)
             if not found:
                 logger.warning("GOVERNANCE_EXECUTE tx %s proposal %s not sealed in an earlier block", tx_hash, proposal_id)
+                return
+            if _sealed_execute_exists(session, chain_id, str(proposal_id), block_height):
+                logger.warning("GOVERNANCE_EXECUTE tx %s proposal %s already executed", tx_hash, proposal_id)
                 return
             execution_payload = stored_payload or {}
             action = execution_payload.get("action", "parameter_change")

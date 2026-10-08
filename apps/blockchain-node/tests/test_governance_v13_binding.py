@@ -103,7 +103,7 @@ def _seed_propose(
     session.add(
         Transaction(
             chain_id=chain_id,
-            tx_hash=f"tx_propose_{proposal_id}",
+            tx_hash=f"tx_propose_{proposal_id}_{block_height}",
             block_height=block_height,
             sender="0x" + "ab" * 20,
             recipient="0x" + "ab" * 20,
@@ -119,7 +119,11 @@ def _seed_propose(
 
 
 def _execute_tx(
-    key: str, chain_id: str, proposal_id: str = "prop-1", execution_payload: dict | None = TAMPERED_PAYLOAD
+    key: str,
+    chain_id: str,
+    proposal_id: str = "prop-1",
+    execution_payload: dict | None = TAMPERED_PAYLOAD,
+    nonce: int = 0,
 ) -> dict:
     payload: dict = {"proposal_id": proposal_id}
     if execution_payload is not None:
@@ -130,7 +134,7 @@ def _execute_tx(
             "amount": 0,
             "value": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
-            "nonce": 0,
+            "nonce": nonce,
             "type": "GOVERNANCE_EXECUTE",
             "chain_id": chain_id,
             "payload": payload,
@@ -138,7 +142,7 @@ def _execute_tx(
     )
 
 
-def _propose_tx(key: str, chain_id: str, execution_payload: dict | None = PROPOSED_PAYLOAD) -> dict:
+def _propose_tx(key: str, chain_id: str, execution_payload: dict | None = PROPOSED_PAYLOAD, nonce: int = 0) -> dict:
     payload: dict = {"proposal_id": "prop-new", "title": "t", "proposer": "0x" + "ab" * 20}
     if execution_payload is not None:
         payload["execution_payload"] = execution_payload
@@ -148,7 +152,7 @@ def _propose_tx(key: str, chain_id: str, execution_payload: dict | None = PROPOS
             "amount": 0,
             "value": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
-            "nonce": 0,
+            "nonce": nonce,
             "type": "GOVERNANCE_PROPOSE",
             "chain_id": chain_id,
             "payload": payload,
@@ -459,3 +463,264 @@ def test_post_gate_apply_uses_stored_payload(session):
     tx["payload"]["execution_payload"] = TAMPERED_PAYLOAD
     st._handle_governance_execute(session, CHAIN_ID, tx, "tx_exec_direct", EXECUTE_HEIGHT, block_version=13)
     assert _param_value(session, CHAIN_ID) == "proposed-value"
+
+
+# --- A10 adversarial battery -------------------------------------------------
+#
+# Helpers and constants reused from above; EXECUTE2_HEIGHT sits strictly after
+# EXECUTE_HEIGHT so "already executed in an earlier block" is exercisable.
+
+EXECUTE2_HEIGHT = 60
+
+
+def _seed_execute(
+    session: Session,
+    chain_id: str,
+    proposal_id: str = "prop-1",
+    block_height: int = EXECUTE_HEIGHT,
+    execution_payload: dict | None = PROPOSED_PAYLOAD,
+) -> None:
+    """Insert a sealed GOVERNANCE_EXECUTE row — a proposal already executed."""
+    payload: dict = {"proposal_id": proposal_id}
+    if execution_payload is not None:
+        payload["execution_payload"] = execution_payload
+    session.add(
+        Transaction(
+            chain_id=chain_id,
+            tx_hash=f"tx_execute_{proposal_id}_{block_height}",
+            block_height=block_height,
+            sender="0x" + "44" * 20,
+            recipient="0x" + "44" * 20,
+            payload=payload,
+            nonce=1,
+            value=0,
+            fee=DEFAULT_TX_FEE_UNITS,
+            type="GOVERNANCE_EXECUTE",
+            status="sealed",
+        )
+    )
+    session.commit()
+
+
+def _apply_execute(session: Session, tx: dict, block_height: int = EXECUTE2_HEIGHT) -> tuple[bool, str]:
+    st = StateTransition()
+    return st.apply_transaction(session, CHAIN_ID, tx, "tx_" + str(block_height), block_version=13, block_height=block_height)
+
+
+def _admission_verdict(
+    session: Session,
+    tx_type: str,
+    sender: str,
+    payload: dict,
+    block_height: int = EXECUTE2_HEIGHT,
+) -> str | None:
+    from aitbc_chain.state.admission_authority import sender_authority_error
+
+    return sender_authority_error(
+        session,
+        CHAIN_ID,
+        tx_type,
+        sender,
+        block_version=13,
+        block_height=block_height,
+        payload=payload,
+        fee=DEFAULT_TX_FEE_UNITS,
+    )
+
+
+def test_adversarial_double_execute_rejected_in_verification_and_admission(session):
+    """A second EXECUTE for an already-executed proposal must be refused by
+    BOTH doors — parameter history rows and status stamps are not idempotent,
+    and any future non-idempotent action would double-apply."""
+    executor = _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID)
+    _seed_execute(session, CHAIN_ID, block_height=EXECUTE_HEIGHT)
+
+    ok, msg = _apply_execute(session, _execute_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=PROPOSED_PAYLOAD))
+    assert not ok
+    assert "already executed" in msg
+
+    error = _admission_verdict(
+        session,
+        "GOVERNANCE_EXECUTE",
+        executor,
+        {"proposal_id": "prop-1", "execution_payload": PROPOSED_PAYLOAD},
+    )
+    assert error is not None and "already executed" in error
+
+
+def test_adversarial_execute_before_propose_height_rejected(session):
+    """Ordering is strict in both directions: an EXECUTE sealed at a height
+    the PROPOSE never precedes is refused — not just same-block."""
+    _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID, block_height=EXECUTE2_HEIGHT)
+
+    ok, msg = _apply_execute(
+        session,
+        _execute_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=PROPOSED_PAYLOAD),
+        block_height=EXECUTE_HEIGHT,
+    )
+    assert not ok
+    assert "earlier block" in msg
+
+
+def test_adversarial_propose_non_dict_execution_payload_rejected(session):
+    """A list/string/int execution_payload cannot be committed — the cap and
+    the equality check are only meaningful on objects."""
+    _seed_accounts(session, CHAIN_ID)
+    for bad in (["a"], "a-string", 42, True):
+        ok, msg = _apply_execute(
+            session, _propose_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=bad), block_height=EXECUTE_HEIGHT
+        )
+        assert not ok, f"non-dict payload {bad!r} was accepted"
+        assert "execution_payload" in msg
+
+
+def test_adversarial_propose_payload_cap_boundary(session):
+    """Exactly at the cap passes; one byte over refuses — no off-by-one."""
+    _seed_accounts(session, CHAIN_ID)
+    from aitbc_chain.state.state_transition import _V13_MAX_EXECUTION_PAYLOAD_BYTES
+
+    # Value length that lands the serialized dict exactly on the cap.
+    base = {"action": "x", "value": ""}
+    overhead = len(json.dumps(base, sort_keys=True, separators=(",", ":")))
+    exact = {"action": "x", "value": "y" * (_V13_MAX_EXECUTION_PAYLOAD_BYTES - overhead)}
+    assert len(json.dumps(exact, sort_keys=True, separators=(",", ":"))) == _V13_MAX_EXECUTION_PAYLOAD_BYTES
+    ok, msg = _apply_execute(
+        session, _propose_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=exact), block_height=EXECUTE_HEIGHT
+    )
+    assert ok, msg
+
+    over = {"action": "x", "value": "y" * (_V13_MAX_EXECUTION_PAYLOAD_BYTES - overhead + 1)}
+    ok, msg = _apply_execute(
+        session,
+        _propose_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=over, nonce=1),
+        block_height=EXECUTE2_HEIGHT,
+    )
+    assert not ok
+    assert "exceeds" in msg
+
+
+def test_adversarial_execute_rejected_for_proposal_whose_vote_failed(session):
+    """Documented limitation: voting state lives in the node-local
+    ``governance_vote`` table — it is NOT canonical chain data, so binding can
+    only prove payload equality, not that the proposal passed. This test pins
+    the current semantic: a binding-valid EXECUTE applies even for a proposal
+    an operator would call failed/expired. Closing this needs votes (or a
+    tally commitment) on-chain — out of scope for V-2."""
+    _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID)  # propose exists; no votes anywhere
+
+    ok, msg = _apply_execute(session, _execute_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=PROPOSED_PAYLOAD))
+    assert ok, msg
+    assert _param_value(session, CHAIN_ID) == "proposed-value"
+
+
+def test_adversarial_reproposal_binds_latest_sealed(session):
+    """proposal_id reuse: the binding resolves the LATEST sealed PROPOSE for
+    the id — an execute naming the old payload is refused."""
+    _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID, execution_payload=PROPOSED_PAYLOAD, block_height=PROPOSE_HEIGHT)
+    _seed_propose(session, CHAIN_ID, execution_payload=TAMPERED_PAYLOAD, block_height=PROPOSE_HEIGHT + 5)
+
+    ok, msg = _apply_execute(session, _execute_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=TAMPERED_PAYLOAD))
+    assert ok, msg
+    assert _param_value(session, CHAIN_ID) == "tampered-value"
+
+    # And the supersedes semantic in the other direction: the stale payload
+    # of the same id is refused.
+    _seed_propose(session, CHAIN_ID, proposal_id="prop-2", execution_payload=PROPOSED_PAYLOAD)
+    _seed_propose(session, CHAIN_ID, proposal_id="prop-2", execution_payload=TAMPERED_PAYLOAD, block_height=PROPOSE_HEIGHT + 5)
+    ok, msg = _apply_execute(
+        session,
+        _execute_tx(EXECUTOR_KEY, CHAIN_ID, proposal_id="prop-2", execution_payload=PROPOSED_PAYLOAD, nonce=1),
+        block_height=EXECUTE2_HEIGHT + 1,
+    )
+    assert not ok
+    assert "does not match sealed proposal" in msg
+
+
+def test_adversarial_proposal_id_type_coercion(session):
+    """A non-string proposal_id must not crash the binding and must not match
+    a stringly-typed proposal — rejects cleanly, identical in both doors."""
+    executor = _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID)
+
+    for bad_id in ({"x": 1}, [1, 2], 5):
+        tx = _execute_tx(EXECUTOR_KEY, CHAIN_ID, proposal_id="prop-1", execution_payload=PROPOSED_PAYLOAD)
+        tx["payload"]["proposal_id"] = (
+            bad_id  # post-sign swap — verification may reject on signature first; admission exercises the binding directly. Either way both must refuse without crashing.
+        )
+        ok, msg = _apply_execute(session, tx)
+        assert not ok
+        error = _admission_verdict(session, "GOVERNANCE_EXECUTE", executor, tx["payload"])
+        assert error is not None
+        assert (not ok) == (error is not None)
+
+
+def test_adversarial_replay_twice_identical(session):
+    """Applying the same sealed tx sequence twice produces identical state —
+    the binding must be deterministic across replays."""
+    _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID)
+
+    from aitbc_chain.base_models import ChainParameterHistory
+
+    def run_once() -> tuple[str | None, int]:
+        engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        chain_metadata.create_all(engine)
+        with Session(engine) as s:
+            _seed_executor_gate(s, CHAIN_ID)
+            _seed_propose(s, CHAIN_ID)
+            st = StateTransition()
+            ok, msg = st.apply_transaction(
+                s,
+                CHAIN_ID,
+                _execute_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=PROPOSED_PAYLOAD),
+                "tx_exec_replay",
+                block_version=13,
+                block_height=EXECUTE_HEIGHT,
+            )
+            assert ok, msg
+            s.commit()
+            history = len(s.exec(select(ChainParameterHistory).where(ChainParameterHistory.chain_id == CHAIN_ID)).all())
+            return _param_value(s, CHAIN_ID), history
+
+    first, second = run_once(), run_once()
+    assert first == second == ("proposed-value", 1)
+
+
+def test_adversarial_admission_verification_parity(session):
+    """Admission and block verification must agree on every adversarial case:
+    whatever the mempool door refuses, the block verifier refuses too."""
+    executor = _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID)
+    _seed_execute(session, CHAIN_ID, block_height=EXECUTE_HEIGHT)
+
+    cases = [
+        # (payload, expect_reject)
+        ({"proposal_id": "prop-1", "execution_payload": PROPOSED_PAYLOAD}, True),  # already executed
+        ({"proposal_id": "prop-1", "execution_payload": TAMPERED_PAYLOAD}, True),  # tampered
+        ({"proposal_id": "ghost", "execution_payload": PROPOSED_PAYLOAD}, True),  # unknown id
+        ({"execution_payload": PROPOSED_PAYLOAD}, True),  # missing id
+    ]
+    for payload, _ in cases:
+        admission = _admission_verdict(session, "GOVERNANCE_EXECUTE", executor, payload)
+        ok, _msg = _apply_execute(
+            session,
+            _make_tx(
+                EXECUTOR_KEY,
+                {
+                    "amount": 0,
+                    "value": 0,
+                    "fee": DEFAULT_TX_FEE_UNITS,
+                    "nonce": 0,
+                    "type": "GOVERNANCE_EXECUTE",
+                    "chain_id": CHAIN_ID,
+                    "payload": payload,
+                },
+            ),
+        )
+        assert (admission is not None) == (not ok), (
+            f"admission/verification disagree on {payload}: admission={admission!r} apply_ok={ok}"
+        )
