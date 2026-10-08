@@ -556,3 +556,58 @@ def test_alert_history_since_filters_events_but_not_firing_now(tmp_path) -> None
     # firing-now replays the whole stream, so it is still reported.
     assert out["matched_events"] == 1
     assert {a["alertname"] for a in out["firing_now"]} == {"ServiceDown", "RpcErrorsSpiking"}
+
+
+def test_below_floor_alerts_are_logged_but_never_pushed(watch, monkeypatch, tmp_path) -> None:
+    """SD-2 policy: warnings go to the daily digest, so a floor of critical keeps
+    them out of the push path while everything still lands in the alert log."""
+    sent = _capture_notify(monkeypatch)
+    _, logged, _ = watch(
+        [[_alert("WarnOnly", severity="warning"), _alert()], []],
+        "--notify-url",
+        "http://ops-a/hook",
+        "--notify-min-severity",
+        "critical",
+        alert_log=tmp_path / "alerts.log",
+    )
+    kinds = _kinds(logged)
+    assert kinds == [
+        "prometheus_watch_started",
+        "prometheus_alert_firing",
+        "prometheus_alert_firing",
+        "prometheus_alert_resolved",
+        "prometheus_alert_resolved",
+    ]
+    pushed = {(p["event"], p.get("alertname")) for _, p in sent}
+    assert pushed == {
+        ("prometheus_watch_started", None),
+        ("prometheus_alert_firing", "ServiceDown"),
+        ("prometheus_alert_resolved", "ServiceDown"),
+    }
+
+
+def test_floor_at_warning_still_suppresses_info(watch, monkeypatch, tmp_path) -> None:
+    sent = _capture_notify(monkeypatch)
+    _, logged, _ = watch(
+        [[_alert("InfoOnly", severity="info")]],
+        "--notify-url",
+        "http://ops-a/hook",
+        "--notify-min-severity",
+        "warning",
+        alert_log=tmp_path / "alerts.log",
+    )
+    assert _kinds(logged) == ["prometheus_watch_started", "prometheus_alert_firing"]
+    # Info suppressed; only the lifecycle event (not an alert) is pushed.
+    assert {p["event"] for _, p in sent} == {"prometheus_watch_started"}
+
+
+def test_no_floor_keeps_pushing_everything(watch, monkeypatch, tmp_path) -> None:
+    """Default stays the historical behaviour for hosts that never set the floor."""
+    sent = _capture_notify(monkeypatch)
+    watch(
+        [[_alert("InfoOnly", severity="info")]],
+        "--notify-url",
+        "http://ops-a/hook",
+        alert_log=tmp_path / "alerts.log",
+    )
+    assert {p["event"] for _, p in sent} == {"prometheus_watch_started", "prometheus_alert_firing"}

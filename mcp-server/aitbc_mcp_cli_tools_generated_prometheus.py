@@ -113,6 +113,12 @@ def aitbc_prometheus_alerts(
             description="POST every alert event as a JSON body to this webhook URL; repeatable (env: space-separated) (watch mode)"
         ),
     ],
+    notify_min_severity: Annotated[
+        Literal["info", "warning", "critical"] | None,
+        Field(
+            description="Push only alerts at or above this severity; lower-severity alerts are still recorded to the alert log but not pushed. Non-alert lifecycle events (e.g. watch started) always notify (watch mode)"
+        ),
+    ],
     silence_file: Annotated[
         str | None,
         Field(
@@ -138,6 +144,7 @@ def aitbc_prometheus_alerts(
             "interval": "interval",
             "alert_log_path": "alert-log",
             "notify_urls": "notify-url",
+            "notify_min_severity": "notify-min-severity",
             "silence_file": "silence-file",
             "remind_interval": "remind-interval",
             "metrics_file": "metrics-file",

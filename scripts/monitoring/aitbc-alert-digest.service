@@ -1,0 +1,25 @@
+[Unit]
+Description=AITBC daily warning-severity alert digest (SD-2)
+Documentation=https://github.com/oib/AITBC
+After=network.target
+
+[Service]
+Type=oneshot
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+# Reads the same env file as the watcher, so AITBC_WATCH_NOTIFY_URL is set in
+# one place. The watcher runs with AITBC_WATCH_NOTIFY_MIN_SEVERITY=critical
+# (immediate pushes); this job delivers the warning floor once a day.
+EnvironmentFile=-/etc/aitbc/prometheus-watch.env
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/alert-digest.py
+SyslogIdentifier=aitbc-alert-digest
+
+# Reads alerts.log and posts once per URL. Nothing to write.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

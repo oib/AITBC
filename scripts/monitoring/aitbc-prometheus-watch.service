@@ -13,6 +13,9 @@ Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/u
 # watcher's click envvars (missing file is fine, "-" prefix):
 #   AITBC_WATCH_INTERVAL=15            poll interval; keep WatchdogSec >= 5x this
 #   AITBC_WATCH_NOTIFY_URL="..."       space-separated webhook URLs
+#   AITBC_WATCH_NOTIFY_MIN_SEVERITY=.. push floor: info|warning|critical; lower
+#                                      severities stay in the alert log for the
+#                                      daily digest (SD-2); unset = push all
 #   AITBC_WATCH_SILENCE_FILE=...       JSON silence file, reloaded each poll
 #   AITBC_WATCH_REMIND_INTERVAL=0      still-firing reminder cadence (seconds)
 #   AITBC_WATCH_METRICS_FILE=...       node-exporter textfile heartbeat path
