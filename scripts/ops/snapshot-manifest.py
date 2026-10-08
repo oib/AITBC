@@ -22,8 +22,9 @@ manifest free of volatile fields means the signature attests the content,
 not the moment it was generated.
 
 READ-ONLY BY CONSTRUCTION: the only connections opened are SQLite
-``mode=ro&immutable=1`` plus ``PRAGMA query_only=ON`` (the SQLModel session
-used for the state-root recompute is bound to the same read-only engine).
+``mode=ro`` plus ``PRAGMA query_only=ON`` (the SQLModel session
+used for the state-root recompute is bound to the same read-only engine;
+``immutable=1`` is deliberately absent so a live database's WAL is honored).
 There is no write flag, no ATTACH, no temp copy.
 
 Usage:
@@ -52,9 +53,8 @@ MANIFEST_FORMAT = "aitbc-snapshot-manifest/v1"
 
 
 def connect_ro(db_path: str) -> sqlite3.Connection:
-    """The ONLY raw connection this program creates: mode=ro&immutable=1 +
-    query_only."""
-    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro&immutable=1"
+    """The ONLY raw connection this program creates: mode=ro + query_only."""
+    uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.execute("PRAGMA query_only=ON")
     return conn
@@ -94,7 +94,7 @@ def _row_counts(conn: sqlite3.Connection) -> dict[str, int]:
 
 def _recompute_state_root(db_path: str, chain_id: str) -> str | None:
     """Recompute the state root with the node's own compute_state_root_full,
-    on a SQLModel session bound to a mode=ro&immutable=1 engine."""
+    on a SQLModel session bound to a mode=ro engine (WAL-aware)."""
     try:
         from sqlalchemy import event
         from sqlmodel import Session, create_engine
@@ -103,7 +103,7 @@ def _recompute_state_root(db_path: str, chain_id: str) -> str | None:
     except ImportError:
         return None
     uri = "file:" + urllib.parse.quote(os.path.abspath(db_path))
-    engine = create_engine(f"sqlite:///{uri}?uri=true&mode=ro&immutable=1")
+    engine = create_engine(f"sqlite:///{uri}?uri=true&mode=ro")
 
     @event.listens_for(engine, "connect")
     def _query_only(dbapi_conn, _):
