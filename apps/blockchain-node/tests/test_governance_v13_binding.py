@@ -724,3 +724,131 @@ def test_adversarial_admission_verification_parity(session):
         assert (admission is not None) == (not ok), (
             f"admission/verification disagree on {payload}: admission={admission!r} apply_ok={ok}"
         )
+
+
+# --- v13 shadow counters (the would-reject window before arming) ------------
+
+
+@pytest.fixture
+def metrics():
+    from aitbc_chain.metrics import metrics_registry
+
+    metrics_registry.reset()
+    yield metrics_registry
+    metrics_registry.reset()
+
+
+def test_shadow_counts_would_reject_pre_gate(session, metrics):
+    """Pre-gate an EXECUTE v13 would refuse still applies — but the shadow
+    window must SEE it: checked and would_reject both increment."""
+    _seed_executor_gate(session, CHAIN_ID)
+    st = StateTransition()
+    ok, msg = st.apply_transaction(
+        session,
+        CHAIN_ID,
+        _execute_tx(EXECUTOR_KEY, CHAIN_ID, proposal_id="ghost"),
+        "tx_shadow_unknown",
+        block_version=12,
+        block_height=EXECUTE_HEIGHT,
+    )
+    assert ok, msg
+    c = metrics._counters
+    assert c["v13_shadow_checked_total"] == 1
+    assert c["v13_shadow_checked_governance_execute_total"] == 1
+    assert c["v13_would_reject_total"] == 1
+    assert c["v13_would_reject_execute_unknown_proposal_total"] == 1
+
+
+def test_shadow_clean_verdict_counts_checked_only(session, metrics):
+    """An EXECUTE satisfying the v13 rules pre-gate increments only the
+    positive-control series — silence on would_reject is provable."""
+    _seed_executor_gate(session, CHAIN_ID)
+    _seed_propose(session, CHAIN_ID)
+    st = StateTransition()
+    ok, msg = st.apply_transaction(
+        session,
+        CHAIN_ID,
+        _execute_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=PROPOSED_PAYLOAD),
+        "tx_shadow_clean",
+        block_version=12,
+        block_height=EXECUTE_HEIGHT,
+    )
+    assert ok, msg
+    c = metrics._counters
+    assert c["v13_shadow_checked_governance_execute_total"] == 1
+    assert c.get("v13_would_reject_total", 0) == 0
+
+
+def test_shadow_counts_propose_missing_payload_pre_gate(session, metrics):
+    """A bare PROPOSE is legal today; the counter records that v13 would
+    refuse it."""
+    _seed_accounts(session, CHAIN_ID)
+    st = StateTransition()
+    ok, msg = st.apply_transaction(
+        session,
+        CHAIN_ID,
+        _propose_tx(EXECUTOR_KEY, CHAIN_ID, execution_payload=None),
+        "tx_prop_shadow",
+        block_version=12,
+        block_height=EXECUTE_HEIGHT,
+    )
+    assert ok, msg
+    c = metrics._counters
+    assert c["v13_shadow_checked_governance_propose_total"] == 1
+    assert c["v13_would_reject_propose_missing_execution_payload_total"] == 1
+
+
+def test_shadow_counts_at_admission_door(session, metrics):
+    """sender_authority_error counts the same would-reject pre-gate while
+    still admitting the transaction — door and apply see the same verdict."""
+    executor = _seed_executor_gate(session, CHAIN_ID)
+    from aitbc_chain.state.admission_authority import sender_authority_error
+
+    error = sender_authority_error(
+        session,
+        CHAIN_ID,
+        "GOVERNANCE_EXECUTE",
+        executor,
+        block_version=12,
+        block_height=EXECUTE_HEIGHT,
+        payload={"proposal_id": "ghost", "execution_payload": PROPOSED_PAYLOAD},
+        fee=DEFAULT_TX_FEE_UNITS,
+    )
+    assert error is None
+    assert metrics._counters["v13_would_reject_execute_unknown_proposal_total"] == 1
+    assert metrics._counters["v13_shadow_checked_governance_execute_total"] == 1
+
+
+def test_shadow_counts_real_reject_post_gate(session, metrics):
+    """Same counter for a real post-gate rejection (v9 convention) — the
+    metric keeps its meaning across the activation boundary."""
+    _seed_executor_gate(session, CHAIN_ID)
+    st = StateTransition()
+    ok, _msg = st.apply_transaction(
+        session,
+        CHAIN_ID,
+        _execute_tx(EXECUTOR_KEY, CHAIN_ID, proposal_id="ghost"),
+        "tx_shadow_armed",
+        block_version=13,
+        block_height=EXECUTE_HEIGHT,
+    )
+    assert not ok
+    assert metrics._counters["v13_would_reject_execute_unknown_proposal_total"] == 1
+
+
+def test_shadow_skips_non_bind_types(session, metrics):
+    """No counter moves for a type the v13 rules do not govern."""
+    from aitbc_chain.state.admission_authority import sender_authority_error
+
+    error = sender_authority_error(
+        session,
+        CHAIN_ID,
+        "TRANSFER",
+        "0x" + "ab" * 20,
+        block_version=12,
+        block_height=EXECUTE_HEIGHT,
+        payload={},
+        fee=DEFAULT_TX_FEE_UNITS,
+    )
+    assert error is None
+    assert metrics._counters.get("v13_shadow_checked_total", 0) == 0

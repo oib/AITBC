@@ -159,21 +159,23 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 raise ValueError(authority_error)
 
         if tx_type == "GOVERNANCE_PROPOSE":
-            # v13 (see state_transition._governance_binding_error): apply
+            # v13 (see state_transition._v13_shadow_observe): apply
             # refuses a propose that does not carry the execution_payload it
             # commits to — refuse it at the door too. Below the armed height
-            # the helper returns None and admission is unchanged.
-            from ..state.state_transition import _governance_binding_error, get_block_version_for_height
+            # the check only counts v13_would_reject_* and admission is
+            # unchanged.
+            from ..state.state_transition import _v13_shadow_observe, get_block_version_for_height
 
             head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
             next_height = (head or 0) + 1
-            propose_error = _governance_binding_error(
+            propose_error = _v13_shadow_observe(
                 session,
                 chain_id,
                 tx_type,
                 tx_data.get("payload"),
                 block_version=get_block_version_for_height(next_height),
                 block_height=next_height,
+                tx_hash=tx_data.get("tx_hash", ""),
             )
             if propose_error:
                 raise ValueError(propose_error)
