@@ -40,42 +40,42 @@
             <h2>Summary</h2>
             <div class="health-grid">
                 <div class="health-item">
-                    <div class="health-status ok"></div>
+                    <div class="health-status loading" id="shop-dot-jobs"></div>
                     <div class="health-name">Network Jobs</div>
                     <div class="health-latency" id="shop-network-jobs">--</div>
                 </div>
                 <div class="health-item">
-                    <div class="health-status ok"></div>
-                    <div class="health-name">Completed</div>
-                    <div class="health-latency" id="shop-network-completed">--</div>
+                    <div class="health-status loading" id="shop-dot-released"></div>
+                    <div class="health-name">Released</div>
+                    <div class="health-latency" id="shop-network-released">--</div>
                 </div>
                 <div class="health-item">
-                    <div class="health-status ok"></div>
-                    <div class="health-name">Pending</div>
-                    <div class="health-latency" id="shop-network-pending">--</div>
+                    <div class="health-status loading" id="shop-dot-queued"></div>
+                    <div class="health-name">Queued</div>
+                    <div class="health-latency" id="shop-network-queued">--</div>
                 </div>
                 <div class="health-item">
-                    <div class="health-status ok"></div>
-                    <div class="health-name">Failed</div>
-                    <div class="health-latency" id="shop-network-failed">--</div>
+                    <div class="health-status loading" id="shop-dot-refunded"></div>
+                    <div class="health-name">Refunded / Canceled</div>
+                    <div class="health-latency" id="shop-network-refunded">--</div>
                 </div>
                 <div class="health-item">
-                    <div class="health-status ok"></div>
+                    <div class="health-status loading" id="shop-dot-miners"></div>
                     <div class="health-name">Providers / Online</div>
                     <div class="health-latency" id="shop-miners-online">--</div>
                 </div>
                 <div class="health-item">
-                    <div class="health-status ok"></div>
+                    <div class="health-status loading" id="shop-dot-gpus"></div>
                     <div class="health-name">GPUs Found</div>
                     <div class="health-latency" id="shop-gpu-count">--</div>
                 </div>
                 <div class="health-item">
-                    <div class="health-status ok"></div>
+                    <div class="health-status loading" id="shop-dot-offers"></div>
                     <div class="health-name">Published Offers</div>
                     <div class="health-latency" id="shop-offer-count">--</div>
                 </div>
                 <div class="health-item">
-                    <div class="health-status ok"></div>
+                    <div class="health-status loading" id="shop-dot-wallets"></div>
                     <div class="health-name">Active Addresses</div>
                     <div class="health-latency" id="shop-wallet-count">--</div>
                 </div>
@@ -86,6 +86,7 @@
                 <tr><td>Total</td><td id="shop-earnings-total">--</td></tr>
                 <tr><td>Paid</td><td id="shop-earnings-paid">--</td></tr>
                 <tr><td>Pending</td><td id="shop-earnings-pending">--</td></tr>
+                <tr><td>Miner uptime (pool-hub SLA)</td><td id="shop-miner-uptime">--</td></tr>
             </table>
         </div>
 
@@ -135,6 +136,10 @@
                 <span class="method">GET</span> <span class="path">/v1/market/jobs</span>
             </a>
             <p class="endpoint-note">Market-wide jobs — public</p>
+            <a href="/pool-hub/v1/sla/metrics" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/pool-hub/v1/sla/metrics/{miner_id}</span>
+            </a>
+            <p class="endpoint-note">Miner SLA metrics (uptime) — public</p>
         </div>
     </div>
 
