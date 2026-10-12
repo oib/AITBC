@@ -33,6 +33,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_request_signature, verify_transaction_signature
+from ..cross_chain.bridge_lock_guard import lock_derivation_source
 from .bridge_credit import (
     bridge_refund_lock_hash,
     validate_bridge_refund_lock,
@@ -961,6 +962,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v14_threshold = getattr(settings, "state_transition_v14_height", None)
+    if v14_threshold and height >= v14_threshold:
+        return 14
     v13_threshold = getattr(settings, "state_transition_v13_height", None)
     if v13_threshold and height >= v13_threshold:
         return 13
@@ -1432,6 +1436,19 @@ class StateTransition:
                     "v9 shadow: BRIDGE_LOCK tx %s lacks a valid bridge_signature",
                     tx_hash,
                 )
+            # v14 (shared ACT-1 activation, V-4): the lock must carry data the
+            # bridge event trie can derive a leaf from — payload fields first,
+            # then the signed envelope's top level (transfer_id, amount,
+            # target_chain). Below v14 the same condition is only counted by
+            # the flag-gated dry-run guard: historical underivable locks stay
+            # grandfathered and replayable.
+            if block_version >= 14:
+                payload = tx_data.get("payload")
+                if lock_derivation_source(payload if isinstance(payload, dict) else {}, tx_data) == "unreadable":
+                    return (
+                        False,
+                        "BRIDGE_LOCK carries no derivable leaf data for the bridge event trie",
+                    )
             sender_account = session.get(Account, (chain_id, sender_addr))
             if not sender_account:
                 return (False, f"Sender account not found: {sender_addr}")

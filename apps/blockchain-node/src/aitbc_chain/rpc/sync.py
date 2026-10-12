@@ -125,6 +125,7 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
                         "timestamp": b.timestamp.isoformat() if b.timestamp else None,
                         "state_root": b.state_root,
                         "tx_count": b.tx_count,
+                        "aux_state_root": b.aux_state_root,
                         "block_metadata": b.block_metadata,
                     }
                     for b in blocks
@@ -223,6 +224,7 @@ def _build_import_objects(
                 timestamp=block_timestamp,
                 state_root=block_data.get("state_root"),
                 tx_count=block_data.get("tx_count", 0),
+                aux_state_root=block_data.get("aux_state_root"),
                 block_metadata=block_data.get("block_metadata"),
             )
         )

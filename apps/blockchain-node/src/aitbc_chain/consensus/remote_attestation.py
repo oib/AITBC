@@ -300,6 +300,7 @@ class RemoteAttestationService:
             proposer,
             str(header.get("state_root") or ""),
             str(header.get("bridge_state_root") or ""),
+            str(header.get("aux_state_root") or ""),
         )
         if recomputed != header_hash:
             return "tx_set_mismatch"
@@ -485,6 +486,7 @@ class RemoteAttestationService:
             "proposer": block.proposer,
             "state_root": block.state_root or "",
             "bridge_state_root": block.bridge_state_root or "",
+            "aux_state_root": getattr(block, "aux_state_root", None) or "",
         }
         request: dict[str, Any] = {"header": header, "timestamp": time.time()}
         if transactions is not None:
