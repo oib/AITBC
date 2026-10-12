@@ -400,6 +400,33 @@ def test_aitbc_system_logs_rejects_injection():
     assert not CAPTURED
 
 
+def test_aitbc_update_dry_run_runs_check():
+    _clear()
+    result = json.loads(aitbc_mcp_cli_tools.aitbc_update(host="node2"))
+    cmd = _last_command()
+    assert "update" in cmd
+    assert "--check" in cmd
+    assert "--format=json" in cmd
+    assert "note" in result
+
+
+def test_aitbc_update_requires_confirm():
+    _clear()
+    result = json.loads(aitbc_mcp_cli_tools.aitbc_update(host="node2", dry_run=False))
+    assert result["error"] == "Confirmation required"
+    assert not CAPTURED
+
+
+def test_aitbc_update_no_deploy_flag():
+    _clear()
+    result = json.loads(aitbc_mcp_cli_tools.aitbc_update(host="node2", no_deploy=True, dry_run=False, confirm=True))
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "update" in cmd
+    assert "--no-deploy" in cmd
+    assert "--check" not in cmd
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()

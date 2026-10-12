@@ -76,7 +76,6 @@ import aitbc_mcp_cli_tools_generated_tee  # noqa: F401
 import aitbc_mcp_cli_tools_generated_trade  # noqa: F401
 import aitbc_mcp_cli_tools_generated_transactions  # noqa: F401
 import aitbc_mcp_cli_tools_generated_unstake  # noqa: F401
-import aitbc_mcp_cli_tools_generated_update  # noqa: F401
 import aitbc_mcp_cli_tools_generated_version  # noqa: F401
 import aitbc_mcp_cli_tools_generated_wallet  # noqa: F401
 import aitbc_mcp_cli_tools_generated_workflow  # noqa: F401
