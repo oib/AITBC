@@ -13,30 +13,34 @@ minimal allow-list.
 ## Step 1 — create the ops wallet
 
 ```bash
-cd /opt/aitbc && venv/bin/python -m aitbc_cli wallet create --wallet-name ops
+cd /opt/aitbc && AITBC_WALLET_DIR=/var/lib/aitbc/wallets \
+  venv/bin/python -m aitbc_cli wallet create --name ops
 # copy the address it prints — verify with:
-venv/bin/python -m aitbc_cli wallet address --wallet-name ops
+venv/bin/python -m aitbc_cli wallet --wallet-name ops address
 ```
 
-The wallet lands at `/root/.aitbc/wallets/ops.json` for root (or
-`/var/lib/aitbc/wallets/ops.json` for the aitbc user — see step 4's
-`OPS_WALLET_PATH`). Record the printed `0x…` address; it is needed in
-step 2's sender/recipient check and the post-canary balance check.
+The wallet lands at `/var/lib/aitbc/wallets/ops.json`. It **must** live
+under `/var/lib/aitbc` — the unit runs with `ProtectHome=yes`, so a
+wallet in `/root/.aitbc/wallets` (root's default `AITBC_WALLET_DIR`)
+would be invisible to the service. `AITBC_WALLET_DIR` on the `create`
+line is what places it correctly; `--wallet-name` is a group-level
+option that sits before the subcommand. Record the printed `0x…`
+address; it is needed in step 2's sender/recipient check and the
+post-canary balance check.
 
 ## Step 2 — fund it with 50 AIT
 
 Send from whichever funded wallet the operator chooses (e.g. treasury).
 **Check the sender address the CLI prints before confirming** — the
-S-10 run taught us `--wallet-name` resolves different directories for
+S-10 run taught us wallet names resolve different directories for
 root vs the aitbc user:
 
 ```bash
-cd /opt/aitbc && venv/bin/python -m aitbc_cli wallet address --wallet-name treasury
+cd /opt/aitbc && venv/bin/python -m aitbc_cli wallet --wallet-name treasury address
 # must print the intended sender (e.g. 0x4059cf2e…). If it differs, pass
 # --wallet-path explicitly.
 
-venv/bin/python -m aitbc_cli wallet send \
-  --wallet-name treasury \
+venv/bin/python -m aitbc_cli wallet --wallet-name treasury send \
   --to-address <ops-address-from-step-1> \
   --amount 50 --fee 0.0001
 ```
@@ -57,6 +61,9 @@ install -d -m 700 -o root -g root /etc/aitbc/credentials
 systemd-creds encrypt --name=ops-wallet-pass - /etc/aitbc/credentials/ops-wallet-pass
 # type the ops-wallet password when prompted, chmod:
 chmod 600 /etc/aitbc/credentials/ops-wallet-pass
+# hub's TPM2 reports 'partial' (systemd-analyze has-tpm2): the credential
+# is sealed against the host key rather than a TPM — same
+# LoadCredentialEncrypted path decrypts either way.
 
 # allow-list — start from the shipped example, edit to the real list:
 install -m 600 -o root -g root \
@@ -79,10 +86,11 @@ OPS_MAX_PER_DAY=180000000
 OPS_FEE_UNITS=3600
 OPS_LEDGER_PATH=/var/lib/aitbc/ops-signer-ledger.db
 OPS_AUDIT_LOG=/var/lib/aitbc/ops-signer-audit.log
-OPS_WALLET_PATH=/root/.aitbc/wallets/ops.json
+OPS_WALLET_PATH=/var/lib/aitbc/wallets/ops.json
 OPS_SIGNER_RPC_URL=http://127.0.0.1:8202
 EOF
-# set OPS_WALLET_PATH to wherever step 1 actually put the wallet.
+# OPS_WALLET_PATH must match where step 1 put the wallet — it must be
+# under /var/lib/aitbc (the unit's ProtectHome=yes hides /root).
 
 groupadd --system aitbc-ops   # the agent/operator client accounts join this group
 install -m 644 -o root -g root \
@@ -92,7 +100,9 @@ systemctl daemon-reload
 systemctl enable --now aitbc-ops-signer
 systemctl status aitbc-ops-signer --no-pager
 journalctl -u aitbc-ops-signer -n 20 --no-pager
-# expect: "ops signer starting: sock=/run/aitbc-ops-signer.sock group=aitbc-ops caps=36000000/180000000"
+# expect a line starting:
+#   ops signer starting: sock=/run/aitbc-ops-signer.sock group=aitbc-ops caps=36000000/180000000
+#   (the logged line also ends with " allow_file=/etc/aitbc/ops-signer.allow")
 ls -l /run/aitbc-ops-signer.sock   # srw-rw---- root aitbc-ops
 ```
 
@@ -138,9 +148,9 @@ tail -3 /var/lib/aitbc/ops-signer-audit.log   # one line, tx hash only
 ## Refusal checks (optional pre-flight)
 
 ```bash
-# not allow-listed -> {"ok":false,"reason":"not_allowlisted"}
-# missing memo      -> {"ok":false,"reason":"bad_memo"}
-# amount > cap      -> {"ok":false,"reason":"over_tx_cap"}
+# not allow-listed -> {"ok":false,"result":"refused","reason":"not_allowlisted"}
+# missing memo      -> {"ok":false,"result":"refused","reason":"bad_memo"}
+# amount > cap      -> {"ok":false,"result":"refused","reason":"over_tx_cap"}
 ```
 
 ## Rollback
