@@ -198,3 +198,21 @@ def http_error_detail(exc: BaseException) -> str | None:
             return None
         seen = seen.__cause__ or seen.__context__
     return None
+
+
+RETIRED_SURFACE_MESSAGE = (
+    "retired since block version 9: protocol-escrow transfers cannot seal unsigned "
+    "— see docs/design/v9-unsigned-protocol-transfers.md"
+)
+
+
+def retired_surface_message(exc: BaseException) -> str | None:
+    """Clear message when ``exc`` is a 410 from a BNT-2-retired surface, else None.
+
+    The node's 410 detail already explains the retirement; fall back to a
+    fixed string when the body carries none. Only 410 maps here — every
+    other error must flow to the caller unchanged.
+    """
+    if http_response_status(exc) != 410:
+        return None
+    return http_error_detail(exc) or RETIRED_SURFACE_MESSAGE

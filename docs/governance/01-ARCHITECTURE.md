@@ -118,7 +118,7 @@ Staking is **not** part of the governance group: use `aitbc stake` / `aitbc unst
 
 ### Staking Flow
 
-1. User stakes via `aitbc stake` / `aitbc wallet stake` (POST `/rpc/staking/stake` on the blockchain node)
+1. User stakes via `aitbc stake` / `aitbc wallet stake` (POST `/rpc/staking/stake` on the blockchain node — retired since v9, returns 410; see ../design/v9-unsigned-protocol-transfers.md)
 2. Stake is recorded on-chain as an active stake for the address
 3. Voting power derives from the resulting on-chain balance/stake — there is no separate "2x multiplier" contract in the live path
 4. `POST /v1/governance/stake` on the governance service also records the stake and refreshes cached voting power

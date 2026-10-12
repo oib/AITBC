@@ -38,6 +38,10 @@
 
 ### blockchain-rpc (`:8202`, AITBC Blockchain Node vv0.2.2)
 
+> Rows marked **(retired since v9)** answer HTTP 410 — protocol-escrow
+> transfers cannot seal at block version 9; see
+> [v9-unsigned-protocol-transfers](../design/v9-unsigned-protocol-transfers.md).
+
 | Method | Path | Summary |
 |---|---|---|
 | `GET` | `/health` | Health check |
@@ -49,10 +53,10 @@
 | `POST` | `/rpc/agent-staking/agents/{agent_wallet}/distribute` | Record earnings distribution memo |
 | `POST` | `/rpc/agent-staking/claim-rewards` | Record rewards claim memo |
 | `POST` | `/rpc/agent-staking/performance` | Record performance update memo |
-| `POST` | `/rpc/agent-staking/stake` | Create agent stake |
-| `POST` | `/rpc/agent-staking/stake/{stake_id}/add` | Add to agent stake |
-| `POST` | `/rpc/agent-staking/stake/{stake_id}/complete` | Complete agent stake |
-| `POST` | `/rpc/agent-staking/stake/{stake_id}/unbond` | Unbond agent stake |
+| `POST` | `/rpc/agent-staking/stake` | Create agent stake **(retired since v9)** |
+| `POST` | `/rpc/agent-staking/stake/{stake_id}/add` | Add to agent stake **(retired since v9)** |
+| `POST` | `/rpc/agent-staking/stake/{stake_id}/complete` | Complete agent stake **(retired since v9)** |
+| `POST` | `/rpc/agent-staking/stake/{stake_id}/unbond` | Unbond agent stake **(retired since v9)** |
 | `GET` | `/rpc/ai/job/{job_id}` | Get AI job by ID |
 | `POST` | `/rpc/ai/job/{job_id}/cancel` | Cancel AI job |
 | `GET` | `/rpc/ai/jobs` | List AI jobs |
@@ -66,11 +70,11 @@
 | `GET` | `/rpc/blocks/{height}` | Get block by height |
 | `GET` | `/rpc/bond/provider/{provider}` | List bonds for a provider |
 | `GET` | `/rpc/bond/{bond_id}` | Get bond by ID |
-| `POST` | `/rpc/bounty/deploy` | Deploy bounty lock |
-| `POST` | `/rpc/bounty/{bounty_id}/dispute` | Dispute bounty submission |
-| `POST` | `/rpc/bounty/{bounty_id}/expire` | Expire bounty and refund |
-| `POST` | `/rpc/bounty/{bounty_id}/submit` | Submit bounty solution |
-| `POST` | `/rpc/bounty/{bounty_id}/verify` | Verify bounty submission |
+| `POST` | `/rpc/bounty/deploy` | Deploy bounty lock **(retired since v9)** |
+| `POST` | `/rpc/bounty/{bounty_id}/dispute` | Dispute bounty submission **(retired since v9)** |
+| `POST` | `/rpc/bounty/{bounty_id}/expire` | Expire bounty and refund **(retired since v9)** |
+| `POST` | `/rpc/bounty/{bounty_id}/submit` | Submit bounty solution **(retired since v9)** |
+| `POST` | `/rpc/bounty/{bounty_id}/verify` | Verify bounty submission **(retired since v9)** |
 | `GET` | `/rpc/bridge/balance/{chain_id}` | Get bridge balance for a chain |
 | `POST` | `/rpc/bridge/batch/confirm` | Batch confirm multiple transfers |
 | `POST` | `/rpc/bridge/batch/lock` | Batch lock multiple transfers |
@@ -196,8 +200,8 @@
 | `GET` | `/rpc/pending` | Get pending transactions |
 | `GET` | `/rpc/proposer` | Get the current block proposer address |
 | `POST` | `/rpc/register-account` | Report the on-chain state of an account address |
-| `POST` | `/rpc/staking/stake` | Stake tokens |
-| `POST` | `/rpc/staking/unstake` | Unstake tokens |
+| `POST` | `/rpc/staking/stake` | Stake tokens **(retired since v9)** |
+| `POST` | `/rpc/staking/unstake` | Unstake tokens **(retired since v9)** |
 | `GET` | `/rpc/staking/{address}` | Get staking info |
 | `GET` | `/rpc/state/delta` | Get state delta between two heights |
 | `GET` | `/rpc/state/snapshot` | Get full account state snapshot |
