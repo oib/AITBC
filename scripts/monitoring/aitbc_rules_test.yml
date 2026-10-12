@@ -1158,3 +1158,59 @@ tests:
       - expr: ALERTS{alertname="BridgeSetStale"}
         eval_time: 25m
         exp_samples: []
+
+  # Attestation arrival alerts (MON-1). The exporter emits
+  # aitbc_attestation_arrival_share / aitbc_attestation_consecutive_missed /
+  # aitbc_attestation_scrape_* from each host's local chain.db.
+
+  # Degraded: share 0.95 held the whole run. for: 30m — pending at 29m,
+  # firing at 31m.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_attestation_arrival_share{instance="node1:9100", db="/data/chain.db"}'
+        values: '0.95x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AttestationArrivalDegraded", alertstate="firing"}
+        eval_time: 29m
+        exp_samples: []
+      - expr: ALERTS{alertname="AttestationArrivalDegraded", alertstate="firing"}
+        eval_time: 31m
+        exp_samples:
+          - labels: 'ALERTS{alertname="AttestationArrivalDegraded", alertstate="firing", instance="node1:9100", db="/data/chain.db", severity="warning"}'
+            value: 1
+
+  # Healthy share 0.995: never fires.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_attestation_arrival_share{instance="node1:9100", db="/data/chain.db"}'
+        values: '0.995x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AttestationArrivalDegraded"}
+        eval_time: 40m
+        exp_samples: []
+
+  # Silent validator: consecutive_missed 25 held the whole run. for: 10m —
+  # pending at 9m, firing at 11m; the validator label is kept on the alert.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_attestation_consecutive_missed{instance="node1:9100", db="/data/chain.db", validator="0xDD"}'
+        values: '25x15'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AttestationValidatorSilent", alertstate="firing"}
+        eval_time: 9m
+        exp_samples: []
+      - expr: ALERTS{alertname="AttestationValidatorSilent", alertstate="firing"}
+        eval_time: 11m
+        exp_samples:
+          - labels: 'ALERTS{alertname="AttestationValidatorSilent", alertstate="firing", instance="node1:9100", db="/data/chain.db", validator="0xDD", severity="warning"}'
+            value: 1
+
+  # Jitter only (3 consecutive misses): never fires.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_attestation_consecutive_missed{instance="node1:9100", db="/data/chain.db", validator="0xDD"}'
+        values: '3x15'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AttestationValidatorSilent"}
+        eval_time: 15m
+        exp_samples: []
