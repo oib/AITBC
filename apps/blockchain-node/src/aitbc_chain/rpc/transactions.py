@@ -180,6 +180,22 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
             if propose_error:
                 raise ValueError(propose_error)
 
+        if tx_type == "BRIDGE_LOCK":
+            # v14 (see state_transition.validate_transaction's lock branch):
+            # apply refuses a lock whose leaf data is not derivable — refuse
+            # it at the door too. Below the shared activation height the same
+            # lock is only counted by the dry-run guard and admitted exactly
+            # as before.
+            from ..cross_chain.bridge_lock_guard import lock_derivation_source
+            from ..state.state_transition import get_block_version_for_height
+
+            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+            next_height = (head or 0) + 1
+            if get_block_version_for_height(next_height) >= 14:
+                payload = tx_data.get("payload")
+                if lock_derivation_source(payload if isinstance(payload, dict) else {}, tx_data) == "unreadable":
+                    raise ValueError("BRIDGE_LOCK carries no derivable leaf data for the bridge event trie")
+
         if tx_type == "ESCROW_FEE_SWEEP":
             # v11 (see state_transition.validate_transaction's sweep branch). Below the activation height the
             # type has no consensus meaning, so it is refused here rather than sealed as a plain transfer —
