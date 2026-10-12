@@ -50,6 +50,7 @@ from ..state.pure_state_transition import (
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
 from ..state.v9_policy import count_v9_would_reject
+from ..cross_chain import bridge_lock_guard
 from ..state.block_deltas import BlockDeltaJournal
 from ..state.bridge_credit import (
     BRIDGE_AUTHORITY_TX_TYPES,
@@ -1251,6 +1252,9 @@ class PoAProposer:
         state_root = _compute_state_root(session, self._config.chain_id)
         # v0.7.2: compute the bridge event trie root from BRIDGE_LOCK events.
         bridge_state_root = self._compute_bridge_state_root(session, processed_txs, self._config.chain_id)
+        # V-4 dry-run missing-data guard (flag-gated, logs/counts only —
+        # the block below is built exactly as before).
+        bridge_lock_guard.run_guard_dryrun(processed_txs, height=next_height, chain_id=self._config.chain_id, log=self._logger)
         # v0.7.2: block hash binds chain, height, parent, time, txs,
         # proposer, account state root, and bridge event trie root.
         block_hash = self._compute_block_hash(
