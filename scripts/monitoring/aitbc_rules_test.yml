@@ -1129,7 +1129,7 @@ tests:
       - expr: ALERTS{alertname="BridgeSetCannotMeetThreshold", alertstate="firing"}
         eval_time: 11m
         exp_samples:
-          - labels: 'ALERTS{alertname="BridgeSetCannotMeetThreshold", alertstate="firing", instance="hub:9100", severity="warning"}'
+          - labels: 'ALERTS{alertname="BridgeSetCannotMeetThreshold", alertstate="firing", instance="hub:9100", severity="critical"}'
             value: 1
       - expr: ALERTS{alertname="BridgeSetStale", alertstate="firing"}
         eval_time: 9m
