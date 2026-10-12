@@ -87,7 +87,7 @@ Network/join information (chain ID, role, subscription and gossip WebSocket URLs
 `GET /rpc/subscribers`
 List nodes holding a valid subscription lease
 
-The same router is also mounted under `/v1`, so `/v1/blocks/{height}` etc. work too. Admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/importBlock`, `/rpc/chains/*`) require `X-API-Key`; `POST /rpc/transaction` and `POST /rpc/staking/stake` are signature-verified in the request body instead.
+The same router is also mounted under `/v1`, so `/v1/blocks/{height}` etc. work too. Admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/importBlock`, `/rpc/chains/*`) require `X-API-Key`; `POST /rpc/transaction` and `POST /rpc/staking/stake` (retired since v9 — returns 410; see ../design/v9-unsigned-protocol-transfers.md) are signature-verified in the request body instead.
 
 ### WebSocket Subscriptions
 

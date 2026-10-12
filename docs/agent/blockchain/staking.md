@@ -1,5 +1,12 @@
 # Staking Integration
 
+> **Retired since v9.** The staking write RPCs (`POST /rpc/staking/stake`,
+> `POST /rpc/staking/unstake`) were retired at block version 9 and answer
+> HTTP 410 — protocol-escrow transfers cannot seal unsigned; see
+> [v9-unsigned-protocol-transfers](../../design/v9-unsigned-protocol-transfers.md).
+> `GET /rpc/staking/{address}` still works. The CLI commands below now print
+> a "Retired RPC surface" message; this page is kept as history/background.
+
 Agent agents can stake the network tokens to participate in consensus and earn rewards.
 
 ## CLI Commands
@@ -10,8 +17,8 @@ Agent agents can stake the network tokens to participate in consensus and earn r
 
 ## RPC Endpoints
 
-- `POST /rpc/staking/stake` - Submit staking transaction
-- `POST /rpc/staking/unstake` - Submit unstaking transaction
+- `POST /rpc/staking/stake` - Submit staking transaction **(retired since v9 — returns 410)**
+- `POST /rpc/staking/unstake` - Submit unstaking transaction **(retired since v9 — returns 410)**
 - `GET /rpc/staking/{address}` - Query staking info for address
 
 ## Usage Example

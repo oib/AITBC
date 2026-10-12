@@ -34,9 +34,11 @@ SELECT * FROM gpu_allocation WHERE chain_id = 'ait-localnet' AND gpu_id = 'GPU-b
 
 ## RPC Endpoint Testing
 
-Direct RPC endpoint testing for integration verification. Admin/control mutations (`/rpc/identity/*`, `/rpc/governance/*`, `/rpc/gpu/*` writes, `/rpc/escrow/*`, `/rpc/contracts/deploy`) require `X-API-Key` — set `BLOCKCHAIN_RPC_API_KEY` from `/etc/aitbc/blockchain-secrets.env` on any node. `POST /rpc/transaction` and `POST /rpc/staking/stake` are **not** key-gated: they authenticate via the wallet-signed `signature` + fresh `nonce`/`timestamp` in the request body (see the CLI/MCP callers). The `X-API-Key` header shown below is harmless on those routes.
+Direct RPC endpoint testing for integration verification. Admin/control mutations (`/rpc/identity/*`, `/rpc/governance/*`, `/rpc/gpu/*` writes, `/rpc/escrow/*`, `/rpc/contracts/deploy`) require `X-API-Key` — set `BLOCKCHAIN_RPC_API_KEY` from `/etc/aitbc/blockchain-secrets.env` on any node. `POST /rpc/transaction` and `POST /rpc/staking/stake` (retired since v9 — returns 410) are **not** key-gated: they authenticate via the wallet-signed `signature` + fresh `nonce`/`timestamp` in the request body (see the CLI/MCP callers). The `X-API-Key` header shown below is harmless on those routes.
 
 ### Staking
+
+**(Retired since v9 — returns HTTP 410; see docs/design/v9-unsigned-protocol-transfers.md.)**
 
 ```bash
 curl -X POST http://hub.example.net:8202/rpc/staking/stake \

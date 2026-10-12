@@ -1,5 +1,12 @@
 # Scenario 40: Automatic reinvestment from released escrow
 
+> **Retired since v9.** The escrow-release auto-stake path described here —
+> the node's `_auto_stake` queuing a protocol `AUTO_STAKE` transfer — is
+> retired at block version 9: unsigned protocol-escrow transfers cannot seal
+> and the staking write surfaces answer HTTP 410. See
+> [v9-unsigned-protocol-transfers](../design/v9-unsigned-protocol-transfers.md).
+> Kept as history/background.
+
 ## Goal
 
 Submit a paid AI job and, when the escrow is released, automatically stake a

@@ -14,7 +14,7 @@ Apply governance-approved parameters to market
 - `apps/coordinator-api/src/coordinator_api/contexts/governance/domain/governance.py` — Decentralized Governance Models Database models for agent DAO, voting, proposals, and governance ana...
 - `Market` exposes `POST /v1/market/parameters/apply` (operation `apply_market_parameter_v1_market_parameters_apply_post`) — Apply Market Parameter
 - `Blockchain Node` exposes `POST /rpc/transactions/market` (operation `submit_market_transaction_route_rpc_transactions_market_post`) — Submit market transaction
-- `Blockchain Node` exposes `POST /rpc/staking/stake` (operation `stake_tokens_route_rpc_staking_stake_post`) — Stake tokens
+- `Blockchain Node` exposes `POST /rpc/staking/stake` (operation `stake_tokens_route_rpc_staking_stake_post`) — Stake tokens (retired since v9 — returns 410; see ../design/v9-unsigned-protocol-transfers.md)
 
 ## Examples
 
@@ -25,7 +25,7 @@ Apply governance-approved parameters to market
 - `POST /scan` (`scan_gpus` in `apps/edge/src/aitbc_edge/routers/gpu.py`)
 - `POST /v1/market/parameters/apply` (`apply_market_parameter_v1_market_parameters_apply_post`) on `Market`
 - `POST /rpc/transactions/market` (`submit_market_transaction_route_rpc_transactions_market_post`) on `Blockchain Node`
-- `POST /rpc/staking/stake` (`stake_tokens_route_rpc_staking_stake_post`) on `Blockchain Node`
+- `POST /rpc/staking/stake` (`stake_tokens_route_rpc_staking_stake_post`) on `Blockchain Node` (retired since v9)
 
 ## Operational Notes
 
