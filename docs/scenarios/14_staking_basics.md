@@ -14,6 +14,15 @@ breadcrumb: Home > Scenarios > Staking Basics
 
 ---
 
+> **Retired since v9.** The on-chain staking write RPCs this scenario walks
+> through — `POST /rpc/staking/stake` and `POST /rpc/staking/unstake` — were
+> retired at block version 9 and now answer HTTP 410 (protocol-escrow
+> transfers cannot seal unsigned); the CLI prints a "Retired RPC surface"
+> message. `GET /rpc/staking/{address}` and liquidity staking via
+> `/rpc/transaction` are unaffected. See
+> [v9-unsigned-protocol-transfers](../design/v9-unsigned-protocol-transfers.md).
+> The walkthrough below is kept as history/background.
+
 ## See Also
 
 - **Previous Scenario**: [Mining Setup](./13_mining_setup.md)

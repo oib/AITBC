@@ -1,5 +1,11 @@
 # Scenario 49: Auto-reinvest from released escrow
 
+> **Retired since v9.** The `_auto_stake` write this scenario verifies queues
+> an unsigned protocol `AUTO_STAKE` transfer, which cannot seal at block
+> version 9 — the staking write surfaces answer HTTP 410. See
+> [v9-unsigned-protocol-transfers](../design/v9-unsigned-protocol-transfers.md).
+> Kept as history/background.
+
 ## Goal
 
 When a paid AI job completes and escrow is released, automatically stake a

@@ -21,7 +21,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 - `test_agent_coordinator.py` - Agent coordinator integration tests (141KB)
 - `test_agent_coordinator_api.py` - Agent coordinator API tests
 - `test_blockchain_nodes.py` - Blockchain node integration tests
-- `test_staking_lifecycle.py` - Staking lifecycle tests
+- `test_staking_lifecycle.py` - Staking lifecycle tests (the `/rpc/staking/stake` + `/rpc/staking/unstake` writes these exercise are retired since v9 — they answer 410; see ../design/v9-unsigned-protocol-transfers.md)
 - `test_working_integration.py` - Working integration tests
 - `test_basic_integration.py` - Basic integration tests
 - `test_blockchain_simple.py` - Simple blockchain tests
