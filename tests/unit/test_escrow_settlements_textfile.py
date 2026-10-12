@@ -27,9 +27,20 @@ import pytest
 MONITORING = Path(__file__).resolve().parents[2] / "scripts" / "monitoring"
 
 _spec = importlib.util.spec_from_file_location("escrow_settlements_textfile", MONITORING / "escrow-settlements-textfile.py")
-assert _spec is not None and _spec.loader is not None
+assert _spec and _spec.loader
 exporter = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(exporter)
+
+# The residue exporter shares aitbc_rules.yml with the settlements exporter;
+# its series count toward "every metric the rules use is emitted" below.
+# It imports escrow_residue_classify from scripts/ops.
+import sys
+
+sys.path.insert(0, str(MONITORING.parent / "ops"))
+_residue_spec = importlib.util.spec_from_file_location("escrow_residue_textfile", MONITORING / "escrow-residue-textfile.py")
+assert _residue_spec and _residue_spec.loader
+residue_exporter = importlib.util.module_from_spec(_residue_spec)
+_residue_spec.loader.exec_module(residue_exporter)
 
 NOW = time.time()
 # int(NOW): %f round-trip can land the stored ts a fraction of a µs after the
@@ -451,6 +462,17 @@ class TestFilesAgree:
             re.findall(
                 r"\baitbc_escrow_[a-z_]+",
                 exporter.render({"/db": [exporter.Violation(job_id="j", kind="release", age_seconds=1.0)]}, now=1),
+            )
+        )
+        # The residue exporter emits the aitbc_escrow_residue_* series the
+        # shared rules file also reads — the assert covers both exporters.
+        emitted |= set(
+            re.findall(
+                r"\baitbc_escrow_[a-z_]+",
+                residue_exporter.render(
+                    {"/db": [residue_exporter.ResidueRow(job_id="j", residue=1, age_seconds=1.0, cls="fee leg")]},
+                    now=1,
+                ),
             )
         )
         assert used <= emitted, used - emitted
