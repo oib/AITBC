@@ -7,6 +7,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, Request
+
+from .retired import raise_for_retired
 from sqlmodel import func, select
 
 from aitbc.rate_limiting import rate_limit
@@ -89,6 +91,7 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
     Locks tokens for a specified period. Staked tokens earn rewards
     and provide voting power in consensus.
     """
+    raise_for_retired("Staking (stake)")
     chain_id = get_chain_id(stake_data.get("chain_id"))
     address = stake_data.get("address")
     amount = stake_data.get("amount", 0)
@@ -180,6 +183,7 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
 
     Returns staked tokens to account balance.
     """
+    raise_for_retired("Staking (unstake)")
     chain_id = get_chain_id(unstake_data.get("chain_id"))
     address = unstake_data.get("address")
     stake_id = unstake_data.get("stake_id")

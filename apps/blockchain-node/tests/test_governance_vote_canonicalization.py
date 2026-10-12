@@ -196,7 +196,7 @@ def test_nocase_index_scan_finds_no_dupes_when_clean(engine) -> None:
 # --- The signed-message casing contract (stake/unstake) --------------------
 
 
-async def test_stake_signed_message_keeps_lowercase_spelling(rpc_db, monkeypatch) -> None:
+async def test_stake_signed_message_keeps_lowercase_spelling(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     """The wallet signs ``address.lower()``; the server must reproduce that.
 
     The stored Stake row and the queued transfer still take the canonical
@@ -247,7 +247,7 @@ async def test_stake_signed_message_keeps_lowercase_spelling(rpc_db, monkeypatch
     assert auth["signer"] == staker
 
 
-async def test_stake_signature_over_canonical_spelling_is_rejected(rpc_db, monkeypatch) -> None:
+async def test_stake_signature_over_canonical_spelling_is_rejected(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     """Pin the contract: signing the checksummed spelling never verified."""
     from fastapi import HTTPException
 
@@ -277,7 +277,9 @@ async def test_stake_signature_over_canonical_spelling_is_rejected(rpc_db, monke
     assert exc.value.status_code == 403
 
 
-async def test_unstake_authorizes_against_lowercase_legacy_stake_row(rpc_db, monkeypatch) -> None:
+async def test_unstake_authorizes_against_lowercase_legacy_stake_row(
+    rpc_db, monkeypatch, unretired_protocol_transfers
+) -> None:
     """Stake rows written before canonical-at-write still authorize their owner."""
     staker = VOTER
     monkeypatch.setattr(rpc_staking, "validate_chain_id", lambda chain_id: True)
