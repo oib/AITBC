@@ -124,15 +124,17 @@ export async function deploySafe({ provider, deployerKey, owners, threshold, con
 
 /**
  * Build a Safe transaction, sign it with each kit in `kits` (each adds its own
- * in-process signature — no Transaction Service), and execute it. Returns the
- * execution result.
+ * in-process signature — no Transaction Service), and execute it. `options.executor`
+ * is a kit that only submits the tx (pays the gas); it does not sign. Defaults
+ * to kits[0]. Any EOA may submit execTransaction — that is how relayers work.
  */
 export async function signAndExecute(kits, transactions, options = {}) {
+  const { executor, ...execOptions } = options;
   let safeTx = await kits[0].createTransaction({ transactions });
   for (const kit of kits) {
     safeTx = await kit.signTransaction(safeTx);
   }
-  return kits[0].executeTransaction(safeTx, options);
+  return (executor ?? kits[0]).executeTransaction(safeTx, execOptions);
 }
 
 /**
