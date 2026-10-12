@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-10-08
+**Last Updated**: 2026-10-12
 
 ---
 
@@ -59,7 +59,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 33
-- **Markdown files under docs/**: 860
+- **Markdown files under docs/**: 861
 
 | Directory | Files | Description |
 |---|---|---|
@@ -76,7 +76,7 @@ docs/
 | [cli](cli/) | 5 | Command-line interface reference |
 | [contracts](contracts/) | 14 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
-| [decisions](decisions/) | 1 | Decision log — dated choices with recorded reasons |
+| [decisions](decisions/) | 2 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 17 | Deployment and infrastructure setup |
 | [design](design/) | 2 | Design documents and decisions |
 | [development](development/) | 31 | Developer guides and workflow |
