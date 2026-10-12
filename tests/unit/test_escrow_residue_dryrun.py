@@ -149,19 +149,35 @@ def test_rounding_dust_class(tmp_path):
     assert rows["d-job"].cls == "rounding dust"
 
 
-def test_exporter_counts_only_stale(tmp_path):
+def test_exporter_classifies_stale_rows(tmp_path):
     db = _db(tmp_path)
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    rows = exporter.stale_residues(con, now=NOW, max_age_seconds=604800)
+    rows = exporter.stale_residues(con, now=NOW, max_age_seconds=604800, v3_height=V3, dust=0)
     con.close()
-    assert len(rows) == 6 and {r.job_id for r in rows} == {
-        "fee-job",
-        "settled-job",
-        "swept-job",
-        "v2-job",
-        "void-job",
-        "canary-job-1",
+    by_id = {r.job_id: r.cls for r in rows}
+    assert by_id == {
+        "fee-job": "fee leg",
+        "settled-job": "already settled (released)",
+        "swept-job": "already settled (fee-swept)",
+        "v2-job": "v2 authority-retained",
+        "void-job": "void — never locked",
+        "canary-job-1": "already settled (released)",
     }
+
+
+def test_exporter_render_counts_fee_legs_only(tmp_path):
+    db = _db(tmp_path)
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    rows = exporter.stale_residues(con, now=NOW, max_age_seconds=604800, v3_height=V3, dust=0)
+    con.close()
+    text = exporter.render({"/db/chain.db": rows}, now=NOW)
+    assert "\naitbc_escrow_residue_accounts 1\n" in text  # only fee-job alerts
+    assert 'aitbc_escrow_residue_account{db="/db/chain.db",job_id="fee-job"} 1' in text
+    assert 'aitbc_escrow_residue_stale_ledger_rows{class="v2 authority-retained"} 1' in text
+    assert 'aitbc_escrow_residue_stale_ledger_rows{class="void — never locked"} 1' in text
+    assert 'aitbc_escrow_residue_stale_ledger_rows{class="already settled (released)"} 2' in text
+    assert 'aitbc_escrow_residue_stale_ledger_rows{class="already settled (fee-swept)"} 1' in text
+    assert 'aitbc_escrow_residue_stale_ledger_rows{class="rounding dust"} 0' in text
 
 
 def test_exporter_render_marks_failed_db(tmp_path):
@@ -171,14 +187,14 @@ def test_exporter_render_marks_failed_db(tmp_path):
     assert "aitbc_escrow_residue_accounts 0" in text
 
 
-def test_exporter_render_lists_stale_rows(tmp_path):
-    text = exporter.render(
-        {"/db/chain.db": [exporter.ResidueRow(job_id="stale-job", residue=25, age_seconds=3000000)]},
-        now=NOW,
-    )
+def test_exporter_render_oldest_is_fee_leg_only(tmp_path):
+    rows = [
+        exporter.ResidueRow(job_id="fee-x", residue=25, age_seconds=1000, cls="fee leg"),
+        exporter.ResidueRow(job_id="old-void", residue=999, age_seconds=9999999, cls="void — never locked"),
+    ]
+    text = exporter.render({"/db/chain.db": rows}, now=NOW)
     assert "aitbc_escrow_residue_accounts 1" in text
-    assert 'job_id="stale-job"' in text
-    assert "aitbc_escrow_residue_oldest_seconds 3000000" in text
+    assert "aitbc_escrow_residue_oldest_seconds 1000" in text  # void's greater age ignored
 
 
 def test_main_table_shows_classes(tmp_path, capsys):
