@@ -51,6 +51,7 @@ from ..state.pure_state_transition import (
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
 from ..state.v9_policy import count_v9_would_reject
 from ..state.block_deltas import BlockDeltaJournal
+from ..state import side_root_shadow
 from ..state.bridge_credit import (
     BRIDGE_AUTHORITY_TX_TYPES,
     bridge_refund_lock_hash,
@@ -1505,6 +1506,8 @@ class PoAProposer:
         if journal is not None:
             journal.persist(session)
         session.commit()
+        # V-3 shadow (flag-gated, compare-only — never affects the sealed block).
+        side_root_shadow.on_block_sealed(session, self._config.chain_id, block.height)
         # Invalidate the in-process block header cache for the new block
         # so stale entries are not served by rpc/blocks.py.
         from ..block_cache import get_block_header_cache
