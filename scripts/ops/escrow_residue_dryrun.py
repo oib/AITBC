@@ -37,6 +37,23 @@ from typing import NamedTuple
 
 TERMINAL_STATES = ("released", "refunded", "void")
 DEFAULT_MIN_AGE_SECONDS = 7 * 24 * 3600
+DEFAULT_V3_HEIGHT = 5470  # per-escrow custody activation on the live island chain
+OUTFLOW_TYPES = ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP")
+
+# Classification (S-12): the ledger residue number alone is not enough — a row
+# is only sweepable when its residue is the stranded platform fee still in the
+# job's custody account. The sealed legs decide.
+#   void — never locked : the row claims a lock that never sealed (or has none)
+#   already settled     : sealed outflow legs (release/refund/fee-sweep) cover
+#                         the lock amount — the residue already left custody and
+#                         the ledger row is stale
+#   v2 authority-retained : the lock sealed below the v3 custody height — value
+#                         went to the settlement authority's account, never to
+#                         a per-escrow custody account; the fee is retained
+#                         there already and a sweep is a no-op
+#   rounding dust       : residue below the dust threshold (param)
+#   fee leg             : none of the above — the only class a sweep may target
+#   canary-…            : prefix added to job rows naming a canary/test job
 
 
 class Residue(NamedTuple):
@@ -50,6 +67,9 @@ class Residue(NamedTuple):
     age_seconds: float | None
     custody_address: str | None
     stale: bool
+    cls: str
+    lock_height: int | None
+    sealed_outflow: int
 
 
 def parse_ts(raw: object) -> datetime | None:
@@ -80,23 +100,64 @@ def _chain_param(conn: sqlite3.Connection, name: str) -> str | None:
     return value or None
 
 
-def _custody_address(conn: sqlite3.Connection, lock_tx_hash: object) -> str | None:
-    """The lock's payload `to` — the per-job custody account."""
-    if not lock_tx_hash:
-        return None
+def _legs(conn: sqlite3.Connection, job_id: str) -> tuple[int | None, int, bool]:
+    """(lock height, sealed outflow, swept) for the job's ESCROW_* legs.
+
+    The outflow sums the values of sealed RELEASE/REFUND/FEE_SWEEP legs whose
+    payload names the job — the ledger's released/refunded columns are known to
+    lag (legs sealed after the row's terminal timestamp never wrote back).
+    """
     try:
-        row = conn.execute('SELECT payload FROM "transaction" WHERE hash = ?', (str(lock_tx_hash),)).fetchone()
+        rows = conn.execute(
+            "SELECT type, block_height, value FROM \"transaction\" WHERE type LIKE 'ESCROW%' AND payload LIKE ?",
+            (f"%{job_id}%",),
+        ).fetchall()
     except sqlite3.OperationalError:
-        return None
-    if not row or not row[0]:
-        return None
-    try:
-        return str(json.loads(row[0]).get("to") or "") or None
-    except (TypeError, ValueError):
-        return None
+        return None, 0, False
+    lock_height = None
+    outflow = 0
+    swept = False
+    for tx_type, height, value in rows:
+        if tx_type == "ESCROW_LOCK" and lock_height is None:
+            lock_height = int(height) if height is not None else None
+        elif tx_type in OUTFLOW_TYPES:
+            outflow += int(value or 0)
+            swept = swept or tx_type == "ESCROW_FEE_SWEEP"
+    return lock_height, outflow, swept
 
 
-def collect_residues(db_path: str, now: float, min_age_seconds: int) -> tuple[list[Residue], str | None]:
+def classify(
+    status: str,
+    residue: int,
+    lock_height: int | None,
+    sealed_outflow: int,
+    amount: int,
+    swept: bool,
+    v3_height: int,
+    dust: int,
+    job_id: str = "",
+) -> str:
+    """Class per the S-12 scheme — see the module constants for the meanings."""
+    if job_id.startswith("canary"):
+        prefix = "canary-"
+    else:
+        prefix = ""
+    if lock_height is None:
+        return prefix + "void — never locked"
+    if swept:
+        return prefix + "already settled (fee-swept)"
+    if sealed_outflow >= amount:
+        return prefix + "already settled (released)"
+    if lock_height < v3_height:
+        return prefix + "v2 authority-retained"
+    if residue <= dust:
+        return prefix + "rounding dust"
+    return prefix + "fee leg"
+
+
+def collect_residues(
+    db_path: str, now: float, min_age_seconds: int, v3_height: int = DEFAULT_V3_HEIGHT, dust: int = 0
+) -> tuple[list[Residue], str | None]:
     """(residue rows, resolved fee recipient) for one chain.db opened mode=ro."""
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
@@ -109,13 +170,14 @@ def collect_residues(db_path: str, now: float, min_age_seconds: int) -> tuple[li
                   AND amount - COALESCE(released_amount, 0) - COALESCE(refunded_amount, 0) > 0""",
             TERMINAL_STATES,
         ).fetchall()
-        custody = {str(r[0]): _custody_address(conn, r[6]) for r in rows}
+        legs = {str(r[0]): _legs(conn, str(r[0])) for r in rows}
     finally:
         conn.close()
     residues = []
     for job_id, status, amount, released, refunded, terminal_at, _lock_hash in rows:
         ts = parse_ts(terminal_at)
         age = (now - ts.timestamp()) if ts else None
+        lock_height, sealed_outflow, swept = legs[str(job_id)]
         residues.append(
             Residue(
                 job_id=str(job_id),
@@ -126,8 +188,21 @@ def collect_residues(db_path: str, now: float, min_age_seconds: int) -> tuple[li
                 residue=int(amount) - int(released) - int(refunded),
                 terminal_at=str(terminal_at) if terminal_at else "",
                 age_seconds=age,
-                custody_address=custody[str(job_id)],
+                custody_address=None,
                 stale=age is not None and age >= min_age_seconds,
+                cls=classify(
+                    str(status),
+                    int(amount) - int(released) - int(refunded),
+                    lock_height,
+                    sealed_outflow,
+                    int(amount),
+                    swept,
+                    v3_height,
+                    dust,
+                    str(job_id),
+                ),
+                lock_height=lock_height,
+                sealed_outflow=sealed_outflow,
             )
         )
     return residues, fee_recipient
@@ -153,6 +228,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", action="append", type=Path, help="chain.db path (repeatable; default scans --data-dir)")
     parser.add_argument("--data-dir", default=os.getenv("AITBC_DATA_DIR", "/var/lib/aitbc"))
     parser.add_argument("--min-age-seconds", type=int, default=DEFAULT_MIN_AGE_SECONDS)
+    parser.add_argument(
+        "--v3-height", type=int, default=DEFAULT_V3_HEIGHT, help="custody activation height (default %(default)s)"
+    )
+    parser.add_argument("--dust", type=int, default=0, help="residue at or below this counts as rounding dust")
     parser.add_argument("--fee-recipient", help="override when the chain parameter is absent")
     parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
     args = parser.parse_args(argv)
@@ -168,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     errors = 0
     for db in dbs:
         try:
-            rows, resolved = collect_residues(db, now, args.min_age_seconds)
+            rows, resolved = collect_residues(db, now, args.min_age_seconds, args.v3_height, args.dust)
         except sqlite3.Error as exc:
             print(f"{db}: unreadable ({exc})", file=sys.stderr)
             errors += 1
@@ -182,27 +261,41 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "min_age_seconds": args.min_age_seconds,
                     "fee_recipient": fee_recipient,
-                    "residues": [{**r._asdict(), "db": db, "sweep_leg": sweep_leg(r, fee_recipient)} for db, r in all_rows],
+                    "residues": [
+                        {
+                            **r._asdict(),
+                            "db": db,
+                            "sweep_leg": sweep_leg(r, fee_recipient) if r.cls == "fee leg" else None,
+                        }
+                        for db, r in all_rows
+                    ],
                 },
                 indent=2,
             )
         )
     else:
-        print(f"{'job':<10}{'status':<10}{'residue':>12}{'age(d)':>8}{'stale':>6}  custody")
-        print("-" * 60)
+        print(f"{'job':<10}{'status':<10}{'residue':>12}{'age(d)':>8}{'stale':>6}  class")
+        print("-" * 70)
         for _db, r in sorted(all_rows, key=lambda t: -(t[1].residue)):
             age_d = f"{r.age_seconds / 86400:.1f}" if r.age_seconds is not None else "?"
-            print(
-                f"{r.job_id[:8]:<10}{r.status:<10}{r.residue:>12}{age_d:>8}"
-                f"{'yes' if r.stale else 'no':>6}  {(r.custody_address or '?')[:12]}…"
-            )
+            print(f"{r.job_id[:8]:<10}{r.status:<10}{r.residue:>12}{age_d:>8}{'yes' if r.stale else 'no':>6}  {r.cls}")
         stale = [r for _, r in all_rows if r.stale]
-        print("-" * 60)
+        sweepable = [r for _, r in all_rows if r.cls == "fee leg"]
+        print("-" * 70)
         print(
             f"{len(all_rows)} residue rows ({len(stale)} older than {args.min_age_seconds}s), "
             f"total {sum(r.residue for _, r in all_rows)} units; fee recipient {fee_recipient or '<unset>'}"
         )
-        print("sweep legs would be ESCROW_FEE_SWEEP per stale row — this tool submits nothing")
+        by_class: dict[str, int] = {}
+        for _, r in all_rows:
+            by_class[r.cls] = by_class.get(r.cls, 0) + 1
+        print("classes: " + ", ".join(f"{c}×{n}" for c, n in sorted(by_class.items())))
+        if sweepable:
+            print(
+                f"{len(sweepable)} rows are sweepable fee legs — ESCROW_FEE_SWEEP per row, operator-approved; this tool submits nothing"
+            )
+        else:
+            print("no sweepable fee-leg rows — every residue is already settled, never locked, or pre-custody")
     return 1 if errors else 0
 
 
