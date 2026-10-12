@@ -11,7 +11,7 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, NamedTuple
 
 from eth_utils import keccak
 from sqlalchemy import func, text
@@ -48,6 +48,7 @@ from .gpu_resources import (
     retired_gpu_error,
 )
 from .v9_policy import count_v9_would_reject, v9_signature_verdict
+from .v13_policy import count_v13_shadow_checked, count_v13_would_reject
 from .liquidity_transition import (
     apply_liquidity_claim,
     apply_liquidity_deposit,
@@ -417,6 +418,206 @@ def _validate_authority_parameter_value(session: Session, chain_id: str, paramet
     return None
 
 
+# v13: bound on the ``execution_payload`` a GOVERNANCE_PROPOSE commits to the
+# chain. A parameter_change fits in a few hundred bytes; 16 KiB is generous
+# headroom that still keeps a proposal from parking an unbounded blob in the
+# canonical transaction table.
+_V13_MAX_EXECUTION_PAYLOAD_BYTES = 16 * 1024
+
+
+class _V13Verdict(NamedTuple):
+    """A v13 binding failure: a short metric-safe reason token and the
+    human-readable rejection message."""
+
+    reason: str
+    message: str
+
+
+def _sealed_propose_execution_payload(
+    session: Session, chain_id: str, proposal_id: str, before_height: int
+) -> tuple[bool, Any]:
+    """Return ``(found, execution_payload)`` of the GOVERNANCE_PROPOSE sealed for
+    ``proposal_id`` in a block strictly below ``before_height``.
+
+    The transaction table is canonical — every node holds the same sealed rows —
+    so this resolves identically under replay on every node, unlike the
+    node-local ``governance_proposal`` table (which is only populated on the
+    host that served the create RPC and can never be a consensus input). The
+    strict ``block_height <`` bound enforces the ordering rule: the PROPOSE must
+    be sealed in an *earlier* block — an EXECUTE cannot bind a PROPOSE carried
+    in the same block or a later one.
+    """
+    row = session.exec(
+        select(Transaction)
+        .where(
+            Transaction.chain_id == chain_id,
+            Transaction.type == "GOVERNANCE_PROPOSE",
+            Transaction.payload.op("->>")("proposal_id") == proposal_id,  # type: ignore
+            Transaction.block_height < before_height,  # type: ignore[operator]
+        )
+        .order_by(Transaction.block_height.desc())  # type: ignore[union-attr]
+    ).first()
+    if row is None:
+        return (False, None)
+    return (True, (row.payload or {}).get("execution_payload"))
+
+
+def _sealed_execute_exists(session: Session, chain_id: str, proposal_id: str, before_height: int) -> bool:
+    """True when a GOVERNANCE_EXECUTE naming ``proposal_id`` already sealed in
+    a block strictly below ``before_height``. Canonical like the proposal
+    lookup — the transaction table holds the same sealed rows on every node.
+    The strict ``<`` bound keeps the current transaction's own row (if it is
+    already flushed mid-apply) from rejecting itself."""
+    return (
+        session.exec(
+            select(Transaction.id).where(
+                Transaction.chain_id == chain_id,
+                Transaction.type == "GOVERNANCE_EXECUTE",
+                Transaction.payload.op("->>")("proposal_id") == proposal_id,  # type: ignore
+                Transaction.block_height < before_height,  # type: ignore[operator]
+            )
+        ).first()
+        is not None
+    )
+
+
+def _governance_propose_binding_verdict(payload: dict[str, Any]) -> _V13Verdict | None:
+    """v13: a GOVERNANCE_PROPOSE must carry the ``execution_payload`` it commits
+    to, as a dict within ``_V13_MAX_EXECUTION_PAYLOAD_BYTES``."""
+    execution_payload = payload.get("execution_payload")
+    if not isinstance(execution_payload, dict):
+        return _V13Verdict(
+            "propose_missing_execution_payload",
+            "GOVERNANCE_PROPOSE rejected: an execution_payload object is required from v13",
+        )
+    if len(json.dumps(execution_payload, sort_keys=True, separators=(",", ":"))) > _V13_MAX_EXECUTION_PAYLOAD_BYTES:
+        return _V13Verdict(
+            "propose_execution_payload_oversized",
+            f"GOVERNANCE_PROPOSE rejected: execution_payload exceeds {_V13_MAX_EXECUTION_PAYLOAD_BYTES} bytes",
+        )
+    return None
+
+
+def _governance_execute_binding_verdict(
+    session: Session, chain_id: str, payload: dict[str, Any], *, block_height: int | None
+) -> _V13Verdict | None:
+    """v13: a GOVERNANCE_EXECUTE must name a ``proposal_id`` whose GOVERNANCE_PROPOSE
+    sealed in an earlier block, and its ``execution_payload`` must equal the
+    stored one — the executor can only apply the payload the proposal committed
+    to, not a swapped or fat-fingered substitute."""
+    proposal_id = payload.get("proposal_id")
+    if not proposal_id:
+        return _V13Verdict(
+            "execute_missing_proposal_id",
+            "GOVERNANCE_EXECUTE rejected: proposal_id is required from v13",
+        )
+    if block_height is None:
+        # The transaction would land in the next block — same convention as
+        # mempool admission, which always passes a concrete height.
+        head = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first()
+        block_height = (head or 0) + 1
+    found, stored = _sealed_propose_execution_payload(session, chain_id, str(proposal_id), block_height)
+    if not found:
+        return _V13Verdict(
+            "execute_unknown_proposal",
+            f"GOVERNANCE_EXECUTE rejected: no GOVERNANCE_PROPOSE for proposal '{proposal_id}' sealed in an earlier block",
+        )
+    if stored != payload.get("execution_payload"):
+        return _V13Verdict(
+            "execute_payload_mismatch",
+            f"GOVERNANCE_EXECUTE rejected: execution_payload does not match sealed proposal '{proposal_id}'",
+        )
+    if _sealed_execute_exists(session, chain_id, str(proposal_id), block_height):
+        return _V13Verdict(
+            "execute_already_executed",
+            f"GOVERNANCE_EXECUTE rejected: proposal '{proposal_id}' already executed",
+        )
+    return None
+
+
+def _governance_binding_verdict(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    tx_payload: Any,
+    *,
+    block_height: int | None,
+) -> _V13Verdict | None:
+    """The v13 binding rules scored without the version gate — the shadow path
+    (v13_would_reject_*) calls this on every GOVERNANCE_PROPOSE/EXECUTE so a
+    would-reject surfaces as a metric before the rules are armed."""
+    payload = tx_payload
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    if tx_type == "GOVERNANCE_PROPOSE":
+        return _governance_propose_binding_verdict(payload)
+    if tx_type == "GOVERNANCE_EXECUTE":
+        return _governance_execute_binding_verdict(session, chain_id, payload, block_height=block_height)
+    return None
+
+
+def _governance_binding_error(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    tx_payload: Any,
+    *,
+    block_version: int,
+    block_height: int | None,
+) -> str | None:
+    """The v13 proposal-binding checks for GOVERNANCE_PROPOSE/EXECUTE (V-2).
+
+    Shared by ``validate_transaction`` and mempool admission so the door refuses
+    exactly what apply refuses. Below v13 — the default everywhere, since the
+    ``state_transition_v13_height`` default is an unreachable sentinel — every
+    check returns None and behaviour is byte-identical to today.
+    """
+    if block_version < 13:
+        return None
+    verdict = _governance_binding_verdict(session, chain_id, tx_type, tx_payload, block_height=block_height)
+    return verdict.message if verdict else None
+
+
+def _v13_shadow_observe(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    tx_payload: Any,
+    *,
+    block_version: int,
+    block_height: int | None,
+    tx_hash: str = "",
+) -> str | None:
+    """Score the v13 binding rules on a transaction and count the result.
+
+    Always increments ``v13_shadow_checked_*`` (the positive control). Below
+    v13 a would-be rejection only counts ``v13_would_reject_<reason>`` and
+    logs — never refuses; at or above the armed height the caller gets the
+    rejection message (the real reject is counted too, same as v9).
+    """
+    if tx_type not in ("GOVERNANCE_PROPOSE", "GOVERNANCE_EXECUTE"):
+        return None
+    count_v13_shadow_checked(tx_type)
+    verdict = _governance_binding_verdict(session, chain_id, tx_type, tx_payload, block_height=block_height)
+    if verdict is None:
+        return None
+    count_v13_would_reject(verdict.reason)
+    if block_version >= 13:
+        return verdict.message
+    logger.warning(
+        "v13 shadow: %s tx %s would be rejected (%s)",
+        tx_type,
+        tx_hash,
+        verdict.reason,
+    )
+    return None
+
+
 def _authority_parameter_change_error(
     session: Session, chain_id: str, tx_payload: Any, fee: int, *, block_version: int
 ) -> str | None:
@@ -760,6 +961,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v13_threshold = getattr(settings, "state_transition_v13_height", None)
+    if v13_threshold and height >= v13_threshold:
+        return 13
     v12_threshold = getattr(settings, "state_transition_v12_height", None)
     if v12_threshold and height >= v12_threshold:
         return 12
@@ -1328,6 +1532,34 @@ class StateTransition:
             )
             if authority_value_error:
                 return (False, authority_value_error)
+            # v13 (inert until the operator arms state_transition_v13_height):
+            # the execute's payload must equal the sealed PROPOSE's. Below the
+            # sentinel the same check only counts v13_would_reject_* (shadow).
+            binding_error = _v13_shadow_observe(
+                session,
+                chain_id,
+                "GOVERNANCE_EXECUTE",
+                gov_payload,
+                block_version=block_version,
+                block_height=block_height,
+                tx_hash=tx_hash,
+            )
+            if binding_error:
+                return (False, binding_error)
+        if tx_type == "GOVERNANCE_PROPOSE":
+            # v13: the propose must carry the execution_payload it commits to;
+            # shadow-only below the sentinel.
+            propose_error = _v13_shadow_observe(
+                session,
+                chain_id,
+                "GOVERNANCE_PROPOSE",
+                tx_data.get("payload"),
+                block_version=block_version,
+                block_height=block_height,
+                tx_hash=tx_hash,
+            )
+            if propose_error:
+                return (False, propose_error)
         if tx_type == "STAKE_RELEASE" and block_version >= 4:
             ok, why = _validate_stake_release_locks(session, chain_id, tx_data, tx_hash, value, recipient_addr)
             if not ok:
@@ -1821,7 +2053,7 @@ class StateTransition:
                     skip_reason,
                 )
         if tx_type == "GOVERNANCE_EXECUTE":
-            self._handle_governance_execute(session, chain_id, tx_data, tx_hash, block_height)
+            self._handle_governance_execute(session, chain_id, tx_data, tx_hash, block_height, block_version=block_version)
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")
             receipt = session.exec(
@@ -1962,6 +2194,7 @@ class StateTransition:
         tx_data: dict[str, Any],
         tx_hash: str,
         block_height: int | None = None,
+        block_version: int = 2,
     ) -> None:
         """Apply a GOVERNANCE_EXECUTE transaction payload to chain parameters.
 
@@ -1997,6 +2230,21 @@ class StateTransition:
         if not proposal_id:
             logger.warning("GOVERNANCE_EXECUTE tx %s missing proposal_id", tx_hash)
             return
+
+        if block_version >= 13 and block_height is not None:
+            # v13: apply the sealed PROPOSE's stored payload, not the one the
+            # transaction carries. validate_transaction already proved them
+            # equal, so this can only differ if a code path ever bypassed
+            # validation — in which case the stored payload is the safe choice.
+            found, stored_payload = _sealed_propose_execution_payload(session, chain_id, str(proposal_id), block_height)
+            if not found:
+                logger.warning("GOVERNANCE_EXECUTE tx %s proposal %s not sealed in an earlier block", tx_hash, proposal_id)
+                return
+            if _sealed_execute_exists(session, chain_id, str(proposal_id), block_height):
+                logger.warning("GOVERNANCE_EXECUTE tx %s proposal %s already executed", tx_hash, proposal_id)
+                return
+            execution_payload = stored_payload or {}
+            action = execution_payload.get("action", "parameter_change")
 
         # Record execution on the on-chain proposal record, if present
         proposal = session.exec(
