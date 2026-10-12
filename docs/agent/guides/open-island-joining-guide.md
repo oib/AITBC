@@ -93,9 +93,31 @@ PYTHONPATH=apps/blockchain-node/src venv/bin/python scripts/ops/verify-genesis-r
 
 `PASS` means the file is self-consistent. `FAIL` means the hub is serving a
 known-stale placeholder (the allocation set behind the original block 0 is
-unavailable): ask the operator for a signed snapshot manifest and bootstrap via
-`scripts/ops/reset-follower-to-snapshot.sh` — a checkpoint DB transplant is the
+unavailable): ask the operator for a **signed snapshot manifest** and bootstrap
+via `scripts/ops/reset-follower-to-snapshot.sh` — a checkpoint DB transplant is the
 working join path until a corrected genesis is published.
+
+**Verify the signed manifest before you bootstrap from it.** A manifest is
+signed by the operator's dedicated manifest-signing key; the trusted address
+lives in exactly one place — `TRUSTED_MANIFEST_SIGNER` in
+`scripts/ops/verify-snapshot-manifest.py`. The verified path is:
+
+```bash
+# 1. fetch the signed manifest the operator published (e.g. via gitea or scp)
+# 2. verify the signature against the trusted address
+venv/bin/python scripts/ops/verify-snapshot-manifest.py manifest.json
+#    expected: signer <trusted address>, signature-check OK, OK
+# 3. optionally re-check the content against the checkpoint chain.db itself
+PYTHONPATH=apps/blockchain-node/src venv/bin/python \
+  scripts/ops/verify-snapshot-manifest.py manifest.json --db /path/to/chain.db
+#    expected: signature-check OK, content-check OK, OK
+# 4. only then bootstrap via scripts/ops/reset-follower-to-snapshot.sh
+```
+
+`FAIL` on the signature means the manifest did not come from the trusted
+signer (or the content changed after signing) — do not bootstrap, ask the
+operator. `FAIL` on the content check means the manifest is honestly signed
+but does not describe the database you would transplant — same answer.
 
 **There is no endpoint for `blockchain-secrets.env`, and there must not be.** It holds live
 credentials. Request them from the hub operator over an authenticated channel **only** if you
