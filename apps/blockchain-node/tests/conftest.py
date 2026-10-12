@@ -58,6 +58,19 @@ def _allow_test_chain_ids(monkeypatch) -> None:
     monkeypatch.setattr(settings, "supported_chains", supported)
 
 
+@pytest.fixture
+def unretired_protocol_transfers(monkeypatch) -> None:
+    """Run a test with the BNT-2 retirement flag off.
+
+    The retired protocol-transfer RPCs refuse with HTTP 410 / RetiredProtocolTransfer
+    in production; tests that pin the underlying request logic (signature rules,
+    lock math, chain admission, HTLC state transitions) run under this fixture so
+    the body stays verified for a possible revival at a future consensus version.
+    """
+
+    monkeypatch.setattr("aitbc_chain.rpc.retired.PROTOCOL_TRANSFER_RPC_RETIRED", False)
+
+
 # A `pytest_runtest_setup` hook used to sit here. It walked SQLModel's global metadata before
 # every test in this directory and removed each table that did not belong to `aitbc_chain`,
 # because this suite's fixtures called `SQLModel.metadata.create_all` and would otherwise have
