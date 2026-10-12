@@ -242,3 +242,63 @@ def test_canonical_sets_cover_candidates(tool):
     lands in exactly one set, so a new table cannot be silently half-committed."""
     assert set(tool.RESTRICTED_TABLES).isdisjoint(tool.CANONICALIZED_TABLES)
     assert set(tool.RESTRICTED_TABLES) | set(tool.CANONICALIZED_TABLES) == set(tool.CANDIDATE_TABLES)
+
+
+# --- normalize + exclude fixtures (operator 2026-10-08) ------------------------
+
+
+def _mk_alloc_db(path: Path, *, allocation_id: str, locked_until: str) -> Path:
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE block (chain_id TEXT, height INTEGER, hash TEXT);
+        CREATE TABLE gpu_allocation (
+            id INTEGER PRIMARY KEY, chain_id TEXT, allocation_id TEXT, gpu_id TEXT,
+            client_id TEXT, duration_hours INTEGER, total_cost INTEGER, status TEXT,
+            allocated_by TEXT, allocated_at TEXT, completed_at TEXT, updated_at TEXT
+        );
+        CREATE TABLE stake (
+            id INTEGER PRIMARY KEY, chain_id TEXT, address TEXT, amount INTEGER,
+            locked_until TEXT, created_at TEXT, updated_at TEXT, status TEXT
+        );
+        INSERT INTO block VALUES ('ait-test', 7, 'h7');
+        """
+    )
+    conn.execute(
+        "INSERT INTO gpu_allocation VALUES (1, 'ait-test', ?, 'gpu1', '0xAa00', 4, 100, 'active', '0xBb11', 'a', 'c', 'u')",
+        (allocation_id,),
+    )
+    conn.execute(
+        "INSERT INTO stake VALUES (1, 'ait-test', '0xcc22', 100, ?, 'c1', 'u1', 'locked')",
+        (locked_until,),
+    )
+    conn.commit()
+    conn.close()
+    return path
+
+
+def test_canonical_allocation_id_excluded(tool, tmp_path):
+    """allocation_id is a node-local handle (differs per host): excluded from
+    gpu_allocation's canonical digest but present in the raw one."""
+    db1 = _mk_alloc_db(tmp_path / "a.db", allocation_id="alloc-A", locked_until="2026-10-14 19:30:20")
+    db2 = _mk_alloc_db(tmp_path / "b.db", allocation_id="alloc-B", locked_until="2026-10-14 19:30:20")
+    c1 = tool.table_digest(tool.connect_ro(str(db1)), "gpu_allocation", canonical=True)
+    c2 = tool.table_digest(tool.connect_ro(str(db2)), "gpu_allocation", canonical=True)
+    assert c1["digest"] == c2["digest"]
+    assert "allocation_id" in c1["skipped_cols"]
+    r1 = tool.table_digest(tool.connect_ro(str(db1)), "gpu_allocation")
+    r2 = tool.table_digest(tool.connect_ro(str(db2)), "gpu_allocation")
+    assert r1["digest"] != r2["digest"]  # raw mode keeps the honest divergence
+
+
+def test_canonical_timestamp_precision_normalized(tool, tmp_path):
+    """locked_until drift '.000000' vs none is the same instant — normalized."""
+    db1 = _mk_alloc_db(tmp_path / "a.db", allocation_id="alloc-A", locked_until="2026-10-14 19:30:20.000000")
+    db2 = _mk_alloc_db(tmp_path / "b.db", allocation_id="alloc-A", locked_until="2026-10-14 19:30:20")
+    c1 = tool.table_digest(tool.connect_ro(str(db1)), "stake", canonical=True)
+    c2 = tool.table_digest(tool.connect_ro(str(db2)), "stake", canonical=True)
+    assert c1["digest"] == c2["digest"]
+    # …but a REAL timestamp difference still diverges
+    db3 = _mk_alloc_db(tmp_path / "c.db", allocation_id="alloc-A", locked_until="2026-10-14 19:30:21")
+    c3 = tool.table_digest(tool.connect_ro(str(db3)), "stake", canonical=True)
+    assert c1["digest"] != c3["digest"]
