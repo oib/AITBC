@@ -111,7 +111,12 @@ def test_post_calls_every_url_once(tmp_path, monkeypatch):
 
 def test_post_refuses_non_http_schemes(tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setattr(digest.urllib.request, "urlopen", lambda *a, **k: calls.append(a))
+
+    class _Resp:
+        def read(self):
+            return b""
+
+    monkeypatch.setattr(digest.urllib.request, "urlopen", lambda *a, **k: calls.append(a) or _Resp())
     failures = digest._post(["file:///etc/passwd", "ftp://x/y", "http://ok/t"], "body")
     assert failures == 2
     assert len(calls) == 1
