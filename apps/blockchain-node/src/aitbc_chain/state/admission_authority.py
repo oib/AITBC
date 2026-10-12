@@ -29,6 +29,7 @@ from .state_transition import (
     _escrow_fee_recipient,
     _escrow_settlement_authority,
     _governance_executors,
+    _v13_shadow_observe,
 )
 
 # The types whose sender ``validate_transaction`` checks against an on-chain authority.
@@ -110,6 +111,10 @@ def sender_authority_error(
         value_error = _authority_parameter_change_error(session, chain_id, payload, fee, block_version=block_version)
         if value_error is not None:
             return value_error
+        # v13 (after the v12 value check, matching validate_transaction's
+        # order): the payload must equal the sealed PROPOSE's stored payload.
+        # Below the sentinel this only counts v13_would_reject_* (shadow).
+        return _v13_shadow_observe(session, chain_id, tx_type, payload, block_version=block_version, block_height=block_height)
     elif tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND") and block_version >= 3:
         authority = _escrow_settlement_authority(session, chain_id, block_height)
         if authority is None:
