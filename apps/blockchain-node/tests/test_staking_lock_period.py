@@ -28,6 +28,11 @@ from aitbc_chain.metadata import chain_metadata
 STAKER = "0x1111111111111111111111111111111111111111"
 
 
+@pytest.fixture(autouse=True)
+def _unretire(unretired_protocol_transfers):
+    """BNT-2 retired the stake RPCs; these tests pin the underlying logic."""
+
+
 @pytest.fixture
 def engine(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'staking.db'}", echo=False)

@@ -37,6 +37,7 @@ from ..metrics import escrow_fee_sweep_total, escrow_settlement_refused_total
 from ..models import Account, Escrow, Stake
 from ..protocol_escrow import queue_protocol_transfer, stake_escrow_address
 
+from .retired import is_retired as _retired_check
 from .utils import _unsigned_tx_fields
 
 _raw_rpc_url = os.getenv("HUB_RPC_URL", BLOCKCHAIN_RPC_URL).rstrip("/")
@@ -44,6 +45,8 @@ _HUB_RPC_URL = _raw_rpc_url if _raw_rpc_url.endswith("/rpc") else f"{_raw_rpc_ur
 _CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-localnet"))
 _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRESS", ""))
 _logger = get_logger(__name__)
+
+_AUTO_STAKE_RETIRED_LOGGED = False
 
 
 def _energy_operator_address() -> str:
@@ -304,6 +307,15 @@ async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | N
     an unrelated stake.
     """
     if not provider or amount <= 0:
+        return None
+    if _retired_check():
+        global _AUTO_STAKE_RETIRED_LOGGED
+        if not _AUTO_STAKE_RETIRED_LOGGED:
+            _AUTO_STAKE_RETIRED_LOGGED = True
+            _logger.warning(
+                "AUTO_STAKE skipped permanently: retired at v9 (protocol-escrow transfers cannot seal); "
+                "the escrow release is unaffected"
+            )
         return None
     try:
         with session_scope() as session:
