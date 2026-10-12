@@ -437,17 +437,38 @@ def status(ctx, service: str | None):
 
   aitbc system logs --service blockchain-node
 
-  aitbc system logs --service blockchain-node --lines 50"""
+  aitbc system logs --service blockchain-node --lines 50
+
+  aitbc system logs --service blockchain-node --since "10 min ago" --grep ERROR"""
 )
 @click.option("--service", required=True, help="Service to show logs for")
 @click.option("--lines", "-n", type=int, default=50, help="Number of log lines to show")
+@click.option("--since", default=None, help="Only entries newer than this journalctl time spec (e.g. '10 min ago')")
+@click.option(
+    "--grep",
+    "grep_pattern",
+    default=None,
+    help="Filter entries with this journalctl --grep pattern (max 200 chars)",
+)
 @click.pass_context
-def logs(ctx, service: str, lines: int):
+def logs(ctx, service: str, lines: int, since: str | None, grep_pattern: str | None):
     """Show journalctl logs for a systemd service."""
     service_name = _service_unit_name(service)
+    if since is not None and ("\n" in since or "\r" in since):
+        raise click.ClickException("--since must not contain newlines")
+    if grep_pattern is not None:
+        if len(grep_pattern) > 200:
+            raise click.ClickException("--grep pattern too long (max 200 chars)")
+        if "\n" in grep_pattern or "\r" in grep_pattern or "\x00" in grep_pattern:
+            raise click.ClickException("--grep must not contain newlines")
+    cmd = ["journalctl", "-n", str(lines), "-u", service_name, "--no-pager"]
+    if since:
+        cmd += ["--since", since]
+    if grep_pattern:
+        cmd.append(f"--grep={grep_pattern}")
     try:
         result = subprocess.run(
-            ["journalctl", "-n", str(lines), "-u", service_name, "--no-pager"],
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
