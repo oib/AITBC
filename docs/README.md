@@ -64,7 +64,9 @@ Operator procedures for the live fleet:
   alert rules.
 - [Ops signer rollout](ops/ops-signer-runbook.md) — wallet creation, funding,
   credential, allow-list, unit install, canary and rollback for
-  `aitbc-ops-signer` (all operator-owned steps).
+  `aitbc-ops-signer` (all operator-owned steps);
+  [install checklist](ops/ops-signer-install-checklist.md) — the same steps
+  as a numbered command/expect/stop list.
 - [Follower API key](ops/follower-api-key.md),
   [peer keys](ops/peer-keys.md),
   [island subscription check](ops/island-subscription-check.md),
