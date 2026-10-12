@@ -207,3 +207,67 @@ def test_failing_shadow_never_raises(
 def test_table_digest_absent_table(tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_path / "empty.db")
     assert table_digest(conn, "account") == {"status": "absent"}
+
+
+class _FakeSession:
+    """Minimal stand-in for the SQLModel session the hook unwraps:
+    ``session.connection().connection`` must be a DBAPI conn."""
+
+    def __init__(self, raw: sqlite3.Connection) -> None:
+        self._raw = raw
+
+    class _Conn:
+        def __init__(self, raw: sqlite3.Connection) -> None:
+            self.connection = raw
+
+    def connection(self) -> _FakeSession._Conn:
+        return _FakeSession._Conn(self._raw)
+
+
+def test_interval_and_retention_settings_defaults() -> None:
+    from aitbc_chain.config import settings
+
+    assert settings.side_root_shadow_interval == 1  # every block — today's behaviour
+    assert settings.side_root_shadow_retention == 10_000
+
+
+def test_interval_skip_issues_no_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "side_root_shadow_enabled", True)
+    monkeypatch.setattr(settings, "side_root_shadow_interval", 10)
+
+    class ExplodingSession:
+        def connection(self) -> object:
+            raise AssertionError("a skipped height must not touch the session")
+
+    on_block_sealed(ExplodingSession(), "c1", 7)  # type: ignore[arg-type] — 7 % 10, skipped
+
+
+def test_interval_matching_height_writes_shadow_row(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "side_root_shadow_enabled", True)
+    monkeypatch.setattr(settings, "side_root_shadow_interval", 10)
+    conn = _mk_db(tmp_path / "a.db")
+    metrics_registry.reset()
+    on_block_sealed(_FakeSession(conn), "c1", 20)  # type: ignore[arg-type] — 20 % 10 == 0
+    rows = conn.execute("SELECT block_height FROM shadow_side_root WHERE chain_id = 'c1'").fetchall()
+    assert [r[0] for r in rows] == [20]
+    assert metrics_registry._counters["side_root_shadow_blocks_total"] == 1.0
+
+
+def test_retention_keeps_only_newest_n_rows(tmp_path: Path) -> None:
+    conn = _mk_db(tmp_path / "a.db")
+    for height in range(1, 8):
+        record_shadow(conn, "c1", height, retention=4)
+    rows = conn.execute("SELECT block_height FROM shadow_side_root WHERE chain_id = 'c1' ORDER BY block_height").fetchall()
+    assert [r[0] for r in rows] == [4, 5, 6, 7]
+
+
+def test_retention_disabled_keeps_all_rows(tmp_path: Path) -> None:
+    conn = _mk_db(tmp_path / "a.db")
+    for height in range(1, 8):
+        record_shadow(conn, "c1", height, retention=0)
+    count = conn.execute("SELECT COUNT(*) FROM shadow_side_root WHERE chain_id = 'c1'").fetchone()[0]
+    assert count == 7
