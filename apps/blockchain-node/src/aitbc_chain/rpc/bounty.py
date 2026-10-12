@@ -15,6 +15,7 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account
 from ..protocol_escrow import bounty_escrow_address, confirmed_lock_total, queue_protocol_transfer
+from .retired import raise_for_retired
 from .agent_economics_auth import operator_address, require_int, require_operator_signature
 from .utils import _require_supported_chain, get_chain_id, validate_chain_id
 
@@ -56,6 +57,7 @@ def _require_funded(session: Session, chain_id: str, bounty: BountyContract) -> 
 
 @rate_limit(rate=20, per=60)
 async def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Bounty (create)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     if not validate_chain_id(chain_id):
@@ -117,6 +119,7 @@ async def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any
 
 @rate_limit(rate=20, per=60)
 async def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Bounty (submit)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     submission_id = payload.get("submission_id")
@@ -156,6 +159,7 @@ async def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
 
 @rate_limit(rate=20, per=60)
 async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Bounty (verify/payout)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:
@@ -216,6 +220,7 @@ async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
 
 @rate_limit(rate=20, per=60)
 async def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Bounty (dispute)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     submission_id = payload.get("submission_id")
@@ -245,6 +250,7 @@ async def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any])
 
 @rate_limit(rate=20, per=60)
 async def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Bounty (expire/refund)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:

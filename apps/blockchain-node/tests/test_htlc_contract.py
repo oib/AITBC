@@ -215,6 +215,11 @@ class MockSession:
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _unretire(unretired_protocol_transfers):
+    """BNT-2 retired the HTLC mutators; these tests pin the swap logic for revival."""
+
+
 @pytest.fixture
 def mock_session():
     """Create a fresh MockSession."""

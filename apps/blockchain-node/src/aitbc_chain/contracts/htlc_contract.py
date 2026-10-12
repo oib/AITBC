@@ -34,6 +34,7 @@ from aitbc.utils.chain_config import ChainConfigParser
 from ..base_models import Account, HTLCSwapState
 from ..config import settings
 from ..logger import get_logger
+from ..rpc.retired import raise_for_retired_contract
 from ..protocol_escrow import confirmed_lock_total, htlc_escrow_address, queue_protocol_transfer
 
 logger = get_logger(__name__)
@@ -239,6 +240,7 @@ class HTLCContract:
         Raises:
             ValueError: If validation fails or insufficient balance.
         """
+        raise_for_retired_contract("HTLC (initiate_swap)")
         if not participant or participant == "0x0":
             raise ValueError("Invalid participant address")
         if timelock <= 0:
@@ -324,6 +326,7 @@ class HTLCContract:
         Raises:
             ValueError: If swap not found, not open, expired, or secret invalid.
         """
+        raise_for_retired_contract("HTLC (complete_swap)")
         swap_state = session.get(HTLCSwapState, swap_id)
         if swap_state is None:
             raise ValueError(f"Swap not found: {swap_id}")
@@ -399,6 +402,7 @@ class HTLCContract:
         Raises:
             ValueError: If swap not found, not open, or timelock not expired.
         """
+        raise_for_retired_contract("HTLC (refund_swap)")
         swap_state = session.get(HTLCSwapState, swap_id)
         if swap_state is None:
             raise ValueError(f"Swap not found: {swap_id}")
