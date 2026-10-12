@@ -552,6 +552,55 @@ def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[
 # is manual review.
 _DEFERRED_RESIDUE_FIELDS = {"released_amount", "released_at", "release_tx_hash", "status"}
 
+# Documented chain-truth anomalies the operator chose to record rather than
+# abort on (SD-1 decision 2026-10-08: "record truth + anomaly"). A job id
+# listed here is a named, reviewed exception — an R2 double settlement NOT
+# in this table still aborts the plan, because an unreviewed double
+# settlement is always stop-and-escalate.
+KNOWN_ANOMALIES: dict[str, str] = {
+    "sw_job_ipfs_20260911094020_46025c0e": (
+        "double release: two identical ESCROW_RELEASE legs of 351000 sealed in the "
+        "same block 2409 against a 360000 lock — the recipient was credited twice "
+        "(702000 paid on 360000 locked); recorded as sealed history, never repaired"
+    ),
+}
+
+
+def _classify_r2(report: dict[str, Any], jobs: dict[str, Any], plan: dict[str, Any]) -> None:
+    """Split R2 violations into recorded anomalies vs abort reasons.
+
+    The check stores only shortened ids, so the violating jobs are re-derived
+    from the job table (released + refunded > locked). Jobs named in
+    KNOWN_ANOMALIES are recorded with their chain truth; anything else aborts.
+    """
+    if report.get("checks", {}).get("R2", {}).get("status") != "FAIL":
+        return
+    r2_jobs = [
+        jid for jid, job in jobs.items() if (job.get("released") or 0) + (job.get("refunded") or 0) > (job.get("amount") or 0)
+    ]
+    for jid in r2_jobs:
+        if jid in KNOWN_ANOMALIES:
+            job = jobs[jid]
+            plan["anomalies"].append(
+                {
+                    "job_id": jid,
+                    "rule": "R2",
+                    "chain_truth": KNOWN_ANOMALIES[jid],
+                    "derived": {
+                        "amount": job.get("amount"),
+                        "released": job.get("released"),
+                        "refunded": job.get("refunded"),
+                    },
+                }
+            )
+    unknown = [jid for jid in r2_jobs if jid not in KNOWN_ANOMALIES]
+    if unknown:
+        plan["abort"].append(
+            f"R2 double settlement on {len(unknown)} job(s) NOT in the known-anomaly "
+            "table — the write phase refuses to run on this host; escalate per SD-1, "
+            "never auto-repair"
+        )
+
 
 def _build_write_plan(report: dict[str, Any]) -> dict[str, Any]:
     """Translate the reconcile report into the A7 write-phase dry run.
@@ -560,25 +609,22 @@ def _build_write_plan(report: dict[str, Any]) -> dict[str, Any]:
     this program never performs it. Classes (design §5): ``insert`` for
     missing rows derived from sealed transactions, ``update`` for the
     deferred-residue conflict class only, ``manual_review`` for any other
-    conflict, ``report_only`` for orphans and dangling legs. An R2 double
-    settlement aborts the plan entirely: it is stop-and-escalate, never
-    repaired by a tool.
+    conflict, ``report_only`` for orphans and dangling legs. R2 jobs named in
+    ``KNOWN_ANOMALIES`` are recorded as ``anomalies`` instead of aborting
+    (operator decision 2026-10-08: record truth + anomaly); a new,
+    unreviewed double settlement still aborts.
     """
     jobs = report.get("jobs", {})
     plan: dict[str, Any] = {
         "abort": [],
+        "anomalies": [],
         "insert": [],
         "update": [],
         "manual_review": [],
         "report_only": [],
         "unchanged": 0,
     }
-    r2 = report.get("checks", {}).get("R2", {})
-    if r2.get("status") == "FAIL":
-        plan["abort"].append(
-            f"R2 double settlement on {len(r2.get('violations', []))} job(s): the write phase refuses to "
-            "run on this host — escalate per SD-1, never auto-repair"
-        )
+    _classify_r2(report, jobs, plan)
     for jid in report.get("missing_rows", []):
         job = jobs.get(jid, {})
         plan["insert"].append(
@@ -613,6 +659,8 @@ def _build_write_plan(report: dict[str, Any]) -> dict[str, Any]:
             "class": "deferred-residue" if deferred_residue else "foreign-field",
             "set": [{"field": c["field"], "stored": c["stored"], "derived": c["derived"]} for c in conflicts],
         }
+        if jid in KNOWN_ANOMALIES:
+            entry["anomaly"] = "R2-known"
         (plan["update"] if deferred_residue else plan["manual_review"]).append(entry)
     for item in report.get("orphan_rows", []):
         plan["report_only"].append({"job_id": item["job_id"], "chain_id": item["chain_id"], "class": "orphan-row"})
@@ -628,6 +676,12 @@ def _print_write_plan(plan: dict[str, Any]) -> None:
     if plan["abort"]:
         print("  the write phase is blocked on this host until the abort reason is resolved;")
         print("  the classes below are shown for the operator's review only — nothing may run")
+    for item in plan["anomalies"]:
+        d = item["derived"]
+        print(
+            f"  KNOWN ANOMALY ({item['rule']}) job={_short(item['job_id'])}:"
+            f" derived amount={d['amount']} released={d['released']} refunded={d['refunded']} — {item['chain_truth']}"
+        )
     print(f"  step 1 — INSERT missing rows derived from sealed txs: {len(plan['insert'])}")
     for item in plan["insert"]:
         d = item["derived"]
@@ -639,7 +693,8 @@ def _print_write_plan(plan: dict[str, Any]) -> None:
     print(f"  step 2 — UPDATE deferred-residue conflicts (released_amount := sum of sealed legs): {len(plan['update'])}")
     for item in plan["update"]:
         sets = "; ".join(f"{s['field']} {_short(s['stored'])} -> {_short(s['derived'])}" for s in item["set"])
-        print(f"    job={_short(item['job_id'])} UPDATE escrow: {sets}")
+        tag = " [known anomaly]" if item.get("anomaly") else ""
+        print(f"    job={_short(item['job_id'])} UPDATE escrow: {sets}{tag}")
     if plan["manual_review"]:
         print(
             f"  manual review — conflicts outside the deferred-residue class, never auto-written: {len(plan['manual_review'])}"

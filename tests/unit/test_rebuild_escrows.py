@@ -526,3 +526,32 @@ class TestWritePlan:
         with_plan = json.loads((tmp_path / "plan.json").read_text())
         assert with_plan.pop("write_plan")  # present and non-empty
         assert with_plan == plain
+
+    def test_plan_records_known_anomaly_instead_of_aborting(self, tool, tmp_path, capsys):
+        """Operator decision 2026-10-08: the named R2 job is recorded as a
+        known anomaly, not an abort — the plan lists the classes it would
+        run. An unreviewed double settlement still aborts (test above)."""
+        jid = next(iter(tool.KNOWN_ANOMALIES))
+        conn = _mk_db(tmp_path / "chain.db")
+        for h in range(4):
+            _block(conn, h)
+        _tx(conn, 1, 1, "ESCROW_LOCK", jid, 360000, BUYER, _escrow_addr(jid), {"provider": PROVIDER})
+        # like the live job: two identical release legs sealed in one block
+        _tx(conn, 2, 2, "ESCROW_RELEASE", jid, 351000, PROVIDER2, PROVIDER)
+        _tx(conn, 3, 2, "ESCROW_RELEASE", jid, 351000, PROVIDER2, PROVIDER)
+        conn.commit()
+        conn.close()
+        db = tmp_path / "chain.db"
+        code = tool.main(["--db", str(db), "--plan", "--report", str(tmp_path / "r.json")])
+        out = capsys.readouterr().out
+        plan = json.loads((tmp_path / "r.json").read_text())["write_plan"]
+        # the anomaly is recorded with its chain truth, the plan does not abort
+        assert plan["abort"] == []
+        assert len(plan["anomalies"]) == 1
+        assert plan["anomalies"][0]["job_id"] == jid
+        assert plan["anomalies"][0]["derived"]["released"] == 702000
+        assert "KNOWN ANOMALY" in out and "credited twice" in out
+        assert "step 1" in out
+        # proof-level truth is unchanged: R2 still reports FAIL and the run
+        # still exits nonzero — recording the anomaly is not clearing it
+        assert code == 1
