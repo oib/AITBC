@@ -649,6 +649,14 @@ class ChainSettings(BaseSettings):
     sync_aux_lookback_seconds: int = 900
     sync_aux_max_rows: int = 5000
 
+    # V-3 side-table root shadow (design docs/design/v3-side-table-root-shadow.md).
+    # Compare-only soak phase: after each sealed block compute the 13-table
+    # committed fingerprint, store it in the node-local shadow_side_root
+    # table, log it and bump counters. Never touches the block header, hash,
+    # validation or apply. Default OFF for safety — enable with
+    # SIDE_ROOT_SHADOW_ENABLED=true.
+    side_root_shadow_enabled: bool = False
+
     # P2P-to-RPC port offset (v0.6.2). The RPC HTTP port is derived from the
     # P2P listen port by adding this offset (P2P 8200 -> RPC 8202). Used by
     # the peer capability exchange to construct a peer's RPC URL from the
