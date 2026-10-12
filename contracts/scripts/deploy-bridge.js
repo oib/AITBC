@@ -13,6 +13,13 @@
  *   BRIDGE_OWNER_SAFE     - Address of the 2-of-3 Safe that will own the bridge.
  *   BRIDGE_FEE_RECIPIENT  - Address that receives bridge fees. Never reuse the
  *                           disposable deployer here — the key is thrown away.
+ * Optional env vars:
+ *   DEPLOYER_KEY_FILE     - Path to a file holding the deployer key; read
+ *                           in-process (never via env/argv). Overrides the
+ *                           network-configured account.
+ *   BRIDGE_DEPLOY_RECORD  - Override path for the deployments record file
+ *                           (rehearsals write outside deployments-bridge-*).
+ *   BRIDGE_REQUIRE_CHAIN_ID - Refuse to run unless the chain id matches.
  * Network-dependent:
  *   PRIVATE_KEY           - Deployer wallet private key (disposable key only;
  *                           never a Safe signer or a funded long-lived key)
@@ -36,8 +43,28 @@ function requireEnv(name) {
 }
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
+
+  const requiredChainId = process.env.BRIDGE_REQUIRE_CHAIN_ID;
+  if (requiredChainId && network.chainId.toString() !== requiredChainId) {
+    throw new Error(`refusing to deploy on chainId ${network.chainId} (required: ${requiredChainId})`);
+  }
+
+  // DEPLOYER_KEY_FILE keeps the key out of env vars, argv and shell history:
+  // it is read in-process here. When unset, the network-configured account is
+  // used (PRIVATE_KEY path).
+  const keyFile = process.env.DEPLOYER_KEY_FILE;
+  let deployer;
+  if (keyFile) {
+    const fs = await import("fs");
+    const key = fs.readFileSync(keyFile, "utf8").trim();
+    deployer = new ethers.Wallet(key.startsWith("0x") ? key : `0x${key}`, ethers.provider);
+  } else {
+    [deployer] = await ethers.getSigners();
+  }
+  if (!deployer) {
+    throw new Error("no deployer account (set DEPLOYER_KEY_FILE or PRIVATE_KEY)");
+  }
 
   const safeOwner = requireEnv("BRIDGE_OWNER_SAFE");
   const feeRecipient = requireEnv("BRIDGE_FEE_RECIPIENT");
@@ -131,7 +158,8 @@ async function main() {
   };
 
   const fs = await import("fs");
-  const deployFile = `${import.meta.dirname}/../deployments-bridge-${network.name}.json`;
+  const deployFile = process.env.BRIDGE_DEPLOY_RECORD
+    || `${import.meta.dirname}/../deployments-bridge-${network.name}.json`;
   let deployments = [];
   if (fs.existsSync(deployFile)) {
     deployments = JSON.parse(fs.readFileSync(deployFile));
