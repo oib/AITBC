@@ -118,3 +118,49 @@ Unverified until phase B (no chain RPC existed at phase A): the exact Sepolia
 gas price, public-RPC reliability, and the deployed addresses of the real
 Sepolia Safe infrastructure the protocol-kit resolves on chainId 11155111 —
 the run asserts these itself via the chainId and owner guards.
+
+## Rehearsal run 2026-10-13
+
+Executed on node2 against the public Sepolia RPC
+(`ethereum-sepolia-rpc.publicnode.com`) from a `git archive` export of
+`56997c21b` plus the phase-B fixes (`44e3fa9e6`, `df8c6a70e`, `c0d1cf731`).
+All public data; the throwaway key copies were shredded afterwards.
+
+| step | tx hash | block | gas used |
+|---|---|---|---|
+| Safe 2-of-3 deploy (signer1 → SafeProxyFactory) | `0x10ad699649e733bdb1e65e660f57e5bab184006a4622e40e4fbe6c667fb2d0d1` | 11901331 | 1,483,741 |
+| bridge deploy (`create`) | `0x0fd3744da9926ec494674d7b8015fdd3d2096df44d7bc0428213d76483f5cf0a` | 11901347 | 17,717,009 |
+| `pause()` | `0x3ee57a286dae8f8db0988651ab82fdac8c8387014940e5c182ae728f8340daeb` | 11901348 | 129,177 |
+| `transferOwnership(Safe)` | `0xc6e3325b1fd01d1327e0aff941a1e5d074a0df03fa7e2343c7fc35783d9436a9` | 11901349 | 30,424 |
+| Safe `execTransaction` — `setFeeRecipient(signer1)`, signed by signer2+signer3, submitted by signer1 | `0xcfbf74c25a7f410638772a08ac8d14083b61a02c2a537ff714f6e1fd63cb907e` | 11901363 | 183,760 |
+
+- Safe: `0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7` — read-back owners
+  signer1/2/3, threshold 2.
+- Bridge: `0xb78cE3e2Fd274ec19cb41AdBdF2bd1b5FBE81DA2` — read-back owner =
+  Safe, `paused() = true`, fee recipient started as signer3 and read back
+  as signer1 after the 2-of-3 execution.
+- Negative checks: a single-signature Safe tx was refused by the kit before
+  submission ("1 signature missing"); a direct EOA `setFeeRecipient` call
+  reverted. Only the 2-of-3 execution changed state.
+- signer1 (rehearsal deployer) spent ~0.0000195 ETH total — Sepolia gas
+  price was ~0.001 gwei — leaving 49,980,455,576,294,224 wei of the
+  original 0.05 ETH.
+
+### Fixes this run exposed (all pushed)
+
+- `44e3fa9e6` — `Array.map(getAddress)` passed the array index to viem as an
+  EIP-1191 chain id and re-checksummed owners wrongly; explicit
+  `(a) => getAddress(a)` callbacks now. Also the fee-recipient correction.
+- `df8c6a70e` — `getContractFactory` must bind the `DEPLOYER_KEY_FILE`
+  wallet explicitly or the factory runs on a bare provider.
+- `c0d1cf731` — `executeTransaction` was submitted from a signing kit;
+  `signAndExecute` now takes an `executor` kit bound to the deployed
+  `safeAddress` so the funded account (signer1) can pay gas without signing.
+
+### Operational note for future Sepolia runs
+
+The public RPC is load-balanced and serves stale reads right after a
+receipt resolves — both `safe-create`'s and `safe-exec`'s immediate
+read-backs raced a lagging backend and had to be re-queried seconds later.
+Treat a `0x`-returning read right after `waitForTransactionReceipt` as a
+lag, not as a failed deployment; verify the receipt status first.
