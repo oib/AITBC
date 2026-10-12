@@ -55,14 +55,14 @@ First-class market jobs (IPFS rentals and software services):
 | Method | Path | Description |
 |---|---|---|
 | POST | `/v1/market/jobs` | Create a market job + payment record |
-| GET | `/v1/market/jobs` | List jobs. Filters: `buyer_address`, `provider_address`, `service_type`, `state`, `offer_id`, `limit` (default 100) |
+| GET | `/v1/market/jobs` | List jobs. Filters: `buyer_address`, `provider_address`, `service_type`, `state`, `offer_id`, `limit` (default 100). Anonymous callers get the **public view** — `payload.*`, `constraints.*`, `buyer_address`, `access_key`, `client_id`/`client_ref` and payment address fields are stripped. A wallet-signed request (`signer_address`, `chain_id`, `issued_at`, `signature` over the canonical jobs-request message — see `aitbc/market/job_request_signature.py`) returns full rows for jobs the signer is a party to (403 on mismatch); `X-Api-Key` returns full rows unfiltered |
 | GET | `/v1/market/jobs/usage` | Active storage usage in bytes. Requires `buyer_address` and `offer_id` |
-| GET | `/v1/market/jobs/{job_id}` | Get a job (404 when absent) |
+| GET | `/v1/market/jobs/{job_id}` | Get a job (404 when absent). Anonymous callers get the public view; the full record goes to `X-Api-Key`, the rental credential (`X-Access-Key` + `X-Access-Secret` headers), or a wallet signature from the job's buyer or provider (403 otherwise) |
 | POST | `/v1/market/jobs/{job_id}/cancel` | Cancel a job and request a refund |
-| POST | `/v1/market/jobs/{job_id}/pin-confirm` | Provider confirms content pinning (`size`, `pin_tx_hash`, `provider_confirmed`) |
+| POST | `/v1/market/jobs/{job_id}/pin-confirm` | Provider confirms content pinning (`size`, `pin_tx_hash`, `provider_confirmed`). `provider_confirmed` requires the job provider's wallet signature (`signer_address`, `chain_id`, `issued_at`, `signature` in the body); unsigned `size`/`pin_tx_hash` updates stay open for the buyer's host flow |
 | POST | `/v1/market/jobs/{job_id}/release` | Release the job's escrow payment |
 | POST | `/v1/market/jobs/{job_id}/refund` | Refund the job's escrow payment |
-| GET | `/v1/market/jobs/{job_id}/access` | Access metadata for the job (CID, endpoints, access key) |
+| GET | `/v1/market/jobs/{job_id}/access` | Access metadata for the job (CID, endpoints, access key). Requires `X-Api-Key` |
 | GET | `/v1/market/access/{access_key}` | Validate an access token. Requires `access_secret` query param |
 
 ## IPFS rental tokens

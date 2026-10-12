@@ -1424,7 +1424,7 @@
       },
       "get": {
         "summary": "List Market Jobs",
-        "description": "List market jobs.",
+        "description": "List market jobs.\n\nAnonymous callers get the redacted public view \u2014 no customer file or\nrental detail. A wallet-signed request (``signer_address`` +\n``chain_id`` + ``issued_at`` + ``signature`` over the canonical\njobs-request message) returns full rows for jobs the signer is a party\nto; the service API key returns full rows unfiltered.",
         "operationId": "list_market_jobs_v1_market_jobs_get",
         "parameters": [
           {
@@ -1516,6 +1516,70 @@
               "default": 100,
               "title": "Limit"
             }
+          },
+          {
+            "name": "signer_address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signer Address"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          },
+          {
+            "name": "issued_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issued At"
+            }
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signature"
+            }
           }
         ],
         "responses": {
@@ -1535,6 +1599,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "address filter does not match signer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -1594,7 +1673,7 @@
     "/v1/market/jobs/{job_id}": {
       "get": {
         "summary": "Get Market Job",
-        "description": "Get a market job by ID.",
+        "description": "Get a market job by ID.\n\nAnonymous callers get the redacted public view. The full record goes to\nthe service API key, the job's rental credential (``X-Access-Key`` +\n``X-Access-Secret`` \u2014 the same check ``/v1/market/access/{key}`` runs),\nor a wallet signature from the job's buyer or provider.",
         "operationId": "get_market_job_v1_market_jobs__job_id__get",
         "parameters": [
           {
@@ -1604,6 +1683,102 @@
             "schema": {
               "type": "string",
               "title": "Job Id"
+            }
+          },
+          {
+            "name": "signer_address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signer Address"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          },
+          {
+            "name": "issued_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Issued At"
+            }
+          },
+          {
+            "name": "signature",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Signature"
+            }
+          },
+          {
+            "name": "x-access-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Access-Key"
+            }
+          },
+          {
+            "name": "x-access-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Access-Secret"
             }
           }
         ],
@@ -1624,6 +1799,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not authorized for this job's full record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -1722,7 +1912,7 @@
     "/v1/market/jobs/{job_id}/pin-confirm": {
       "post": {
         "summary": "Confirm Market Job Pin",
-        "description": "Confirm that a job's content has been pinned.",
+        "description": "Confirm that a job's content has been pinned.\n\n``provider_confirmed`` is the provider's own claim, so it requires the\njob provider's wallet signature (the same canonical jobs-request proof\nthe read routes accept, bound to this route). Unsigned ``size`` /\n``pin_tx_hash`` updates stay open \u2014 the buyer's ``aitbc market host``\nflow reports the pinned size that way.",
         "operationId": "confirm_market_job_pin_v1_market_jobs__job_id__pin_confirm_post",
         "parameters": [
           {
@@ -1774,8 +1964,23 @@
               }
             }
           },
+          "403": {
+            "description": "signer is not this job's provider",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found",
+            "description": "Job not found: {job_id}",
             "content": {
               "application/json": {
                 "schema": {
