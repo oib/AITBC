@@ -94,10 +94,13 @@ CONTROL_TABLES: tuple[str, ...] = (
 # digest, reported by name so nothing hides silently.
 VOLATILE_COLUMNS = frozenset({"created_at", "updated_at"})
 
-# --- V-3 activation candidate rules (--canonical) ------------------------------
+# --- V-3 activation rules (--canonical) --------------------------------------
 #
-# The 10 tables whose raw digests already agree fleet-wide at head 38952.
-# These are the proposed committed set for a v14-style aux_state_root.
+# Operator decision 2026-10-12: the committed set is all 13 apply-written
+# tables. The 10 whose raw digests already agree fleet-wide digest under
+# the same rules unchanged; the 3 dual-writer tables require the
+# canonicalization rules below (verified fleet-wide at height 44672 — all
+# 13 give one digest per table on all five hosts).
 RESTRICTED_TABLES: tuple[str, ...] = (
     "account",
     "bond",
@@ -111,11 +114,9 @@ RESTRICTED_TABLES: tuple[str, ...] = (
     "receipt",
 )
 
-# The 3 dual-writer tables (apply + RPC paths write them): they diverge today
-# only in locally-stamped columns/encodings. Under --canonical they are
-# digested with the activation rules below and reported as "canonicalized"
-# — probationary members that may join the committed set only if the
-# canonical digests agree fleet-wide.
+# The 3 dual-writer tables (apply + RPC paths write them): their raw forms
+# diverge only in locally-stamped columns/encodings, so their committed
+# digests are computed under the canonicalization rules below.
 CANONICALIZED_TABLES: tuple[str, ...] = (
     "gpu_allocation",
     "gpu_registration",
@@ -240,11 +241,11 @@ def collect(conn: sqlite3.Connection, *, canonical: bool = False) -> dict[str, A
     for table in CANDIDATE_TABLES:
         result["candidates"][table] = table_digest(conn, table, canonical=canonical)
     if canonical:
-        # V-3 activation view: the committed set is the 10 agreeing tables;
-        # the 3 dual-writer tables are digested under the canonicalization
-        # rules and listed separately as probationary.
-        result["committed_set"] = {t: result["candidates"].pop(t) for t in RESTRICTED_TABLES}
-        result["canonicalized"] = {t: result["candidates"].pop(t) for t in CANONICALIZED_TABLES}
+        # V-3 committed set (operator 2026-10-12): all 13 apply-written
+        # tables. ``requires_rules`` names the members whose committed digest
+        # is only defined under the canonicalization rules.
+        result["committed_set"] = {t: result["candidates"].pop(t) for t in (*RESTRICTED_TABLES, *CANONICALIZED_TABLES)}
+        result["requires_rules"] = list(CANONICALIZED_TABLES)
     for table in CONTROL_TABLES:
         result["controls"][table] = table_digest(conn, table)
     # Fleet fingerprint over the proposed committed set only: one line a
@@ -278,9 +279,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--canonical",
         action="store_true",
-        help="apply the proposed V-3 activation rules: committed set = the 10 agreeing tables, "
-        "the 3 dual-writer tables are digested with *_at columns excluded, node-local handle "
-        "columns excluded, 0x identifiers lowercased, and timestamp text normalized",
+        help="apply the V-3 activation rules: committed set = all 13 apply-written tables, "
+        "digested with *_at columns excluded, node-local handle columns excluded, "
+        "0x identifiers lowercased, and timestamp text normalized",
     )
     args = ap.parse_args(argv)
 
@@ -301,8 +302,7 @@ def main(argv: list[str] | None = None) -> int:
     heads = ", ".join(f"{cid}@{h}" for cid, h in result["head"].items())
     print(f"head: {heads}")
     if args.canonical:
-        _print_group("committed set (proposed aux_state_root members)", result["committed_set"])
-        _print_group("canonicalized (probationary — must agree under the rules first)", result["canonicalized"])
+        _print_group("committed set (13 tables — proposed aux_state_root members)", result["committed_set"])
     else:
         _print_group("candidate tables (apply-written; V-3 committable iff digests agree fleet-wide)", result["candidates"])
     _print_group("control tables (node-local; expected to differ)", result["controls"])

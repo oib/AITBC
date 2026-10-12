@@ -224,17 +224,18 @@ def test_canonical_real_divergence_still_detected(tool, tmp_path):
 
 
 def test_canonical_collect_partitions_sets(tool, tmp_path):
-    """--canonical partitions candidates into committed set (10 tables) and
-    the 3 probationary dual-writer tables; fingerprint covers committed only."""
+    """--canonical reports one committed set of all 13 apply-written tables
+    (operator decision 2026-10-12); the 3 dual-writer members are named in
+    requires_rules, and the fingerprint covers all 13."""
     db = _mk_dual_writer_db(tmp_path / "a.db", address=ADDR_LOWER, registered_at="t1")
     conn = tool.connect_ro(str(db))
     result = tool.collect(conn, canonical=True)
     conn.close()
-    assert set(result["committed_set"]) == set(tool.RESTRICTED_TABLES)
-    assert set(result["canonicalized"]) == set(tool.CANONICALIZED_TABLES)
+    assert set(result["committed_set"]) == set(tool.CANDIDATE_TABLES)
+    assert set(result["requires_rules"]) == set(tool.CANONICALIZED_TABLES)
     assert not result["candidates"]
-    assert result["canonicalized"]["stake"]["digest"]
-    assert "candidate fingerprint" not in result or result["candidate_fingerprint"]
+    assert result["committed_set"]["stake"]["digest"]
+    assert result["candidate_fingerprint"]
 
 
 def test_canonical_sets_cover_candidates(tool):
