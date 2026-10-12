@@ -1265,7 +1265,11 @@ def stake_tokens(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Stake AITBC tokens for consensus participation."""
+    """Stake AITBC tokens for consensus participation.
+
+    Retired since block version 9 — the node answers HTTP 410
+    (see docs/design/v9-unsigned-protocol-transfers.md).
+    """
     body: dict[str, Any] = {
         "address": address,
         "amount": amount,
@@ -1322,7 +1326,11 @@ def unstake_tokens(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Unstake AITBC tokens after the lock period expires."""
+    """Unstake AITBC tokens after the lock period expires.
+
+    Retired since block version 9 — the node answers HTTP 410
+    (see docs/design/v9-unsigned-protocol-transfers.md).
+    """
     body: dict[str, Any] = {
         "address": address,
         "stake_id": stake_id,

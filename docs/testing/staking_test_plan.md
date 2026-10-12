@@ -5,6 +5,10 @@
 > renamed to a per-service package (`src/coordinator_api/`, `src/wallet_app/`,
 > `src/agent_app/`). Do not treat paths or endpoints listed here as current —
 > verify against the source tree.
+>
+> Also note: the `/rpc/agent-staking/*` write surfaces the staking service
+> exercises are retired since block version 9 (HTTP 410 — see
+> ../design/v9-unsigned-protocol-transfers.md).
 
 
 ## Overview

@@ -17,7 +17,7 @@ from aitbc.utils.validation import validate_address
 
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
-from ...utils.http_client import AITBCHTTPClient, http_error_detail
+from ...utils.http_client import AITBCHTTPClient, http_error_detail, retired_surface_message
 from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
 
@@ -278,8 +278,12 @@ def stake(ctx, amount: Decimal, duration: int):
             ctx.obj.get("output_format", "table"),
         )
     except Exception as e:
-        detail = _http_error_detail(e)
-        error(f"Error staking tokens: {detail or e}")
+        retired = retired_surface_message(e)
+        if retired is not None:
+            error(f"Retired RPC surface: {retired}")
+        else:
+            detail = _http_error_detail(e)
+            error(f"Error staking tokens: {detail or e}")
         raise click.Abort() from e
 
 
@@ -366,8 +370,12 @@ def unstake(ctx, stake_id: str):
     except click.Abort:
         raise
     except Exception as e:
-        detail = _http_error_detail(e)
-        error(f"Error unstaking tokens: {detail or e}")
+        retired = retired_surface_message(e)
+        if retired is not None:
+            error(f"Retired RPC surface: {retired}")
+        else:
+            detail = _http_error_detail(e)
+            error(f"Error unstaking tokens: {detail or e}")
         raise click.Abort() from e
 
 

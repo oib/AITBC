@@ -62,7 +62,7 @@ This document catalogs the authentication and authorization patterns used across
 - **Agent Coordinator**: JWT + API keys (shared `aitbc/auth`)
 - **Exchange**: API key on write paths
 - **Edge**: JWT only
-- **Blockchain node**: `X-API-Key` on admin/control mutations (contracts deploy, governance, escrow router-level, GPU/identity writes, chain control), **tx-signature auth** on `/rpc/transaction` + `/rpc/staking/stake`, peer keys on subscription routes, admin signature on `/rpc/force-sync`
+- **Blockchain node**: `X-API-Key` on admin/control mutations (contracts deploy, governance, escrow router-level, GPU/identity writes, chain control), **tx-signature auth** on `/rpc/transaction` + `/rpc/staking/stake` (retired since v9 — returns 410), peer keys on subscription routes, admin signature on `/rpc/force-sync`
 - **Market**: one admin route key-gated
 
 ### 2. Environment Bypasses
