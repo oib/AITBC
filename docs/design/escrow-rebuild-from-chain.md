@@ -196,3 +196,40 @@ venv/bin/python scripts/ops/rebuild-escrows.py \
 - The lazy healers (`_reconstruct_escrow_from_chain`,
   `backfill_settlement_legs`) can be retired or left as read-path fallbacks
   — decision recorded in the decision log when the tool lands.
+
+## 11. Write-phase runbook (added 2026-10-12 — escrow-repair.py)
+
+The write phase is a separate tool (`scripts/ops/escrow-repair.py`), not a
+flag on the proof. It runs on a **snapshot copy** produced by its own
+`snapshot` subcommand; live databases are written only when the operator
+opens the phase (the tool additionally requires `--allow-live-path` on live
+paths).
+
+### Per-host backup procedure (each host, in order node2 → node0 → node1 → hub1 → hub)
+
+1. `venv/bin/python scripts/ops/rebuild-escrows.py --db <chain.db> --plan` —
+   record the pre-state plan (counts + anomalies) into the operator log.
+2. `venv/bin/python scripts/ops/escrow-repair.py snapshot --db <chain.db> --to <backup-dir>` —
+   the sqlite backup API copies from a `mode=ro` connection, so the live
+   node keeps running; the dir is created mode 700. Record the printed
+   source sha256 — that checksum proves the backup post-dates the run.
+3. Verify the copy opens and matches row counts (`escrow`, `transaction`,
+   `block`). Keep the copy: it is the rollback artifact — rollback is
+   `sqlite3 live.db "VACUUM INTO 'restore.db'"`-free swap, i.e. restore the
+   `escrow` table contents from the copy's `escrow` table only (never swap
+   the whole file — the copy may lag the live WAL).
+4. Only after the operator opens the write phase: `escrow-repair.py apply
+   --db <copy>` to dry-run, then `--write --allow-live-path` against the
+   live db **in the operator's maintenance window**, then re-run the proof.
+   The expected end state is inserts 0 / updates 0 / report-only 0 with the
+   known R2 anomaly row carrying the chain truth (its `[known anomaly]`
+   tag still prints).
+5. Report the after-plan per host before moving to the next host.
+
+### Order and stop conditions
+
+- node2 → node0 → node1 → hub1 → hub; stop on the first post-plan that
+  still lists writes or any new abort reason.
+- `escrow_orphan` rows are never re-inserted into `escrow`; they exist so
+  group-C fields (job_tx_hash, billed_legs, energy snapshots) survive the
+  repair for later archaeology.
