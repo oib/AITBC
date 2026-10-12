@@ -31,10 +31,12 @@ PROJECT_ROOT = "/opt/aitbc"
 MCP_SERVER_DIR = "/opt/aitbc/mcp-server"
 sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, MCP_SERVER_DIR)
+sys.path.insert(0, str(Path(PROJECT_ROOT) / "cli"))
 
 os.environ.setdefault("AITBC_MCP_LOG_LEVEL", "WARNING")
 
 import aitbc_mcp_server as _server  # noqa: E402
+from aitbc_cli.commands.http import _SERVICE_BASES  # noqa: E402
 
 ALL_ROLES = ["hub", "customer", "shop", "follower", "customer2", "follower2"]
 
@@ -84,9 +86,14 @@ ROLE_HINTS: dict[str, list[str]] = {
 
 
 def _port_to_service() -> dict[str, str]:
-    """Build a port -> service map from the server's ALL_SERVICE_BASES."""
+    """Build a port -> service map from the CLI's _SERVICE_BASES.
+
+    The MCP server no longer carries port knowledge (HTTP_SERVICE_NAMES is a
+    bare name set); the authoritative service -> base-URL map moved to
+    ``aitbc_cli.commands.http._SERVICE_BASES``.
+    """
     port_map: dict[str, str] = {}
-    for service, base in _server.ALL_SERVICE_BASES.items():
+    for service, base in _SERVICE_BASES.items():
         m = re.search(r":(\d+)", base)
         if m:
             port_map[m.group(1)] = service
