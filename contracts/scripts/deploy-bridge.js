@@ -31,6 +31,11 @@
  */
 
 import { network as hardhatNetwork } from "hardhat";
+import {
+  readDeployerKeyFile,
+  requireChainIdForKeyFile,
+  resolveDeployRecord,
+} from "./rehearsal/deploy-guards.js";
 const connection = await hardhatNetwork.getOrCreate();
 const { ethers } = connection;
 
@@ -45,20 +50,30 @@ function requireEnv(name) {
 async function main() {
   const network = await ethers.provider.getNetwork();
 
+  // DEPLOYER_KEY_FILE makes BRIDGE_REQUIRE_CHAIN_ID mandatory — refuse before
+  // the key file is ever opened.
+  requireChainIdForKeyFile(process.env);
   const requiredChainId = process.env.BRIDGE_REQUIRE_CHAIN_ID;
   if (requiredChainId && network.chainId.toString() !== requiredChainId) {
     throw new Error(`refusing to deploy on chainId ${network.chainId} (required: ${requiredChainId})`);
   }
 
+  // The record path is validated up front: with DEPLOYER_KEY_FILE set a
+  // missing or real-record-colliding path must refuse before any tx is sent.
+  const deployFile = resolveDeployRecord(
+    process.env,
+    `${import.meta.dirname}/..`,
+    network.name
+  );
+
   // DEPLOYER_KEY_FILE keeps the key out of env vars, argv and shell history:
-  // it is read in-process here. When unset, the network-configured account is
-  // used (PRIVATE_KEY path).
+  // it is read in-process here, after mode/shape validation so a malformed
+  // file can never echo its content through an ethers error. When unset, the
+  // network-configured account is used (PRIVATE_KEY path).
   const keyFile = process.env.DEPLOYER_KEY_FILE;
   let deployer;
   if (keyFile) {
-    const fs = await import("fs");
-    const key = fs.readFileSync(keyFile, "utf8").trim();
-    deployer = new ethers.Wallet(key.startsWith("0x") ? key : `0x${key}`, ethers.provider);
+    deployer = new ethers.Wallet(readDeployerKeyFile(keyFile), ethers.provider);
   } else {
     [deployer] = await ethers.getSigners();
   }
@@ -160,8 +175,6 @@ async function main() {
   };
 
   const fs = await import("fs");
-  const deployFile = process.env.BRIDGE_DEPLOY_RECORD
-    || `${import.meta.dirname}/../deployments-bridge-${network.name}.json`;
   let deployments = [];
   if (fs.existsSync(deployFile)) {
     deployments = JSON.parse(fs.readFileSync(deployFile));
