@@ -318,3 +318,46 @@ class TestListNodesTargetVisibility:
         assert nodes["hub"]["target"] == "root@hub.aitbc"
         assert nodes["hub"]["mode"] == "ssh"
         assert nodes["shop"]["target"] == "root@node2"
+
+
+class TestGetServiceLogsFilters:
+    """DEV-5: since/grep parameters on get_service_logs."""
+
+    def _call(self, **kwargs):
+        captured: list[str] = []
+
+        def fake(host: str, command: str, timeout: int = 60):
+            captured.append(command)
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        with mock.patch.object(mcp_server, "_run_remote", fake):
+            result = json.loads(mcp_server.get_service_logs(**kwargs))
+        return result, captured
+
+    def test_since_and_grep_reach_command(self):
+        result, captured = self._call(service="aitbc-market", lines=100, since="10 min ago", grep="ERROR", host="node2")
+        assert result["returncode"] == 0
+        cmd = captured[0]
+        assert "system" in cmd and "logs" in cmd
+        assert "--since=" in cmd and "10 min ago" in cmd
+        assert "--grep=" in cmd and "ERROR" in cmd
+
+    def test_defaults_omit_new_options(self):
+        result, captured = self._call(service="aitbc-market", host="node2")
+        assert result["returncode"] == 0
+        assert "--since" not in captured[0]
+        assert "--grep" not in captured[0]
+
+    def test_injection_rejected_before_any_command(self):
+        for kwargs in (
+            {"since": "10m; rm -rf /"},
+            {"since": "10m$(whoami)"},
+            {"since": "10m`id`"},
+            {"since": "10m\nreboot"},
+            {"grep": "a|cat /etc/passwd"},
+            {"grep": "A" * 201},
+            {"since": "x" * 201},
+        ):
+            result, captured = self._call(service="aitbc-market", host="node2", **kwargs)
+            assert "error" in result, kwargs
+            assert not captured
