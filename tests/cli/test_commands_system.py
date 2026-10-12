@@ -146,5 +146,83 @@ class TestSystemCommands:
         assert "Network error" in result.output
 
 
+class TestSystemLogsCommand:
+    """``system logs`` --since/--grep options (DEV-5)."""
+
+    def _mock_ok(self, mock_run):
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "log output"
+        mock_result.stderr = ""
+        mock_run.return_value = mock_result
+
+    @patch("subprocess.run")
+    def test_logs_default_argv_unchanged(self, mock_run, runner):
+        """Without the new options the journalctl argv is identical."""
+        self._mock_ok(mock_run)
+
+        from aitbc_cli.commands.system import system
+
+        result = runner.invoke(system, ["logs", "--service", "blockchain-node"])
+
+        assert result.exit_code == 0, result.output
+        cmd = mock_run.call_args[0][0]
+        assert cmd == ["journalctl", "-n", "50", "-u", "aitbc-blockchain-node.service", "--no-pager"]
+
+    @patch("subprocess.run")
+    def test_logs_since_and_grep_reach_journalctl(self, mock_run, runner):
+        """--since/--grep are passed to journalctl as argv (no shell)."""
+        self._mock_ok(mock_run)
+
+        from aitbc_cli.commands.system import system
+
+        result = runner.invoke(
+            system,
+            ["logs", "--service", "blockchain-node", "--since", "10 min ago", "--grep", "ERROR"],
+        )
+
+        assert result.exit_code == 0, result.output
+        cmd = mock_run.call_args[0][0]
+        assert "--since" in cmd
+        assert "10 min ago" in cmd
+        assert "--grep=ERROR" in cmd
+
+    @patch("subprocess.run")
+    def test_logs_rejects_newline_in_since(self, mock_run, runner):
+        """--since must not contain newlines."""
+        self._mock_ok(mock_run)
+
+        from aitbc_cli.commands.system import system
+
+        result = runner.invoke(system, ["logs", "--service", "x", "--since", "now\n; rm -rf /"])
+
+        assert result.exit_code != 0
+        mock_run.assert_not_called()
+
+    @patch("subprocess.run")
+    def test_logs_rejects_overlong_grep(self, mock_run, runner):
+        """--grep is bounded at 200 chars."""
+        self._mock_ok(mock_run)
+
+        from aitbc_cli.commands.system import system
+
+        result = runner.invoke(system, ["logs", "--service", "x", "--grep", "A" * 201])
+
+        assert result.exit_code != 0
+        mock_run.assert_not_called()
+
+    @patch("subprocess.run")
+    def test_logs_rejects_newline_in_grep(self, mock_run, runner):
+        """--grep must not contain newlines."""
+        self._mock_ok(mock_run)
+
+        from aitbc_cli.commands.system import system
+
+        result = runner.invoke(system, ["logs", "--service", "x", "--grep", "a\nb"])
+
+        assert result.exit_code != 0
+        mock_run.assert_not_called()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
