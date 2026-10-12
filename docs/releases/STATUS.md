@@ -337,6 +337,8 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 
 ### Validator set
 
+> **Historical (Option A activation).** The addresses below are the set as activated at that time and were later replaced (a second set ran through September; the KR-5 rotation in October 2026 retired that one as well). The live set is whatever `VALIDATOR_SET` on the nodes says — read it there or from the block proposer column; do not treat this list as current.
+
 - Preserved proposer / validator-1: `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76` (also the bridge admin / proposer).
 - Generated three new extra validators on `<hub-node>`:
   - `0x241D3e44d42b6d4c270d0231780913f14386d90C`

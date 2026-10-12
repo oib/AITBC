@@ -49,8 +49,8 @@ Provider destinations (verified against lock payloads):
 
 - `0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2` — node2's default wallet
   (named in `/etc/aitbc/aitbc-miner.env` on node2), 11 legs, Σ 2,360,384.
-- `0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B` — hub's proposer/operator
-  wallet (the same address that served as the v2 pooled escrow), the two
+- `0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B` — hub's then-proposer/operator
+  wallet (pre-KR-5 rotation; no longer a validator identity) (the same address that served as the v2 pooled escrow), the two
   canary legs, Σ 1,800. **Not** the settlement authority — the beneficiary
   pin below makes this the only admissible `to` for those two jobs anyway.
 
@@ -297,7 +297,7 @@ refused even after 35400 until a governance execute sets the parameter.
 
 History context for the choice: 11 of the 12 row-backed providers released
 to `0x4A5b3bf9…` — node2's default wallet, an operator-owned address — and
-the two canary legs name `0x02B8F2C6…`, the hub proposer wallet (also
+the two canary legs name `0x02B8F2C6…`, hub's then-proposer wallet (also
 operator-owned). So under Option A **all ~2.36M lands in operator wallets
 either way**; the difference is bookkeeping honesty, not custody — Option A
 records the residue as paid to the providers the locks name, a sweep
