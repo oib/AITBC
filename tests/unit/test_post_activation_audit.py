@@ -115,3 +115,21 @@ def test_consensus_mismatches_flags_divergent_heights_only():
     mism = audit.consensus_mismatches(per_height)
     assert len(mism) == 1 and "101" in mism[0]
     assert audit.consensus_mismatches({100: {"h1": "x", "h2": "x"}}) == []
+
+
+def test_flagged_alert_lines_recent_firing_only():
+    now = 1_800_000_000.0
+    tail = "\n".join(
+        [
+            '{"alertname": "OldFire", "state": "firing", "timestamp_unix": 1799999000}',  # 1000s ago — flagged
+            '{"alertname": "StaleFire", "state": "firing", "timestamp_unix": 1790000000}',  # old — not flagged
+            '{"alertname": "Resolved", "state": "resolved", "timestamp_unix": 1799999000}',
+            "2026-10-12 ERROR something broke",  # non-JSON ERROR — flagged
+            '{"alertname": "info", "state": "pending", "timestamp_unix": 1799999000}',
+        ]
+    )
+    bad = audit._flagged_alert_lines(tail, now)
+    assert len(bad) == 2
+    assert any("OldFire" in b for b in bad)
+    assert any("ERROR" in b for b in bad)
+    assert audit._flagged_alert_lines("", now) == []
