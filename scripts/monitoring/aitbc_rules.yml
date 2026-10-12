@@ -276,19 +276,22 @@ groups:
           summary: "Escrow settlement check cannot read {{ $labels.db }} ({{ $labels.instance }})"
           description: "aitbc_escrow_settlement_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no escrow table, so the unlanded count for it cannot be trusted. Check journalctl -u aitbc-escrow-settlements.service."
 
-      # EscrowResidueStale: a terminal escrow row still holds custody residue
-      # (the withheld platform fee, plus dust) older than the exporter's
-      # threshold (7d default). Sweepable via an operator-approved
-      # ESCROW_FEE_SWEEP batch to escrow_fee_recipient (v11+, block 35400);
-      # see scripts/ops/escrow_residue_dryrun.py for the listing.
+      # EscrowResidueStale: a terminal escrow row still holds a SWEEPABLE fee
+      # leg older than the exporter's threshold (7d default). S-13: the metric
+      # counts only rows classed "fee leg" — stale-ledger classes (already
+      # settled, swept, v2-retained, void-never-locked) are informational on
+      # aitbc_escrow_residue_stale_ledger_rows{class=...} with no alert, so a
+      # ledger that never updates can never page. Sweepable via an
+      # operator-approved ESCROW_FEE_SWEEP batch to escrow_fee_recipient
+      # (v11+, block 35400); list rows with scripts/ops/escrow_residue_dryrun.py.
       - alert: EscrowResidueStale
         expr: aitbc_escrow_residue_accounts > 0
         for: 6h
         labels:
           severity: warning
         annotations:
-          summary: "Stale escrow custody residue on {{ $labels.instance }} ({{ $value }} rows)"
-          description: "Terminal escrow rows on {{ $labels.instance }} still hold residue older than the threshold — the fee leg v3 custody strands in each per-escrow account. List them with scripts/ops/escrow_residue_dryrun.py; sweeping is an operator-approved chain write (ESCROW_FEE_SWEEP to the governed escrow_fee_recipient)."
+          summary: "Sweepable escrow fee-leg residue on {{ $labels.instance }} ({{ $value }} rows)"
+          description: "Terminal escrow rows on {{ $labels.instance }} hold residue classed fee leg older than the threshold — money a FEE_SWEEP could actually move. The informational aitbc_escrow_residue_stale_ledger_rows gauge shows the stale-ledger classes that need no action. List rows with scripts/ops/escrow_residue_dryrun.py; sweeping is an operator-approved chain write (ESCROW_FEE_SWEEP to the governed escrow_fee_recipient)."
 
       # EscrowResidueCheckStale / EscrowResidueCheckFailed: the residue check
       # itself must run and read its DBs, same reasoning as the settlement
