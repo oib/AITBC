@@ -20,5 +20,9 @@ register; this page keeps the decision itself when the register moves on.
 | 2026-09-30 | SD-2 | Alertmanager delivery deferred — alerts stay as log lines plus fleet-check counts. | Lower priority than the v9 pin; the interim channel is adequate while deposits are canary-scale. |
 | 2026-09-29 | K-1 | Authority move order: governance executor first (it can reassign the rest), then bridge release, escrow settlement, bond slash — each a `parameter_change` gov action to a new offline address. | The executor is the only authority that can move the others; moving it last would strand the rest under the old key. |
 
-Related design document: [key-custody-proposal.md](../design/key-custody-proposal.md)
-— plaintext key inventory, custody tiers and the encrypted-copy procedure (K-4).
+Related design documents:
+
+- [key-custody-proposal.md](../design/key-custody-proposal.md) — plaintext key
+  inventory, custody tiers and the encrypted-copy procedure (K-4).
+- [node-held-wallet-access.md](../design/node-held-wallet-access.md) — bounded,
+  allow-listed, operator-approved agent spends from a node-held ops wallet (SEC-1).
