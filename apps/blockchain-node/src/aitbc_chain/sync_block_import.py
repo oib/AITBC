@@ -22,7 +22,7 @@ from .metrics import (
     sync_failures_total,
 )
 from .cross_chain import bridge_lock_guard
-from .state import state_root_utils
+from .state import side_root_shadow, state_root_utils
 from .state.block_deltas import (
     BlockDeltaJournal,
     reconcile_orphaned_transactions,
@@ -789,6 +789,8 @@ class BlockImportMixin(SyncBase):
         if journal is not None:
             journal.persist(session)
         session.commit()
+        # V-3 shadow (flag-gated, compare-only — never affects the imported block).
+        side_root_shadow.on_block_sealed(session, self._chain_id, int(block_data["height"]))
         if transactions:
             self._evict_included_from_mempool(transactions)
         self._reset_rejection_counter(self._chain_id)
