@@ -10,12 +10,12 @@
  * Reads signer1.key into memory to pay for deployment; never prints it.
  */
 
-import { getAddress } from "viem";
 import {
   assertSepolia,
   assertSignerOwners,
   deploySafe,
   initKit,
+  normalizeAddresses,
   publicClient,
   readSignerAddresses,
   readSignerKey,
@@ -30,9 +30,7 @@ const keysDir = resolveKeysDir();
 const client = publicClient(rpcUrl);
 assertSepolia(await client.getChainId());
 
-// NB: never pass getAddress directly to Array.map — the map index argument
-// reaches viem as an EIP-1191 chain id and produces wrong checksums.
-const signerAddresses = readSignerAddresses(keysDir).map((a) => getAddress(a));
+const signerAddresses = normalizeAddresses(readSignerAddresses(keysDir));
 const owners = [...signerAddresses];
 assertSignerOwners(owners, signerAddresses); // owners == exactly the three .address files
 

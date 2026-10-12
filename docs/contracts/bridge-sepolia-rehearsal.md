@@ -65,7 +65,9 @@ echo "$SAFE_ADDRESS"
 #     The deployer key is read in-process from the key file; the record goes
 #     to a scratch file, never deployments-bridge-sepolia.json. Fee recipient
 #     is signer3: deploy-bridge.js refuses a fee recipient equal to the
-#     deployer (signer1).
+#     deployer (signer1). BRIDGE_REQUIRE_CHAIN_ID and BRIDGE_DEPLOY_RECORD are
+#     mandatory whenever DEPLOYER_KEY_FILE is set — the script refuses
+#     without them before the key file is touched.
 BRIDGE_REQUIRE_CHAIN_ID=11155111 \
 DEPLOYER_KEY_FILE=$REHEARSAL_KEYS_DIR/signer1.key \
 BRIDGE_OWNER_SAFE=$SAFE_ADDRESS \
@@ -95,8 +97,22 @@ Expected results:
   validators/tokens/request seeded, and writes the record to
   `/tmp/rehearsal-deployments-sepolia.json`.
 - B3 prints `"verdict": "OK"`.
-- B4 prints both negative checks refused-as-expected, then the execution tx
-  hash and `feeRecipient` = signer1's address.
+- B4 prints both negative checks refused-as-expected — specifically: the
+  single-signature attempt must fail with the kit's missing-signature error
+  ("There is 1 signature missing" — the only accepted outcome, anything else
+  rethrows), and the direct EOA call must revert with a `CALL_EXCEPTION`
+  carrying OpenZeppelin's `Ownable: caller is not the owner` — then the
+  execution tx hash with block number and gas used, and a read-back that
+  asserts `feeRecipient` = signer1's address, `owner` = the Safe and
+  `paused` unchanged; any mismatch exits non-zero.
+
+## Reusing this flow for BR-1
+
+Do not reuse the rehearsal keys or the rehearsal deployer for the real
+deployment: BR-1 needs its own deployer key and a different Safe signer set.
+The rehearsal signers are throwaway Sepolia-only keys — reusing them on
+mainnet would carry a known-compromised-custody assumption into the real
+bridge owner.
 
 ## Optional UI route (not used)
 
