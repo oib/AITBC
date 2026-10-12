@@ -1854,6 +1854,14 @@ def get_service_logs(
         int,
         Field(description="Number of recent log lines to return.", ge=1, le=1000),
     ] = 50,
+    since: Annotated[
+        str | None,
+        Field(description="Only entries newer than this journalctl time spec, e.g. '10 min ago' or '2026-10-13 00:00'."),
+    ] = None,
+    grep: Annotated[
+        str | None,
+        Field(description="Filter entries matching this journalctl --grep pattern (max 200 chars)."),
+    ] = None,
     role: Annotated[
         NodeRole | None,
         Field(description="Node role to query."),
@@ -1867,13 +1875,25 @@ def get_service_logs(
     target = _host_for_role(role, host)
     if re.search(r"[;&|<>$`\\!\n\r]", service):
         return _json({"error": "invalid service name", "service": service})
+    for name, value in (("since", since), ("grep", grep)):
+        if value is None:
+            continue
+        if len(value) > 200:
+            return _json({"error": f"{name} too long (max 200 chars)"})
+        if re.search(r"[;&|<>$`\\!\n\r\x00]", value):
+            return _json({"error": f"invalid {name}", name: value})
+    options = {"service": service, "lines": str(lines)}
+    if since is not None:
+        options["since"] = since
+    if grep is not None:
+        options["grep"] = grep
     return _json(
         _run_aitbc_cli(
             target,
             "system",
             "logs",
             [],
-            {"service": service, "lines": str(lines)},
+            options,
             output_format="json",
             timeout=30,
         )

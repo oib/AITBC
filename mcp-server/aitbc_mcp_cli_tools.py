@@ -8,6 +8,7 @@ operations.
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -1935,6 +1936,14 @@ def aitbc_system_status(
 def aitbc_system_logs(
     service: Annotated[str, Field(description="Service to show logs for")],
     lines: Annotated[int | None, Field(description="Number of log lines to show")] = None,
+    since: Annotated[
+        str | None,
+        Field(description="Only entries newer than this journalctl time spec, e.g. '10 min ago'"),
+    ] = None,
+    grep: Annotated[
+        str | None,
+        Field(description="Filter entries matching this journalctl --grep pattern (max 200 chars)"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1945,6 +1954,14 @@ def aitbc_system_logs(
         options["service"] = service
     if lines is not None:
         options["lines"] = lines
+    if since is not None:
+        if len(since) > 200 or re.search(r"[;&|<>$`\\!\n\r\x00]", since):
+            return _json({"error": "invalid since"})
+        options["since"] = since
+    if grep is not None:
+        if len(grep) > 200 or re.search(r"[;&|<>$`\\!\n\r\x00]", grep):
+            return _json({"error": "invalid grep"})
+        options["grep"] = grep
     return _aitbc_cli_read_tool(
         role,
         host,
