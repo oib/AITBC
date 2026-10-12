@@ -16,7 +16,11 @@ alerting:
     - static_configs:
         - targets: ['127.0.0.1:9093']
 
-# Load rules once and periodically evaluate them
+# Load rules once and periodically evaluate them.
+# Deployed rule files in /etc/prometheus are copies of the ones in this
+# directory, not symlinks: sync them, run promtool, then reload (the
+# authoritative steps are in scripts/monitoring/check-rules-deployed.sh,
+# which exits 1 whenever a deployed file drifts from its repo copy).
 rule_files:
   - aitbc_rules.yml
 
