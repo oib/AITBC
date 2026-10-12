@@ -24,6 +24,8 @@ import {
   assertSignerOwners,
   assertSingleSigCannotExecute,
   initKit,
+  isOnlyOwnerRevert,
+  normalizeAddresses,
   publicClient,
   readSignerAddresses,
   readSignerKey,
@@ -51,9 +53,7 @@ const keysDir = resolveKeysDir();
 const client = publicClient(rpcUrl);
 assertSepolia(await client.getChainId());
 
-// NB: never pass getAddress directly to Array.map — the map index argument
-// reaches viem as an EIP-1191 chain id and produces wrong checksums.
-const signerAddresses = readSignerAddresses(keysDir).map((a) => getAddress(a));
+const signerAddresses = normalizeAddresses(readSignerAddresses(keysDir));
 const callArg = process.env.REHEARSAL_OWNER_CALL_ARG || signerAddresses[0]; // default: signer1
 const iface = new ethers.Interface(BRIDGE_ABI);
 const calldata = iface.encodeFunctionData(OWNER_CALL, [getAddress(callArg)]);
@@ -74,28 +74,55 @@ const err = await assertSingleSigCannotExecute(kit2, transactions, rpcUrl);
 console.error(`single-sig check: refused as expected (${String(err.message).slice(0, 80)})`);
 
 // --- negative check 2: a direct EOA call to the owner-only fn must revert ---
+// Only the bridge's actual onlyOwner revert counts — OpenZeppelin 4.x
+// "Ownable: caller is not the owner", whether it arrives as a CALL_EXCEPTION
+// (JsonRpcProvider) or a hardhat SolidityError carrying Error(string) data.
+// Any other outcome — a successful call, a different error — rethrows/fails.
 const eoa = new ethers.Wallet(key2, new ethers.JsonRpcProvider(rpcUrl));
 const bridge = new ethers.Contract(bridgeAddress, BRIDGE_ABI, eoa);
 let reverted = false;
 try {
   await bridge.getFunction(OWNER_CALL).staticCall(getAddress(callArg));
-} catch {
-  reverted = true;
+} catch (e) {
+  reverted = isOnlyOwnerRevert(e);
+  if (!reverted) throw e;
 }
 if (!reverted) throw new Error(`direct EOA call to ${OWNER_CALL} did NOT revert — bridge owner check broken?`);
-console.error(`direct-EOA check: reverted as expected`);
+console.error(`direct-EOA check: reverted with onlyOwner reason as expected`);
 
 // --- real execution: signatures from signer2 and signer3, gas paid by signer1 ---
+const pausedBefore = await new ethers.Contract(bridgeAddress, BRIDGE_ABI, new ethers.JsonRpcProvider(rpcUrl)).paused();
 const result = await signAndExecute([kit2, kit3], transactions, { executor: kit1 });
 const hash = result.hash ?? result.transactionResponse?.hash;
-console.error(`execution tx: ${hash}`);
 
-// Read back the effect.
+// Wait for the receipt and assert the tx itself succeeded before trusting
+// any read-back.
+const receipt = await client.waitForTransactionReceipt({ hash });
+if (receipt.status !== "success") {
+  throw new Error(`Safe execution tx reverted on-chain: ${hash}`);
+}
+console.error(`execution tx: ${hash} block ${receipt.blockNumber} gas ${receipt.gasUsed}`);
+
+// Read back and assert every expected effect. A Safe whose inner call failed
+// (ExecutionFailure) still lands a "success" receipt — the feeRecipient
+// assert below is what catches it, so nothing here may be softened.
 const ro = new ethers.Contract(bridgeAddress, BRIDGE_ABI, new ethers.JsonRpcProvider(rpcUrl));
 const [feeRecipient, paused, owner] = await Promise.all([ro.feeRecipient(), ro.paused(), ro.owner()]);
-console.error(`read-back: feeRecipient=${feeRecipient} paused=${paused} owner=${owner}`);
-if (owner.toLowerCase() !== safeAddress.toLowerCase()) {
-  throw new Error("bridge owner is not the Safe after execution");
+const want = getAddress(callArg).toLowerCase();
+const mismatches = [];
+if (feeRecipient.toLowerCase() !== want) mismatches.push(`feeRecipient=${feeRecipient}, want ${want}`);
+if (paused !== pausedBefore) mismatches.push(`paused=${paused}, unchanged expected (${pausedBefore})`);
+if (owner.toLowerCase() !== safeAddress.toLowerCase()) mismatches.push(`owner=${owner}, want ${safeAddress}`);
+if (mismatches.length) {
+  throw new Error(`post-execution read-back failed: ${mismatches.join("; ")}`);
 }
+console.error(`read-back: feeRecipient=${feeRecipient} paused=${paused} owner=${owner} — all asserted`);
 
-console.log(JSON.stringify({ txHash: hash, feeRecipient, paused, owner }));
+console.log(JSON.stringify({
+  txHash: hash,
+  blockNumber: receipt.blockNumber.toString(),
+  gasUsed: receipt.gasUsed.toString(),
+  feeRecipient,
+  paused,
+  owner,
+}));
