@@ -129,3 +129,93 @@ def test_dicts_path_type_from_payload_level(monkeypatch: pytest.MonkeyPatch) -> 
     tx = {"tx_hash": "bbcc", "payload": {"type": "BRIDGE_LOCK"}, "transfer_id": "tid-2", "amount": 7, "target_chain": "evm:1"}
     out = run_guard_dryrun_dicts([tx], height=31000, chain_id="c1")
     assert out == {"checked": 1, "derivable": 1, "grandfathered": 0, "would_refuse": 0}
+
+
+def _errors() -> float:
+    return metrics_registry._counters.get("bridge_lock_guard_errors_total", 0.0)
+
+
+class _NoHash:
+    """Processed-tx-shaped object that lacks tx_hash entirely."""
+
+    content = {"type": "BRIDGE_LOCK", "payload": _LOCK_PAYLOAD}
+
+
+def test_malformed_processed_txs_count_errors_never_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Flag on: string payload, None content, missing tx_hash and non-dict
+    envelope are each counted on bridge_lock_guard_errors_total and
+    skipped — nothing raises, the tx list is untouched."""
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "bridge_lock_guard_dryrun_enabled", True)
+    metrics_registry.reset()
+    txs: list[Any] = [
+        _Pending(tx_hash="h-str", content={"type": "BRIDGE_LOCK", "payload": "not-a-dict"}),
+        _Pending(tx_hash="h-none", content=None),
+        _NoHash(),
+        _Pending(tx_hash="h-env", content="not-a-dict"),
+        _Pending(tx_hash="h-ok", content={"type": "BRIDGE_LOCK", "payload": _LOCK_PAYLOAD}),
+    ]
+    before = [copy.deepcopy(getattr(t, "content", t)) for t in txs]
+    out = run_guard_dryrun(txs, height=31000, chain_id="c1")
+    # the one well-formed lock still classifies; the four malformed txs error
+    assert out == {"checked": 1, "derivable": 1, "grandfathered": 0, "would_refuse": 0}
+    assert _errors() == 4.0
+    assert [getattr(t, "content", t) for t in txs] == before
+
+
+def test_malformed_dict_txs_count_errors_never_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Same contract on the sync-import path: non-dict envelope (the tx
+    itself is the envelope), missing tx_hash and a string payload."""
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "bridge_lock_guard_dryrun_enabled", True)
+    metrics_registry.reset()
+    txs: list[dict[str, Any]] = [
+        "not-a-dict",
+        {"type": "BRIDGE_LOCK", "payload": _LOCK_PAYLOAD},  # no tx_hash
+        {"type": "BRIDGE_LOCK", "tx_hash": "h3", "payload": "not-a-dict"},
+        {"type": "BRIDGE_LOCK", "tx_hash": "h4", "payload": _LOCK_PAYLOAD},
+    ]
+    before = copy.deepcopy(txs)
+    out = run_guard_dryrun_dicts(txs, height=31000, chain_id="c1")
+    assert out == {"checked": 1, "derivable": 1, "grandfathered": 0, "would_refuse": 0}
+    assert _errors() == 3.0
+    assert txs == before
+
+
+def test_check_locks_malformed_items_count_errors_never_raise() -> None:
+    """Direct callers get the same containment: a non-3-tuple item and
+    non-dict payload/envelope members are errors, not exceptions."""
+    metrics_registry.reset()
+    out = check_locks_dryrun(
+        [("h1", "not-a-dict", {}), ("h2", {}, "not-a-dict"), "not-a-tuple"],
+        height=GRANDFATHER_BOUNDARY + 1,
+        boundary=GRANDFATHER_BOUNDARY,
+        chain_id="c1",
+    )
+    assert out == {"checked": 3, "derivable": 0, "grandfathered": 0, "would_refuse": 0}
+    assert _errors() == 3.0
+
+
+def test_unexpected_guard_failure_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The catch-all: if classification itself blows up the entry point
+    returns None and counts the error — the seal path proceeds."""
+    from aitbc_chain.config import settings
+
+    import aitbc_chain.cross_chain.bridge_lock_guard as guard
+
+    monkeypatch.setattr(settings, "bridge_lock_guard_dryrun_enabled", True)
+
+    def _boom(*_a: Any, **_k: Any) -> dict[str, int]:
+        raise RuntimeError("synthetic failure")
+
+    monkeypatch.setattr(guard, "check_locks_dryrun", _boom)
+    metrics_registry.reset()
+    txs = [_Pending(tx_hash="h", content={"type": "BRIDGE_LOCK", "payload": _LOCK_PAYLOAD})]
+    assert run_guard_dryrun(txs, height=31000, chain_id="c1") is None
+    assert (
+        run_guard_dryrun_dicts([{"type": "BRIDGE_LOCK", "tx_hash": "h", "payload": _LOCK_PAYLOAD}], height=1, chain_id="c1")
+        is None
+    )
+    assert _errors() == 2.0
