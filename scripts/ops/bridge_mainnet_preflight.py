@@ -5,9 +5,18 @@ Implements the knob checks from the B7 readiness paper
 (TOPOLOGY/2026-10-08-b7-bridge-mainnet-readiness.md). Reads configuration
 only -- the process environment, or ``--env-file PATH`` for a file of
 ``KEY=value`` lines (e.g. a staging copy of ``bridge-monitor.env`` /
-``blockchain.env``). No RPC, no network, no writes.
+``blockchain.env``). ``--env-file`` may be repeated; later files override
+earlier ones, in the same order rule as a systemd ``EnvironmentFile``
+list, and a path prefixed with ``-`` is optional (skipped when missing),
+mirroring systemd's ``EnvironmentFile=-`` syntax. No RPC, no network,
+no writes.
 
     python scripts/ops/bridge_mainnet_preflight.py --env-file prod.env
+    python scripts/ops/bridge_mainnet_preflight.py \
+        --env-file /etc/aitbc/blockchain.env \
+        --env-file -/etc/aitbc/blockchain-secrets.env \
+        --env-file /etc/aitbc/node.env \
+        --env-file /etc/aitbc/aitbc-bridge-monitor.env
 
 Prints one PASS/FAIL line per knob and exits 0 only when all pass. On the
 current Sepolia testnet configuration every knob is expected to FAIL --
@@ -128,12 +137,44 @@ def load_env_file(path: str) -> dict[str, str]:
     return env
 
 
+def load_env_files(paths: list[str]) -> dict[str, str]:
+    """Merge env files in order, systemd EnvironmentFile style.
+
+    Later files override earlier ones. A path prefixed with ``-`` is
+    optional and skipped when missing; any other missing file raises
+    FileNotFoundError, as a missing mandatory EnvironmentFile would.
+    """
+    env: dict[str, str] = {}
+    for raw in paths:
+        optional = raw.startswith("-")
+        path = raw[1:] if optional else raw
+        if not os.path.exists(path):
+            if optional:
+                continue
+            raise FileNotFoundError(path)
+        env.update(load_env_file(path))
+    return env
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--env-file", help="env file to check (default: process environment)")
+    parser.add_argument(
+        "--env-file",
+        action="append",
+        metavar="PATH",
+        help="env file to check, systemd EnvironmentFile order — repeatable, "
+        "later files override; prefix '-' marks an optional file "
+        "(default: process environment)",
+    )
     args = parser.parse_args(argv)
 
-    env = load_env_file(args.env_file) if args.env_file else dict(os.environ)
+    if args.env_file:
+        try:
+            env = load_env_files(args.env_file)
+        except FileNotFoundError as exc:
+            parser.error(f"env file not found: {exc.args[0]}")
+    else:
+        env = dict(os.environ)
     checks = check_config(env)
 
     print("BRIDGE MAINNET PREFLIGHT (read-only; checks config only — no RPC, no chain reads)")

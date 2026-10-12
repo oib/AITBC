@@ -116,3 +116,52 @@ def test_feed_constants_match_oracle():
     assert mainnet and sepolia
     assert preflight.MAINNET_ETH_USD_FEED == mainnet.group(1)
     assert preflight.SEPOLIA_ETH_USD_FEED == sepolia.group(1)
+
+
+# --- stacked --env-file (BR-8): systemd EnvironmentFile order ---
+
+
+def _env_path(tmp_path: Path, name: str, env: dict) -> Path:
+    path = tmp_path / name
+    path.write_text("".join(f"{k}={v}\n" for k, v in env.items()))
+    return path
+
+
+def test_stacked_env_files_later_overrides(tmp_path):
+    """Two files like blockchain.env + aitbc-bridge-monitor.env: later wins."""
+    first = _env_path(tmp_path, "blockchain.env", {"AIT_EUR_FIXED_PRICE": "0.25", "ETH_NETWORK": "mainnet"})
+    second = _env_path(tmp_path, "aitbc-bridge-monitor.env", {"ETH_NETWORK": "sepolia"})
+    env = preflight.load_env_files([str(first), str(second)])
+    assert env["ETH_NETWORK"] == "sepolia"
+
+
+def test_stacked_env_files_first_only_key_survives(tmp_path):
+    """A key set only in the earlier file keeps its value — the EUR-pin miss."""
+    first = _env_path(tmp_path, "blockchain.env", {"AIT_EUR_FIXED_PRICE": "0.25"})
+    second = _env_path(tmp_path, "aitbc-bridge-monitor.env", dict(TESTNET_ENV))
+    env = preflight.load_env_files([str(first), str(second)])
+    assert env["AIT_EUR_FIXED_PRICE"] == "0.25"
+    res = results(env)
+    assert not res["AIT_EUR_FIXED_PRICE"].passed
+
+
+def test_optional_env_file_missing_is_skipped(tmp_path):
+    """A '-' prefixed path that does not exist is skipped, like EnvironmentFile=-."""
+    base = _env_path(tmp_path, "blockchain.env", dict(TESTNET_ENV))
+    env = preflight.load_env_files([str(base), "-" + str(tmp_path / "secrets.env")])
+    assert env["ETH_NETWORK"] == "sepolia"
+
+
+def test_mandatory_env_file_missing_errors(tmp_path, capsys):
+    """A missing non-optional file exits non-zero instead of silently passing."""
+    with pytest.raises(SystemExit):
+        preflight.main(["--env-file", str(tmp_path / "gone.env")])
+    assert "gone.env" in capsys.readouterr().err
+
+
+def test_main_stacked_env_files(tmp_path):
+    """End to end: --env-file twice reproduces the unit's effective env."""
+    first = _env_path(tmp_path, "blockchain.env", {"AIT_EUR_FIXED_PRICE": "0.25"})
+    second = _env_path(tmp_path, "aitbc-bridge-monitor.env", dict(TESTNET_ENV))
+    rc = preflight.main(["--env-file", str(first), "--env-file", str(second)])
+    assert rc == 1
