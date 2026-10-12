@@ -1,11 +1,11 @@
 """v13 governance binding: GOVERNANCE_EXECUTE applies the sealed PROPOSE's
 stored ``execution_payload`` (V-2).
 
-The gate is ``settings.state_transition_v13_height``, which defaults to
-``V13_HEIGHT_NOT_ARMED`` — an unreachable sentinel, so every v13 rule is dead
-code on the live chain until the operator arms a real activation height.
-Pre-gate behaviour is byte-identical: an EXECUTE keeps applying the payload
-the transaction carries, whatever any proposal says.
+The gate is ``settings.state_transition_v13_height``, armed at
+``SHARED_ACTIVATION_HEIGHT`` (the shared ACT-1 activation, 46,100) — the same
+height at which v14's side-table root commit (V-3) and bridge-lock guard
+(V-4) arm. Pre-gate behaviour is byte-identical: an EXECUTE keeps applying
+the payload the transaction carries, whatever any proposal says.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from sqlmodel import Session, create_engine, select
 
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
 from aitbc_chain.base_models import Account, ChainParameter
-from aitbc_chain.config import V13_HEIGHT_NOT_ARMED, settings
+from aitbc_chain.config import SHARED_ACTIVATION_HEIGHT, settings
 from aitbc_chain.database import chain_metadata
 from aitbc_chain.models import Transaction
 from aitbc_chain.state.state_transition import StateTransition, get_block_version_for_height
@@ -170,17 +170,24 @@ def _param_value(session: Session, chain_id: str, parameter: str = "some_param")
 # --- The gate itself: inert by default, functional when armed ----------------
 
 
-def test_v13_height_defaults_to_unreachable_sentinel():
-    """The default can never activate: no real chain produces block 2**62."""
-    assert settings.state_transition_v13_height == V13_HEIGHT_NOT_ARMED
-    # Far past every armed height, the derived version stays 12, never 13.
-    assert get_block_version_for_height(10**12) == 12
+def test_v13_height_defaults_to_shared_activation():
+    """Armed at the shared ACT-1 height by the operator's 12 Oct decision."""
+    assert settings.state_transition_v13_height == SHARED_ACTIVATION_HEIGHT
+    # Below H the derived version is still 12; at H the v14 rung shadows v13
+    # (both thresholds arm at the same height) and the stamp is 14.
+    assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT - 1) == 12
+    assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT) == 14
 
 
-def test_v13_ladder_works_when_armed():
-    """The version rung itself is functional — height-derived like v8+."""
-    assert get_block_version_for_height(V13_HEIGHT_NOT_ARMED) == 13
-    assert get_block_version_for_height(V13_HEIGHT_NOT_ARMED - 1) == 12
+def test_v13_ladder_works_when_armed_before_v14(monkeypatch):
+    """The version rung itself is functional — height-derived like v8+. A
+    split override (v13 armed below v14) still stamps 13 in the gap."""
+    monkeypatch.setattr(settings, "state_transition_v13_height", SHARED_ACTIVATION_HEIGHT - 100)
+    monkeypatch.setattr(settings, "state_transition_v14_height", SHARED_ACTIVATION_HEIGHT)
+    assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT - 100) == 13
+    assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT - 1) == 13
+    assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT - 101) == 12
+    assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT) == 14
 
 
 # --- Pre-gate: byte-identical current behaviour -------------------------------

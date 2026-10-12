@@ -24,6 +24,12 @@ Guarantees (enforced by construction and pinned by tests):
 - never touches the block header, the block hash, validation or apply;
 - any failure is caught, logged as a warning and swallowed — a failing
   shadow computation can never raise into the seal path.
+
+**v14 (shared ACT-1 activation):** ``committed_fingerprint`` is also the
+source of the ``aux_state_root`` the proposer commits into the block hash at
+``settings.state_transition_v14_height`` and that ``sync_block_import``
+recomputes at verification. The shadow table stays observational either way —
+only the fingerprint formula is shared.
 """
 
 from __future__ import annotations

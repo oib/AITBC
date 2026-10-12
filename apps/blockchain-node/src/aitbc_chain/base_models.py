@@ -106,6 +106,10 @@ class Block(ChainBase, table=True):
     tx_count: int = 0
     state_root: str | None = None
     bridge_state_root: str | None = None
+    # v14 (V-3, shared ACT-1 activation): the 13-table side-table root
+    # fingerprint committed into the block hash. None on every pre-v14 block —
+    # the hash preimage only gains the aux term when this is set.
+    aux_state_root: str | None = None
     block_metadata: str | None = Field(default=None)
 
     # Block header signature (v0.7.1) — secp256k1 signature over the block
@@ -151,6 +155,11 @@ class Block(ChainBase, table=True):
     @classmethod
     def _bridge_state_root_is_hex(cls, value: str | None) -> str | None:
         return _validate_optional_hex(value, "Block.bridge_state_root")
+
+    @field_validator("aux_state_root", mode="before")
+    @classmethod
+    def _aux_state_root_is_hex(cls, value: str | None) -> str | None:
+        return _validate_optional_hex(value, "Block.aux_state_root")
 
 
 class Transaction(ChainBase, table=True):
