@@ -140,8 +140,13 @@ describe("RehearsalSafe (BR-9 phase A, hardhat)", function () {
     }
     expect(reverted).to.equal(true);
 
-    // B4 — two locally collected signatures (signer2 + signer3), then execute.
-    const result = await signAndExecute([kit2, kit3], txSpec);
+    // B4 — two locally collected signatures (signer2 + signer3); signer1's kit
+    // only submits execTransaction (pays gas, adds no signature) — same split
+    // as the live script where signer1 is the only funded account. NB the kit
+    // must be bound to the deployed safeAddress (a predicted-mode kit refuses
+    // executeTransaction as "not deployed").
+    const kitExec = await initKit({ provider, signerKey: s1.privateKey, safeAddress, contractNetworks });
+    const result = await signAndExecute([kit2, kit3], txSpec, { executor: kitExec });
     const execHash = result.hash ?? result.transactionResponse?.hash;
     expect(execHash).to.match(/^0x[0-9a-fA-F]{64}$/);
     const receipt = await publicClient(provider).waitForTransactionReceipt({ hash: execHash });
