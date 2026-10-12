@@ -711,6 +711,12 @@ class BlockImportMixin(SyncBase):
         # above from touching any state.
         block.state_root = block_data.get("state_root")
         block.bridge_state_root = self._derive_bridge_state_root(session, block_data, transactions)
+        # v14 (V-3): the header's committed side-table root. Stored only at
+        # v14+ — below the activation the field does not exist and any value a
+        # peer supplies is ignored, so replayed pre-v14 blocks keep NULL.
+        block.aux_state_root = (
+            str(block_data["aux_state_root"]) if block_version >= 14 and block_data.get("aux_state_root") else None
+        )
         block.block_metadata = block_data.get("block_metadata")
         session.add(block)
 
@@ -785,6 +791,31 @@ class BlockImportMixin(SyncBase):
                     height=block_data["height"],
                     block_hash=block_hash,
                     reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",  # type: ignore[union-attr]
+                )
+        # v14 (V-3): the block commits to the 13-table side-table root over the
+        # committed set after this block's transactions applied. Recompute it
+        # against local state — a mismatch means the proposer's committed state
+        # and ours disagree in a way the account-level state_root does not see,
+        # so the block is rejected rather than sealing a divergence.
+        if (not skip_state_root_validation) and block_version >= 14:
+            session.flush()
+            computed_aux = side_root_shadow.committed_fingerprint(session.connection().connection)["fingerprint"]
+            recorded_aux = block_data.get("aux_state_root")
+            if not recorded_aux or computed_aux != str(recorded_aux):
+                metrics_registry.increment("sync_aux_root_rejected_total")
+                session.rollback()
+                self._track_rejection(self._chain_id)
+                logger.error(
+                    "[SYNC] Aux state root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
+                    block_data["height"],
+                    recorded_aux,
+                    computed_aux,
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=block_data["height"],
+                    block_hash=block_hash,
+                    reason=f"Aux state root mismatch: expected {recorded_aux}, computed {computed_aux}",
                 )
         if journal is not None:
             journal.persist(session)

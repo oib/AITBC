@@ -1256,10 +1256,19 @@ class PoAProposer:
         # V-4 dry-run missing-data guard (flag-gated, logs/counts only —
         # the block below is built exactly as before).
         bridge_lock_guard.run_guard_dryrun(processed_txs, height=next_height, chain_id=self._config.chain_id, log=self._logger)
+        # v14 (V-3): commit the 13-table side-table root fingerprint into the
+        # header as aux_state_root. It is computed over the committed set after
+        # this block's transactions applied — flush so the fingerprint sees
+        # them. Below the shared activation height it stays None and the hash
+        # preimage is byte-identical to the old formula.
+        aux_state_root = None
+        if get_block_version_for_height(next_height) >= 14:
+            session.flush()
+            aux_state_root = side_root_shadow.committed_fingerprint(session.connection().connection)["fingerprint"]
         # v0.7.2: block hash binds chain, height, parent, time, txs,
         # proposer, account state root, and bridge event trie root.
         block_hash = self._compute_block_hash(
-            next_height, parent_hash, timestamp, processed_txs, proposer, state_root, bridge_state_root
+            next_height, parent_hash, timestamp, processed_txs, proposer, state_root, bridge_state_root, aux_state_root
         )
 
         block = Block(
@@ -1272,6 +1281,7 @@ class PoAProposer:
             tx_count=len(processed_txs),
             state_root=state_root,
             bridge_state_root=bridge_state_root,
+            aux_state_root=aux_state_root,
             signature="",
             block_metadata=None,
         )
@@ -1572,6 +1582,7 @@ class PoAProposer:
                     "tx_count": block.tx_count,
                     "state_root": block.state_root,
                     "bridge_state_root": block.bridge_state_root,
+                    "aux_state_root": block.aux_state_root,
                     "signature": block.signature,
                     "block_metadata": block.block_metadata,
                     "transactions": tx_list,
@@ -1752,6 +1763,7 @@ class PoAProposer:
                     "tx_count": genesis.tx_count,
                     "state_root": genesis.state_root,
                     "bridge_state_root": genesis.bridge_state_root,
+                    "aux_state_root": genesis.aux_state_root,
                 },
             )
 
@@ -2587,6 +2599,7 @@ class PoAProposer:
         proposer: str = "",
         state_root: str | None = None,
         bridge_state_root: str | None = None,
+        aux_state_root: str | None = None,
     ) -> str:
         tx_hashes = []
         if transactions:
@@ -2595,6 +2608,8 @@ class PoAProposer:
         # proofs can be anchored to a signed block header. The formula lives
         # in consensus.block_hash so remote attesters recompute the identical
         # digest when binding an attestation request's tx list to the header.
+        # v14 adds the aux term only when set, keeping pre-v14 digests
+        # byte-identical.
         return compute_block_hash(
             self._config.chain_id,
             height,
@@ -2604,6 +2619,7 @@ class PoAProposer:
             proposer,
             state_root,
             bridge_state_root,
+            aux_state_root,
         )
 
     def _sign_block_hash(self, block: Block) -> str:

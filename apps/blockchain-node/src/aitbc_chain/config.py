@@ -40,15 +40,21 @@ class ProposerConfig(BaseModel):
 # Default island ID for new installations
 DEFAULT_ISLAND_ID = str(uuid.uuid4())
 
-# NOT an activation height — a deliberately unreachable sentinel for
-# ``state_transition_v13_height``. v13 binds GOVERNANCE_EXECUTE to the sealed
-# GOVERNANCE_PROPOSE's stored execution_payload (V-2); the chain can never
-# produce block 2**62, so the default keeps every v13 rule dead code on every
-# node. Arming it is an operator decision (V-7 made the binding process
-# hygiene, not a trust boundary): pick a real height and set
-# STATE_TRANSITION_V13_HEIGHT only after the whole fleet runs a build that
-# carries the v13 rules.
+# Deliberately unreachable sentinel for the ``state_transition_v*_height``
+# thresholds: the chain can never produce block 2**62, so a threshold set to
+# it parks that version's rules as dead code (the STOP-rule "cancel the
+# activation" path moves both v13 and v14 here).
 V13_HEIGHT_NOT_ARMED = 2**62
+
+# Shared ACT-1 activation height (H). From H: v13 binds GOVERNANCE_EXECUTE to
+# the sealed GOVERNANCE_PROPOSE's stored execution_payload (V-2); v14 commits
+# the 13-table side-table root into the block header as aux_state_root (V-3)
+# and turns the bridge-lock missing-data guard from dry-run counting into a
+# refusal (V-4). Operator decision 12 Oct: "tomorrow" — about 18:00 UTC on
+# 13 Oct at ~68 s per block (head was 44,827 at 18:11 UTC). Environment
+# overrides STATE_TRANSITION_V13_HEIGHT / STATE_TRANSITION_V14_HEIGHT keep the
+# heights movable (the STOP-rule "move H" path sets BOTH on every host).
+SHARED_ACTIVATION_HEIGHT = 46100
 
 
 class ChainSettings(BaseSettings):
@@ -836,10 +842,19 @@ class ChainSettings(BaseSettings):
     # stored execution_payload; an execute naming no earlier-sealed proposal —
     # or carrying a payload that differs from it — is refused in admission and
     # block verification, and a GOVERNANCE_PROPOSE must carry the
-    # execution_payload it commits to. The default is V13_HEIGHT_NOT_ARMED, an
-    # unreachable sentinel: the rules stay dead code until the operator arms a
-    # real activation height via STATE_TRANSITION_V13_HEIGHT.
-    state_transition_v13_height: int | None = V13_HEIGHT_NOT_ARMED
+    # execution_payload it commits to. Default: SHARED_ACTIVATION_HEIGHT (the
+    # shared ACT-1 activation). STATE_TRANSITION_V13_HEIGHT overrides it;
+    # V13_HEIGHT_NOT_ARMED parks the rules as dead code.
+    state_transition_v13_height: int | None = SHARED_ACTIVATION_HEIGHT
+    # v14 (V-3 + V-4, same shared ACT-1 height): block headers carry
+    # aux_state_root — the fingerprint over the 13 committed side tables
+    # after the block's transactions apply — bound into the block hash and
+    # verified at import; and a BRIDGE_LOCK carrying no derivable leaf data
+    # is refused in apply instead of only counted by the dry-run guard.
+    # STATE_TRANSITION_V14_HEIGHT overrides it; V13_HEIGHT_NOT_ARMED parks
+    # the rules as dead code. Both thresholds move together: the STOP-rule
+    # "move H" path sets both on every host.
+    state_transition_v14_height: int | None = SHARED_ACTIVATION_HEIGHT
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
