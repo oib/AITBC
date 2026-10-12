@@ -35,10 +35,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NamedTuple
 
-TERMINAL_STATES = ("released", "refunded", "void")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from escrow_residue_classify import (
+    DEFAULT_V3_HEIGHT,
+    TERMINAL_STATES,
+    classify as _classify_base,
+    legs as _legs,
+    parse_ts,
+)
+
 DEFAULT_MIN_AGE_SECONDS = 7 * 24 * 3600
-DEFAULT_V3_HEIGHT = 5470  # per-escrow custody activation on the live island chain
-OUTFLOW_TYPES = ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP")
 
 # Classification (S-12): the ledger residue number alone is not enough — a row
 # is only sweepable when its residue is the stranded platform fee still in the
@@ -72,22 +78,6 @@ class Residue(NamedTuple):
     sealed_outflow: int
 
 
-def parse_ts(raw: object) -> datetime | None:
-    """SQLAlchemy sqlite DATETIME forms: 'YYYY-MM-DD HH:MM:SS.ffffff' or ISO."""
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return datetime.strptime(text, fmt).replace(tzinfo=UTC)
-        except ValueError:
-            pass
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
 def _chain_param(conn: sqlite3.Connection, name: str) -> str | None:
     try:
         row = conn.execute(
@@ -98,32 +88,6 @@ def _chain_param(conn: sqlite3.Connection, name: str) -> str | None:
         return None
     value = str(row[0]).strip() if row and row[0] else ""
     return value or None
-
-
-def _legs(conn: sqlite3.Connection, job_id: str) -> tuple[int | None, int, bool]:
-    """(lock height, sealed outflow, swept) for the job's ESCROW_* legs.
-
-    The outflow sums the values of sealed RELEASE/REFUND/FEE_SWEEP legs whose
-    payload names the job — the ledger's released/refunded columns are known to
-    lag (legs sealed after the row's terminal timestamp never wrote back).
-    """
-    try:
-        rows = conn.execute(
-            "SELECT type, block_height, value FROM \"transaction\" WHERE type LIKE 'ESCROW%' AND payload LIKE ?",
-            (f"%{job_id}%",),
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return None, 0, False
-    lock_height = None
-    outflow = 0
-    swept = False
-    for tx_type, height, value in rows:
-        if tx_type == "ESCROW_LOCK" and lock_height is None:
-            lock_height = int(height) if height is not None else None
-        elif tx_type in OUTFLOW_TYPES:
-            outflow += int(value or 0)
-            swept = swept or tx_type == "ESCROW_FEE_SWEEP"
-    return lock_height, outflow, swept
 
 
 def classify(
@@ -138,21 +102,8 @@ def classify(
     job_id: str = "",
 ) -> str:
     """Class per the S-12 scheme — see the module constants for the meanings."""
-    if job_id.startswith("canary"):
-        prefix = "canary-"
-    else:
-        prefix = ""
-    if lock_height is None:
-        return prefix + "void — never locked"
-    if swept:
-        return prefix + "already settled (fee-swept)"
-    if sealed_outflow >= amount:
-        return prefix + "already settled (released)"
-    if lock_height < v3_height:
-        return prefix + "v2 authority-retained"
-    if residue <= dust:
-        return prefix + "rounding dust"
-    return prefix + "fee leg"
+    prefix = "canary-" if job_id.startswith("canary") else ""
+    return prefix + _classify_base(residue, amount, lock_height, sealed_outflow, swept, v3_height, dust)
 
 
 def collect_residues(
