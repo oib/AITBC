@@ -2,6 +2,8 @@
 
 > **Authoritative port configuration** is in [Service Ports Reference](../reference/SERVICE_PORTS.md). This document describes the current CLI-driven flow on the live hub/shop island as verified on 2026-10-13 (v0.25.10, fleet commit `d09240101`). Port and unit names were checked against `systemctl cat` and `ss -tlnp` on hub and node2.
 
+Chain facts (verified 2026-10-13): chain id `ait-hub.aitbc.bubuit.net`; 1 AIT = 36,000,000 compute-units; state-transition **v14 is armed for height 46,100** (not yet reached — blocks below 46,100 carry `state_transition_version 12` and no `aux_state_root`).
+
 The canonical customer path is:
 
 ```text
@@ -95,6 +97,8 @@ aitbc --api-key "$CLIENT_JWT" ai submit \
 Optional fields `offer_id` / `offer_quantity` attach the job to a published offer. The coordinator creates a `JobPayment` record and posts the signed lock to `POST /rpc/escrow/create` on the blockchain RPC (8202), which submits the `ESCROW_LOCK` to `POST /rpc/transactions/market`. A job is only dispatchable once the payment row reaches `payment_status: escrowed` — an escrow that never locked is never handed to a miner.
 
 Use `aitbc ai submit --wait --timeout <seconds> --poll-interval <seconds>` to block until release and print the settlement transaction hash. `ai submit` also accepts `--offer-id`, `--offer-quantity`, `--acceptance-window`, `--min-reputation`, `--zk-proof-required`, and `--tee-attestation-required`.
+
+Result-verification gates, marked per DESIGN_CYCLE §3/§4 — **partial, not fully live**: `--zk-proof-required` (the `receipt_model` circuit proves a *committed deterministic model* ran on committed input; it does not prove open-ended LLM correctness) and `--tee-attestation-required` (registered-enclave allowlist + identity pinning shipped, but no live miner has registered a stable enclave key — validation exercises the simulated/self-consistency paths).
 
 ### 4. Match and execute
 
