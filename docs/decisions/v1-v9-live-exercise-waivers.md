@@ -47,6 +47,17 @@ apply-path test file that already touches the type.
 | STAKE_LOCK | none | `test_v9_type_replayed[STAKE_LOCK]` | test_staking, test_nonce_* |
 | STAKE_RELEASE | STAKE_LOCK sealed | `test_v9_type_replayed[STAKE_RELEASE]` | test_staking |
 
+## Finding surfaced by the replay suite (2026-10-12)
+
+`BOUNTY_PAYOUT` and `BOUNTY_REFUND` are replayable **in the apply code**
+but **unsealable in the production shape**: `queue_protocol_transfer`
+emits them unsigned (the bounty escrow is keyless — no sender signature
+can exist), and the v9 signature rule exempts only `BRIDGE_*`. Their
+`payload.auth` operator signature does not satisfy the top-level
+presence check. Both cases are strict-xfail in the suite; making them
+sealable needs a consensus change (admit `payload.auth` at v9, or sign
+the envelope) — an operator decision, flagged here rather than waived.
+
 ## What is NOT waived
 
 - The **live `BRIDGE_RELEASE` exercise**: kept because only a live release
