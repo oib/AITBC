@@ -16,7 +16,7 @@ The other classes stay visible on an informational gauge with **no alert
 attached**: they are ledger staleness an operator may want to repair, not
 money waiting to move.
 
-Classes (same rules as ``scripts/ops/escrow_residue_dryrun.py``):
+Classes (shared rules from ``scripts/ops/escrow_residue_classify.py``):
     void — never locked        row claims a lock that never sealed
     already settled (released) sealed outflow legs cover the lock amount
     already settled (fee-swept) an ESCROW_FEE_SWEEP already ran
@@ -61,22 +61,22 @@ import sqlite3
 import sys
 import tempfile
 import time
-from datetime import UTC, datetime
+from pathlib import Path
 from typing import NamedTuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ops"))
+from escrow_residue_classify import (
+    DEFAULT_V3_HEIGHT,
+    FEE_LEG,
+    INFORMATIONAL_CLASSES,
+    TERMINAL_STATES,
+    classify,
+    legs as _legs,
+    parse_ts,
+)
 
 OUTPUT_NAME = "aitbc_escrow_residue.prom"
 DEFAULT_MAX_AGE_SECONDS = 7 * 24 * 3600
-DEFAULT_V3_HEIGHT = 5470  # per-escrow custody activation on the live island chain
-TERMINAL_STATES = ("released", "refunded", "void")
-OUTFLOW_TYPES = ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP")
-FEE_LEG = "fee leg"
-INFORMATIONAL_CLASSES = (
-    "void — never locked",
-    "already settled (released)",
-    "already settled (fee-swept)",
-    "v2 authority-retained",
-    "rounding dust",
-)
 
 
 # NamedTuple, not @dataclass: the test suite importlib-loads this script without
@@ -92,60 +92,6 @@ class ResidueRow(NamedTuple):
 def find_chain_dbs(data_dir: str) -> list[str]:
     """Every ``data/*/chain.db`` under the data dir, sorted for determinism."""
     return sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db")))
-
-
-def parse_ts(raw: object) -> datetime | None:
-    """SQLAlchemy sqlite DATETIME forms: 'YYYY-MM-DD HH:MM:SS.ffffff' or ISO."""
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return datetime.strptime(text, fmt).replace(tzinfo=UTC)
-        except ValueError:
-            pass
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-def _legs(conn: sqlite3.Connection, job_id: str) -> tuple[int | None, int, bool]:
-    """(lock height, sealed outflow, swept) for the job's ESCROW_* legs."""
-    try:
-        rows = conn.execute(
-            "SELECT type, block_height, value FROM \"transaction\" WHERE type LIKE 'ESCROW%' AND payload LIKE ?",
-            (f"%{job_id}%",),
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return None, 0, False
-    lock_height = None
-    outflow = 0
-    swept = False
-    for tx_type, height, value in rows:
-        if tx_type == "ESCROW_LOCK" and lock_height is None:
-            lock_height = int(height) if height is not None else None
-        elif tx_type in OUTFLOW_TYPES:
-            outflow += int(value or 0)
-            swept = swept or tx_type == "ESCROW_FEE_SWEEP"
-    return lock_height, outflow, swept
-
-
-def classify(
-    residue: int, amount: int, lock_height: int | None, sealed_outflow: int, swept: bool, v3_height: int, dust: int
-) -> str:
-    """S-12 class — only ``fee leg`` is alertable."""
-    if lock_height is None:
-        return "void — never locked"
-    if swept:
-        return "already settled (fee-swept)"
-    if sealed_outflow >= amount:
-        return "already settled (released)"
-    if lock_height < v3_height:
-        return "v2 authority-retained"
-    if residue <= dust:
-        return "rounding dust"
-    return FEE_LEG
 
 
 def stale_residues(
