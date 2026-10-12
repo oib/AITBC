@@ -59,9 +59,12 @@ const iface = new ethers.Interface(BRIDGE_ABI);
 const calldata = iface.encodeFunctionData(OWNER_CALL, [getAddress(callArg)]);
 const transactions = [{ to: getAddress(bridgeAddress), value: "0", data: calldata }];
 
-// signer2 + signer3 — the deployer's key is not needed for the 2-of-3.
+// signer2 + signer3 sign — signer1 only submits execTransaction (pays gas);
+// its key adds no signature, so the 2-of-3 approval is still signer2+signer3.
+const key1 = readSignerKey(keysDir, 1);
 const key2 = readSignerKey(keysDir, 2);
 const key3 = readSignerKey(keysDir, 3);
+const kit1 = await initKit({ provider: rpcUrl, signerKey: key1, safeAddress });
 const kit2 = await initKit({ provider: rpcUrl, signerKey: key2, safeAddress });
 const kit3 = await initKit({ provider: rpcUrl, signerKey: key3, safeAddress });
 assertSignerOwners(await kit2.getOwners(), signerAddresses);
@@ -82,8 +85,8 @@ try {
 if (!reverted) throw new Error(`direct EOA call to ${OWNER_CALL} did NOT revert — bridge owner check broken?`);
 console.error(`direct-EOA check: reverted as expected`);
 
-// --- real execution: signatures from signer2 and signer3 ---
-const result = await signAndExecute([kit2, kit3], transactions);
+// --- real execution: signatures from signer2 and signer3, gas paid by signer1 ---
+const result = await signAndExecute([kit2, kit3], transactions, { executor: kit1 });
 const hash = result.hash ?? result.transactionResponse?.hash;
 console.error(`execution tx: ${hash}`);
 
