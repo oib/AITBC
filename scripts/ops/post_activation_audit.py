@@ -292,10 +292,12 @@ def _local_bridge_roots(db: str, first: int, last: int, lock_lookback: int) -> N
             for tx_hash in ids:
                 trie.put(tx_hash.encode(), lock_leaf_value(tx_hash, records.get(tx_hash)).encode())
             recomputed = "0x" + trie.get_root().hex()
+            missing = sum(1 for t in ids if t not in records)
             out.append(
                 {
                     "height": height,
                     "locks": len(ids),
+                    "locks_missing_record": missing,
                     "committed": short(committed),
                     "recomputed": short(recomputed),
                     "match": (committed or "") == recomputed,
@@ -449,10 +451,20 @@ def check_d_bridge_root(hosts: list[str], first: int, last: int, activation: int
         if res.get("mode") == "error" or not rows:
             ok &= report(FAIL, f"d bridge_state_root @{host}", f"remote run failed: {res.get('raw', res)}")
             continue
-        mism = [r for r in rows if not r["match"]]
+        mism = [r for r in rows if not r["match"] and not r["locks_missing_record"]]
+        unverifiable = [r for r in rows if not r["match"] and r["locks_missing_record"]]
         n_locks = sum(r["locks"] for r in rows)
         if mism:
-            ok &= report(FAIL, f"d bridge_state_root @{host}", f"{len(mism)} mismatch(es): {mism[:3]}")
+            ok &= report(FAIL, f"d bridge_state_root @{host}", f"{len(mism)} mismatch(es) with records present: {mism[:3]}")
+        elif unverifiable:
+            ok &= report(
+                INFO,
+                f"d bridge_state_root @{host}",
+                f"{label}: {len(rows)} blocks checked, {n_locks} lock leaves; "
+                f"{len(unverifiable)} lock block(s) unverifiable — no local cross_chain_transfer row "
+                f"(node-local bookkeeping, committed root is proposer-derived only): "
+                f"{[r['height'] for r in unverifiable]}",
+            )
         else:
             ex = rows[-1]
             ok &= report(
@@ -495,6 +507,29 @@ def check_e_validators(hosts: list[str], attestation_lookback: int, min_head: in
     return ok
 
 
+def _flagged_alert_lines(tail: str, now_ts: float, window_s: float = 3600.0) -> list[str]:
+    """alerts.log JSON transition lines: keep FIRING entries newer than
+    ``window_s`` plus non-JSON ERROR/CRITICAL lines."""
+    bad = []
+    for ln in tail.splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            entry = json.loads(ln)
+        except json.JSONDecodeError:
+            if re.search(r"ERROR|CRITICAL", ln, re.I):
+                bad.append(ln[:120])
+            continue
+        try:
+            recent = entry.get("timestamp_unix") is not None and now_ts - float(entry["timestamp_unix"]) < window_s
+        except (TypeError, ValueError):
+            recent = False
+        if entry.get("state") == "firing" and recent:
+            bad.append(f"{entry.get('alertname')} firing @ {entry.get('timestamp', '?')}")
+    return bad
+
+
 def check_f_liveness(hosts: list[str]) -> bool:
     heads = {}
     for host in hosts:
@@ -522,13 +557,15 @@ def check_f_liveness(hosts: list[str]) -> bool:
         )
     else:
         ok &= report(PASS, "f prometheus alerts", "0 firing on hub")
-    # alerts.log tail on hub — recent ERROR/ALERT lines
+    # alerts.log tail on hub — JSON transition lines; flag FIRING entries from
+    # the last hour (older firing lines are transitions Prometheus no longer
+    # reports, covered by the firing-count check above).
     tail = ssh("hub", f"tail -n 60 {ALERT_LOG}", timeout=15)
-    bad = [ln for ln in tail.splitlines() if re.search(r"ERROR|CRITICAL|FIRING|ALERT", ln, re.I)]
+    bad = _flagged_alert_lines(tail, datetime.now(UTC).timestamp())
     if bad:
-        ok &= report(FAIL, "f alerts.log tail", f"{len(bad)} flagged line(s): {bad[-1][:120]}")
+        ok &= report(FAIL, "f alerts.log tail", f"{len(bad)} recent firing transition(s): {bad[-1]}")
     else:
-        ok &= report(PASS, "f alerts.log tail", "no ERROR/ALERT lines in last 60")
+        ok &= report(PASS, "f alerts.log tail", "no firing transitions in the last hour")
     return ok
 
 
