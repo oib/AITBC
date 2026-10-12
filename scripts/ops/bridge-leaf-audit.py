@@ -128,6 +128,9 @@ def lock_class(der_src: str, height: int, boundary: int | None) -> str:
     return "grandfathered" if height < boundary else "missing_data"
 
 
+GRANDFATHER_BOUNDARY = 30000
+
+
 def _load_trie():
     try:
         from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
@@ -287,10 +290,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--boundary",
         type=int,
-        default=None,
+        default=GRANDFATHER_BOUNDARY,
         metavar="HEIGHT",
-        help="proposed activation height: classify each underivable lock as grandfathered (below) "
-        "or missing_data defect (at/above) — the V-4 boundary rule",
+        help="activation height chosen by the operator (default %(default)s): classify each "
+        "underivable lock as grandfathered (below) or missing_data defect (at/above) — the "
+        "V-4 boundary rule; pass 0 to classify everything as missing_data",
     )
     args = ap.parse_args(argv)
 
