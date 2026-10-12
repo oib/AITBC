@@ -10,6 +10,7 @@ from sqlmodel import Session, func, select
 
 from aitbc.rate_limiting import rate_limit
 
+from .retired import raise_for_retired
 from ..base_models import AgentStakeMemo, AgentStakeRecord, _to_ait_address
 from ..config import settings
 from ..database import session_scope
@@ -39,6 +40,7 @@ def _get_stake(session: Session, chain_id: str, stake_id: str) -> AgentStakeReco
 
 @rate_limit(rate=20, per=60)
 async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Agent staking (stake)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     if not validate_chain_id(chain_id):
@@ -115,6 +117,7 @@ async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str
 
 @rate_limit(rate=20, per=60)
 async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Agent staking (top-up)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:
@@ -168,6 +171,7 @@ async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, An
 
 @rate_limit(rate=20, per=60)
 async def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Agent staking (unbond)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     user = payload.get("user_address")
@@ -200,6 +204,7 @@ async def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, An
 
 @rate_limit(rate=20, per=60)
 async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    raise_for_retired("Agent staking (complete)")
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:

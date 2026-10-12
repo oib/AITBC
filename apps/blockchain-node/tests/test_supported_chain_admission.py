@@ -163,7 +163,7 @@ def _stake_record(status: str = "active", locked_until: datetime | None = None) 
     )
 
 
-async def test_add_to_agent_stake_foreign_chain_refused(rpc_db, monkeypatch) -> None:
+async def test_add_to_agent_stake_foreign_chain_refused(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     _no_db(monkeypatch)
     queue = Mock()
     monkeypatch.setattr(agent_staking, "queue_protocol_transfer", queue)
@@ -175,7 +175,7 @@ async def test_add_to_agent_stake_foreign_chain_refused(rpc_db, monkeypatch) -> 
     queue.assert_not_called()
 
 
-async def test_add_to_agent_stake_supported_chain_queues(rpc_db, monkeypatch) -> None:
+async def test_add_to_agent_stake_supported_chain_queues(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     queue = Mock(return_value="0xlocktx")
     monkeypatch.setattr(agent_staking, "queue_protocol_transfer", queue)
     with Session(rpc_db) as session:
@@ -192,7 +192,7 @@ async def test_add_to_agent_stake_supported_chain_queues(rpc_db, monkeypatch) ->
     assert queue.mock_calls[0].kwargs["tx_type"] == "STAKE_LOCK"
 
 
-async def test_complete_agent_stake_foreign_chain_refused(rpc_db, monkeypatch) -> None:
+async def test_complete_agent_stake_foreign_chain_refused(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     _no_db(monkeypatch)
     queue = Mock()
     monkeypatch.setattr(agent_staking, "queue_protocol_transfer", queue)
@@ -204,7 +204,7 @@ async def test_complete_agent_stake_foreign_chain_refused(rpc_db, monkeypatch) -
     queue.assert_not_called()
 
 
-async def test_complete_agent_stake_supported_chain_queues(rpc_db, monkeypatch) -> None:
+async def test_complete_agent_stake_supported_chain_queues(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     queue = Mock(return_value="0xreleasetx")
     monkeypatch.setattr(agent_staking, "queue_protocol_transfer", queue)
     lock = Mock(value=100, tx_hash="0xlock1", payload={}, block_height=1)
@@ -235,7 +235,7 @@ def _bounty_record(status: str = "active", remaining: int = 100) -> BountyContra
     )
 
 
-async def test_verify_bounty_foreign_chain_refused(rpc_db, monkeypatch) -> None:
+async def test_verify_bounty_foreign_chain_refused(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     _no_db(monkeypatch)
     queue = Mock()
     monkeypatch.setattr(bounty, "queue_protocol_transfer", queue)
@@ -247,7 +247,7 @@ async def test_verify_bounty_foreign_chain_refused(rpc_db, monkeypatch) -> None:
     queue.assert_not_called()
 
 
-async def test_verify_bounty_supported_chain_queues(rpc_db, monkeypatch) -> None:
+async def test_verify_bounty_supported_chain_queues(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     queue = Mock(return_value="0xpayouttx")
     monkeypatch.setattr(bounty, "queue_protocol_transfer", queue)
     monkeypatch.setattr(bounty, "confirmed_lock_total", lambda *a, **k: 100)
@@ -267,7 +267,7 @@ async def test_verify_bounty_supported_chain_queues(rpc_db, monkeypatch) -> None
     assert queue.mock_calls[0].kwargs["tx_type"] == "BOUNTY_PAYOUT"
 
 
-async def test_expire_bounty_foreign_chain_refused(rpc_db, monkeypatch) -> None:
+async def test_expire_bounty_foreign_chain_refused(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     _no_db(monkeypatch)
     queue = Mock()
     monkeypatch.setattr(bounty, "queue_protocol_transfer", queue)
@@ -279,7 +279,7 @@ async def test_expire_bounty_foreign_chain_refused(rpc_db, monkeypatch) -> None:
     queue.assert_not_called()
 
 
-async def test_expire_bounty_supported_chain_queues(rpc_db, monkeypatch) -> None:
+async def test_expire_bounty_supported_chain_queues(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
     queue = Mock(return_value="0xrefundtx")
     monkeypatch.setattr(bounty, "queue_protocol_transfer", queue)
     monkeypatch.setattr(bounty, "confirmed_lock_total", lambda *a, **k: 100)

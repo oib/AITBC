@@ -512,6 +512,10 @@ class TestSettlementService:
 
 
 class TestRefundTerminality:
+    @pytest.fixture(autouse=True)
+    def _unretire(self, unretired_protocol_transfers):
+        """BNT-2 retired refund_swap; these pin the sweeper semantics for revival."""
+
     """The sweeper's wall-clock timeout fires ``margin_blocks`` before the
     HTLC's block-height timelock matures, so ``refund_swap`` legitimately
     raises ``ValueError("Swap timelock not yet expired")`` on the first sweep.
