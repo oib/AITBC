@@ -59,7 +59,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 33
-- **Markdown files under docs/**: 869
+- **Markdown files under docs/**: 870
 
 | Directory | Files | Description |
 |---|---|---|
@@ -74,7 +74,7 @@ docs/
 | [blockchain](blockchain/) | 17 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
 | [cli](cli/) | 5 | Command-line interface reference |
-| [contracts](contracts/) | 14 | Smart contract and ZK verification docs |
+| [contracts](contracts/) | 15 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 17 | Deployment and infrastructure setup |
