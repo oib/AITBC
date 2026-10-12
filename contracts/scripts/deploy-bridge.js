@@ -88,7 +88,9 @@ async function main() {
   }
 
   console.log("\nDeploying CrossChainBridge...");
-  const BridgeFactory = await ethers.getContractFactory("CrossChainBridge");
+  // Bind the factory to the resolved deployer — required when the account
+  // comes from DEPLOYER_KEY_FILE and the network config has no accounts.
+  const BridgeFactory = await ethers.getContractFactory("CrossChainBridge", deployer);
 
   // Constructor arg is the fee recipient; Ownable makes the deployer the
   // initial owner, and ownership is handed to the Safe below in the same run.
