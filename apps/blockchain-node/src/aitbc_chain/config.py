@@ -649,6 +649,17 @@ class ChainSettings(BaseSettings):
     sync_aux_lookback_seconds: int = 900
     sync_aux_max_rows: int = 5000
 
+    # V-4 seal-path missing-data guard, dry-run mode (design
+    # docs/design/bridge-state-root-grandfathering.md). Classifies every
+    # BRIDGE_LOCK the seal path commits — payload first, envelope fallback —
+    # and logs/counts what the real guard WOULD refuse at or above the
+    # boundary. Never rejects and never alters the block. Default OFF —
+    # enable with BRIDGE_LOCK_GUARD_DRYRUN_ENABLED=true.
+    bridge_lock_guard_dryrun_enabled: bool = False
+    # Operator-chosen activation boundary (2026-10-08): below it an
+    # underivable lock is grandfathered; at/above it is a would-refuse.
+    bridge_lock_guard_boundary: int = 30000
+
     # P2P-to-RPC port offset (v0.6.2). The RPC HTTP port is derived from the
     # P2P listen port by adding this offset (P2P 8200 -> RPC 8202). Used by
     # the peer capability exchange to construct a peer's RPC URL from the
