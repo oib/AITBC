@@ -138,19 +138,35 @@ function formatDate(ts) {
     return new Date(ts).toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function renderTable(containerId, rows, columns) {
+function renderTable(containerId, rows, columns, failed) {
     const container = document.getElementById(containerId);
     if (!rows || rows.length === 0) {
-        container.innerHTML = '<p class="endpoint-note">No data available.</p>';
+        container.innerHTML = failed
+            ? '<p class="endpoint-note">Endpoint unavailable.</p>'
+            : '<p class="endpoint-note">No data.</p>';
         return;
     }
     let html = '<table class="block-list-table">';
     html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:0.5rem;border-bottom:1px solid var(--border);">${escapeHtml(c.label)}</th>`).join('') + '</tr>';
     rows.forEach(row => {
-        html += '<tr>' + columns.map(c => `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${row[c.key] != null ? escapeHtml(row[c.key]) : 'N/A'}</td>`).join('') + '</tr>';
+        html += '<tr>' + columns.map(c => {
+            const v = row[c.key];
+            if (c.html) return `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${v != null ? v : 'N/A'}</td>`;
+            return `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${v != null ? escapeHtml(v) : 'N/A'}</td>`;
+        }).join('') + '</tr>';
     });
     html += '</table>';
     container.innerHTML = html;
+}
+
+/**
+ * Per-source status dot. `state` is 'up' (endpoint answered), 'down'
+ * (fetch failed / auth rejected), or 'loading' (not queried — e.g. the
+ * panel is credential-gated and no credential was supplied).
+ */
+function setDot(id, state) {
+    const el = document.getElementById(id);
+    if (el) el.className = `health-status ${state}`;
 }
 
 function showAuthHint(containerId, text) {
@@ -176,7 +192,8 @@ async function loadAddressRows(limit) {
     // reach them. Show the public view instead: the most active on-chain
     // addresses from the explorer, with live balances from the public RPC.
     const explorerBase = AITBC.explorerApiUrl || '/explorer-api';
-    const data = await apiGet(`${explorerBase}/api/analytics/top-addresses?chain_id=${AITBC.chainId}&limit=${limit}`) || {};
+    const data = await apiGet(`${explorerBase}/api/analytics/top-addresses?chain_id=${AITBC.chainId}&limit=${limit}`);
+    if (data === null) return null;
     const entries = Array.isArray(data) ? data : (data.addresses || []);
     const rows = [];
     for (const entry of entries.slice(0, limit)) {
@@ -192,15 +209,39 @@ async function loadAddressRows(limit) {
     return rows;
 }
 
+function shortHex(v, keep) {
+    if (!v || typeof v !== 'string') return null;
+    const n = keep || 12;
+    return v.length > n ? `${v.slice(0, n)}…` : v;
+}
+
+function txLink(hash) {
+    if (!hash || typeof hash !== 'string') return null;
+    const esc = escapeHtml(hash);
+    return `<a href="/tx.html?hash=${encodeURIComponent(esc)}">${escapeHtml(shortHex(hash))}</a>`;
+}
+
+const JOB_COLUMNS = [
+    { label: 'Job ID', key: 'id' },
+    { label: 'State', key: 'state' },
+    { label: 'Payment', key: 'payment' },
+    { label: 'Model', key: 'model' },
+    { label: 'Escrow', key: 'escrow' },
+    { label: 'Settlement Tx', key: 'tx', html: true },
+    { label: 'Created', key: 'created' },
+];
+
 function jobRow(job) {
     const payload = job.payload || {};
     const result = job.result || {};
-    const model = result.model || payload.model || (result.result || {}).model || (result.receipt || {}).model || job.service_type || 'N/A';
+    const model = job.model || result.model || payload.model || (result.result || {}).model || (result.receipt || {}).model || job.service_type || 'N/A';
     return {
         id: job.job_id || job.id || 'N/A',
         state: job.state || 'N/A',
         payment: job.payment_status || 'N/A',
         model: model,
+        escrow: shortHex(job.escrow_contract_id) || '—',
+        tx: txLink(job.tx_hash || job.refund_tx_hash) || '—',
         created: formatDate(job.requested_at || job.created_at),
     };
 }
@@ -216,14 +257,16 @@ async function loadCustomerDashboard() {
     // market service and carrying the same state/payment_status fields.
     let jobs = [];
     let scopedView = false;
+    let jobsFailed = false;
     if (cred) {
-        const jobsData = await apiGet('/v1/jobs?limit=20', { auth: true }) || {};
-        jobs = Array.isArray(jobsData) ? jobsData : (jobsData.items || []);
+        const jobsData = await apiGet('/v1/jobs?limit=20', { auth: true });
+        jobs = Array.isArray(jobsData) ? jobsData : ((jobsData || {}).items || []);
         scopedView = jobs.length > 0 && !lastAuthRejected;
     }
     if (!scopedView) {
-        const marketJobs = await apiGet('/v1/market/jobs?limit=20') || [];
-        jobs = Array.isArray(marketJobs) ? marketJobs : (marketJobs.items || marketJobs.jobs || []);
+        const marketJobs = await apiGet('/v1/market/jobs?limit=20');
+        jobsFailed = marketJobs === null;
+        jobs = Array.isArray(marketJobs) ? marketJobs : ((marketJobs || {}).items || (marketJobs || {}).jobs || []);
     }
 
     const states = {};
@@ -236,29 +279,28 @@ async function loadCustomerDashboard() {
         rows.push(jobRow(job));
     }
 
-    setText('cust-total-jobs', jobs.length);
+    const jobsDot = jobsFailed ? 'down' : 'up';
+    setDot('cust-dot-jobs', jobsDot);
+    setDot('cust-dot-states', jobsDot);
+    setDot('cust-dot-payments', jobsDot);
+    setText('cust-total-jobs', jobsFailed ? 'unavailable' : jobs.length);
     setText('cust-job-states', Object.entries(states).map(([k, v]) => `${k}: ${v}`).join(', ') || '—');
     setText('cust-payment-statuses', Object.entries(payments).map(([k, v]) => `${k}: ${v}`).join(', ') || '—');
     setText('cust-jobs-scope', scopedView ? 'your account' : 'market-wide');
 
-    renderTable('cust-jobs-table', rows, [
-        { label: 'Job ID', key: 'id' },
-        { label: 'State', key: 'state' },
-        { label: 'Payment', key: 'payment' },
-        { label: 'Model', key: 'model' },
-        { label: 'Created', key: 'created' },
-    ]);
+    renderTable('cust-jobs-table', rows, JOB_COLUMNS, jobsFailed);
 
     // Payments are reflected in the job payment_status column. The wallet
     // daemon's routes are admin-gated and loopback-only on the public vhost,
     // so the panel lists the most active on-chain addresses instead.
     const walletRows = await loadAddressRows(10);
-    setText('cust-wallet-count', walletRows.length);
-    renderTable('cust-wallets-table', walletRows, [
+    setDot('cust-dot-wallets', walletRows === null ? 'down' : 'up');
+    setText('cust-wallet-count', walletRows === null ? 'unavailable' : walletRows.length);
+    renderTable('cust-wallets-table', walletRows || [], [
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
         { label: 'Transactions', key: 'txs' },
-    ]);
+    ], walletRows === null);
     refreshCredentialStatus();
 }
 
@@ -281,47 +323,56 @@ async function loadShopDashboard() {
     const explorerBase = AITBC.explorerApiUrl || '/explorer-api';
 
     if (canQueryMiner) {
-        const metrics = await apiGet('/v1/monitoring/metrics', { auth: true }) || {};
-        const jobsMetrics = metrics.jobs || {};
-        const minersMetrics = metrics.miners || {};
+        const metrics = await apiGet('/v1/monitoring/metrics', { auth: true });
+        const jobsMetrics = (metrics || {}).jobs || {};
+        const minersMetrics = (metrics || {}).miners || {};
+        const metricsDot = metrics === null ? 'down' : 'up';
+        setDot('shop-dot-jobs', metricsDot);
+        setDot('shop-dot-released', metricsDot);
+        setDot('shop-dot-queued', metricsDot);
+        setDot('shop-dot-refunded', metricsDot);
+        setDot('shop-dot-miners', metricsDot);
 
         setText('shop-network-jobs', jobsMetrics.total != null ? jobsMetrics.total : '—');
-        setText('shop-network-completed', jobsMetrics.completed != null ? jobsMetrics.completed : '—');
-        setText('shop-network-pending', jobsMetrics.pending != null ? jobsMetrics.pending : '—');
-        setText('shop-network-failed', jobsMetrics.failed != null ? jobsMetrics.failed : '—');
+        setText('shop-network-released', jobsMetrics.completed != null ? jobsMetrics.completed : '—');
+        setText('shop-network-queued', jobsMetrics.pending != null ? jobsMetrics.pending : '—');
+        setText('shop-network-refunded', jobsMetrics.failed != null ? jobsMetrics.failed : '—');
         setText('shop-miners-online', minersMetrics.online != null ? `${minersMetrics.online} / ${minersMetrics.total}` : '—');
 
-        const jobsResp = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/jobs?limit=20`, {}, { auth: true }) || {};
-        const assignedJobs = Array.isArray(jobsResp) ? jobsResp : (jobsResp.jobs || jobsResp.items || []);
+        const jobsResp = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/jobs?limit=20`, {}, { auth: true });
+        const assignedJobs = Array.isArray(jobsResp) ? jobsResp : ((jobsResp || {}).jobs || (jobsResp || {}).items || []);
         const jobRows = assignedJobs.map(jobRow);
         setText('shop-jobs-scope', `${jobRows.length} jobs — ${minerId}`);
-        renderTable('shop-jobs-table', jobRows, [
-            { label: 'Job ID', key: 'id' },
-            { label: 'State', key: 'state' },
-            { label: 'Payment', key: 'payment' },
-            { label: 'Model', key: 'model' },
-            { label: 'Created', key: 'created' },
-        ]);
+        renderTable('shop-jobs-table', jobRows, JOB_COLUMNS, jobsResp === null);
 
-        const earnings = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/earnings`, {}, { auth: true }) || {};
-        setText('shop-earnings-total', earnings.total_earnings != null ? earnings.total_earnings : 'N/A');
-        setText('shop-earnings-paid', earnings.paid_earnings != null ? earnings.paid_earnings : 'N/A');
-        setText('shop-earnings-pending', earnings.pending_earnings != null ? earnings.pending_earnings : 'N/A');
+        const earnings = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/earnings`, {}, { auth: true });
+        setText('shop-earnings-total', earnings && earnings.total_earnings != null ? earnings.total_earnings : 'N/A');
+        setText('shop-earnings-paid', earnings && earnings.paid_earnings != null ? earnings.paid_earnings : 'N/A');
+        setText('shop-earnings-pending', earnings && earnings.pending_earnings != null ? earnings.pending_earnings : 'N/A');
     } else {
         // Public network view: state counts over the open market-jobs feed plus
-        // the explorer's network analytics — no credential needed.
+        // the explorer's network analytics — no credential needed. The market
+        // service settles jobs to QUEUED/RELEASED/REFUNDED/CANCELED; counts
+        // are over the fetched page only.
         const marketJobs = await apiGet('/v1/market/jobs?limit=100');
         const jobs = Array.isArray(marketJobs) ? marketJobs : (marketJobs && (marketJobs.items || marketJobs.jobs)) || [];
-        const stats = await apiGet(`${explorerBase}/api/analytics/network-stats?chain_id=${encodeURIComponent(AITBC.chainId)}`) || {};
+        const jobsDot = marketJobs === null ? 'down' : 'up';
+        setDot('shop-dot-jobs', jobsDot);
+        setDot('shop-dot-released', jobsDot);
+        setDot('shop-dot-queued', jobsDot);
+        setDot('shop-dot-refunded', jobsDot);
 
-        const pending = jobs.filter(j => ['QUEUED', 'ASSIGNED', 'RUNNING'].includes(j.state)).length;
-        const completed = jobs.filter(j => j.state === 'COMPLETED').length;
-        const failed = jobs.filter(j => j.state === 'FAILED').length;
-        setText('shop-network-jobs', jobs.length);
-        setText('shop-network-completed', completed);
-        setText('shop-network-pending', pending);
-        setText('shop-network-failed', failed);
-        setText('shop-miners-online', stats.unique_providers != null ? stats.unique_providers : '—');
+        const released = jobs.filter(j => j.state === 'RELEASED').length;
+        const queued = jobs.filter(j => j.state === 'QUEUED').length;
+        const refunded = jobs.filter(j => j.state === 'REFUNDED' || j.state === 'CANCELED').length;
+        setText('shop-network-jobs', marketJobs === null ? 'unavailable' : `${jobs.length} (latest)`);
+        setText('shop-network-released', released);
+        setText('shop-network-queued', queued);
+        setText('shop-network-refunded', refunded);
+
+        const stats = await apiGet(`${explorerBase}/api/analytics/network-stats?chain_id=${encodeURIComponent(AITBC.chainId)}`);
+        setDot('shop-dot-miners', stats === null ? 'down' : 'up');
+        setText('shop-miners-online', stats && stats.unique_providers != null ? stats.unique_providers : '—');
 
         setText('shop-earnings-total', '—');
         setText('shop-earnings-paid', '—');
@@ -332,12 +383,24 @@ async function loadShopDashboard() {
                  : 'Public view: paste a miner API key and miner ID above to load assigned jobs and earnings.');
     }
 
+    // Miner uptime: the pool-hub SLA feed is public and works without a
+    // credential whenever a miner ID is entered.
+    if (minerId) {
+        const sla = await apiGet(`/pool-hub/v1/sla/metrics/${encodeURIComponent(minerId)}`);
+        const upRows = Array.isArray(sla) ? sla.filter(r => r && r.metric_type === 'uptime_pct') : [];
+        const latest = upRows.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))[0];
+        setText('shop-miner-uptime', latest && latest.metric_value != null ? `${latest.metric_value}%` : 'no SLA data');
+    } else {
+        setText('shop-miner-uptime', 'enter a miner ID');
+    }
+
     // GPUs: the coordinator's public gpu list carries miner_id, so it serves
     // both the anonymous view (all registered GPUs) and a miner-scoped view.
-    const gpuData = await apiGet('/v1/market/gpu/list') || [];
+    const gpuData = await apiGet('/v1/market/gpu/list');
     const allGpus = Array.isArray(gpuData) ? gpuData.filter(g => g && typeof g === 'object') : [];
     const gpus = minerId ? allGpus.filter(g => g.miner_id === minerId || (g.miner_id || '').includes(minerId)) : allGpus;
-    setText('shop-gpu-count', gpus.length);
+    setDot('shop-dot-gpus', gpuData === null ? 'down' : 'up');
+    setText('shop-gpu-count', gpuData === null ? 'unavailable' : gpus.length);
     renderTable('shop-gpus-table', gpus.map(g => ({
         name: g.model || g.name || 'N/A',
         device: g.id || g.uuid || g.device || g.device_id || 'N/A',
@@ -348,14 +411,15 @@ async function loadShopDashboard() {
         { label: 'Device', key: 'device' },
         { label: 'Memory', key: 'memory' },
         { label: 'Status', key: 'status' },
-    ]);
+    ], gpuData === null);
 
-    const offersData = await apiGet('/v1/market/offer?limit=20') || {};
-    const allOffers = Array.isArray(offersData) ? offersData : (offersData.offers || []);
+    const offersData = await apiGet('/v1/market/offer?limit=20');
+    const allOffers = Array.isArray(offersData) ? offersData : ((offersData || {}).offers || []);
     const shopOffers = minerId
         ? allOffers.filter(o => (o.node_id || o.provider_address || '').includes(minerId))
         : allOffers;
-    setText('shop-offer-count', shopOffers.length);
+    setDot('shop-dot-offers', offersData === null ? 'down' : 'up');
+    setText('shop-offer-count', offersData === null ? 'unavailable' : shopOffers.length);
     renderTable('shop-offers-table', shopOffers.map(o => ({
         plugin: o.plugin_id || 'N/A',
         model: o.model || 'N/A',
@@ -368,14 +432,15 @@ async function loadShopDashboard() {
         { label: 'Price', key: 'price' },
         { label: 'Status', key: 'status' },
         { label: 'Rating', key: 'rating' },
-    ]);
+    ], offersData === null);
 
     const walletRows = await loadAddressRows(5);
-    setText('shop-wallet-count', walletRows.length);
-    renderTable('shop-wallets-table', walletRows, [
+    setDot('shop-dot-wallets', walletRows === null ? 'down' : 'up');
+    setText('shop-wallet-count', walletRows === null ? 'unavailable' : walletRows.length);
+    renderTable('shop-wallets-table', walletRows || [], [
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
         { label: 'Transactions', key: 'txs' },
-    ]);
+    ], walletRows === null);
     refreshCredentialStatus();
 }
