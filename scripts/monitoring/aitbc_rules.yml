@@ -481,3 +481,70 @@ groups:
         annotations:
           summary: "node-exporter on {{ $labels.instance }} exposes no systemd-unit series"
           description: "The node job on {{ $labels.instance }} (job {{ $labels.job }}) is up but has exported no node_systemd_unit_state series for >15m — its --collector.systemd is disabled, so AitbcSystemdUnitFailed is blind there. Enable the collector in the node-exporter unit and restart it."
+
+  # aitbc-attestation-arrival (MON-1): remote-attestation arrival measured
+  # from the sealed outcome — a block's block_metadata.attestations holds
+  # only the remote attestations that arrived before sealing, so an absent
+  # validator was too late. The exporter
+  # (scripts/monitoring/attestation-arrival-textfile.py) reads the last
+  # AITBC_ATTESTATION_WINDOW_BLOCKS (default 200) blocks of each local
+  # chain.db read-only and emits aitbc_attestation_* series.
+  #
+  # NOT LOADED anywhere yet: this group is committed for review, and the
+  # exporter has no systemd timer yet — wiring the textfile run and adding
+  # the group to a host's Prometheus rule_files are both operator
+  # decisions. Until then these alerts can never fire.
+  #
+  # The window briefly mixes two eras during a validator-set rotation
+  # (the set is derived per-window); every rule's for: absorbs that.
+  - name: aitbc-attestation-arrival
+    rules:
+      # AttestationArrivalDegraded: share of owed remote attestations that
+      # sealed dropped below 0.97 across the window. On a 4-validator set,
+      # one remote validator missing >=10% of its owed blocks lands the
+      # share near 0.967 — the threshold sits under that so a single
+      # slacking validator fires it. Baseline on the live island is ~0.9967
+      # (V-9), so healthy operation never approaches it.
+      - alert: AttestationArrivalDegraded
+        expr: aitbc_attestation_arrival_share < 0.97
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Remote attestation arrival degraded on {{ $labels.instance }} (share {{ $value }})"
+          description: "aitbc_attestation_arrival_share for {{ $labels.db }} is below 0.97 over the last window — a remote validator's attestations are arriving too late to seal (or not at all). On a 4-validator set, one validator missing ~10% of its owed blocks lands the share near 0.967; the V-9 baseline is ~0.9967. aitbc_attestation_missed_blocks{validator=...} names who is missing; check that validator's connectivity and the proposer journal 'Attestation arrival:' lines."
+
+      # AttestationValidatorSilent: a validator has missed every remote
+      # attestation it owed for >=20 consecutive blocks counting back from
+      # the head (blocks it proposed are skipped). That is silence, not
+      # jitter — the validator is down, partitioned, or rejecting
+      # attestations while the rest of the set still arrives.
+      - alert: AttestationValidatorSilent
+        expr: aitbc_attestation_consecutive_missed >= 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Validator {{ $labels.validator }} silent for {{ $value }} consecutive owed blocks ({{ $labels.instance }})"
+          description: "aitbc_attestation_consecutive_missed shows {{ $labels.validator }} missed every remote attestation it owed for >=20 blocks back from the head on {{ $labels.db }} — likely down or partitioned. Check that validator's node and its attestation signer."
+
+      # AttestationArrivalCheckStale / AttestationArrivalCheckFailed: the
+      # check itself must run and read its DBs — a stopped exporter or an
+      # unopenable chain.db reads as "all clear" otherwise.
+      - alert: AttestationArrivalCheckStale
+        expr: time() - aitbc_attestation_scrape_timestamp_seconds > 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Attestation arrival check has stopped ({{ $labels.instance }})"
+          description: "aitbc_attestation_scrape_timestamp_seconds is older than an hour on {{ $labels.instance }} — attestation arrival is invisible again. Check the exporter run/timer once wired."
+
+      - alert: AttestationArrivalCheckFailed
+        expr: aitbc_attestation_scrape_success == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Attestation arrival check cannot read {{ $labels.db }} ({{ $labels.instance }})"
+          description: "aitbc_attestation_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no block table, so the arrival share cannot be trusted."
