@@ -1,7 +1,12 @@
 # Node-held wallet access for agents (SEC-1)
 
-Status: design paper, 2026-10-12. **Docs only — no code exists, no host
-is changed, no key or password value appears here.** Companion to
+Status: **implemented behind a flag** (SEC-2, 2026-10-13). The wrapper
+service lives in `apps/ops-signer/` (`python -m aitbc_ops_signer`,
+`AITBC_OPS_SIGNER_ENABLED` off by default, nothing installed on any
+host); the operator runbook is
+[../ops/ops-signer-runbook.md](../ops/ops-signer-runbook.md). Caps and
+the initial allow-list follow the operator's 12-Oct decisions (1 AIT/tx,
+5 AIT/day, shop + S-10 payee). Companion to
 [key-custody-proposal.md](key-custody-proposal.md) (which covers at-rest
 custody; this covers *use*).
 

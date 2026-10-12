@@ -62,6 +62,9 @@ Operator procedures for the live fleet:
 - [Native energy rate guard deploy](ops/native-energy-rate-guard-deploy.md) —
   hub-ordered deploy/rollback for the SD-7 POST band, textfile metrics and
   alert rules.
+- [Ops signer rollout](ops/ops-signer-runbook.md) — wallet creation, funding,
+  credential, allow-list, unit install, canary and rollback for
+  `aitbc-ops-signer` (all operator-owned steps).
 - [Follower API key](ops/follower-api-key.md),
   [peer keys](ops/peer-keys.md),
   [island subscription check](ops/island-subscription-check.md),
