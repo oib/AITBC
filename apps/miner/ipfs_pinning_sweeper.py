@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -28,7 +29,10 @@ from typing import Any
 import requests
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.crypto import sign_transaction_data
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.env_compat import market_getenv
+from aitbc.market.job_request_signature import jobs_request_message
 
 logger = get_logger(__name__)
 
@@ -60,6 +64,67 @@ def _market_base() -> str:
 def _state_path() -> Path:
     data_dir = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc"))
     return data_dir / "ipfs-pinning.json"
+
+
+def _wallet_dir() -> Path:
+    return Path(os.environ.get("AITBC_WALLET_DIR", "/var/lib/aitbc/wallets"))
+
+
+def _chain_id() -> str:
+    return (os.environ.get("AITBC_CHAIN_ID") or os.environ.get("CHAIN_ID") or "").strip()
+
+
+def _provider_key(provider_address: str) -> str | None:
+    """Return this provider's wallet private key for request signing.
+
+    The market's public job feed no longer carries ``payload.cid``; the
+    sweeper proves it is the job's provider by signing with the provider
+    wallet — the same key the offer registration flow already uses. The
+    wallet JSON is readable by the ``aitbc`` user this process runs as.
+    """
+    try:
+        target = canonical_address(provider_address)
+    except Exception:
+        return None
+    try:
+        for path in sorted(_wallet_dir().glob("*.json")):
+            try:
+                data = json.loads(path.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            try:
+                if canonical_address(str(data.get("address") or "")) != target:
+                    continue
+            except Exception:
+                continue
+            key = data.get("private_key")
+            if key:
+                return str(key)
+    except OSError:
+        pass
+    return None
+
+
+def _signed_request_params(provider_address: str, route: str) -> dict[str, Any] | None:
+    """Build the signed query/body fields a market job route expects, or None.
+
+    The signed message binds the provider address, chain id, a freshness
+    timestamp and the exact route (``aitbc.market.job_request_signature``);
+    the market returns full job rows only to the recovered signer.
+    """
+    key = _provider_key(provider_address)
+    chain_id = _chain_id()
+    if not key or not chain_id:
+        logger.warning("Cannot sign market request for %s: provider wallet key or chain id unavailable", provider_address)
+        return None
+    issued_at = int(time.time())
+    message = jobs_request_message(provider_address, chain_id, issued_at, route)
+    return {
+        "signer_address": provider_address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(message, key),
+    }
 
 
 def _load_state(path: Path) -> dict[str, dict[str, Any]]:
@@ -123,9 +188,14 @@ def _object_size(cid: str) -> int | None:
 def _fetch_jobs(market_url: str, provider_address: str) -> list[dict[str, Any]] | None:
     """Return this provider's ipfs market jobs, or None on fetch failure.
 
-    None (rather than an empty list) signals "unknown" so callers do not unpin
-    based on a failed fetch.
+    The request is provider-signed: the public feed is redacted, and full
+    rows (``payload.cid`` et al.) go only to the recovered signer. A 401/403,
+    missing signing material, or any other failure returns None — "unknown",
+    so callers never unpin based on a failed fetch.
     """
+    signed = _signed_request_params(provider_address, "/v1/market/jobs")
+    if signed is None:
+        return None
     try:
         response = requests.get(
             f"{market_url}/v1/market/jobs",
@@ -133,6 +203,7 @@ def _fetch_jobs(market_url: str, provider_address: str) -> list[dict[str, Any]] 
                 "service_type": "ipfs",
                 "provider_address": provider_address,
                 "limit": "500",
+                **signed,
             },
             timeout=20,
         )
@@ -153,11 +224,15 @@ def _pin_confirmed(job: dict[str, Any]) -> bool:
     return bool(payload.get("provider_confirmed"))
 
 
-def _confirm_pin(market_url: str, job_id: str, size: int | None) -> bool:
+def _confirm_pin(market_url: str, job_id: str, size: int | None, provider_address: str) -> bool:
+    route = f"/v1/market/jobs/{job_id}/pin-confirm"
+    signed = _signed_request_params(provider_address, route)
+    if signed is None:
+        return False
     try:
         response = requests.post(
-            f"{market_url}/v1/market/jobs/{job_id}/pin-confirm",
-            json={"size": size, "provider_confirmed": True},
+            f"{market_url}{route}",
+            json={"size": size, "provider_confirmed": True, **signed},
             timeout=20,
         )
         response.raise_for_status()
@@ -255,6 +330,7 @@ def _pin_active_job(
     usage_by_buyer: dict[str, int],
     state: dict[str, dict[str, Any]],
     result: dict[str, int],
+    provider_address: str,
 ) -> None:
     """Pin one active job's CID (quota-checked) and confirm it if needed."""
     job_id = _job_id(job)
@@ -267,7 +343,7 @@ def _pin_active_job(
         return
     size = state[job_id].get("size")
     if not _pin_confirmed(job):
-        if _confirm_pin(market_url, job_id, size):
+        if _confirm_pin(market_url, job_id, size, provider_address):
             result["confirmed"] += 1
 
 
@@ -276,6 +352,7 @@ def _pin_active_jobs(
     market_url: str,
     state: dict[str, dict[str, Any]],
     result: dict[str, int],
+    provider_address: str,
 ) -> None:
     """Pin every active job's CID, enforcing the per-buyer disk quota."""
     # Per-buyer usage across active jobs, for the provider-side quota check.
@@ -285,7 +362,7 @@ def _pin_active_jobs(
         usage_by_buyer[buyer] = usage_by_buyer.get(buyer, 0) + _job_size(job)
 
     for job in active_jobs:
-        _pin_active_job(job, market_url, usage_by_buyer, state, result)
+        _pin_active_job(job, market_url, usage_by_buyer, state, result, provider_address)
 
 
 def _unpin_stale_jobs(
@@ -333,7 +410,7 @@ def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[st
         return result
 
     active_jobs = [j for j in jobs if str(j.get("state", "")).upper() in ACTIVE_STATES]
-    _pin_active_jobs(active_jobs, market_url, state, result)
+    _pin_active_jobs(active_jobs, market_url, state, result, provider_address)
     _unpin_stale_jobs(state, active_jobs, result)
 
     _save_state(state_path, state)

@@ -54,6 +54,71 @@ def _secret_matches(stored: str, provided: str) -> bool:
     return hmac.compare_digest(stored, candidate)
 
 
+# Keys a market job row may expose to the unauthenticated feed
+# (GET /v1/market/jobs and GET /v1/market/jobs/{job_id}). An allow-list, not
+# a block-list: customer file details and rental identifiers — payload.*,
+# constraints.*, buyer_address, access_key, client_id/client_ref — never
+# leave the service without authentication. The owner/provider views return
+# the full _job_to_dict record behind auth, so fields added to the full
+# serializer stay private by default.
+PUBLIC_JOB_FIELDS = (
+    "job_id",
+    "offer_id",
+    "plugin_id",
+    "service_type",
+    "model",
+    "provider_address",
+    "state",
+    "ttl_seconds",
+    "requested_at",
+    "expires_at",
+    "completed_at",
+    "error",
+    "result",
+    "receipt",
+    "payment_id",
+    "payment_status",
+    "payment_amount",
+    "payment_token",
+    "escrow_contract_id",
+    "tx_hash",
+    "refund_tx_hash",
+    "created_at",
+    "updated_at",
+)
+
+# Nested payment object: settlement hashes and status are public chain data;
+# escrow_address/refund_address tie the row to the customer's wallets and
+# meta_data is free-form, so all three stay out.
+PUBLIC_PAYMENT_FIELDS = (
+    "payment_id",
+    "job_id",
+    "amount",
+    "currency",
+    "status",
+    "payment_method",
+    "transaction_hash",
+    "refund_transaction_hash",
+    "created_at",
+    "updated_at",
+    "escrowed_at",
+    "released_at",
+    "refunded_at",
+    "expires_at",
+)
+
+
+def public_job_view(job: dict[str, Any]) -> dict[str, Any]:
+    """Redact a ``_job_to_dict`` row for the unauthenticated market feed."""
+    view = {key: job[key] for key in PUBLIC_JOB_FIELDS if key in job}
+    if "payment" in job:
+        payment = job["payment"]
+        view["payment"] = (
+            {key: payment[key] for key in PUBLIC_PAYMENT_FIELDS if key in payment} if isinstance(payment, dict) else payment
+        )
+    return view
+
+
 _LOOPBACK_HOSTS = {"localhost", "localhost.localdomain", "ip6-localhost"}
 
 # Fields a provider may set on their own offer through POST /v1/market/offer.
@@ -1604,12 +1669,26 @@ class MarketService:
         state: str | None = None,
         offer_id: str | None = None,
         limit: int = 100,
+        owner_address: str | None = None,
     ) -> list[dict[str, Any]]:
-        """List market jobs with optional filters."""
+        """List market jobs with optional filters.
+
+        ``owner_address`` scopes to jobs where the address is a party (buyer
+        or provider); it is the verified-signer path for authenticated
+        owner/provider views, not a public filter.
+        """
         try:
-            from sqlmodel import col
+            from sqlmodel import col, or_
 
             stmt = select(MarketJob)
+            if owner_address:
+                owner = canonical_address(owner_address)
+                stmt = stmt.where(
+                    or_(
+                        col(MarketJob.buyer_address) == owner,
+                        col(MarketJob.provider_address) == owner,
+                    )
+                )
             if buyer_address:
                 stmt = stmt.where(col(MarketJob.buyer_address) == canonical_address(buyer_address))
             if provider_address:

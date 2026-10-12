@@ -45,6 +45,17 @@ def sweeper(monkeypatch):
     """Patch the module's HTTP layer: ipfs POSTs and market GET/POST."""
     monkeypatch.setattr(ipfs_pinning_sweeper, "IPFS_API_URL", "http://127.0.0.1:5002")
     monkeypatch.delenv("IPFS_HOSTING_ENABLED", raising=False)
+    # Signing is stubbed: market request auth is covered by its own tests.
+    monkeypatch.setattr(
+        ipfs_pinning_sweeper,
+        "_signed_request_params",
+        lambda address, route: {
+            "signer_address": address,
+            "chain_id": "test-chain",
+            "issued_at": 1,
+            "signature": "sig",
+        },
+    )
     calls = {"ipfs": [], "jobs_get": [], "confirm": []}
 
     def fake_post(url, **kwargs):
@@ -108,6 +119,109 @@ def test_sweep_pins_and_confirms(state_path, sweeper):
     assert any(u.endswith("/api/v0/pin/add") for u in sweeper["ipfs"])
     assert sweeper["confirm"][0][1]["provider_confirmed"] is True
     assert ipfs_pinning_sweeper._load_state(state_path)["job-1"]["cid"] == CID
+
+
+@pytest.mark.unit
+def test_fetch_jobs_sends_provider_signature(state_path, sweeper):
+    """The jobs fetch must carry the signed proof or the market returns the
+    redacted public view (or a 403) and the sweeper cannot pin."""
+    job = _job("job-1", state="QUEUED")
+    seen: list[dict] = []
+
+    def fake_get(url, **kwargs):
+        seen.append(kwargs.get("params", {}))
+        return _resp([job])
+
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=fake_get):
+        ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    params = seen[0]
+    assert params["signer_address"] == PROVIDER
+    assert params["signature"] == "sig"
+    assert params["chain_id"]
+
+
+@pytest.mark.unit
+def test_pin_confirm_sends_provider_signature(state_path, sweeper):
+    job = _job("job-1", state="QUEUED")
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=_jobs_response([job])):
+        ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    body = sweeper["confirm"][0][1]
+    assert body["provider_confirmed"] is True
+    assert body["signer_address"] == PROVIDER
+    assert body["signature"]
+
+
+@pytest.mark.unit
+def test_sweep_unsigned_fetch_is_unknown_not_empty(state_path, sweeper, monkeypatch):
+    """No signing material -> fetch returns None (unknown): error counted,
+    no pins, and crucially no unpin of tracked entries."""
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_signed_request_params", lambda address, route: None)
+    ipfs_pinning_sweeper._save_state(state_path, {"job-1": {"cid": CID, "size": 1000, "pinned_at": "t"}})
+    result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    assert result["errors"] == 1
+    assert result["unpinned"] == 0
+    assert result["pinned"] == 0
+    assert "job-1" in ipfs_pinning_sweeper._load_state(state_path)
+
+
+@pytest.mark.unit
+def test_sweep_auth_rejected_fetch_is_unknown_not_empty(state_path, sweeper):
+    """A 401/403 from the market is a failed fetch -> None, never an empty
+    list, so tracked pins are not unpinned on a rejection."""
+    ipfs_pinning_sweeper._save_state(state_path, {"job-1": {"cid": CID, "size": 1000, "pinned_at": "t"}})
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=lambda url, **kw: _resp({}, status=403)):
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    assert result["errors"] == 1
+    assert result["unpinned"] == 0
+    assert "job-1" in ipfs_pinning_sweeper._load_state(state_path)
+
+
+@pytest.mark.unit
+def test_provider_key_reads_wallet_dir(tmp_path, monkeypatch):
+    key = "0x" + "33" * 32
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    wallet = tmp_path / "wallets"
+    wallet.mkdir()
+    import json as _json
+
+    (wallet / "default.json").write_text(_json.dumps({"address": derive_ethereum_address(key), "private_key": key}))
+    (wallet / "other.json").write_text(_json.dumps({"address": "0x" + "ab" * 20, "private_key": "0x" + "77" * 32}))
+    monkeypatch.setenv("AITBC_WALLET_DIR", str(wallet))
+
+    address = derive_ethereum_address(key)
+    assert ipfs_pinning_sweeper._provider_key(address) == key
+    assert ipfs_pinning_sweeper._provider_key("0x" + "cd" * 20) is None
+
+
+@pytest.mark.unit
+def test_signed_params_shape(tmp_path, monkeypatch):
+    """Signed params carry the proof fields; the signed message is the
+    canonical jobs-request message the market verifies."""
+    key = "0x" + "33" * 32
+    from aitbc.crypto.crypto import derive_ethereum_address
+    from aitbc.crypto.crypto import recover_signer
+    from aitbc.market.job_request_signature import jobs_request_message
+
+    wallet = tmp_path / "wallets"
+    wallet.mkdir()
+    import json as _json
+
+    address = derive_ethereum_address(key)
+    (wallet / "default.json").write_text(_json.dumps({"address": address, "private_key": key}))
+    monkeypatch.setenv("AITBC_WALLET_DIR", str(wallet))
+    monkeypatch.setenv("AITBC_CHAIN_ID", "chain-test")
+
+    params = ipfs_pinning_sweeper._signed_request_params(address, "/v1/market/jobs")
+    assert params is not None
+    assert params["signer_address"] == address
+    assert params["chain_id"] == "chain-test"
+    assert params["issued_at"] > 0
+    recovered = recover_signer(
+        jobs_request_message(address, "chain-test", params["issued_at"], "/v1/market/jobs"),
+        params["signature"],
+    )
+    assert recovered == address
 
 
 @pytest.mark.unit
