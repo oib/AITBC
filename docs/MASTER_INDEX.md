@@ -59,7 +59,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 33
-- **Markdown files under docs/**: 865
+- **Markdown files under docs/**: 866
 
 | Directory | Files | Description |
 |---|---|---|
@@ -76,7 +76,7 @@ docs/
 | [cli](cli/) | 5 | Command-line interface reference |
 | [contracts](contracts/) | 14 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
-| [decisions](decisions/) | 2 | Decision log — dated choices with recorded reasons |
+| [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 17 | Deployment and infrastructure setup |
 | [design](design/) | 6 | Design documents and decisions |
 | [development](development/) | 31 | Developer guides and workflow |
