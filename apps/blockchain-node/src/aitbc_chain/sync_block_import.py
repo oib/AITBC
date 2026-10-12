@@ -21,6 +21,7 @@ from .metrics import (
     sync_blocks_imported,
     sync_failures_total,
 )
+from .cross_chain import bridge_lock_guard
 from .state import state_root_utils
 from .state.block_deltas import (
     BlockDeltaJournal,
@@ -159,6 +160,11 @@ class BlockImportMixin(SyncBase):
                     lock_txs.append(tx)
         if not lock_txs:
             return "0x" + trie.get_root().hex()
+        # V-4 dry-run missing-data guard (flag-gated, logs/counts only —
+        # the derived root below is computed exactly as before).
+        bridge_lock_guard.run_guard_dryrun_dicts(
+            lock_txs, height=int(block_data.get("height") or 0), chain_id=self._chain_id, log=logger
+        )
         transfer_ids = [tx.get("tx_hash", "") for tx in lock_txs]
         records = session.exec(
             select(CrossChainTransfer).where(
