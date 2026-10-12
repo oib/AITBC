@@ -125,3 +125,9 @@ should stop writing local rows before the lock seals (SD-1 lesson).
 venv/bin/python -m pytest tests/unit/test_v9_type_coverage_replay.py -k protocol_transfer
 # 11 xfailed (production shape) + 11 passed (reason == missing_signature)
 ```
+
+## Related
+
+- [escrow-anomaly-remedies.md](escrow-anomaly-remedies.md) — SD-6 options
+  paper for the two concrete anomalies this audit surfaced (the
+  …46025c0e double release and the stranded auto-stake principal).
