@@ -7,6 +7,7 @@ register; this page keeps the decision itself when the register moves on.
 
 | Date | Ref | Decision | Reason |
 |------|-----|----------|--------|
+| 2026-10-12 | all | [Full decision table for 12 October](2026-10-12-operator-decisions.md) — every operator call of that day verbatim from the task register. | One dated page keeps the batch readable when the register moves on. |
 | 2026-10-12 | V-3 | Committed set = all 13 apply-written tables; shadow compute first, compare-only | Canonicalization rules spec'd ([design doc](../design/v3-side-table-root-shadow.md)); a table that drifts in the soak is dropped, never repaired; activation height shared with V-2/V-4/BNT-1. |
 | 2026-10-12 | BNT-1 | Open — every `queue_protocol_transfer` emission (stake, agent-stake, auto-stake, bounty, HTLC; 12 call sites) is unsigned at the top level and rejected by the v9 signature rule; zero sealed since 30400 ([audit + options](../design/v9-unsigned-protocol-transfers.md)). | The emitter never signs (keyless escrow); v9 exempts only BRIDGE_*. Options: admit `payload.auth` at a new version height, sign lock legs at emission, or retire the dead surfaces. Operator decision pending. |
 | 2026-10-08 | V-4 | Grandfathering activation boundary set to height 30000 ([design](../design/bridge-state-root-grandfathering.md)); audit tool default and fixtures pin it. | All 4 underivable legacy locks sit below it (≈2.4k–8.3k) and the boundary is inside sealed history, so no existing seal can ever flip class; underivable locks sealed after activation are defects the seal-path guard rejects. |
