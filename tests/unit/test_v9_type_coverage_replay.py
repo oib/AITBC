@@ -653,3 +653,190 @@ def test_waiver_doc_and_replay_matrix_agree():
     extra = set(_CASES) - listed
     assert not missing, f"waived types without a replay case: {sorted(missing)}"
     assert not extra, f"replay cases for types not waived (sealed under v9 already?): {sorted(extra)}"
+
+
+# --------------------------------------------------------------------------
+# BNT-1 — production-shape protocol transfers at v9
+# --------------------------------------------------------------------------
+#
+# ``queue_protocol_transfer`` is the only emitter of these types and it
+# never sets a top-level ``signature`` — a protocol-escrow address has no
+# key (lock legs *could* be user-signed but the emitter does not do it
+# either). ``v9_signature_verdict`` exempts only BRIDGE_*, so from height
+# 30400 every one of these rejects at apply with ``missing_signature``.
+# Live chain (node2 + hub, 2026-10-12): zero of these sealed since v9; the
+# last STAKE_LOCK/RELEASE are at 11073/11042, BOUNTY_*/HTLC_* never.
+#
+# Each case below replays the *exact* emitted shape and is strict-xfail:
+# the suite goes red the day a consensus change makes any of them seal, so
+# the waiver/options decision cannot silently go stale.
+
+HTLC_ADDR = derive_ethereum_address("0x" + "88" * 32)  # stand-in for HTLC_CONTRACT_ADDRESS
+
+
+def _protocol_shape(sender: str, recipient: str, tx_type: str, payload: dict, auth: dict | None) -> dict:
+    """Mirror of ``queue_protocol_transfer``'s tx_data: fee 0, nonce 0,
+    no top-level signature, optional ``payload.auth``."""
+    tx = _tx(sender, recipient, 4000, tx_type, dict(payload), fee=0)
+    if auth is not None:
+        tx["payload"]["auth"] = auth
+    return tx
+
+
+def _operator_auth(message: dict) -> dict:
+    return {"signer": AUTH, "message": message, "signature": _sign_data(AUTH_KEY, message)}
+
+
+def _user_auth(message: dict) -> dict:
+    return {"signer": BUYER, "message": message, "signature": _sign_data(BUYER_KEY, message)}
+
+
+def _seed_stake_escrow_funded(session: Session) -> None:
+    session.add(Account(chain_id=CHAIN, address=_stake_escrow(), balance=100_000, nonce=0))
+
+
+def _seed_htlc_funded(session: Session) -> None:
+    session.add(Account(chain_id=CHAIN, address=HTLC_ADDR, balance=100_000, nonce=0))
+
+
+# emitter -> (tx builder, seeds). One row per (caller, type) pair in the audit.
+_PROTOCOL_EMISSIONS: dict[str, tuple[Callable[[], dict], tuple[Callable[[Session], None], ...]]] = {
+    # rpc/staking.py — user-staking lock, user-signed request in payload.auth
+    "staking.STAKE_LOCK": (
+        lambda: _protocol_shape(
+            BUYER,
+            _stake_escrow(),
+            "STAKE_LOCK",
+            {"stake_id": "9", "lock_days": 30},
+            _user_auth({"action": "stake", "address": BUYER, "amount": 4000, "chain_id": CHAIN, "stake_id": "9"}),
+        ),
+        (),
+    ),
+    # rpc/staking.py — user-staking release
+    "staking.STAKE_RELEASE": (
+        lambda: _protocol_shape(
+            _stake_escrow(),
+            BUYER,
+            "STAKE_RELEASE",
+            {"stake_id": "v9r-9", "lock_tx_hashes": [STAKE_LOCK_HASH]},
+            _user_auth({"action": "unstake", "address": BUYER, "chain_id": CHAIN, "stake_id": "v9r-9"}),
+        ),
+        (_seed_stake_lock, _seed_stake_escrow_funded),
+    ),
+    # rpc/agent_staking.py — operator-signed on the staker's behalf
+    "agent_staking.STAKE_LOCK": (
+        lambda: _protocol_shape(
+            BUYER,
+            _stake_escrow(),
+            "STAKE_LOCK",
+            {"agent_stake_id": "a-1", "lock_days": 7},
+            _operator_auth({"user_address": BUYER, "amount": 4000, "chain_id": CHAIN}),
+        ),
+        (),
+    ),
+    "agent_staking.STAKE_RELEASE": (
+        lambda: _protocol_shape(
+            _stake_escrow(),
+            BUYER,
+            "STAKE_RELEASE",
+            {"agent_stake_id": "v9r-9", "lock_tx_hashes": [STAKE_LOCK_HASH]},
+            _operator_auth({"user_address": BUYER, "chain_id": CHAIN, "stake_id": "v9r-9"}),
+        ),
+        (_seed_stake_lock, _seed_stake_escrow_funded),
+    ),
+    # rpc/escrow_routes.py — AUTO_STAKE reinvestment, no auth at all
+    "escrow_routes.AUTO_STAKE_LOCK": (
+        lambda: _protocol_shape(
+            BUYER, _stake_escrow(), "STAKE_LOCK", {"stake_id": "7", "source": "auto_stake", "lock_days": 30}, None
+        ),
+        (),
+    ),
+    # rpc/bounty.py — operator-signed
+    "bounty.BOUNTY_LOCK": (
+        lambda: _protocol_shape(
+            BUYER,
+            _bounty_escrow(),
+            "BOUNTY_LOCK",
+            {"bounty_id": "b-1"},
+            _operator_auth({"creator_address": BUYER, "reward_amount": 4000, "chain_id": CHAIN, "bounty_id": "b-1"}),
+        ),
+        (),
+    ),
+    "bounty.BOUNTY_PAYOUT": (
+        lambda: _protocol_shape(
+            _bounty_escrow(),
+            PROVIDER,
+            "BOUNTY_PAYOUT",
+            {"bounty_id": "b-1", "submission_id": "s-1"},
+            _operator_auth({"bounty_id": "b-1", "submission_id": "s-1", "chain_id": CHAIN}),
+        ),
+        (_seed_bounty_escrow,),
+    ),
+    "bounty.BOUNTY_REFUND": (
+        lambda: _protocol_shape(
+            _bounty_escrow(),
+            BUYER,
+            "BOUNTY_REFUND",
+            {"bounty_id": "b-1"},
+            _operator_auth({"user_address": BUYER, "bounty_id": "b-1", "chain_id": CHAIN}),
+        ),
+        (_seed_bounty_escrow,),
+    ),
+    # contracts/htlc_contract.py — no auth; generic transfer semantics
+    "htlc.HTLC_LOCK": (lambda: _protocol_shape(BUYER, HTLC_ADDR, "HTLC_LOCK", {"swap_id": "sw-1"}, None), ()),
+    "htlc.HTLC_CLAIM": (
+        lambda: _protocol_shape(HTLC_ADDR, PROVIDER, "HTLC_CLAIM", {"swap_id": "sw-1"}, None),
+        (_seed_htlc_funded,),
+    ),
+    "htlc.HTLC_REFUND": (
+        lambda: _protocol_shape(HTLC_ADDR, BUYER, "HTLC_REFUND", {"swap_id": "sw-1"}, None),
+        (_seed_htlc_funded,),
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    "emission",
+    [
+        pytest.param(
+            name,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason=(
+                    f"{name}: queue_protocol_transfer emits no top-level signature and v9 "
+                    "exempts only BRIDGE_* — unsealable since height 30400 (BNT-1)"
+                ),
+            ),
+        )
+        for name in sorted(_PROTOCOL_EMISSIONS)
+    ],
+    ids=lambda n: n,
+)
+def test_protocol_transfer_production_shape_seals_at_v9(emission, tmp_path):
+    """The exact shape each caller emits must apply at v9. It does not —
+    strict-xfail pins the defect per (caller, type)."""
+    build, seeds = _PROTOCOL_EMISSIONS[emission]
+    tx = build()
+    tx_hash = _hash("bnt1", emission)
+    eng_a, eng_b, ok_a, msg_a, ok_b, _ = _replay_twice(tmp_path, tx, tx_hash, seeds)
+    try:
+        assert ok_a and ok_b, f"{emission}: {msg_a}"
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
+
+
+@pytest.mark.parametrize("emission", sorted(_PROTOCOL_EMISSIONS), ids=lambda n: n)
+def test_protocol_transfer_rejection_reason_is_v9_signature_rule(emission, tmp_path):
+    """Pin *why* each one fails: the v9 presence check, not a payload or
+    balance defect — so the options paper's diagnosis stays executable."""
+    build, seeds = _PROTOCOL_EMISSIONS[emission]
+    tx = build()
+    tx_hash = _hash("bnt1-reason", emission)
+    eng_a, eng_b, ok_a, msg_a, _, _ = _replay_twice(tmp_path, tx, tx_hash, seeds)
+    try:
+        assert not ok_a
+        assert "v9 signature rule: missing_signature" in msg_a, f"{emission} rejected for another reason: {msg_a}"
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
