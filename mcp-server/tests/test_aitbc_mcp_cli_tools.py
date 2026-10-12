@@ -359,6 +359,47 @@ def test_login_aitbc():
     assert "auth login --wallet=test-wallet-3" in cmd
 
 
+def test_aitbc_system_logs_since_grep():
+    _clear()
+    result = json.loads(
+        aitbc_mcp_cli_tools.aitbc_system_logs(
+            service="aitbc-market",
+            lines=100,
+            since="10 min ago",
+            grep="ERROR",
+            host="node2",
+        )
+    )
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "system" in cmd
+    assert "logs" in cmd
+    assert "--since=" in cmd and "10 min ago" in cmd
+    assert "--grep=" in cmd and "ERROR" in cmd
+
+
+def test_aitbc_system_logs_defaults_omit_new_options():
+    _clear()
+    result = json.loads(aitbc_mcp_cli_tools.aitbc_system_logs(service="aitbc-market", host="node2"))
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "--since" not in cmd
+    assert "--grep" not in cmd
+
+
+def test_aitbc_system_logs_rejects_injection():
+    _clear()
+    for kwargs in (
+        {"since": "10m; rm -rf /"},
+        {"since": "10m$(whoami)"},
+        {"grep": "a|cat /etc/passwd"},
+        {"grep": "A" * 201},
+    ):
+        result = json.loads(aitbc_mcp_cli_tools.aitbc_system_logs(service="aitbc-market", host="node2", **kwargs))
+        assert "error" in result, kwargs
+    assert not CAPTURED
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()
