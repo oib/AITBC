@@ -584,7 +584,7 @@ def main(argv: list[str]) -> int:
     ok &= check_b_versions(a.hosts, first, last, act)
     ok &= check_c_aux(a.hosts, first, last, act)
     ok &= check_d_bridge_root(a.hosts, first, last, act, self_path, min_head)
-    ok &= check_e_validators(a.hosts, 200, min_head)
+    ok &= check_e_validators(a.hosts, 25, min_head)
     ok &= check_f_liveness(a.hosts)
     ok &= check_g_shadow(a.hosts, self_path, a.shadow_limit)
     print(f"# verdict: {'ALL PASS' if ok else 'FAILURES PRESENT'}")
