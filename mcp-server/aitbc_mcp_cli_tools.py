@@ -2391,3 +2391,73 @@ def aitbc_crosschain_pools(
         options=options,
         timeout=timeout,
     )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def aitbc_update(
+    remote: Annotated[str | None, Field(description="Git remote to pull from (default: origin)")] = None,
+    branch: Annotated[str | None, Field(description="Branch to update to (default: main)")] = None,
+    no_deploy: Annotated[bool | None, Field(description="Fetch and fast-forward only; do not run update.sh")] = None,
+    check: Annotated[
+        bool | None,
+        Field(description="Fetch and report current vs remote SHA without changing anything"),
+    ] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+    dry_run: Annotated[
+        bool,
+        Field(
+            description="Report current vs remote SHA via `aitbc update --check` (fetch + compare only; nothing is pulled or deployed)."
+        ),
+    ] = True,
+    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
+) -> str:
+    """Run `aitbc update`; dry_run reports current vs remote SHA via `update --check`."""
+    target = _host_for_role(role, host)
+    if dry_run:
+        check_options: dict[str, Any] = {
+            "remote": remote or "origin",
+            "branch": branch or "main",
+            "check": None,
+            "format": "json",
+        }
+        result = _run_aitbc_cli(
+            target,
+            "update",
+            None,
+            [],
+            check_options,
+            "json",
+            timeout,
+        )
+        result["note"] = (
+            "dry_run ran `aitbc update --check` (git fetch + SHA compare only; "
+            "nothing pulled or deployed). Pass dry_run=false and confirm=true to update."
+        )
+        return _json(result)
+    options: dict[str, Any] = {}
+    if remote is not None:
+        options["remote"] = remote
+    if branch is not None:
+        options["branch"] = branch
+    if no_deploy:
+        options["no-deploy"] = None
+    if check:
+        options["check"] = None
+    options["format"] = "json"
+    command = _build_aitbc_cli_command("update", None, [], options, "json")
+    guard = _require_confirm(dry_run, confirm, command, host=target)
+    if guard is not None:
+        return _json(guard)
+    return _json(
+        _run_aitbc_cli(
+            target,
+            "update",
+            None,
+            [],
+            options,
+            "json",
+            timeout,
+        )
+    )
