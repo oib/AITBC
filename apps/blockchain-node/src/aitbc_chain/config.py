@@ -656,6 +656,13 @@ class ChainSettings(BaseSettings):
     # validation or apply. Default OFF for safety — enable with
     # SIDE_ROOT_SHADOW_ENABLED=true.
     side_root_shadow_enabled: bool = False
+    # Cost/lifetime knobs while the shadow is soaking: shadow only heights
+    # that are multiples of SIDE_ROOT_SHADOW_INTERVAL (default 1 = every
+    # block, identical to today), and keep only the newest
+    # SIDE_ROOT_SHADOW_RETENTION shadow_side_root rows (default 10_000;
+    # <= 0 disables pruning).
+    side_root_shadow_interval: int = 1
+    side_root_shadow_retention: int = 10_000
 
     # P2P-to-RPC port offset (v0.6.2). The RPC HTTP port is derived from the
     # P2P listen port by adding this offset (P2P 8200 -> RPC 8202). Used by

@@ -7,15 +7,23 @@ counters. The rules are byte-identical to ``scripts/ops/side-root-probe.py
 --canonical`` — the executable reference for
 ``docs/design/v3-side-table-root-shadow.md``.
 
+**What enabling it does:** the hook *creates and writes* the node-local
+``shadow_side_root`` table inside the chain database after each block
+commit — one row per shadowed height (chain_id, block_height, fingerprint,
+per-table digests, local write time). The table is node-local bookkeeping
+(like ``escrow``): it is *not* part of the committed set and is never
+hashed into a block, so it cannot diverge consensus. Retention keeps the
+newest ``settings.side_root_shadow_retention`` rows (default 10_000);
+``settings.side_root_shadow_interval`` (default 1 = every block) thins the
+per-block cost by shadowing only heights that are multiples of it.
+
 Guarantees (enforced by construction and pinned by tests):
 
 - gated by ``settings.side_root_shadow_enabled`` — **default off**, and when
   off the hook returns before issuing a single query;
 - never touches the block header, the block hash, validation or apply;
 - any failure is caught, logged as a warning and swallowed — a failing
-  shadow computation can never raise into the seal path;
-- ``shadow_side_root`` is node-local bookkeeping (like ``escrow``); it is
-  not part of the committed set and is never hashed into a block.
+  shadow computation can never raise into the seal path.
 """
 
 from __future__ import annotations
@@ -174,11 +182,13 @@ CREATE TABLE IF NOT EXISTS shadow_side_root (
 """
 
 
-def record_shadow(conn: _DbConn, chain_id: str, height: int) -> dict[str, Any]:
+def record_shadow(conn: _DbConn, chain_id: str, height: int, *, retention: int = 10_000) -> dict[str, Any]:
     """Compute the committed fingerprint over the live tables and persist it
-    in ``shadow_side_root`` (node-local bookkeeping). Returns the stored row
-    data plus ``changed``/``recomputed_differed`` flags for the caller's
-    metrics and log line."""
+    in ``shadow_side_root`` (node-local bookkeeping), then prune the table
+    to the newest ``retention`` rows for this chain (``retention <= 0``
+    keeps everything). Returns the stored row data plus
+    ``changed``/``recomputed_differed`` flags for the caller's metrics and
+    log line."""
     conn.execute(_SHADOW_DDL)
     previous = conn.execute(
         "SELECT fingerprint FROM shadow_side_root WHERE chain_id = ? AND block_height = ?",
@@ -204,6 +214,13 @@ def record_shadow(conn: _DbConn, chain_id: str, height: int) -> dict[str, Any]:
             json.dumps({t: d.get("digest", d.get("status")) for t, d in result["tables"].items()}),
         ),
     )
+    if retention > 0:
+        conn.execute(
+            "DELETE FROM shadow_side_root WHERE chain_id = ? AND block_height NOT IN ("
+            "SELECT block_height FROM shadow_side_root WHERE chain_id = ?"
+            " ORDER BY block_height DESC LIMIT ?)",
+            (chain_id, chain_id, retention),
+        )
     conn.commit()
     return {
         "height": height,
@@ -218,17 +235,25 @@ def on_block_sealed(session: Session, chain_id: str, height: int) -> None:
     """Post-seal hook: shadow-compute the side-table root for ``height``.
 
     Called after the block's own transaction has committed. When the
-    ``SIDE_ROOT_SHADOW_ENABLED`` flag is off this returns before issuing any
-    query. Any error is logged and swallowed — the shadow is observational
-    and must never reach the seal path.
+    ``SIDE_ROOT_SHADOW_ENABLED`` flag is off, or ``height`` is not a
+    multiple of ``side_root_shadow_interval``, this returns before issuing
+    any query. Any error is logged and swallowed — the shadow is
+    observational and must never reach the seal path.
     """
     from ..config import settings
 
     if not getattr(settings, "side_root_shadow_enabled", False):
         return
     try:
+        interval = int(getattr(settings, "side_root_shadow_interval", 1) or 1)
+        retention = int(getattr(settings, "side_root_shadow_retention", 10_000))
+    except (TypeError, ValueError):
+        interval, retention = 1, 10_000
+    if height % max(1, interval):
+        return
+    try:
         conn = session.connection().connection
-        info = record_shadow(conn, chain_id, height)
+        info = record_shadow(conn, chain_id, height, retention=retention)
         metrics_registry.increment("side_root_shadow_blocks_total")
         metrics_registry.set_gauge("side_root_shadow_last_height", float(height))
         if info["recomputed_differed"]:
