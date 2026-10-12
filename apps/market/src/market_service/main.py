@@ -4,6 +4,7 @@ Manages hardware+software bundle market operations
 """
 
 import asyncio
+import hmac
 import json
 import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
@@ -14,7 +15,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
 from aitbc.middleware import setup_cors
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -25,8 +26,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", _DEFAULT_RPC_URL)
 from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.crypto.signature_recovery import canonical_address  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.market import OfferStatus  # noqa: E402
+from aitbc.market.job_request_signature import verify_jobs_request_signature  # noqa: E402
 from aitbc.operations import BeginStatus, OperationLedger, request_hash  # noqa: E402
 from aitbc.env_compat import market_getenv  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
@@ -40,7 +43,7 @@ from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 
 from .config import settings  # noqa: E402
 from .domain.offer_status import try_to_offer_status  # noqa: E402
-from .services.market_service import MarketService  # noqa: E402
+from .services.market_service import MarketService, _secret_matches, public_job_view  # noqa: E402
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
 
@@ -262,6 +265,51 @@ require_market_api_key = APIKeyAuthenticator(
     auth_enabled=settings.auth_enabled,
     success_role="market_admin",
 )
+
+
+def _is_market_admin(request: Request) -> bool:
+    """True when the caller carries the service API key (or auth is disabled).
+
+    Same semantics as ``require_market_api_key`` but non-raising, for routes
+    that stay public and only upgrade the response for an admin caller.
+    """
+    if not settings.auth_enabled:
+        return True
+    expected = settings.api_key
+    if not expected:
+        return False
+    presented = request.headers.get("X-Api-Key")
+    return bool(presented) and hmac.compare_digest(str(presented), str(expected))
+
+
+def _signed_jobs_request(
+    *,
+    route: str,
+    signer_address: str | None,
+    chain_id: str | None,
+    issued_at: int | None,
+    signature: str | None,
+) -> tuple[str | None, JSONResponse | None]:
+    """Resolve an optional wallet-signed job request.
+
+    Returns ``(signer, None)`` when the signature verifies, ``(None,
+    JSONResponse(403))`` when signature params were supplied but fail, and
+    ``(None, None)`` when no signature params were sent at all (anonymous
+    caller — the redacted public view still applies).
+    """
+    if not any((signer_address, chain_id, issued_at is not None, signature)):
+        return None, None
+    error, signer = verify_jobs_request_signature(
+        signer_address=signer_address,
+        chain_id=chain_id,
+        issued_at=issued_at,
+        route=route,
+        signature=signature,
+        expected_chain_id=settings.default_chain_id,
+    )
+    if error or not signer:
+        return None, JSONResponse(status_code=403, content={"error": error or "invalid job request signature"})
+    return signer, None
 
 
 @app.get("/v1/market/offers")
@@ -890,17 +938,59 @@ async def create_market_job(job_data: dict[str, Any], svc: Annotated[MarketServi
 @app.get("/v1/market/jobs")
 async def list_market_jobs(
     svc: Annotated[MarketService, Depends(get_market_service)],
+    request: Request,
     buyer_address: str | None = None,
     provider_address: str | None = None,
     service_type: str | None = None,
     state: str | None = None,
     offer_id: str | None = None,
     limit: int = 100,
+    signer_address: str | None = None,
+    chain_id: str | None = None,
+    issued_at: int | None = None,
+    signature: str | None = None,
 ) -> Any:
-    """List market jobs."""
+    """List market jobs.
+
+    Anonymous callers get the redacted public view — no customer file or
+    rental detail. A wallet-signed request (``signer_address`` +
+    ``chain_id`` + ``issued_at`` + ``signature`` over the canonical
+    jobs-request message) returns full rows for jobs the signer is a party
+    to; the service API key returns full rows unfiltered.
+    """
     try:
         logger.info("GET /v1/market/jobs called")
-        return await svc.list_market_jobs(
+        signer, error_response = _signed_jobs_request(
+            route="/v1/market/jobs",
+            signer_address=signer_address,
+            chain_id=chain_id,
+            issued_at=issued_at,
+            signature=signature,
+        )
+        if error_response is not None:
+            return error_response
+        if signer:
+            # Full rows go only to the recovered signer — an address filter
+            # naming someone else contradicts the proof and is a 403.
+            for claimed in (buyer_address, provider_address):
+                if not claimed:
+                    continue
+                try:
+                    matches = canonical_address(claimed) == canonical_address(signer)
+                except Exception:
+                    matches = False
+                if not matches:
+                    return JSONResponse(status_code=403, content={"error": "address filter does not match signer"})
+            return await svc.list_market_jobs(
+                buyer_address=buyer_address,
+                provider_address=provider_address,
+                service_type=service_type,
+                state=state,
+                offer_id=offer_id,
+                limit=limit,
+                owner_address=signer,
+            )
+        jobs = await svc.list_market_jobs(
             buyer_address=buyer_address,
             provider_address=provider_address,
             service_type=service_type,
@@ -908,6 +998,9 @@ async def list_market_jobs(
             offer_id=offer_id,
             limit=limit,
         )
+        if _is_market_admin(request):
+            return jobs
+        return [public_job_view(job) for job in jobs]
     except Exception as e:
         logger.error("Error in GET /v1/market/jobs: %s: %s", type(e).__name__, str(e))
         raise
@@ -933,14 +1026,56 @@ async def get_market_job_usage(
 
 
 @app.get("/v1/market/jobs/{job_id}")
-async def get_market_job(job_id: str, svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
-    """Get a market job by ID."""
+async def get_market_job(
+    job_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    request: Request,
+    signer_address: str | None = None,
+    chain_id: str | None = None,
+    issued_at: int | None = None,
+    signature: str | None = None,
+    x_access_key: str | None = Header(default=None),
+    x_access_secret: str | None = Header(default=None),
+) -> Any:
+    """Get a market job by ID.
+
+    Anonymous callers get the redacted public view. The full record goes to
+    the service API key, the job's rental credential (``X-Access-Key`` +
+    ``X-Access-Secret`` — the same check ``/v1/market/access/{key}`` runs),
+    or a wallet signature from the job's buyer or provider.
+    """
     try:
         logger.info("GET /v1/market/jobs/%s called", job_id)
         result = await svc.get_market_job(job_id)
         if not result:
             return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
-        return result
+        if _is_market_admin(request):
+            return result
+        auth_attempted = False
+        if x_access_key or x_access_secret:
+            auth_attempted = True
+            payload = result.get("payload") or {}
+            if result.get("access_key") == x_access_key and _secret_matches(
+                str(payload.get("access_secret") or ""), x_access_secret or ""
+            ):
+                return result
+        signer, error_response = _signed_jobs_request(
+            route=f"/v1/market/jobs/{job_id}",
+            signer_address=signer_address,
+            chain_id=chain_id,
+            issued_at=issued_at,
+            signature=signature,
+        )
+        if error_response is not None:
+            return error_response
+        if signer:
+            parties = {canonical_address(str(result[key])) for key in ("buyer_address", "provider_address") if result.get(key)}
+            if canonical_address(signer) in parties:
+                return result
+            auth_attempted = True
+        if auth_attempted:
+            return JSONResponse(status_code=403, content={"error": "not authorized for this job's full record"})
+        return public_job_view(result)
     except Exception as e:
         logger.error("Error in GET /v1/market/jobs/%s: %s: %s", job_id, type(e).__name__, str(e))
         raise
@@ -971,10 +1106,33 @@ async def confirm_market_job_pin(
     svc: Annotated[MarketService, Depends(get_market_service)],
     confirm_data: dict[str, Any] | None = None,
 ) -> Any:
-    """Confirm that a job's content has been pinned."""
+    """Confirm that a job's content has been pinned.
+
+    ``provider_confirmed`` is the provider's own claim, so it requires the
+    job provider's wallet signature (the same canonical jobs-request proof
+    the read routes accept, bound to this route). Unsigned ``size`` /
+    ``pin_tx_hash`` updates stay open — the buyer's ``aitbc market host``
+    flow reports the pinned size that way.
+    """
     try:
         confirm_data = confirm_data or {}
         logger.info("POST /v1/market/jobs/%s/pin-confirm called", job_id)
+        if confirm_data.get("provider_confirmed"):
+            job = await svc.get_market_job(job_id)
+            if not job:
+                return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+            error, signer = verify_jobs_request_signature(
+                signer_address=confirm_data.get("signer_address"),
+                chain_id=confirm_data.get("chain_id"),
+                issued_at=confirm_data.get("issued_at"),
+                route=f"/v1/market/jobs/{job_id}/pin-confirm",
+                signature=confirm_data.get("signature"),
+                expected_chain_id=settings.default_chain_id,
+            )
+            if error or not signer:
+                return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
+            if canonical_address(signer) != canonical_address(str(job.get("provider_address") or "")):
+                return JSONResponse(status_code=403, content={"error": "signer is not this job's provider"})
         result = await svc.confirm_market_job_pin(
             job_id,
             size=confirm_data.get("size"),
