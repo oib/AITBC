@@ -51,7 +51,9 @@ const keysDir = resolveKeysDir();
 const client = publicClient(rpcUrl);
 assertSepolia(await client.getChainId());
 
-const signerAddresses = readSignerAddresses(keysDir).map(getAddress);
+// NB: never pass getAddress directly to Array.map — the map index argument
+// reaches viem as an EIP-1191 chain id and produces wrong checksums.
+const signerAddresses = readSignerAddresses(keysDir).map((a) => getAddress(a));
 const callArg = process.env.REHEARSAL_OWNER_CALL_ARG || signerAddresses[0]; // default: signer1
 const iface = new ethers.Interface(BRIDGE_ABI);
 const calldata = iface.encodeFunctionData(OWNER_CALL, [getAddress(callArg)]);

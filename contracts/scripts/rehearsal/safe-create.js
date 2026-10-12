@@ -30,7 +30,9 @@ const keysDir = resolveKeysDir();
 const client = publicClient(rpcUrl);
 assertSepolia(await client.getChainId());
 
-const signerAddresses = readSignerAddresses(keysDir).map(getAddress);
+// NB: never pass getAddress directly to Array.map — the map index argument
+// reaches viem as an EIP-1191 chain id and produces wrong checksums.
+const signerAddresses = readSignerAddresses(keysDir).map((a) => getAddress(a));
 const owners = [...signerAddresses];
 assertSignerOwners(owners, signerAddresses); // owners == exactly the three .address files
 

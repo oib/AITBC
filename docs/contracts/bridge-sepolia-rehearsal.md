@@ -63,11 +63,13 @@ echo "$SAFE_ADDRESS"
 
 # B2 — deploy the bridge paused; ownership goes to the Safe in the same run.
 #     The deployer key is read in-process from the key file; the record goes
-#     to a scratch file, never deployments-bridge-sepolia.json.
+#     to a scratch file, never deployments-bridge-sepolia.json. Fee recipient
+#     is signer3: deploy-bridge.js refuses a fee recipient equal to the
+#     deployer (signer1).
 BRIDGE_REQUIRE_CHAIN_ID=11155111 \
 DEPLOYER_KEY_FILE=$REHEARSAL_KEYS_DIR/signer1.key \
 BRIDGE_OWNER_SAFE=$SAFE_ADDRESS \
-BRIDGE_FEE_RECIPIENT=$(cat $REHEARSAL_KEYS_DIR/signer1.address) \
+BRIDGE_FEE_RECIPIENT=$(cat $REHEARSAL_KEYS_DIR/signer3.address) \
 BRIDGE_DEPLOY_RECORD=/tmp/rehearsal-deployments-sepolia.json \
 ETH_RPC_URL=$SEPOLIA_RPC_URL \
 npx hardhat run scripts/deploy-bridge.js --network sepolia
