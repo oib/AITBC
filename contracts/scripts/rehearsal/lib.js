@@ -10,7 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Safe from "@safe-global/protocol-kit";
-import { createPublicClient, custom, http } from "viem";
+import { createPublicClient, custom, decodeErrorResult, getAddress, http } from "viem";
 
 export const SEPOLIA_CHAIN_ID = 11155111;
 export const SIGNER_COUNT = 3;
@@ -37,6 +37,13 @@ export function resolveKeysDir(env = process.env) {
   if (path.basename(resolved) !== "rehearsal-sepolia") {
     throw new Error(`REHEARSAL_KEYS_DIR must end in "rehearsal-sepolia" (got: ${resolved})`);
   }
+  // A symlink named rehearsal-sepolia must not smuggle in a different
+  // directory: compare the resolved target's basename too. realpathSync
+  // throws on a nonexistent path — a refusal either way.
+  const realBase = path.basename(fs.realpathSync(resolved));
+  if (realBase !== "rehearsal-sepolia") {
+    throw new Error(`REHEARSAL_KEYS_DIR resolves to "${realBase}", not a rehearsal-sepolia directory`);
+  }
   return resolved;
 }
 
@@ -54,14 +61,61 @@ export function readSignerAddresses(keysDir) {
   return out;
 }
 
-/** Read signerN.key into memory. Returns 0x-prefixed hex; never logged. */
+/** Read signerN.key into memory. Returns 0x-prefixed hex; never logged.
+ *  Refuses a file with any group/other mode bit and any non-64-hex content;
+ *  error messages never echo file content. */
 export function readSignerKey(keysDir, n) {
   const file = path.join(keysDir, `signer${n}.key`);
+  assertKeyFileMode(file);
   const raw = fs.readFileSync(file, "utf8").trim().toLowerCase().replace(/^0x/, "");
   if (!/^[0-9a-f]{64}$/.test(raw)) {
     throw new Error(`${file} does not look like a raw secp256k1 key`);
   }
   return `0x${raw}`;
+}
+
+/** A key file must be mode 0600 — any group or other bit refuses the read. */
+export function assertKeyFileMode(file) {
+  if (fs.statSync(file).mode & 0o077) {
+    throw new Error(`${file} has group/other permission bits set — key files must be mode 0600`);
+  }
+}
+
+/**
+ * Normalize a list of addresses to EIP-55 checksums. MUST use an explicit
+ * callback — passing getAddress directly to Array.map hands the array index
+ * to getAddress's second (EIP-1191 chainId) parameter and produces wrong
+ * checksums (observed live in BR-9 phase B). Centralized here so the
+ * footgun has exactly one place to return.
+ */
+export function normalizeAddresses(addresses) {
+  return addresses.map((a) => getAddress(a));
+}
+
+/**
+ * The bridge's onlyOwner revert, and ONLY that revert. OpenZeppelin 4.x
+ * Ownable uses Error(string) "Ownable: caller is not the owner" (selector
+ * 0x08c379a0). Observed shapes:
+ *  - ethers v6 via JsonRpcProvider (Sepolia): Error, code "CALL_EXCEPTION",
+ *    .reason = the string;
+ *  - hardhat in-process: SolidityError, code 3 (eth revert), .data = the
+ *    ABI-encoded Error(string).
+ * Anything else must rethrow — an unrelated failure is not a proof.
+ */
+export const ONLY_OWNER_REASON = "Ownable: caller is not the owner";
+const ERROR_STRING_ABI = [{ type: "error", name: "Error", inputs: [{ name: "reason", type: "string" }] }];
+
+export function isOnlyOwnerRevert(err) {
+  if (err?.code === "CALL_EXCEPTION" && err.reason === ONLY_OWNER_REASON) return true;
+  const data = typeof err?.data === "string" ? err.data : "";
+  if (err?.code === 3 && data.startsWith("0x08c379a0")) {
+    try {
+      return decodeErrorResult({ abi: ERROR_STRING_ABI, data }).args?.[0] === ONLY_OWNER_REASON;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 /** The Safe's owner list must be exactly the three rehearsal signers. */
@@ -138,14 +192,28 @@ export async function signAndExecute(kits, transactions, options = {}) {
 }
 
 /**
- * Negative check: a Safe transaction signed by fewer than `threshold` signers
- * must not execute. Returns the error it produced; throws if it succeeded.
+ * A Safe transaction signed below threshold must not execute. Only errors
+ * that specifically mean "not enough signatures" count as a pass — anything
+ * else (RPC down, nonce, funds, a different revert) is rethrown so the
+ * check can never pass on an unrelated failure.
+ *
+ * Accepted patterns, observed on hardhat + Sepolia (protocol-kit 8.0.7):
+ *  - client-side refusal: "There is 1 signature missing"
+ *  - on-chain GS0xx signature validation if it ever reaches the contract:
+ *    GS020 "signatures data too short", GS026 signature decoding.
+ * If the call does broadcast, a mined receipt is checked: success = the
+ * threshold was bypassed (hard fail); any revert is accepted.
  */
+const MISSING_SIGNATURE_ERRORS = [
+  /signature(s)? missing/i,
+  /signatures? data too short/i,
+  /GS0(20|26)/,
+];
+
 export async function assertSingleSigCannotExecute(kit, transactions, rpcUrl) {
   const safeTx = await kit.signTransaction(await kit.createTransaction({ transactions }));
   try {
     const res = await kit.executeTransaction(safeTx);
-    // Some providers resolve the call but the tx itself reverts on-chain.
     const hash = res.hash ?? res.transactionResponse?.hash;
     if (hash) {
       const client = publicClient(rpcUrl);
@@ -158,6 +226,10 @@ export async function assertSingleSigCannotExecute(kit, transactions, rpcUrl) {
     throw new Error("single-signature Safe transaction EXECUTED — threshold not enforced");
   } catch (err) {
     if (String(err.message).includes("threshold not enforced")) throw err;
-    return err; // expected: the call failed before or at mining
+    const text = `${err.shortMessage ?? ""} ${err.message ?? err}`;
+    if (MISSING_SIGNATURE_ERRORS.some((re) => re.test(text))) {
+      return err; // the specific refusal we assert
+    }
+    throw err; // unrelated failure — the check did not prove anything
   }
 }

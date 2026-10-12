@@ -15,6 +15,7 @@ import {
   assertSingleSigCannotExecute,
   deploySafe,
   initKit,
+  isOnlyOwnerRevert,
   publicClient,
   signAndExecute,
 } from "../scripts/rehearsal/lib.js";
@@ -127,15 +128,21 @@ describe("RehearsalSafe (BR-9 phase A, hardhat)", function () {
     const kit2 = await initKit({ provider, signerKey: s2.privateKey, safeAddress, contractNetworks });
     const kit3 = await initKit({ provider, signerKey: s3.privateKey, safeAddress, contractNetworks });
 
-    // Negative: one signature must not execute.
+    // Negative: one signature must not execute — and the refusal must be the
+    // specific missing-signature error, not any failure (BR-11 finding 1).
     const err = await assertSingleSigCannotExecute(kit2, txSpec, provider);
     expect(err).to.be.instanceOf(Error);
+    expect(`${err.shortMessage ?? ""} ${err.message}`).to.match(/signature missing|signatures? data|GS0(20|26)/i);
 
-    // Negative: a direct EOA call to the owner-only fn must revert.
+    // Negative: a direct EOA call to the owner-only fn must revert with the
+    // bridge's actual OZ 4.x onlyOwner reason (BR-11 finding 2). On hardhat
+    // the revert surfaces as SolidityError code 3 with Error(string) data —
+    // isOnlyOwnerRevert decodes it; a JsonRpcProvider surfaces CALL_EXCEPTION.
     let reverted = false;
     try {
       await bridge.connect(s2).setFeeRecipient.staticCall(s2.address);
-    } catch {
+    } catch (e) {
+      expect(isOnlyOwnerRevert(e)).to.equal(true);
       reverted = true;
     }
     expect(reverted).to.equal(true);
