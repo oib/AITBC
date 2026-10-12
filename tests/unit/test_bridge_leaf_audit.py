@@ -252,3 +252,15 @@ def test_audit_boundary_counts(tool, tmp_path):
     assert tool.lock_class("unreadable", 8259, 10000) == "grandfathered"
     assert tool.lock_class("unreadable", 30000, 10000) == "missing_data"
     assert tool.lock_class("payload", 31000, 10000) == "derivable"
+
+
+def test_cli_default_boundary_is_operator_choice(tool, tmp_path, capsys):
+    """Operator chose boundary 30000 (2026-10-08): the CLI applies the V-4
+    classification by default — a legacy unreadable lock below it is
+    grandfathered without passing --boundary explicitly."""
+    assert tool.GRANDFATHER_BOUNDARY == 30000
+    db = _mk_db(tmp_path / "d.db", [("tx_legacy", 8259, {}, None, None)])
+    assert tool.main(["--db", str(db), "--no-trie"]) == 0
+    out = capsys.readouterr().out
+    assert "boundary 30000" in out
+    assert "grandfathered=1" in out
