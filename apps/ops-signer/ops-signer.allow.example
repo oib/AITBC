@@ -1,0 +1,10 @@
+# aitbc-ops-signer allow-list — example file.
+# Format: one recipient address per line, '#' comments and blanks allowed.
+# A malformed line refuses the WHOLE file (fail closed), so keep it clean.
+# Install as root: install -m 600 -o root -g root ops-signer.allow /etc/aitbc/ops-signer.allow
+
+# shop wallet (market offer sink)
+0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2
+
+# S-10 payee
+0xEB29516824E95AdFFeEdfc914941F0fbEd0bB1a4
