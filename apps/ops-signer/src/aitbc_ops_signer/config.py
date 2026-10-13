@@ -45,6 +45,7 @@ class Config:
     ledger_path: str = "/var/lib/aitbc/ops-signer-ledger.db"
     audit_path: str = "/var/lib/aitbc/ops-signer-audit.log"
     wallet_path: str = "/var/lib/aitbc/wallets/ops.json"
+    credential_file: str = "/etc/aitbc/credentials/ops-wallet-pass"
     rpc_url: str = "http://127.0.0.1:8202"
     chain_id: str = ""  # empty = resolved from the rpc /health at sign time
     max_request_bytes: int = 65_536
@@ -61,6 +62,7 @@ class Config:
             ledger_path=os.getenv("OPS_LEDGER_PATH", cls.ledger_path),
             audit_path=os.getenv("OPS_AUDIT_LOG", cls.audit_path),
             wallet_path=os.getenv("OPS_WALLET_PATH", cls.wallet_path),
+            credential_file=os.getenv("OPS_CREDENTIAL_FILE", cls.credential_file),
             rpc_url=os.getenv("OPS_SIGNER_RPC_URL", cls.rpc_url),
             chain_id=os.getenv("OPS_CHAIN_ID", cls.chain_id),
         )
