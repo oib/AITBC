@@ -13,10 +13,13 @@ from __future__ import annotations
 import grp
 import json
 import logging
+import signal
 import socket
+import stat
 import struct
 import threading
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from .audit import audit_line
@@ -33,6 +36,41 @@ log = logging.getLogger(__name__)
 def peer_credentials(conn: socket.socket) -> PeerCred:
     creds = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
     return struct.unpack("3i", creds)
+
+
+def _prepare_socket_path(path: str | Path) -> None:
+    """Clear the way for bind(): remove a stale socket, refuse anything else.
+
+    A leftover socket file (previous process died without unlinking) is the
+    classic EADDRINUSE-on-restart. It is stale when nothing accepts a
+    connection on it (connect -> ConnectionRefusedError). A live listener
+    means a second instance tried to start -- refuse. Anything that is not
+    a socket (regular file, dir, ...) is never removed -- refuse too.
+    """
+    p = Path(path)
+    try:
+        st = p.stat()
+    except FileNotFoundError:
+        return
+    if not stat.S_ISSOCK(st.st_mode):
+        raise RuntimeError(f"socket path {p} exists and is not a socket; refusing to remove it")
+    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        probe.connect(str(p))
+    except FileNotFoundError:
+        return  # vanished between stat and probe
+    except ConnectionRefusedError:
+        p.unlink(missing_ok=True)
+        return
+    except OSError as e:
+        raise RuntimeError(f"socket path {p} could not be probed: {e.strerror or e.errno}") from e
+    finally:
+        probe.close()
+    raise RuntimeError(f"socket path {p} has a live listener; refusing to start a second instance")
+
+
+def _sigterm_exit(signum, frame):  # noqa: ARG001 - signal handler signature
+    raise SystemExit(0)
 
 
 def _peer_allowed(peer: PeerCred, group_gid: int) -> bool:
@@ -119,6 +157,7 @@ class OpsSignerServer:
         self.ledger = DailyLedger(config.ledger_path)
         self.signer = Signer(config)
         self._sock: socket.socket | None = None
+        self._stopping = False
 
     def _serve_conn(self, conn: socket.socket) -> None:
         with conn:
@@ -152,11 +191,27 @@ class OpsSignerServer:
                 except OSError:
                     pass
 
+    def stop(self) -> None:
+        """Graceful shutdown for tests/admin: flag + wake the blocked accept."""
+        self._stopping = True
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as wake:
+                wake.connect(self.config.socket_path)
+        except OSError:
+            pass
+
     def serve_forever(self) -> None:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._sock = sock
+        bound = False
         try:
+            try:
+                _prepare_socket_path(self.config.socket_path)
+            except RuntimeError as e:
+                log.error("not starting: %s", e)
+                raise
             sock.bind(self.config.socket_path)
+            bound = True
             import os
 
             os.chmod(self.config.socket_path, self.config.socket_mode)
@@ -165,11 +220,20 @@ class OpsSignerServer:
             except (OSError, KeyError):
                 pass  # group may not exist pre-provisioning; root still owns it
             sock.listen(16)
-            while True:
+            try:
+                signal.signal(signal.SIGTERM, _sigterm_exit)
+            except ValueError:
+                pass  # not the main thread (tests) -- callers use stop()
+            while not self._stopping:
                 conn, _ = sock.accept()
                 threading.Thread(target=self._serve_conn, args=(conn,), daemon=True).start()
         finally:
             sock.close()
+            if bound:
+                try:
+                    Path(self.config.socket_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
 
 
 def request(sock_path: str, payload: dict, timeout: float = 15.0) -> dict:
