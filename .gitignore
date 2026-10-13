@@ -108,6 +108,8 @@ credentials/
 .gitea_token
 .gitea_token.sh
 /keystore/
+keys/
+wallets/
 
 # ===================
 # IDE & Editor
