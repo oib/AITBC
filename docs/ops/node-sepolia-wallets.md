@@ -43,13 +43,30 @@ Run **on each host** as root:
 
 ```bash
 cd /opt/aitbc
-install -d -m 700 -o root -g root /var/lib/aitbc/wallets
+stat -c '%a %U:%G' /var/lib/aitbc/wallets          # record before — unchanged after
 AITBC_WALLET_DIR=/var/lib/aitbc/wallets \
   venv/bin/python -m aitbc_cli wallet create --name sepolia
 chmod 600 /var/lib/aitbc/wallets/sepolia.json
+stat -c '%a %U:%G' /var/lib/aitbc/wallets /var/lib/aitbc/wallets/sepolia.json
+#   dir identical to the first stat; file is 600 root:root
 AITBC_WALLET_DIR=/var/lib/aitbc/wallets \
   venv/bin/python -m aitbc_cli wallet --wallet-name sepolia address
+systemctl is-active aitbc-wallet                  # must still print "active"
 ```
+
+- `/var/lib/aitbc/wallets/` **already exists and is the live
+  aitbc-wallet state directory** — `aitbc:aitbc` 750/775 on
+  hub/hub1/node0/node1, `aitbc-wallet:aitbc-services` 750 on node2, and
+  the service runs as `User=aitbc` with `WALLET_DIR` pointed at it.
+  **Never run `install -d`, `chown`, or `chmod` on an existing shared
+  directory** — re-owning it to root locks the wallet service out. The
+  `stat` before/after pair proves the directory was untouched.
+- The wallet *file* is deliberately different from the directory's
+  normal contents: `sepolia.json` is `600 root:root` — root-readable
+  only, matching the precedent of hub's root-owned `0600` `ops.json` in
+  the same directory. The aitbc-wallet service never reads named wallet
+  files, so the root ownership does not affect it; the final
+  `systemctl is-active aitbc-wallet` line is the proof.
 
 - `wallet create` prompts twice for a password (typed, never echoed —
   the key is encrypted at rest), then prints `{name, type, address,
