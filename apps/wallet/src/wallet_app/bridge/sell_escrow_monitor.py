@@ -21,7 +21,7 @@ ETH release and outcome verification reuse the ETH-9/ETH-9b machinery in
 Escrow sweeps (settle → treasury, refund → shop) are serialized: at most one
 is in flight at a time, and a row leaves ``settling``/``refunding`` only when
 its outflow is found *sealed* — matched on nonce + recipient + amount +
-``payload.sell_ref`` — or resolved to ``needs_review``. Each sweep spends the
+``payload.sell_ref`` — or resolved to ``needs_review_sweep``. Each sweep spends the
 moved amount plus the standard 0.01 AIT fee; the escrow needs a small seed
 AIT balance for those fees (see docs/ops/sell-escrow-runbook.md).
 """
@@ -79,12 +79,19 @@ _SELL_BINDING_STATUSES = (
     "queued_fee_settle",
     "queued_fee_refund",
     "needs_review",
+    "needs_review_sweep",
 )
 
 # A row in one of these statuses holds a persisted sweep intent (escrow
 # nonce + signed blob). Sweep serialization: at most one may exist; a new
 # sweep waits until it is sealed or resolved.
 _INFLIGHT_SWEEP_STATUSES = ("settling", "refunding")
+
+# Marker tail on a fee-parked row's ``error`` — the write in ``_escrow_sweep``
+# and the reason split in ``_parked_refund_reason`` share this exact string so
+# a re-parked row recovers its original reason instead of accumulating
+# deficit text.
+_FEE_FLOAT_DEFICIT_MARK = "; escrow fee float deficit"
 
 
 def _sweep_fee_ait() -> Decimal:
@@ -611,7 +618,7 @@ async def _escrow_sweep(
         update_sell_lock_status(
             row["ait_tx_hash"],
             fee_park_status,
-            error=f"{reason}; escrow fee float deficit {deficit} AIT (need {required} AIT, have {balance})",
+            error=f"{reason}{_FEE_FLOAT_DEFICIT_MARK} {deficit} AIT (need {required} AIT, have {balance})",
         )
         logger.warning(
             "Sell lock %s: escrow fee float short %s AIT (balance %s, need %s) — parked %s",
@@ -650,12 +657,12 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
     blob is re-broadcast — identical signature at the same nonce, which the
     chain dedups, so a resume can never produce a second payment. If the
     nonce was consumed by a *different* transaction (a manual send), the row
-    goes to 'needs_review' — the ETH-9b rule, never a blind re-send.
+    goes to 'needs_review_sweep' — the ETH-9b rule, never a blind re-send.
     """
     nonce = row.get("escrow_out_nonce")
     if nonce is None:
         # Intent persisted but nonce missing — undecidable, needs a human.
-        update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="escrow sweep nonce missing")
+        update_sell_lock_status(row["ait_tx_hash"], "needs_review_sweep", error="escrow sweep nonce missing")
         return
     final_status = "settled" if row["status"] == "settling" else "refunded"
     hash_field = "settle_tx_hash" if final_status == "settled" else "refund_tx_hash"
@@ -673,7 +680,7 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
         # row's intent — a manual send or foreign sweep. Never auto-resolve.
         update_sell_lock_status(
             row["ait_tx_hash"],
-            "needs_review",
+            "needs_review_sweep",
             error=f"escrow nonce {nonce} consumed by an unmatched transaction",
         )
         logger.error(
@@ -687,7 +694,7 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
     # nonce — a fresh signature could double-pay, this cannot.
     stored = row.get("escrow_out_tx")
     if not stored:
-        update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="escrow sweep blob missing")
+        update_sell_lock_status(row["ait_tx_hash"], "needs_review_sweep", error="escrow sweep blob missing")
         return
     signed_tx = json.loads(stored)
     tx_hash = await _broadcast_ait_tx(signed_tx)
@@ -712,7 +719,7 @@ async def _refund_lock(cfg: SellConfig, row: dict[str, Any], reason: str) -> Non
     next healthy poll retries it, so an outage can never burn a refundable
     row. Once the intent + signed blob are persisted, the row is in flight
     and ``_resolve_escrow_sweep`` owns it: sealed → 'refunded'; nonce spent
-    by a foreign tx → 'needs_review'; never a second blind refund.
+    by a foreign tx → 'needs_review_sweep'; never a second blind refund.
     """
     try:
         await _escrow_sweep(cfg, row, row["shop_ait_address"], reason, "refunding", "queued_fee_refund")
@@ -953,7 +960,7 @@ async def _handle_released(cfg: SellConfig, row: dict[str, Any]) -> None:
 def _parked_refund_reason(row: dict[str, Any]) -> str:
     """The refund reason stored ahead of the parked fee-deficit marker."""
     error = str(row.get("error") or "")
-    reason = error.split("; escrow fee deficit")[0].strip()
+    reason = error.split(_FEE_FLOAT_DEFICIT_MARK)[0].strip()
     return reason or "refund"
 
 
@@ -978,6 +985,13 @@ async def _process_sell_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
         await _refund_lock(cfg, row, _parked_refund_reason(row))
     elif status in ("releasing", "needs_review"):
         await _handle_inflight(cfg, row)
+    elif status == "needs_review_sweep":
+        # Sweep-path review rows are terminal for the machine: the recorded
+        # intent is undecidable (nonce consumed by a foreign tx, nonce or
+        # signed blob missing), so only an explicit operator action may move
+        # the row — routing it into the ETH-release check could re-release
+        # or re-refund funds. See docs/ops/sell-escrow-runbook.md.
+        pass
     elif status == "released":
         await _handle_released(cfg, row)
     elif status in ("settling", "refunding"):

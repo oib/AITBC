@@ -856,25 +856,31 @@ _SELL_LOCK_KEYS = [
 # Lock statuses whose ETH release is still possible — they reserve float.
 # `failed`, `refunded` and `settled` are terminal and never counted; `released`
 # already sent its ETH so it reserves nothing further. `orphaned` rows are
-# refund-bound and never send ETH.
+# refund-bound and never send ETH. `needs_review_sweep` is excluded on the
+# same grounds: it is only reached after the ETH leg is already decided.
 _SELL_RESERVE_STATUSES = ("locked", "releasing", "needs_review", "queued_reserve", "stale_price")
 
 # Statuses that count ETH as already committed for the daily cap: the send
 # either happened or is in an ambiguous state where it may have happened.
 # `queued_fee_settle` released its ETH already and only owes the AIT settle;
 # `refund_pending`/`queued_fee_refund` proved no ETH left and reserve nothing.
+# `needs_review_sweep` is counted conservatively — the released_at filter
+# excludes sweep-parked refund rows automatically.
 _SELL_ETH_COMMITTED_STATUSES = (
     "releasing",
     "released",
     "settling",
     "settled",
     "needs_review",
+    "needs_review_sweep",
     "queued_fee_settle",
 )
 
 # Every non-terminal lock status — the poll loop's worklist.
 # `refund_pending` = release provably unsent, refund owed but not yet in
 # flight; `queued_fee_*` = sweep parked on escrow fee-float deficit.
+# `needs_review_sweep` stays on the worklist (still an open, unresolved lock)
+# but the router never auto-processes it — operator action only.
 _SELL_OPEN_STATUSES = (
     "locked",
     "releasing",
@@ -887,6 +893,7 @@ _SELL_OPEN_STATUSES = (
     "queued_fee_settle",
     "queued_fee_refund",
     "needs_review",
+    "needs_review_sweep",
     "orphaned",
 )
 
