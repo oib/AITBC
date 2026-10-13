@@ -31,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -122,6 +123,28 @@ class SellConfig:
     poll_interval: int
 
 
+def _decimal_env(env: str, default: str) -> Decimal:
+    raw = os.getenv(env, default)
+    try:
+        value = Decimal(raw)
+    except Exception as e:
+        raise ValueError(f"{env}={raw!r} is not a number") from e
+    if value <= 0:
+        raise ValueError(f"{env}={raw!r} must be positive")
+    return value
+
+
+def _positive_int_env(env: str, default: str) -> int:
+    raw = os.getenv(env, default)
+    try:
+        value = int(raw)
+    except Exception as e:
+        raise ValueError(f"{env}={raw!r} is not an integer") from e
+    if value <= 0:
+        raise ValueError(f"{env}={raw!r} must be positive")
+    return value
+
+
 def _sell_config() -> SellConfig:
     """Parse and validate sell-escrow env config.
 
@@ -149,26 +172,6 @@ def _sell_config() -> SellConfig:
     if not chain_id:
         raise ValueError("CHAIN_ID not configured — refusing to sign escrow sweeps")
 
-    def _decimal(env: str, default: str) -> Decimal:
-        raw = os.getenv(env, default)
-        try:
-            value = Decimal(raw)
-        except Exception as e:
-            raise ValueError(f"{env}={raw!r} is not a number") from e
-        if value <= 0:
-            raise ValueError(f"{env}={raw!r} must be positive")
-        return value
-
-    def _positive_int(env: str, default: str) -> int:
-        raw = os.getenv(env, default)
-        try:
-            value = int(raw)
-        except Exception as e:
-            raise ValueError(f"{env}={raw!r} is not an integer") from e
-        if value <= 0:
-            raise ValueError(f"{env}={raw!r} must be positive")
-        return value
-
     return SellConfig(
         escrow_address=canonical_address(escrow_address),
         escrow_wallet_path=wallet_path,
@@ -176,14 +179,14 @@ def _sell_config() -> SellConfig:
         escrow_credential_name=credential_name,
         treasury_address=canonical_address(treasury),
         chain_id=chain_id,
-        max_eth_per_tx=_decimal("SELL_MAX_ETH_PER_TX", "0.01"),
-        max_eth_per_day=_decimal("SELL_MAX_ETH_PER_DAY", "0.03"),
-        min_reserve_eth=_decimal("ETH_WITHDRAW_MIN_RESERVE", "0.005"),
-        max_payout_fraction=_decimal("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"),
-        release_deadline_seconds=_positive_int("SELL_RELEASE_DEADLINE", "3600"),
-        orphan_blocks=_positive_int("SELL_LOCK_ORPHAN_BLOCKS", "150"),
-        quote_expiry_seconds=_positive_int("SELL_QUOTE_EXPIRY_SECONDS", "900"),
-        poll_interval=_positive_int("SELL_POLL_INTERVAL", "30"),
+        max_eth_per_tx=_decimal_env("SELL_MAX_ETH_PER_TX", "0.01"),
+        max_eth_per_day=_decimal_env("SELL_MAX_ETH_PER_DAY", "0.03"),
+        min_reserve_eth=_decimal_env("ETH_WITHDRAW_MIN_RESERVE", "0.005"),
+        max_payout_fraction=_decimal_env("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"),
+        release_deadline_seconds=_positive_int_env("SELL_RELEASE_DEADLINE", "3600"),
+        orphan_blocks=_positive_int_env("SELL_LOCK_ORPHAN_BLOCKS", "150"),
+        quote_expiry_seconds=_positive_int_env("SELL_QUOTE_EXPIRY_SECONDS", "900"),
+        poll_interval=_positive_int_env("SELL_POLL_INTERVAL", "30"),
     )
 
 
@@ -242,22 +245,28 @@ def _check_credential_file(path: Any) -> None:
         raise _CredentialMissing("escrow credential file mode not 0600")
 
 
-def _escrow_credential_password(cfg: SellConfig) -> str:
-    """Wallet password from the systemd credential, or sealed-file decrypt."""
-    import subprocess
+def _credential_from_dir(cfg: SellConfig) -> str | None:
+    """The systemd credential dir copy of the wallet password, if mounted."""
     from pathlib import Path
 
     cred_dir = os.environ.get("CREDENTIALS_DIRECTORY")
-    if cred_dir:
-        path = Path(cred_dir) / cfg.escrow_credential_name
-        try:
-            password = path.read_text().rstrip("\n")
-        except OSError:
-            password = None
-        if password is not None:
-            if not password:
-                raise _CredentialMissing(f"{path} is empty")
-            return password
+    if not cred_dir:
+        return None
+    path = Path(cred_dir) / cfg.escrow_credential_name
+    try:
+        password = path.read_text().rstrip("\n")
+    except OSError:
+        return None
+    if not password:
+        raise _CredentialMissing(f"{path} is empty")
+    return password
+
+
+def _credential_via_systemd_creds(cfg: SellConfig) -> str:
+    """Decrypt the sealed credential file with systemd-creds (LXC path)."""
+    import subprocess
+    from pathlib import Path
+
     credential_file = Path(cfg.escrow_credential_file)
     _check_credential_file(credential_file)
     argv = [
@@ -284,6 +293,14 @@ def _escrow_credential_password(cfg: SellConfig) -> str:
     if not password:
         raise _CredentialMissing("systemd-creds decrypt produced empty secret")
     return password
+
+
+def _escrow_credential_password(cfg: SellConfig) -> str:
+    """Wallet password from the systemd credential, or sealed-file decrypt."""
+    password = _credential_from_dir(cfg)
+    if password is not None:
+        return password
+    return _credential_via_systemd_creds(cfg)
 
 
 def _load_escrow_key(cfg: SellConfig) -> Any:
@@ -832,20 +849,13 @@ def _lock_age_seconds(row: dict[str, Any]) -> float:
         return 0.0
 
 
-async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
-    """Admission path for a recorded lock: quote match → deadline →
-    expiry/requote → feed freshness → caps → release."""
-    quote = get_sell_quote(str(row["quote_id"])) if row.get("quote_id") else None
-    if quote is None:
-        # No live quote — unmatched locks are orphan-refunded after the
-        # window, never held.
-        update_sell_lock_status(row["ait_tx_hash"], "orphaned", error="no live quote for lock")
-        return
+def _quote_admits_lock(row: dict[str, Any], quote: dict[str, Any]) -> bool:
+    """Whether this row's quote admits it: 'expired' quotes still admit their
+    lock — at the re-quoted live rate. A 'locked' quote is already bound:
+    admission only when the bound lock IS this row (a queued_reserve/
+    stale_price re-entry). Otherwise the earliest live sibling wins; a later
+    'locked' sibling never blocks."""
     quote_id = str(quote["id"])
-    # 'expired' quotes still admit their lock — at the re-quoted live rate.
-    # A 'locked' quote is already bound: admission only when the bound lock
-    # IS this row (an queued_reserve/stale_price re-entry). Otherwise
-    # the earliest live sibling wins; a later 'locked' sibling never blocks.
     bound_lock = get_sell_lock_by_quote_id(quote_id, statuses=_SELL_BINDING_STATUSES)
     bound_is_self = bool(bound_lock and bound_lock["ait_tx_hash"] == row["ait_tx_hash"])
     quote_ok = quote.get("status") in ("quoted", "expired") or (quote.get("status") == "locked" and bound_is_self)
@@ -857,37 +867,55 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
             before_created_at=str(row.get("created_at") or ""),
         )
         quote_ok = not live_sibling
-    if not quote_ok:
-        # A second lock reusing one already-bound quote.
+    return quote_ok
+
+
+async def _price_lock_eth_amount(cfg: SellConfig, row: dict[str, Any], quote: dict[str, Any], quote_id: str) -> Decimal | None:
+    """Persist the lock's ETH amount — quote rate or live re-quote for an
+    expired quote. Returns ``None`` when the row was parked (stale feed)."""
+    eth_amount = row.get("eth_amount")
+    if eth_amount is not None:
+        return Decimal(str(eth_amount))
+    expired = True
+    try:
+        expired = datetime.now() > datetime.fromisoformat(str(quote.get("expires_at") or ""))
+    except Exception:
+        pass
+    if expired:
+        # Late lock on an expired quote: re-quote at the live feed.
+        recomputed = await compute_sell_quote(Decimal(str(row["amount_ait"])))
+        if recomputed is None:
+            update_sell_lock_status(row["ait_tx_hash"], "stale_price", error="expired quote and feed unavailable")
+            return None
+        eth_amount = recomputed["eth_amount"]
+        update_sell_quote_status(quote_id, "expired")
+        update_sell_lock_status(row["ait_tx_hash"], "locked", eth_amount=eth_amount, requoted=1, error="requoted after expiry")
+    else:
+        eth_amount = _eth_for_lock_at_quote(Decimal(str(row["amount_ait"])), quote)
+        update_sell_lock_status(row["ait_tx_hash"], "locked", eth_amount=eth_amount)
+        update_sell_quote_status(quote_id, "locked")
+    return Decimal(str(eth_amount))
+
+
+async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
+    """Admission path for a recorded lock: quote match → deadline →
+    expiry/requote → feed freshness → caps → release."""
+    quote = get_sell_quote(str(row["quote_id"])) if row.get("quote_id") else None
+    if quote is None or not _quote_admits_lock(row, quote):
+        # No live quote — unmatched locks are orphan-refunded after the
+        # window, never held. A second lock reusing an already-bound quote
+        # lands here too.
         update_sell_lock_status(row["ait_tx_hash"], "orphaned", error="no live quote for lock")
         return
+    quote_id = str(quote["id"])
 
     if _lock_age_seconds(row) > cfg.release_deadline_seconds:
         await _refund_lock(cfg, row, "release deadline passed")
         return
 
-    eth_amount = row.get("eth_amount")
+    eth_amount = await _price_lock_eth_amount(cfg, row, quote, quote_id)
     if eth_amount is None:
-        expired = True
-        try:
-            expired = datetime.now() > datetime.fromisoformat(str(quote.get("expires_at") or ""))
-        except Exception:
-            pass
-        if expired:
-            # Late lock on an expired quote: re-quote at the live feed.
-            recomputed = await compute_sell_quote(Decimal(str(row["amount_ait"])))
-            if recomputed is None:
-                update_sell_lock_status(row["ait_tx_hash"], "stale_price", error="expired quote and feed unavailable")
-                return
-            eth_amount = recomputed["eth_amount"]
-            update_sell_quote_status(quote_id, "expired")
-            update_sell_lock_status(
-                row["ait_tx_hash"], "locked", eth_amount=eth_amount, requoted=1, error="requoted after expiry"
-            )
-        else:
-            eth_amount = _eth_for_lock_at_quote(Decimal(str(row["amount_ait"])), quote)
-            update_sell_lock_status(row["ait_tx_hash"], "locked", eth_amount=eth_amount)
-            update_sell_quote_status(quote_id, "locked")
+        return
 
     # Re-check feed freshness immediately before spending ETH.
     if await get_eth_prices_fresh() is None:
@@ -964,38 +992,58 @@ def _parked_refund_reason(row: dict[str, Any]) -> str:
     return reason or "refund"
 
 
+async def _handle_stale_price(cfg: SellConfig, row: dict[str, Any]) -> None:
+    """Feed-stale park: re-admit at the live rate once the feed recovers;
+    deadline still refunds while parked."""
+    if await get_eth_prices_fresh() is not None:
+        update_sell_lock_status(row["ait_tx_hash"], "locked", error="feed recovered")
+        await _handle_locked(cfg, {**row, "status": "locked"})
+    elif _lock_age_seconds(row) > cfg.release_deadline_seconds:
+        await _refund_lock(cfg, row, "release deadline passed while feed stale")
+
+
+async def _refund_pending_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
+    await _refund_lock(cfg, row, str(row.get("error") or "refund"))
+
+
+async def _refund_queued_fee_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
+    await _refund_lock(cfg, row, _parked_refund_reason(row))
+
+
+# Binding the function objects at import time is safe here: every handler is a
+# module-level function defined above this line, nothing ever rebinds the
+# module names (tests stub the DB/RPC seams, not the handlers), and the table
+# is read-only after construction. _SELL_STATUS_HANDLERS must cover every
+# _SELL_OPEN_STATUSES member except needs_review_sweep (deliberately terminal
+# for the machine) — a test pins that.
+_SELL_STATUS_HANDLERS: dict[str, Callable[[SellConfig, dict[str, Any]], Awaitable[None]]] = {
+    "locked": _handle_locked,
+    "queued_reserve": _handle_locked,
+    "stale_price": _handle_stale_price,
+    "orphaned": _handle_orphaned,
+    "refund_pending": _refund_pending_lock,
+    "queued_fee_settle": _settle_lock,
+    "queued_fee_refund": _refund_queued_fee_lock,
+    "releasing": _handle_inflight,
+    "needs_review": _handle_inflight,
+    "released": _handle_released,
+    "settling": _resolve_escrow_sweep,
+    "refunding": _resolve_escrow_sweep,
+}
+
+
 async def _process_sell_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
-    status = row.get("status")
-    if status in ("locked", "queued_reserve"):
-        await _handle_locked(cfg, row)
-    elif status == "stale_price":
-        if await get_eth_prices_fresh() is not None:
-            update_sell_lock_status(row["ait_tx_hash"], "locked", error="feed recovered")
-            await _handle_locked(cfg, {**row, "status": "locked"})
-        else:
-            if _lock_age_seconds(row) > cfg.release_deadline_seconds:
-                await _refund_lock(cfg, row, "release deadline passed while feed stale")
-    elif status == "orphaned":
-        await _handle_orphaned(cfg, row)
-    elif status == "refund_pending":
-        await _refund_lock(cfg, row, str(row.get("error") or "refund"))
-    elif status == "queued_fee_settle":
-        await _settle_lock(cfg, row)
-    elif status == "queued_fee_refund":
-        await _refund_lock(cfg, row, _parked_refund_reason(row))
-    elif status in ("releasing", "needs_review"):
-        await _handle_inflight(cfg, row)
-    elif status == "needs_review_sweep":
+    status = str(row.get("status"))
+    if status == "needs_review_sweep":
         # Sweep-path review rows are terminal for the machine: the recorded
         # intent is undecidable (nonce consumed by a foreign tx, nonce or
         # signed blob missing), so only an explicit operator action may move
         # the row — routing it into the ETH-release check could re-release
         # or re-refund funds. See docs/ops/sell-escrow-runbook.md.
-        pass
-    elif status == "released":
-        await _handle_released(cfg, row)
-    elif status in ("settling", "refunding"):
-        await _resolve_escrow_sweep(cfg, row)
+        return
+    handler = _SELL_STATUS_HANDLERS.get(status)
+    if handler is not None:
+        await handler(cfg, row)
 
 
 def _expire_stale_quotes() -> int:
