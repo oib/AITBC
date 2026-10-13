@@ -137,11 +137,17 @@ are auto-refunded after `SELL_LOCK_ORPHAN_BLOCKS` — no silent holds.
 | orphan lock (no quote) | `SELL_LOCK_ORPHAN_BLOCKS` (suggest ~150 blocks) | auto-refund; alert if it repeats (probing) |
 | any `failed` | — | operator `write-off` after review; never auto-forgotten |
 
-A lock nobody resolves cannot strand value: the deadline refund is a
-monitor action, and if the monitor itself is down the deadline is
-evaluated on restart — worst case is a delayed refund, never a lost
-one. Escrow balance anomalies (lock without row, row without lock)
-emit the same `net=bal` alert channel ETH-6's transfer log surfaces.
+A lock nobody resolves cannot strand value *while the hub is honest
+and running*: the deadline refund is a monitor action, and if the
+monitor itself is down the deadline is evaluated on restart — the
+delayed refund is then a liveness property, not a lost one. That
+guarantee is hub automation, not a protocol guarantee: the hub holds
+the escrow key, so a hub that stays down — or acts dishonestly — can
+hold the locked AIT indefinitely. Only the phase-2 keyless escrow
+makes the refund enforceable on-chain; until then "delayed, never
+held" means "delayed for as long as the hub is operating". Escrow
+balance anomalies (lock without row, row without lock) emit the same
+`net=bal` alert channel ETH-6's transfer log surfaces.
 
 ## 6. Failure matrix
 
@@ -282,27 +288,36 @@ make). After the lock confirms, the exposure is capped by
 `SELL_RELEASE_DEADLINE` (~1 h): the hub must release the ETH or let
 the deadline fire an escrow→shop refund. An orphaned lock is refunded
 after ~150 blocks; a lock that outlives its window without release is
-swept back by the deadline refund — worst case a delayed refund, never
-a held one (§5). The shop's maximum exposure is therefore one locked
-amount for roughly the release deadline — bounded in size by the
+swept back by the deadline refund — worst case a delayed refund, but
+only for as long as the hub is operating: while the hub holds the key
+the refund is hub automation, and a down or dishonest hub can hold the
+locked AIT (§5). The phase-2 keyless escrow is what makes the refund
+enforceable on-chain. The shop's maximum exposure is therefore one
+locked amount for roughly the release deadline — bounded in size by the
 caps (§4), bounded in time by the deadlines (§5), and publicly
 verifiable on-chain the whole time.
 
 ## Operator decisions needed
 
-(a) **Keyed escrow now vs waiting for keyless post-settle.**
-*Recommendation: keyed escrow in phase 1.* Waiting means no
-reversible sell flow at all until the activation boundary has settled
-*and* a release-origination path ships in the node (§3(c) is blocked
-on BNT-2's retired origination RPC — a consensus-adjacent change).
-The keyed escrow delivers the trust property today with service-side
-code only; phase 2 retires the key. This item also carries the
-pending classification from the 13-Oct sovereignty review: whether
-the dedicated hub-owned key satisfies the sovereignty rule as hub
-custody under the conditions above — recommended yes; strict-reading
-fallback is locks directly to the hub's treasury address (same
-custody class, escrowed AIT commingled with the bridge operating
-balance). *Awaiting operator confirmation.*
+(a) **Keyed escrow now vs waiting for keyless post-settle — DECIDED
+13 Oct 2026, operator reply verbatim: "a".** The keyed
+`AIT_SELL_ESCROW` is hub-owned custody infrastructure, kept as
+designed, under these conditions: the key can move only AIT that
+shops locked with their own signed transfers — to treasury (settle)
+or back to the locking shop (refund) — and never a node wallet; it is
+generated and held separately from the bridge payout key, the ETH
+release key and the genesis key; the operator creates the key and no
+agent sees or handles it; §4's per-release and daily caps apply; and
+the phase-2 keyless escrow remains the long-term target that retires
+this key. The 13-Oct sovereignty review is thereby resolved: the
+dedicated hub-owned key satisfies the sovereignty rule as hub custody
+under those conditions, and the strict-reading fallback (locks
+directly to the hub's treasury address, commingled with the bridge
+operating balance) is not needed. The original recommendation —
+keyed escrow in phase 1, since waiting means no reversible sell flow
+until the activation boundary settles *and* a release-origination
+path ships in the node (§3(c) is blocked on BNT-2's retired
+origination RPC) — stands as the record of why.
 
 (b) **Who creates the `AIT_SELL_ESCROW` key and where it is
 custodied** (options only — no key is handled in this task):
