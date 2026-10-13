@@ -383,14 +383,16 @@ needed the node's key to receive it.
 
 ## Operator decisions needed
 
-- **Keyed-escrow classification (recommended, unconfirmed)**: whether
-  the dedicated hub-owned `AIT_SELL_ESCROW` key satisfies the
-  sovereignty rule as hub custody, under the conditions in the
-  sovereignty check. Strict-reading fallback: locks target the hub's
-  existing treasury address directly — inside the allowlist, but
-  escrowed AIT commingles with the bridge operating balance and loses
-  the dedicated audit trail. Carried identically in the ETH-7 design;
-  awaiting operator confirmation before any implementation.
+- **Keyed-escrow classification — DECIDED 13 Oct 2026, operator
+  reply verbatim: "a".** The dedicated hub-owned `AIT_SELL_ESCROW`
+  key satisfies the sovereignty rule as hub custody under the
+  conditions in the sovereignty check (moves only shop-locked AIT —
+  settle or refund — never a node wallet; separate from the bridge
+  payout, ETH release and genesis keys; operator-created, never
+  agent-handled; ETH-7 §4 caps apply; phase-2 keyless remains the
+  long-term target). Carried identically in the ETH-7 design;
+  the strict-reading fallback (locks to the hub's existing treasury
+  address, commingled escrowed AIT) is not needed.
 
 ## Could not verify (and why)
 
