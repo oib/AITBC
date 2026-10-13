@@ -35,8 +35,8 @@ Two plays against the live Sepolia bridge (bridge wallet
 
 | play | amount | why |
 |---|---|---|
-| A — deposit | **0.002 ETH** | 2× `MIN_ETH_DEPOSIT` (0.001); ≈$8 ⇒ ~28 AIT payout — far under `BRIDGE_MAX_PAYOUT_FRACTION` (0.5 × ~747 AIT payout float); deposits *grow* the ETH float |
-| B — withdraw | **10 AIT** | far above `MIN_AIT_WITHDRAW` (0.01); ≈$2.80 ⇒ ~0.0007 ETH released + ~0.0002 gas — ~1.6% of the float; stays well above the 0.005 ETH `ETH_WITHDRAW_MIN_RESERVE` |
+| A — deposit | **0.002 ETH** | 2× `MIN_ETH_DEPOSIT` (0.001); ≈$5 ⇒ ~18 AIT payout at current oracle prices (ETH ≈$2,508, AIT ≈$0.279) — far under `BRIDGE_MAX_PAYOUT_FRACTION` (0.5 × ~747 AIT payout float); deposits *grow* the ETH float |
+| B — withdraw | **10 AIT** | far above `MIN_AIT_WITHDRAW` (0.01); ≈$2.79 ⇒ ~0.0011 ETH released + ~0.0002 gas — ~2.6% of the float; stays well above the 0.005 ETH `ETH_WITHDRAW_MIN_RESERVE` |
 
 ### Use Case
 
@@ -67,26 +67,38 @@ Equivalent MCP call (read-only):
 
 ### Step A2 — the deposit send (operator, on node0)
 
+`aitbc wallet bridge deposit` calls `wallet_daemon_url` for the
+instructions; hub's daemon is loopback-only (`127.0.0.1:8108`) and node0
+has no route or ssh path to hub at all — so the CLI path needs one of
+these operator choices:
+
+**Option A2.1 — bridge-enable node0's wallet service (recommended)**
+(adds two env lines + one restart; an operator change on the host):
+
 ```bash
-# forward hub's wallet daemon to a spare local port (node0's own 8108 is
-# its own service — do NOT forward onto it):
-ssh -N -L 18108:127.0.0.1:8108 hub &
+# on node0, as root — append to /etc/aitbc/exchange.env (comment on its
+# own line; EnvironmentFile does not strip inline comments):
+cat >> /etc/aitbc/exchange.env <<'EOF'
+ETH_WALLET_ADDRESS=0x310dcE00270D0aC10CAccfBD636Ff07BD5648781
+ETH_NETWORK=sepolia
+ETH_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+EOF
+systemctl restart aitbc-wallet && systemctl is-active aitbc-wallet
 
 cd /opt/aitbc
-venv/bin/python -m aitbc_cli config set --key wallet_daemon_url \
-  --value http://localhost:18108
 venv/bin/python -m aitbc_cli wallet bridge deposit \
-  --wallet-name sepolia --amount 0.002 --eth-rpc-url <sepolia-rpc>
-# prints the ETH tx hash; the CLI signs with the sepolia wallet key,
-# which means the AIT recipient is the same 0x address
+  --wallet-name sepolia --amount 0.002 \
+  --eth-rpc-url https://ethereum-sepolia-rpc.publicnode.com
+# wallet password prompt (TTY) — the CLI signs the ETH tx with the
+# sepolia key; the AIT recipient is that same 0x address
 ```
 
-Restore the daemon pointer afterwards:
+**Option A2.2 — manual send (no env change, no CLI)**
 
-```bash
-venv/bin/python -m aitbc_cli config set --key wallet_daemon_url \
-  --value http://localhost:8108
-```
+Send the Sepolia tx from the `sepolia` key with any ETH tooling:
+`to = 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781`, `value = 0.002 ETH`,
+`data = 0x` + hex of the UTF-8 AIT recipient address (A1 shows the exact
+`transaction_data_hex`). No AITBC command performs this — it is Gap 2.
 
 ### Deposit transaction data format
 
@@ -142,8 +154,9 @@ Expect `status: ready` and an `eth_amount` ≈ 0.0007.
 ```bash
 cd /opt/aitbc
 venv/bin/python -m aitbc_cli wallet bridge withdraw \
-  --wallet-name node2 --amount 10 --eth-address <node2-sepolia-address>
-# wallet password prompt if the node2 wallet is encrypted
+  --wallet-name default --amount 10 --eth-address <node2-sepolia-address>
+# node2's funded wallet is named `default` (~92 AIT balance);
+# wallet password prompt if the wallet is encrypted
 ```
 
 The CLI builds the unsigned tx via `POST /v1/bridge/withdraw/build`
@@ -172,10 +185,10 @@ one 30 s poll, ETH released immediately after. End-to-end **≤2 min**.
 ### Step B3 — verify
 
 ```bash
-# withdrawal row lives in hub's bridge db — point the CLI at hub:
-venv/bin/python -m aitbc_cli config set --key wallet_daemon_url \
-  --value http://localhost:18108        # with the A2 forward still up
-venv/bin/python -m aitbc_cli wallet bridge status --ait-tx-hash <hash>
+# withdrawal row lives in hub's bridge db — read it on/through hub
+# (node2 cannot reach hub's loopback daemon; node2's own db never
+# gets the row because its monitor has no release key):
+ssh hub 'curl -s http://localhost:8108/v1/bridge/withdraw/<ait_tx_hash>'
 #   expect: status completed, eth_tx_hash set
 #   (or MCP: get_eth_bridge_withdrawal(ait_tx_hash=..., role="hub"))
 
@@ -236,9 +249,9 @@ height 30,400 and v13/v14 only arrive at 46,100.
 
 | # | gap | current path |
 |---|---|---|
-| 1 | `POST /v1/bridge/deposit` on node0/node1 503s — their `exchange.env` lacks `ETH_WALLET_ADDRESS`; instructions must come from **hub** (`ssh -L` forward + `wallet_daemon_url`, or MCP `host=`/`role=`). Adding the env key is out of ETH-1 scope. | forward or MCP |
+| 1 | `POST /v1/bridge/deposit` on node0/node1 503s — their `exchange.env` lacks `ETH_WALLET_ADDRESS`, and hub's daemon is `127.0.0.1:8108` only with no node→hub route or ssh path. The fix is an env append + `aitbc-wallet` restart on the node (A2.1) — an operator change — or the manual send (A2.2). | operator env change or manual |
 | 2 | No CLI/MCP command sends an ETH tx crediting an AIT address **other than the sender's** — `wallet bridge deposit` hard-binds recipient = signing wallet. A deposit for someone else's AIT address needs a hand-built ETH tx (`data = 0x` + utf8-hex of the recipient). | manual ETH send |
 | 3 | No CLI/MCP deposit-status tool — only withdraw status exists (`bridge status`, `get_eth_bridge_withdrawal`). Deposit verification is `bridge_monitor.admin status <eth_tx_hash>` on hub or `GET /v1/bridge/deposit/by-recipient/<addr>` on a wallet service. | ssh/curl |
-| 4 | `aitbc wallet bridge status` reads the **local** wallet db — withdraw rows exist only on hub; from node2 point `wallet_daemon_url` at hub first. | forward + config |
+| 4 | `aitbc wallet bridge status` reads the **local** wallet db — withdraw rows exist only on hub; remote hosts cannot reach its loopback daemon, so status checks go through `ssh hub` or MCP `host=`/`role=hub`. | ssh/MCP |
 | 5 | Faucet funding and any bridge-wallet refund send have no command — operator wallet/browser actions by design. | manual |
 | 6 | `sepolia_balance.py` reports `latest`-only; a pending-vs-sealed nonce gap (stuck outbound tx detector) is a possible follow-up flag. | — |
