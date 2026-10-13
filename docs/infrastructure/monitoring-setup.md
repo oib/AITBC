@@ -71,6 +71,8 @@ AITBC_WATCH_METRICS_FILE=/var/lib/prometheus/node-exporter/aitbc_prometheus_watc
 
 Each `--notify-url` (repeatable, or space-separated in `AITBC_WATCH_NOTIFY_URL`) receives a `POST` with the full event record as its JSON body — `prometheus_watch_started`, `prometheus_alert_firing`, `prometheus_alert_still_firing` and `prometheus_alert_resolved`, the latter including `duration_seconds`. A URL gets one immediate retry on failure; after that the failure is logged and counted in `aitbc_prometheus_watch_notify_errors_total`, and the watch loop continues — the alert is never lost, it is always in the event log. Keep receiver endpoints free of authentication for private networks, or terminate auth on the receiving side; the URLs are the only secret here, so the env file should be `0600 root:aitbc`.
 
+One URL may point at an external ntfy topic (`https://ntfy.bubuit.net/…`) for phone/browser delivery — that ntfy server is an operator-run side channel hosted outside this repository (SD-2a); this repo only needs the URL, never its server setup.
+
 ### Silences
 
 `--silence-file` points at a JSON list reloaded every poll, so editing it takes effect within one interval without a restart:
