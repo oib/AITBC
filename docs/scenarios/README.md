@@ -177,3 +177,4 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 56 | [Energy Pricing & Provider Registry](./56_energy_pricing.md) | GPU energy profiles, on-chain energy floor, operator quote verification | `aitbc energy` (EVM_RPC_URL-gated) |
 || 57 | [Coin Requests](./57_coin_requests.md) | New-node initial coin grant: request → operator approve/reject → execute → reconcile | `aitbc coin-requests` |
 || 58 | [Economics & OpenClaw DAO](./58_economics_dao.md) | Economic-parameter proposals and votes via the coordinator | `aitbc economics` |
+|| 59 | [Sepolia Buy/Sell AIT via the ETH Bridge](./59_sepolia_buy_sell_ait.md) | ETH→AIT deposit on node0, AIT→ETH withdraw on node2; BRIDGE_WITHDRAW sealing finding | `aitbc wallet bridge` |
