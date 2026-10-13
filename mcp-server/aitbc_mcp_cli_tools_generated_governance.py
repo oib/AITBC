@@ -128,15 +128,8 @@ def aitbc_governance_execute(
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)")
     ],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -147,13 +140,12 @@ def aitbc_governance_execute(
     """Execute a governance proposal on-chain as a governance executor (the vote tally is advisory and does not decide execution; V-7).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "proposal_id": "proposal-id",
             "executor_address": "executor-address",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -324,15 +316,8 @@ def aitbc_governance_propose(
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)")
     ],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -343,7 +328,7 @@ def aitbc_governance_propose(
     """Create a new governance proposal with title, description, and optional category.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "title": "title",
             "description": "description",
@@ -355,7 +340,6 @@ def aitbc_governance_propose(
             "voting_days": "voting-days",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -404,15 +388,8 @@ def aitbc_governance_vote(
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)")
     ],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -423,7 +400,7 @@ def aitbc_governance_vote(
     """Vote for, against, or abstain on a governance proposal. Votes are advisory (V-7) — the tally informs but does not decide execution; GOVERNANCE_EXECUTE is gated only by the governance_executors chain parameter.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "proposal_id": "proposal-id",
             "voter_id": "voter-id",
@@ -433,7 +410,6 @@ def aitbc_governance_vote(
             "voting_power": "voting-power",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None

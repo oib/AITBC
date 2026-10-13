@@ -33,15 +33,8 @@ def aitbc_crosschain_bridge(
     amount: Annotated[str, Field(description="Amount to bridge (AIT)")],
     recipient: Annotated[str | None, Field(description="Recipient address on the target chain (defaults to the sender)")],
     wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (source-chain producer)")],
     wait: Annotated[bool | None, Field(description="Poll status until the transfer reaches a terminal state")],
@@ -55,7 +48,7 @@ def aitbc_crosschain_bridge(
     """Bridge tokens to a target chain via a real signed bridge lock.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "wait": "wait"},
+        flags={"wait": "wait"},
         values={
             "source_chain": "source-chain",
             "target_chain": "target-chain",
@@ -64,7 +57,6 @@ def aitbc_crosschain_bridge(
             "recipient": "recipient",
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "rpc_url": "rpc-url",
             "timeout_opt": "timeout",
         },
@@ -158,15 +150,8 @@ def aitbc_crosschain_confirm(
     transfer_id: Annotated[str, Field(description="The bridge transfer ID")],
     source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to the node's chain)")],
     wallet: Annotated[str | None, Field(description="Wallet name or file path for signing the confirm")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -178,13 +163,12 @@ def aitbc_crosschain_confirm(
     """Confirm a pending bridge transfer with its real Merkle proof.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "transfer_id": "transfer-id",
             "source_chain": "source-chain",
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "rpc_url": "rpc-url",
         },
     )
@@ -257,15 +241,8 @@ def aitbc_crosschain_swap(
     slippage: Annotated[float | None, Field(description="Slippage tolerance (0-0.1)")],
     recipient: Annotated[str | None, Field(description="Recipient address on the target chain (defaults to the sender)")],
     wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (source-chain producer)")],
     wait: Annotated[bool | None, Field(description="Poll status until the transfer reaches a terminal state")],
@@ -279,7 +256,7 @@ def aitbc_crosschain_swap(
     """Create a cross-chain token swap via a real signed bridge lock.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "wait": "wait"},
+        flags={"wait": "wait"},
         values={
             "from_chain": "from-chain",
             "to_chain": "to-chain",
@@ -291,7 +268,6 @@ def aitbc_crosschain_swap(
             "recipient": "recipient",
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "rpc_url": "rpc-url",
             "timeout_opt": "timeout",
         },
