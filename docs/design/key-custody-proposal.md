@@ -74,6 +74,25 @@ balance. Other `*_old` keys derive to empty or dust accounts.
   `keys/kr7-bak-custody/`) — per-host keystore/env archives, all mode
   600. They replicate the same material in compressed form.
 
+### Planned tier T4 — per-node Sepolia operational wallets (ETH-1)
+
+Operator decision 2026-10-13: one dedicated Sepolia ETH wallet per host,
+for ETH↔AIT bridge scenario work only. Keys are created *on* the host
+(encrypted wallet file, `0600` root, `/var/lib/aitbc/wallets/
+sepolia.json`); only the address is ever recorded. Recipe:
+[docs/ops/node-sepolia-wallets.md](../ops/node-sepolia-wallets.md).
+
+| host | address | custody | faucet target |
+|---|---|---|---|
+| hub   | `SEPOLIA_ADDR_HUB`   (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
+| hub1  | `SEPOLIA_ADDR_HUB1`  (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
+| node0 | `SEPOLIA_ADDR_NODE0` (TBD at creation) | host-local, no IDE copy | 0.010 ETH |
+| node1 | `SEPOLIA_ADDR_NODE1` (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
+| node2 | `SEPOLIA_ADDR_NODE2` (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
+
+These keys are never chain validator keys and never the bridge wallet;
+no `*_PRIVATE_KEY` env variable exists for them anywhere.
+
 ## Custody tiers
 
 **T0 — treasury (`0x34FFfAd1…`).** One plaintext file must not stay the
