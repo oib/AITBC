@@ -390,7 +390,19 @@ MONEY_TOKENS = {
     "total",
 }
 
-SKIP_OPTION_NAMES = {"help", "format", "output", "output_format", "output-format"}
+# ``password``/``password_stdin`` are excluded on purpose: a secret in MCP call
+# arguments would land in transcripts/logs, and a CLI child spawned by the MCP
+# server must never read the server's own stdio transport stream (the runner
+# also passes stdin=DEVNULL). Agents use ``password_file`` instead.
+SKIP_OPTION_NAMES = {
+    "help",
+    "format",
+    "output",
+    "output_format",
+    "output-format",
+    "password",
+    "password_stdin",
+}
 
 # Names we already use for MCP routing/safety parameters in every generated tool.
 RESERVED_PY_NAMES = {"role", "host", "timeout", "dry_run", "confirm"}
