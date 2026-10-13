@@ -33,6 +33,7 @@ import aitbc_mcp_cli_tools_generated_dispute  # noqa: F401
 import aitbc_mcp_cli_tools_generated_economics  # noqa: F401
 import aitbc_mcp_cli_tools_generated_edge  # noqa: F401
 import aitbc_mcp_cli_tools_generated_energy  # noqa: F401
+import aitbc_mcp_cli_tools_generated_eth  # noqa: F401
 import aitbc_mcp_cli_tools_generated_exchange  # noqa: F401
 import aitbc_mcp_cli_tools_generated_exchange_island  # noqa: F401
 import aitbc_mcp_cli_tools_generated_explorer  # noqa: F401
