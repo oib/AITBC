@@ -75,9 +75,6 @@ Operator procedures for the live fleet:
   [peer keys](ops/peer-keys.md),
   [island subscription check](ops/island-subscription-check.md),
   [pricing / energy / exchange](ops/pricing-energy-exchange.md).
-- [ntfy staging runbook](ops/ntfy-staging-runbook.md) — self-hosted alert
-  delivery on an ns2 Incus container: container spec, server.yml, nginx
-  vhost, access plan, heartbeat, verification and rollback.
 
 ## Security
 
