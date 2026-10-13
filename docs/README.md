@@ -44,6 +44,9 @@ Operator procedures for the live fleet:
   at 46,100, healthy signs, the failure decision tree, and rollback limits.
 - [Bridge deposit canary](ops/bridge-canary-runbook.md) — staged
   ETH→AIT canary after the shadow window.
+- [Node Sepolia wallets](ops/node-sepolia-wallets.md) — per-host Sepolia
+  key custody (address-only output, 0600 wallet files), faucet funding,
+  and the read-only balance check.
 - [V-5 replay inventory](ops/v5-replay-inventory.md) — checkpoint-replay
   plan, verified inputs, and the known height-11 divergence.
 - [Escrow routing](ops/escrow-routing.md) — escrow operations must reach
