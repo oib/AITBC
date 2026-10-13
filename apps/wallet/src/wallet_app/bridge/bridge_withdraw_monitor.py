@@ -24,6 +24,7 @@ from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.crypto.signature_recovery import canonical_address
 
 from .bridge_db import (
+    get_resumable_withdrawals,
     get_withdrawal_by_ait_tx_hash,
     init_db,
     insert_withdrawal,
@@ -163,6 +164,41 @@ def _pending_eth_reserve() -> Decimal:
     return Decimal(sum((Decimal(w["amount_eth"]) for w in pending), Decimal("0")))
 
 
+def _sign_release_tx(account: Any, to_address: str, amount_eth: Decimal, nonce: int, gas_price: int) -> tuple[str, str]:
+    """Build and sign the release transaction, returning (raw_tx, tx_hash).
+
+    The hash is deterministic for the signed payload, so it is known
+    *before* broadcast — the monitor persists it as the send id so a
+    crash between broadcast and status write can still identify the
+    transaction on-chain.
+    """
+    value_wei = int(amount_eth * Decimal(10**18))
+    tx = {
+        "to": canonical_address(to_address),
+        "value": value_wei,
+        "gas": ETH_WITHDRAW_GAS,
+        "gasPrice": gas_price,
+        "nonce": nonce,
+        "chainId": _eth_chain_id(),
+    }
+    signed = account.sign_transaction(tx)
+    raw = signed.raw_transaction
+    if isinstance(raw, bytes):
+        raw = "0x" + raw.hex()
+    tx_hash = signed.hash.hex()
+    if not tx_hash.startswith("0x"):
+        tx_hash = "0x" + tx_hash
+    return raw, tx_hash
+
+
+async def _broadcast_release_tx(raw: str) -> str:
+    """Broadcast a signed raw transaction, returning the tx hash the node reports."""
+    result = await _eth_rpc("eth_sendRawTransaction", [raw])
+    if not result or not isinstance(result, str):
+        raise RuntimeError(f"eth_sendRawTransaction returned unexpected result: {result}")
+    return result
+
+
 async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
     """Sign and broadcast an Ethereum transfer, returning the tx hash."""
     key, error = _validate_release_key()
@@ -172,25 +208,11 @@ async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
     account = EthAccount.from_key(key)
     nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
     gas_price = await _eth_gas_price()
-    value_wei = int(amount_eth * Decimal(10**18))
-
-    tx = {
-        "to": canonical_address(to_address),
-        "value": value_wei,
-        "gas": ETH_WITHDRAW_GAS,
-        "gasPrice": gas_price,
-        "nonce": nonce,
-        "chainId": _eth_chain_id(),
-    }
-
-    signed = account.sign_transaction(tx)
-    raw = signed.raw_transaction
-    if isinstance(raw, bytes):
-        raw = "0x" + raw.hex()
-    result = await _eth_rpc("eth_sendRawTransaction", [raw])
-    if not result or not isinstance(result, str):
-        raise RuntimeError(f"eth_sendRawTransaction returned unexpected result: {result}")
-    return result
+    raw, eth_tx_hash = _sign_release_tx(account, to_address, amount_eth, nonce, gas_price)
+    sent = await _broadcast_release_tx(raw)
+    if sent.lower() != eth_tx_hash.lower():
+        logger.warning("eth_sendRawTransaction returned %s, expected signed hash %s", sent, eth_tx_hash)
+    return eth_tx_hash
 
 
 async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
@@ -256,8 +278,60 @@ async def _refund_withdrawal(ait_tx_hash: str, user: str, gross_ait: Decimal, re
         update_withdrawal_status(ait_tx_hash, "failed", error=f"refund failed: {e}")
 
 
+_STATUS_PERSIST_ATTEMPTS = 3
+_STATUS_PERSIST_DELAYS = (0.5, 1.5)
+
+
+async def _update_status_with_retry(
+    ait_tx_hash: str,
+    status: str,
+    *,
+    eth_tx_hash: str | None = None,
+    refund_tx_hash: str | None = None,
+    release_nonce: int | None = None,
+    error: str | None = None,
+) -> bool:
+    """Persist a withdrawal status, retrying transient DB errors.
+
+    A status write that fails after an ETH send must never be allowed to
+    fall through to a refund path: the caller either persists or raises,
+    and the caller's except branch verifies on-chain before doing anything.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(_STATUS_PERSIST_ATTEMPTS):
+        try:
+            return update_withdrawal_status(
+                ait_tx_hash,
+                status,
+                eth_tx_hash=eth_tx_hash,
+                refund_tx_hash=refund_tx_hash,
+                error=error,
+                release_nonce=release_nonce,
+            )
+        except Exception as e:
+            last_exc = e
+            logger.error(
+                "Failed to persist withdrawal %s status %s (attempt %d/%d): %s",
+                ait_tx_hash,
+                status,
+                attempt + 1,
+                _STATUS_PERSIST_ATTEMPTS,
+                e,
+            )
+            if attempt < _STATUS_PERSIST_ATTEMPTS - 1:
+                await asyncio.sleep(_STATUS_PERSIST_DELAYS[attempt])
+    raise RuntimeError(f"could not persist withdrawal {ait_tx_hash} status {status}: {last_exc}")
+
+
 async def _release_eth_for_withdrawal(withdrawal_id: str, ait_tx_hash: str, eth_address: str, amount_eth: Decimal) -> str:
-    """Send the ETH release transaction and return the Ethereum tx hash."""
+    """Send the ETH release transaction and return the Ethereum tx hash.
+
+    Ordering guarantees (ETH-9): the intent ('releasing' + nonce +
+    deterministic tx hash) is persisted before broadcast; the tx hash
+    is persisted again with 'completed' before the function returns.
+    Any failure after the send leaves the 'releasing' row carrying the
+    send id for the on-chain re-verification, never a blind refund.
+    """
     # Reserve guard: we need the withdrawal amount plus gas cost in ETH.
     gas_price = await _eth_gas_price()
     estimated_gas_cost_eth = Decimal(gas_price * ETH_WITHDRAW_GAS) / Decimal(10**18)
@@ -266,8 +340,22 @@ async def _release_eth_for_withdrawal(withdrawal_id: str, ait_tx_hash: str, eth_
     if available < required:
         raise RuntimeError(f"Insufficient ETH reserve: {available} < {required}")
 
-    eth_tx_hash = await _send_eth(eth_address, amount_eth)
-    update_withdrawal_status(ait_tx_hash, "completed", eth_tx_hash=eth_tx_hash)
+    key, error = _validate_release_key()
+    if not key:
+        raise RuntimeError(error)
+    account = EthAccount.from_key(key)
+    nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
+    raw, eth_tx_hash = _sign_release_tx(account, eth_address, amount_eth, nonce, gas_price)
+
+    # Persist intent BEFORE broadcast: a crash after this line leaves
+    # evidence (nonce + deterministic hash) the resume check can verify.
+    await _update_status_with_retry(ait_tx_hash, "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+
+    sent = await _broadcast_release_tx(raw)
+    if sent.lower() != eth_tx_hash.lower():
+        logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
+
+    await _update_status_with_retry(ait_tx_hash, "completed", eth_tx_hash=eth_tx_hash)
     logger.info(
         "Released %s ETH to %s (ETH tx: %s) for withdrawal %s",
         amount_eth,
@@ -336,10 +424,133 @@ async def _process_withdrawal(tx: dict[str, Any]) -> bool:
         return True
     except Exception as e:
         logger.error("ETH release failed for withdrawal %s: %s", ait_tx_hash, e)
-        update_withdrawal_status(ait_tx_hash, "failed", error=str(e))
-        # Refund the AIT so the user is not left with a burned balance.
-        await _refund_withdrawal(ait_tx_hash, sender, gross_ait, str(e))
+        # Never refund blind: a DB error after the broadcast can land us here
+        # with the ETH already gone. Verify against the chain first.
+        await _resolve_release_failure(ait_tx_hash, sender, gross_ait, e)
         return True
+
+
+def _receipt_status(receipt: dict[str, Any]) -> int:
+    """Normalize an eth_getTransactionReceipt status (hex string or int) to int."""
+    status = receipt.get("status")
+    return int(status, 16) if isinstance(status, str) else int(status or 0)
+
+
+async def _verify_release_outcome(ait_tx_hash: str) -> str:
+    """Return 'sent', 'not_sent' or 'unknown' for a withdrawal's ETH release.
+
+    'sent' means a successful receipt exists (or the recorded nonce was
+    consumed by a mined tx from this dedicated wallet). 'not_sent' is only
+    returned on positive proof — failed receipt, or neither the tx hash
+    nor the nonce ever appeared on-chain. Anything ambiguous, including
+    RPC failures, is 'unknown' so the caller never refunds blind.
+    """
+    try:
+        row = get_withdrawal_by_ait_tx_hash(ait_tx_hash)
+    except Exception as e:
+        logger.error("Could not read withdrawal %s for release verification: %s", ait_tx_hash, e)
+        return "unknown"
+    if not row:
+        return "not_sent"
+
+    outcome = "not_sent"
+    try:
+        eth_tx_hash = row.get("eth_tx_hash")
+        if eth_tx_hash:
+            tx = await _eth_rpc("eth_getTransactionByHash", [eth_tx_hash])
+            receipt = await _eth_rpc("eth_getTransactionReceipt", [eth_tx_hash])
+            if receipt is not None:
+                return "sent" if _receipt_status(receipt) == 1 else "not_sent"
+            if tx is not None:
+                # Broadcast reached a node but is not mined yet — undecidable.
+                outcome = "unknown"
+
+        nonce = row.get("release_nonce")
+        if nonce is not None:
+            latest = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "latest"]), 16)
+            if latest > nonce:
+                # A mined tx consumed the nonce on this dedicated release key.
+                return "sent"
+            pending = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "pending"]), 16)
+            if pending > nonce:
+                outcome = "unknown"
+    except Exception as e:
+        logger.error("Release outcome verification failed for %s: %s", ait_tx_hash, e)
+        return "unknown"
+    return outcome
+
+
+async def _resolve_release_failure(ait_tx_hash: str, sender: str, gross_ait: Decimal, exc: Exception) -> None:
+    """Decide what a failed release attempt means — refund only on proof.
+
+    'sent'  -> the ETH did leave; completing the row is the only safe end.
+    'not_sent' -> proven never released; mark failed and refund the AIT.
+    'unknown' -> do not refund; mark needs_review for the operator.
+    """
+    outcome = await _verify_release_outcome(ait_tx_hash)
+    if outcome == "sent":
+        logger.warning(
+            "ETH release for withdrawal %s succeeded despite error (%s); completing the row",
+            ait_tx_hash,
+            exc,
+        )
+        try:
+            await _update_status_with_retry(ait_tx_hash, "completed")
+        except Exception as persist_err:
+            logger.error("Could not persist completion for %s: %s", ait_tx_hash, persist_err)
+    elif outcome == "not_sent":
+        update_withdrawal_status(ait_tx_hash, "failed", error=str(exc))
+        # Refund the AIT so the user is not left with a burned balance.
+        await _refund_withdrawal(ait_tx_hash, sender, gross_ait, str(exc))
+    else:
+        update_withdrawal_status(
+            ait_tx_hash,
+            "needs_review",
+            error=f"release outcome unverifiable: {exc}",
+        )
+        logger.error(
+            "Withdrawal %s marked needs_review — ETH release outcome unverifiable: %s",
+            ait_tx_hash,
+            exc,
+        )
+
+
+async def _resume_unfinished_releases() -> dict[str, int]:
+    """Re-verify 'releasing'/'needs_review' rows against the chain.
+
+    Runs every poll and covers restart-after-crash: the persisted nonce
+    and deterministic tx hash let the check prove what already happened.
+    Proven-sent rows complete; proven-unsent rows fail and refund;
+    unknown rows stay open for the operator.
+    """
+    resolved = {"completed": 0, "failed": 0, "still_open": 0}
+    for row in get_resumable_withdrawals():
+        try:
+            outcome = await _verify_release_outcome(row["ait_tx_hash"])
+            if outcome == "sent":
+                await _update_status_with_retry(row["ait_tx_hash"], "completed")
+                resolved["completed"] += 1
+                logger.info("Resumed withdrawal %s: ETH release confirmed on chain", row["ait_tx_hash"])
+            elif outcome == "not_sent":
+                update_withdrawal_status(row["ait_tx_hash"], "failed", error="release never reached the chain")
+                await _refund_withdrawal(
+                    row["ait_tx_hash"],
+                    row["from_address"],
+                    Decimal(str(row["amount_ait"])),
+                    "release never reached the chain",
+                )
+                resolved["failed"] += 1
+            else:
+                resolved["still_open"] += 1
+                logger.error(
+                    "Withdrawal %s (%s) still unverifiable — needs review",
+                    row["ait_tx_hash"],
+                    row["status"],
+                )
+        except Exception as e:
+            resolved["still_open"] += 1
+            logger.error("Resume check failed for withdrawal %s: %s", row.get("ait_tx_hash"), e)
+    return resolved
 
 
 async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
@@ -373,6 +584,15 @@ async def poll_withdrawals_once() -> dict[str, Any]:
     if not key:
         logger.error("Withdrawal monitor disabled: %s", error)
         return {"scanned": 0, "recorded": 0, "skipped": True, "reason": error}
+
+    # Re-verify rows left mid-flight by a crash or restart before scanning
+    # for new withdrawals — the same on-chain checks decide their fate.
+    try:
+        resume = await _resume_unfinished_releases()
+        if any(resume.values()):
+            logger.info("Release resume pass: %s", resume)
+    except Exception as e:
+        logger.error("Release resume pass failed: %s", e)
 
     transactions = await get_bridge_withdraw_transactions()
     recorded = 0
