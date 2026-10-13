@@ -119,6 +119,9 @@ def init_db() -> None:
     _add_column_if_not_exists(conn, "eth_deposits", "envelope_hash", "TEXT")
     _add_column_if_not_exists(conn, "eth_deposits", "submitted_height", "INTEGER")
     _add_column_if_not_exists(conn, "eth_deposits", "rebroadcast_count", "INTEGER NOT NULL DEFAULT 0")
+    # ETH-9: nonce recorded before an ETH release is broadcast, so a crash or
+    # restart can prove from the chain whether the send consumed the nonce.
+    _add_column_if_not_exists(conn, "eth_withdrawals", "release_nonce", "INTEGER")
 
     # Expression index keeps the public by-recipient lookup off a full table
     # scan; the query stays LOWER() = LOWER() so either service's stored
@@ -563,7 +566,7 @@ def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at
+            released_at, completed_at, refunded_at, release_nonce
         FROM eth_withdrawals
         WHERE ait_tx_hash = ?
         """,
@@ -590,6 +593,7 @@ def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
         "released_at",
         "completed_at",
         "refunded_at",
+        "release_nonce",
     ]
     return dict(zip(keys, row, strict=False))
 
@@ -603,9 +607,9 @@ def get_pending_withdrawals() -> list[dict[str, Any]]:
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at
+            released_at, completed_at, refunded_at, release_nonce
         FROM eth_withdrawals
-        WHERE status IN ('pending', 'insufficient_reserve', 'failed')
+        WHERE status IN ('pending', 'insufficient_reserve', 'failed', 'releasing', 'needs_review')
         ORDER BY created_at ASC
         """,
     )
@@ -628,6 +632,52 @@ def get_pending_withdrawals() -> list[dict[str, Any]]:
         "released_at",
         "completed_at",
         "refunded_at",
+        "release_nonce",
+    ]
+    return [dict(zip(keys, row, strict=False)) for row in rows]
+
+
+def get_resumable_withdrawals() -> list[dict[str, Any]]:
+    """Withdrawals left mid-release ('releasing') or unverifiable ('needs_review').
+
+    A crash between the ETH broadcast and the status write leaves a
+    'releasing' row; the monitor re-verifies these against the chain
+    on every poll and after restart instead of retrying or refunding
+    blindly.
+    """
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
+            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
+            released_at, completed_at, refunded_at, release_nonce
+        FROM eth_withdrawals
+        WHERE status IN ('releasing', 'needs_review')
+        ORDER BY created_at ASC
+        """,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    keys = [
+        "id",
+        "ait_tx_hash",
+        "from_address",
+        "eth_address",
+        "amount_ait",
+        "fee_ait",
+        "net_ait",
+        "amount_eth",
+        "status",
+        "eth_tx_hash",
+        "refund_tx_hash",
+        "error",
+        "created_at",
+        "released_at",
+        "completed_at",
+        "refunded_at",
+        "release_nonce",
     ]
     return [dict(zip(keys, row, strict=False)) for row in rows]
 
@@ -641,7 +691,7 @@ def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at
+            released_at, completed_at, refunded_at, release_nonce
         FROM eth_withdrawals
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -667,12 +717,18 @@ def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]
         "released_at",
         "completed_at",
         "refunded_at",
+        "release_nonce",
     ]
     return [dict(zip(keys, row, strict=False)) for row in rows]
 
 
 def update_withdrawal_status(
-    ait_tx_hash: str, status: str, eth_tx_hash: str | None = None, refund_tx_hash: str | None = None, error: str | None = None
+    ait_tx_hash: str,
+    status: str,
+    eth_tx_hash: str | None = None,
+    refund_tx_hash: str | None = None,
+    error: str | None = None,
+    release_nonce: int | None = None,
 ) -> bool:
     """Update withdrawal status and optional hashes."""
     conn = _connect_db()
@@ -687,12 +743,13 @@ def update_withdrawal_status(
     query = f"""
         UPDATE eth_withdrawals
         SET status = ?, {timestamp_field} = ?, eth_tx_hash = COALESCE(?, eth_tx_hash),
-            refund_tx_hash = COALESCE(?, refund_tx_hash), error = COALESCE(?, error)
+            refund_tx_hash = COALESCE(?, refund_tx_hash), error = COALESCE(?, error),
+            release_nonce = COALESCE(?, release_nonce)
         WHERE ait_tx_hash = ?
     """  # nosec B608 - timestamp_field is a hardcoded literal above, never caller input
     cursor.execute(
         query,
-        (status, datetime.now().isoformat(), eth_tx_hash, refund_tx_hash, error, ait_tx_hash),
+        (status, datetime.now().isoformat(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash),
     )
     conn.commit()
     rows_affected = cursor.rowcount
