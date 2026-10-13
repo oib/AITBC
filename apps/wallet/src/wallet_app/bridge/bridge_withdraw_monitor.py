@@ -161,11 +161,23 @@ async def _eth_gas_price() -> int:
 
 
 def _pending_eth_reserve() -> Decimal:
-    """Sum of ETH currently allocated to pending or insufficient-reserve withdrawals."""
-    from .bridge_db import get_pending_withdrawals
+    """Sum of ETH currently allocated to pending or insufficient-reserve withdrawals.
+
+    Includes pending sell-escrow locks (ETH-10): withdrawals and sells draw
+    from the same bridge-wallet float, so each side's reserve check must see
+    the other's in-flight rows. The sell-side sum excludes 'failed' rows.
+    """
+    from .bridge_db import get_pending_withdrawals, get_sell_pending_eth_reserve
 
     pending = get_pending_withdrawals()
-    return Decimal(sum((Decimal(w["amount_eth"]) for w in pending), Decimal("0")))
+    withdraw_sum = Decimal(sum((Decimal(w["amount_eth"]) for w in pending), Decimal("0")))
+    try:
+        sell_sum = get_sell_pending_eth_reserve()
+    except Exception:
+        # Pre-ETH-10 databases lack the sell tables; withdraw reserve must not
+        # depend on them existing.
+        sell_sum = Decimal("0")
+    return withdraw_sum + sell_sum
 
 
 def _sign_release_tx(account: Any, to_address: str, amount_eth: Decimal, nonce: int, gas_price: int) -> tuple[str, str]:
@@ -488,6 +500,28 @@ async def _release_nonce_outcome(row: dict[str, Any]) -> str | None:
     return None
 
 
+async def _compose_release_outcome(row: dict[str, Any]) -> str:
+    """Verify a persisted release row's ETH outcome: 'sent'/'not_sent'/'unknown'.
+
+    Shared by the withdrawal and sell-escrow monitors — the single
+    implementation of "is the ETH out?". The row dict must carry
+    ``eth_tx_hash``, ``release_nonce`` and ``ait_tx_hash`` (log context).
+    """
+    try:
+        eth_tx_hash = row.get("eth_tx_hash")
+        if eth_tx_hash:
+            outcome = await _release_receipt_outcome(eth_tx_hash)
+            if outcome is not None:
+                return outcome
+        nonce_outcome = await _release_nonce_outcome(row)
+        if nonce_outcome is not None:
+            return nonce_outcome
+        return "not_sent"
+    except Exception as e:
+        logger.error("Release outcome verification failed for %s: %s", row.get("ait_tx_hash"), e)
+        return "unknown"
+
+
 async def _verify_release_outcome(ait_tx_hash: str) -> str:
     """Return 'sent', 'not_sent' or 'unknown' for a withdrawal's ETH release.
 
@@ -508,19 +542,7 @@ async def _verify_release_outcome(ait_tx_hash: str) -> str:
         # A missing row proves nothing about the chain.
         return "unknown"
 
-    try:
-        eth_tx_hash = row.get("eth_tx_hash")
-        if eth_tx_hash:
-            outcome = await _release_receipt_outcome(eth_tx_hash)
-            if outcome is not None:
-                return outcome
-        nonce_outcome = await _release_nonce_outcome(row)
-        if nonce_outcome is not None:
-            return nonce_outcome
-        return "not_sent"
-    except Exception as e:
-        logger.error("Release outcome verification failed for %s: %s", ait_tx_hash, e)
-        return "unknown"
+    return await _compose_release_outcome(row)
 
 
 async def _resolve_release_failure(ait_tx_hash: str, sender: str, gross_ait: Decimal, exc: Exception) -> None:
