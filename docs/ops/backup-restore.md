@@ -124,6 +124,25 @@ Retention: newest `KEEP` (14) name-matched generations per host; the newest
 verified generation is never deleted; foreign directory names are never
 touched. A 20 GB free-space floor (`MIN_FREE_GB`) is enforced before pulling.
 
+Run visibility (BK-4): the unit appends stdout/stderr to
+`fleet-nightly/pull.log` (0600, rotated at 1 MB keeping 3 by the script).
+After a fully successful run the script writes `DEST/last-success.txt`
+(UTC timestamp + generation per host, 0600) and pushes
+`aitbc_offsite_pull_last_success_timestamp_seconds{host="ide"}` into hub's
+node-exporter textfile dir over the ssh alias — atomic temp+rename, and a
+failure there only warns, never fails the pull. `offsite-pull-backups.sh
+--status` prints the marker age and exits non-zero when it is missing or
+older than 36 h; Prometheus' `OffsitePullStale` alert covers it the rest
+of the time.
+
+```bash
+# upgrade to the BK-4 unit (adds the log file + 0600 umask):
+cp /opt/aitbc/scripts/ops/offsite-pull-backups.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user restart offsite-pull-backups.timer
+tail -f ~/windsurf/aitbc/backups/fleet-nightly/pull.log
+```
+
 Verify a pulled generation after decrypt:
 
 ```bash
