@@ -24,5 +24,8 @@ Related design documents:
 
 - [key-custody-proposal.md](../design/key-custody-proposal.md) — plaintext key
   inventory, custody tiers and the encrypted-copy procedure (K-4).
+- [eth7-escrowed-sell-flow.md](../design/eth7-escrowed-sell-flow.md) — hub-escrowed
+  AIT→ETH sell flow: keyed escrow lock now, keyless protocol escrow post-settle
+  (ETH-7 design, Sepolia only).
 - [node-held-wallet-access.md](../design/node-held-wallet-access.md) — bounded,
   allow-listed, operator-approved agent spends from a node-held ops wallet (SEC-1).
