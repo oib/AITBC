@@ -120,3 +120,69 @@ def test_post_refuses_non_http_schemes(tmp_path, monkeypatch):
     failures = digest._post(["file:///etc/passwd", "ftp://x/y", "http://ok/t"], "body")
     assert failures == 2
     assert len(calls) == 1
+
+
+# --- ntfy publish mode (SD-2c) -------------------------------------------------
+
+
+def _capture_requests(monkeypatch):
+    """Stub urlopen and collect the Request objects it was called with."""
+    calls = []
+
+    class _Resp:
+        def read(self):
+            return b""
+
+    monkeypatch.setattr(digest.urllib.request, "urlopen", lambda req, timeout=None: calls.append(req) or _Resp())
+    return calls
+
+
+def test_ntfy_digest_posts_counts_and_alert_names_only(monkeypatch):
+    """Instance addresses and annotation text must never reach the ntfy body."""
+    calls = _capture_requests(monkeypatch)
+    groups = {
+        "ServiceDown": {
+            "firing": 2,
+            "resolved": 0,
+            "still_firing": 0,
+            "instances": {"node0:9100"},
+            "summary": "exporter on 0x1111222233334444555566667777888899990000 is down",
+        }
+    }
+    body = digest._render_ntfy(groups, 24, "hub")
+    assert "ServiceDown: 2 firing" in body
+    assert "on hub" in body
+    # FQDN collapses to the fleet name; unknown hosts collapse to "fleet".
+    assert "on hub" in digest._render_ntfy(groups, 24, "hub.aitbc.bubuit.net")
+    assert "on fleet" in digest._render_ntfy(groups, 24, "desktop-9")
+    assert "node0:9100" not in body
+    assert "0x1111222233334444555566667777888899990000" not in body
+    assert "exporter on" not in body
+    failures = digest._post(["http://ntfy.test/"], body, notify_format="ntfy", token="tk_TESTONLY")
+    assert failures == 0
+    req = calls[0]
+    assert req.get_header("Authorization") == "Bearer tk_TESTONLY"
+    payload = json.loads(req.data)
+    assert set(payload) == {"topic", "title", "message", "priority", "click"}
+    assert payload["topic"] == "aitbc-alerts"
+    assert payload["title"] == "AITBC daily digest"
+    assert payload["priority"] == 2
+    assert "ServiceDown: 2 firing" in payload["message"]
+    assert "0x1111" not in payload["message"]
+
+
+def test_ntfy_digest_without_a_token_posts_nothing(monkeypatch, capsys):
+    calls = _capture_requests(monkeypatch)
+    failures = digest._post(["http://ntfy.test/"], "body", notify_format="ntfy", token=None)
+    assert failures == 1
+    assert calls == []
+    assert "TOKEN is unset" in capsys.readouterr().err
+
+
+def test_json_digest_keeps_the_plaintext_body(monkeypatch):
+    calls = _capture_requests(monkeypatch)
+    failures = digest._post(["http://ok/t"], "ServiceDown [node0:9100]: 2 firing")
+    assert failures == 0
+    req = calls[0]
+    assert req.get_header("Content-type") == "text/plain"
+    assert req.data == b"ServiceDown [node0:9100]: 2 firing"

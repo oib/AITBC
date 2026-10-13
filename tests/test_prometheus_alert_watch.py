@@ -9,11 +9,13 @@ reads as "everything resolved".
 
 from __future__ import annotations
 
+import http.server
 import itertools
 import json
 import logging
 import socket
 import stat
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -200,7 +202,7 @@ def _capture_notify(monkeypatch, fail_urls: set[str] | None = None) -> list[tupl
         def raise_for_status(self) -> None:
             return None
 
-    def fake_post(url, json=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None):
         sent.append((url, json))
         if url in fail:
             raise prom.httpx.ConnectError("connection refused")
@@ -611,3 +613,217 @@ def test_no_floor_keeps_pushing_everything(watch, monkeypatch, tmp_path) -> None
         alert_log=tmp_path / "alerts.log",
     )
     assert {p["event"] for _, p in sent} == {"prometheus_watch_started", "prometheus_alert_firing"}
+
+
+# --- ntfy publish mode (SD-2c) -------------------------------------------------
+#
+# These tests post against a real loopback HTTP listener so headers are
+# exercised, not just the json= payload the monkeypatched tests capture.
+
+
+@pytest.fixture
+def notify_listener():
+    """Loopback HTTP listener capturing (path, headers, body) of every POST."""
+    captured: list[dict[str, Any]] = []
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length", 0))
+            captured.append(
+                {
+                    "path": self.path,
+                    "headers": dict(self.headers.items()),
+                    "body": self.rfile.read(length),
+                }
+            )
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *args: Any) -> None:
+            return None
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/hook", captured
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _ntfy_payloads(captured: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [json.loads(c["body"]) for c in captured]
+
+
+def test_ntfy_format_posts_a_whitelisted_publish_body(watch, monkeypatch, notify_listener, tmp_path) -> None:
+    """Only name, fleet host, severity, state and the click link ever leave the host."""
+    url, captured = notify_listener
+    monkeypatch.setenv("AITBC_WATCH_NOTIFY_TOKEN", "tk_TESTONLY")
+    poisoned = _alert(
+        "ServiceDown",
+        instance="node0:9100",
+        wallet="0x1111222233334444555566667777888899990000",
+        tx="0x" + "ab" * 32,
+    )
+    poisoned["annotations"]["description"] = "see /var/log/aitbc/secret.log for 0xdeadbeef"
+    watch(
+        [[poisoned], []],
+        "--notify-url",
+        url,
+        "--notify-format",
+        "ntfy",
+        alert_log=tmp_path / "alerts.log",
+    )
+    payloads = _ntfy_payloads(captured)
+    assert len(payloads) == 3  # started, firing, resolved
+    for body in payloads:
+        assert set(body) == {"topic", "title", "message", "priority", "tags", "click"}
+        assert body["topic"] == "aitbc-alerts"
+        assert body["click"] == "https://hub.aitbc.bubuit.net/alerts.html"
+    # Nothing outside the whitelist: no addresses, hashes, paths or annotation text.
+    for body in captured:
+        wire = body["body"].decode()
+        for secret in (
+            "0x1111222233334444555566667777888899990000",
+            "0x" + "ab" * 32,
+            "/var/log/aitbc/secret.log",
+            "0xdeadbeef",
+            "summary",
+        ):
+            assert secret not in wire
+    # The token travels in the header; the topic stays out of the URL path.
+    assert all(c["headers"].get("Authorization") == "Bearer tk_TESTONLY" for c in captured)
+    assert all(c["path"] == "/hook" for c in captured)
+    firing = next(p for p in payloads if "firing" in p["message"])
+    assert firing["title"] == "ServiceDown on node0"
+    assert firing["message"] == "critical firing"
+    assert firing["priority"] == 5 and firing["tags"] == ["rotating_light"]
+    resolved = next(p for p in payloads if p["message"].startswith("critical resolved"))
+    assert resolved["priority"] == 2 and "after" in resolved["message"]
+
+
+def test_ntfy_host_label_outside_the_allowlist_becomes_fleet(watch, monkeypatch, notify_listener, tmp_path) -> None:
+    url, captured = notify_listener
+    monkeypatch.setenv("AITBC_WATCH_NOTIFY_TOKEN", "tk_TESTONLY")
+    # Non-fleet label value and a non-fleet hostname both stay off the wire.
+    monkeypatch.setattr(prom.socket, "gethostname", lambda: "desktop-9")
+    watch(
+        [[_alert(instance="10.9.9.9:9100")]],
+        "--notify-url",
+        url,
+        "--notify-format",
+        "ntfy",
+        alert_log=tmp_path / "alerts.log",
+    )
+    firing = next(p for p in _ntfy_payloads(captured) if p["message"] == "critical firing")
+    assert firing["title"] == "ServiceDown on fleet"
+
+
+def test_ntfy_localhost_instance_falls_back_to_the_sending_hostname(watch, monkeypatch, notify_listener, tmp_path) -> None:
+    """Local-service targets carry instance=localhost:PORT — the sending host is the hint."""
+    url, captured = notify_listener
+    monkeypatch.setenv("AITBC_WATCH_NOTIFY_TOKEN", "tk_TESTONLY")
+    monkeypatch.setattr(prom.socket, "gethostname", lambda: "node1.aitbc.bubuit.net")
+    watch(
+        [[_alert("AitbcServiceDown", instance="localhost:8202")]],
+        "--notify-url",
+        url,
+        "--notify-format",
+        "ntfy",
+        alert_log=tmp_path / "alerts.log",
+    )
+    firing = next(p for p in _ntfy_payloads(captured) if p["message"] == "critical firing")
+    assert firing["title"] == "AitbcServiceDown on node1"
+
+
+def test_ntfy_localhost_fallback_still_never_echoes_label_values(watch, monkeypatch, notify_listener, tmp_path) -> None:
+    url, captured = notify_listener
+    monkeypatch.setenv("AITBC_WATCH_NOTIFY_TOKEN", "tk_TESTONLY")
+    monkeypatch.setattr(prom.socket, "gethostname", lambda: "node1")
+    poisoned = _alert(
+        instance="localhost:8202",
+        wallet="0x1111222233334444555566667777888899990000",
+    )
+    poisoned["annotations"]["summary"] = "job 0x" + "cd" * 32 + " failed"
+    watch(
+        [[poisoned]],
+        "--notify-url",
+        url,
+        "--notify-format",
+        "ntfy",
+        alert_log=tmp_path / "alerts.log",
+    )
+    for body in captured:
+        wire = body["body"].decode()
+        for secret in ("0x1111222233334444555566667777888899990000", "0x" + "cd" * 32, "job"):
+            assert secret not in wire
+
+
+def test_ntfy_without_a_token_sends_nothing_and_counts_the_failure(watch, monkeypatch, notify_listener, tmp_path) -> None:
+    url, captured = notify_listener
+    monkeypatch.delenv("AITBC_WATCH_NOTIFY_TOKEN", raising=False)
+    metrics = tmp_path / "watch.prom"
+    watch(
+        [[_alert()]],
+        "--notify-url",
+        url,
+        "--notify-format",
+        "ntfy",
+        "--metrics-file",
+        str(metrics),
+        alert_log=tmp_path / "alerts.log",
+    )
+    assert captured == []
+    # Two events (started, firing) skipped, one notify_error counted each.
+    assert "aitbc_prometheus_watch_notify_errors_total 2" in metrics.read_text()
+
+
+def test_a_notify_failure_never_logs_the_token(watch, monkeypatch, caplog, tmp_path) -> None:
+    """Even a token embedded in the configured URL must not reach the journal."""
+    monkeypatch.setenv("AITBC_WATCH_NOTIFY_TOKEN", "tk_TESTONLY")
+    # Guaranteed-connection-refused port, token deliberately in the URL query.
+    dead = socket.socket()
+    dead.bind(("127.0.0.1", 0))
+    port = dead.getsockname()[1]
+    dead.close()
+    with caplog.at_level(logging.WARNING):
+        watch(
+            [[_alert()]],
+            "--notify-url",
+            f"http://127.0.0.1:{port}/hook?auth=tk_TESTONLY",
+            alert_log=tmp_path / "alerts.log",
+        )
+    assert "tk_TESTONLY" not in caplog.text
+
+
+def test_json_format_posts_the_full_record_unchanged(watch, monkeypatch, notify_listener, tmp_path) -> None:
+    """Default json mode keeps the pre-ntfy wire contract: whole record, no auth header."""
+    url, captured = notify_listener
+    monkeypatch.delenv("AITBC_WATCH_NOTIFY_TOKEN", raising=False)
+    watch([[_alert()]], "--notify-url", url, alert_log=tmp_path / "alerts.log")
+    payloads = _ntfy_payloads(captured)
+    assert len(payloads) == 2
+    firing = next(p for p in payloads if p.get("event") == "prometheus_alert_firing")
+    assert firing["alertname"] == "ServiceDown"
+    assert firing["labels"]["alertname"] == "ServiceDown"
+    assert firing["summary"] == "ServiceDown summary"
+    assert "Authorization" not in captured[0]["headers"]
+
+
+def test_the_severity_floor_applies_in_ntfy_mode(watch, monkeypatch, notify_listener, tmp_path) -> None:
+    url, captured = notify_listener
+    monkeypatch.setenv("AITBC_WATCH_NOTIFY_TOKEN", "tk_TESTONLY")
+    watch(
+        [[_alert("SoftAlert", severity="warning")]],
+        "--notify-url",
+        url,
+        "--notify-format",
+        "ntfy",
+        "--notify-min-severity",
+        "critical",
+        alert_log=tmp_path / "alerts.log",
+    )
+    payloads = _ntfy_payloads(captured)
+    # Below-floor alert is suppressed; only the lifecycle event is pushed.
+    assert [p["message"] for p in payloads] == ["watch started"]

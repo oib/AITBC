@@ -113,6 +113,17 @@ def aitbc_prometheus_alerts(
             description="POST every alert event as a JSON body to this webhook URL; repeatable (env: space-separated) (watch mode)"
         ),
     ],
+    notify_format: Annotated[
+        Literal["json", "ntfy"] | None,
+        Field(
+            description="Webhook body shape: 'json' posts the full event record (unchanged default); 'ntfy' posts an ntfy publish body built only from alert name, fleet host, severity, state and the click link (watch mode)"
+        ),
+    ],
+    notify_topic: Annotated[
+        str | None,
+        Field(description="ntfy topic for --notify-format=ntfy; travels inside the JSON body, never in the URL (watch mode)"),
+    ],
+    notify_click: Annotated[str | None, Field(description="Public link attached to ntfy notifications (watch mode)")],
     notify_min_severity: Annotated[
         Literal["info", "warning", "critical"] | None,
         Field(
@@ -144,6 +155,9 @@ def aitbc_prometheus_alerts(
             "interval": "interval",
             "alert_log_path": "alert-log",
             "notify_urls": "notify-url",
+            "notify_format": "notify-format",
+            "notify_topic": "notify-topic",
+            "notify_click": "notify-click",
             "notify_min_severity": "notify-min-severity",
             "silence_file": "silence-file",
             "remind_interval": "remind-interval",
