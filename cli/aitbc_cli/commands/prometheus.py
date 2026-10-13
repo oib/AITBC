@@ -229,21 +229,122 @@ def _load_silences(path: str | None, cache: dict[str, Any]) -> list[dict[str, An
     return entries
 
 
-def _notify(urls: tuple[str, ...], record: dict[str, Any], stats: dict[str, Any]) -> None:
-    """POST the event record to every notify URL, with one retry per URL.
+def _notify(
+    urls: tuple[str, ...],
+    record: dict[str, Any],
+    stats: dict[str, Any],
+    *,
+    notify_format: str = "json",
+    topic: str = "aitbc-alerts",
+    click_url: str = "https://hub.aitbc.bubuit.net/alerts.html",
+    token: str | None = None,
+) -> None:
+    """POST the event to every notify URL, with one retry per URL.
 
-    Delivery failure is counted and logged but never interrupts the watch loop --
-    the alert is still on disk in the event log.
+    ``json`` posts the raw event record exactly as before; ``ntfy`` posts a
+    whitelisted ntfy publish body (:func:`_ntfy_body`) — the record never
+    leaves the process. The bearer token comes from the environment only and
+    travels in the Authorization header, never in the URL, an argument, a log
+    line or the event record. The ntfy server is deny-all, so in ntfy mode a
+    missing token skips the push instead of firing a guaranteed-403 request.
     """
+    if notify_format == "ntfy":
+        body = _ntfy_body(record, topic, click_url)
+    else:
+        body = record
+    headers = {"Authorization": f"Bearer {token}"} if token else None
     for notify_url in urls:
+        if notify_format == "ntfy" and not token:
+            stats["notify_errors"] = stats.get("notify_errors", 0) + 1
+            logger.warning(
+                "ntfy notify to %s skipped: AITBC_WATCH_NOTIFY_TOKEN is unset",
+                notify_url.split("?", 1)[0],
+            )
+            continue
         for attempt in range(2):
             try:
-                httpx.post(notify_url, json=record, timeout=5).raise_for_status()
+                httpx.post(notify_url, json=body, headers=headers, timeout=5).raise_for_status()
                 break
             except Exception as exc:  # noqa: BLE001 -- transport and HTTP failures are alike here
                 if attempt == 1:
                     stats["notify_errors"] = stats.get("notify_errors", 0) + 1
-                    logger.warning("notify POST to %s failed: %s", notify_url, exc)
+                    # The logged URL drops any query/fragment and the exception
+                    # text is redacted, so a token can never reach the journal
+                    # even if one were ever embedded in the configured URL.
+                    detail = str(exc).replace(token, "***") if token else str(exc)
+                    logger.warning("notify POST to %s failed: %s", notify_url.split("?", 1)[0], detail)
+
+
+_NTFY_FLEET_HOSTS = {"hub", "hub1", "node0", "node1", "node2"}
+
+_NTFY_STATE_TEXT = {
+    "prometheus_watch_started": "watch started",
+    "prometheus_alert_firing": "firing",
+    "prometheus_alert_still_firing": "still firing",
+    "prometheus_alert_resolved": "resolved",
+}
+
+_NTFY_TAGS = {
+    "prometheus_watch_started": ["eyes"],
+    "prometheus_alert_firing": ["rotating_light"],
+    "prometheus_alert_still_firing": ["warning"],
+    "prometheus_alert_resolved": ["white_check_mark"],
+}
+
+_NTFY_PRIORITY = {"critical": 5, "error": 4, "high": 4, "warning": 3, "info": 2}
+
+
+def _ntfy_host(labels: dict[str, Any]) -> str:
+    """Fleet host from an alert label, else the local hostname, else ``fleet``.
+
+    Node-exporter targets are labelled with fleet names, but local services
+    show up as ``localhost:PORT`` — for those the sending machine's own
+    hostname is the only hint. Values outside the allowlist are never echoed.
+    """
+    for key in ("host", "instance", "node"):
+        candidate = str(labels.get(key) or "").split(":", 1)[0]
+        if candidate in _NTFY_FLEET_HOSTS:
+            return candidate
+    local = socket.gethostname().split(".", 1)[0]
+    return local if local in _NTFY_FLEET_HOSTS else "fleet"
+
+
+def _fmt_duration(seconds: float) -> str:
+    s = int(seconds)
+    hours, s = divmod(s, 3600)
+    minutes, s = divmod(s, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m{s:02d}s"
+    if minutes:
+        return f"{minutes}m{s:02d}s"
+    return f"{s}s"
+
+
+def _ntfy_body(record: dict[str, Any], topic: str, click_url: str) -> dict[str, Any]:
+    """Whitelisted ntfy publish body — only name, host, severity, state and the click link.
+
+    Everything else in the record (labels, annotations, summaries, instance
+    addresses) stays on the host: the ntfy server is reachable from the
+    internet, so nothing beyond this set is ever pushed (SD-2 hygiene rule).
+    """
+    event = str(record.get("event") or "")
+    state = _NTFY_STATE_TEXT.get(event, "event")
+    host = _ntfy_host(record.get("labels") or {})
+    severity = record.get("severity")
+    duration = ""
+    seconds = record.get("duration_seconds")
+    if event == "prometheus_alert_resolved" and isinstance(seconds, (int, float)):
+        duration = f" after {_fmt_duration(seconds)}"
+    message = " ".join(part for part in (str(severity).lower() if severity else "", f"{state}{duration}") if part)
+    priority = 2 if event == "prometheus_alert_resolved" else _NTFY_PRIORITY.get(str(severity or "").lower(), 2)
+    return {
+        "topic": topic,
+        "title": f"{record.get('alertname') or 'prometheus-watch'} on {host}",
+        "message": message,
+        "priority": priority,
+        "tags": _NTFY_TAGS.get(event, ["information_source"]),
+        "click": click_url,
+    }
 
 
 _SEVERITY_ORDER = {"info": 0, "warning": 1, "critical": 2}
@@ -398,6 +499,29 @@ def _event_epoch(record: dict[str, Any]) -> float | None:
     help="POST every alert event as a JSON body to this webhook URL; repeatable (env: space-separated) (watch mode)",
 )
 @click.option(
+    "--notify-format",
+    "notify_format",
+    type=click.Choice(["json", "ntfy"], case_sensitive=False),
+    default="json",
+    envvar="AITBC_WATCH_NOTIFY_FORMAT",
+    help="Webhook body shape: 'json' posts the full event record (unchanged default); 'ntfy' posts an ntfy "
+    "publish body built only from alert name, fleet host, severity, state and the click link (watch mode)",
+)
+@click.option(
+    "--notify-topic",
+    "notify_topic",
+    default="aitbc-alerts",
+    envvar="AITBC_WATCH_NOTIFY_TOPIC",
+    help="ntfy topic for --notify-format=ntfy; travels inside the JSON body, never in the URL (watch mode)",
+)
+@click.option(
+    "--notify-click",
+    "notify_click",
+    default="https://hub.aitbc.bubuit.net/alerts.html",
+    envvar="AITBC_WATCH_NOTIFY_CLICK",
+    help="Public link attached to ntfy notifications (watch mode)",
+)
+@click.option(
     "--notify-min-severity",
     "notify_min_severity",
     envvar="AITBC_WATCH_NOTIFY_MIN_SEVERITY",
@@ -440,6 +564,9 @@ def alerts(
     emit: bool,
     alert_log_path: str | None,
     notify_urls: tuple[str, ...],
+    notify_format: str,
+    notify_topic: str,
+    notify_click: str,
     notify_min_severity: str | None,
     silence_file: str | None,
     remind_interval: int,
@@ -539,7 +666,17 @@ def alerts(
         # The severity floor works the same way: below-floor alerts are logged
         # (the daily digest reads them) but never pushed.
         if silenced is None and _severity_at_least(record.get("severity"), notify_min_severity):
-            _notify(notify_urls, record, stats)
+            _notify(
+                notify_urls,
+                record,
+                stats,
+                notify_format=notify_format,
+                topic=notify_topic,
+                click_url=notify_click,
+                # Env only -- the token is never an option, never in a URL and
+                # never in a log line (AITBC_WATCH_NOTIFY_TOKEN).
+                token=os.environ.get("AITBC_WATCH_NOTIFY_TOKEN"),
+            )
 
     # Alert state is tracked across polls: an alert is reported when it starts firing (again, if it had resolved) and
     # when it stops. A poll Prometheus did not answer changes nothing -- it must not read as "everything resolved".

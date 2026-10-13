@@ -63,6 +63,11 @@ AITBC_WATCH_NOTIFY_URL="https://ops.example/hook https://backup.example/hook"
 AITBC_WATCH_SILENCE_FILE=/etc/aitbc/silences.json
 AITBC_WATCH_REMIND_INTERVAL=14400
 AITBC_WATCH_METRICS_FILE=/var/lib/prometheus/node-exporter/aitbc_prometheus_watch.prom
+# ntfy mode (SD-2c) — only when pointing at the operator's ntfy server:
+# AITBC_WATCH_NOTIFY_FORMAT=ntfy
+# AITBC_WATCH_NOTIFY_TOPIC=aitbc-alerts
+# AITBC_WATCH_NOTIFY_CLICK=https://hub.aitbc.bubuit.net/alerts.html
+# AITBC_WATCH_NOTIFY_TOKEN=tk_…   (env only — never an argument or part of the URL)
 ```
 
 `WatchdogSec=75` in the unit restarts the service if the loop hangs; keep it at least 5× `AITBC_WATCH_INTERVAL`.
@@ -71,7 +76,15 @@ AITBC_WATCH_METRICS_FILE=/var/lib/prometheus/node-exporter/aitbc_prometheus_watc
 
 Each `--notify-url` (repeatable, or space-separated in `AITBC_WATCH_NOTIFY_URL`) receives a `POST` with the full event record as its JSON body — `prometheus_watch_started`, `prometheus_alert_firing`, `prometheus_alert_still_firing` and `prometheus_alert_resolved`, the latter including `duration_seconds`. A URL gets one immediate retry on failure; after that the failure is logged and counted in `aitbc_prometheus_watch_notify_errors_total`, and the watch loop continues — the alert is never lost, it is always in the event log. Keep receiver endpoints free of authentication for private networks, or terminate auth on the receiving side; the URLs are the only secret here, so the env file should be `0600 root:aitbc`.
 
-One URL may point at an external ntfy topic (`https://ntfy.bubuit.net/…`) for phone/browser delivery — that ntfy server is an operator-run side channel hosted outside this repository (SD-2a); this repo only needs the URL, never its server setup.
+### ntfy mode (`AITBC_WATCH_NOTIFY_FORMAT=ntfy`)
+
+With `--notify-format ntfy` the watcher posts an ntfy publish body instead — `{topic, title, message, priority, tags, click}` — where only a whitelist ever leaves the host: the alert name, a fleet host name (`hub`, `hub1`, `node0`, `node1`, `node2` — any other label value becomes `fleet`), severity, state text (`started` / `firing` / `still firing` / `resolved`, with duration on resolve) and the `--notify-click` link. No addresses, hashes, keys, paths, env values, labels or annotation text are forwarded. The topic travels inside the body, never in the URL, so `--notify-url` is the server base (`https://ntfy.bubuit.net`) and one URL serves every topic.
+
+The ntfy server is deny-all, so `AITBC_WATCH_NOTIFY_TOKEN` carries the bearer token for `Authorization: Bearer …` — env only, never an argument or part of the URL, and never logged. With the token unset the watcher skips the send, counts it in `aitbc_prometheus_watch_notify_errors_total` and logs one token-free line. Priorities: critical 5, error/high 4, warning 3, info and resolved 2; tags mark the state. The severity floor, still-firing reminders and the silence list behave exactly as in json mode, and the default `json` wire format is unchanged.
+
+The same flags and env keys drive `scripts/monitoring/alert-digest.py`, which posts the daily summary as `AITBC daily digest` (priority 2, counts and alert names only), and `scripts/monitoring/ntfy-heartbeat.py --kind hourly|daily`, which posts the dead-man heartbeat to the `aitbc-heartbeat` topic (`AITBC_HEARTBEAT_URL`, falling back to the first `AITBC_WATCH_NOTIFY_URL`; same token env). `aitbc-ntfy-heartbeat-hourly`/`daily` `.service`/`.timer` units ship beside them — the hub sends daily at 07:00 UTC and node0 optionally at 07:30 UTC.
+
+That ntfy server is an operator-run side channel hosted outside this repository (SD-2a); this repo only needs the URL, topic and token — never its server setup.
 
 ### Silences
 
