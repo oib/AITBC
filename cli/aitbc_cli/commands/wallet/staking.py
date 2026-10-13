@@ -16,6 +16,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.validation import validate_address
 
 from ...config import get_config
+from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils import DECIMAL, error, output, success
 from ...utils.http_client import AITBCHTTPClient, http_error_detail, retired_surface_message
 from ...utils.money import wallet_amount as _wallet_amount
@@ -205,7 +206,8 @@ def _stake_release_preflight(
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--duration", type=int, default=30, help="Staking duration in days")
 @click.pass_context
-def stake(ctx, amount: Decimal, duration: int):
+@wallet_password_options
+def stake(ctx, amount: Decimal, duration: int, password: str | None, password_file: str | None, password_stdin: bool):
     """Stake AITBC tokens on the blockchain for a configurable duration."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -214,7 +216,16 @@ def stake(ctx, amount: Decimal, duration: int):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path) if str(wallet_path) else None,
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=resolved_password)
     sender_address = wallet_data["address"]
 
     hex_address = canonical_address(sender_address)
@@ -294,7 +305,8 @@ def stake(ctx, amount: Decimal, duration: int):
 )
 @click.option("--stake-id", "stake_id", required=True, help="Numeric stake ID returned by 'stake'.")
 @click.pass_context
-def unstake(ctx, stake_id: str):
+@wallet_password_options
+def unstake(ctx, stake_id: str, password: str | None, password_file: str | None, password_stdin: bool):
     """Unstake tokens and withdraw the principal for the given stake ID."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -303,7 +315,16 @@ def unstake(ctx, stake_id: str):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path) if str(wallet_path) else None,
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=resolved_password)
     sender_address = wallet_data["address"]
 
     hex_address = canonical_address(sender_address)
@@ -389,7 +410,8 @@ def unstake(ctx, stake_id: str):
 )
 @click.option("--address", "address_override", default=None, help="Query this address instead of the active wallet")
 @click.pass_context
-def staking_info(ctx, address_override: str | None):
+@wallet_password_options
+def staking_info(ctx, address_override: str | None, password: str | None, password_file: str | None, password_stdin: bool):
     """Show current staking information and rewards from the blockchain RPC."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -402,7 +424,16 @@ def staking_info(ctx, address_override: str | None):
             error(f"Wallet '{wallet_name}' not found")
             return
 
-        wallet_data = _load_wallet(wallet_path, wallet_name)
+        resolved_password = resolve_wallet_password(
+            wallet_name,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            allow_unencrypted=True,
+            wallet_path=Path(wallet_path) if str(wallet_path) else None,
+            ctx=ctx,
+        )
+        wallet_data = _load_wallet(wallet_path, wallet_name, password=resolved_password)
         sender_address = wallet_data["address"]
 
     hex_address = canonical_address(sender_address)
@@ -446,7 +477,17 @@ def staking_info(ctx, address_override: str | None):
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
-def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decimal):
+@wallet_password_options
+def liquidity_stake(
+    ctx,
+    amount: Decimal,
+    pool: str,
+    lock_days: int,
+    fee: Decimal,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Stake tokens into an on-chain liquidity pool to earn rewards."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
@@ -455,7 +496,16 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
         ctx.exit(1)
         return
 
-    wallet_data = _load_wallet(Path(wallet_path), wallet_name)
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path) if str(wallet_path) else None,
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(Path(wallet_path), wallet_name, password=resolved_password)
     balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount + fee:
         error(f"Insufficient balance. Available: {balance}, Required: {amount + fee}")
@@ -506,7 +556,7 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
     wallet_data.setdefault("liquidity", []).append(liq_record)
     password = None
     if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
+        password = resolved_password or _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
     success(f"Submitted liquidity deposit of {amount} AIT to pool '{pool}' (tx={tx_hash})")
@@ -531,7 +581,8 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
-def liquidity_claim(ctx, stake_id: str, fee: Decimal):
+@wallet_password_options
+def liquidity_claim(ctx, stake_id: str, fee: Decimal, password: str | None, password_file: str | None, password_stdin: bool):
     """Claim accrued liquidity rewards for the given stake ID."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
@@ -540,7 +591,16 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal):
         ctx.exit(1)
         return
 
-    wallet_data = _load_wallet(Path(wallet_path), wallet_name)
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path) if str(wallet_path) else None,
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(Path(wallet_path), wallet_name, password=resolved_password)
     hex_address = canonical_address(wallet_data["address"])
     fee_seconds = int(ait_to_units(fee))
 
@@ -588,7 +648,8 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal):
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
 @click.pass_context
-def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
+@wallet_password_options
+def liquidity_unstake(ctx, stake_id: str, fee: Decimal, password: str | None, password_file: str | None, password_stdin: bool):
     """Withdraw a liquidity stake and its accumulated rewards."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
@@ -597,7 +658,16 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
         ctx.exit(1)
         return
 
-    wallet_data = _load_wallet(Path(wallet_path), wallet_name)
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path) if str(wallet_path) else None,
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(Path(wallet_path), wallet_name, password=resolved_password)
     hex_address = canonical_address(wallet_data["address"])
     fee_seconds = int(ait_to_units(fee))
 
@@ -634,7 +704,7 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
             rec["status"] = "completed"
     password = None
     if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
+        password = resolved_password or _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
     success(f"Submitted liquidity unstake for stake {stake_id} (tx={tx_hash})")

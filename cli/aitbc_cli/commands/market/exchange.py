@@ -440,6 +440,8 @@ def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: s
             wallet_name=wallet_name,
             wallet_path=wallet_path,
             password=password,
+            password_file=ctx.obj.get("market_password_file"),
+            password_stdin=ctx.obj.get("market_password_stdin", False),
             require_private_key=True,
         )
 

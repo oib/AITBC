@@ -22,6 +22,7 @@ import click
 from ..config import get_config
 from ..utils import error, output
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.wallet_secret import wallet_password_options
 
 GOVERNANCE_SERVICE_URL = "http://localhost:8105"
 
@@ -79,12 +80,18 @@ def _sign_governance_tx(
     return tx
 
 
-def _wallet_signer(ctx: click.Context, wallet_name: str | None, password: str | None) -> tuple[str, str] | None:
+def _wallet_signer(
+    ctx: click.Context,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+) -> tuple[str, str] | None:
     """Resolve the signing wallet when --wallet/AITBC_DEFAULT_WALLET is set."""
     from ..utils.agent_signing import load_signing_wallet
 
     try:
-        return load_signing_wallet(ctx, wallet_name, password)
+        return load_signing_wallet(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
     except Exception as e:
         raise click.ClickException(str(e)) from e
 
@@ -136,7 +143,7 @@ def governance():
     default=None,
     help="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)",
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def propose(
@@ -151,6 +158,8 @@ def propose(
     voting_days: int,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     format: str,
 ):
     """Create a new governance proposal with title, description, and optional category."""
@@ -176,7 +185,7 @@ def propose(
             "voting_starts": voting_starts,
             "voting_ends": voting_ends,
         }
-        signer = _wallet_signer(ctx, wallet_name, password)
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
         if signer:
             signer_address, private_key = signer
             if proposer_address and proposer_address.lower() != signer_address.lower():
@@ -239,7 +248,7 @@ def propose(
 @click.option(
     "--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)"
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def vote(
@@ -252,6 +261,8 @@ def vote(
     voting_power: float,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     format: str,
 ):
     """Vote for, against, or abstain on a governance proposal. Votes are advisory (V-7) — the tally informs but does not decide execution; GOVERNANCE_EXECUTE is gated only by the governance_executors chain parameter."""
@@ -265,7 +276,7 @@ def vote(
             "voting_power": voting_power,
             "reason": reason,
         }
-        signer = _wallet_signer(ctx, wallet_name, password)
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
         if signer:
             signer_address, private_key = signer
             if voter_address and voter_address.lower() != signer_address.lower():
@@ -349,16 +360,25 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
     default=None,
     help="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)",
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def execute(ctx, proposal_id: str, executor_address: str, wallet_name: str | None, password: str | None, format: str):
+def execute(
+    ctx,
+    proposal_id: str,
+    executor_address: str,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Execute a governance proposal on-chain as a governance executor (the vote tally is advisory and does not decide execution; V-7)."""
     try:
         client = _get_client(ctx)
         query = ""
         body: dict | None = None
-        signer = _wallet_signer(ctx, wallet_name, password)
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
         if signer:
             signer_address, private_key = signer
             if executor_address and executor_address.lower() != signer_address.lower():

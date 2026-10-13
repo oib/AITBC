@@ -181,7 +181,16 @@ def aitbc_agent_comm_receive(
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
     ],
-    password: Annotated[str | None, Field(description="Wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -191,8 +200,14 @@ def aitbc_agent_comm_receive(
     """Receive queued messages for a receiver agent from the coordinator inbox.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
-        values={"receiver_id": "receiver-id", "limit": "limit", "wallet_name": "wallet", "password": "password"},
+        flags={"password_stdin": "password-stdin"},
+        values={
+            "receiver_id": "receiver-id",
+            "limit": "limit",
+            "wallet_name": "wallet",
+            "password_file": "password-file",
+            "password": "password",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -243,7 +258,16 @@ def aitbc_agent_comm_register(
             description="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); signs the registration claim"
         ),
     ],
-    password: Annotated[str | None, Field(description="Wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -253,7 +277,7 @@ def aitbc_agent_comm_register(
     """Register a new agent in the cross-chain network with its metadata and endpoint.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "agent_id": "agent-id",
             "name": "name",
@@ -264,6 +288,7 @@ def aitbc_agent_comm_register(
             "version": "version",
             "agent_type": "agent-type",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "password": "password",
         },
     )
@@ -366,7 +391,16 @@ def aitbc_agent_comm_send(
             description="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity"
         ),
     ],
-    password: Annotated[str | None, Field(description="Wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -376,7 +410,7 @@ def aitbc_agent_comm_send(
     """Send a message from a sender to a receiver agent via the coordinator.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "sender_id": "sender-id",
             "receiver_id": "receiver-id",
@@ -387,6 +421,7 @@ def aitbc_agent_comm_send(
             "priority": "priority",
             "ttl": "ttl",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "password": "password",
         },
     )

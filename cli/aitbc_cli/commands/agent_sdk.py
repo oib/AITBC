@@ -19,6 +19,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.validation import validate_address
 
 from ..config import get_config
+from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success
 from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
 from ..utils.error_handling import CLIError, abort
@@ -592,13 +593,15 @@ try:
         default=None,
         help="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); required in enforce mode",
     )
-    @click.option("--password", default=None, help="Wallet password")
+    @wallet_password_options
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def register(ctx, agent_id, coordinator_url, wallet_name, password, format):
+    def register(ctx, agent_id, coordinator_url, wallet_name, password, password_file, password_stdin, format):
         """Register a local agent with the coordinator by agent ID."""
         try:
-            signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+            signing = load_signing_wallet(
+                ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+            )
             result = asyncio.run(register_agent(agent_id, coordinator_url, signing=signing))
 
             if "error" in result:
@@ -1067,18 +1070,22 @@ try:
         default=None,
         help="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)",
     )
-    @click.option("--password", default=None, help="Wallet password")
+    @wallet_password_options
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def inbox(ctx, agent_id, limit, unread_only, wallet_name, password, coordinator_url, format):
+    def inbox(
+        ctx, agent_id, limit, unread_only, wallet_name, password, password_file, password_stdin, coordinator_url, format
+    ):
         """View messages in a specified agent's inbox from the coordinator."""
         coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
             agent_id = _resolve_agent_id(ctx, agent_id)
-            signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+            signing = load_signing_wallet(
+                ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+            )
             headers = signed_request_headers(agent_id, signing[1]) if signing else None
             params = {"agent_id": agent_id, "limit": limit, "unread_only": unread_only}
             response = requests.get(
@@ -1109,18 +1116,20 @@ try:
         default=None,
         help="Wallet signing the subscribe request headers (default: $AITBC_DEFAULT_WALLET)",
     )
-    @click.option("--password", default=None, help="Wallet password")
+    @wallet_password_options
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def subscribe(ctx, agent_id, topic, filter, wallet_name, password, coordinator_url, format):
+    def subscribe(ctx, agent_id, topic, filter, wallet_name, password, password_file, password_stdin, coordinator_url, format):
         """Subscribe an agent to a message topic on the coordinator."""
         coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
             data = {"agent_id": agent_id, "topic": topic, "filter": json.loads(filter) if filter else {}}
-            signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+            signing = load_signing_wallet(
+                ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+            )
             headers = signed_request_headers(agent_id, signing[1]) if signing else None
             # Latent bug fixed: the coordinator mounts this route at
             # /api/v1/agent/messages/subscribe (routers/messages.py), not
