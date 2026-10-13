@@ -13,6 +13,12 @@ Group=root
 # systemd decrypts /etc/aitbc/credentials/ops-wallet-pass into
 # $CREDENTIALS_DIRECTORY/ops-wallet-pass, an in-memory file visible
 # only to this service. It never appears in argv, env, or logs.
+# LXC caveat (hub): credential mounts yield nothing under LXC — no
+# CREDENTIALS_DIRECTORY and /run/credentials is inaccessible (seen on
+# systemd 257.13). When that happens the signer falls back to running
+# `systemd-creds decrypt` on the sealed file itself (validated
+# root-owned 0600, fixed argv, no shell); the property stays for hosts
+# where the mechanism works. OPS_CREDENTIAL_FILE overrides the path.
 LoadCredentialEncrypted=ops-wallet-pass:/etc/aitbc/credentials/ops-wallet-pass
 Environment="AITBC_OPS_SIGNER_ENABLED=true"
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
