@@ -27,5 +27,8 @@ Related design documents:
 - [eth7-escrowed-sell-flow.md](../design/eth7-escrowed-sell-flow.md) — hub-escrowed
   AIT→ETH sell flow: keyed escrow lock now, keyless protocol escrow post-settle
   (ETH-7 design, Sepolia only).
+- [eth8-exchange-page.md](../design/eth8-exchange-page.md) — hub trade exchange
+  page: read-only book/tape first, then signed orders, then ETH-7-funded
+  settlement (ETH-8 design, Sepolia only).
 - [node-held-wallet-access.md](../design/node-held-wallet-access.md) — bounded,
   allow-listed, operator-approved agent spends from a node-held ops wallet (SEC-1).
