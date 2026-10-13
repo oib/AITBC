@@ -185,15 +185,8 @@ def aitbc_energy_provider_rate(
     source_kind: Annotated[str | None, Field(description="Rate source kind")],
     wallet: Annotated[str | None, Field(description="Wallet name for signing")],
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     json_output: Annotated[bool | None, Field(description="Output raw JSON")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -205,7 +198,7 @@ def aitbc_energy_provider_rate(
     """Read or publish the AIT/EUR energy rate (EVM contract or native rail).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"publish": "publish", "password_stdin": "password-stdin", "json_output": "json-output"},
+        flags={"publish": "publish", "json_output": "json-output"},
         values={
             "ait_per_eur": "ait-per-eur",
             "observed_at": "observed-at",
@@ -213,7 +206,6 @@ def aitbc_energy_provider_rate(
             "wallet": "wallet",
             "wallet_path": "wallet-path",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -258,15 +250,8 @@ def aitbc_energy_provider_register(
     eur_per_kwh: Annotated[float, Field(description="EUR per kWh tariff")],
     wallet: Annotated[str | None, Field(description="Wallet name for signing")],
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     json_output: Annotated[bool | None, Field(description="Output raw JSON")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -278,7 +263,7 @@ def aitbc_energy_provider_register(
     """Register a GPU energy profile (EVM contract or native rail).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "json_output": "json-output"},
+        flags={"json_output": "json-output"},
         values={
             "resource_id": "resource-id",
             "provider_address": "provider-address",
@@ -288,7 +273,6 @@ def aitbc_energy_provider_register(
             "wallet": "wallet",
             "wallet_path": "wallet-path",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -347,15 +331,8 @@ def aitbc_energy_suggest(
     model_id: Annotated[str | None, Field(description="Model ID for registration (default: detected model)")],
     wallet: Annotated[str | None, Field(description="Wallet name for signing (with --register)")],
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path (with --register)")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     register: Annotated[bool | None, Field(description="Submit the on-chain energy profile registration")],
     json_output: Annotated[bool | None, Field(description="Output raw JSON")],
@@ -368,7 +345,7 @@ def aitbc_energy_suggest(
     """Suggest a hardware-based energy profile and market price.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "register": "register", "json_output": "json-output"},
+        flags={"register": "register", "json_output": "json-output"},
         values={
             "gpu_model": "gpu-model",
             "tbp_watts": "tbp-watts",
@@ -387,7 +364,6 @@ def aitbc_energy_suggest(
             "wallet": "wallet",
             "wallet_path": "wallet-path",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
