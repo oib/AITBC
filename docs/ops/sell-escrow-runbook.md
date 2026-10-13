@@ -120,6 +120,14 @@ never signs blind:
   the moment the balance covers it. Nothing else is needed — no restart,
   no manual status change.
 
+The check compares against the **total** escrow balance — funds custodied
+for other pending locks are *not* reserved. With several open locks the
+real margin is `balance − Σ(open lock amounts)`, so size the float against
+the lock book, not just the raw balance. Recommended minimum standing
+float: **1 AIT above the sum of open (unsettled) lock amounts** — each
+sweep costs its amount plus 0.01 AIT, so 1 AIT covers ~100 sweep fees of
+headroom on top of whatever is custodied.
+
 Top up with an ordinary wallet send **from an address listed in
 `SELL_ESCROW_FUNDING_SOURCES`**. The scanner skips sends from those
 addresses entirely — an unlisted sender's top-up would be recorded as an
@@ -164,16 +172,29 @@ nothing is stranded by a disabled monitor except time.
   still escrowed, resumed when the feed recovers.
 - `orphaned` = no live quote (incl. a second lock reusing a bound quote):
   refunded once `locked_height + SELL_LOCK_ORPHAN_BLOCKS` has passed.
-- `needs_review` = ambiguous ETH release outcome (receipt missing but
+- `needs_review` = ambiguous **ETH release** outcome (receipt missing but
   nonce consumed, RPC down, shallow receipt): **never auto-refunds**;
   re-verified every poll and completes on its own when the receipt
   reaches depth.
+- `needs_review_sweep` = the **escrow sweep** intent became undecidable:
+  the recorded nonce was consumed by an unmatched transaction (a manual
+  send from the escrow account), the nonce was never persisted, or the
+  stored signed blob is gone. Unlike `needs_review` this status is
+  **terminal for the monitor** — it is never auto-processed, never
+  re-swept, and the row only moves by an explicit operator action. To
+  resolve: inspect the escrow account's sealed history at the row's
+  `escrow_out_nonce` (compare recipient/amount/`payload.sell_ref` against
+  the row's intent), decide whether the funds actually moved, then set
+  the row to its true outcome. There is **no admin command for sell
+  locks yet** — resolving is a deliberate manual row correction, tracked
+  as a tool gap; the poll alone will never touch the row.
 - Escrow sweeps are **serialized**: at most one `settling`/`refunding`
   row is in flight at a time. A row leaves that state only when its
   outflow is found *sealed* — matched on nonce + recipient + amount +
   `payload.sell_ref`, so a foreign transaction at the same nonce can
-  never be credited — or resolved to `needs_review` (e.g. the nonce was
-  consumed by an unmatched tx — a manual send from the escrow account).
+  never be credited — or resolved to `needs_review_sweep` (e.g. the nonce
+  was consumed by an unmatched tx — a manual send from the escrow
+  account).
   A queued sweep simply waits for the next poll; a stuck in-flight sweep
   blocks later sweeps until resolved, the same head-of-line discipline
   the ETH payout ledger uses.
