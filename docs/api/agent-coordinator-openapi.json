@@ -2708,7 +2708,7 @@
     "/v1/ai/learning/experience": {
       "post": {
         "summary": "Record Learning Experience",
-        "description": "Record a learning experience for the AI system",
+        "description": "Record a learning experience for the AI system (Phase C\nadmin/operator-only \u2014 writes shared training state).",
         "operationId": "record_learning_experience_v1_ai_learning_experience_post",
         "requestBody": {
           "content": {
@@ -2761,7 +2761,7 @@
     "/v1/ai/learning/statistics": {
       "get": {
         "summary": "Get Learning Statistics",
-        "description": "Get learning system statistics",
+        "description": "Get learning system statistics (Phase C: any resolved principal).",
         "operationId": "get_learning_statistics_v1_ai_learning_statistics_get",
         "responses": {
           "200": {
@@ -2792,7 +2792,7 @@
     "/v1/ai/learning/predict": {
       "post": {
         "summary": "Predict Performance",
-        "description": "Predict performance for a given action",
+        "description": "Predict performance for a given action (Phase C: any resolved\nprincipal).",
         "operationId": "predict_performance_v1_ai_learning_predict_post",
         "parameters": [
           {
@@ -2856,7 +2856,7 @@
     "/v1/ai/learning/recommend": {
       "post": {
         "summary": "Recommend Action",
-        "description": "Get AI-recommended action",
+        "description": "Get AI-recommended action (Phase C: any resolved principal).",
         "operationId": "recommend_action_v1_ai_learning_recommend_post",
         "requestBody": {
           "content": {
@@ -2907,7 +2907,7 @@
     "/v1/ai/neural-network/create": {
       "post": {
         "summary": "Create Neural Network",
-        "description": "Create a new neural network",
+        "description": "Create a new neural network (Phase C admin/operator-only).",
         "operationId": "create_neural_network_v1_ai_neural_network_create_post",
         "requestBody": {
           "content": {
@@ -2960,7 +2960,7 @@
     "/v1/ai/neural-network/{network_id}/train": {
       "post": {
         "summary": "Train Neural Network",
-        "description": "Train a neural network",
+        "description": "Train a neural network (Phase C admin/operator-only \u2014\ncompute-heavy).",
         "operationId": "train_neural_network_v1_ai_neural_network__network_id__train_post",
         "parameters": [
           {
@@ -3037,7 +3037,7 @@
     "/v1/ai/neural-network/{network_id}/predict": {
       "post": {
         "summary": "Predict With Neural Network",
-        "description": "Make prediction with neural network",
+        "description": "Make prediction with neural network (Phase C: any resolved\nprincipal \u2014 read-only inference an agent may legitimately call).",
         "operationId": "predict_with_neural_network_v1_ai_neural_network__network_id__predict_post",
         "parameters": [
           {
@@ -3103,7 +3103,7 @@
     "/v1/ai/ml-model/create": {
       "post": {
         "summary": "Create Ml Model",
-        "description": "Create a new ML model",
+        "description": "Create a new ML model (Phase C admin/operator-only).",
         "operationId": "create_ml_model_v1_ai_ml_model_create_post",
         "requestBody": {
           "content": {
@@ -3156,7 +3156,7 @@
     "/v1/ai/ml-model/{model_id}/train": {
       "post": {
         "summary": "Train Ml Model",
-        "description": "Train an ML model",
+        "description": "Train an ML model (Phase C admin/operator-only \u2014 compute-heavy).",
         "operationId": "train_ml_model_v1_ai_ml_model__model_id__train_post",
         "parameters": [
           {
@@ -3223,7 +3223,7 @@
     "/v1/ai/ml-model/{model_id}/predict": {
       "post": {
         "summary": "Predict With Ml Model",
-        "description": "Make prediction with ML model",
+        "description": "Make prediction with ML model (Phase C: any resolved principal).",
         "operationId": "predict_with_ml_model_v1_ai_ml_model__model_id__predict_post",
         "parameters": [
           {
@@ -3289,7 +3289,7 @@
     "/v1/ai/statistics": {
       "get": {
         "summary": "Get Ai Statistics",
-        "description": "Get comprehensive AI/ML statistics",
+        "description": "Get comprehensive AI/ML statistics (Phase C: any resolved\nprincipal).",
         "operationId": "get_ai_statistics_v1_ai_statistics_get",
         "responses": {
           "200": {
@@ -3320,7 +3320,7 @@
     "/v1/consensus/node/register": {
       "post": {
         "summary": "Register Consensus Node",
-        "description": "Register a node in the consensus network",
+        "description": "Register a node in the consensus network.\n\nPhase C admin/operator-only: consensus membership changes are\noperator-grade, same gate class as ``tasks/queues/*/clear``.",
         "operationId": "register_consensus_node_v1_consensus_node_register_post",
         "requestBody": {
           "content": {
@@ -3373,7 +3373,7 @@
     "/v1/consensus/proposal/create": {
       "post": {
         "summary": "Create Consensus Proposal",
-        "description": "Create a new consensus proposal",
+        "description": "Create a new consensus proposal (Phase C admin/operator-only).",
         "operationId": "create_consensus_proposal_v1_consensus_proposal_create_post",
         "requestBody": {
           "content": {
@@ -3426,7 +3426,7 @@
     "/v1/consensus/proposal/{proposal_id}/vote": {
       "post": {
         "summary": "Cast Consensus Vote",
-        "description": "Cast a vote for a proposal",
+        "description": "Cast a vote for a proposal (Phase C admin/operator-only \u2014 the\ncoordinator consensus is an operator tool, not agent voting).",
         "operationId": "cast_consensus_vote_v1_consensus_proposal__proposal_id__vote_post",
         "parameters": [
           {
@@ -3496,7 +3496,7 @@
     "/v1/consensus/proposal/{proposal_id}": {
       "get": {
         "summary": "Get Proposal Status",
-        "description": "Get proposal status",
+        "description": "Get proposal status (Phase C: any resolved principal).",
         "operationId": "get_proposal_status_v1_consensus_proposal__proposal_id__get",
         "parameters": [
           {
@@ -3548,7 +3548,7 @@
     "/v1/consensus/algorithm": {
       "put": {
         "summary": "Set Consensus Algorithm",
-        "description": "Set the consensus algorithm",
+        "description": "Set the consensus algorithm (Phase C admin/operator-only).",
         "operationId": "set_consensus_algorithm_v1_consensus_algorithm_put",
         "parameters": [
           {
@@ -3602,7 +3602,7 @@
     "/v1/consensus/statistics": {
       "get": {
         "summary": "Get Consensus Statistics",
-        "description": "Get consensus statistics",
+        "description": "Get consensus statistics (Phase C: any resolved principal \u2014 leaks\ninternal consensus state to anonymous callers otherwise).",
         "operationId": "get_consensus_statistics_v1_consensus_statistics_get",
         "responses": {
           "200": {
@@ -3633,7 +3633,7 @@
     "/v1/consensus/node/{node_id}/status": {
       "put": {
         "summary": "Update Node Status",
-        "description": "Update node status",
+        "description": "Update node status (Phase C admin/operator-only).",
         "operationId": "update_node_status_v1_consensus_node__node_id__status_put",
         "parameters": [
           {
@@ -6462,7 +6462,7 @@
     "/health": {
       "get": {
         "summary": "Health Check",
-        "description": "Health check endpoint",
+        "description": "Health check endpoint.\n\nAnonymous callers get ``{status, service, timestamp}`` only \u2014 version,\nmemory and disk detail go only to a resolved principal (any mode:\nthe credential merely has to resolve, not satisfy a scope).",
         "operationId": "health_check_health_get",
         "responses": {
           "200": {
