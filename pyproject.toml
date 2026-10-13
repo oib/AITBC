@@ -43,7 +43,7 @@ python-dotenv = "1.2.2"
 slowapi = "0.1.9"
 limits = "5.8.0"
 prometheus-client = "0.21.1"
-pyjwt = {extras = ["crypto"], version = "2.13.0"}
+pyjwt = {extras = ["crypto"], version = "2.15.0"}
 # HTTP Client & Networking
 httpx = "0.28.1"
 requests = "2.34.2"
