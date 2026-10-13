@@ -67,7 +67,16 @@ def aitbc_agent_msg_ping(
             description="Wallet to authenticate the stream with (mints an agent JWT via the coordinator login endpoint when --sender is bound to it)"
         ),
     ],
-    password: Annotated[str | None, Field(description="Password for --wallet")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -77,13 +86,14 @@ def aitbc_agent_msg_ping(
     """Ping a remote agent via WebSocket and wait for its PONG reply.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "agent": "agent",
             "sender": "sender",
             "coordinator_url": "coordinator-url",
             "timeout_opt": "timeout",
             "wallet": "wallet",
+            "password_file": "password-file",
             "password": "password",
         },
     )
@@ -128,7 +138,16 @@ def aitbc_agent_msg_receive(
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
     ],
-    password: Annotated[str | None, Field(description="Wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     sign: Annotated[bool | None, Field(description="Sign the request when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -140,11 +159,12 @@ def aitbc_agent_msg_receive(
     """Receive messages from the Agent Coordinator inbox for the configured agent.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"unread_only": "unread-only", "sign": "sign"},
+        flags={"unread_only": "unread-only", "password_stdin": "password-stdin", "sign": "sign"},
         values={
             "from_agent": "from-agent",
             "limit": "limit",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "password": "password",
             "coordinator_url": "coordinator-url",
         },
@@ -198,7 +218,16 @@ def aitbc_agent_msg_request_coins(
             description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)"
         ),
     ],
-    password: Annotated[str | None, Field(description="Password for --wallet when it also authenticates the stream")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a response")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -209,12 +238,13 @@ def aitbc_agent_msg_request_coins(
     """Request free AIT tokens from the hub via WebSocket for the configured wallet.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "wallet": "wallet",
             "amount": "amount",
             "sender": "sender",
             "coordinator_url": "coordinator-url",
+            "password_file": "password-file",
             "password": "password",
             "timeout_opt": "timeout",
         },
@@ -268,7 +298,16 @@ def aitbc_agent_msg_send(
             description="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity"
         ),
     ],
-    password: Annotated[str | None, Field(description="Wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     sign: Annotated[bool | None, Field(description="Sign the envelope when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -280,7 +319,7 @@ def aitbc_agent_msg_send(
     """Send a direct or broadcast message to another agent through the coordinator.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"encrypt": "encrypt", "sign": "sign"},
+        flags={"encrypt": "encrypt", "password_stdin": "password-stdin", "sign": "sign"},
         values={
             "from_agent": "from-agent",
             "to_agent": "to-agent",
@@ -289,6 +328,7 @@ def aitbc_agent_msg_send(
             "message_type": "message-type",
             "ttl": "ttl",
             "wallet_name": "wallet",
+            "password_file": "password-file",
             "password": "password",
             "coordinator_url": "coordinator-url",
         },

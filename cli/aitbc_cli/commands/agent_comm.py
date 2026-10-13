@@ -7,6 +7,7 @@ from typing import Any
 import click
 
 from ..utils import info, output, success
+from ..utils.wallet_secret import wallet_password_options
 from ..utils.agent_signing import (
     check_registry_binding,
     identity_attestation_fields,
@@ -81,9 +82,23 @@ def agent_comm():
     default=None,
     help="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); signs the registration claim",
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.pass_context
-def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, version, agent_type, wallet_name, password):
+def register(
+    ctx,
+    agent_id,
+    name,
+    chain_id,
+    endpoint,
+    capabilities,
+    reputation,
+    version,
+    agent_type,
+    wallet_name,
+    password,
+    password_file,
+    password_stdin,
+):
     """Register a new agent in the cross-chain network with its metadata and endpoint."""
     try:
         cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else []
@@ -103,7 +118,9 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
             "chain_id": chain_id,
             "island_id": "",
         }
-        signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        signing = load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         if signing is not None:
             # Phase A §3: bind agent_id to the wallet's secp256k1 identity by
             # signing the canonical registration claim over a one-time nonce.
@@ -350,9 +367,23 @@ def network(ctx, output_format):
     default=None,
     help="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity",
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.pass_context
-def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_chain, priority, ttl, wallet_name, password):
+def send(
+    ctx,
+    sender_id,
+    receiver_id,
+    message_type,
+    chain_id,
+    payload,
+    target_chain,
+    priority,
+    ttl,
+    wallet_name,
+    password,
+    password_file,
+    password_stdin,
+):
     """Send a message from a sender to a receiver agent via the coordinator.
 
     Maps to ``POST /api/v1/agent/messages/send`` — the coordinator routes the
@@ -380,7 +411,9 @@ def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_ch
             "priority": str(priority),
             "ttl": int(ttl),
         }
-        signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        signing = load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         if signing is not None:
             # The coordinator only marks a signed envelope `verified` when the
             # signer equals the sender's bound identity_address — check first
@@ -473,10 +506,10 @@ def monitor(ctx, realtime, interval):
     default=None,
     help="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)",
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def receive(ctx, receiver_id, limit, wallet_name, password, format):
+def receive(ctx, receiver_id, limit, wallet_name, password, password_file, password_stdin, format):
     """Receive queued messages for a receiver agent from the coordinator inbox.
 
     Reads ``GET /api/v1/agent/messages/inbox`` — the old
@@ -484,7 +517,9 @@ def receive(ctx, receiver_id, limit, wallet_name, password, format):
     """
     try:
         client = _agent_client(ctx)
-        signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        signing = load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         headers = signed_request_headers(receiver_id, signing[1]) if signing else None
         result = client.get("/api/v1/agent/messages/inbox", params={"agent_id": receiver_id, "limit": limit}, headers=headers)
         output(result, _fmt(ctx, format))

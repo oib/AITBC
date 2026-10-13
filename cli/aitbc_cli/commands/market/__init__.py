@@ -13,6 +13,7 @@ from typing import Any, cast
 import click
 
 from ...config import get_config
+from ...utils.wallet_secret import wallet_password_options
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
 from ...utils.error_handling import abort
@@ -220,6 +221,8 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
     wallet_name = ctx.obj.get("market_wallet")
     wallet_path = ctx.obj.get("market_wallet_path")
     password = ctx.obj.get("market_password")
+    password_file = ctx.obj.get("market_password_file")
+    password_stdin = ctx.obj.get("market_password_stdin", False)
 
     # If no wallet was specified on the command line, fall back to the shop
     # environment.  This keeps backwards compatibility for unattended offers
@@ -239,10 +242,22 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
                         "(searched AITBC_WALLET_DIR, ~/.aitbc/wallets, "
                         "/var/lib/aitbc/wallets); pass --wallet or --wallet-path",
                     )
-                return load_wallet_for_payment(ctx, wallet_path=str(shop_wallet), password=password)
+                return load_wallet_for_payment(
+                    ctx,
+                    wallet_path=str(shop_wallet),
+                    password=password,
+                    password_file=password_file,
+                    password_stdin=password_stdin,
+                )
             if shop_wallet is not None:
                 try:
-                    return load_wallet_for_payment(ctx, wallet_path=str(shop_wallet), password=password)
+                    return load_wallet_for_payment(
+                        ctx,
+                        wallet_path=str(shop_wallet),
+                        password=password,
+                        password_file=password_file,
+                        password_stdin=password_stdin,
+                    )
                 except Exception:
                     # An explicit --password that failed is a real operator
                     # error and must surface; anything else (encrypted and no
@@ -263,6 +278,8 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
         wallet_name=wallet_name,
         wallet_path=wallet_path,
         password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
         require_private_key=require_private_key,
     )
 
@@ -276,19 +293,16 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
 )
 @click.option("--wallet", "market_wallet", help="Wallet name for market payments")
 @click.option("--wallet-path", "market_wallet_path", help="Direct wallet file path (overrides --wallet)")
-@click.option("--password", "market_password", help="Wallet password")
-@click.option("--password-file", "market_password_file", type=click.Path(exists=True), help="Wallet password file")
+@wallet_password_options
 @click.pass_context
-def market(ctx, market_wallet, market_wallet_path, market_password, market_password_file):
+def market(ctx, market_wallet, market_wallet_path, password, password_file, password_stdin):
     """GPU and software market offers published by shop miners and backed by the coordinator."""
     ctx.ensure_object(dict)
     ctx.obj["market_wallet"] = market_wallet
     ctx.obj["market_wallet_path"] = market_wallet_path
-    ctx.obj["market_password"] = market_password
-
-    if market_password_file:
-        with open(market_password_file) as f:
-            ctx.obj["market_password"] = f.read().strip() or market_password
+    ctx.obj["market_password"] = password
+    ctx.obj["market_password_file"] = password_file
+    ctx.obj["market_password_stdin"] = password_stdin
 
 
 # Import submodules to register all commands

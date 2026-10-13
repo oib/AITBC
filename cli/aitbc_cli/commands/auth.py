@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import click
@@ -14,6 +13,7 @@ from ..auth import AuthManager
 from ..config import get_config
 from ..utils import error, output, success, warning
 from ..utils.error_handling import abort
+from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import find_wallet_file
@@ -74,7 +74,7 @@ def _resolve_private_key(
   aitbc auth login --wallet genesis --coordinator-url http://hub.example.net:8201"""
 )
 @click.option("--wallet", default="default", show_default=True, help="Wallet name in AITBC_WALLET_DIR or ~/.aitbc/wallets/")
-@click.option("--password", help="Wallet password (or WALLET_PASSWORD env var)")
+@wallet_password_options
 @click.option("--private-key", help="Raw hex private key (use only in CI/scripts)")
 @click.option("--private-key-file", type=click.Path(), help="File containing a raw hex private key")
 @click.option("--wallet-address", help="Wallet address (defaults to address derived from private key)")
@@ -90,6 +90,8 @@ def login(
     ctx,
     wallet: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     private_key: str | None,
     private_key_file: str | None,
     wallet_address: str | None,
@@ -110,8 +112,18 @@ def login(
     if coord_url.endswith("/v1"):
         coord_url = coord_url[:-3]
 
-    # Password priority: CLI arg > env var
-    password = password or os.environ.get("WALLET_PASSWORD")
+    # A password is only needed when the key comes from an encrypted wallet
+    # file — --private-key/--private-key-file paths must not require one.
+    if wallet and not private_key and not private_key_file:
+        password = resolve_wallet_password(
+            wallet,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            legacy_env_names=("WALLET_PASSWORD",),
+            interactive_ok=False,
+            ctx=ctx,
+        )
 
     try:
         raw_key = _resolve_private_key(wallet, private_key, private_key_file, password)

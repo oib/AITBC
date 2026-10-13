@@ -12,6 +12,7 @@ import click
 from ...config import get_config
 from ...utils import DECIMAL, error, output, resolve_output_format, success
 from ...utils.address import to_eip55
+from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import find_wallet_file, wallet_search_dirs
@@ -148,7 +149,8 @@ def list(ctx):
 )
 @click.option("--name", "name", required=True, help="Wallet name.")
 @click.pass_context
-def switch(ctx, name: str):
+@wallet_password_options
+def switch(ctx, name: str, password: str | None, password_file: str | None, password_stdin: bool):
     """Switch the active wallet context to a different locally stored wallet."""
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
@@ -174,7 +176,16 @@ def switch(ctx, name: str):
 
     success(f"Switched to wallet '{name}'")
     # Load wallet to get address (will handle encryption)
-    wallet_data = _load_wallet(wallet_path, name)
+    password = resolve_wallet_password(
+        name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, name, password=password)
     output(
         {"active_wallet": name, "address": wallet_data["address"]},
         ctx.obj.get("output_format", "table"),
@@ -339,7 +350,8 @@ def _derive_wallet_address(wallet_data: dict[str, Any]) -> str | None:
 )
 @click.option("--name", "name", required=False, help="Wallet name (defaults to the active wallet)")
 @click.pass_context
-def info(ctx, name: str | None):
+@wallet_password_options
+def info(ctx, name: str | None, password: str | None, password_file: str | None, password_stdin: bool):
     """Show detailed information about the active or named wallet."""
     wallet_name = name or ctx.obj["wallet_name"]
     if name:
@@ -356,7 +368,16 @@ def info(ctx, name: str | None):
         error(f"Wallet '{wallet_name}' not found. Use 'aitbc wallet create' to create one.")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     # Get active wallet from config
     active_wallet = "default"
@@ -583,7 +604,10 @@ def transactions(ctx, name: str | None, limit: int):
 @click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
 @click.option("--desc", help="Description of the work")
 @click.pass_context
-def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
+@wallet_password_options
+def earn(
+    ctx, amount: Decimal, job_id: str, desc: str | None, password: str | None, password_file: str | None, password_stdin: bool
+):
     """Record earnings received for a completed job against the wallet."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -592,7 +616,16 @@ def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     # Add transaction
     # money is stored as a decimal string: json.dump cannot serialise a Decimal, and
@@ -609,9 +642,8 @@ def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
     wallet_data["balance"] = str(_wallet_amount(wallet_data.get("balance", 0)) + amount)
 
     # Save wallet with encryption
-    password = None
-    if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
+    if not wallet_data.get("encrypted"):
+        password = None
     _save_wallet(wallet_path, wallet_data, password if password else None)
 
     success(f"Earnings added: {amount} AITBC")
@@ -634,7 +666,8 @@ def earn(ctx, amount: Decimal, job_id: str, desc: str | None):
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--description", "description", required=True, help="Free-form description.")
 @click.pass_context
-def spend(ctx, amount: Decimal, description: str):
+@wallet_password_options
+def spend(ctx, amount: Decimal, description: str, password: str | None, password_file: str | None, password_stdin: bool):
     """Record a manual spend transaction with an amount and description."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -643,7 +676,16 @@ def spend(ctx, amount: Decimal, description: str):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount:
@@ -663,9 +705,8 @@ def spend(ctx, amount: Decimal, description: str):
     wallet_data["balance"] = str(balance - amount)
 
     # Save wallet with encryption
-    password = None
-    if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
+    if not wallet_data.get("encrypted"):
+        password = None
     _save_wallet(wallet_path, wallet_data, password if password else None)
 
     success(f"Spent: {amount} AITBC")
@@ -689,7 +730,8 @@ def spend(ctx, amount: Decimal, description: str):
 )
 @click.option("--name", "name", required=False, help="Wallet name.")
 @click.pass_context
-def address(ctx, name: str | None):
+@wallet_password_options
+def address(ctx, name: str | None, password: str | None, password_file: str | None, password_stdin: bool):
     """Display the public address of the active or named wallet."""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
@@ -703,7 +745,16 @@ def address(ctx, name: str | None):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     output(
         {"wallet": wallet_name, "address": to_eip55(wallet_data["address"])},
@@ -719,10 +770,19 @@ def address(ctx, name: str | None):
 @click.option("--to-address", "to_address", required=True, help="Destination address.")
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
-@click.option("--password", help="Wallet password for signing")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
-def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | None, rpc_url: str | None):
+def send(
+    ctx,
+    to_address: str,
+    amount: Decimal,
+    fee: Decimal,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    rpc_url: str | None,
+):
     """Send AITBC tokens from the active wallet to another address."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -731,7 +791,16 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         error(f"Wallet '{wallet_name}' not found")
         raise click.Abort()
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
     sender_address = to_eip55(wallet_data["address"])
 
     # Allow the recipient to be specified as a wallet name or an address.
@@ -870,7 +939,16 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--description", help="Transaction description")
 @click.pass_context
-def request_payment(ctx, to_address: str, amount: Decimal, description: str | None):
+@wallet_password_options
+def request_payment(
+    ctx,
+    to_address: str,
+    amount: Decimal,
+    description: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Generate a payment request to another address for a specific amount."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -879,7 +957,16 @@ def request_payment(ctx, to_address: str, amount: Decimal, description: str | No
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     # Create payment request
     request = {
@@ -906,7 +993,8 @@ def request_payment(ctx, to_address: str, amount: Decimal, description: str | No
   aitbc wallet stats"""
 )
 @click.pass_context
-def stats(ctx):
+@wallet_password_options
+def stats(ctx, password: str | None, password_file: str | None, password_stdin: bool):
     """Show aggregated statistics for the active wallet over all transactions."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
@@ -915,7 +1003,16 @@ def stats(ctx):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=Path(wallet_path),
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     transactions = wallet_data.get("transactions", [])
 

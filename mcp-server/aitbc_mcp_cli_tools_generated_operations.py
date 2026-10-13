@@ -103,8 +103,16 @@ def aitbc_operations_agent_message(
     agent: Annotated[str, Field(description="Recipient agent address")],
     message: Annotated[str, Field(description="Message content")],
     wallet: Annotated[str, Field(description="Wallet name for signing")],
-    password: Annotated[str | None, Field(description="Wallet password")],
-    password_file: Annotated[str | None, Field(description="File containing wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -115,13 +123,13 @@ def aitbc_operations_agent_message(
     """Send a message to an agent via a blockchain transaction.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "agent": "agent",
             "message": "message",
             "wallet": "wallet",
-            "password": "password",
             "password_file": "password-file",
+            "password": "password",
             "rpc_url": "rpc-url",
         },
     )
@@ -498,6 +506,16 @@ def aitbc_operations_governance_proposal(
         ),
     ],
     voting_days: Annotated[int | None, Field(description="Voting period in days")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -507,7 +525,7 @@ def aitbc_operations_governance_proposal(
     """Create a governance proposal on the blockchain.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "proposal_id": "proposal-id",
             "title": "title",
@@ -516,6 +534,8 @@ def aitbc_operations_governance_proposal(
             "params": "params",
             "wallet": "wallet",
             "voting_days": "voting-days",
+            "password_file": "password-file",
+            "password": "password",
         },
     )
     args = None
@@ -608,6 +628,16 @@ def aitbc_operations_governance_vote(
     wallet: Annotated[str, Field(description="Wallet name for signing")],
     voting_power: Annotated[int | None, Field(description="Voting power to use")],
     reason: Annotated[str | None, Field(description="Vote reason")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -617,13 +647,15 @@ def aitbc_operations_governance_vote(
     """Cast a vote on a governance proposal using a wallet. Votes are advisory (V-7) — the tally does not decide execution.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "proposal_id": "proposal-id",
             "vote": "vote",
             "wallet": "wallet",
             "voting_power": "voting-power",
             "reason": "reason",
+            "password_file": "password-file",
+            "password": "password",
         },
     )
     args = None

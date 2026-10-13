@@ -56,6 +56,32 @@ def _resolve_password(wallet_name: str, password: str | None = None) -> str | No
     return None
 
 
+def _resolve_signing_password(
+    ctx,
+    name: str,
+    path: Path | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+) -> str:
+    """Resolve the secret through the WAL-1 shared helper.
+
+    ``allow_unencrypted`` keeps the pre-WAL-1 behaviour where a file wallet
+    storing an unencrypted key needs no password (the helper returns ``""``).
+    """
+    from .wallet_secret import resolve_wallet_password
+
+    return resolve_wallet_password(
+        name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=path,
+        ctx=ctx,
+    )
+
+
 def find_wallet_by_address(address: str) -> Path | None:
     """Return the first file wallet whose recorded address matches ``address``.
 
@@ -87,6 +113,8 @@ def load_wallet_for_payment(
     wallet_name: str | None = None,
     wallet_path: str | None = None,
     password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
     require_private_key: bool = True,
 ) -> tuple[str, str | None, str]:
     """Load a wallet and return ``(address, private_key_or_none, wallet_id)``.
@@ -97,7 +125,6 @@ def load_wallet_for_payment(
     abort with a clear error if the key is not available.
     """
     name, _ = _resolve_wallet_name_and_path(wallet_name, wallet_path)
-    password = _resolve_password(name, password)
 
     # Search configured and service wallet directories.
     path: Path | None
@@ -105,6 +132,10 @@ def load_wallet_for_payment(
         path = Path(wallet_path)
     else:
         path = find_wallet_file(name)
+    if path is not None:
+        password = _resolve_signing_password(ctx, name, path, password, password_file, password_stdin)
+    else:
+        password = _resolve_password(name, password)
     if path is None:
         # If the file wallet is missing, try the wallet daemon
         from ..config import get_config
@@ -126,7 +157,7 @@ def load_wallet_for_payment(
     # Load file wallet (encrypted if needed)
     from ..commands.wallet import _load_wallet
 
-    wallet_data = _load_wallet(path, name)
+    wallet_data = _load_wallet(path, name, password=password)
     raw_address = wallet_data.get("address")
     if not raw_address:
         abort(ctx, f"Wallet '{name}' has no address")
@@ -137,7 +168,7 @@ def load_wallet_for_payment(
         # Encrypted private key but no password was provided or it did not decrypt.
         # _load_wallet already raises/abort in that case, but be defensive.
         if not password:
-            abort(ctx, f"Wallet '{name}' is encrypted; provide --password or set AITBC_WALLET_PASSWORD")
+            abort(ctx, f"Wallet '{name}' is encrypted; provide --password-file, --password-stdin, or --password")
         assert password is not None
         from ..commands.wallet import decrypt_value
 

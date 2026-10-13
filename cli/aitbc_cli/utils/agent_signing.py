@@ -81,19 +81,28 @@ def signing_wallet_name(wallet_name: str | None = None) -> str | None:
     return wallet_name or os.environ.get("AITBC_DEFAULT_WALLET") or None
 
 
-def load_signing_wallet(ctx, wallet_name: str | None = None, password: str | None = None) -> tuple[str, str] | None:
+def load_signing_wallet(
+    ctx,
+    wallet_name: str | None = None,
+    password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+) -> tuple[str, str] | None:
     """Load ``(address, private_key)`` for signing, or ``None`` when not configured.
 
     Returns ``None`` iff neither ``--wallet`` nor ``AITBC_DEFAULT_WALLET`` was
     given — the caller then sends unsigned. When a wallet *was* configured but
     cannot be loaded, :func:`load_wallet_for_payment` aborts with its usual
     diagnostics (an explicit request should fail loudly, not silently degrade
-    to unsigned).
+    to unsigned). Password resolution runs only once a wallet is configured,
+    so unsigned flows never demand a secret.
     """
     name = signing_wallet_name(wallet_name)
     if name is None:
         return None
-    address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=name, password=password)
+    address, private_key, _ = load_wallet_for_payment(
+        ctx, wallet_name=name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
     if not private_key:
         raise ValueError(f"Wallet '{name}' has no usable private key for signing")
     return address, private_key

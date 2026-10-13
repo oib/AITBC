@@ -14,6 +14,7 @@ import click
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ..utils import DECIMAL, error, info, output, success
+from ..utils.wallet_secret import wallet_password_options
 from ..utils.error_handling import abort
 from ..utils.wallet_loader import load_wallet_for_payment
 
@@ -89,6 +90,8 @@ def _build_exchange_tx(
     price: Decimal | None,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
 ) -> tuple[dict[str, Any], str, AITBCHTTPClient] | None:
     """Build a signed EXCHANGE transaction, returning the tx dict and an HTTP client."""
     credentials = safe_load_credentials()
@@ -98,7 +101,9 @@ def _build_exchange_tx(
     chain_id = get_chain_id()
     island_id = get_island_id()
 
-    address, private_key, _wallet_name = load_wallet_for_payment(ctx, wallet_name, password=password)
+    address, private_key, _wallet_name = load_wallet_for_payment(
+        ctx, wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
     if not private_key:
         abort(ctx, f"Wallet '{_wallet_name}' has no usable private key; use a file wallet with --wallet")
         return None
@@ -281,15 +286,34 @@ def exchange_island():
 @click.option("--quote-currency", "quote_currency", required=True, type=click.Choice(["ETH"]), help="The Quote currency.")
 @click.option("--max-price", type=DECIMAL, help="Maximum price to pay per AIT")
 @click.option("--wallet", default=None, help="Wallet name or file path for signing")
-@click.option("--password", default=None, help="Wallet encryption password")
+@wallet_password_options
 @click.pass_context
-def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None, wallet: str | None, password: str | None):
+def buy(
+    ctx,
+    ait_amount: Decimal,
+    quote_currency: str,
+    max_price: Decimal | None,
+    wallet: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Buy AIT with a quote currency using an optional wallet and maximum price."""
     try:
         if ait_amount <= 0:
             abort(ctx, "AIT amount must be greater than 0")
 
-        built = _build_exchange_tx(ctx, "buy", ait_amount, quote_currency, max_price, wallet, password)
+        built = _build_exchange_tx(
+            ctx,
+            "buy",
+            ait_amount,
+            quote_currency,
+            max_price,
+            wallet,
+            password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+        )
         if built is None:
             return
         tx_data, order_id, http_client = built
@@ -335,15 +359,34 @@ def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None
 @click.option("--quote-currency", "quote_currency", required=True, type=click.Choice(["ETH"]), help="The Quote currency.")
 @click.option("--min-price", type=DECIMAL, help="Minimum price to accept per AIT")
 @click.option("--wallet", default=None, help="Wallet name or file path for signing")
-@click.option("--password", default=None, help="Wallet encryption password")
+@wallet_password_options
 @click.pass_context
-def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | None, wallet: str | None, password: str | None):
+def sell(
+    ctx,
+    ait_amount: Decimal,
+    quote_currency: str,
+    min_price: Decimal | None,
+    wallet: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Sell AIT for a quote currency using an optional wallet and minimum price."""
     try:
         if ait_amount <= 0:
             abort(ctx, "AIT amount must be greater than 0")
 
-        built = _build_exchange_tx(ctx, "sell", ait_amount, quote_currency, min_price, wallet, password)
+        built = _build_exchange_tx(
+            ctx,
+            "sell",
+            ait_amount,
+            quote_currency,
+            min_price,
+            wallet,
+            password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+        )
         if built is None:
             return
         tx_data, order_id, http_client = built
@@ -614,9 +657,9 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 )
 @click.option("--order-id", "order_id", required=True, help="The Order id.")
 @click.option("--wallet", default=None, help="Wallet name or file path for signing")
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.pass_context
-def cancel(ctx, order_id: str, wallet: str | None, password: str | None):
+def cancel(ctx, order_id: str, wallet: str | None, password: str | None, password_file: str | None, password_stdin: bool):
     """Cancel an exchange order by its order ID.
 
     Submits a signed EXCHANGE transaction — the wallet must be the order's
@@ -630,7 +673,9 @@ def cancel(ctx, order_id: str, wallet: str | None, password: str | None):
         chain_id = get_chain_id()
         island_id = get_island_id()
 
-        address, private_key, _wallet_name = load_wallet_for_payment(ctx, wallet, password=password)
+        address, private_key, _wallet_name = load_wallet_for_payment(
+            ctx, wallet, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         if not private_key:
             abort(ctx, f"Wallet '{_wallet_name}' has no usable private key; use a file wallet with --wallet")
             return
