@@ -162,3 +162,94 @@ def test_dry_run_pulls_nothing(env, tmp_path):
     assert r.returncode == 0
     assert "would pull" in r.stdout and GEN in r.stdout
     assert not (dest / "fake1" / GEN).exists()
+
+
+def test_marker_written_on_full_success_and_status(env, tmp_path):
+    remote, stub_bin = env
+    _fake_host(remote)
+    r, dest = _run(tmp_path, remote, stub_bin)
+    assert r.returncode == 0, r.stderr
+    marker = dest / "last-success.txt"
+    assert marker.exists()
+    text = marker.read_text()
+    assert "timestamp_epoch=" in text and GEN in text and "fake1" in text
+    assert oct(marker.stat().st_mode)[-3:] == "600"
+    r2, _ = _run(tmp_path, remote, stub_bin, "--status")
+    assert r2.returncode == 0
+    assert "last success" in r2.stdout
+
+
+def test_marker_survives_failed_run(env, tmp_path):
+    remote, stub_bin = env
+    _fake_host(remote)
+    r1, dest = _run(tmp_path, remote, stub_bin)
+    assert r1.returncode == 0
+    marker = dest / "last-success.txt"
+    assert marker.exists()
+    # now make the host unreachable and re-run: failure must leave the marker
+    (stub_bin / "ssh").write_text("#!/bin/bash\nexit 5\n")
+    (stub_bin / "ssh").chmod(0o755)
+    r2, _ = _run(tmp_path, remote, stub_bin, HOSTS="gone")
+    assert r2.returncode != 0
+    assert marker.exists()
+
+
+def test_status_stale_and_missing(env, tmp_path):
+    remote, stub_bin = env
+    _fake_host(remote)
+    dest = tmp_path / "dest"
+    # no marker at all -> rc 1
+    r1, _ = _run(tmp_path, remote, stub_bin, "--status")
+    assert r1.returncode == 1
+    # stale marker -> rc 1
+    (dest).mkdir(parents=True)
+    (dest / "last-success.txt").write_text("timestamp_epoch=1\n")
+    r2, _ = _run(tmp_path, remote, stub_bin, "--status")
+    assert r2.returncode == 1
+    assert "STALE" in r2.stdout
+
+
+def test_pull_log_rotation(env, tmp_path):
+    remote, stub_bin = env
+    _fake_host(remote)
+    dest = tmp_path / "dest"
+    dest.mkdir(parents=True)
+    big = dest / "pull.log"
+    big.write_bytes(b"x" * (2 * 1024 * 1024))
+    for n in (".1", ".2", ".3"):
+        (dest / f"pull.log{n}").write_text(f"old{n}")
+    r, _ = _run(tmp_path, remote, stub_bin, PULL_LOG=str(big))
+    assert r.returncode == 0
+    # the script does not write pull.log itself (the unit appends output), so
+    # rotation leaves it absent or small -- the content moved to pull.log.1
+    assert not big.exists() or big.stat().st_size < 2 * 1024 * 1024
+    assert (dest / "pull.log.1").stat().st_size == 2 * 1024 * 1024
+    assert (dest / "pull.log.2").read_text() == "old.1"
+    assert (dest / "pull.log.3").read_text() == "old.2"
+    assert not (dest / "pull.log.4").exists()
+
+
+def test_metric_write_to_metric_host_is_failure_tolerant(env, tmp_path):
+    remote, stub_bin = env
+    _fake_host(remote)
+    # ssh stub: first arg is host; metric write goes to METRIC_HOST which the
+    # stub maps into a local dir via METRIC_TEXTFILE_DIR (env-expanded already)
+    metric_dir = tmp_path / "textfile"
+    metric_dir.mkdir()
+    r, dest = _run(tmp_path, remote, stub_bin, METRIC_HOST="fake1", METRIC_TEXTFILE_DIR=str(metric_dir))
+    assert r.returncode == 0, r.stderr + r.stdout
+    prom = metric_dir / "aitbc_offsite_pull.prom"
+    assert prom.exists()
+    assert "aitbc_offsite_pull_last_success_timestamp_seconds" in prom.read_text()
+    # metric write failing must NOT fail the pull
+    (stub_bin / "ssh").write_text('#!/bin/bash\nshift\ncase "$1" in *prom*) exit 9;; *) eval "$1";; esac\n')
+    (stub_bin / "ssh").chmod(0o755)
+    (remote / GEN).rename(remote / "20261014_010000")
+    import os as _os
+
+    for f in (remote / "20261014_010000").iterdir():
+        _os.utime(f, (time.time() - 3600,) * 2)
+    _os.utime(remote / "20261014_010000", (time.time() - 3600,) * 2)
+    r2, _ = _run(tmp_path, remote, stub_bin, METRIC_HOST="fake1", METRIC_TEXTFILE_DIR=str(metric_dir))
+    assert r2.returncode == 0, r2.stderr
+    assert "pull-metric write" in r2.stderr

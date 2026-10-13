@@ -7,3 +7,11 @@ Description=Pull nightly AITBC backup generations off-site to this host
 Type=oneshot
 Environment=AGE_RECIPIENT=
 ExecStart=/opt/aitbc/scripts/ops/offsite-pull-backups.sh
+# BK-4: journalctl --user showed only systemd's own lines on failure -- the
+# script's stdout/stderr never reached the journal. Append them to a bounded
+# log file next to the pulled data instead (the script rotates it at 1 MB,
+# keeping 3). UMask makes the log and marker 0600. The script prints only
+# host/generation/size/status lines -- never file contents or keys.
+UMask=0077
+StandardOutput=append:%h/windsurf/aitbc/backups/fleet-nightly/pull.log
+StandardError=append:%h/windsurf/aitbc/backups/fleet-nightly/pull.log

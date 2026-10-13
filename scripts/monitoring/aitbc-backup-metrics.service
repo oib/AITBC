@@ -1,0 +1,28 @@
+[Unit]
+Description=AITBC backup freshness metrics for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=aitbc-blockchain-node.service
+
+[Service]
+Type=oneshot
+# Runs on every host that has aitbc-backup.timer: the metrics describe THIS
+# host's /var/backups/aitbc, so the timer belongs wherever the backup job does.
+Environment=AITBC_BACKUP_BASE=/var/backups/aitbc
+Environment=AITBC_BACKUP_UNIT=aitbc-backup.service
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/backup-textfile.py
+# Exits 1 when the backup dir or the unit Result could not be read
+# (scrape_success reports which).
+SyslogIdentifier=aitbc-backup-metrics
+
+# Reads the backup dir and asks systemd for the unit Result; writes one file
+# in the textfile directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ReadOnlyPaths=/var/backups/aitbc
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
