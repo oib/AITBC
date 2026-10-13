@@ -99,20 +99,28 @@ chmod +x /opt/aitbc/scripts/health_check.sh
 echo "2. Setting up health check cron job..."
 (crontab -l 2>/dev/null; echo "*/5 * * * * /opt/aitbc/scripts/health_check.sh") | crontab -
 
-# Create log rotation configuration
+# Create log rotation configuration — canonical stanza, see
+# scripts/deployment/aitbc-logrotate.conf for the full design notes.
 echo "3. Setting up log rotation..."
-cat > /etc/logrotate.d/aitbc << EOF
+cat > /etc/logrotate.d/aitbc << 'EOF'
 /var/log/aitbc/*.log {
     daily
     missingok
-    rotate 30
+    rotate 14
     compress
     delaycompress
     notifempty
-    create 644 root root
-    postrotate
-        systemctl reload aitbc-blockchain-rpc >/dev/null 2>&1 || true
-    endscript
+    copytruncate
+}
+
+/var/log/aitbc/events/*.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 aitbc adm
 }
 EOF
 

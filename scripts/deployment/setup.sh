@@ -559,6 +559,20 @@ setup_runtime_directories() {
 }
 
 # Setup service users for security isolation
+# Install the canonical logrotate stanza. Without it /var/log/aitbc/*.log
+# never rotate and grow forever (seen fleet-wide 2026-10).
+install_logrotate_config() {
+    local src="$SCRIPT_DIR/aitbc-logrotate.conf"
+    if ! command -v logrotate >/dev/null 2>&1; then
+        warning "logrotate not installed — /var/log/aitbc logs will not rotate"
+        return 0
+    fi
+    if [ -f "$src" ]; then
+        install -o root -g root -m 0644 "$src" /etc/logrotate.d/aitbc
+        log "Installed logrotate config at /etc/logrotate.d/aitbc"
+    fi
+}
+
 setup_service_users() {
     log "Setting up service users for security isolation..."
 
@@ -651,6 +665,8 @@ setup_service_users() {
             install -o aitbc -g adm -m 0640 /dev/null "$monitor_log" 2>/dev/null || true
         fi
     done
+
+    install_logrotate_config
 
     # Same for the parent: setup_runtime_directories runs before the aitbc group exists, so
     # its `chown root:aitbc /var/lib/aitbc` falls back to root:root on a first install. Redo

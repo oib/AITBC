@@ -184,18 +184,31 @@ EOF
 setup_log_rotation() {
     log "Configuring log rotation..."
 
-    cat > /etc/logrotate.d/aitbc << EOF
-/var/log/aitbc*.log {
+    cat > /etc/logrotate.d/aitbc << 'EOF'
+# Top-level aitbc logs: open-per-write monitor scripts plus alerts.log, which
+# the prometheus --watch writer holds open — copytruncate keeps appends on the
+# live file and preserves each file's existing owner/mode (secrets-audit.log
+# stays 0600). Service subdirectories self-rotate via TimedRotatingFileHandler
+# and must not be listed here.
+/var/log/aitbc/*.log {
     daily
     missingok
-    rotate 30
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+}
+
+# Event logs written open-per-write by 37_contract_event_monitoring.sh.
+/var/log/aitbc/events/*.log {
+    daily
+    missingok
+    rotate 14
     compress
     delaycompress
     notifempty
     create 0640 aitbc adm
-    postrotate
-        systemctl reload rsyslog || true
-    endscript
 }
 EOF
 
