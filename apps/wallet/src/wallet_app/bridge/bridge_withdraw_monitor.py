@@ -51,6 +51,10 @@ WITHDRAW_POLL_INTERVAL = int(os.getenv("BRIDGE_WITHDRAW_POLL_INTERVAL", "30"))
 MIN_AIT_WITHDRAW = Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
 ETH_WITHDRAW_GAS = int(os.getenv("ETH_WITHDRAW_GAS", "100000"))
 ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"))
+# Confirmation depth a release receipt must reach before it counts as proof.
+# Defaults to the deposit-side BRIDGE_CONFIRMATIONS (3) so both directions
+# agree on finality.
+ETH_RELEASE_CONFIRMATIONS = int(os.getenv("BRIDGE_RELEASE_CONFIRMATIONS", os.getenv("BRIDGE_CONFIRMATIONS", "3")))
 
 _db_initialized = False
 _withdraw_polling_enabled: bool = True
@@ -436,14 +440,64 @@ def _receipt_status(receipt: dict[str, Any]) -> int:
     return int(status, 16) if isinstance(status, str) else int(status or 0)
 
 
+async def _release_receipt_outcome(eth_tx_hash: str) -> str | None:
+    """Outcome for the recorded hash: 'sent'/'not_sent'/'unknown', or None
+    when the hash is absent from the chain entirely (fall back to nonce)."""
+    tx = await _eth_rpc("eth_getTransactionByHash", [eth_tx_hash])
+    receipt = await _eth_rpc("eth_getTransactionReceipt", [eth_tx_hash])
+    if receipt is not None:
+        if _receipt_status(receipt) != 1:
+            # Reverted send: ETH never moved, nonce burned by our tx.
+            return "not_sent"
+        latest_block = int(await _eth_rpc("eth_blockNumber", []), 16)
+        receipt_block = int(receipt.get("blockNumber") or "0x0", 16)
+        if receipt_block and latest_block - receipt_block + 1 >= ETH_RELEASE_CONFIRMATIONS:
+            return "sent"
+        # Confirmed but below the required depth — re-checked next poll.
+        return "unknown"
+    if tx is not None:
+        # Broadcast reached a node but is not mined yet — undecidable.
+        return "unknown"
+    return None
+
+
+async def _release_nonce_outcome(row: dict[str, Any]) -> str | None:
+    """Outcome from the recorded nonce, or None when nothing is recorded.
+
+    A consumed nonce without a qualifying receipt for the recorded hash is
+    'unknown', never 'sent' — a manual send or replacement may have taken
+    the nonce while the recorded release never landed.
+    """
+    nonce = row.get("release_nonce")
+    if nonce is None:
+        return None
+    latest = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "latest"]), 16)
+    pending = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "pending"]), 16)
+    if latest > nonce:
+        logger.error(
+            "Withdrawal %s: release nonce %d consumed but no qualifying receipt for recorded hash %s (latest=%d, pending=%d)",
+            row.get("ait_tx_hash"),
+            nonce,
+            row.get("eth_tx_hash"),
+            latest,
+            pending,
+        )
+        return "unknown"
+    if pending > nonce:
+        return "unknown"
+    return None
+
+
 async def _verify_release_outcome(ait_tx_hash: str) -> str:
     """Return 'sent', 'not_sent' or 'unknown' for a withdrawal's ETH release.
 
-    'sent' means a successful receipt exists (or the recorded nonce was
-    consumed by a mined tx from this dedicated wallet). 'not_sent' is only
-    returned on positive proof — failed receipt, or neither the tx hash
-    nor the nonce ever appeared on-chain. Anything ambiguous, including
-    RPC failures, is 'unknown' so the caller never refunds blind.
+    'sent' requires a successful receipt for the *recorded* tx hash at
+    ``ETH_RELEASE_CONFIRMATIONS`` depth. A consumed nonce alone is never
+    proof — a manual send from the bridge wallet can consume it while the
+    recorded release never landed. 'not_sent' is only returned on positive
+    proof — failed receipt, or neither the hash nor the nonce ever appeared
+    on-chain. Anything ambiguous, including a missing row or RPC failures,
+    is 'unknown' so the caller never refunds blind.
     """
     try:
         row = get_withdrawal_by_ait_tx_hash(ait_tx_hash)
@@ -451,33 +505,22 @@ async def _verify_release_outcome(ait_tx_hash: str) -> str:
         logger.error("Could not read withdrawal %s for release verification: %s", ait_tx_hash, e)
         return "unknown"
     if not row:
-        return "not_sent"
+        # A missing row proves nothing about the chain.
+        return "unknown"
 
-    outcome = "not_sent"
     try:
         eth_tx_hash = row.get("eth_tx_hash")
         if eth_tx_hash:
-            tx = await _eth_rpc("eth_getTransactionByHash", [eth_tx_hash])
-            receipt = await _eth_rpc("eth_getTransactionReceipt", [eth_tx_hash])
-            if receipt is not None:
-                return "sent" if _receipt_status(receipt) == 1 else "not_sent"
-            if tx is not None:
-                # Broadcast reached a node but is not mined yet — undecidable.
-                outcome = "unknown"
-
-        nonce = row.get("release_nonce")
-        if nonce is not None:
-            latest = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "latest"]), 16)
-            if latest > nonce:
-                # A mined tx consumed the nonce on this dedicated release key.
-                return "sent"
-            pending = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "pending"]), 16)
-            if pending > nonce:
-                outcome = "unknown"
+            outcome = await _release_receipt_outcome(eth_tx_hash)
+            if outcome is not None:
+                return outcome
+        nonce_outcome = await _release_nonce_outcome(row)
+        if nonce_outcome is not None:
+            return nonce_outcome
+        return "not_sent"
     except Exception as e:
         logger.error("Release outcome verification failed for %s: %s", ait_tx_hash, e)
         return "unknown"
-    return outcome
 
 
 async def _resolve_release_failure(ait_tx_hash: str, sender: str, gross_ait: Decimal, exc: Exception) -> None:
