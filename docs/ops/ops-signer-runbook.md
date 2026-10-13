@@ -24,25 +24,37 @@ under `/var/lib/aitbc` — the unit runs with `ProtectHome=yes`, so a
 wallet in `/root/.aitbc/wallets` (root's default `AITBC_WALLET_DIR`)
 would be invisible to the service. `AITBC_WALLET_DIR` on the `create`
 line is what places it correctly; `--wallet-name` is a group-level
-option that sits before the subcommand. Record the printed `0x…`
-address; it is needed in step 2's sender/recipient check and the
-post-canary balance check.
+option that sits before the subcommand. The CLI creates the file `0644` —
+tighten it immediately:
+
+```bash
+chmod 600 /var/lib/aitbc/wallets/ops.json
+```
+
+Record the printed `0x…` address; it is needed in step 2's
+sender/recipient check and the post-canary balance check.
 
 ## Step 2 — fund it with 50 AIT
 
-Send from whichever funded wallet the operator chooses (e.g. treasury).
-**Check the sender address the CLI prints before confirming** — the
-S-10 run taught us wallet names resolve different directories for
-root vs the aitbc user:
+The funding leg is signed on the **IDE host** — the live treasury key
+exists only there. On hub, `--wallet-name treasury` resolves to the
+**retired** `0x716a…` fee-recipient wallet (~99,457 units), not the live
+treasury `0x34FFfAd1…`. Before sending, the sender address must match
+`keys/treasury_cold.address` **and** carry the real treasury balance
+(address match alone is not enough — check both):
 
 ```bash
+# on the IDE host, /opt/aitbc — NOT on hub:
 cd /opt/aitbc && venv/bin/python -m aitbc_cli wallet --wallet-name treasury address
-# must print the intended sender (e.g. 0x4059cf2e…). If it differs, pass
-# --wallet-path explicitly.
+# must print the live treasury 0x34FFfAd1… — compare with
+# keys/treasury_cold.address, then check the on-chain balance is the
+# treasury float, not the retired 0x716a… wallet's ~99,457 units.
 
 venv/bin/python -m aitbc_cli wallet --wallet-name treasury send \
   --to-address <ops-address-from-step-1> \
   --amount 50 --fee 0.0001
+# (the helper scratch/sec3/fund_ops_wallet.py is staging-only on the IDE
+# host and not in the repo — the plain CLI send above is the path)
 ```
 
 Verify the funding leg sealed:
@@ -56,14 +68,21 @@ sqlite3 "file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" \
 ## Step 3 — write the credential and the allow-list
 
 ```bash
-install -d -m 700 -o root -g root /etc/aitbc/credentials
-# encrypt the wallet password as a systemd credential (interactive):
-systemd-creds encrypt --name=ops-wallet-pass - /etc/aitbc/credentials/ops-wallet-pass
-# type the ops-wallet password when prompted, chmod:
+# /etc/aitbc/credentials already exists on hub (root:aitbc 0750) holding
+# other credentials — do NOT install -d it. Encrypt via a non-hanging
+# recipe — 'systemd-creds encrypt - file' reads stdin SILENTLY until EOF
+# (no prompt), so pipe it instead of typing at it:
+
+# bash (hub's root shell):
+read -rs OPSPASS && printf %s "$OPSPASS" | \
+  systemd-creds encrypt --name=ops-wallet-pass - /etc/aitbc/credentials/ops-wallet-pass
+unset OPSPASS
+# zsh equivalent: read -rs "OPSPASS?"  — same printf pipeline.
 chmod 600 /etc/aitbc/credentials/ops-wallet-pass
 # hub's TPM2 reports 'partial' (systemd-analyze has-tpm2): the credential
-# is sealed against the host key rather than a TPM — same
-# LoadCredentialEncrypted path decrypts either way.
+# is sealed against the host key rather than a TPM — the service's
+# systemd-creds decrypt path (or LoadCredentialEncrypted where the mount
+# works) handles either.
 
 # allow-list — start from the shipped example, edit to the real list:
 install -m 600 -o root -g root \
@@ -104,6 +123,9 @@ journalctl -u aitbc-ops-signer -n 20 --no-pager
 #   ops signer starting: sock=/run/aitbc-ops-signer.sock group=aitbc-ops caps=36000000/180000000
 #   (the logged line also ends with " allow_file=/etc/aitbc/ops-signer.allow")
 ls -l /run/aitbc-ops-signer.sock   # srw-rw---- root aitbc-ops
+# the socket can appear a moment after 'systemctl enable --now' returns —
+# if ls shows nothing, re-run 'ls -l /run/aitbc-ops-signer.sock' once
+# before treating it as a failure.
 ```
 
 ## Step 5 — dry-run, then the 1-unit canary
@@ -144,6 +166,45 @@ sqlite3 "file:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" \
 # expect TRANSFER, sender = ops address, value = 1, fee = 3600
 tail -3 /var/lib/aitbc/ops-signer-audit.log   # one line, tx hash only
 ```
+
+## Diagnosing `error`/`internal` on the canary
+
+The journal carries a `sign request failed: <ClassName>: <message>`
+WARNING per failed request since SEC-3b. To isolate the stage directly,
+run this as root on hub — it exercises the same credential path the unit
+sees and prints stage names + exception **class names only**:
+
+```bash
+set -a; . /etc/aitbc/ops-signer.env; set +a
+cd /opt/aitbc && PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/ops-signer/src \
+  venv/bin/python - <<'EOF'
+import sys
+from aitbc_ops_signer.config import Config
+from aitbc_ops_signer import signer
+
+cfg = Config.from_env()
+
+def stage(name, fn):
+    try:
+        out = fn()
+    except Exception as e:
+        print(f"{name}: FAIL ({type(e).__name__})")
+        sys.exit(1)
+    print(f"{name}: ok")
+    return out
+
+pw = stage("credential", lambda: signer._credential_password(cfg.credential_file))
+wallet = stage("wallet decrypt", lambda: signer._load_wallet(cfg.wallet_path, pw))
+key = stage("private key", lambda: signer._private_key(wallet))
+http = signer.Signer(cfg)._http()
+chain_id = stage("chain id", lambda: signer.resolve_chain_id(http))
+stage("nonce", lambda: signer.fetch_nonce(http, wallet["address"]))
+EOF
+```
+
+A plain root shell reproduces the unit's credential view on hub's LXC —
+`CREDENTIALS_DIRECTORY` is unset there, so this runs the same
+`systemd-creds decrypt` fallback the service uses.
 
 ## Refusal checks (optional pre-flight)
 
