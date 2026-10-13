@@ -1,0 +1,50 @@
+# ntfy server config for ns2 — install as /etc/ntfy/server.yml
+# (the .deb already places a template there; replace it with this file,
+# then generate the VAPID keys on ns2 and fill the two values below).
+#
+# Alert side-channel for the AITBC watchers — independent of hub.
+# Design notes: SD-2a, TOPOLOGY/2026-10-13-ntfy-staging.md.
+
+base-url: "https://ntfy.bubuit.net"
+listen-http: "127.0.0.1:2586"   # loopback only; nginx terminates TLS and proxies
+behind-proxy: true              # trust X-Forwarded-For from the local nginx only
+
+# --- auth: nothing is public ---
+auth-file: "/var/lib/ntfy/auth.db"
+auth-default-access: "deny-all"   # no topic readable or writable without a grant
+enable-signup: false              # accounts are created by the operator CLI only
+enable-login: true                # needed for the web app login
+
+# --- message cache: delivery buffer, not an archive ---
+cache-file: "/var/lib/ntfy/cache.db"
+cache-duration: "24h"             # covers a missed-night; alert history lives in alerts.log anyway
+
+# --- attachments: off entirely ---
+# ntfy enables attachments only when attachment-cache-dir (+ base-url) is
+# set. Deliberately left unset — no attachment storage exists, so any
+# upload attempt fails. Do not add the key.
+# attachment-cache-dir: /var/lib/ntfy/attachments   # intentionally absent
+
+# --- rate limits (all our senders are local scripts; these cap strangers) ---
+visitor-request-limit-burst: 60
+visitor-request-limit-replenish: "5s"
+visitor-message-daily-limit: 1000
+visitor-subscription-limit: 30
+
+# --- web push ---
+# Operator on ns2 runs:  ntfy webpush keys
+# then pastes the two printed values here. The private key exists ONLY in
+# this file on ns2 — never in the repo, TOPOLOGY, chat, or env files.
+web-push-file: "/var/lib/ntfy/webpush.db"
+web-push-public-key: "PASTE_ON_NS2"
+web-push-private-key: "PASTE_ON_NS2"
+web-push-email-address: "admin@bubuit.net"   # VAPID contact, required by webpush semantics
+
+# --- iOS upstream relay: deliberately unset ---
+# Operator decision (2026-10-13, SD-2a): "No iOS — omit it". Without
+# upstream-base-url the server is fully self-contained; ntfy.sh is never
+# contacted. If an iOS device ever needs pushes, set
+#   upstream-base-url: "https://ntfy.sh"
+# which sends a poll request (topic name + message ID, NOT the body)
+# upstream per message — only for topics that actually have iOS
+# subscribers. Re-evaluate then; the iOS app cannot receive pushes without it.
