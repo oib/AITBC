@@ -645,9 +645,10 @@ setup_service_users() {
     while IFS= read -r monitor_log; do
         [ -n "$monitor_log" ] || continue
         if [ -f "$monitor_log" ]; then
-            chown aitbc:aitbc "$monitor_log" 2>/dev/null || true
+            chown aitbc:adm "$monitor_log" 2>/dev/null || true
+            chmod 0640 "$monitor_log" 2>/dev/null || true
         else
-            install -o aitbc -g aitbc -m 0644 /dev/null "$monitor_log" 2>/dev/null || true
+            install -o aitbc -g adm -m 0640 /dev/null "$monitor_log" 2>/dev/null || true
         fi
     done
 
