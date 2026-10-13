@@ -721,6 +721,23 @@ ensure_monitor_log_files() {
 }
 
 # ----------------------------------------------------------------------------
+# Step 4y: Install the canonical logrotate stanza
+# ----------------------------------------------------------------------------
+# Reasserted on every update so a missing or stale /etc/logrotate.d/aitbc is
+# repaired without operator action (flat monitor logs grow unbounded otherwise).
+ensure_logrotate_config() {
+    local src="$AITBC_ROOT/scripts/deployment/aitbc-logrotate.conf"
+    if ! command -v logrotate >/dev/null 2>&1; then
+        log "logrotate not installed — skipping /etc/logrotate.d/aitbc"
+        return 0
+    fi
+    if [ -f "$src" ]; then
+        install -o root -g root -m 0644 "$src" /etc/logrotate.d/aitbc
+        log "logrotate config installed at /etc/logrotate.d/aitbc"
+    fi
+}
+
+# ----------------------------------------------------------------------------
 # Step 4e: Scope consensus-signing keys to the blockchain services
 # ----------------------------------------------------------------------------
 # VALIDATOR_KEYS / PROPOSER_KEY must not live in the shared
@@ -1092,6 +1109,7 @@ main() {
     ensure_env_files
     ensure_aitbc_wrapper
     ensure_monitor_log_files
+    ensure_logrotate_config
     ensure_consensus_env_defaults
     ensure_gossip_defaults
     ensure_validator_secrets_scope

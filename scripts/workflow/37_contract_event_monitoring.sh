@@ -140,16 +140,21 @@ run_test_verbose "Event log directory setup" "
         echo \"✅ Service event log exists: $SERVICE_EVENT_LOG\"
     fi
 
-    # Set log rotation
-    echo \"Setting up log rotation...\"
-    cat > /etc/logrotate.d/aitbc-events << EOF
+    # Set log rotation — the canonical /etc/logrotate.d/aitbc already covers
+    # events/*.log, so writing aitbc-events there too would produce duplicate
+    # log entries in every logrotate run.
+    if [ -f /etc/logrotate.d/aitbc ]; then
+        echo \"ℹ /etc/logrotate.d/aitbc covers event logs — skipping aitbc-events\"
+    else
+        echo \"Setting up log rotation...\"
+        cat > /etc/logrotate.d/aitbc-events << EOF
 $CONTRACT_EVENT_LOG {
     daily
     rotate 7
     compress
     missingok
     notifempty
-    create 644 root root
+    create 0640 aitbc adm
     maxsize $MAX_LOG_SIZE
 }
 
@@ -159,11 +164,12 @@ $SERVICE_EVENT_LOG {
     compress
     missingok
     notifempty
-    create 644 root root
+    create 0640 aitbc adm
     maxsize $MAX_LOG_SIZE
 }
 EOF
-    echo \"✅ Log rotation configured\"
+        echo \"✅ Log rotation configured\"
+    fi
 "
 
 # 2. CONTRACT EVENT MONITORING
