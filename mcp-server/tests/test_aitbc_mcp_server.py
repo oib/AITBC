@@ -163,6 +163,28 @@ class TestRunRemoteTargetVisibility:
         assert result["mode"] == "local"
         assert result["returncode"] == 0
 
+    def test_local_run_remote_detaches_stdin(self):
+        """WAL-1 F1: the CLI child must not inherit the server's stdio stream."""
+        server = _load_isolated_server()
+        run = mock.Mock(return_value=_completed(stdout="{}"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=True),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            server._run_remote("localhost", "aitbc blockchain height")
+        assert run.call_args.kwargs["stdin"] is subprocess.DEVNULL
+
+    def test_ssh_run_remote_detaches_stdin(self):
+        server = _load_isolated_server()
+        run = mock.Mock(return_value=_completed(stdout="{}"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=False),
+            mock.patch.object(server, "_ssh_target", return_value="root@hub.aitbc"),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            server._run_remote("hub.aitbc", "true")
+        assert run.call_args.kwargs["stdin"] is subprocess.DEVNULL
+
     def test_missing_ssh_binary_still_reports_target(self):
         server = _load_isolated_server()
         with (

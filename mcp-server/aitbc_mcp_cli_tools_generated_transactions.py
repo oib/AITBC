@@ -28,15 +28,8 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_transactions_batch(
     transactions_file: Annotated[str, Field(description="JSON file with batch transactions")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -48,13 +41,8 @@ def aitbc_transactions_batch(
     """Send multiple transactions from a JSON batch file.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={
-            "transactions_file": "transactions-file",
-            "password_file": "password-file",
-            "password": "password",
-            "rpc_url": "rpc-url",
-        },
+        flags={},
+        values={"transactions_file": "transactions-file", "password_file": "password-file", "rpc_url": "rpc-url"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -221,15 +209,8 @@ def aitbc_transactions_send(
     to_address: Annotated[str, Field(description="To address")],
     amount: Annotated[str, Field(description="Amount to send")],
     fee: Annotated[str | None, Field(description="Transaction fee")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     tx_type: Annotated[str | None, Field(description="Transaction type (default TRANSFER)")],
@@ -244,14 +225,13 @@ def aitbc_transactions_send(
     """Send a transaction from one wallet to another.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "use_explorer": "use-explorer"},
+        flags={"use_explorer": "use-explorer"},
         values={
             "from_wallet": "from",
             "to_address": "to",
             "amount": "amount",
             "fee": "fee",
             "password_file": "password-file",
-            "password": "password",
             "rpc_url": "rpc-url",
             "tx_type": "type",
             "payload": "payload",

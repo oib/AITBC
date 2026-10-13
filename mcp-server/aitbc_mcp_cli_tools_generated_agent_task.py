@@ -33,15 +33,8 @@ def aitbc_agent_task_hire(
     max_price: Annotated[str, Field(description="Maximum price in AIT")],
     model: Annotated[str | None, Field(description="Model/variant (e.g. base, llama3.2:3b)")],
     wallet_name: Annotated[str | None, Field(description="Buyer wallet name (signs the escrow lock)")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     from_agent: Annotated[str | None, Field(description="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")],
     timeout_seconds: Annotated[float | None, Field(description="Escrow timeout in seconds")],
@@ -60,7 +53,7 @@ def aitbc_agent_task_hire(
     """Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "wait": "wait", "sign": "sign"},
+        flags={"wait": "wait", "sign": "sign"},
         values={
             "to_agent": "to-agent",
             "service_type": "service-type",
@@ -69,7 +62,6 @@ def aitbc_agent_task_hire(
             "max_price": "max-price",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "from_agent": "from-agent",
             "timeout_seconds": "timeout",
             "wait_seconds": "wait-seconds",
@@ -115,15 +107,8 @@ def aitbc_agent_task_result(
     out_path: Annotated[str | None, Field(description="Output file path (default: print to stdout)")],
     from_agent: Annotated[str | None, Field(description="Buyer agent ID")],
     wallet_name: Annotated[str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
@@ -136,14 +121,13 @@ def aitbc_agent_task_result(
     """Fetch a finished task's result payload from island IPFS.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "sign": "sign"},
+        flags={"sign": "sign"},
         values={
             "task_id": "task-id",
             "out_path": "out",
             "from_agent": "from-agent",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "coordinator_url": "coordinator-url",
         },
     )
@@ -185,15 +169,8 @@ def aitbc_agent_task_status(
     task_id: Annotated[str, Field(description="Task identifier")],
     from_agent: Annotated[str | None, Field(description="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")],
     wallet_name: Annotated[str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
@@ -204,13 +181,12 @@ def aitbc_agent_task_status(
     """Show escrow state and negotiation progress for a task.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "sign": "sign"},
+        flags={"sign": "sign"},
         values={
             "task_id": "task-id",
             "from_agent": "from-agent",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "coordinator_url": "coordinator-url",
         },
     )

@@ -28,15 +28,8 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_auth_login(
     wallet: Annotated[str | None, Field(description="Wallet name in AITBC_WALLET_DIR or ~/.aitbc/wallets/")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     private_key: Annotated[str | None, Field(description="Raw hex private key (use only in CI/scripts)")],
     private_key_file: Annotated[str | None, Field(description="File containing a raw hex private key")],
@@ -55,11 +48,10 @@ def aitbc_auth_login(
     """Log in with a wallet-signed nonce and store a coordinator JWT.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "private_key": "private-key",
             "private_key_file": "private-key-file",
             "wallet_address": "wallet-address",

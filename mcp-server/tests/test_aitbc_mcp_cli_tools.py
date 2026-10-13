@@ -427,6 +427,29 @@ def test_aitbc_update_no_deploy_flag():
     assert "--check" not in cmd
 
 
+def test_no_generated_tool_exposes_password_or_password_stdin():
+    """WAL-1 F1: a secret must never appear in MCP call arguments (it lands in
+    transcripts), and a generated tool must never offer --password-stdin (the
+    CLI child would read the MCP server's own stdio stream). password_file
+    stays exposed — it is the agent-safe form."""
+    import ast
+
+    generated = sorted(MCP_SERVER_DIR.glob("aitbc_mcp_cli_tools_generated*.py"))
+    assert generated, "no generated MCP cli tool modules found"
+    saw_password_file = 0
+    for path in generated:
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            params = {a.arg for a in node.args.args + node.args.kwonlyargs}
+            assert "password" not in params, f"{path.name}::{node.name} exposes 'password'"
+            assert "password_stdin" not in params, f"{path.name}::{node.name} exposes 'password_stdin'"
+            if "password_file" in params:
+                saw_password_file += 1
+    assert saw_password_file > 0, "expected some generated tools to keep the safe --password-file form"
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()
@@ -441,6 +464,7 @@ if __name__ == "__main__":
     test_dry_run_gating()
     test_run_market_offer()
     test_send_aitbc_from_wallet()
+    test_no_generated_tool_exposes_password_or_password_stdin()
     test_nested_market_escrow_create()
     test_set_aitbc_config()
     test_login_aitbc()

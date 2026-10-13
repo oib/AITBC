@@ -94,10 +94,13 @@ venv/bin/python -m aitbc_cli wallet bridge deposit \
 ```
 
 **Non-interactive form (agents / no TTY):** the same command takes
-`--password-file` or `--password-stdin` like every signing command. Keep
-the password file **on the node that owns the wallet** (here: node0), mode
-`0600`, owned by the user that runs the CLI — never in the repo, never
-copied to another node:
+`--password-file` or `--password-stdin` like every signing command. The
+shared order is `--password-stdin` → `--password-file` → `--password`
+(deprecated) → `AITBC_WALLET_PASSWORD_FILE` → `AITBC_WALLET_PASSWORD[_<NAME>]`
+→ keyring → TTY prompt; an explicit flag always beats env and keyring.
+Keep the password file **on the node that owns the wallet** (here: node0),
+mode `0600`, owned by the user that runs the CLI — never in the repo,
+never copied to another node:
 
 ```bash
 # file form — /etc/aitbc/sepolia.wallet.pass must be 0600 on node0:

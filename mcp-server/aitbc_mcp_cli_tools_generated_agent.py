@@ -494,15 +494,8 @@ def aitbc_agent_inbox(
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
     ],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -512,13 +505,12 @@ def aitbc_agent_inbox(
     """View messages in a specified agent's inbox from the coordinator.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"unread_only": "unread-only", "password_stdin": "password-stdin"},
+        flags={"unread_only": "unread-only"},
         values={
             "agent_id": "agent-id",
             "limit": "limit",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "coordinator_url": "coordinator-url",
         },
     )
@@ -567,15 +559,8 @@ def aitbc_agent_register(
         str | None,
         Field(description="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); required in enforce mode"),
     ],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -586,13 +571,12 @@ def aitbc_agent_register(
     """Register a local agent with the coordinator by agent ID.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "agent_id": "agent-id",
             "coordinator_url": "coordinator-url",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -718,15 +702,8 @@ def aitbc_agent_subscribe(
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the subscribe request headers (default: $AITBC_DEFAULT_WALLET)")
     ],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -738,14 +715,13 @@ def aitbc_agent_subscribe(
     """Subscribe an agent to a message topic on the coordinator.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "agent_id": "agent-id",
             "topic": "topic",
             "filter": "filter",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
             "coordinator_url": "coordinator-url",
         },
     )

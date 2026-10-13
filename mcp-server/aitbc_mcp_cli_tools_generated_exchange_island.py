@@ -31,15 +31,8 @@ def aitbc_exchange_island_buy(
     quote_currency: Annotated[Literal["ETH"], Field(description="The Quote currency.")],
     max_price: Annotated[str | None, Field(description="Maximum price to pay per AIT")],
     wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -50,14 +43,13 @@ def aitbc_exchange_island_buy(
     """Buy AIT with a quote currency using an optional wallet and maximum price.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "ait_amount": "ait-amount",
             "quote_currency": "quote-currency",
             "max_price": "max-price",
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -97,15 +89,8 @@ def aitbc_exchange_island_buy(
 def aitbc_exchange_island_cancel(
     order_id: Annotated[str, Field(description="The Order id.")],
     wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -116,8 +101,8 @@ def aitbc_exchange_island_cancel(
     """Cancel an exchange order by its order ID.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"order_id": "order-id", "wallet": "wallet", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"order_id": "order-id", "wallet": "wallet", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -277,15 +262,8 @@ def aitbc_exchange_island_sell(
     quote_currency: Annotated[Literal["ETH"], Field(description="The Quote currency.")],
     min_price: Annotated[str | None, Field(description="Minimum price to accept per AIT")],
     wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -296,14 +274,13 @@ def aitbc_exchange_island_sell(
     """Sell AIT for a quote currency using an optional wallet and minimum price.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "ait_amount": "ait-amount",
             "quote_currency": "quote-currency",
             "min_price": "min-price",
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None

@@ -43,8 +43,9 @@ wallet accepts the same three password options, with identical help text:
   is stripped; other whitespace is kept). This is the recommended form for
   agents and scripts: `printf '%s\n' "$PASS" | aitbc …`.
 - `--password-file <path>` — read the password from a file. The file must
-  be a regular file (symlinks are resolved), owned by the calling user (or
-  root when the CLI runs as root), **not group- or world-readable**
+  be a regular file (symlinks are resolved), owned by the **calling user**
+  (`st_uid == geteuid` — a file owned by anyone else, including root when
+  the caller is not root, is refused), **not group- or world-readable**
   (`chmod 0600`), and at most 4 KiB. Exactly one trailing newline is
   stripped.
 - `--password <value>` — **deprecated**: the value is visible in process
@@ -60,8 +61,9 @@ environment is inherited by child processes, so prefer stdin or a file):
   per wallet first.
 
 Resolution order, highest first: `--password-stdin` → `--password-file` →
+`--password` (deprecated; any explicit flag beats inherited state) →
 `AITBC_WALLET_PASSWORD_FILE` → `AITBC_WALLET_PASSWORD[_<NAME>]` →
-`--password` → interactive `getpass` prompt (only when a TTY exists).
+system keyring → interactive `getpass` prompt (only when a TTY exists).
 Passing two explicit sources at once (e.g. `--password` together with
 `--password-file`) is an error, not a guess. With no source and no TTY the
 command fails with a message listing the supported inputs — agents on
