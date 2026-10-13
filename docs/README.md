@@ -36,6 +36,8 @@ catalog, see the [master index](MASTER_INDEX.md). New to the network:
 
 Operator procedures for the live fleet:
 
+- [Backup & restore](ops/backup-restore.md) — what is backed up, consistent
+  live-WAL copies, verification, and the replacement-node restore path.
 - [v9 pre-pin checklist](ops/v9-pre-pin-checklist.md) — the gate that must
   be green before pinning the v9 authorization height.
 - [Bridge deposit canary](ops/bridge-canary-runbook.md) — staged
