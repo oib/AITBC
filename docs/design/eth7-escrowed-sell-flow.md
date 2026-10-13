@@ -236,6 +236,54 @@ release/refund (new tx types or a gated internal surface), and the
 buyer-facing variant of §7. Nothing in this list is implemented by
 this design.
 
+## Sovereignty check (operator rule, 13 Oct)
+
+Every node is wallet-sovereign: no host may hold, receive, use, sign
+for, or read another node's wallet key, password or keystore, and no
+step may need SSH trust between nodes. Per-step key location:
+
+| step | key lives on | signs | only verifies |
+|---|---|---|---|
+| quote request | — (no key) | nobody — unsigned POST | hub computes the quote |
+| lock | shop node | shop signs `TRANSFER`→`AIT_SELL_ESCROW` on its own host | hub, on-chain (sealed tx + `sell_quote` payload) |
+| ETH release | hub | hub signs the Sepolia send with its own ETH release key | shop + anyone via explorer |
+| settle sweep | hub | hub signs escrow→treasury with the dedicated escrow key | shop + anyone via chain |
+| refund sweep | hub | hub signs escrow→shop with the same escrow key | shop + anyone via chain |
+| buyer variant (§7, phase 2) | buyer node | buyer signs its own Sepolia ETH send to the bridge wallet | hub via RPC/explorer receipt |
+
+The hub's key material is limited to: its bridge payout key, its ETH
+release key, its own float wallets, and (per the pending decision
+below) the dedicated `AIT_SELL_ESCROW` key. It never holds, receives
+or uses a node's key material; it never signs on behalf of a node —
+every node-originated value movement is signed by the node itself on
+its own host; it never calls a node's wallet service or reads its
+wallet files — locks and deposits are proven from sealed chain data
+and the public explorer, not by querying the sender; and no step needs
+SSH between nodes — all node↔hub traffic is a signed envelope over
+HTTP plus on-chain data.
+
+**The escrow key itself**: a dedicated, hub-custodied key whose only
+permitted action is sweeping `AIT_SELL_ESCROW`'s balance — exclusively
+AIT placed there by shops' own signed lock transfers — to treasury
+(settle) or back to the locking shop (refund). It can never move a
+node wallet. It is generated and held separately from the bridge
+payout key, the ETH release key and the genesis key; the operator
+creates it and no agent handles it; §4's per-release and daily caps
+bound it; and the phase-2 keyless escrow remains the long-term target
+that retires this key.
+
+## Operator decisions needed
+
+- **Keyed-escrow classification (recommended, unconfirmed)**: whether
+  the dedicated hub-owned `AIT_SELL_ESCROW` key satisfies the
+  sovereignty rule as hub custody, with the conditions stated in the
+  sovereignty check above. If the operator instead requires the
+  strictest reading, sell locks would target the hub's existing
+  treasury address directly — same custody class, but escrowed funds
+  commingle with the bridge's operating balance and lose the dedicated
+  audit trail. Awaiting operator confirmation before any
+  implementation.
+
 ## Could not verify (and why)
 
 - **Exact `TRANSFER` payload limits** — a `payload` dict is accepted
