@@ -12,6 +12,7 @@ import click
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.address import to_eip55
+from ...utils.chain_id import resolve_chain_id
 from ...utils.http_client import AITBCHTTPClient
 from . import _load_wallet, get_wallet_client, wallet
 
@@ -414,7 +415,7 @@ def sell_lock(ctx, quote_id: str, wallet_name: str | None, hub_url: str | None):
     escrow_address = canonical_address(escrow_address)
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
-    chain_id = ctx.obj.get("chain_id") or os.getenv("CHAIN_ID", "ait-localnet")
+    chain_id = resolve_chain_id(ctx, rpc_url)
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=15)
