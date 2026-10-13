@@ -123,6 +123,58 @@ def init_db() -> None:
     # restart can prove from the chain whether the send consumed the nonce.
     _add_column_if_not_exists(conn, "eth_withdrawals", "release_nonce", "INTEGER")
 
+    # ETH-10: escrowed AIT->ETH sell flow. Quotes are hub-issued price
+    # promises; locks are the shop-signed TRANSFERs to AIT_SELL_ESCROW.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bridge_sell_quotes (
+            id TEXT PRIMARY KEY,
+            shop_ait_address TEXT NOT NULL,
+            shop_eth_address TEXT NOT NULL,
+            ait_amount NUMERIC NOT NULL,
+            rate_eth_usd TEXT NOT NULL,
+            ait_usd TEXT NOT NULL,
+            fee_ait NUMERIC NOT NULL,
+            eth_amount NUMERIC NOT NULL,
+            feed_age_seconds NUMERIC,
+            status TEXT NOT NULL DEFAULT 'quoted',
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bridge_sell_locks (
+            id TEXT PRIMARY KEY,
+            quote_id TEXT,
+            ait_tx_hash TEXT UNIQUE NOT NULL,
+            shop_ait_address TEXT NOT NULL,
+            shop_eth_address TEXT,
+            amount_ait NUMERIC NOT NULL,
+            eth_amount NUMERIC,
+            requoted INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'locked',
+            eth_tx_hash TEXT,
+            release_nonce INTEGER,
+            settle_tx_hash TEXT,
+            refund_tx_hash TEXT,
+            escrow_out_nonce INTEGER,
+            escrow_out_tx TEXT,
+            locked_height INTEGER,
+            locked_at TIMESTAMP,
+            error TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            released_at TIMESTAMP,
+            settled_at TIMESTAMP,
+            refunded_at TIMESTAMP
+        )
+    """)
+
+    # Sell tables are new in ETH-10; these ALTERs keep any early dev DB whole.
+    _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_nonce", "INTEGER")
+    _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_tx", "TEXT")
+
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_bridge_sell_locks_status ON bridge_sell_locks(status)")
+
     # Expression index keeps the public by-recipient lookup off a full table
     # scan; the query stays LOWER() = LOWER() so either service's stored
     # casing matches.
@@ -755,3 +807,477 @@ def update_withdrawal_status(
     rows_affected = cursor.rowcount
     conn.close()
     return rows_affected > 0
+
+
+# ---------------------------------------------------------------------------
+# ETH-10 escrowed sell flow — quote and lock tables
+# ---------------------------------------------------------------------------
+
+_SELL_QUOTE_KEYS = [
+    "id",
+    "shop_ait_address",
+    "shop_eth_address",
+    "ait_amount",
+    "rate_eth_usd",
+    "ait_usd",
+    "fee_ait",
+    "eth_amount",
+    "feed_age_seconds",
+    "status",
+    "expires_at",
+    "created_at",
+]
+
+_SELL_LOCK_KEYS = [
+    "id",
+    "quote_id",
+    "ait_tx_hash",
+    "shop_ait_address",
+    "shop_eth_address",
+    "amount_ait",
+    "eth_amount",
+    "requoted",
+    "status",
+    "eth_tx_hash",
+    "release_nonce",
+    "settle_tx_hash",
+    "refund_tx_hash",
+    "escrow_out_nonce",
+    "escrow_out_tx",
+    "locked_height",
+    "locked_at",
+    "error",
+    "created_at",
+    "released_at",
+    "settled_at",
+    "refunded_at",
+]
+
+# Lock statuses whose ETH release is still possible — they reserve float.
+# `failed`, `refunded` and `settled` are terminal and never counted; `released`
+# already sent its ETH so it reserves nothing further. `orphaned` rows are
+# refund-bound and never send ETH.
+_SELL_RESERVE_STATUSES = ("locked", "releasing", "needs_review", "queued_reserve", "stale_price")
+
+# Statuses that count ETH as already committed for the daily cap: the send
+# either happened or is in an ambiguous state where it may have happened.
+_SELL_ETH_COMMITTED_STATUSES = ("releasing", "released", "settling", "settled", "needs_review")
+
+# Every non-terminal lock status — the poll loop's worklist.
+_SELL_OPEN_STATUSES = (
+    "locked",
+    "releasing",
+    "released",
+    "settling",
+    "refunding",
+    "stale_price",
+    "queued_reserve",
+    "needs_review",
+    "orphaned",
+)
+
+
+def insert_sell_quote(
+    shop_ait_address: str,
+    shop_eth_address: str,
+    ait_amount: Decimal,
+    rate_eth_usd: Decimal,
+    ait_usd: Decimal,
+    fee_ait: Decimal,
+    eth_amount: Decimal,
+    expires_at: str,
+    feed_age_seconds: Decimal | None = None,
+) -> str:
+    """Record a new sell quote and return its id."""
+    import uuid
+
+    quote_id = f"sellq_{uuid.uuid4().hex[:12]}"
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO bridge_sell_quotes (
+            id, shop_ait_address, shop_eth_address, ait_amount, rate_eth_usd,
+            ait_usd, fee_ait, eth_amount, feed_age_seconds, status, expires_at, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'quoted', ?, ?)
+        """,
+        (
+            quote_id,
+            shop_ait_address,
+            shop_eth_address,
+            ait_amount,
+            str(rate_eth_usd),
+            str(ait_usd),
+            fee_ait,
+            eth_amount,
+            feed_age_seconds,
+            expires_at,
+            datetime.now().isoformat(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return quote_id
+
+
+def get_sell_quote(quote_id: str) -> dict[str, Any] | None:
+    """Get a sell quote by id."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes WHERE id = ?",
+        (quote_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return dict(zip(_SELL_QUOTE_KEYS, row, strict=False))
+
+
+def get_all_sell_quotes(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+    """Get all sell quotes, newest first."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        (limit, offset),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(zip(_SELL_QUOTE_KEYS, row, strict=False)) for row in rows]
+
+
+def count_open_sell_quotes(shop_ait_address: str) -> int:
+    """Live ('quoted'/'expired') quotes a shop holds — the per-shop cap input."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) FROM bridge_sell_quotes WHERE LOWER(shop_ait_address) = LOWER(?) AND status IN ('quoted', 'expired')",
+        (shop_ait_address,),
+    )
+    count = int(cursor.fetchone()[0])
+    conn.close()
+    return count
+
+
+def get_latest_sell_quote_by_shop(shop_ait_address: str) -> dict[str, Any] | None:
+    """Newest quote a shop requested — the per-shop rate-limit input."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT "
+        + ", ".join(_SELL_QUOTE_KEYS)
+        + " FROM bridge_sell_quotes WHERE LOWER(shop_ait_address) = LOWER(?) ORDER BY created_at DESC LIMIT 1",
+        (shop_ait_address,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return dict(zip(_SELL_QUOTE_KEYS, row, strict=False))
+
+
+def update_sell_quote_status(quote_id: str, status: str) -> bool:
+    """Update a sell quote's status."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE bridge_sell_quotes SET status = ? WHERE id = ?", (status, quote_id))
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
+
+
+def insert_sell_lock(
+    ait_tx_hash: str,
+    shop_ait_address: str,
+    amount_ait: Decimal,
+    quote_id: str | None = None,
+    shop_eth_address: str | None = None,
+    eth_amount: Decimal | None = None,
+    status: str = "locked",
+    locked_height: int | None = None,
+    error: str | None = None,
+) -> str | None:
+    """Record a new escrow lock. Returns the lock id, or None when the
+    ait_tx_hash was already recorded (dedupe — INSERT OR IGNORE)."""
+    import uuid
+
+    lock_id = f"sell_{uuid.uuid4().hex[:8]}"
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO bridge_sell_locks (
+            id, quote_id, ait_tx_hash, shop_ait_address, shop_eth_address,
+            amount_ait, eth_amount, status, locked_height, locked_at, error, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            lock_id,
+            quote_id,
+            ait_tx_hash,
+            shop_ait_address,
+            shop_eth_address,
+            amount_ait,
+            eth_amount,
+            status,
+            locked_height,
+            datetime.now().isoformat(),
+            error,
+            datetime.now().isoformat(),
+        ),
+    )
+    inserted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return lock_id if inserted else None
+
+
+def get_sell_lock_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
+    """Get a sell lock by its lock transaction hash."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE ait_tx_hash = ?",
+        (ait_tx_hash,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return dict(zip(_SELL_LOCK_KEYS, row, strict=False))
+
+
+def get_sell_lock_by_id(lock_id: str) -> dict[str, Any] | None:
+    """Get a sell lock by its local id."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE id = ?",
+        (lock_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return dict(zip(_SELL_LOCK_KEYS, row, strict=False))
+
+
+def get_sell_lock_by_quote_id(
+    quote_id: str,
+    exclude_ait_tx_hash: str | None = None,
+    statuses: tuple[str, ...] | None = None,
+    before_created_at: str | None = None,
+) -> dict[str, Any] | None:
+    """The lock bound to a quote, if any — a quote admits exactly one lock.
+    ``statuses`` narrows which sibling rows count (terminal siblings do not
+    consume the quote); ``before_created_at`` restricts to siblings recorded
+    before a timestamp, so the earliest lock wins the quote."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    query = "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE quote_id = ?"
+    params: list[Any] = [quote_id]
+    if exclude_ait_tx_hash:
+        query += " AND ait_tx_hash != ?"
+        params.append(exclude_ait_tx_hash)
+    if statuses:
+        query += f" AND status IN ({', '.join('?' for _ in statuses)})"
+        params.extend(statuses)
+    if before_created_at:
+        query += " AND created_at < ?"
+        params.append(before_created_at)
+    cursor.execute(query + " ORDER BY created_at ASC LIMIT 1", params)
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return dict(zip(_SELL_LOCK_KEYS, row, strict=False))
+
+
+def get_sell_quotes_by_status(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Get sell quotes in any of the given statuses, oldest first."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    placeholders = ", ".join("?" for _ in statuses)
+    cursor.execute(
+        "SELECT "
+        + ", ".join(_SELL_QUOTE_KEYS)
+        + f" FROM bridge_sell_quotes WHERE status IN ({placeholders}) ORDER BY created_at ASC",
+        statuses,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(zip(_SELL_QUOTE_KEYS, row, strict=False)) for row in rows]
+
+
+def get_sell_locks_by_status(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Get sell locks in any of the given statuses, oldest first."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    placeholders = ", ".join("?" for _ in statuses)
+    cursor.execute(
+        "SELECT "
+        + ", ".join(_SELL_LOCK_KEYS)
+        + f" FROM bridge_sell_locks WHERE status IN ({placeholders}) ORDER BY created_at ASC",
+        statuses,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(zip(_SELL_LOCK_KEYS, row, strict=False)) for row in rows]
+
+
+def get_open_sell_locks() -> list[dict[str, Any]]:
+    """All non-terminal sell locks — the monitor's worklist."""
+    return get_sell_locks_by_status(_SELL_OPEN_STATUSES)
+
+
+def get_all_sell_locks(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+    """Get all sell locks, newest first."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        (limit, offset),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(zip(_SELL_LOCK_KEYS, row, strict=False)) for row in rows]
+
+
+def update_sell_lock_status(
+    ait_tx_hash: str,
+    status: str,
+    *,
+    quote_id: str | None = None,
+    shop_eth_address: str | None = None,
+    eth_amount: Decimal | None = None,
+    requoted: int | None = None,
+    eth_tx_hash: str | None = None,
+    release_nonce: int | None = None,
+    settle_tx_hash: str | None = None,
+    refund_tx_hash: str | None = None,
+    escrow_out_nonce: int | None = None,
+    escrow_out_tx: str | None = None,
+    error: str | None = None,
+) -> bool:
+    """Update a sell lock's status and optional lifecycle fields."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+
+    timestamp_field = None
+    if status in ("releasing", "released"):
+        timestamp_field = "released_at"
+    elif status == "settled":
+        timestamp_field = "settled_at"
+    elif status == "refunded":
+        timestamp_field = "refunded_at"
+
+    if timestamp_field:
+        query = f"""
+            UPDATE bridge_sell_locks
+            SET status = ?, {timestamp_field} = ?,
+                quote_id = COALESCE(?, quote_id),
+                shop_eth_address = COALESCE(?, shop_eth_address),
+                eth_amount = COALESCE(?, eth_amount),
+                requoted = COALESCE(?, requoted),
+                eth_tx_hash = COALESCE(?, eth_tx_hash),
+                release_nonce = COALESCE(?, release_nonce),
+                settle_tx_hash = COALESCE(?, settle_tx_hash),
+                refund_tx_hash = COALESCE(?, refund_tx_hash),
+                escrow_out_nonce = COALESCE(?, escrow_out_nonce),
+                escrow_out_tx = COALESCE(?, escrow_out_tx),
+                error = COALESCE(?, error)
+            WHERE ait_tx_hash = ?
+        """  # nosec B608 - timestamp_field is a hardcoded literal above, never caller input
+        params: tuple = (
+            status,
+            datetime.now().isoformat(),
+            quote_id,
+            shop_eth_address,
+            eth_amount,
+            requoted,
+            eth_tx_hash,
+            release_nonce,
+            settle_tx_hash,
+            refund_tx_hash,
+            escrow_out_nonce,
+            escrow_out_tx,
+            error,
+            ait_tx_hash,
+        )
+    else:
+        query = """
+            UPDATE bridge_sell_locks
+            SET status = ?,
+                quote_id = COALESCE(?, quote_id),
+                shop_eth_address = COALESCE(?, shop_eth_address),
+                eth_amount = COALESCE(?, eth_amount),
+                requoted = COALESCE(?, requoted),
+                eth_tx_hash = COALESCE(?, eth_tx_hash),
+                release_nonce = COALESCE(?, release_nonce),
+                settle_tx_hash = COALESCE(?, settle_tx_hash),
+                refund_tx_hash = COALESCE(?, refund_tx_hash),
+                escrow_out_nonce = COALESCE(?, escrow_out_nonce),
+                escrow_out_tx = COALESCE(?, escrow_out_tx),
+                error = COALESCE(?, error)
+            WHERE ait_tx_hash = ?
+        """
+        params = (
+            status,
+            quote_id,
+            shop_eth_address,
+            eth_amount,
+            requoted,
+            eth_tx_hash,
+            release_nonce,
+            settle_tx_hash,
+            refund_tx_hash,
+            escrow_out_nonce,
+            escrow_out_tx,
+            error,
+            ait_tx_hash,
+        )
+    cursor.execute(query, params)
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
+
+
+def get_sell_pending_eth_reserve() -> Decimal:
+    """ETH committed to sell locks that may still release — reserves float.
+
+    Excludes `failed` rows: a failed lock's refund moves AIT, not ETH, so
+    counting it would park float forever (the wart ETH-7 §4 flagged in
+    get_pending_withdrawals does not repeat here).
+    """
+    conn = _connect_db()
+    cursor = conn.cursor()
+    placeholders = ", ".join("?" for _ in _SELL_RESERVE_STATUSES)
+    cursor.execute(
+        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})",
+        _SELL_RESERVE_STATUSES,
+    )
+    total = cursor.fetchone()[0]
+    conn.close()
+    return Decimal(str(total)) if total is not None else Decimal("0")
+
+
+def get_sell_eth_committed_since(since_iso: str) -> Decimal:
+    """Sum of ETH released (or possibly released) by sell locks since a
+    timestamp — the persisted basis for the daily release cap."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    placeholders = ", ".join("?" for _ in _SELL_ETH_COMMITTED_STATUSES)
+    cursor.execute(
+        f"""SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks
+            WHERE status IN ({placeholders}) AND released_at >= ?""",
+        (*_SELL_ETH_COMMITTED_STATUSES, since_iso),
+    )
+    total = cursor.fetchone()[0]
+    conn.close()
+    return Decimal(str(total)) if total is not None else Decimal("0")

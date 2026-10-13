@@ -5,6 +5,7 @@ Fetches ETH price via the shared price oracle and calculates AIT exchange rate.
 
 import asyncio
 import os
+import time
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -81,6 +82,77 @@ async def get_eth_prices() -> dict[str, Decimal] | None:
         except Exception:
             logger.warning("Invalid fixed ETH price env: %s / %s", fixed_usd, fixed_eur)
     return None
+
+
+def _bridge_price_max_age() -> float:
+    """Max age in seconds a price feed may reach before it is stale."""
+    try:
+        return float(os.getenv("BRIDGE_PRICE_MAX_AGE", "7200"))
+    except Exception:
+        return 7200.0
+
+
+async def get_eth_prices_meta() -> dict[str, Any] | None:
+    """ETH prices plus feed freshness.
+
+    Returns {"usd", "eur", "feed_age_seconds", "feed_source"} or None when no
+    source yields both prices. ``feed_age_seconds`` is the age of the oldest
+    underlying price point (the Chainlink round's on-chain ``updatedAt`` when
+    the oracle path is live); env-pinned prices are operator-set and report
+    ``feed_source="env"`` with age 0 — an explicit pin is never "stale".
+    """
+    try:
+        from aitbc.oracles.price_oracle import get_price_oracle
+
+        oracle = get_price_oracle()
+        usd_res = await asyncio.to_thread(oracle.get_price, "ETH", "USD")
+        eur_res = await asyncio.to_thread(oracle.get_price, "ETH", "EUR")
+
+        if usd_res and eur_res:
+            oldest = min(usd_res.timestamp, eur_res.timestamp)
+            return {
+                "usd": usd_res.price,
+                "eur": eur_res.price,
+                "feed_age_seconds": max(0.0, time.time() - oldest),
+                "feed_source": "oracle",
+            }
+    except Exception as e:
+        logger.error("Failed to fetch ETH prices: %s", e)
+
+    fixed_usd = os.getenv("ETH_USD_FIXED_PRICE")
+    fixed_eur = os.getenv("ETH_EUR_FIXED_PRICE")
+    if fixed_usd:
+        try:
+            return {
+                "usd": Decimal(str(fixed_usd)),
+                "eur": Decimal(str(fixed_eur or fixed_usd)),
+                "feed_age_seconds": 0.0,
+                "feed_source": "env",
+            }
+        except Exception:
+            logger.warning("Invalid fixed ETH price env: %s / %s", fixed_usd, fixed_eur)
+    return None
+
+
+async def get_eth_prices_fresh() -> dict[str, Any] | None:
+    """ETH prices only when the feed is younger than BRIDGE_PRICE_MAX_AGE.
+
+    Returns None when prices are unavailable OR the feed is stale — callers
+    that must not price off a dead feed (sell quotes, sell releases) use
+    this; the returned dict still carries ``feed_age_seconds``.
+    """
+    meta = await get_eth_prices_meta()
+    if meta is None:
+        return None
+    max_age = _bridge_price_max_age()
+    if meta["feed_source"] != "env" and meta["feed_age_seconds"] > max_age:
+        logger.warning(
+            "ETH price feed stale: age %.0fs > BRIDGE_PRICE_MAX_AGE %.0fs",
+            meta["feed_age_seconds"],
+            max_age,
+        )
+        return None
+    return meta
 
 
 async def get_eth_price_usd() -> Decimal | None:
