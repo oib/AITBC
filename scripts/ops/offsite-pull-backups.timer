@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily off-site pull of AITBC backup generations
+
+[Timer]
+# fleet backups finish about 01:05; pull a while later with a small splay
+OnCalendar=*-*-* 02:30:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target
