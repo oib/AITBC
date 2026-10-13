@@ -262,27 +262,73 @@ and the public explorer, not by querying the sender; and no step needs
 SSH between nodes — all node↔hub traffic is a signed envelope over
 HTTP plus on-chain data.
 
-**The escrow key itself**: a dedicated, hub-custodied key whose only
-permitted action is sweeping `AIT_SELL_ESCROW`'s balance — exclusively
-AIT placed there by shops' own signed lock transfers — to treasury
-(settle) or back to the locking shop (refund). It can never move a
-node wallet. It is generated and held separately from the bridge
-payout key, the ETH release key and the genesis key; the operator
-creates it and no agent handles it; §4's per-release and daily caps
+Stated plainly: `AIT_SELL_ESCROW` is a **hub-held escrow key, not a
+node wallet**. The hub can move AIT that a shop has locked into it,
+and only that AIT — the shop's own wallet key never leaves the shop's
+node, and nothing in the flow ever asks for it. The key is dedicated:
+its only permitted action is sweeping `AIT_SELL_ESCROW`'s balance —
+exclusively AIT placed there by shops' own signed lock transfers — to
+treasury (settle) or back to the locking shop (refund). It is
+generated and held separately from the bridge payout key, the ETH
+release key and the genesis key; §4's per-release and daily caps
 bound it; and the phase-2 keyless escrow remains the long-term target
 that retires this key.
 
+**What the shop trusts the hub with, and for how long**: exactly the
+AIT it locked into escrow — nothing else — and only inside a bounded
+window. Before locking, the shop trusts the hub with nothing (the
+15-minute quote window costs it a signature on a lock it chooses to
+make). After the lock confirms, the exposure is capped by
+`SELL_RELEASE_DEADLINE` (~1 h): the hub must release the ETH or let
+the deadline fire an escrow→shop refund. An orphaned lock is refunded
+after ~150 blocks; a lock that outlives its window without release is
+swept back by the deadline refund — worst case a delayed refund, never
+a held one (§5). The shop's maximum exposure is therefore one locked
+amount for roughly the release deadline — bounded in size by the
+caps (§4), bounded in time by the deadlines (§5), and publicly
+verifiable on-chain the whole time.
+
 ## Operator decisions needed
 
-- **Keyed-escrow classification (recommended, unconfirmed)**: whether
-  the dedicated hub-owned `AIT_SELL_ESCROW` key satisfies the
-  sovereignty rule as hub custody, with the conditions stated in the
-  sovereignty check above. If the operator instead requires the
-  strictest reading, sell locks would target the hub's existing
-  treasury address directly — same custody class, but escrowed funds
-  commingle with the bridge's operating balance and lose the dedicated
-  audit trail. Awaiting operator confirmation before any
-  implementation.
+(a) **Keyed escrow now vs waiting for keyless post-settle.**
+*Recommendation: keyed escrow in phase 1.* Waiting means no
+reversible sell flow at all until the activation boundary has settled
+*and* a release-origination path ships in the node (§3(c) is blocked
+on BNT-2's retired origination RPC — a consensus-adjacent change).
+The keyed escrow delivers the trust property today with service-side
+code only; phase 2 retires the key. This item also carries the
+pending classification from the 13-Oct sovereignty review: whether
+the dedicated hub-owned key satisfies the sovereignty rule as hub
+custody under the conditions above — recommended yes; strict-reading
+fallback is locks directly to the hub's treasury address (same
+custody class, escrowed AIT commingled with the bridge operating
+balance). *Awaiting operator confirmation.*
+
+(b) **Who creates the `AIT_SELL_ESCROW` key and where it is
+custodied** (options only — no key is handled in this task):
+
+- *(recommended)* the **operator** generates it on the hub host and
+  custodies it in the hub ops-signer alongside the other signing key
+  material, as its own custody entry — no agent ever sees or handles
+  it, and it is provably a different key from the bridge payout, ETH
+  release and genesis keys;
+- operator generates it on an admin/offline machine and imports it
+  into ops-signer custody — stronger creation hygiene at the cost of
+  an extra handling step;
+- operator-held outside ops-signer, signing releases manually —
+  strongest custody but turns every settle/refund into an operator
+  action, which defeats the deadline-refund automation that bounds
+  the shop's exposure.
+
+(c) **Cap values, and topping up the float before the first live
+run.** *Recommendation:* `SELL_MAX_ETH_PER_TX=0.01` (≈20 % of the
+0.05 ETH float), `SELL_MAX_ETH_PER_DAY=0.03`, `ETH_WITHDRAW_MIN_RESERVE=0.005`
+unchanged, and **yes — top the float up before the first live run**
+(e.g. to ~0.10 ETH via a `BRIDGE_FUNDING_SOURCES` send, an operator
+action) so the first sell release plus gas plus any concurrent
+deposit payouts does not trip `insufficient_reserve` on its first
+play. The concrete target float is the operator's call; the caps
+should be re-scaled to whatever float is actually provisioned.
 
 ## Could not verify (and why)
 
