@@ -87,11 +87,11 @@ operational wallets") after each host is done:
 
 | host | file (0600 root) | address | address variable | faucet target |
 |---|---|---|---|---|
-| hub   | `/var/lib/aitbc/wallets/sepolia.json` | `0x…` | `SEPOLIA_ADDR_HUB`   | 0.005 ETH |
-| hub1  | `/var/lib/aitbc/wallets/sepolia.json` | `0x…` | `SEPOLIA_ADDR_HUB1`  | 0.005 ETH |
-| node0 | `/var/lib/aitbc/wallets/sepolia.json` | `0x…` | `SEPOLIA_ADDR_NODE0` | 0.010 ETH |
-| node1 | `/var/lib/aitbc/wallets/sepolia.json` | `0x…` | `SEPOLIA_ADDR_NODE1` | 0.005 ETH |
-| node2 | `/var/lib/aitbc/wallets/sepolia.json` | `0x…` | `SEPOLIA_ADDR_NODE2` | 0.005 ETH |
+| hub   | `/var/lib/aitbc/wallets/sepolia.json` | `0xA556E23897ea7FF5f0ED0F925f5eB2e68D7EC74C` | `SEPOLIA_ADDR_HUB`   | 0.005 ETH |
+| hub1  | `/var/lib/aitbc/wallets/sepolia.json` | `0x86FAA186474DC63d77ECcDBE242084a04F45101C` | `SEPOLIA_ADDR_HUB1`  | 0.005 ETH |
+| node0 | `/var/lib/aitbc/wallets/sepolia.json` | `0xF1C83cd90e4d33F35BE73Dd57CaBa21Ea52D4584` | `SEPOLIA_ADDR_NODE0` | 0.010 ETH |
+| node1 | `/var/lib/aitbc/wallets/sepolia.json` | `0xFdE0fBa0098645d20D64e3D7f87F2fcf3f4754c1` | `SEPOLIA_ADDR_NODE1` | 0.005 ETH |
+| node2 | `/var/lib/aitbc/wallets/sepolia.json` | `0xCf1719140054AB3fD52ce8aa3128dec9317426E3` | `SEPOLIA_ADDR_NODE2` | 0.005 ETH |
 
 ## Faucet funding — operator action
 
@@ -137,6 +137,15 @@ venv/bin/python scripts/ops/sepolia_balance.py \
 `nonce` is the confirmed outbound transaction count
 (`eth_getTransactionCount` at `latest`); a pending send shows as a
 balance drop before the nonce moves.
+
+For the full transfer history rather than a point balance,
+`aitbc eth transfers` fetches in/out/self + internal transfers for all
+seven addresses (this doc's inventory plus `bridge` and `bridge-old`),
+appends deduplicated rows to `~/.aitbc/eth-transfers.jsonl`, and
+cross-checks outgoing counts against the RPC nonce. The label → address
+table lives in `cli/aitbc_cli/commands/eth.py` (`DEFAULT_WALLETS`);
+this doc's custody inventory mirrors it — keep them in sync when a
+wallet rotates.
 
 ## What these wallets are *not* for
 
