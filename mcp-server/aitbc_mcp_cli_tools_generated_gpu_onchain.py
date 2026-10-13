@@ -32,15 +32,8 @@ def aitbc_gpu_onchain_allocate(
     duration_hours: Annotated[float, Field(description="Allocation duration in hours")],
     total_cost: Annotated[str, Field(description="Total cost in AIT")],
     wallet: Annotated[str, Field(description="Wallet name for signing")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -52,7 +45,7 @@ def aitbc_gpu_onchain_allocate(
     """Record a GPU allocation on the blockchain for a client.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "wait": "wait"},
+        flags={"wait": "wait"},
         values={
             "gpu_id": "gpu-id",
             "client_id": "client-id",
@@ -60,7 +53,6 @@ def aitbc_gpu_onchain_allocate(
             "total_cost": "total-cost",
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -148,15 +140,8 @@ def aitbc_gpu_onchain_allocations(
 def aitbc_gpu_onchain_deregister(
     gpu_id: Annotated[str, Field(description="GPU ID to take out of service")],
     wallet: Annotated[str, Field(description="Wallet name for signing (must be the GPU's registrant)")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -168,8 +153,8 @@ def aitbc_gpu_onchain_deregister(
     """Deactivate an on-chain GPU registration (signed by its registrant).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "wait": "wait"},
-        values={"gpu_id": "gpu-id", "wallet": "wallet", "password_file": "password-file", "password": "password"},
+        flags={"wait": "wait"},
+        values={"gpu_id": "gpu-id", "wallet": "wallet", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -288,15 +273,8 @@ def aitbc_gpu_onchain_register(
     cuda_version: Annotated[str | None, Field(description="CUDA version")],
     region: Annotated[str | None, Field(description="Geographic region")],
     capabilities: Annotated[list[str] | None, Field(description="GPU capabilities (can specify multiple)")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -308,7 +286,7 @@ def aitbc_gpu_onchain_register(
     """Register GPU immutable specs on the blockchain with a signing wallet.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "wait": "wait"},
+        flags={"wait": "wait"},
         values={
             "gpu_id": "gpu-id",
             "miner_id": "miner-id",
@@ -320,7 +298,6 @@ def aitbc_gpu_onchain_register(
             "price_per_hour": "price-per-hour",
             "wallet": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None

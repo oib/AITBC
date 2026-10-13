@@ -60,7 +60,6 @@ def aitbc_genesis_info(
 def aitbc_genesis_init(
     chain_id: Annotated[str | None, Field(description="Chain ID for genesis (auto-detected from config if not provided)")],
     create_wallet: Annotated[bool | None, Field(description="Create genesis wallet with secure random key")],
-    password: Annotated[str | None, Field(description="Wallet password (auto-generated if not provided)")],
     proposer: Annotated[str | None, Field(description="Proposer address (defaults to genesis wallet)")],
     force: Annotated[bool | None, Field(description="Force overwrite existing genesis")],
     register_service: Annotated[bool | None, Field(description="Register genesis wallet with wallet service")],
@@ -75,7 +74,7 @@ def aitbc_genesis_init(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"create_wallet": "create-wallet", "force": "force", "register_service": "register-service"},
-        values={"chain_id": "chain-id", "password": "password", "proposer": "proposer", "service_url": "service-url"},
+        values={"chain_id": "chain-id", "proposer": "proposer", "service_url": "service-url"},
     )
     args = None
     target = _host_for_role(role, host)

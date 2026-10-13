@@ -28,15 +28,8 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_address(
     name: Annotated[str | None, Field(description="Wallet name.")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -45,8 +38,8 @@ def aitbc_wallet_address(
     """Display the public address of the active or named wallet.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"name": "name", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"name": "name", "password_file": "password-file"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -139,15 +132,8 @@ def aitbc_wallet_bridge_deposit(
     amount: Annotated[str, Field(description="ETH amount to deposit.")],
     wallet_name: Annotated[str | None, Field(description="Source wallet name for ETH signing.")],
     eth_rpc_url: Annotated[str | None, Field(description="Ethereum RPC URL.")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -158,13 +144,12 @@ def aitbc_wallet_bridge_deposit(
     """Deposit ETH to the bridge and receive AITBC on the hub.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "amount": "amount",
             "wallet_name": "wallet-name",
             "eth_rpc_url": "eth-rpc-url",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -380,15 +365,8 @@ def aitbc_wallet_bridge_withdraw(
     amount: Annotated[str, Field(description="AIT amount to withdraw.")],
     eth_address: Annotated[str, Field(description="Destination Ethereum address.")],
     wallet_name: Annotated[str | None, Field(description="Source wallet name for AIT signing.")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -399,13 +377,12 @@ def aitbc_wallet_bridge_withdraw(
     """Burn AITBC on the hub to receive ETH at the given Ethereum address.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "amount": "amount",
             "eth_address": "eth-address",
             "wallet_name": "wallet-name",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -496,15 +473,8 @@ def aitbc_wallet_earn(
     amount: Annotated[str, Field(description="Amount of AIT.")],
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
     desc: Annotated[str | None, Field(description="Description of the work")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -515,14 +485,8 @@ def aitbc_wallet_earn(
     """Record earnings received for a completed job against the wallet.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={
-            "amount": "amount",
-            "job_id": "job-id",
-            "desc": "desc",
-            "password_file": "password-file",
-            "password": "password",
-        },
+        flags={},
+        values={"amount": "amount", "job_id": "job-id", "desc": "desc", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -608,15 +572,8 @@ def aitbc_wallet_export(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_info(
     name: Annotated[str | None, Field(description="Wallet name (defaults to the active wallet)")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -625,8 +582,8 @@ def aitbc_wallet_info(
     """Show detailed information about the active or named wallet.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"name": "name", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"name": "name", "password_file": "password-file"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -644,15 +601,8 @@ def aitbc_wallet_info(
 def aitbc_wallet_liquidity_claim(
     stake_id: Annotated[str, Field(description="Stake ID.")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -663,8 +613,8 @@ def aitbc_wallet_liquidity_claim(
     """Claim accrued liquidity rewards for the given stake ID.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -705,15 +655,8 @@ def aitbc_wallet_liquidity_stake(
     pool: Annotated[str | None, Field(description="Liquidity pool name")],
     lock_days: Annotated[int | None, Field(description="Lock period in days (higher APY)")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -724,15 +667,8 @@ def aitbc_wallet_liquidity_stake(
     """Stake tokens into an on-chain liquidity pool to earn rewards.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={
-            "amount": "amount",
-            "pool": "pool",
-            "lock_days": "lock-days",
-            "fee": "fee",
-            "password_file": "password-file",
-            "password": "password",
-        },
+        flags={},
+        values={"amount": "amount", "pool": "pool", "lock_days": "lock-days", "fee": "fee", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -771,15 +707,8 @@ def aitbc_wallet_liquidity_stake(
 def aitbc_wallet_liquidity_unstake(
     stake_id: Annotated[str, Field(description="Stake ID.")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -790,8 +719,8 @@ def aitbc_wallet_liquidity_unstake(
     """Withdraw a liquidity stake and its accumulated rewards.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1002,15 +931,8 @@ def aitbc_wallet_request_payment(
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
     description: Annotated[str | None, Field(description="Transaction description")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1021,13 +943,12 @@ def aitbc_wallet_request_payment(
     """Generate a payment request to another address for a specific amount.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "to_address": "to-address",
             "amount": "amount",
             "description": "description",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -1118,15 +1039,8 @@ def aitbc_wallet_send(
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -1138,13 +1052,12 @@ def aitbc_wallet_send(
     """Send AITBC tokens from the active wallet to another address.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "to_address": "to-address",
             "amount": "amount",
             "fee": "fee",
             "password_file": "password-file",
-            "password": "password",
             "rpc_url": "rpc-url",
         },
     )
@@ -1185,15 +1098,8 @@ def aitbc_wallet_send(
 def aitbc_wallet_spend(
     amount: Annotated[str, Field(description="Amount of AIT.")],
     description: Annotated[str, Field(description="Free-form description.")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1204,8 +1110,8 @@ def aitbc_wallet_spend(
     """Record a manual spend transaction with an amount and description.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"amount": "amount", "description": "description", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"amount": "amount", "description": "description", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1244,15 +1150,8 @@ def aitbc_wallet_spend(
 def aitbc_wallet_stake(
     amount: Annotated[str, Field(description="Amount of AIT.")],
     duration: Annotated[int | None, Field(description="Staking duration in days")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1263,8 +1162,8 @@ def aitbc_wallet_stake(
     """Stake AITBC tokens on the blockchain for a configurable duration.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"amount": "amount", "duration": "duration", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"amount": "amount", "duration": "duration", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1301,15 +1200,8 @@ def aitbc_wallet_stake(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_stats(
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1318,8 +1210,8 @@ def aitbc_wallet_stats(
     """Show aggregated statistics for the active wallet over all transactions.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"password_file": "password-file", "password": "password"},
+        flags={},
+        values={"password_file": "password-file"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -1336,15 +1228,8 @@ def aitbc_wallet_stats(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_switch(
     name: Annotated[str, Field(description="Wallet name.")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1355,8 +1240,8 @@ def aitbc_wallet_switch(
     """Switch the active wallet context to a different locally stored wallet.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"name": "name", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"name": "name", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1420,15 +1305,8 @@ def aitbc_wallet_transactions(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_unstake(
     stake_id: Annotated[str, Field(description="Numeric stake ID returned by 'stake'.")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1439,8 +1317,8 @@ def aitbc_wallet_unstake(
     """Unstake tokens and withdraw the principal for the given stake ID.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
-        values={"stake_id": "stake-id", "password_file": "password-file", "password": "password"},
+        flags={},
+        values={"stake_id": "stake-id", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)

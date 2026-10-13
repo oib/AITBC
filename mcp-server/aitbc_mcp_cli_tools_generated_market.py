@@ -140,15 +140,8 @@ def aitbc_market_escrow_create(
     provider: Annotated[str, Field(description="The Provider.")],
     amount: Annotated[str | None, Field(description="Amount of AIT.")],
     wallet_name: Annotated[str | None, Field(description="Wallet name to sign the escrow lock")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -159,7 +152,7 @@ def aitbc_market_escrow_create(
     """Create an on-chain escrow for a job with buyer, provider, and optional amount.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin"},
+        flags={},
         values={
             "job_id": "job-id",
             "buyer": "buyer",
@@ -167,7 +160,6 @@ def aitbc_market_escrow_create(
             "amount": "amount",
             "wallet_name": "wallet",
             "password_file": "password-file",
-            "password": "password",
         },
     )
     args = None
@@ -623,15 +615,8 @@ def aitbc_market_gpu_buy(
     settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")],
     wallet: Annotated[str | None, Field(description="Wallet name for signing")],
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     energy_quote: Annotated[str | None, Field(description="JSON file containing the energy quote")],
     max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")],
@@ -646,7 +631,7 @@ def aitbc_market_gpu_buy(
     """Fund a quoted GPU rental (native escrow or EVM contract).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "yes": "yes", "json_output": "json-output"},
+        flags={"yes": "yes", "json_output": "json-output"},
         values={
             "gpu_id": "gpu-id",
             "buyer_id": "buyer-id",
@@ -656,7 +641,6 @@ def aitbc_market_gpu_buy(
             "wallet": "wallet",
             "wallet_path": "wallet-path",
             "password_file": "password-file",
-            "password": "password",
             "energy_quote": "energy-quote",
             "max_ait": "max-ait",
         },
@@ -760,15 +744,8 @@ def aitbc_market_gpu_refund(
     job_id: Annotated[str, Field(description="Job ID")],
     wallet: Annotated[str | None, Field(description="Wallet name for signing")],
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
-    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    password: Annotated[
-        str | None,
-        Field(
-            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
-        ),
     ],
     reason: Annotated[str | None, Field(description="Refund reason")],
     yes: Annotated[bool | None, Field(description="Skip confirmation prompt")],
@@ -782,13 +759,12 @@ def aitbc_market_gpu_refund(
     """Request a refund for a GPU rental.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"password_stdin": "password-stdin", "yes": "yes", "json_output": "json-output"},
+        flags={"yes": "yes", "json_output": "json-output"},
         values={
             "job_id": "job-id",
             "wallet": "wallet",
             "wallet_path": "wallet-path",
             "password_file": "password-file",
-            "password": "password",
             "reason": "reason",
         },
     )

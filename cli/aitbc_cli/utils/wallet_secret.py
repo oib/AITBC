@@ -10,12 +10,15 @@ Precedence (highest first):
 
 1. ``--password-stdin`` — one line from stdin (one trailing newline removed)
 2. ``--password-file <path>`` — checked file read
-3. ``AITBC_WALLET_PASSWORD_FILE`` — checked file read
-4. ``AITBC_WALLET_PASSWORD_<NAME>`` / ``AITBC_WALLET_PASSWORD`` — environment
+3. ``--password <value>`` — deprecated; emits a one-line stderr warning
+   because the value is visible in process lists and shell history. Any
+   explicit flag beats inherited state, so a stale env var or keyring entry
+   can never override a flag the user typed.
+4. ``AITBC_WALLET_PASSWORD_FILE`` — checked file read
+5. ``AITBC_WALLET_PASSWORD_<NAME>`` / ``AITBC_WALLET_PASSWORD`` — environment
    (inherited by child processes; the file/stdin forms are safer)
-5. ``--password <value>`` — deprecated; emits a one-line stderr warning
-   because the value is visible in process lists and shell history
-6. interactive ``getpass`` prompt — only when a TTY is available and
+6. system keyring — legacy non-interactive source, kept for compatibility
+7. interactive ``getpass`` prompt — only when a TTY is available and
    ``interactive_ok`` is true
 
 Two explicit flag sources at once (e.g. ``--password`` together with
@@ -61,7 +64,13 @@ def _strip_one_trailing_newline(text: str) -> str:
 
 
 def _read_password_file(path_str: str, ctx=None) -> str:
-    """Read a password file after ownership/permission/size checks."""
+    """Read a password file after ownership/permission/size checks.
+
+    The file must be owned by the *calling* user — ``st_uid == os.geteuid()``.
+    Root-owned files are only accepted when the CLI itself runs as root; a
+    file owned by any other account (including root when the caller is not
+    root) is refused.
+    """
     path = Path(path_str).expanduser()
     try:
         resolved = path.resolve(strict=True)
@@ -159,6 +168,16 @@ def resolve_wallet_password(
     if password_file:
         return _read_password_file(password_file, ctx)
 
+    # Any explicit flag outranks inherited state: a stale env var or keyring
+    # entry must never override a flag the user typed.
+    if password is not None:
+        click.echo(
+            "warning: --password exposes the secret in process lists and shell history; "
+            "prefer --password-stdin or --password-file",
+            err=True,
+        )
+        return password
+
     env_file = os.environ.get(ENV_PASSWORD_FILE)
     if env_file:
         return _read_password_file(env_file, ctx)
@@ -179,14 +198,6 @@ def resolve_wallet_password(
                 return kr_password
         except Exception:
             pass
-
-    if password is not None:
-        click.echo(
-            "warning: --password exposes the secret in process lists and shell history; "
-            "prefer --password-stdin or --password-file",
-            err=True,
-        )
-        return password
 
     if allow_unencrypted and wallet_name and _wallet_is_unencrypted(wallet_name, wallet_path):
         return ""

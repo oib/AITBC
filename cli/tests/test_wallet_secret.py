@@ -120,9 +120,24 @@ class TestPrecedenceAndConflicts:
         monkeypatch.setenv(ENV_PASSWORD_FILE, str(tmp_path / "missing.pass"))
         assert resolve_wallet_password("w", password_file=str(path), interactive_ok=False) == SECRET
 
-    def test_env_beats_deprecated_flag(self, monkeypatch):
+    def test_flag_beats_env(self, monkeypatch):
+        # An explicit flag always outranks inherited state (F2): a stale env
+        # var can never override what the user typed.
         monkeypatch.setenv(ENV_PASSWORD, ALT_SECRET)
-        assert resolve_wallet_password("w", password=SECRET, interactive_ok=False) == ALT_SECRET
+        assert resolve_wallet_password("w", password=SECRET, interactive_ok=False) == SECRET
+
+    def test_flag_beats_keyring(self, monkeypatch):
+        monkeypatch.setattr("keyring.get_password", lambda service, name: ALT_SECRET)
+        assert resolve_wallet_password("w", password=SECRET, interactive_ok=False) == SECRET
+
+    def test_env_beats_keyring(self, monkeypatch):
+        monkeypatch.setenv(ENV_PASSWORD, SECRET)
+        monkeypatch.setattr("keyring.get_password", lambda service, name: ALT_SECRET)
+        assert resolve_wallet_password("w", interactive_ok=False) == SECRET
+
+    def test_keyring_used_when_nothing_else(self, monkeypatch):
+        monkeypatch.setattr("keyring.get_password", lambda service, name: SECRET)
+        assert resolve_wallet_password("w", interactive_ok=False) == SECRET
 
     def test_two_flag_sources_fail(self, tmp_path):
         path = _password_file(tmp_path)

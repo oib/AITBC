@@ -379,6 +379,9 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
                 text=True,
                 timeout=timeout,
                 shell=False,
+                # Never let a CLI child read this process's stdin: the MCP
+                # server speaks the stdio protocol on it.
+                stdin=subprocess.DEVNULL,
             )
             return {
                 **context,
@@ -406,7 +409,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
 
     cmd = ["ssh"] + _ssh_opts(host) + [context["target"], "--", command]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
         return {
             **context,
             "command": command,
