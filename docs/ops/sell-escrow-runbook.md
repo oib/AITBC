@@ -38,7 +38,14 @@ SELL_MAX_OPEN_QUOTES_PER_SHOP=5
 SELL_QUOTE_MIN_INTERVAL_SECONDS=30
 # Price-feed freshness gate for quote issue and release (default 7200 = 2 h).
 BRIDGE_PRICE_MAX_AGE=7200
-# Reused existing keys: ETH_WALLET_ADDRESS (release source),
+# Comma-separated AIT addresses whose sends to the escrow are float
+# top-ups (fee seed / operating balance), never sell locks — without this
+# the scanner would treat the operator's seed send as an orphan lock and
+# refund it right back. Mirrors BRIDGE_FUNDING_SOURCES on the ETH side.
+SELL_ESCROW_FUNDING_SOURCES=
+# Reused existing keys: CHAIN_ID (required — the monitor refuses to sign
+# escrow sweeps without it; there is no ait-localnet fallback),
+# ETH_WALLET_ADDRESS (release source),
 # ETH_WITHDRAW_MIN_RESERVE (float floor, default 0.005),
 # BRIDGE_MAX_PAYOUT_FRACTION (per-release fraction-of-float cap, 0.5),
 # BRIDGE_RELEASE_CONFIRMATIONS / BRIDGE_CONFIRMATIONS (receipt depth, 3).
@@ -97,14 +104,40 @@ chmod 600 /etc/aitbc/credentials/sell-escrow-pass
 Record `AIT_SELL_ESCROW` in `exchange.env`; the printed address is the
 only output — the key material stays sealed.
 
+## The escrow fee float — the escrow account needs seed AIT
+
+Every escrow sweep (a settle to treasury or a refund to a shop) spends the
+locked amount **plus the standard 0.01 AIT transfer fee** from the escrow
+account. The locked amounts alone do not cover the fees — the escrow needs
+a small seed AIT balance on top of whatever it custodies.
+
+Before signing a sweep the monitor checks the on-chain escrow balance
+against `amount + 0.01 AIT`. A shortfall **parks** the row — never fails,
+never signs blind:
+
+- `queued_fee_settle` / `queued_fee_refund` — the row's `error` field
+  carries the exact deficit; the sweep retries every poll and proceeds
+  the moment the balance covers it. Nothing else is needed — no restart,
+  no manual status change.
+
+Top up with an ordinary wallet send **from an address listed in
+`SELL_ESCROW_FUNDING_SOURCES`**. The scanner skips sends from those
+addresses entirely — an unlisted sender's top-up would be recorded as an
+orphan lock and refunded back after the orphan window, which is exactly
+the wrong outcome. Seed once, a few AIT is plenty (0.01 AIT per sweep).
+
 ## Enabling — prerequisites in order
 
 1. ETH-2 (first live withdrawal) has run and the ETH-9/9b monitor is live
    on the hub.
 2. The escrow key slot exists (above) and `AIT_SELL_ESCROW` is set.
 3. The bridge ETH float is topped up (~0.10 ETH via a
-   `BRIDGE_FUNDING_SOURCES` send — operator action).
-4. `SELL_ESCROW_ENABLED=true` + the rest of the env block set.
+   `BRIDGE_FUNDING_SOURCES` send — operator action) **and the escrow
+   AIT fee float is seeded** (e.g. 5 AIT from a
+   `SELL_ESCROW_FUNDING_SOURCES` address — above).
+4. `SELL_ESCROW_ENABLED=true` + the rest of the env block set —
+   including `CHAIN_ID` (no default; missing means the monitor refuses
+   to sign).
 5. `systemctl restart aitbc-wallet` — the one unit that reads the sell
    config. (The operator names the restart; the monitor logs either
    `Starting AIT->ETH sell escrow monitor` or one clear `disabled` line.)
@@ -115,10 +148,16 @@ nothing is stranded by a disabled monitor except time.
 
 ## Runtime behaviour
 
-- Lock detected → quote matched → caps/reserve checked from persisted
-  rows → ETH release (intent `releasing` + signed hash persisted *before*
-  broadcast) → `released` → settle escrow→treasury after the release
-  receipt reaches `BRIDGE_RELEASE_CONFIRMATIONS` depth.
+- Lock detected → sender must equal the quote's `shop_ait_address` (a
+  foreign lock on a live quote id is orphan-refunded to its real sender)
+  → caps/reserve checked from persisted rows → ETH release (intent
+  `releasing` + signed hash persisted *before* broadcast) → `released` →
+  settle escrow→treasury after the release receipt reaches
+  `BRIDGE_RELEASE_CONFIRMATIONS` depth.
+- The lock scan reads the **complete** escrow history every poll:
+  `/rpc/transactions` has no pagination, and the monitor passes `limit=0`
+  — the endpoint's `if limit:` guard then skips truncation — so a burst of
+  any size cannot hide a lock behind a page limit.
 - `queued_reserve` = float/cap-bound: retried every poll until released
   or the deadline fires; the error field carries the deficit.
 - `stale_price` = feed older than `BRIDGE_PRICE_MAX_AGE`: parked while
@@ -129,9 +168,22 @@ nothing is stranded by a disabled monitor except time.
   nonce consumed, RPC down, shallow receipt): **never auto-refunds**;
   re-verified every poll and completes on its own when the receipt
   reaches depth.
+- Escrow sweeps are **serialized**: at most one `settling`/`refunding`
+  row is in flight at a time. A row leaves that state only when its
+  outflow is found *sealed* — matched on nonce + recipient + amount +
+  `payload.sell_ref`, so a foreign transaction at the same nonce can
+  never be credited — or resolved to `needs_review` (e.g. the nonce was
+  consumed by an unmatched tx — a manual send from the escrow account).
+  A queued sweep simply waits for the next poll; a stuck in-flight sweep
+  blocks later sweeps until resolved, the same head-of-line discipline
+  the ETH payout ledger uses.
 - Escrow-side settle/refund transfers persist nonce + signed blob before
   broadcast; a restart mid-flight re-broadcasts the identical blob —
   never a fresh signature at a new nonce — so a resume cannot double-pay.
+- `refund_pending` = the ETH release provably never landed and the row
+  owes a refund — it stays open until the refund sweep is in flight.
+- `queued_fee_settle` / `queued_fee_refund` = sweep parked on the escrow
+  fee float (see above); the error field carries the AIT deficit.
 - Deadline and orphan refunds are evaluated on successful polls only: a
   failed lock scan aborts the poll, so an RPC outage can never drive a
   refund decision on stale data.

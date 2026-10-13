@@ -236,6 +236,36 @@ options for when the float is real.
 | `docs/ops` + `docs/scenarios` | +60 | sell-escrow runbook + scenario steps |
 | ops-signer env | config | `AIT_SELL_ESCROW` address + key slot |
 
+**As-built notes (phase 1, post-review hardening)** — where the
+implementation deliberately goes beyond this table:
+
+- **Escrow sweeps are serialized and seal-gated.** At most one
+  `settling`/`refunding` row is in flight; a row only leaves that state
+  when its outflow is found *sealed* on chain, matched on nonce +
+  recipient + amount + `payload.sell_ref`. A broadcast returning a hash
+  is not final — it is just "sent". A foreign transaction occupying the
+  recorded nonce resolves the row to `needs_review`, never a blind
+  re-send.
+- **The escrow carries a fee float.** Every sweep spends the moved
+  amount + the standard 0.01 AIT fee, so the escrow account is seeded
+  with a small AIT balance (`SELL_ESCROW_FUNDING_SOURCES` marks top-up
+  senders so the seed is never mistaken for an orphan lock). A short
+  balance parks the row `queued_fee_settle`/`queued_fee_refund` with the
+  deficit — never fails, never signs blind.
+- **Locks bind to the quoting shop.** A sealed transfer carrying a live
+  `sell_quote` whose sender differs from the quote's `shop_ait_address`
+  is recorded `orphaned` — refunded to the actual sender — and never
+  consumes the quote.
+- **The lock scan is unbounded.** `/rpc/transactions` has no offset
+  pagination; the monitor passes `limit=0`, which skips truncation
+  server-side, so a busy window of any size cannot hide a lock.
+- **`CHAIN_ID` has no default.** Missing env ⇒ the monitor refuses to
+  sign rather than fall back to `ait-localnet`.
+- `refund_pending` holds rows whose ETH release provably never landed —
+  open until the refund sweep is in flight (the sweep itself is
+  serialized, so the row waits rather than racing a second escrow
+  spend).
+
 **Post-settle (after 46,100 is live and quiet)**: keyless escrow
 `aitbc.bridge.sell.escrow` + a node-internal origination path for its
 release/refund (new tx types or a gated internal surface), and the

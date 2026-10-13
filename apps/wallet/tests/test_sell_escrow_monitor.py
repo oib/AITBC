@@ -99,7 +99,9 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("SELL_TREASURY_ADDRESS", TEST_TREASURY)
     monkeypatch.setenv("SELL_ESCROW_ENABLED", "true")
     monkeypatch.setenv("AIT_USD_FIXED_PRICE", "0.28")
+    monkeypatch.setenv("CHAIN_ID", "ait-testnet")
     monkeypatch.setenv("BLOCKCHAIN_RPC_URL", "http://localhost:0")
+    monkeypatch.delenv("SELL_ESCROW_FUNDING_SOURCES", raising=False)
     monkeypatch.delenv("SELL_MAX_ETH_PER_TX", raising=False)
     monkeypatch.delenv("SELL_MAX_ETH_PER_DAY", raising=False)
     monkeypatch.delenv("SELL_RELEASE_DEADLINE", raising=False)
@@ -121,7 +123,13 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(wdm, "_eth_nonce", lambda address: _coro(7))
     monkeypatch.setattr(wdm, "_eth_rpc", _eth_rpc_stub())
 
-    state = {"eth_sends": [], "ait_sends": [], "escrow_nonce": 0, "chain_height": 1000}
+    state = {
+        "eth_sends": [],
+        "ait_sends": [],
+        "escrow_nonce": 0,
+        "escrow_balance": Decimal("1000"),
+        "chain_height": 1000,
+    }
 
     async def _broadcast(raw: str) -> str:
         state["eth_sends"].append(raw)
@@ -131,10 +139,11 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         state["ait_sends"].append(tx)
         return "0x" + "ff" * 32
 
-    async def _account_nonce(address: str) -> int:
-        return int(state["escrow_nonce"])
+    async def _account_view(address: str) -> tuple[int, Decimal]:
+        return int(state["escrow_nonce"]), Decimal(str(state["escrow_balance"]))
 
-    async def _transfers(address: str, limit: int = 500) -> list[dict]:
+    async def _transfers(address: str, limit: int = 0) -> list[dict]:
+        state.setdefault("scan_limits", []).append(limit)
         return list(state.get("transfers", []))
 
     async def _height() -> int:
@@ -142,7 +151,7 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(wdm, "_broadcast_release_tx", _broadcast)
     monkeypatch.setattr(sellmon, "_broadcast_ait_tx", _ait_broadcast)
-    monkeypatch.setattr(sellmon, "_account_nonce", _account_nonce)
+    monkeypatch.setattr(sellmon, "_account_view", _account_view)
     monkeypatch.setattr(sellmon, "_fetch_transfers", _transfers)
     monkeypatch.setattr(sellmon, "_chain_height", _height)
     monkeypatch.setattr(sellmon, "get_eth_prices_fresh", lambda: _coro(_fresh_feed()))
@@ -176,17 +185,48 @@ def _insert_quote(expired: bool = False, ait_amount: Decimal = Decimal("10")) ->
     )
 
 
-def _lock_tx(quote_id: str | None, tx_hash: str | None = None, height: int = 900, ait: Decimal = Decimal("10")) -> dict:
+def _lock_tx(
+    quote_id: str | None,
+    tx_hash: str | None = None,
+    height: int = 900,
+    ait: Decimal = Decimal("10"),
+    sender: str = SHOP_AIT,
+) -> dict:
     from aitbc.utils import ait_to_units
 
     return {
         "tx_hash": tx_hash or "0x" + "aa" * 32,
-        "sender": SHOP_AIT,
+        "sender": sender,
         "recipient": _escrow_address(),
         "value": ait_to_units(ait),
         "payload": {"sell_quote": quote_id} if quote_id else {},
         "block_height": height,
         "nonce": 1,
+        "status": "confirmed",
+        "type": "TRANSFER",
+    }
+
+
+def _sealed_sweep_tx(
+    sell_ref: str,
+    to: str,
+    ait: Decimal,
+    nonce: int,
+    tx_hash: str | None = None,
+    height: int = 950,
+) -> dict:
+    """A *sealed* escrow outbound TRANSFER as the chain scan would return it —
+    carries every field _find_escrow_outflow matches on."""
+    from aitbc.utils import ait_to_units
+
+    return {
+        "tx_hash": tx_hash or "0x" + "77" * 32,
+        "sender": _escrow_address(),
+        "recipient": to,
+        "value": ait_to_units(ait),
+        "payload": {"amount": ait_to_units(ait), "sell_ref": sell_ref, "reason": "x"},
+        "block_height": height,
+        "nonce": nonce,
         "status": "confirmed",
         "type": "TRANSFER",
     }
@@ -295,13 +335,60 @@ class TestQuoteAndLockMatching:
         assert row["status"] == "orphaned"
         assert not sell_env["ait_sends"]
 
+        sell_env["transfers"] = []
         sell_env["chain_height"] = 300  # 200 blocks > SELL_LOCK_ORPHAN_BLOCKS=150
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "bb" * 32)
-        assert row["status"] == "refunded"
-        assert row["refund_tx_hash"] == "0x" + "ff" * 32
+        # Refund broadcast happened, but the row is in-flight until the
+        # outflow is found *sealed* — broadcast alone never finalizes.
+        assert row["status"] == "refunding"
         assert len(sell_env["ait_sends"]) == 1
         assert sell_env["ait_sends"][0]["to"] == SHOP_AIT
+
+        # Seal the outflow; the next poll credits it by strict match.
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref="0x" + "bb" * 32, to=SHOP_AIT, ait=Decimal("10"), nonce=0)]
+        sell_env["escrow_nonce"] = 1
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "bb" * 32)
+        assert row["status"] == "refunded"
+        assert row["refund_tx_hash"] == "0x" + "77" * 32
+
+    @pytest.mark.asyncio
+    async def test_lock_sender_mismatch_orphans_and_refunds_sender(self, sell_env):
+        """A lock paying into a live quote id but sent by a DIFFERENT address
+        than the quote's shop_ait_address is orphan-refunded — to the actual
+        sender, never releasing against somebody else's quote."""
+        other = "0x6666666666666666666666666666666666666666"
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id, tx_hash="0x" + "bc" * 32, height=100, sender=other)]
+        sell_env["chain_height"] = 100
+
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "bc" * 32)
+        assert row["status"] == "orphaned"
+        assert "does not match" in (row["error"] or "")
+        assert row["shop_ait_address"] == other  # refund target is the real sender
+        assert not sell_env["eth_sends"]
+        # The quote was NOT consumed by the foreign lock.
+        assert get_sell_quote(quote_id)["status"] == "quoted"
+
+        sell_env["transfers"] = []
+        sell_env["chain_height"] = 300
+        await sellmon.poll_sells_once()
+        assert get_sell_lock_by_ait_tx_hash("0x" + "bc" * 32)["status"] == "refunding"
+        assert sell_env["ait_sends"][0]["to"].lower() == other.lower()
+
+    @pytest.mark.asyncio
+    async def test_funding_source_send_never_locked(self, sell_env, monkeypatch):
+        """SELL_ESCROW_FUNDING_SOURCES sends are float top-ups — skipped by
+        the scan so the operator's seed cannot be orphan-refunded back."""
+        monkeypatch.setenv("SELL_ESCROW_FUNDING_SOURCES", "0x7777777777777777777777777777777777777777")
+        sell_env["transfers"] = [
+            _lock_tx(None, tx_hash="0x" + "bd" * 32, height=100, sender="0x7777777777777777777777777777777777777777")
+        ]
+        result = await sellmon.poll_sells_once()
+        assert result["recorded"] == 0
+        assert get_sell_lock_by_ait_tx_hash("0x" + "bd" * 32) is None
 
     @pytest.mark.asyncio
     async def test_double_submit_same_lock_releases_once(self, sell_env):
@@ -461,7 +548,8 @@ class TestReleaseOutcomeAndResume:
         assert row["eth_tx_hash"]
         assert not sell_env["ait_sends"]  # no refund despite the failure
 
-        # Resume pass: 'sent' -> released; next poll settles the escrow leg.
+        # Resume pass: 'sent' -> released; next poll starts the settle sweep
+        # (in-flight, not terminal — a broadcast is not a seal).
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
         assert row["status"] == "released"
@@ -469,11 +557,18 @@ class TestReleaseOutcomeAndResume:
         sell_env["transfers"] = []
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
-        assert row["status"] == "settled"
-        assert row["settle_tx_hash"] == "0x" + "ff" * 32
-        # Exactly one AIT leg: the settle. No refund was ever sent.
+        assert row["status"] == "settling"
         assert len(sell_env["ait_sends"]) == 1
         assert sell_env["ait_sends"][0]["to"] == TEST_TREASURY
+
+        # The sealed outflow closes the row — one AIT leg, no refund.
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref="0x" + "aa" * 32, to=TEST_TREASURY, ait=Decimal("10"), nonce=0)]
+        sell_env["escrow_nonce"] = 1
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "settled"
+        assert row["settle_tx_hash"] == "0x" + "77" * 32
+        assert len(sell_env["ait_sends"]) == 1
         assert len(sell_env["eth_sends"]) == 1
 
     @pytest.mark.asyncio
@@ -488,34 +583,62 @@ class TestReleaseOutcomeAndResume:
         await sellmon.poll_sells_once()
 
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
-        # release never reached chain -> failed + escrow refund issued
-        assert row["status"] == "refunded"
-        assert row["refund_tx_hash"]
+        # Release provably unsent -> refund_pending, refund sweep in flight.
+        assert row["status"] == "refunding"
         assert len(sell_env["ait_sends"]) == 1
         assert sell_env["ait_sends"][0]["to"] == SHOP_AIT
 
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref="0x" + "aa" * 32, to=SHOP_AIT, ait=Decimal("10"), nonce=0)]
+        sell_env["escrow_nonce"] = 1
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "refunded"
+        assert row["refund_tx_hash"] == "0x" + "77" * 32
+
     @pytest.mark.asyncio
-    async def test_refund_failure_marks_failed_no_second_refund(self, sell_env, monkeypatch):
+    async def test_refund_broadcast_throw_stays_inflight_rebroadcasts_identical(self, sell_env, monkeypatch):
+        """A refund broadcast that throws post-intent leaves the row
+        'refunding'; the resolver re-broadcasts the *stored* blob — same
+        nonce, same signature — so a retry can never double-pay."""
         quote_id = _insert_quote()
         sell_env["transfers"] = [_lock_tx(quote_id)]
 
         async def _broadcast_fail(raw):
             raise RuntimeError("node rejected")
 
-        async def _ait_fail(tx):
-            raise RuntimeError("rpc down")
+        sends = {"fail_next": True}
+
+        async def _ait_maybe_fail(tx):
+            if sends["fail_next"]:
+                sends["fail_next"] = False
+                raise RuntimeError("rpc down")
+            sell_env["ait_sends"].append(tx)
+            return "0x" + "ff" * 32
 
         monkeypatch.setattr(wdm, "_broadcast_release_tx", _broadcast_fail)
-        monkeypatch.setattr(sellmon, "_broadcast_ait_tx", _ait_fail)
+        monkeypatch.setattr(sellmon, "_broadcast_ait_tx", _ait_maybe_fail)
         await sellmon.poll_sells_once()
 
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
-        assert row["status"] == "failed"
+        assert row["status"] == "refunding"
+        blob = json.loads(row["escrow_out_tx"])
+        assert not sell_env["ait_sends"]  # the only attempt threw pre-seal
 
-        # A second poll never re-issues the refund.
+        # Next poll: resolver re-broadcasts the stored blob verbatim.
         sell_env["transfers"] = []
         await sellmon.poll_sells_once()
-        assert len(sell_env["ait_sends"]) == 0
+        assert len(sell_env["ait_sends"]) == 1
+        assert sell_env["ait_sends"][0] == blob  # identical — chain dedups
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "refunding"  # still in flight until sealed
+
+        # Seal it — strict match credits the refund.
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref="0x" + "aa" * 32, to=SHOP_AIT, ait=Decimal("10"), nonce=0)]
+        sell_env["escrow_nonce"] = 1
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "refunded"
+        assert len(sell_env["ait_sends"]) == 1  # only ever one payment blob
 
     @pytest.mark.asyncio
     async def test_unknown_outcome_needs_review_no_refund(self, sell_env, monkeypatch):
@@ -554,11 +677,17 @@ class TestDeadlines:
 
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "de" * 32)
-        assert row["status"] == "refunded"
-        assert row["refund_tx_hash"]
+        assert row["status"] == "refunding"
         assert len(sell_env["ait_sends"]) == 1
         assert sell_env["ait_sends"][0]["to"] == SHOP_AIT
         assert not sell_env["eth_sends"]
+
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref="0x" + "de" * 32, to=SHOP_AIT, ait=Decimal("10"), nonce=0)]
+        sell_env["escrow_nonce"] = 1
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "de" * 32)
+        assert row["status"] == "refunded"
+        assert row["refund_tx_hash"] == "0x" + "77" * 32
 
     @pytest.mark.asyncio
     async def test_rpc_outage_cannot_refund_past_deadline(self, sell_env, monkeypatch):
@@ -588,7 +717,7 @@ class TestSettleResume:
     @pytest.mark.asyncio
     async def test_settling_row_recovered_by_nonce_after_restart(self, sell_env):
         """A 'settling' row whose broadcast sealed before the crash is
-        recovered by its escrow nonce — settled once, never re-sent."""
+        recovered by strict outflow match — settled once, never re-sent."""
         insert_sell_lock(
             ait_tx_hash="0x" + "ee" * 32,
             shop_ait_address=SHOP_AIT,
@@ -601,15 +730,13 @@ class TestSettleResume:
         update_sell_lock_status("0x" + "ee" * 32, "settling", escrow_out_nonce=5)
 
         sell_env["transfers"] = [
-            {
-                "tx_hash": "0x" + "99" * 32,
-                "sender": sell_env["escrow"],
-                "recipient": TEST_TREASURY,
-                "nonce": 5,
-                "block_height": 910,
-                "type": "TRANSFER",
-                "payload": {},
-            }
+            _sealed_sweep_tx(
+                sell_ref="0x" + "ee" * 32,
+                to=TEST_TREASURY,
+                ait=Decimal("10"),
+                nonce=5,
+                tx_hash="0x" + "99" * 32,
+            )
         ]
         await sellmon.poll_sells_once()
 
@@ -619,7 +746,45 @@ class TestSettleResume:
         assert not sell_env["ait_sends"]  # recovered by nonce, not re-sent
 
     @pytest.mark.asyncio
+    async def test_foreign_tx_at_recorded_nonce_never_credited(self, sell_env):
+        """A *different* sealed tx at the recorded nonce (manual send) does
+        not match nonce+recipient+amount+sell_ref — the row goes to
+        needs_review, never 'settled' on somebody else's transaction."""
+        insert_sell_lock(
+            ait_tx_hash="0x" + "f0" * 32,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        update_sell_lock_status("0x" + "f0" * 32, "settling", escrow_out_nonce=5)
+
+        # A foreign sealed tx consumed nonce 5: right sender+nonce, wrong
+        # recipient/amount/sell_ref. Account nonce has moved past it.
+        sell_env["transfers"] = [
+            _sealed_sweep_tx(
+                sell_ref="0x" + "fe" * 32,  # different sell_ref
+                to=TEST_TREASURY,
+                ait=Decimal("10"),
+                nonce=5,
+                tx_hash="0x" + "88" * 32,
+            )
+        ]
+        sell_env["escrow_nonce"] = 6
+        await sellmon.poll_sells_once()
+
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f0" * 32)
+        assert row["status"] == "needs_review"
+        assert "unmatched" in (row["error"] or "")
+        assert not row["settle_tx_hash"]
+        assert not sell_env["ait_sends"]  # no blind re-send
+
+    @pytest.mark.asyncio
     async def test_settling_row_nonce_free_resends_once(self, sell_env):
+        """Crash-resume: stored blob re-broadcasts verbatim each poll while
+        the nonce stays free, then the seal finalizes — never a new nonce."""
         insert_sell_lock(
             ait_tx_hash="0x" + "ef" * 32,
             shop_ait_address=SHOP_AIT,
@@ -632,13 +797,169 @@ class TestSettleResume:
         stored_blob = json.dumps({"type": "TRANSFER", "nonce": 5, "to": TEST_TREASURY})
         update_sell_lock_status("0x" + "ef" * 32, "settling", escrow_out_nonce=5, escrow_out_tx=stored_blob)
         sell_env["transfers"] = []  # nonce 5 never sealed
+        sell_env["escrow_nonce"] = 5
 
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "ef" * 32)
-        assert row["status"] == "settled"
-        # Re-broadcast of the STORED blob — never a re-signed new nonce.
+        assert row["status"] == "settling"  # in flight until sealed
         assert len(sell_env["ait_sends"]) == 1
         assert sell_env["ait_sends"][0]["nonce"] == 5
+
+        # A second poll while still unsealed re-broadcasts the SAME blob.
+        await sellmon.poll_sells_once()
+        assert len(sell_env["ait_sends"]) == 2
+        assert sell_env["ait_sends"][1]["nonce"] == 5
+
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref="0x" + "ef" * 32, to=TEST_TREASURY, ait=Decimal("10"), nonce=5)]
+        sell_env["escrow_nonce"] = 6
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "ef" * 32)
+        assert row["status"] == "settled"
+        assert row["settle_tx_hash"] == "0x" + "77" * 32
+
+
+class TestSweepSerialization:
+    """At most one escrow sweep is in flight; a new one waits for seal."""
+
+    def _released_row(self, tx_hash: str, eth_hash: str, nonce: int) -> None:
+        insert_sell_lock(
+            ait_tx_hash=tx_hash,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        update_sell_lock_status(tx_hash, "released", eth_tx_hash=eth_hash, release_nonce=nonce)
+
+    @pytest.mark.asyncio
+    async def test_two_rows_ready_one_sweep_per_poll(self, sell_env, monkeypatch):
+        """Two settle-ready rows in one poll: the first sweeps, the second
+        waits until the first is sealed — never two escrow sends at once."""
+        h1, h2 = "0x" + "a1" * 32, "0x" + "a2" * 32
+        e1, e2 = "0x" + "1a" * 32, "0x" + "2a" * 32
+        self._released_row(h1, e1, 7)
+        self._released_row(h2, e2, 8)
+        monkeypatch.setattr(
+            wdm,
+            "_eth_rpc",
+            _eth_rpc_stub(
+                receipts={
+                    e1: {"status": "0x1", "blockNumber": hex(450)},
+                    e2: {"status": "0x1", "blockNumber": hex(450)},
+                },
+                nonces={"latest": 9, "pending": 9},
+                block=460,
+            ),
+        )
+
+        await sellmon.poll_sells_once()
+        assert len(sell_env["ait_sends"]) == 1
+        assert sell_env["ait_sends"][0]["nonce"] == 0
+        r1, r2 = get_sell_lock_by_ait_tx_hash(h1), get_sell_lock_by_ait_tx_hash(h2)
+        assert r1["status"] == "settling"  # in flight — not settled on broadcast
+        assert r2["status"] == "released"  # deferred — the slot was busy
+
+        # Seal the first; the second may now start its own sweep.
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref=h1, to=TEST_TREASURY, ait=Decimal("10"), nonce=0)]
+        sell_env["escrow_nonce"] = 1
+        await sellmon.poll_sells_once()
+        r1, r2 = get_sell_lock_by_ait_tx_hash(h1), get_sell_lock_by_ait_tx_hash(h2)
+        assert r1["status"] == "settled"
+        assert r2["status"] == "settling"
+        assert len(sell_env["ait_sends"]) == 2
+        assert sell_env["ait_sends"][1]["nonce"] == 1  # fresh nonce post-seal
+
+        sell_env["transfers"] = [_sealed_sweep_tx(sell_ref=h2, to=TEST_TREASURY, ait=Decimal("10"), nonce=1)]
+        sell_env["escrow_nonce"] = 2
+        await sellmon.poll_sells_once()
+        assert get_sell_lock_by_ait_tx_hash(h1)["status"] == "settled"
+        assert get_sell_lock_by_ait_tx_hash(h2)["status"] == "settled"
+        assert len(sell_env["ait_sends"]) == 2  # exactly one payment each
+
+
+class TestEscrowFeeFloat:
+    """The escrow pays amount + 0.01 AIT fee per sweep; a short balance
+    parks the row visibly instead of failing or signing blind."""
+
+    @pytest.mark.asyncio
+    async def test_settle_parks_on_fee_deficit_then_resumes(self, sell_env):
+        insert_sell_lock(
+            ait_tx_hash="0x" + "f1" * 32,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="released",
+            locked_height=900,
+        )
+        # Escrow holds the locked 10 AIT but nothing for the fee.
+        sell_env["escrow_balance"] = Decimal("10")
+
+        async def _sent(row):  # bypass the ETH re-verify for this unit
+            await sellmon._settle_lock(sellmon._sell_config(), row)
+
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f1" * 32)
+        await _sent(row)
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f1" * 32)
+        assert row["status"] == "queued_fee_settle"
+        assert "fee float deficit" in (row["error"] or "")
+        assert "0.01" in (row["error"] or "")
+        assert not sell_env["ait_sends"]
+
+        # Operator seeds the fee float; the next attempt proceeds.
+        sell_env["escrow_balance"] = Decimal("10.5")
+        await sellmon._settle_lock(sellmon._sell_config(), row)
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f1" * 32)
+        assert row["status"] == "settling"
+        assert len(sell_env["ait_sends"]) == 1
+        assert sell_env["ait_sends"][0]["fee"] == 360_000  # 0.01 AIT units
+
+    @pytest.mark.asyncio
+    async def test_refund_parks_on_fee_deficit(self, sell_env, monkeypatch):
+        sell_env["escrow_balance"] = Decimal("10")  # locked 10, no fee float
+        sell_env["transfers"] = [_lock_tx(None, tx_hash="0x" + "f2" * 32, height=100)]
+        sell_env["chain_height"] = 300
+
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f2" * 32)
+        assert row["status"] == "queued_fee_refund"
+        assert "fee float deficit" in (row["error"] or "")
+        assert not sell_env["ait_sends"]
+
+        # Refill -> handler retries the refund with the original reason.
+        sell_env["escrow_balance"] = Decimal("11")
+        sell_env["transfers"] = []
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f2" * 32)
+        assert row["status"] == "refunding"
+        assert sell_env["ait_sends"][0]["to"] == SHOP_AIT
+
+
+class TestConfigSafety:
+    def test_missing_chain_id_refuses(self, sell_env, monkeypatch):
+        """No CHAIN_ID env -> the monitor refuses to sign rather than fall
+        back to ait-localnet."""
+        monkeypatch.delenv("CHAIN_ID", raising=False)
+        enabled, reason = sellmon.sell_config_status()
+        assert not enabled
+        assert "CHAIN_ID" in reason
+
+    @pytest.mark.asyncio
+    async def test_missing_chain_id_poll_skips(self, sell_env, monkeypatch):
+        monkeypatch.delenv("CHAIN_ID", raising=False)
+        result = await sellmon.poll_sells_once()
+        assert result["skipped"] is True
+        assert "CHAIN_ID" in result["reason"]
+
+    @pytest.mark.asyncio
+    async def test_scan_fetches_unbounded(self, sell_env):
+        """The lock scan requests limit=0 — the endpoint's unbounded mode —
+        so a poll can never page-truncate away a lock."""
+        await sellmon.poll_sells_once()
+        assert sell_env["scan_limits"]  # the scan ran
+        assert all(limit == 0 for limit in sell_env["scan_limits"])
 
 
 class TestSellRoutes:
