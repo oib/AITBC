@@ -328,3 +328,101 @@ def test_sign_failure_logs_class_and_reason_but_never_secret(monkeypatch, tmp_pa
     assert any(rec.levelno == logging.WARNING for rec in caplog.records)
     assert secret not in caplog.text
     assert secret not in str(r)
+
+
+# --- SEC-3c: stale socket handling across restart -----------------------------
+
+import socket
+import time
+
+from aitbc_ops_signer.server import OpsSignerServer, request
+
+
+def _sock_cfg(tmp_path: Path) -> Config:
+    allow = tmp_path / "ops-signer.allow"
+    allow.write_text(f"{PAYEE}\n")
+    return Config(
+        socket_path=str(tmp_path / "ops.sock"),
+        allow_file=str(allow),
+        ledger_path=str(tmp_path / "ledger.db"),
+        audit_path=str(tmp_path / "audit.log"),
+    )
+
+
+def _wait_sock(path: Path, timeout: float = 5.0) -> None:
+    for _ in range(100):
+        if path.exists():
+            return
+        time.sleep(0.05)
+    raise AssertionError(f"socket never appeared: {path}")
+
+
+def _serve(srv: OpsSignerServer) -> threading.Thread:
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    return t
+
+
+def test_stale_socket_is_replaced_on_start(tmp_path: Path):
+    cfg = _sock_cfg(tmp_path)
+    stale = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    stale.bind(cfg.socket_path)
+    stale.close()  # bound, closed, file left behind -- the restart bug
+    assert Path(cfg.socket_path).exists()
+
+    srv = OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242)
+    t = _serve(srv)
+    try:
+        _wait_sock(Path(cfg.socket_path))
+        request(cfg.socket_path, {"op": "ping"})  # proves the NEW listener serves
+    finally:
+        srv.stop()
+        t.join(timeout=5)
+    assert not t.is_alive()
+
+
+def test_regular_file_at_socket_path_refused_and_kept(tmp_path: Path):
+    cfg = _sock_cfg(tmp_path)
+    f = Path(cfg.socket_path)
+    f.write_text("not a socket")
+    with pytest.raises(RuntimeError, match="not a socket"):
+        OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242).serve_forever()
+    assert f.exists() and f.read_text() == "not a socket"  # never deleted
+
+
+def test_live_listener_refuses_second_instance(tmp_path: Path, caplog):
+    cfg = _sock_cfg(tmp_path)
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listener.bind(cfg.socket_path)
+    listener.listen(1)
+    try:
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(RuntimeError, match="live listener"):
+                OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242).serve_forever()
+        assert "not starting" in caplog.text and "live listener" in caplog.text
+    finally:
+        listener.close()
+        Path(cfg.socket_path).unlink(missing_ok=True)
+
+
+def test_clean_shutdown_removes_socket(tmp_path: Path):
+    cfg = _sock_cfg(tmp_path)
+    srv = OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242)
+    t = _serve(srv)
+    _wait_sock(Path(cfg.socket_path))
+    srv.stop()
+    t.join(timeout=5)
+    assert not t.is_alive()
+    assert not Path(cfg.socket_path).exists()
+
+
+def test_two_sequential_start_stop_cycles(tmp_path: Path):
+    cfg = _sock_cfg(tmp_path)
+    for _ in range(2):
+        srv = OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242)
+        t = _serve(srv)
+        _wait_sock(Path(cfg.socket_path))
+        srv.stop()
+        t.join(timeout=5)
+        assert not t.is_alive()
+        assert not Path(cfg.socket_path).exists()
