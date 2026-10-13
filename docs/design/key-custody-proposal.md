@@ -84,11 +84,11 @@ sepolia.json`); only the address is ever recorded. Recipe:
 
 | host | address | custody | faucet target |
 |---|---|---|---|
-| hub   | `SEPOLIA_ADDR_HUB`   (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
-| hub1  | `SEPOLIA_ADDR_HUB1`  (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
-| node0 | `SEPOLIA_ADDR_NODE0` (TBD at creation) | host-local, no IDE copy | 0.010 ETH |
-| node1 | `SEPOLIA_ADDR_NODE1` (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
-| node2 | `SEPOLIA_ADDR_NODE2` (TBD at creation) | host-local, no IDE copy | 0.005 ETH |
+| hub   | `SEPOLIA_ADDR_HUB`   `0xA556E23897ea7FF5f0ED0F925f5eB2e68D7EC74C` | host-local, no IDE copy | 0.005 ETH |
+| hub1  | `SEPOLIA_ADDR_HUB1`  `0x86FAA186474DC63d77ECcDBE242084a04F45101C` | host-local, no IDE copy | 0.005 ETH |
+| node0 | `SEPOLIA_ADDR_NODE0` `0xF1C83cd90e4d33F35BE73Dd57CaBa21Ea52D4584` | host-local, no IDE copy | 0.010 ETH |
+| node1 | `SEPOLIA_ADDR_NODE1` `0xFdE0fBa0098645d20D64e3D7f87F2fcf3f4754c1` | host-local, no IDE copy | 0.005 ETH |
+| node2 | `SEPOLIA_ADDR_NODE2` `0xCf1719140054AB3fD52ce8aa3128dec9317426E3` | host-local, no IDE copy | 0.005 ETH |
 
 These keys are never chain validator keys and never the bridge wallet;
 no `*_PRIVATE_KEY` env variable exists for them anywhere.

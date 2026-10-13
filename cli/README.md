@@ -89,6 +89,7 @@ aitbc --help
 | `liquidity-stake` | Stake tokens into an on-chain liquidity pool to earn rewards |  |
 | `stake` | Stake AITBC tokens on-chain for a configurable lock duration |  |
 | `unstake` | Unstake tokens once the lock period ends and withdraw the principal |  |
+| `eth` | Inspect public Sepolia ETH activity — read-only, key-free, no polling | `transfers` |
 
 ## Market
 
