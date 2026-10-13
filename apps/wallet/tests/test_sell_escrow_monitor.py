@@ -24,6 +24,7 @@ from wallet_app.bridge import bridge_withdraw_monitor as wdm
 from wallet_app.bridge import sell_escrow_monitor as sellmon
 from wallet_app.bridge.bridge_db import (
     get_sell_lock_by_ait_tx_hash,
+    get_sell_lock_by_quote_id,
     get_sell_quote,
     init_db,
     insert_sell_lock,
@@ -776,13 +777,21 @@ class TestSettleResume:
         await sellmon.poll_sells_once()
 
         row = get_sell_lock_by_ait_tx_hash("0x" + "f0" * 32)
-        assert row["status"] == "needs_review"
+        assert row["status"] == "needs_review_sweep"
         assert "unmatched" in (row["error"] or "")
         assert not row["settle_tx_hash"]
         assert not sell_env["ait_sends"]  # no blind re-send
 
-    @pytest.mark.asyncio
-    async def test_settling_row_nonce_free_resends_once(self, sell_env):
+        # Terminal for the machine: further polls must not route the row
+        # into the release check (which would read 'sent' and re-sweep).
+        sell_env["transfers"] = []
+        await sellmon.poll_sells_once()
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f0" * 32)
+        assert row["status"] == "needs_review_sweep"
+        assert row["escrow_out_nonce"] == 5  # intent not re-bound to a fresh sweep
+        assert not sell_env["ait_sends"]
+        assert not sell_env["eth_sends"]
         """Crash-resume: stored blob re-broadcasts verbatim each poll while
         the nonce stays free, then the seal finalizes — never a new nonce."""
         insert_sell_lock(
@@ -816,6 +825,100 @@ class TestSettleResume:
         row = get_sell_lock_by_ait_tx_hash("0x" + "ef" * 32)
         assert row["status"] == "settled"
         assert row["settle_tx_hash"] == "0x" + "77" * 32
+
+
+class TestSweepReviewIsTerminal:
+    """A sweep-path 'needs_review_sweep' row is never auto-processed — the
+    release check must not turn it back into released/refund_pending, and no
+    new sweep may be signed for it. Only an operator action moves it."""
+
+    @pytest.mark.asyncio
+    async def test_missing_sweep_nonce_is_terminal(self, sell_env):
+        quote_id = _insert_quote()
+        insert_sell_lock(
+            ait_tx_hash="0x" + "c1" * 32,
+            quote_id=quote_id,
+            shop_ait_address=SHOP_AIT,
+            amount_ait=Decimal("10"),
+            status="settling",
+            locked_height=900,
+        )
+        # settling row with no persisted escrow nonce — undecidable.
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "c1" * 32)
+        assert row["status"] == "needs_review_sweep"
+        assert "nonce missing" in (row["error"] or "")
+
+        await sellmon.poll_sells_once()
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "c1" * 32)
+        assert row["status"] == "needs_review_sweep"
+        assert not sell_env["ait_sends"]
+        assert not sell_env["eth_sends"]
+        # The lock still binds its quote — a sibling cannot claim it.
+        bound = get_sell_lock_by_quote_id(quote_id, statuses=sellmon._SELL_BINDING_STATUSES)
+        assert bound is not None and bound["ait_tx_hash"] == "0x" + "c1" * 32
+
+    @pytest.mark.asyncio
+    async def test_missing_sweep_blob_is_terminal(self, sell_env):
+        quote_id = _insert_quote()
+        insert_sell_lock(
+            ait_tx_hash="0x" + "c2" * 32,
+            quote_id=quote_id,
+            shop_ait_address=SHOP_AIT,
+            amount_ait=Decimal("10"),
+            status="refunding",
+            locked_height=900,
+        )
+        update_sell_lock_status("0x" + "c2" * 32, "refunding", escrow_out_nonce=5)
+        sell_env["transfers"] = []  # nothing sealed at nonce 5
+        sell_env["escrow_nonce"] = 5  # nonce still free, but no stored blob
+
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "c2" * 32)
+        assert row["status"] == "needs_review_sweep"
+        assert "blob missing" in (row["error"] or "")
+
+        await sellmon.poll_sells_once()
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "c2" * 32)
+        assert row["status"] == "needs_review_sweep"
+        assert not sell_env["ait_sends"]
+        assert not sell_env["eth_sends"]
+
+    @pytest.mark.asyncio
+    async def test_release_path_needs_review_still_resumes(self, sell_env, monkeypatch):
+        """Reverse case: a *release*-path needs_review row keeps the old
+        behaviour — a receipt that later turns up 'sent' resumes to
+        'released' and its settle sweep proceeds."""
+        h, e = "0x" + "c3" * 32, "0x" + "3c" * 32
+        insert_sell_lock(
+            ait_tx_hash=h,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.0009"),
+            status="needs_review",
+            locked_height=900,
+        )
+        update_sell_lock_status(h, "needs_review", eth_tx_hash=e, release_nonce=9)
+        monkeypatch.setattr(
+            wdm,
+            "_eth_rpc",
+            _eth_rpc_stub(
+                receipts={e: {"status": "0x1", "blockNumber": hex(450)}},
+                nonces={"latest": 10, "pending": 10},
+                block=460,
+            ),
+        )
+
+        await sellmon.poll_sells_once()
+        assert get_sell_lock_by_ait_tx_hash(h)["status"] == "released"
+
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash(h)
+        assert row["status"] == "settling"
+        assert len(sell_env["ait_sends"]) == 1  # the settle sweep started
 
 
 class TestSweepSerialization:
@@ -935,6 +1038,31 @@ class TestEscrowFeeFloat:
         row = get_sell_lock_by_ait_tx_hash("0x" + "f2" * 32)
         assert row["status"] == "refunding"
         assert sell_env["ait_sends"][0]["to"] == SHOP_AIT
+
+    @pytest.mark.asyncio
+    async def test_reparked_refund_keeps_original_reason(self, sell_env):
+        """Re-parking must not accumulate the deficit marker: the reason
+        carried into the signed refund tx is the row's original reason,
+        split at the shared marker — never the grown error string."""
+        sell_env["escrow_balance"] = Decimal("10")  # locked 10, no fee float
+        sell_env["transfers"] = [_lock_tx(None, tx_hash="0x" + "f3" * 32, height=100)]
+        sell_env["chain_height"] = 300
+
+        for _ in range(3):
+            await sellmon.poll_sells_once()
+            row = get_sell_lock_by_ait_tx_hash("0x" + "f3" * 32)
+            assert row["status"] == "queued_fee_refund"
+            error = row["error"] or ""
+            assert error.count("escrow fee float deficit") == 1
+            assert error.startswith("orphan lock — no matching quote")
+
+        # Funded: the sweep proceeds carrying the ORIGINAL reason on-chain.
+        sell_env["escrow_balance"] = Decimal("11")
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "f3" * 32)
+        assert row["status"] == "refunding"
+        assert sell_env["ait_sends"][0]["to"] == SHOP_AIT
+        assert sell_env["ait_sends"][0]["payload"]["reason"] == "orphan lock — no matching quote"
 
 
 class TestConfigSafety:
