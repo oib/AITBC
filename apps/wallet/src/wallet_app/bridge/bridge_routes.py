@@ -6,6 +6,7 @@ REST API endpoints for bridge operations.
 import logging
 import os
 import time
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any
@@ -39,12 +40,20 @@ from wallet_app.deps import require_admin_api_key
 
 from .bridge_db import (
     get_all_deposits,
+    get_all_sell_locks,
+    get_all_sell_quotes,
     get_all_withdrawals,
     get_deposit_by_id,
     get_deposit_by_tx_hash,
     get_deposits_by_recipient,
     get_pending_deposits,
+    count_open_sell_quotes,
+    get_latest_sell_quote_by_shop,
+    get_sell_lock_by_ait_tx_hash,
+    get_sell_lock_by_id,
+    get_sell_quote,
     get_withdrawal_by_ait_tx_hash,
+    insert_sell_quote,
     update_deposit_status,
 )
 from .bridge_monitor import (
@@ -774,6 +783,189 @@ def _normalize_withdrawal(withdrawal: dict[str, Any]) -> dict[str, Any]:
         "error": withdrawal.get("error"),
         "created_at": withdrawal.get("created_at"),
         "completed_at": withdrawal.get("completed_at") or withdrawal.get("refunded_at"),
+    }
+
+
+def _normalize_sell_quote(quote: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "quote_id": quote.get("id"),
+        "shop_ait_address": quote.get("shop_ait_address"),
+        "shop_eth_address": quote.get("shop_eth_address"),
+        "ait_amount": _money_str(quote.get("ait_amount")),
+        "rate": _money_str(quote.get("rate_eth_usd")),
+        "fee_ait": _money_str(quote.get("fee_ait")),
+        "eth_amount": _money_str(quote.get("eth_amount")),
+        "status": quote.get("status"),
+        "expires_at": quote.get("expires_at"),
+        "created_at": quote.get("created_at"),
+    }
+
+
+def _normalize_sell_lock(lock: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": lock.get("id"),
+        "quote_id": lock.get("quote_id"),
+        "ait_tx_hash": lock.get("ait_tx_hash"),
+        "shop_ait_address": lock.get("shop_ait_address"),
+        "shop_eth_address": lock.get("shop_eth_address"),
+        "ait_amount": _money_str(lock.get("amount_ait")),
+        "eth_amount": _money_str(lock.get("eth_amount")),
+        "requoted": bool(lock.get("requoted")),
+        "status": lock.get("status"),
+        "eth_tx_hash": lock.get("eth_tx_hash"),
+        "settle_tx_hash": lock.get("settle_tx_hash"),
+        "refund_tx_hash": lock.get("refund_tx_hash"),
+        "locked_height": lock.get("locked_height"),
+        "error": lock.get("error"),
+        "created_at": lock.get("created_at"),
+        "released_at": lock.get("released_at"),
+        "settled_at": lock.get("settled_at"),
+        "refunded_at": lock.get("refunded_at"),
+    }
+
+
+def _sell_gate() -> None:
+    """Fail closed: no sell feature when the escrow is unconfigured."""
+    from .sell_escrow_monitor import sell_config_status
+
+    enabled, reason = sell_config_status()
+    if not enabled:
+        raise HTTPException(status_code=503, detail=f"Sell escrow disabled: {reason}")
+
+
+@bridge_router.post("/sell/quote")
+async def bridge_sell_quote(
+    body: dict[str, Any],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
+) -> dict[str, Any]:
+    """Issue a quote for selling AIT for ETH via the hub escrow."""
+    _sell_gate()
+
+    try:
+        ait_amount = Decimal(str(body.get("ait_amount", 0)))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="ait_amount must be a number") from exc
+    if ait_amount <= 0:
+        raise HTTPException(status_code=400, detail="ait_amount must be positive")
+
+    min_sell = Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
+    if ait_amount < min_sell:
+        raise HTTPException(status_code=400, detail=f"Minimum sell is {min_sell} AIT")
+
+    eth_address = body.get("eth_address") or ""
+    if not eth_address:
+        raise HTTPException(status_code=400, detail="eth_address is required")
+    try:
+        eth_address = validate_address_strict(eth_address)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid eth_address: {exc}") from exc
+
+    ait_address = body.get("ait_address") or ""
+    if not ait_address:
+        raise HTTPException(status_code=400, detail="ait_address is required")
+    try:
+        ait_address = validate_address_strict(ait_address)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid ait_address: {exc}") from exc
+
+    from .sell_escrow_monitor import _sell_config, compute_sell_quote
+
+    try:
+        cfg = _sell_config()
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=f"Sell escrow disabled: {exc}") from exc
+
+    # Per-shop limits: open-quote cap and a minimum interval between quotes.
+    try:
+        max_open = int(os.getenv("SELL_MAX_OPEN_QUOTES_PER_SHOP", "5"))
+    except Exception:
+        max_open = 5
+    if count_open_sell_quotes(ait_address) >= max_open:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many open sell quotes for this shop (max {max_open}) — let one expire or lock first",
+        )
+    try:
+        min_interval = int(os.getenv("SELL_QUOTE_MIN_INTERVAL_SECONDS", "30"))
+    except Exception:
+        min_interval = 30
+    latest = get_latest_sell_quote_by_shop(ait_address)
+    if latest and latest.get("created_at"):
+        try:
+            waited = (datetime.now() - datetime.fromisoformat(str(latest["created_at"]))).total_seconds()
+        except Exception:
+            waited = min_interval
+        if waited < min_interval:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Quote rate limit: wait {int(min_interval - waited) + 1}s between quotes",
+            )
+
+    computed = await compute_sell_quote(ait_amount)
+    if computed is None:
+        raise HTTPException(status_code=503, detail="Price feed unavailable or stale")
+
+    if computed["eth_amount"] > cfg.max_eth_per_tx:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Quote exceeds per-transaction cap ({_money_str(cfg.max_eth_per_tx)} ETH)",
+        )
+
+    expires_at = (datetime.now() + timedelta(seconds=cfg.quote_expiry_seconds)).isoformat()
+
+    quote_id = insert_sell_quote(
+        shop_ait_address=ait_address,
+        shop_eth_address=eth_address,
+        ait_amount=ait_amount,
+        rate_eth_usd=computed["rate_eth_usd"],
+        ait_usd=computed["ait_usd"],
+        fee_ait=computed["fee_ait"],
+        eth_amount=computed["eth_amount"],
+        expires_at=expires_at,
+        feed_age_seconds=computed["feed_age_seconds"],
+    )
+
+    return {
+        "quote_id": quote_id,
+        "rate": _money_str(computed["rate_eth_usd"]),
+        "fee_ait": _money_str(computed["fee_ait"]),
+        "eth_amount": _money_str(computed["eth_amount"].quantize(Decimal("0.00000001"))),
+        "expires_at": expires_at,
+        "escrow_address": cfg.escrow_address,
+        "status": "quoted",
+    }
+
+
+@bridge_router.get("/sell/status/{identifier}")
+async def bridge_sell_status(identifier: str) -> dict[str, Any]:
+    """Sell status by quote id, lock id, or lock transaction hash."""
+    quote = get_sell_quote(identifier)
+    if quote:
+        # The escrow address is env-config, not a quote column — the lock CLI
+        # needs it to build the lock TRANSFER.
+        return {
+            "kind": "quote",
+            "escrow_address": os.getenv("AIT_SELL_ESCROW", ""),
+            **_normalize_sell_quote(quote),
+        }
+    lock = get_sell_lock_by_ait_tx_hash(identifier) or get_sell_lock_by_id(identifier)
+    if lock:
+        return {"kind": "lock", **_normalize_sell_lock(lock)}
+    raise HTTPException(status_code=404, detail="Sell quote or lock not found")
+
+
+@bridge_router.get("/sell/list")
+async def bridge_sell_list(limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    """List sell quotes and locks."""
+    limit = max(0, min(limit, 500))
+    quotes = get_all_sell_quotes(limit=limit, offset=offset)
+    locks = get_all_sell_locks(limit=limit, offset=offset)
+    return {
+        "quotes": [_normalize_sell_quote(q) for q in quotes],
+        "locks": [_normalize_sell_lock(lk) for lk in locks],
+        "count": len(locks),
+        "limit": limit,
+        "offset": offset,
     }
 
 
