@@ -13,6 +13,7 @@ from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.address import to_eip55
 from ...utils.chain_id import resolve_chain_id
+from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient
 from . import _load_wallet, get_wallet_client, wallet
 
@@ -33,9 +34,17 @@ def bridge():
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="ETH amount to deposit.")
 @click.option("--wallet-name", "wallet_name", required=False, help="Source wallet name for ETH signing.")
 @click.option("--eth-rpc-url", "eth_rpc_url", required=False, help="Ethereum RPC URL.")
-@click.option("--password", help="Wallet password for signing")
+@wallet_password_options
 @click.pass_context
-def deposit(ctx, amount: Decimal, wallet_name: str | None, eth_rpc_url: str | None, password: str | None):
+def deposit(
+    ctx,
+    amount: Decimal,
+    wallet_name: str | None,
+    eth_rpc_url: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Deposit ETH to the bridge and receive AITBC on the hub."""
     wallet_name = wallet_name or ctx.obj["wallet_name"]
     wallet_dir = ctx.obj["wallet_dir"]
@@ -48,7 +57,16 @@ def deposit(ctx, amount: Decimal, wallet_name: str | None, eth_rpc_url: str | No
         error(f"Wallet '{wallet_name}' not found")
         raise click.Abort()
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_path,
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
     ait_address = to_eip55(wallet_data["address"])
     eth_private_key = wallet_data.get("private_key")
     if not eth_private_key:
@@ -185,9 +203,17 @@ def deposit(ctx, amount: Decimal, wallet_name: str | None, eth_rpc_url: str | No
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="AIT amount to withdraw.")
 @click.option("--eth-address", "eth_address", required=True, help="Destination Ethereum address.")
 @click.option("--wallet-name", "wallet_name", required=False, help="Source wallet name for AIT signing.")
-@click.option("--password", help="Wallet password for signing")
+@wallet_password_options
 @click.pass_context
-def withdraw(ctx, amount: Decimal, eth_address: str, wallet_name: str | None, password: str | None):
+def withdraw(
+    ctx,
+    amount: Decimal,
+    eth_address: str,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Burn AITBC on the hub to receive ETH at the given Ethereum address."""
     wallet_name = wallet_name or ctx.obj["wallet_name"]
     wallet_dir = ctx.obj["wallet_dir"]
@@ -200,7 +226,16 @@ def withdraw(ctx, amount: Decimal, eth_address: str, wallet_name: str | None, pa
         error(f"Wallet '{wallet_name}' not found")
         raise click.Abort()
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
+    password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_path,
+        ctx=ctx,
+    )
+    wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
     from_address = to_eip55(wallet_data["address"])
     private_key_hex = wallet_data.get("private_key")
     if not private_key_hex:

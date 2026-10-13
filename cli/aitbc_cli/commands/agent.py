@@ -24,6 +24,7 @@ from ..utils.agent_signing import (
 )
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet_paths import find_wallet_file, wallet_search_dirs
+from ..utils.wallet_secret import wallet_password_options
 
 logger = get_logger(__name__)
 
@@ -69,6 +70,8 @@ def _ws_auth_token(
     wallet_name: str | None,
     password: str | None,
     fallback_token: str | None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
 ) -> str | None:
     """Resolve the ?token= credential for the WebSocket stream.
 
@@ -81,7 +84,9 @@ def _ws_auth_token(
     unsigned setups working.
     """
     try:
-        signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        signing = load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
     except Exception as e:
         info(f"Wallet login unavailable ({e}) — falling back to the shared API key token")
         return fallback_token
@@ -212,7 +217,7 @@ def _resolve_agent_id(from_agent: str | None) -> str | None:
     default=None,
     help="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity",
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--sign/--no-sign", default=True, show_default=True, help="Sign the envelope when a wallet is configured")
 @click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
 @click.pass_context
@@ -228,6 +233,8 @@ def send(
     encrypt: bool,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     sign: bool,
     coordinator_url: str | None,
 ):
@@ -235,7 +242,13 @@ def send(
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
 
-    signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password) if sign else None
+    signing = (
+        load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
+        if sign
+        else None
+    )
 
     try:
         http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
@@ -307,7 +320,7 @@ def send(
     default=None,
     help="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)",
 )
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--sign/--no-sign", default=True, show_default=True, help="Sign the request when a wallet is configured")
 @click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
 @click.pass_context
@@ -318,6 +331,8 @@ def receive(
     unread_only: bool,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     sign: bool,
     coordinator_url: str | None,
 ):
@@ -328,7 +343,13 @@ def receive(
         error("--from-agent is required when AGENT_ID is not set")
         return
 
-    signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password) if sign else None
+    signing = (
+        load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
+        if sign
+        else None
+    )
 
     base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
 
@@ -398,9 +419,19 @@ def peers(ctx, coordinator_url: str | None):
     envvar="AITBC_DEFAULT_WALLET",
     help="Wallet to authenticate the stream with (mints an agent JWT via the coordinator login endpoint when --sender is bound to it)",
 )
-@click.option("--password", default=None, help="Password for --wallet")
+@wallet_password_options
 @click.pass_context
-def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int, wallet: str | None, password: str | None):
+def ping(
+    ctx,
+    agent: str,
+    sender: str,
+    coordinator_url: str | None,
+    timeout: int,
+    wallet: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Ping a remote agent via WebSocket and wait for its PONG reply."""
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
@@ -409,7 +440,9 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
     # used. Longer term the stream binds via a signed first-frame hello —
     # see _build_ws_url.
     api_key = (ctx.obj.get("api_key") if ctx.obj else None) or config.api_key
-    token = _ws_auth_token(ctx, base_url, sender, wallet, password, api_key)
+    token = _ws_auth_token(
+        ctx, base_url, sender, wallet, password, api_key, password_file=password_file, password_stdin=password_stdin
+    )
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
 
     async def _ping() -> None:
@@ -481,11 +514,19 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
     default=None,
     help="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)",
 )
-@click.option("--password", default=None, help="Password for --wallet when it also authenticates the stream")
+@wallet_password_options
 @click.option("--timeout", type=int, default=15, show_default=True, help="Seconds to wait for a response")
 @click.pass_context
 def request_coins(
-    ctx, wallet: str | None, amount: int, sender: str, coordinator_url: str | None, timeout: int, password: str | None
+    ctx,
+    wallet: str | None,
+    amount: int,
+    sender: str,
+    coordinator_url: str | None,
+    timeout: int,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
 ):
     """Request free AIT tokens from the hub via WebSocket for the configured wallet."""
     wallet_address = _resolve_wallet_address(wallet)
@@ -498,7 +539,9 @@ def request_coins(
     # an agent JWT (the same wallet receives the coins); otherwise the shared
     # API key token is used. See _ws_auth_token.
     api_key = (ctx.obj.get("api_key") if ctx.obj else None) or config.api_key
-    token = _ws_auth_token(ctx, base_url, sender, wallet, password, api_key)
+    token = _ws_auth_token(
+        ctx, base_url, sender, wallet, password, api_key, password_file=password_file, password_stdin=password_stdin
+    )
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
 
     async def _request() -> None:
