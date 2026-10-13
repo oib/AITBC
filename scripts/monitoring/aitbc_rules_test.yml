@@ -1214,3 +1214,97 @@ tests:
       - expr: ALERTS{alertname="AttestationValidatorSilent"}
         eval_time: 15m
         exp_samples: []
+
+  # ---- MON-2 backup freshness alerts -------------------------------------
+  # time() in promtool tests counts from test t=0, so a "stale" series is a
+  # small constant and a "fresh" one a constant larger than any test time
+  # (99999999 reads as "never stale" for these thresholds). Input intervals
+  # stay under the 5m series-lookback AND keep the [7d] window under the
+  # promtool sample limit -- hence 2m spacing for the collapse test.
+
+  # BackupStale: frozen at t=0 -> older than 30h fires after for:30m; a
+  # fresh timestamp never does.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_backup_last_generation_timestamp_seconds{instance="node1:9100", job="node"}'
+        values: '0x2000'
+      - series: 'aitbc_backup_last_generation_timestamp_seconds{instance="node2:9100", job="node"}'
+        values: '99999999x2000'
+    promql_expr_test:
+      - expr: ALERTS{alertname="BackupStale", alertstate="firing"}
+        eval_time: 30h
+        exp_samples: []
+      - expr: ALERTS{alertname="BackupStale", alertstate="firing"}
+        eval_time: 31h
+        exp_samples:
+          - labels: 'ALERTS{alertname="BackupStale", alertstate="firing", instance="node1:9100", job="node", severity="warning"}'
+            value: 1
+
+  # BackupFailed: last_run_success 0 for 15m -> critical; 1 stays silent.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_backup_last_run_success{instance="node1:9100", job="node"}'
+        values: '0x40'
+      - series: 'aitbc_backup_last_run_success{instance="node2:9100", job="node"}'
+        values: '1x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="BackupFailed", alertstate="firing"}
+        eval_time: 14m
+        exp_samples: []
+      - expr: ALERTS{alertname="BackupFailed", alertstate="firing"}
+        eval_time: 16m
+        exp_samples:
+          - labels: 'ALERTS{alertname="BackupFailed", alertstate="firing", instance="node1:9100", job="node", severity="critical"}'
+            value: 1
+
+  # BackupExporterMissing: exporter timestamp frozen -> >1h fires after
+  # for:1h; fresh stays silent. No absent() arm, by design.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_backup_exporter_timestamp_seconds{instance="node1:9100", job="node"}'
+        values: '0x160'
+      - series: 'aitbc_backup_exporter_timestamp_seconds{instance="node2:9100", job="node"}'
+        values: '99999999x160'
+    promql_expr_test:
+      - expr: ALERTS{alertname="BackupExporterMissing", alertstate="firing"}
+        eval_time: 90m
+        exp_samples: []
+      - expr: ALERTS{alertname="BackupExporterMissing", alertstate="firing"}
+        eval_time: 2h15m
+        exp_samples:
+          - labels: 'ALERTS{alertname="BackupExporterMissing", alertstate="firing", instance="node1:9100", job="node", severity="warning"}'
+            value: 1
+
+  # BackupSizeCollapse: ~22MB for 160h then 9MB -> under half the window
+  # median -> fires once the 9MB value has held for:1h; stable host never.
+  - interval: 2m
+    input_series:
+      - series: 'aitbc_backup_last_generation_bytes{instance="node1:9100", job="node"}'
+        values: '22000000x4800 9000000x720'
+      - series: 'aitbc_backup_last_generation_bytes{instance="node2:9100", job="node"}'
+        values: '22000000x5520'
+    promql_expr_test:
+      - expr: ALERTS{alertname="BackupSizeCollapse", alertstate="firing"}
+        eval_time: 160h30m
+        exp_samples: []
+      - expr: ALERTS{alertname="BackupSizeCollapse", alertstate="firing"}
+        eval_time: 162h
+        exp_samples:
+          - labels: 'ALERTS{alertname="BackupSizeCollapse", alertstate="firing", instance="node1:9100", job="node", severity="warning"}'
+            value: 1
+
+  # OffsitePullStale: IDE-pull success timestamp frozen at t=0 -> >36h fires
+  # after for:30m. No absent() arm (the IDE host may legitimately be off).
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_offsite_pull_last_success_timestamp_seconds{host="ide", job="node"}'
+        values: '0x2300'
+    promql_expr_test:
+      - expr: ALERTS{alertname="OffsitePullStale", alertstate="firing"}
+        eval_time: 36h
+        exp_samples: []
+      - expr: ALERTS{alertname="OffsitePullStale", alertstate="firing"}
+        eval_time: 37h
+        exp_samples:
+          - labels: 'ALERTS{alertname="OffsitePullStale", alertstate="firing", host="ide", job="node", severity="warning"}'
+            value: 1
