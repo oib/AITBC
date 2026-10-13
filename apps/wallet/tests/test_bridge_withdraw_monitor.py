@@ -295,51 +295,54 @@ class TestRefundWithdrawal:
         assert "refund transaction rejected" in record["error"]
 
 
+def _seed_releasing(ait_tx_hash: str, nonce: int = 7) -> None:
+    from wallet_app.bridge.bridge_db import update_withdrawal_status
+
+    insert_withdrawal(
+        ait_tx_hash=ait_tx_hash,
+        from_address="0x1111111111111111111111111111111111111111",
+        eth_address="0x2222222222222222222222222222222222222222",
+        amount_ait=Decimal("10"),
+        fee_ait=Decimal("0.05"),
+        net_ait=Decimal("9.95"),
+        amount_eth=Decimal("0.001"),
+    )
+    update_withdrawal_status(ait_tx_hash, "releasing", eth_tx_hash="0x" + "ab" * 32, release_nonce=nonce)
+
+
+def _patch_rpc(monitor_env, monkeypatch, responses: dict):
+    async def _fake_rpc(method: str, params: list):
+        return responses.get(method)
+
+    monkeypatch.setattr(monitor_env, "_eth_rpc", _fake_rpc)
+
+
+def _patch_release_path(monitor_env, monkeypatch, broadcast_error=None):
+    async def _coro(value):
+        return value
+
+    monkeypatch.setattr(monitor_env, "_eth_balance", lambda a: asyncio.ensure_future(_coro(Decimal("0.1"))))
+    monkeypatch.setattr(monitor_env, "_eth_gas_price", lambda: asyncio.ensure_future(_coro(1_000_000_000)))
+    monkeypatch.setattr(monitor_env, "_eth_nonce", lambda a: asyncio.ensure_future(_coro(7)))
+    monkeypatch.setattr(monitor_env, "_STATUS_PERSIST_DELAYS", (0, 0))
+
+    if broadcast_error is not None:
+
+        async def _broadcast(raw: str) -> str:
+            raise broadcast_error
+
+        monkeypatch.setattr(monitor_env, "_broadcast_release_tx", _broadcast)
+
+
 class TestDuplicateReleaseSafety:
     """ETH-9: a post-send DB failure must never cause a refund on top of
     released ETH. Releasing rows carry nonce + deterministic hash so a
     restart can prove the outcome on-chain."""
 
-    def _seed_releasing(self, ait_tx_hash: str, nonce: int = 7) -> None:
-        from wallet_app.bridge.bridge_db import update_withdrawal_status
-
-        insert_withdrawal(
-            ait_tx_hash=ait_tx_hash,
-            from_address="0x1111111111111111111111111111111111111111",
-            eth_address="0x2222222222222222222222222222222222222222",
-            amount_ait=Decimal("10"),
-            fee_ait=Decimal("0.05"),
-            net_ait=Decimal("9.95"),
-            amount_eth=Decimal("0.001"),
-        )
-        update_withdrawal_status(ait_tx_hash, "releasing", eth_tx_hash="0x" + "ab" * 32, release_nonce=nonce)
-
-    def _patch_rpc(self, monitor_env, monkeypatch, responses: dict):
-        async def _fake_rpc(method: str, params: list):
-            return responses.get(method)
-
-        monkeypatch.setattr(monitor_env, "_eth_rpc", _fake_rpc)
-
-    def _patch_release_path(self, monitor_env, monkeypatch, broadcast_error=None):
-        async def _coro(value):
-            return value
-
-        monkeypatch.setattr(monitor_env, "_eth_balance", lambda a: asyncio.ensure_future(_coro(Decimal("0.1"))))
-        monkeypatch.setattr(monitor_env, "_eth_gas_price", lambda: asyncio.ensure_future(_coro(1_000_000_000)))
-        monkeypatch.setattr(monitor_env, "_eth_nonce", lambda a: asyncio.ensure_future(_coro(7)))
-        monkeypatch.setattr(monitor_env, "_STATUS_PERSIST_DELAYS", (0, 0))
-
-        if broadcast_error is not None:
-
-            async def _broadcast(raw: str) -> str:
-                raise broadcast_error
-
-            monkeypatch.setattr(monitor_env, "_broadcast_release_tx", _broadcast)
-
     @pytest.mark.asyncio
     async def test_completed_write_fails_once_then_retries(self, monitor_env, seed_withdrawal, monkeypatch):
         """A transient DB error on 'completed' is retried, never falls to refund."""
-        self._patch_release_path(monitor_env, monkeypatch)
+        _patch_release_path(monitor_env, monkeypatch)
 
         async def _broadcast(raw: str) -> str:
             return "0x" + "ab" * 32
@@ -371,14 +374,22 @@ class TestDuplicateReleaseSafety:
     async def test_send_then_db_failure_no_refund_resume_completes(self, monitor_env, seed_withdrawal, monkeypatch):
         """The ETH-9 crash: send ok, 'completed' write fails, verify proves
         sent -> no refund; a later resume pass completes the row."""
-        self._patch_release_path(monitor_env, monkeypatch)
+        _patch_release_path(monitor_env, monkeypatch)
 
         async def _broadcast(raw: str) -> str:
             return "0x" + "ab" * 32
 
         monkeypatch.setattr(monitor_env, "_broadcast_release_tx", _broadcast)
-        # Chain proves the release landed.
-        self._patch_rpc(monitor_env, monkeypatch, {"eth_getTransactionReceipt": {"status": "0x1"}})
+        # Chain proves the release landed: receipt at block 0x64, chain at
+        # 0x67 -> 4 confirmations, above the default depth of 3.
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionReceipt": {"status": "0x1", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+            },
+        )
 
         refunded = []
 
@@ -423,9 +434,9 @@ class TestDuplicateReleaseSafety:
     @pytest.mark.asyncio
     async def test_broadcast_failure_refunds_after_proof(self, monitor_env, seed_withdrawal, monkeypatch):
         """Broadcast raised and the chain shows nothing sent -> refund."""
-        self._patch_release_path(monitor_env, monkeypatch, broadcast_error=RuntimeError("connection reset"))
+        _patch_release_path(monitor_env, monkeypatch, broadcast_error=RuntimeError("connection reset"))
         # Nothing landed: no tx, no receipt, nonce still 7 (latest == pending).
-        self._patch_rpc(
+        _patch_rpc(
             monitor_env,
             monkeypatch,
             {
@@ -462,8 +473,8 @@ class TestDuplicateReleaseSafety:
     @pytest.mark.asyncio
     async def test_refund_failure_marks_failed_single_attempt(self, monitor_env, seed_withdrawal, monkeypatch):
         """A failed refund marks the row failed without a second refund try."""
-        self._patch_release_path(monitor_env, monkeypatch, broadcast_error=RuntimeError("connection reset"))
-        self._patch_rpc(
+        _patch_release_path(monitor_env, monkeypatch, broadcast_error=RuntimeError("connection reset"))
+        _patch_rpc(
             monitor_env,
             monkeypatch,
             {
@@ -501,8 +512,15 @@ class TestDuplicateReleaseSafety:
     @pytest.mark.asyncio
     async def test_restart_releasing_row_tx_on_chain_completes(self, monitor_env, monkeypatch):
         """Restart with a 'releasing' row whose receipt exists -> completed."""
-        self._seed_releasing("0x" + "cd" * 32)
-        self._patch_rpc(monitor_env, monkeypatch, {"eth_getTransactionReceipt": {"status": "0x1"}})
+        _seed_releasing("0x" + "cd" * 32)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionReceipt": {"status": "0x1", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+            },
+        )
 
         refunded = []
 
@@ -521,8 +539,8 @@ class TestDuplicateReleaseSafety:
     @pytest.mark.asyncio
     async def test_restart_releasing_row_no_tx_refunds(self, monitor_env, monkeypatch):
         """Restart with a 'releasing' row that never reached chain -> refund."""
-        self._seed_releasing("0x" + "ef" * 32)
-        self._patch_rpc(
+        _seed_releasing("0x" + "ef" * 32)
+        _patch_rpc(
             monitor_env,
             monkeypatch,
             {
@@ -550,7 +568,7 @@ class TestDuplicateReleaseSafety:
     @pytest.mark.asyncio
     async def test_rpc_down_marks_needs_review_never_refunds(self, monitor_env, seed_withdrawal, monkeypatch):
         """Unverifiable outcome -> needs_review, never a blind refund."""
-        self._patch_release_path(monitor_env, monkeypatch, broadcast_error=RuntimeError("timeout"))
+        _patch_release_path(monitor_env, monkeypatch, broadcast_error=RuntimeError("timeout"))
 
         async def _rpc_down(method, params):
             raise RuntimeError("rpc down")
@@ -577,3 +595,103 @@ class TestDuplicateReleaseSafety:
         )
         assert refunded == []
         assert get_withdrawal_by_ait_tx_hash(seed_withdrawal)["status"] == "needs_review"
+
+    @pytest.mark.asyncio
+    async def test_manual_send_consumed_nonce_needs_review_no_refund(self, monitor_env, monkeypatch):
+        """ETH-9b: a manual send from the bridge wallet can consume the
+        recorded nonce while the recorded release never landed. A consumed
+        nonce alone must never mark sent — the row stays open for review."""
+        _seed_releasing("0x" + "ab" * 32, nonce=7)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": None,
+                # latest=8 > recorded nonce 7 — someone else's send took it.
+                "eth_getTransactionCount": "0x8",
+            },
+        )
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["still_open"] == 1
+        assert result["completed"] == 0 and result["failed"] == 0
+        assert refunded == []
+        # Row is neither completed nor refunded — it stays for the operator.
+        assert get_withdrawal_by_ait_tx_hash("0x" + "ab" * 32)["status"] == "releasing"
+
+    @pytest.mark.asyncio
+    async def test_receipt_below_depth_unknown_then_sent(self, monitor_env, monkeypatch):
+        """ETH-9b: a successful receipt below the confirmation depth is
+        'unknown'; the next poll re-checks and completes once depth is met."""
+        _seed_releasing("0x" + "bc" * 32, nonce=7)
+        chain_head = {"block": "0x67"}  # receipt at 0x66 -> depth 2 < 3
+
+        async def _fake_rpc(method: str, params: list):
+            if method == "eth_blockNumber":
+                return chain_head["block"]
+            return {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": {"status": "0x1", "blockNumber": "0x66"},
+                "eth_getTransactionCount": "0x8",
+            }.get(method)
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _fake_rpc)
+        first = await monitor_env._resume_unfinished_releases()
+        assert first["still_open"] == 1
+        assert get_withdrawal_by_ait_tx_hash("0x" + "bc" * 32)["status"] == "releasing"
+        # Chain advances: depth becomes 3 -> sent.
+        chain_head["block"] = "0x68"
+        second = await monitor_env._resume_unfinished_releases()
+        assert second["completed"] == 1
+        assert get_withdrawal_by_ait_tx_hash("0x" + "bc" * 32)["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_failed_receipt_not_sent_refunds_once(self, monitor_env, monkeypatch):
+        """ETH-9b: a reverted release (receipt status 0) is proven not_sent —
+        refund exactly once."""
+        _seed_releasing("0x" + "de" * 32, nonce=7)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": {"status": "0x0", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+                "eth_getTransactionCount": "0x8",
+            },
+        )
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["failed"] == 1
+        assert len(refunded) == 1
+        assert get_withdrawal_by_ait_tx_hash("0x" + "de" * 32)["status"] == "refunded"
+
+    @pytest.mark.asyncio
+    async def test_missing_row_verify_unknown(self, monitor_env):
+        """ETH-9b: a withdrawal row that cannot be found proves nothing."""
+        outcome = await monitor_env._verify_release_outcome("0x" + "f0" * 32)
+        assert outcome == "unknown"
+
+    @pytest.mark.asyncio
+    async def test_rpc_error_verify_unknown(self, monitor_env, monkeypatch):
+        """ETH-9b: any RPC failure during verification is 'unknown'."""
+        _seed_releasing("0x" + "a1" * 32, nonce=7)
+
+        async def _rpc_down(method: str, params: list):
+            raise RuntimeError("rpc down")
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc_down)
+        assert await monitor_env._verify_release_outcome("0x" + "a1" * 32) == "unknown"
