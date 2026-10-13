@@ -31,7 +31,10 @@ exec_cmd = [
     "-m",
     "aitbc_chain.gossip.relay",
     "--host",
-    "0.0.0.0",  # nosec B104 - blockchain P2P is an authorized public surface: followers on other hosts gossip over the internet (docs/deployment/NETWORK_POLICY.md)
+    # Default 0.0.0.0: followers on other hosts may gossip over the internet
+    # (docs/deployment/NETWORK_POLICY.md); hubs behind a public vhost can set
+    # P2P_BIND_HOST=127.0.0.1 so inbound gossip arrives via /rpc/gossip/ws.
+    os.environ.get("P2P_BIND_HOST", "0.0.0.0"),
     "--port",
     "7070",
     "--access-log",
