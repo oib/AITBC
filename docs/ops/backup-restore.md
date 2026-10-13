@@ -99,6 +99,63 @@ SQL text, not a DB file. Rebuild from them with
 verification block. Operator file copies (like the drill file) can be used
 directly.
 
+## Off-site pull
+
+The fleet-side `BACKUP_OFFSITE_SCRIPT` hook stays unset **on purpose**: this
+deployment uses a pull model — no fleet host holds credentials for the
+destination, and nothing inbound needs to reach the hosts. The operator's
+machine pulls each host's newest complete generation over the existing ssh
+aliases with `scripts/ops/offsite-pull-backups.sh`.
+
+What is pulled: the newest generation dir under `/var/backups/aitbc/` that
+has been untouched for `STABLE_MIN` (10) minutes — the nightly job finishes
+in under a minute at ~01:0x, so the 02:30 pull always sees a complete one.
+Where it lands: `DEST/<host>/<generation>/` (default
+`~/windsurf/aitbc/backups/fleet-nightly/`), staging at `<gen>.partial/` until
+the sha256 manifest — computed on the host in the same ssh session that
+picked the generation — verifies. Every pulled file is then stored
+**age-encrypted** (`<name>.age`, including `SHA256SUMS.age` carrying the
+plaintext manifest for restore-time re-verification); plaintext staging is
+removed. `AGE_RECIPIENT` is required — the script refuses to store plaintext.
+Keep the age **identity** file separately; it is the only thing that can
+decrypt the pulls.
+
+Retention: newest `KEEP` (14) name-matched generations per host; the newest
+verified generation is never deleted; foreign directory names are never
+touched. A 20 GB free-space floor (`MIN_FREE_GB`) is enforced before pulling.
+
+Verify a pulled generation after decrypt:
+
+```bash
+age -d -i <identity> <host>/<gen>/SHA256SUMS.age > SHA256SUMS
+for f in *.age; do age -d -i <identity> "$f" > "${f%.age}"; done
+sha256sum -c SHA256SUMS   # all files OK
+```
+
+Restore from a pulled generation: decrypt to a scratch dir, then follow the
+ordinary restore path above — `zcat chain_*.db.gz | sqlite3 chain.db` for the
+dump artifacts (or use the file directly when it is already a DB file),
+`integrity_check`, hash-compare, place at the chain path, start.
+
+### Install (operator, on the pull host)
+
+```bash
+# one-time: create the identity that owns AGE_RECIPIENT (keep it safe &
+# separate -- it decrypts every pulled generation)
+age-keygen -o ~/.config/aitbc-backup-age-identity.txt
+# -> prints "Public key: age1..."; that line's key is AGE_RECIPIENT
+
+mkdir -p ~/.config/systemd/user
+cp scripts/ops/offsite-pull-backups.{service,timer} ~/.config/systemd/user/
+# edit the service's Environment=AGE_RECIPIENT= to the public key
+systemctl --user daemon-reload
+systemctl --user enable --now offsite-pull-backups.timer
+journalctl --user -u offsite-pull-backups   # read the last run
+
+# only if the timer should also run while the operator is logged out:
+loginctl enable-linger oib
+```
+
 ## Schedule and retention — recommendation
 
 - **Keep the existing nightly timer** (`aitbc-backup.timer`, ~01:00 + splay,

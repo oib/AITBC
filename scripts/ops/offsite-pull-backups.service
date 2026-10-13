@@ -1,0 +1,9 @@
+[Unit]
+Description=Pull nightly AITBC backup generations off-site to this host
+# Runs as the operator's user; ssh aliases and the age identity live in the
+# user session. AGE_RECIPIENT must be set -- plaintext storage is refused.
+
+[Service]
+Type=oneshot
+Environment=AGE_RECIPIENT=
+ExecStart=/opt/aitbc/scripts/ops/offsite-pull-backups.sh
