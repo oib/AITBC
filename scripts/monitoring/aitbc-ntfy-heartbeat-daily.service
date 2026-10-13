@@ -1,0 +1,23 @@
+[Unit]
+Description=AITBC daily ntfy heartbeat - visible alive message (SD-2)
+Documentation=https://github.com/oib/AITBC
+After=network.target
+
+[Service]
+Type=oneshot
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+# Same env file as the hourly beat; see aitbc-ntfy-heartbeat-hourly.service.
+EnvironmentFile=-/etc/aitbc/prometheus-watch.env
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/ntfy-heartbeat.py --kind daily
+SyslogIdentifier=aitbc-ntfy-heartbeat
+
+# Posts once and exits. Nothing to write.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

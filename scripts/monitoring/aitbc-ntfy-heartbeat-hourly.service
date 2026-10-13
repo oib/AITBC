@@ -1,0 +1,27 @@
+[Unit]
+Description=AITBC hourly ntfy heartbeat - silent dead-man signal (SD-2)
+Documentation=https://github.com/oib/AITBC
+After=network.target
+
+[Service]
+Type=oneshot
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+# Reads the same env file as the watcher: AITBC_HEARTBEAT_URL (falling back to
+# AITBC_WATCH_NOTIFY_URL) and AITBC_WATCH_NOTIFY_TOKEN live there, never on a
+# command line where `ps` would show them. Every sender — hub and node0's
+# optional second beat alike — uses the same write-only alerts-writer token
+# the host's own watcher publishes alerts with.
+EnvironmentFile=-/etc/aitbc/prometheus-watch.env
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/ntfy-heartbeat.py --kind hourly
+SyslogIdentifier=aitbc-ntfy-heartbeat
+
+# Posts once and exits. Nothing to write.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

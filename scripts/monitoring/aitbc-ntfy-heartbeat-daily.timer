@@ -1,0 +1,15 @@
+[Unit]
+Description=AITBC daily ntfy heartbeat - visible alive message (SD-2)
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+# Hub: 07:00 UTC. node0 runs the same unit as the optional second sender at
+# 07:30 UTC (drop-in override: OnCalendar=*-*-* 07:30:00 UTC).
+# Priority 2 = visible: the operator notices a missing daily message while
+# glancing at the topic - that is the accepted dead-man limit.
+OnCalendar=*-*-* 07:00:00 UTC
+Persistent=true
+Unit=aitbc-ntfy-heartbeat-daily.service
+
+[Install]
+WantedBy=timers.target
