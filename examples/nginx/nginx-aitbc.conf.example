@@ -615,6 +615,48 @@ server {
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
+    # ── Exchange read-only board endpoints (ETH-11) ──────────────────
+    # Two exact-match GET-only aliases into simple_exchange. Deliberately
+    # NOT a prefix: nothing under /api/orders or /api/trades other than
+    # these two handlers may ever be public (e.g. POST /api/orders and
+    # /api/wallet/balance must stay loopback-only). The limit_req_zone and
+    # proxy_cache_path live at http level — on the deployed hub they ship
+    # as /etc/nginx/conf.d/aitbc-exchange-api.conf, shown at the bottom of
+    # this file.
+    location = /exchange-api/orderbook {
+        limit_except GET { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        proxy_pass http://exchange_service/api/orders/orderbook;
+        proxy_cache exchange_api;
+        proxy_cache_valid 200 10s;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_key $scheme$host$uri;    # no cookies/auth in the key
+        proxy_hide_header Set-Cookie;
+        add_header Cache-Control "public, max-age=10" always;
+        add_header X-Cache-Status $upstream_cache_status always;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    location = /exchange-api/trades {
+        limit_except GET { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        proxy_pass http://exchange_service/api/trades/recent;
+        proxy_cache exchange_api;
+        proxy_cache_valid 200 10s;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_key $scheme$host$uri;
+        proxy_hide_header Set-Cookie;
+        add_header Cache-Control "public, max-age=10" always;
+        add_header X-Cache-Status $upstream_cache_status always;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
     location /exchange/price.json {
         proxy_pass http://exchange_service/exchange/price.json;
         proxy_set_header Host $host;
@@ -730,3 +772,12 @@ server {
     # include /etc/nginx/awstats-locations.conf;
 
 }
+
+# ── http context: exchange read-only API cache + rate zone (ETH-11) ──
+# On the deployed hub these ship as /etc/nginx/conf.d/aitbc-exchange-api.conf
+# (nginx.conf already includes conf.d/*.conf). The two exact-match
+# /exchange-api/* locations above reference both names.
+#
+# limit_req_zone $binary_remote_addr zone=exchange_api:10m rate=60r/m;
+# proxy_cache_path /var/cache/nginx/exchange-api levels=1:2
+#                  keys_zone=exchange_api:10m max_size=50m inactive=60s;
