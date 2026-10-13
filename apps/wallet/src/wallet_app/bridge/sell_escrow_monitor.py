@@ -17,6 +17,13 @@ falls back to the bridge payout key or the genesis key. Key material is read
 from the slot at signing time only — never from an env value, never logged.
 ETH release and outcome verification reuse the ETH-9/ETH-9b machinery in
 ``bridge_withdraw_monitor`` — there is no second "is the ETH out?" here.
+
+Escrow sweeps (settle → treasury, refund → shop) are serialized: at most one
+is in flight at a time, and a row leaves ``settling``/``refunding`` only when
+its outflow is found *sealed* — matched on nonce + recipient + amount +
+``payload.sell_ref`` — or resolved to ``needs_review``. Each sweep spends the
+moved amount plus the standard 0.01 AIT fee; the escrow needs a small seed
+AIT balance for those fees (see docs/ops/sell-escrow-runbook.md).
 """
 
 from __future__ import annotations
@@ -33,12 +40,14 @@ import httpx
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import ait_to_units, units_to_ait
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from aitbc.crypto.signature_recovery import canonical_address
 
 from . import bridge_withdraw_monitor as wdm
 from .bridge_db import (
     get_open_sell_locks,
     get_sell_eth_committed_since,
+    get_sell_inflight_sweep,
     get_sell_lock_by_ait_tx_hash,
     get_sell_lock_by_quote_id,
     get_sell_pending_eth_reserve,
@@ -64,10 +73,24 @@ _SELL_BINDING_STATUSES = (
     "released",
     "settling",
     "refunding",
+    "refund_pending",
     "stale_price",
     "queued_reserve",
+    "queued_fee_settle",
+    "queued_fee_refund",
     "needs_review",
 )
+
+# A row in one of these statuses holds a persisted sweep intent (escrow
+# nonce + signed blob). Sweep serialization: at most one may exist; a new
+# sweep waits until it is sealed or resolved.
+_INFLIGHT_SWEEP_STATUSES = ("settling", "refunding")
+
+
+def _sweep_fee_ait() -> Decimal:
+    """Each escrow sweep spends the standard transfer fee on top of the
+    moved amount — the escrow needs a seed balance for exactly this."""
+    return Decimal(str(DEFAULT_TX_FEE_AIT))
 
 
 @dataclass(frozen=True)
@@ -81,6 +104,7 @@ class SellConfig:
     escrow_credential_file: str
     escrow_credential_name: str
     treasury_address: str
+    chain_id: str
     max_eth_per_tx: Decimal
     max_eth_per_day: Decimal
     min_reserve_eth: Decimal
@@ -112,6 +136,11 @@ def _sell_config() -> SellConfig:
         raise ValueError("SELL_ESCROW_CREDENTIAL_FILE (escrow key slot) not configured")
     if not treasury:
         raise ValueError("SELL_TREASURY_ADDRESS (settle target) not configured")
+    # No default: signing a sweep on the wrong chain id is how replayed or
+    # rejected transactions happen. Missing env = refuse to sign.
+    chain_id = os.getenv("CHAIN_ID", "")
+    if not chain_id:
+        raise ValueError("CHAIN_ID not configured — refusing to sign escrow sweeps")
 
     def _decimal(env: str, default: str) -> Decimal:
         raw = os.getenv(env, default)
@@ -139,6 +168,7 @@ def _sell_config() -> SellConfig:
         escrow_credential_file=credential_file,
         escrow_credential_name=credential_name,
         treasury_address=canonical_address(treasury),
+        chain_id=chain_id,
         max_eth_per_tx=_decimal("SELL_MAX_ETH_PER_TX", "0.01"),
         max_eth_per_day=_decimal("SELL_MAX_ETH_PER_DAY", "0.03"),
         min_reserve_eth=_decimal("ETH_WITHDRAW_MIN_RESERVE", "0.005"),
@@ -300,8 +330,17 @@ async def _chain_height() -> int:
     return int(data.get("height", 0))
 
 
-async def _fetch_transfers(address: str, limit: int = 500) -> list[dict[str, Any]]:
-    """TRANSFERs touching ``address`` (sender or recipient), newest first."""
+async def _fetch_transfers(address: str, limit: int = 0) -> list[dict[str, Any]]:
+    """TRANSFERs touching ``address`` (sender or recipient), newest first.
+
+    ``/rpc/transactions`` has no offset/cursor pagination; its ``limit`` is
+    applied as ``results[:limit]`` guarded by ``if limit:`` — so ``limit=0``
+    deliberately disables truncation and returns the *complete* history for
+    the address. The escrow scan relies on that: every poll sees every lock
+    ever sent to the escrow, so a busy window with more than a page of new
+    transfers can never silently drop a lock (dedupe is by tx hash). Escrow
+    traffic is low-volume, so the unbounded read stays small.
+    """
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(
             f"{wdm.BLOCKCHAIN_RPC_URL}/rpc/transactions",
@@ -313,12 +352,16 @@ async def _fetch_transfers(address: str, limit: int = 500) -> list[dict[str, Any
     return cast(list[dict[str, Any]], txs) if isinstance(txs, list) else []
 
 
-async def _account_nonce(address: str) -> int:
-    """Current account nonce from the AITBC RPC."""
+async def _account_view(address: str) -> tuple[int, Decimal]:
+    """(nonce, balance in AIT) from the AITBC RPC in one call. A 404 (the
+    account has no on-chain record yet) reads as zero."""
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(f"{wdm.BLOCKCHAIN_RPC_URL}/rpc/account/{address}")
+        if resp.status_code == 404:
+            return 0, Decimal("0")
         resp.raise_for_status()
-        return int(resp.json().get("nonce", 0))
+        data = resp.json()
+    return int(data.get("nonce", 0)), units_to_ait(int(data.get("balance", 0) or 0))
 
 
 async def compute_sell_quote(ait_amount: Decimal) -> dict[str, Any] | None:
@@ -350,7 +393,7 @@ def _eth_for_lock_at_quote(amount_ait: Decimal, quote: dict[str, Any]) -> Decima
     fee_ait, net_ait = apply_bridge_fee(Decimal(str(amount_ait)))
     eth_usd = Decimal(str(quote["rate_eth_usd"]))
     ait_usd = Decimal(str(quote["ait_usd"]))
-    return (net_ait * ait_usd / eth_usd).quantize(Decimal("0.00000001"))
+    return (Decimal(str(net_ait)) * ait_usd / eth_usd).quantize(Decimal("0.00000001"))
 
 
 # ---------------------------------------------------------------------------
@@ -358,9 +401,23 @@ def _eth_for_lock_at_quote(amount_ait: Decimal, quote: dict[str, Any]) -> Decima
 # ---------------------------------------------------------------------------
 
 
+def _funding_sources() -> set[str]:
+    """AIT addresses whose sends to the escrow are float top-ups (seed for
+    sweep fees / operating balance), never sell locks. Comma-separated,
+    case-insensitive — mirrors BRIDGE_FUNDING_SOURCES on the ETH side."""
+    raw = os.getenv("SELL_ESCROW_FUNDING_SOURCES", "")
+    return {a.strip().lower() for a in raw.split(",") if a.strip()}
+
+
 async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
-    """Record confirmed TRANSFERs to the escrow address as sell locks."""
-    txs = await _fetch_transfers(cfg.escrow_address, limit=200)
+    """Record confirmed TRANSFERs to the escrow address as sell locks.
+
+    The fetch is deliberately unbounded (``limit=0`` — see
+    ``_fetch_transfers``): the scan sees the complete escrow history every
+    poll, so a burst of any size cannot hide a lock behind a page limit.
+    """
+    txs = await _fetch_transfers(cfg.escrow_address, limit=0)
+    funding = _funding_sources()
     scanned = 0
     recorded = 0
     for tx in txs:
@@ -372,15 +429,24 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
         ait_tx_hash = tx.get("tx_hash") or tx.get("hash") or ""
         if not ait_tx_hash:
             continue
+        sender = tx.get("sender") or tx.get("from") or ""
+        if sender.lower() in funding:
+            continue  # operator seed/float top-up — not a sell lock
         scanned += 1
         if get_sell_lock_by_ait_tx_hash(ait_tx_hash):
             continue
 
-        sender = tx.get("sender") or tx.get("from") or ""
         amount_ait = units_to_ait(int(tx.get("value", 0) or 0))
         payload = tx.get("payload") or {}
         quote_id = payload.get("sell_quote")
         quote = get_sell_quote(str(quote_id)) if quote_id else None
+        error = None
+        if quote and sender.lower() != str(quote.get("shop_ait_address") or "").lower():
+            # A lock is bound to the quoting shop: anyone else paying into a
+            # live quote id gets the orphan path — refunded to the *actual*
+            # sender, never releasing against somebody else's quote.
+            quote = None
+            error = "lock sender does not match quote's shop_ait_address"
         status = "locked" if quote else "orphaned"
         insert_sell_lock(
             ait_tx_hash=ait_tx_hash,
@@ -390,6 +456,7 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
             quote_id=str(quote_id) if quote_id else None,
             status=status,
             locked_height=int(tx["block_height"]),
+            error=error,
         )
         recorded += 1
         logger.info(
@@ -408,21 +475,19 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
 
 
 async def _sign_escrow_transfer(
-    cfg: SellConfig, to_address: str, amount_ait: Decimal, payload_extra: dict[str, Any]
-) -> tuple[dict[str, Any], int]:
-    """Build and sign an escrow-account TRANSFER, returning (signed_tx, nonce)."""
-    nonce = await _account_nonce(cfg.escrow_address)
-
+    cfg: SellConfig, to_address: str, amount_ait: Decimal, payload_extra: dict[str, Any], nonce: int
+) -> dict[str, Any]:
+    """Build and sign an escrow-account TRANSFER at the given nonce."""
     from eth_utils import keccak
 
     value = ait_to_units(amount_ait)
     tx_payload = {
         "type": "TRANSFER",
-        "chain_id": os.getenv("CHAIN_ID", "ait-localnet"),
+        "chain_id": cfg.chain_id,
         "from": cfg.escrow_address,
         "to": canonical_address(to_address),
         "amount": value,
-        "fee": ait_to_units(Decimal("0.01")),
+        "fee": ait_to_units(_sweep_fee_ait()),
         "nonce": nonce,
         "payload": {"amount": value, **payload_extra},
     }
@@ -431,7 +496,7 @@ async def _sign_escrow_transfer(
     private_key = _load_escrow_key(cfg)
     signature = private_key.sign_msg_hash(keccak(message))
     tx_payload["signature"] = signature.to_bytes().hex()
-    return tx_payload, nonce
+    return tx_payload
 
 
 async def _broadcast_ait_tx(signed_tx: dict[str, Any]) -> str:
@@ -468,13 +533,41 @@ async def _update_lock_status_with_retry(ait_tx_hash: str, status: str, **fields
     raise RuntimeError(f"could not persist sell lock {ait_tx_hash} status {status}: {last_exc}")
 
 
-async def _find_escrow_outflow(cfg: SellConfig, nonce: int) -> dict[str, Any] | None:
-    """Find the escrow's outbound TRANSFER at a recorded nonce — a broadcast
-    that sealed before a crash is recovered here instead of re-sent."""
+def _expected_sweep(cfg: SellConfig, row: dict[str, Any]) -> tuple[str, int, str]:
+    """(recipient, amount_units, sell_ref) the row's escrow outflow must
+    match — derived from the row, the same values the stored blob carries."""
+    if row["status"] in ("settling", "queued_fee_settle"):
+        to_address = cfg.treasury_address
+    else:
+        to_address = str(row["shop_ait_address"])
+    return canonical_address(to_address), ait_to_units(Decimal(str(row["amount_ait"]))), str(row["ait_tx_hash"])
+
+
+async def _find_escrow_outflow(
+    cfg: SellConfig, nonce: int, to_address: str, amount_units: int, sell_ref: str
+) -> dict[str, Any] | None:
+    """Find the escrow's SEALED outbound TRANSFER that this row's recorded
+    intent produced — matched on nonce AND recipient AND amount AND
+    ``payload.sell_ref``, so a different transaction at the same nonce (a
+    manual send, another row's sweep) can never be credited to this row.
+    Mempool-pending txs (no ``block_height``) do not count as sealed."""
     txs = await _fetch_transfers(cfg.escrow_address)
     for tx in txs:
-        sender = tx.get("sender") or tx.get("from") or ""
-        if sender.lower() == cfg.escrow_address.lower() and int(tx.get("nonce") or -1) == nonce:
+        if tx.get("block_height") is None:
+            continue
+        sender = (tx.get("sender") or tx.get("from") or "").lower()
+        if sender != cfg.escrow_address.lower():
+            continue
+        tx_nonce = tx.get("nonce")
+        if tx_nonce is None or int(tx_nonce) != nonce:
+            continue
+        recipient = (tx.get("recipient") or tx.get("to") or "").lower()
+        payload = tx.get("payload") or {}
+        if (
+            recipient == to_address.lower()
+            and int(tx.get("value") or 0) == amount_units
+            and payload.get("sell_ref") == sell_ref
+        ):
             return tx
     return None
 
@@ -485,100 +578,154 @@ async def _escrow_sweep(
     to_address: str,
     reason: str,
     intent_status: str,
-    final_status: str,
-    hash_field: str,
-) -> None:
-    """Send escrow → ``to_address`` with intent persisted before broadcast.
+    fee_park_status: str,
+) -> str:
+    """Start an escrow → ``to_address`` sweep, serialized and float-checked.
 
-    The escrow nonce AND the signed blob are recorded before the send so a
-    crash mid-flight is recoverable: the resume pass finds the outbound tx by
-    nonce, or re-broadcasts the identical stored blob — the same signature at
-    the same nonce — which the chain dedups. A mid-flight resume can never
-    produce a second payment.
+    Serialization: at most one sweep (``settling``/``refunding``) is in
+    flight at a time — while one is, this returns ``"deferred"`` and the row
+    keeps its caller status to retry on a later poll.
+
+    Fee float: the escrow pays ``amount + 0.01 AIT`` (the transfer fee). A
+    short balance parks the row in ``fee_park_status`` with the deficit —
+    never an exception, never a failed sign.
+
+    On send, the nonce AND signed blob are persisted *before* broadcast and
+    the row goes to ``intent_status`` — and stays there until the outflow is
+    found *sealed* (see ``_resolve_escrow_sweep``). A broadcast returning a
+    hash is not proof of seal, so terminal status is never written here.
     """
+    if get_sell_inflight_sweep():
+        logger.info(
+            "Sell lock %s: escrow sweep %s deferred — another sweep is in flight",
+            row["ait_tx_hash"],
+            reason,
+        )
+        return "deferred"
+
+    amount_ait = Decimal(str(row["amount_ait"]))
+    nonce, balance = await _account_view(cfg.escrow_address)
+    required = amount_ait + _sweep_fee_ait()
+    if balance < required:
+        deficit = required - balance
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            fee_park_status,
+            error=f"{reason}; escrow fee float deficit {deficit} AIT (need {required} AIT, have {balance})",
+        )
+        logger.warning(
+            "Sell lock %s: escrow fee float short %s AIT (balance %s, need %s) — parked %s",
+            row["ait_tx_hash"],
+            deficit,
+            balance,
+            required,
+            fee_park_status,
+        )
+        return "fee_parked"
+
     payload_extra = {"sell_ref": row["ait_tx_hash"], "reason": reason}
-    signed_tx, nonce = await _sign_escrow_transfer(cfg, to_address, Decimal(str(row["amount_ait"])), payload_extra)
+    signed_tx = await _sign_escrow_transfer(cfg, to_address, amount_ait, payload_extra, nonce)
     await _update_lock_status_with_retry(
         row["ait_tx_hash"], intent_status, escrow_out_nonce=nonce, escrow_out_tx=json.dumps(signed_tx)
     )
     tx_hash = await _broadcast_ait_tx(signed_tx)
-    await _update_lock_status_with_retry(row["ait_tx_hash"], final_status, **{hash_field: tx_hash})
     logger.info(
-        "Sell lock %s: escrow sweep %s (%s AIT -> %s, tx %s)",
+        "Sell lock %s: escrow sweep %s broadcast (%s AIT -> %s, nonce %d, tx %s) — awaiting seal",
         row["ait_tx_hash"],
         reason,
-        row["amount_ait"],
+        amount_ait,
         to_address,
+        nonce,
         tx_hash,
     )
+    return "sent"
 
 
-async def _settle_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
-    """Settle escrowed AIT to the hub treasury (the sell's AIT leg)."""
-    await _escrow_sweep(cfg, row, cfg.treasury_address, "sell_settle", "settling", "settled", "settle_tx_hash")
+async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
+    """Resolve an in-flight 'settling'/'refunding' row.
 
-
-async def _refund_lock(cfg: SellConfig, row: dict[str, Any], reason: str) -> None:
-    """Refund escrowed AIT to the shop.
-
-    A sweep that dies before its intent persisted (e.g. the nonce fetch
-    during an RPC outage) leaves the row untouched — the next healthy poll
-    retries it, so an outage can never burn a refundable row. Once the
-    'refunding' intent + signed blob are persisted, a failure is resolved by
-    the recorded nonce: sealed → 'refunded'; provably absent → 'failed',
-    never a second blind refund; unverifiable → 'needs_review'.
+    Terminal status comes only from the chain: the sealed outflow matching
+    nonce+recipient+amount+``sell_ref`` writes 'settled'/'refunded' with its
+    real hash. If the recorded nonce is still unconsumed, the stored signed
+    blob is re-broadcast — identical signature at the same nonce, which the
+    chain dedups, so a resume can never produce a second payment. If the
+    nonce was consumed by a *different* transaction (a manual send), the row
+    goes to 'needs_review' — the ETH-9b rule, never a blind re-send.
     """
-    try:
-        await _escrow_sweep(cfg, row, row["shop_ait_address"], reason, "refunding", "refunded", "refund_tx_hash")
-        return
-    except Exception as e:
-        logger.error("Refund failed for sell lock %s: %s", row["ait_tx_hash"], e)
-    fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"]) or {}
-    if fresh.get("status") != "refunding":
-        return  # pre-intent failure — retried on the next poll
-    nonce = fresh.get("escrow_out_nonce")
-    try:
-        outflow = await _find_escrow_outflow(cfg, int(nonce)) if nonce is not None else None
-    except Exception as e:
-        update_sell_lock_status(row["ait_tx_hash"], "needs_review", error=f"refund outcome unverifiable: {e}")
-        return
-    if outflow is not None:
-        await _update_lock_status_with_retry(
-            row["ait_tx_hash"], "refunded", refund_tx_hash=outflow.get("tx_hash") or outflow.get("hash")
-        )
-    elif nonce is None:
-        update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="refund intent persisted without nonce")
-    else:
-        update_sell_lock_status(row["ait_tx_hash"], "failed", error="refund broadcast did not reach the chain")
-
-
-async def _resume_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
-    """Resolve a 'settling'/'refunding' row by its recorded escrow nonce."""
     nonce = row.get("escrow_out_nonce")
     if nonce is None:
         # Intent persisted but nonce missing — undecidable, needs a human.
         update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="escrow sweep nonce missing")
         return
-    outflow = await _find_escrow_outflow(cfg, int(nonce))
     final_status = "settled" if row["status"] == "settling" else "refunded"
     hash_field = "settle_tx_hash" if final_status == "settled" else "refund_tx_hash"
+    to_address, amount_units, sell_ref = _expected_sweep(cfg, row)
+    outflow = await _find_escrow_outflow(cfg, int(nonce), to_address, amount_units, sell_ref)
     if outflow is not None:
         await _update_lock_status_with_retry(
             row["ait_tx_hash"], final_status, **{hash_field: outflow.get("tx_hash") or outflow.get("hash")}
         )
-        logger.info("Sell lock %s: resumed %s via escrow nonce %d", row["ait_tx_hash"], final_status, nonce)
+        logger.info("Sell lock %s: %s sealed at escrow nonce %d", row["ait_tx_hash"], final_status, nonce)
         return
-    # Nothing sealed at the recorded nonce — re-broadcast the stored signed
-    # blob. Identical signature at the same nonce: if the original is still
-    # in flight the chain dedups it; a fresh signature could double-pay.
+    account_nonce, _balance = await _account_view(cfg.escrow_address)
+    if account_nonce > int(nonce):
+        # The nonce was consumed by a transaction that does NOT match this
+        # row's intent — a manual send or foreign sweep. Never auto-resolve.
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "needs_review",
+            error=f"escrow nonce {nonce} consumed by an unmatched transaction",
+        )
+        logger.error(
+            "Sell lock %s: escrow nonce %d sealed to an unmatched tx — needs review",
+            row["ait_tx_hash"],
+            nonce,
+        )
+        return
+    # The nonce is still free — the original broadcast never sealed.
+    # Re-broadcast the stored signed blob: identical signature at the same
+    # nonce — a fresh signature could double-pay, this cannot.
     stored = row.get("escrow_out_tx")
     if not stored:
         update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="escrow sweep blob missing")
         return
     signed_tx = json.loads(stored)
     tx_hash = await _broadcast_ait_tx(signed_tx)
-    await _update_lock_status_with_retry(row["ait_tx_hash"], final_status, **{hash_field: tx_hash})
-    logger.info("Sell lock %s: re-broadcast stored %s blob (tx %s)", row["ait_tx_hash"], row["status"], tx_hash)
+    logger.info(
+        "Sell lock %s: re-broadcast stored %s blob (tx %s) — still in flight until sealed",
+        row["ait_tx_hash"],
+        row["status"],
+        tx_hash,
+    )
+
+
+async def _settle_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
+    """Settle escrowed AIT to the hub treasury (the sell's AIT leg)."""
+    await _escrow_sweep(cfg, row, cfg.treasury_address, "sell_settle", "settling", "queued_fee_settle")
+
+
+async def _refund_lock(cfg: SellConfig, row: dict[str, Any], reason: str) -> None:
+    """Refund escrowed AIT to the shop.
+
+    Deferred/parked outcomes leave the row in a retriable status. A failure
+    before the 'refunding' intent persisted leaves the row untouched — the
+    next healthy poll retries it, so an outage can never burn a refundable
+    row. Once the intent + signed blob are persisted, the row is in flight
+    and ``_resolve_escrow_sweep`` owns it: sealed → 'refunded'; nonce spent
+    by a foreign tx → 'needs_review'; never a second blind refund.
+    """
+    try:
+        await _escrow_sweep(cfg, row, row["shop_ait_address"], reason, "refunding", "queued_fee_refund")
+        return
+    except Exception as e:
+        logger.error("Refund sweep errored for sell lock %s: %s", row["ait_tx_hash"], e)
+    fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"]) or {}
+    if fresh.get("status") == "refunding":
+        logger.error(
+            "Sell lock %s: refund broadcast threw post-intent — the resolver will prove the outcome by nonce",
+            row["ait_tx_hash"],
+        )
+    # else: pre-intent failure — the row keeps its status and retries next poll
 
 
 # ---------------------------------------------------------------------------
@@ -592,7 +739,7 @@ async def _verify_sell_release_outcome(row: dict[str, Any]) -> str:
     fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"])
     if not fresh:
         return "unknown"
-    return await wdm._compose_release_outcome(fresh)
+    return str(await wdm._compose_release_outcome(fresh))
 
 
 async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth: Decimal) -> None:
@@ -656,7 +803,9 @@ async def _resolve_lock_release_failure(cfg: SellConfig, row: dict[str, Any], ex
         except Exception as persist_err:
             logger.error("Could not persist released for %s: %s", row["ait_tx_hash"], persist_err)
     elif outcome == "not_sent":
-        update_sell_lock_status(row["ait_tx_hash"], "failed", error=str(exc))
+        # Release provably never landed — the row owes a refund but stays
+        # open in 'refund_pending' so a deferred/failed sweep retries.
+        update_sell_lock_status(row["ait_tx_hash"], "refund_pending", error=f"release failed: {exc}")
         await _refund_lock(cfg, row, f"release failed: {exc}")
     else:
         update_sell_lock_status(row["ait_tx_hash"], "needs_review", error=f"release outcome unverifiable: {exc}")
@@ -690,7 +839,7 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
     # A 'locked' quote is already bound: admission only when the bound lock
     # IS this row (an queued_reserve/stale_price re-entry). Otherwise
     # the earliest live sibling wins; a later 'locked' sibling never blocks.
-    bound_lock = get_sell_lock_by_quote_id(quote_id)
+    bound_lock = get_sell_lock_by_quote_id(quote_id, statuses=_SELL_BINDING_STATUSES)
     bound_is_self = bool(bound_lock and bound_lock["ait_tx_hash"] == row["ait_tx_hash"])
     quote_ok = quote.get("status") in ("quoted", "expired") or (quote.get("status") == "locked" and bound_is_self)
     if quote_ok and quote.get("status") != "locked":
@@ -775,13 +924,13 @@ async def _handle_orphaned(cfg: SellConfig, row: dict[str, Any]) -> None:
 
 async def _handle_inflight(cfg: SellConfig, row: dict[str, Any]) -> None:
     """'releasing'/'needs_review': the ETH-9b resume check — sent → released,
-    proven unsent → failed + refund, unknown → stays needs_review."""
+    proven unsent → refund_pending + refund sweep, unknown → stays."""
     outcome = await _verify_sell_release_outcome(row)
     if outcome == "sent":
         await _update_lock_status_with_retry(row["ait_tx_hash"], "released")
         logger.info("Sell lock %s: ETH release confirmed on chain", row["ait_tx_hash"])
     elif outcome == "not_sent":
-        update_sell_lock_status(row["ait_tx_hash"], "failed", error="release never reached the chain")
+        update_sell_lock_status(row["ait_tx_hash"], "refund_pending", error="release never reached the chain")
         await _refund_lock(cfg, row, "release never reached the chain")
     else:
         if row["status"] != "needs_review":
@@ -796,8 +945,16 @@ async def _handle_released(cfg: SellConfig, row: dict[str, Any]) -> None:
     if outcome == "sent":
         await _settle_lock(cfg, row)
     elif outcome == "not_sent":
+        update_sell_lock_status(row["ait_tx_hash"], "refund_pending", error="release transaction dropped or reverted")
         await _refund_lock(cfg, row, "release transaction dropped or reverted")
     # 'unknown' keeps the row 'released' — re-checked next poll.
+
+
+def _parked_refund_reason(row: dict[str, Any]) -> str:
+    """The refund reason stored ahead of the parked fee-deficit marker."""
+    error = str(row.get("error") or "")
+    reason = error.split("; escrow fee deficit")[0].strip()
+    return reason or "refund"
 
 
 async def _process_sell_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
@@ -813,12 +970,18 @@ async def _process_sell_lock(cfg: SellConfig, row: dict[str, Any]) -> None:
                 await _refund_lock(cfg, row, "release deadline passed while feed stale")
     elif status == "orphaned":
         await _handle_orphaned(cfg, row)
+    elif status == "refund_pending":
+        await _refund_lock(cfg, row, str(row.get("error") or "refund"))
+    elif status == "queued_fee_settle":
+        await _settle_lock(cfg, row)
+    elif status == "queued_fee_refund":
+        await _refund_lock(cfg, row, _parked_refund_reason(row))
     elif status in ("releasing", "needs_review"):
         await _handle_inflight(cfg, row)
     elif status == "released":
         await _handle_released(cfg, row)
     elif status in ("settling", "refunding"):
-        await _resume_escrow_sweep(cfg, row)
+        await _resolve_escrow_sweep(cfg, row)
 
 
 def _expire_stale_quotes() -> int:
@@ -863,8 +1026,13 @@ async def poll_sells_once() -> dict[str, Any]:
         logger.error("Sell lock scan failed — skipping poll: %s", e)
         return {"scanned": 0, "recorded": 0, "processed": 0, "skipped": True, "reason": f"scan failed: {e}"}
 
+    # In-flight sweeps resolve first: a sealed outflow frees the serialized
+    # slot before any new sweep initiation is attempted this poll.
+    open_rows = get_open_sell_locks()
+    worklist = [r for r in open_rows if r["status"] in _INFLIGHT_SWEEP_STATUSES]
+    worklist += [r for r in open_rows if r["status"] not in _INFLIGHT_SWEEP_STATUSES]
     processed = 0
-    for row in get_open_sell_locks():
+    for row in worklist:
         try:
             await _process_sell_lock(cfg, row)
             processed += 1
