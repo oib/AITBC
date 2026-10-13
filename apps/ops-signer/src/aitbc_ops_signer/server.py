@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import grp
 import json
+import logging
 import socket
 import struct
 import threading
@@ -25,6 +26,8 @@ from .policy import PaymentRequest, Refused, check_amount, check_recipient, load
 from .signer import Signer
 
 PeerCred = tuple[int, int, int]  # (pid, uid, gid)
+
+log = logging.getLogger(__name__)
 
 
 def peer_credentials(conn: socket.socket) -> PeerCred:
@@ -76,10 +79,14 @@ def handle_request(
         reason = "-"
         return {"ok": True, "result": result, "tx_hash": tx_hash}
     except Refused as e:
+        log.warning("sign request refused: %s: %s", type(e).__name__, e.reason)
         result, reason = "refused", e.reason
         return {"ok": False, "result": result, "reason": reason}
-    except Exception:
-        # fail closed: refuse with a generic reason, never leak internals
+    except Exception as e:
+        # fail closed: refuse with a generic reason, never leak internals --
+        # but the journal needs the failure cause (class + message only;
+        # our exception types carry controlled, secret-free text).
+        log.warning("sign request failed: %s: %s", type(e).__name__, e)
         result, reason = "error", "internal"
         return {"ok": False, "result": result, "reason": reason}
     finally:

@@ -3,38 +3,87 @@
 Reuses the exact wire format of `cli/aitbc_cli/commands/wallet/basic.py`'s
 `send` (same field set, same keccak-over-sorted-JSON signature the node
 verifier expects) and the CLI's decrypt helper
-(`aitbc.security.encryption.decrypt_value`). The password arrives ONLY via
-the systemd credential ops-wallet-pass ($CREDENTIALS_DIRECTORY): never
-env, never argv, never a log line.
+(`aitbc.security.encryption.decrypt_value`). The password arrives via the
+systemd credential ops-wallet-pass ($CREDENTIALS_DIRECTORY) or, on LXC
+hosts where credential mounts yield nothing, via `systemd-creds decrypt`
+on the sealed file: never env, never argv, never a log line.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import stat
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .config import CREDENTIAL_NAME, Config
 
+_CREDENTIAL_TIMEOUT_S = 10.0
+
 
 class CredentialMissing(Exception):
     """The systemd credential file is absent or empty -- refuse to sign."""
 
 
-def _credential_password() -> str:
-    cred_dir = os.environ.get("CREDENTIALS_DIRECTORY")
-    if not cred_dir:
-        raise CredentialMissing("CREDENTIALS_DIRECTORY unset")
-    path = Path(cred_dir) / CREDENTIAL_NAME
+def _check_credential_file(path: Path) -> None:
+    """The sealed credential must be an absolute, root-owned 0600 file."""
+    if not path.is_absolute():
+        raise CredentialMissing("credential path not absolute")
     try:
-        password = path.read_text().rstrip("\n")
-    except OSError as e:
-        raise CredentialMissing(str(e)) from e
+        st = path.stat()
+    except OSError:
+        raise CredentialMissing("credential file missing or unreadable") from None
+    if st.st_uid != 0:
+        raise CredentialMissing("credential file not root-owned")
+    if stat.S_IMODE(st.st_mode) != 0o600:
+        raise CredentialMissing("credential file mode not 0600")
+
+
+def _systemd_creds_decrypt(credential_file: Path) -> str:
+    """LXC fallback: decrypt the sealed credential file ourselves.
+
+    LoadCredentialEncrypted does nothing on LXC (hub): no
+    CREDENTIALS_DIRECTORY and an inaccessible /run/credentials mount, so
+    the unit must run ``systemd-creds decrypt`` directly. Fixed argv, no
+    shell; the password never enters argv, env, logs or exception text.
+    """
+    _check_credential_file(credential_file)
+    argv = ["systemd-creds", "decrypt", f"--name={CREDENTIAL_NAME}", str(credential_file), "-"]
+    try:
+        proc = subprocess.run(argv, capture_output=True, timeout=_CREDENTIAL_TIMEOUT_S, check=False)
+    except subprocess.TimeoutExpired:
+        raise CredentialMissing("systemd-creds decrypt timed out") from None
+    except OSError:
+        raise CredentialMissing("systemd-creds not available") from None
+    if proc.returncode != 0:
+        raise CredentialMissing(f"systemd-creds decrypt failed rc={proc.returncode}")
+    try:
+        password = proc.stdout.decode()
+    except UnicodeDecodeError:
+        raise CredentialMissing("systemd-creds output undecodable") from None
+    if password.endswith("\n"):
+        password = password[:-1]
     if not password:
-        raise CredentialMissing(f"{path} is empty")
+        raise CredentialMissing("systemd-creds decrypt produced empty secret")
     return password
+
+
+def _credential_password(credential_file: str | Path) -> str:
+    cred_dir = os.environ.get("CREDENTIALS_DIRECTORY")
+    if cred_dir:
+        path = Path(cred_dir) / CREDENTIAL_NAME
+        try:
+            password = path.read_text().rstrip("\n")
+        except OSError:
+            password = None
+        if password is not None:
+            if not password:
+                raise CredentialMissing(f"{path} is empty")
+            return password
+    return _systemd_creds_decrypt(Path(credential_file))
 
 
 def _load_wallet(path: str | Path, password: str) -> dict[str, Any]:
@@ -116,7 +165,7 @@ class Signer:
 
         The private key and password exist only inside this call frame.
         """
-        password = _credential_password()
+        password = _credential_password(self.config.credential_file)
         wallet = _load_wallet(self.config.wallet_path, password)
         key = _private_key(wallet)
         http = self._http()
