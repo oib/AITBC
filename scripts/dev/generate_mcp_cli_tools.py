@@ -294,6 +294,7 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     ("system", "cron"),
     ("system", "config"),
     ("system", "file"),
+    ("eth", "transfers"),
     ("explorer", "block"),
     ("explorer", "transaction"),
     ("explorer", "chain-head"),

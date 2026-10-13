@@ -200,6 +200,27 @@ venv/bin/python scripts/ops/sepolia_balance.py \
 # AIT side: node2 wallet down 10 AIT + 0.01 AIT fee (burned at seal)
 ```
 
+## Watching the ETH side — `aitbc eth transfers`
+
+`aitbc eth transfers` (read-only, key-free, Sepolia only) fetches the
+public Blockscout history of every fleet wallet, appends new rows to
+`~/.aitbc/eth-transfers.jsonl`, and cross-checks each wallet's outgoing
+count against its RPC nonce. Run it **before** and **after** each play:
+
+```bash
+# baseline — note the bridge wallet's nonce (0) and each float balance
+venv/bin/python -m aitbc_cli eth transfers
+# after the play — only new rows appear; nonce and net/balance must move
+venv/bin/python -m aitbc_cli eth transfers --address node0 --address bridge
+```
+
+For Scenario A expect: one new `out` row on node0 (0.002 ETH + gas),
+one matching `in` row on `bridge`, `net=bal yes` on both, bridge nonce
+unchanged (deposits are inbound). For Scenario B expect a new `out` row
+on `bridge` (~0.0007 ETH release) and nonce 0 → 1. A `NO` flag in the
+`net=bal` column or a nonce warning means stop and reconcile before
+continuing.
+
 ## Rollback / refund paths
 
 - **Deposit never detected / bad data**: the ETH sits in the bridge
