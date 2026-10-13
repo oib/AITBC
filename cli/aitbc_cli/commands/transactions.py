@@ -4,7 +4,6 @@ Transaction commands for AITBC CLI
 
 import json
 import os
-import sys
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -24,6 +23,7 @@ from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 
 logger = get_logger(__name__)
 
@@ -75,22 +75,6 @@ DEFAULT_FEE_UNITS = DEFAULT_TX_FEE_UNITS
 def transactions():
     """Send, batch, estimate fees, and query transactions."""
     pass
-
-
-def _prompt_wallet_password() -> str:
-    """Prompt for a wallet password on a TTY, or abort when none is available."""
-    if not sys.stdin.isatty():
-        abort(
-            None,
-            "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
-        )
-    import getpass
-
-    try:
-        return getpass.getpass("Enter wallet password: ")
-    except Exception as e:
-        abort(None, f"Password prompt failed: {e}", from_exception=e)
-        raise  # unreachable: abort always raises
 
 
 def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any], password: str):
@@ -264,31 +248,6 @@ def _send_transaction_impl(
         return None
 
 
-def _resolve_send_password(from_wallet: str, password: str | None, password_file: str | None) -> str | None:
-    """Resolve the wallet password: flag, file, env, empty for unencrypted, else prompt."""
-    if password is not None:
-        # Password provided via flag (even if empty string)
-        return password
-    if password_file:
-        with open(password_file) as f:
-            return f.read().strip()
-    if "AITBC_WALLET_PASSWORD" in os.environ:
-        # Environment variable is set (even if empty)
-        return os.environ["AITBC_WALLET_PASSWORD"]
-
-    # Check if wallet is unencrypted
-    sender_keystore = wallet_dir() / f"{from_wallet}.json"
-    if sender_keystore.exists():
-        with open(sender_keystore) as f:
-            sender_data = json.load(f)
-        # If wallet has no encrypted_private_key, it's unencrypted
-        if not sender_data.get("encrypted_private_key"):
-            return ""  # Empty password for unencrypted wallets
-    # Wallet is encrypted or missing — the prompt fails for a missing file later
-    # in _send_transaction_impl, matching the original ordering.
-    return _prompt_wallet_password()
-
-
 def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
     """Parse the --payload JSON object, reporting errors instead of raising."""
     if not payload:
@@ -315,8 +274,7 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
 @click.option("--to", "to_address", required=True, help="To address")
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
 @click.option("--fee", type=DECIMAL, default="0.001", help="Transaction fee")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.option("--type", "tx_type", default="TRANSFER", help="Transaction type (default TRANSFER)")
 @click.option("--payload", help="JSON payload for non-standard transaction types")
@@ -328,27 +286,24 @@ def send(
     fee: Decimal,
     password: str | None,
     password_file: str | None,
+    password_stdin: bool,
     rpc_url: str | None,
     tx_type: str,
     payload: str | None,
     use_explorer: bool,
 ):
     """Send a transaction from one wallet to another."""
-    # Password resolution priority:
-    # 1. --password flag
-    # 2. --password-file flag
-    # 3. AITBC_WALLET_PASSWORD environment variable
-    # 4. Check if wallet is unencrypted (skip password)
-    # 5. Interactive getpass prompt (only if TTY)
-
-    password = _resolve_send_password(from_wallet, password, password_file)
+    password = resolve_wallet_password(
+        from_wallet,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_dir() / f"{from_wallet}.json",
+    )
 
     if not rpc_url:
         rpc_url = _resolve_transaction_rpc_url(None)
-
-    if password is None:
-        error("Password is required for transaction")
-        return
 
     parsed_payload: dict[str, Any] | None = None
     if payload:
@@ -385,33 +340,7 @@ def send(
             except Exception as e:
                 error(f"Error checking status via Explorer: {e}")
 
-
-def _resolve_batch_password(transactions_file: str, password: str | None, password_file: str | None) -> str | None:
-    """Resolve the wallet password: flag, file, env, unencrypted first wallet, else prompt."""
-    if password is not None:
-        # Password provided via flag (even if empty string)
-        return password
-    if password_file:
-        with open(password_file) as f:
-            return f.read().strip()
-    if "AITBC_WALLET_PASSWORD" in os.environ:
-        # Environment variable is set (even if empty)
-        return os.environ["AITBC_WALLET_PASSWORD"]
-
     # Check if first wallet is unencrypted
-    with open(transactions_file) as f:
-        transactions_data = json.load(f)
-    if transactions_data:
-        first_wallet = transactions_data[0].get("from_wallet")
-        sender_keystore = wallet_dir() / f"{first_wallet}.json"
-        if sender_keystore.exists():
-            with open(sender_keystore) as f:
-                sender_data = json.load(f)
-            # If wallet has no encrypted_private_key, it's unencrypted
-            if not sender_data.get("encrypted_private_key"):
-                return ""  # Empty password for unencrypted wallets
-    # Wallet is encrypted, missing, or the file is empty — prompt.
-    return _prompt_wallet_password()
 
 
 def _process_batch_entry(
@@ -492,34 +421,29 @@ def _process_batch_entry(
     fee          — AIT fee (optional, defaults to 0.001 like `send --fee`)"""
 )
 @click.option("--transactions-file", required=True, help="JSON file with batch transactions")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def batch(transactions_file: str, password: str | None, password_file: str | None, rpc_url: str | None):
+def batch(transactions_file: str, password: str | None, password_file: str | None, password_stdin: bool, rpc_url: str | None):
     """Send multiple transactions from a JSON batch file.
 
     Entries are objects ``{"from_wallet", "to_address", "amount", "fee"?}``
     with amounts in AIT. Identical entries are rejected as duplicates instead
     of being reported as two successes for the same on-chain hash.
     """
-    # Password resolution priority:
-    # 1. --password flag
-    # 2. --password-file flag
-    # 3. AITBC_WALLET_PASSWORD environment variable
-    # 4. Check if wallet is unencrypted (skip password)
-    # 5. Interactive getpass prompt (only if TTY)
-
-    password = _resolve_batch_password(transactions_file, password, password_file)
+    with open(transactions_file) as f:
+        transactions_data = json.load(f)
+    first_wallet = transactions_data[0].get("from_wallet") if transactions_data else None
+    password = resolve_wallet_password(
+        first_wallet,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_dir() / f"{first_wallet}.json" if first_wallet else None,
+    )
 
     if not rpc_url:
         rpc_url = _resolve_transaction_rpc_url(None)
-
-    if password is None:
-        error("Password is required for batch transactions")
-        return
-
-    with open(transactions_file) as f:
-        transactions_data = json.load(f)
 
     # The chain's account nonce does not move while earlier batch transactions
     # sit in the mempool, so entries from the same wallet sign with per-entry

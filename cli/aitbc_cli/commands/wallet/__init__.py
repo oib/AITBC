@@ -122,18 +122,37 @@ def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str |
         json.dump(wallet_data, f, indent=2)
 
 
-def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
-    """Load wallet and decrypt private key if needed"""
+def _load_wallet(
+    wallet_path: Path,
+    wallet_name: str,
+    password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+) -> dict[str, Any]:
+    """Load wallet and decrypt private key if needed.
+
+    The secret is resolved lazily — only when the wallet is actually
+    encrypted — through :func:`resolve_wallet_password` (WAL-1), so an
+    unencrypted wallet never demands a password source. Callers may pass an
+    already-resolved ``password`` plus the standard ``--password-file`` /
+    ``--password-stdin`` values; when none applies the interactive/keyring
+    fallbacks run as before.
+    """
     with open(wallet_path) as f:
         wallet_data: dict[str, Any] = json.load(f)
 
     # Decrypt private key if encrypted
     if wallet_data.get("encrypted") and "private_key" in wallet_data:
+        from ...utils.wallet_secret import resolve_wallet_password
+
         priv = wallet_data["private_key"]
         if isinstance(priv, str):
             # Legacy no-op "encryption": key was stored as plaintext with encrypted=True.
             # Re-encrypt with a real password and save back to disk before returning.
-            password = _get_wallet_password(wallet_name)
+            if password is None:
+                password = resolve_wallet_password(
+                    wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+                )
             wallet_data["private_key"] = encrypt_value(priv, password)
             try:
                 with open(wallet_path, "w") as f:
@@ -144,7 +163,10 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
             click.echo("Re-encrypted legacy wallet with PBKDF2+Fernet.")
             wallet_data["private_key"] = priv  # return plaintext for in-memory use
         else:
-            password = _get_wallet_password(wallet_name)
+            if password is None:
+                password = resolve_wallet_password(
+                    wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+                )
             try:
                 wallet_data["private_key"] = decrypt_value(priv, password)
             except Exception:

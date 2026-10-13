@@ -39,9 +39,18 @@ def _build_gpu_tx(
     tx_type: str,
     payload: dict[str, Any],
     fee: int | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
 ) -> tuple[dict[str, Any], str]:
     """Build a GPU_REGISTER, GPU_ALLOCATE or GPU_DEREGISTER transaction and return (tx, private_key)."""
-    address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet, password=password, require_private_key=True)
+    address, private_key, _ = load_wallet_for_payment(
+        ctx,
+        wallet_name=wallet,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        require_private_key=True,
+    )
     if not private_key:
         abort(ctx, f"Wallet '{wallet}' has no private key for signing")
         raise AssertionError("unreachable after abort")
@@ -89,6 +98,8 @@ def submit_gpu_register(
     capabilities: tuple,
     price_per_hour: Decimal,
     fee: int | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
 ) -> dict[str, Any]:
     """Build, sign and submit a GPU_REGISTER transaction."""
     payload = {
@@ -101,7 +112,18 @@ def submit_gpu_register(
         "capabilities": list(capabilities),
         "price_per_hour": str(price_per_hour),
     }
-    tx, private_key = _build_gpu_tx(ctx, rpc_url, chain_id, wallet, password, "GPU_REGISTER", payload, fee=fee)
+    tx, private_key = _build_gpu_tx(
+        ctx,
+        rpc_url,
+        chain_id,
+        wallet,
+        password,
+        "GPU_REGISTER",
+        payload,
+        fee=fee,
+        password_file=password_file,
+        password_stdin=password_stdin,
+    )
     tx["signature"] = _sign_tx(tx, private_key)
     return _submit_signed_tx(rpc_url, tx)
 
@@ -117,6 +139,8 @@ def submit_gpu_allocate(
     duration_hours: float,
     total_cost: Decimal,
     fee: int | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
 ) -> dict[str, Any]:
     """Build, sign and submit a GPU_ALLOCATE transaction."""
     payload = {
@@ -125,7 +149,18 @@ def submit_gpu_allocate(
         "duration_hours": duration_hours,
         "total_cost": str(total_cost),
     }
-    tx, private_key = _build_gpu_tx(ctx, rpc_url, chain_id, wallet, password, "GPU_ALLOCATE", payload, fee=fee)
+    tx, private_key = _build_gpu_tx(
+        ctx,
+        rpc_url,
+        chain_id,
+        wallet,
+        password,
+        "GPU_ALLOCATE",
+        payload,
+        fee=fee,
+        password_file=password_file,
+        password_stdin=password_stdin,
+    )
     tx["signature"] = _sign_tx(tx, private_key)
     return _submit_signed_tx(rpc_url, tx)
 
@@ -138,6 +173,8 @@ def submit_gpu_deregister(
     password: str | None,
     gpu_id: str,
     fee: int | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
 ) -> dict[str, Any]:
     """Build, sign and submit a GPU_DEREGISTER transaction.
 
@@ -146,7 +183,18 @@ def submit_gpu_deregister(
     registrant can reactivate it by registering the same gpu_id again).
     """
     payload = {"gpu_id": gpu_id}
-    tx, private_key = _build_gpu_tx(ctx, rpc_url, chain_id, wallet, password, "GPU_DEREGISTER", payload, fee=fee)
+    tx, private_key = _build_gpu_tx(
+        ctx,
+        rpc_url,
+        chain_id,
+        wallet,
+        password,
+        "GPU_DEREGISTER",
+        payload,
+        fee=fee,
+        password_file=password_file,
+        password_stdin=password_stdin,
+    )
     tx["signature"] = _sign_tx(tx, private_key)
     return _submit_signed_tx(rpc_url, tx)
 

@@ -24,14 +24,25 @@ from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import find_wallet_file, wallet_dir
+from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://localhost:8202"
 
 
-def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
-    """Load wallet and decrypt private key if needed"""
+def _load_wallet(
+    wallet_path: Path,
+    wallet_name: str,
+    password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+) -> dict[str, Any]:
+    """Load wallet and decrypt private key if needed.
+
+    Resolves the secret lazily through :func:`resolve_wallet_password` — only
+    when the wallet is actually encrypted.
+    """
     with open(wallet_path) as f:
         wallet_data: dict[str, Any] = json.load(f)
 
@@ -39,19 +50,15 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> dict[str, Any]:
     if wallet_data.get("encrypted") and "private_key" in wallet_data:
         from ..utils import decode_value
 
-        password = _get_wallet_password(wallet_name)
+        if password is None:
+            password = resolve_wallet_password(
+                wallet_name, password=password, password_file=password_file, password_stdin=password_stdin, ctx=None
+            )
         try:
             wallet_data["private_key"] = decode_value(wallet_data["private_key"], password)
         except Exception:
             abort(None, "Invalid password for wallet")
     return wallet_data
-
-
-def _get_wallet_password(wallet_name: str) -> str:
-    """Get wallet password from user input"""
-    import getpass
-
-    return getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
 
 
 @click.group(
@@ -293,23 +300,32 @@ def deregister(agent_id: str):
 @click.option("--agent", required=True, help="Recipient agent address")
 @click.option("--message", required=True, help="Message content")
 @click.option("--wallet", required=True, help="Wallet name for signing")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
-def message(ctx, agent: str, message: str, wallet: str, password: str | None, password_file: str | None, rpc_url: str | None):
+def message(
+    ctx,
+    agent: str,
+    message: str,
+    wallet: str,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    rpc_url: str | None,
+):
     """Send a message to an agent via a blockchain transaction."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
-    # Get password
-    if password_file:
-        with open(password_file) as f:
-            password = f.read().strip()
-    elif not password:
-        import getpass
-
-        password = getpass.getpass("Enter wallet password: ")
+    password = resolve_wallet_password(
+        wallet,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_dir() / f"{wallet}.json",
+        ctx=ctx,
+    )
 
     try:
         # Decrypt wallet
@@ -397,9 +413,21 @@ def governance():
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--voting-power", type=int, default=0, help="Voting power to use")
 @click.option("--reason", help="Vote reason")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reason: str | None, format: str):
+def vote(
+    ctx,
+    proposal_id: str,
+    vote: str,
+    wallet: str,
+    voting_power: int,
+    reason: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Cast a vote on a governance proposal using a wallet. Votes are advisory (V-7) — the tally does not decide execution."""
     config = get_config()
 
@@ -417,7 +445,9 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
             error(f"Wallet '{wallet}' not found")
             return
 
-        wallet_data = _load_wallet(wallet_path, wallet)
+        wallet_data = _load_wallet(
+            wallet_path, wallet, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         voter_address = wallet_data["address"]
 
         hex_address = canonical_address(voter_address)
@@ -465,6 +495,7 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
 )
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def proposal(
@@ -476,6 +507,9 @@ def proposal(
     params: str | None,
     wallet: str,
     voting_days: int,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     format: str,
 ):
     """Create a governance proposal on the blockchain."""
@@ -495,7 +529,9 @@ def proposal(
             error(f"Wallet '{wallet}' not found")
             return
 
-        wallet_data = _load_wallet(wallet_path, wallet)
+        wallet_data = _load_wallet(
+            wallet_path, wallet, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         proposer_address = wallet_data["address"]
 
         hex_address = canonical_address(proposer_address)

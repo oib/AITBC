@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import secrets
-import sys
 import tempfile
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -28,10 +27,10 @@ from aitbc.crypto.crypto import sign_transaction_hash
 from ..config import _resolve_api_key, get_config
 from ..utils import DECIMAL, error, success, warning
 from ..utils.chain_id import get_chain_id
-from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, get_logger
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from .transactions import _send_transaction_impl
 
 IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR", "/var/lib/aitbc/ipfs"))
@@ -486,36 +485,6 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 
 
-def _resolve_wallet_password(password: str | None, password_file: str | None, wallet_name: str) -> str:
-    """Resolve a wallet password from flags, env, unencrypted wallet, or TTY prompt."""
-    if password is not None:
-        return password
-    if password_file:
-        with open(password_file) as f:
-            return f.read().strip()
-    if "AITBC_WALLET_PASSWORD" in os.environ:
-        return os.environ["AITBC_WALLET_PASSWORD"]
-
-    keystore_dir = wallet_dir()
-    keystore = keystore_dir / f"{wallet_name}.json"
-    if keystore.exists():
-        data = json.loads(keystore.read_text())
-        if not data.get("encrypted") and not data.get("encrypted_private_key"):
-            return ""
-
-    if not sys.stdin.isatty():
-        abort(None, "No TTY available for password prompt. Use --password, --password-file, or set AITBC_WALLET_PASSWORD.")
-        return ""  # unreachable; abort always raises
-
-    import getpass
-
-    try:
-        return getpass.getpass("Enter wallet password: ")
-    except Exception as e:
-        abort(None, f"Password prompt failed: {e}", from_exception=e)
-        return ""  # unreachable; abort always raises
-
-
 def _load_wallet_key(wallet_name: str, password: str) -> tuple[str, PrivateKey]:
     """Load a file wallet and return (address, private_key)."""
     keystore = wallet_dir() / f"{wallet_name}.json"
@@ -529,7 +498,9 @@ def _load_wallet_key(wallet_name: str, password: str) -> tuple[str, PrivateKey]:
 
     if data.get("encrypted") or data.get("encrypted_private_key"):
         if not password:
-            raise click.BadParameter(f"Wallet '{wallet_name}' is encrypted; provide --password")
+            raise click.BadParameter(
+                f"Wallet '{wallet_name}' is encrypted; provide --password-file, --password-stdin, or --password"
+            )
         private_key_hex = decrypt_private_key(keystore, password)
     else:
         private_key_hex = data.get("private_key", "")
@@ -576,8 +547,7 @@ def island(ctx):
 @click.option("--quota", type=int, default=1073741824, help="Quota in bytes (default 1 GiB)")
 @click.option("--amount", type=DECIMAL, required=True, help="Payment amount in AIT")
 @click.option("--fee", type=DECIMAL, default="0.001", help="Transaction fee in AIT")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
 def subscribe(
@@ -591,6 +561,7 @@ def subscribe(
     fee: Decimal,
     password: str | None,
     password_file: str | None,
+    password_stdin: bool,
     rpc_url: str | None,
 ):
     """Subscribe to a private island IPFS network.
@@ -599,7 +570,14 @@ def subscribe(
     on-chain subscription record. The member can then request the swarm key
     with `aitbc-cli ipfs island swarm-key`.
     """
-    resolved_password = _resolve_wallet_password(password, password_file, wallet_name)
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_dir() / f"{wallet_name}.json",
+    )
     resolved_rpc_url = _default_rpc_url(rpc_url)
     payload = {
         "island_id": island_id,
@@ -644,8 +622,7 @@ def subscribe(
 @click.option("--chain-id", help="Blockchain chain ID (auto-detected from RPC if omitted)")
 @click.option("--rpc-url", help="Blockchain RPC URL for chain ID auto-detection")
 @click.option("--api-key", help="Coordinator API key (default from config / AITBC_API_KEY / MINER_API_KEYS)")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--output", "output_path", type=click.Path(), help="Optional path to write the swarm.key")
 @click.option("--bootstrap", is_flag=True, help="Also print a bootstrap multiaddr for the hub island daemon")
 @click.pass_context
@@ -659,6 +636,7 @@ def swarm_key(
     api_key: str | None,
     password: str | None,
     password_file: str | None,
+    password_stdin: bool,
     output_path: str | None,
     bootstrap: bool,
 ):
@@ -668,7 +646,14 @@ def swarm_key(
     coordinator swarm-key endpoint. The coordinator checks the on-chain
     subscription before returning the key.
     """
-    resolved_password = _resolve_wallet_password(password, password_file, wallet_name)
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_dir() / f"{wallet_name}.json",
+    )
     member_address, private_key = _load_wallet_key(wallet_name, resolved_password)
 
     resolved_rpc_url = _default_rpc_url(rpc_url)

@@ -25,6 +25,7 @@ from tabulate import tabulate
 from aitbc.utils import ait_to_units, format_ait
 
 from ..utils import DECIMAL, error, output, success
+from ..utils.wallet_secret import wallet_password_options
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet_loader import load_wallet_for_payment
@@ -44,16 +45,6 @@ _STATUS_MESSAGES = {
 }
 
 
-def _resolve_password(password: str | None, password_file: str | None) -> str | None:
-    """Resolve an explicit wallet password (flag > file > env handled by loader)."""
-    if password is not None:
-        return password
-    if password_file:
-        with open(password_file) as f:
-            return f.read().strip()
-    return None  # load_wallet_for_payment checks keyring/env and prompts on a TTY
-
-
 def _sign_request(sign_data: dict[str, Any], private_key: str) -> str:
     """Sign a request payload exactly the way the RPC verifies it.
 
@@ -68,15 +59,21 @@ def _sign_request(sign_data: dict[str, Any], private_key: str) -> str:
     return pk.sign_msg_hash(keccak(message)).to_hex()
 
 
-def _load_signing_wallet(ctx, wallet: str | None, password: str | None, password_file: str | None):
+def _load_signing_wallet(
+    ctx, wallet: str | None, password: str | None, password_file: str | None, password_stdin: bool = False
+):
     """Load the wallet that will sign the cross-chain request."""
     from pathlib import Path
 
-    resolved_password = _resolve_password(password, password_file)
     wallet_path = wallet if wallet and (Path(wallet).exists() or "/" in wallet) else None
     wallet_name = None if wallet_path else wallet
     address, private_key, resolved_name = load_wallet_for_payment(
-        ctx, wallet_name, wallet_path=wallet_path, password=resolved_password
+        ctx,
+        wallet_name,
+        wallet_path=wallet_path,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
     )
     if not private_key:
         abort(ctx, f"Wallet '{resolved_name}' has no usable private key; use a file wallet with --wallet")
@@ -195,8 +192,7 @@ def rates(
 @click.option("--slippage", type=float, default=0.01, help="Slippage tolerance (0-0.1)")
 @click.option("--recipient", help="Recipient address on the target chain (defaults to the sender)")
 @click.option("--wallet", "wallet", default=None, help="Wallet name or file path for signing")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL (source-chain producer)")
 @click.option("--wait", is_flag=True, help="Poll status until the transfer reaches a terminal state")
 @click.option("--timeout", type=int, default=300, help="Seconds to wait with --wait (default 300)")
@@ -214,6 +210,7 @@ def swap(
     wallet: str | None,
     password: str | None,
     password_file: str | None,
+    password_stdin: bool,
     rpc_url: str | None,
     wait: bool,
     timeout: int,
@@ -231,7 +228,7 @@ def swap(
         abort(ctx, "Amount must be greater than 0")
 
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
-    address, private_key = _load_signing_wallet(ctx, wallet, password, password_file)
+    address, private_key = _load_signing_wallet(ctx, wallet, password, password_file, password_stdin)
     recipient = recipient or address
 
     amount_units = ait_to_units(amount)
@@ -390,8 +387,7 @@ def swaps(ctx, user_address: str | None, status: str | None, limit: int, rpc_url
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to bridge (AIT)")
 @click.option("--recipient", help="Recipient address on the target chain (defaults to the sender)")
 @click.option("--wallet", "wallet", default=None, help="Wallet name or file path for signing")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL (source-chain producer)")
 @click.option("--wait", is_flag=True, help="Poll status until the transfer reaches a terminal state")
 @click.option("--timeout", type=int, default=300, help="Seconds to wait with --wait (default 300)")
@@ -406,6 +402,7 @@ def bridge(
     wallet: str | None,
     password: str | None,
     password_file: str | None,
+    password_stdin: bool,
     rpc_url: str | None,
     wait: bool,
     timeout: int,
@@ -422,7 +419,7 @@ def bridge(
         abort(ctx, "Amount must be greater than 0")
 
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
-    address, private_key = _load_signing_wallet(ctx, wallet, password, password_file)
+    address, private_key = _load_signing_wallet(ctx, wallet, password, password_file, password_stdin)
     recipient = recipient or address
     amount_units = ait_to_units(amount)
 
@@ -524,8 +521,7 @@ def bridge_status(ctx, bridge_id: str, rpc_url: str | None, wait: bool, timeout:
 @click.option("--transfer-id", required=True, help="The bridge transfer ID")
 @click.option("--source-chain", help="Source chain ID (defaults to the node's chain)")
 @click.option("--wallet", "wallet", default=None, help="Wallet name or file path for signing the confirm")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", help="File containing wallet password")
+@wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
 def confirm(
@@ -535,11 +531,12 @@ def confirm(
     wallet: str | None,
     password: str | None,
     password_file: str | None,
+    password_stdin: bool,
     rpc_url: str | None,
 ):
     """Confirm a pending bridge transfer with its real Merkle proof."""
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
-    address, private_key = _load_signing_wallet(ctx, wallet, password, password_file)
+    address, private_key = _load_signing_wallet(ctx, wallet, password, password_file, password_stdin)
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)

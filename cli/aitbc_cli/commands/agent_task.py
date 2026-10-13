@@ -29,6 +29,7 @@ import click
 from aitbc.utils.units import ait_to_units
 
 from ..config import get_config
+from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success, warning
 from ..utils.agent_signing import (
     check_registry_binding,
@@ -222,6 +223,8 @@ def _buyer_signing(
     buyer_agent: str,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     sign: bool,
 ) -> tuple[str, str, tuple[str, str] | None, str | None]:
     """Load the buyer wallet and derive the signing material for this hire.
@@ -231,7 +234,9 @@ def _buyer_signing(
     headers. ``--no-sign`` keeps the unsigned behaviour for coordinators still
     running with AGENT_MSG_SIGNATURE_MODE=disabled.
     """
-    buyer_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet_name, password=password)
+    buyer_address, private_key, _ = load_wallet_for_payment(
+        ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
     if not private_key:
         error("Escrow lock requires a buyer wallet with a private key")
         raise click.Abort()
@@ -404,7 +409,7 @@ def agent_task():
 @click.option("--payload", "payload", required=True, help="Task input: IPFS CID or local file path")
 @click.option("--max-price", "max_price", required=True, help="Maximum price in AIT")
 @click.option("--wallet", "wallet_name", default=None, help="Buyer wallet name (signs the escrow lock)")
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--from-agent", "from_agent", default=None, help="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")
 @click.option("--timeout", "timeout_seconds", type=float, default=1800.0, show_default=True, help="Escrow timeout in seconds")
 @click.option("--wait/--no-wait", default=True, show_default=True, help="Wait for the task result")
@@ -426,6 +431,8 @@ def hire(
     max_price: str,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     from_agent: str | None,
     timeout_seconds: float,
     wait: bool,
@@ -460,7 +467,9 @@ def hire(
         raise click.Abort()
 
     # 4. Buyer wallet + signing material for the escrow lock and envelopes.
-    buyer_address, private_key, signing, signing_key = _buyer_signing(ctx, client, buyer_agent, wallet_name, password, sign)
+    buyer_address, private_key, signing, signing_key = _buyer_signing(
+        ctx, client, buyer_agent, wallet_name, password, password_file, password_stdin, sign
+    )
 
     task_id = f"atask_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
@@ -517,7 +526,7 @@ def hire(
 @click.option("--task-id", "task_id", required=True, help="Task identifier")
 @click.option("--from-agent", "from_agent", default=None, help="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")
 @click.option("--wallet", "wallet_name", default=None, help="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--sign/--no-sign", default=True, show_default=True, help="Sign the inbox poll when a wallet is configured")
 @click.option("--coordinator-url", default=None, help="Agent coordinator URL")
 @click.pass_context
@@ -527,6 +536,8 @@ def status(
     from_agent: str | None,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     sign: bool,
     coordinator_url: str | None,
 ):
@@ -537,7 +548,9 @@ def status(
 
     signing_key = None
     if sign:
-        wallet = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        wallet = load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         signing_key = wallet[1] if wallet else None
 
     escrow: dict[str, Any] | None = None
@@ -564,7 +577,7 @@ def status(
 @click.option("--out", "out_path", default=None, help="Output file path (default: print to stdout)")
 @click.option("--from-agent", "from_agent", default=None, help="Buyer agent ID")
 @click.option("--wallet", "wallet_name", default=None, help="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")
-@click.option("--password", default=None, help="Wallet password")
+@wallet_password_options
 @click.option("--sign/--no-sign", default=True, show_default=True, help="Sign the inbox poll when a wallet is configured")
 @click.option("--coordinator-url", default=None, help="Agent coordinator URL")
 @click.pass_context
@@ -575,6 +588,8 @@ def result(
     from_agent: str | None,
     wallet_name: str | None,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     sign: bool,
     coordinator_url: str | None,
 ):
@@ -585,7 +600,9 @@ def result(
 
     signing_key = None
     if sign:
-        wallet = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        wallet = load_signing_wallet(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         signing_key = wallet[1] if wallet else None
 
     found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)

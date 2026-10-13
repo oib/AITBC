@@ -22,6 +22,7 @@ import sys
 import click
 
 from ..config import get_config
+from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success, warning
 from ..utils.energy_quote import (
     expected_quote_chain_id,
@@ -203,8 +204,7 @@ def provider():
 @click.option("--eur-per-kwh", type=float, required=True, help="EUR per kWh tariff")
 @click.option("--wallet", help="Wallet name for signing")
 @click.option("--wallet-path", help="Direct wallet file path")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
+@wallet_password_options
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
 def provider_register(
@@ -218,6 +218,7 @@ def provider_register(
     wallet_path,
     password,
     password_file,
+    password_stdin,
     json_output,
 ):
     """Register a GPU energy profile (EVM contract or native rail)."""
@@ -252,18 +253,15 @@ def provider_register(
         error("IEnergyPricing contract address not configured")
         sys.exit(1)
 
-    pw = password
-    if password_file:
-        with open(password_file) as f:
-            pw = f.read().strip()
-
     from ..utils.wallet_loader import load_wallet_for_payment
 
     addr, private_key, _ = load_wallet_for_payment(
         ctx,
         wallet_name=wallet,
         wallet_path=wallet_path,
-        password=pw,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
         require_private_key=True,
     )
 
@@ -432,7 +430,18 @@ def _evm_rate_read(oracle, json_output) -> None:
 
 
 def _evm_rate_publish(
-    ctx, config, rpc, ait_per_eur, observed_at, source_kind, wallet, wallet_path, password, password_file, json_output
+    ctx,
+    config,
+    rpc,
+    ait_per_eur,
+    observed_at,
+    source_kind,
+    wallet,
+    wallet_path,
+    password,
+    password_file,
+    password_stdin,
+    json_output,
 ) -> None:
     """Sign and submit a publishEnergyRate transaction on the EVM rail."""
     # Publish a new rate.
@@ -444,18 +453,15 @@ def _evm_rate_publish(
     if observed_at is None:
         observed_at = int(time.time())
 
-    pw = password
-    if password_file:
-        with open(password_file) as f:
-            pw = f.read().strip()
-
     from ..utils.wallet_loader import load_wallet_for_payment
 
     addr, private_key, _ = load_wallet_for_payment(
         ctx,
         wallet_name=wallet,
         wallet_path=wallet_path,
-        password=pw,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
         require_private_key=True,
     )
     if private_key is None:
@@ -504,12 +510,21 @@ def _evm_rate_publish(
 @click.option("--source-kind", default="manual", help="Rate source kind")
 @click.option("--wallet", help="Wallet name for signing")
 @click.option("--wallet-path", help="Direct wallet file path")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
+@wallet_password_options
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
 def provider_rate(
-    ctx, publish, ait_per_eur, observed_at, source_kind, wallet, wallet_path, password, password_file, json_output
+    ctx,
+    publish,
+    ait_per_eur,
+    observed_at,
+    source_kind,
+    wallet,
+    wallet_path,
+    password,
+    password_file,
+    password_stdin,
+    json_output,
 ):
     """Read or publish the AIT/EUR energy rate (EVM contract or native rail)."""
     config = get_config()
@@ -544,6 +559,7 @@ def provider_rate(
         wallet_path,
         password,
         password_file,
+        password_stdin,
         json_output,
     )
 
@@ -677,6 +693,7 @@ def _register_suggestion(
     wallet_path,
     password,
     password_file,
+    password_stdin,
     json_output,
 ) -> None:
     """Submit the suggested profile via the configured rail."""
@@ -695,6 +712,7 @@ def _register_suggestion(
             wallet_path=wallet_path,
             password=password,
             password_file=password_file,
+            password_stdin=password_stdin,
             json_output=json_output,
         )
         return
@@ -830,8 +848,7 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
 @click.option("--model-id", help="Model ID for registration (default: detected model)")
 @click.option("--wallet", help="Wallet name for signing (with --register)")
 @click.option("--wallet-path", help="Direct wallet file path (with --register)")
-@click.option("--password", help="Wallet password (with --register)")
-@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file (with --register)")
+@wallet_password_options
 @click.option("--register", is_flag=True, help="Submit the on-chain energy profile registration")
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
@@ -855,6 +872,7 @@ def suggest(
     wallet_path,
     password,
     password_file,
+    password_stdin,
     register,
     json_output,
 ):
@@ -987,5 +1005,6 @@ def suggest(
             wallet_path=wallet_path,
             password=password,
             password_file=password_file,
+            password_stdin=password_stdin,
             json_output=json_output,
         )
