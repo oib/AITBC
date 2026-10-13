@@ -1,0 +1,13 @@
+[Unit]
+Description=AITBC hourly ntfy heartbeat - silent dead-man signal (SD-2)
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+# Priority 1 = silent on the phone: a *missing* hourly beat is the signal
+# (dead-man switch). Persistent catches up after downtime.
+OnCalendar=hourly
+Persistent=true
+Unit=aitbc-ntfy-heartbeat-hourly.service
+
+[Install]
+WantedBy=timers.target

@@ -18,12 +18,20 @@ post fails so systemd records the failure; exits 0 otherwise.
 
 Usage:
     alert-digest.py [--alert-log /var/log/aitbc/alerts.log] [--since-hours 24]
-                    [--notify-url URL ...] [--dry-run]
+                    [--notify-url URL ...] [--notify-format json|ntfy]
+                    [--notify-topic TOPIC] [--notify-click URL] [--dry-run]
 
 Environment:
-    AITBC_WATCH_NOTIFY_URL   space-separated fallback for --notify-url
-    (the same env file the watcher reads, so the digest follows the same
-    destination once the operator sets it)
+    AITBC_WATCH_NOTIFY_URL     space-separated fallback for --notify-url
+                               (the same env file the watcher reads, so the
+                               digest follows the same destination once the
+                               operator sets it)
+    AITBC_WATCH_NOTIFY_FORMAT  fallback for --notify-format
+    AITBC_WATCH_NOTIFY_TOPIC   fallback for --notify-topic (default aitbc-alerts)
+    AITBC_WATCH_NOTIFY_CLICK   fallback for --notify-click
+    AITBC_WATCH_NOTIFY_TOKEN   bearer token for the ntfy publish (env only,
+                               never an argument or part of the URL); required
+                               in ntfy mode — without it nothing is sent
 """
 
 from __future__ import annotations
@@ -102,8 +110,48 @@ def _render(groups: dict[str, dict], since_hours: int, host: str) -> str:
     return header + "\n" + "\n".join(rows)
 
 
-def _post(urls: list[str], body: str) -> int:
-    """One POST per URL, plain-text body (ntfy renders it as the message)."""
+_FLEET_HOSTS = {"hub", "hub1", "node0", "node1", "node2"}
+
+
+def _fleet_host(hostname: str) -> str:
+    """Fleet name for the ntfy wire; anything else collapses to ``fleet``."""
+    short = hostname.split(".", 1)[0]
+    return short if short in _FLEET_HOSTS else "fleet"
+
+
+def _render_ntfy(groups: dict[str, dict], since_hours: int, host: str) -> str:
+    """ntfy-safe digest text: counts and alert names only.
+
+    The internet-facing ntfy topic never receives instance addresses,
+    annotation text or non-fleet hostnames — the plain-text body keeps them
+    (SD-2 hygiene rule).
+    """
+    total_events = sum(g["firing"] + g["resolved"] + g["still_firing"] for g in groups.values())
+    lines = [f"last {since_hours}h on {_fleet_host(host)}: {total_events} warning events across {len(groups)} alerts"]
+    for name in sorted(groups):
+        g = groups[name]
+        parts = []
+        if g["firing"]:
+            parts.append(f"{g['firing']} firing")
+        if g["still_firing"]:
+            parts.append(f"{g['still_firing']} still-firing reminders")
+        if g["resolved"]:
+            parts.append(f"{g['resolved']} resolved")
+        lines.append(f"{name}: {', '.join(parts)}")
+    return "\n".join(lines)
+
+
+def _post(
+    urls: list[str],
+    body: str,
+    *,
+    notify_format: str = "json",
+    topic: str = "aitbc-alerts",
+    click_url: str = "https://hub.aitbc.bubuit.net/alerts.html",
+    token: str | None = None,
+) -> int:
+    """One POST per URL. json mode keeps the plain-text body; ntfy mode posts
+    the ntfy publish JSON with the topic in the body, never in the URL."""
     failures = 0
     for url in urls:
         # The URL comes from operator env, but urlopen honours file: and custom
@@ -112,13 +160,31 @@ def _post(urls: list[str], body: str) -> int:
             print(f"refusing non-http(s) notify url: {url[:40]}", file=sys.stderr)
             failures += 1
             continue
+        if notify_format == "ntfy" and not token:
+            print("ntfy digest skipped: AITBC_WATCH_NOTIFY_TOKEN is unset", file=sys.stderr)
+            failures += 1
+            continue
+        headers: dict[str, str] = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        if notify_format == "ntfy":
+            payload = json.dumps(
+                {"topic": topic, "title": "AITBC daily digest", "message": body, "priority": 2, "click": click_url}
+            ).encode()
+            headers["Content-Type"] = "application/json"
+        else:
+            payload = body.encode()
+            headers["Content-Type"] = "text/plain"
         try:
-            req = urllib.request.Request(url, data=body.encode(), headers={"Content-Type": "text/plain"})
+            req = urllib.request.Request(url, data=payload, headers=headers)
             # scheme is checked against http/https above; the URL is operator-supplied config
             urllib.request.urlopen(req, timeout=10).read()  # nosec B310
         except Exception as exc:  # noqa: BLE001 -- any delivery failure alike
             failures += 1
-            print(f"digest POST to {url} failed: {exc}", file=sys.stderr)
+            # Strip query/fragment and redact the token so it can never reach
+            # the journal even if embedded in the configured URL by mistake.
+            detail = str(exc).replace(token, "***") if token else str(exc)
+            print(f"digest POST to {url.split('?', 1)[0]} failed: {detail}", file=sys.stderr)
     return failures
 
 
@@ -127,6 +193,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--alert-log", default="/var/log/aitbc/alerts.log", type=Path)
     ap.add_argument("--since-hours", type=int, default=24)
     ap.add_argument("--notify-url", action="append", default=[])
+    ap.add_argument(
+        "--notify-format",
+        choices=["json", "ntfy"],
+        default=os.environ.get("AITBC_WATCH_NOTIFY_FORMAT", "json"),
+        help="'json' posts the plain-text digest (unchanged default); 'ntfy' posts an ntfy publish body "
+        "with counts and alert names only",
+    )
+    ap.add_argument(
+        "--notify-topic",
+        default=os.environ.get("AITBC_WATCH_NOTIFY_TOPIC", "aitbc-alerts"),
+        help="ntfy topic; travels inside the JSON body, never in the URL",
+    )
+    ap.add_argument(
+        "--notify-click",
+        default=os.environ.get("AITBC_WATCH_NOTIFY_CLICK", "https://hub.aitbc.bubuit.net/alerts.html"),
+        help="public link attached to ntfy notifications",
+    )
     ap.add_argument("--dry-run", action="store_true", help="print the digest body; post nothing")
     args = ap.parse_args(argv)
 
@@ -139,7 +222,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no warning-severity events in the last {args.since_hours}h; nothing to send")
         return 0
 
-    body = _render(groups, args.since_hours, socket.gethostname())
+    if args.notify_format == "ntfy":
+        body = _render_ntfy(groups, args.since_hours, socket.gethostname())
+    else:
+        body = _render(groups, args.since_hours, socket.gethostname())
     if args.dry_run:
         print(body)
         return 0
@@ -147,7 +233,15 @@ def main(argv: list[str] | None = None) -> int:
         print("no --notify-url and AITBC_WATCH_NOTIFY_URL unset; digest stays local", file=sys.stderr)
         print(body)
         return 0
-    return 1 if _post(urls, body) else 0
+    failures = _post(
+        urls,
+        body,
+        notify_format=args.notify_format,
+        topic=args.notify_topic,
+        click_url=args.notify_click,
+        token=os.environ.get("AITBC_WATCH_NOTIFY_TOKEN"),
+    )
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
