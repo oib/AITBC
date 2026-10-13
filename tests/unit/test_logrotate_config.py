@@ -58,8 +58,30 @@ def test_top_level_stanza_uses_copytruncate_not_create():
 
 def test_retention_and_hygiene_options_kept():
     body = _body(_stanzas(CONF.read_text()), "/var/log/aitbc/*.log")
-    for directive in ("daily", "rotate 14", "compress", "delaycompress", "missingok", "notifempty"):
+    for directive in ("size 20M", "rotate 14", "compress", "delaycompress", "missingok", "notifempty"):
         assert re.search(rf"^\s*{directive}$", body, re.M), directive
+
+
+def test_wildcard_stanza_is_size_triggered_not_daily():
+    """alerts.log is capped at 5 MiB by its own RotatingFileHandler and the
+    explorer history endpoint reads only the live file — a daily rotation
+    would empty it at midnight. 'size 20M' means logrotate never touches it."""
+    body = _body(_stanzas(CONF.read_text()), "/var/log/aitbc/*.log")
+    assert not re.search(r"^\s*daily$", body, re.M)
+    assert re.search(r"^\s*size 20M$", body, re.M)
+
+
+def test_alerts_log_rationale_documented():
+    text = CONF.read_text()
+    assert "alerts.log" in text
+    assert "RotatingFileHandler" in text
+    assert "20M" in text
+
+
+def test_events_stanza_remains_daily():
+    # events/*.log are script-written; daily rotation is correct there.
+    body = _body(_stanzas(CONF.read_text()), "/var/log/aitbc/events/*.log")
+    assert re.search(r"^\s*daily$", body, re.M)
 
 
 def test_no_postrotate_or_sharedscripts():
