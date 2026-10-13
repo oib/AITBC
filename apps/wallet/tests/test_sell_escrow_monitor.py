@@ -23,6 +23,7 @@ import pytest
 from wallet_app.bridge import bridge_withdraw_monitor as wdm
 from wallet_app.bridge import sell_escrow_monitor as sellmon
 from wallet_app.bridge.bridge_db import (
+    _SELL_OPEN_STATUSES,
     get_sell_lock_by_ait_tx_hash,
     get_sell_lock_by_quote_id,
     get_sell_quote,
@@ -1216,3 +1217,11 @@ class TestSellRoutes:
         )
         assert resp.status_code == 503
         assert "disabled" in resp.json()["detail"].lower()
+
+
+class TestStatusHandlerDispatch:
+    """The status->handler table must cover every open sell-lock status except
+    needs_review_sweep (deliberately terminal for the machine)."""
+
+    def test_handler_table_covers_open_statuses(self):
+        assert set(sellmon._SELL_STATUS_HANDLERS) == set(_SELL_OPEN_STATUSES) - {"needs_review_sweep"}

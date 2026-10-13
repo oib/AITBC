@@ -947,7 +947,7 @@ def get_sell_quote(quote_id: str) -> dict[str, Any] | None:
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes WHERE id = ?",
+        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes WHERE id = ?",  # nosec B608 - _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
         (quote_id,),
     )
     row = cursor.fetchone()
@@ -962,7 +962,7 @@ def get_all_sell_quotes(limit: int = 50, offset: int = 0) -> list[dict[str, Any]
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec B608 - _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
         (limit, offset),
     )
     rows = cursor.fetchall()
@@ -988,7 +988,7 @@ def get_latest_sell_quote_by_shop(shop_ait_address: str) -> dict[str, Any] | Non
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT "
+        "SELECT "  # nosec B608 - _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
         + ", ".join(_SELL_QUOTE_KEYS)
         + " FROM bridge_sell_quotes WHERE LOWER(shop_ait_address) = LOWER(?) ORDER BY created_at DESC LIMIT 1",
         (shop_ait_address,),
@@ -1063,7 +1063,7 @@ def get_sell_lock_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE ait_tx_hash = ?",
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE ait_tx_hash = ?",  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
         (ait_tx_hash,),
     )
     row = cursor.fetchone()
@@ -1078,7 +1078,7 @@ def get_sell_lock_by_id(lock_id: str) -> dict[str, Any] | None:
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE id = ?",
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE id = ?",  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
         (lock_id,),
     )
     row = cursor.fetchone()
@@ -1100,7 +1100,7 @@ def get_sell_lock_by_quote_id(
     before a timestamp, so the earliest lock wins the quote."""
     conn = _connect_db()
     cursor = conn.cursor()
-    query = "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE quote_id = ?"
+    query = "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE quote_id = ?"  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
     params: list[Any] = [quote_id]
     if exclude_ait_tx_hash:
         query += " AND ait_tx_hash != ?"
@@ -1169,7 +1169,7 @@ def get_all_sell_locks(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
         (limit, offset),
     )
     rows = cursor.fetchall()
@@ -1288,7 +1288,7 @@ def get_sell_pending_eth_reserve() -> Decimal:
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _SELL_RESERVE_STATUSES)
     cursor.execute(
-        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})",
+        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})",  # nosec B608 - placeholders are literal '?' generated from _SELL_RESERVE_STATUSES; all values bound
         _SELL_RESERVE_STATUSES,
     )
     total = cursor.fetchone()[0]
@@ -1304,7 +1304,7 @@ def get_sell_eth_committed_since(since_iso: str) -> Decimal:
     placeholders = ", ".join("?" for _ in _SELL_ETH_COMMITTED_STATUSES)
     cursor.execute(
         f"""SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks
-            WHERE status IN ({placeholders}) AND released_at >= ?""",
+            WHERE status IN ({placeholders}) AND released_at >= ?""",  # nosec B608 - placeholders are literal '?' generated from _SELL_ETH_COMMITTED_STATUSES; all values bound
         (*_SELL_ETH_COMMITTED_STATUSES, since_iso),
     )
     total = cursor.fetchone()[0]
