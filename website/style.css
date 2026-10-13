@@ -1769,3 +1769,123 @@ a.btn-secondary {
 }
 .journal-nodes { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.5rem 0 0.4rem; font-size: 0.78rem; }
 .jn-chip { padding: 0.1rem 0.55rem; border: 1px solid currentColor; border-radius: 999px; font-family: 'Courier New', monospace; }
+
+/* ── ETH-11 exchange order book / tape (read-only) ── */
+.ob-banner {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    color: var(--primary);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 0.35rem 0.5rem;
+    letter-spacing: 0.02em;
+}
+
+.ob-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0.5rem 0;
+}
+.ob-stats strong { color: var(--text); font-weight: 600; }
+
+.ob-ladder { margin-top: 0.5rem; }
+
+.ob-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ob-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+}
+.ob-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.ob-table td { padding: 0.28rem 0.5rem; }
+
+.ob-row { position: relative; }
+.ob-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ob-table th:nth-child(2), .ob-table th:nth-child(3) { text-align: right; }
+.ob-price { position: relative; min-width: 7rem; }
+.ob-ask .ob-price .ob-cell-text { color: #f87171; }
+.ob-bid .ob-price .ob-cell-text { color: var(--success); }
+.ob-cell-text { position: relative; z-index: 1; }
+
+.ob-depth-bar {
+    position: absolute;
+    right: 0;
+    top: 15%;
+    height: 70%;
+    background: var(--border);
+    opacity: 0.45;
+    border-radius: 2px;
+}
+.ob-ask .ob-depth-bar { background: #7f1d1d; opacity: 0.35; }
+.ob-bid .ob-depth-bar { background: #064e3b; opacity: 0.5; }
+
+.ob-maker { color: var(--text-muted); font-size: 0.78rem; }
+.ob-flags { text-align: right; }
+.ob-unfunded {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.05rem 0.3rem;
+    white-space: nowrap;
+}
+
+.ob-spread-row {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    padding: 0.3rem 0;
+    border-top: 1px dashed var(--border);
+    border-bottom: 1px dashed var(--border);
+    margin: 0.15rem 0;
+}
+
+.ob-empty {
+    padding: 1.2rem 0.5rem;
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.ob-stale { opacity: 0.45; }
+.ob-stale .ob-unfunded { display: none; }
+
+.ob-inactive {
+    margin-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.5rem;
+}
+.ob-inactive summary {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+    .ob-table { font-size: 0.72rem; }
+    .ob-table th, .ob-table td { padding: 0.22rem 0.3rem; }
+    .ob-unfunded { font-size: 0.58rem; }
+    .ob-banner { font-size: 0.7rem; }
+}

@@ -77,7 +77,9 @@ Operator procedures for the live fleet:
 - [Follower API key](ops/follower-api-key.md),
   [peer keys](ops/peer-keys.md),
   [island subscription check](ops/island-subscription-check.md),
-  [pricing / energy / exchange](ops/pricing-energy-exchange.md).
+  [pricing / energy / exchange](ops/pricing-energy-exchange.md),
+  [exchange public endpoints](ops/exchange-public-endpoints.md) — the two
+  GET-only nginx aliases for the read-only order book page.
 
 ## Security
 
