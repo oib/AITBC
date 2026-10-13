@@ -192,7 +192,7 @@ setup_log_rotation() {
     compress
     delaycompress
     notifempty
-    create 644 aitbc aitbc
+    create 0640 aitbc adm
     postrotate
         systemctl reload rsyslog || true
     endscript

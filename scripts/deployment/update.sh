@@ -710,9 +710,10 @@ ensure_monitor_log_files() {
     while IFS= read -r logf; do
         [ -n "$logf" ] || continue
         if [ -f "$logf" ]; then
-            chown aitbc:aitbc "$logf" 2>/dev/null || true
+            chown aitbc:adm "$logf" 2>/dev/null || true
+            chmod 0640 "$logf" 2>/dev/null || true
         else
-            install -o aitbc -g aitbc -m 0644 /dev/null "$logf" 2>/dev/null || true
+            install -o aitbc -g adm -m 0640 /dev/null "$logf" 2>/dev/null || true
         fi
     done < <(grep -hoE 'LOG_FILE="(/var/log/aitbc/[^"]+)"' \
         "$AITBC_ROOT"/scripts/monitoring/*.sh 2>/dev/null | cut -d'"' -f2 | sort -u)
