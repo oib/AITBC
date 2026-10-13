@@ -321,6 +321,77 @@ settlement once ETH-7 phase 1 + ETH-2 have run. Each phase is
 independently revertible (page revert = static file; signature
 enforcement = env flag; settlement = monitor flag).
 
+## Sovereignty check (operator rule, 13 Oct)
+
+Every node is wallet-sovereign: no host may hold, receive, use, sign
+for, or read another node's wallet key, password or keystore, and no
+step may need SSH trust between nodes. Per-step key location:
+
+| step | key lives on | signs | only verifies |
+|---|---|---|---|
+| registration | node | node signs the registration envelope on its own host | hub verifies the signature |
+| sell funding (lock) | node | node signs `TRANSFER`→`AIT_SELL_ESCROW` with its own AIT key, on its own host | hub, on-chain (sealed tx + quote/order payload) |
+| buy funding (prepay) | node | node signs the Sepolia ETH send to the bridge wallet with its own Sepolia key, on its own host | hub via RPC/explorer receipt |
+| order placement | node | node signs the §1 envelope locally (CLI/wallet on its host) | hub verifies the signature before any DB write |
+| order cancel | node | node signs the cancel envelope locally | hub verifies, then the write lock resolves the race |
+| matching | — | nobody — SQLite rows only | — |
+| ETH leg of settlement | hub | hub signs the Sepolia send with its own ETH release key | all parties via explorer |
+| AIT leg of settlement | hub | hub signs escrow→buyer sweep with the dedicated escrow key | all parties via chain |
+| refund leg | hub | hub signs escrow→seller with the same escrow key | all parties via chain |
+| page reads (§8) | — | nobody — public read-only GETs | — |
+
+Rule check against the four violations: none applies.
+
+1. **No node key material crosses a boundary**: the only private keys
+   in the design are (a) node keys that never leave their own node —
+   AIT wallet for locks/envelopes, Sepolia wallet for prepayment — and
+   (b) hub-custodied keys — the bridge payout key, the ETH release
+   key, and the dedicated `AIT_SELL_ESCROW` key (see below). No
+   password, keystore or wallet file is ever transmitted or read by
+   another host.
+2. **The hub never signs for a node**: every node-originated value
+   movement — lock transfer, prepayment send, order envelope, cancel —
+   is signed by the node itself on its own host. The hub signs only
+   hub-custodied outputs: escrow sweeps of AIT that shops placed into
+   escrow by their own signed transfers, and ETH sends out of the
+   hub's own bridge wallet.
+3. **No wallet-service or wallet-file access crosses a host**: order
+   signatures arrive in the POST body; the exchange verifies them
+   against the claimed address. It never calls `aitbc-wallet` on any
+   node — signing is strictly client-side on the node. Funding proofs
+   come from sealed chain data and the public explorer/RPC, not from
+   querying the sender's wallet.
+4. **No SSH trust between nodes**: every node↔hub interaction is a
+   signed envelope over HTTP plus on-chain data. Nodes never connect
+   to each other at all in this flow.
+
+**The escrow key itself (hub custody — pending operator confirmation,
+see below)**: same terms as ETH-7 — a dedicated key whose only
+permitted action is sweeping `AIT_SELL_ESCROW`'s balance, exclusively
+AIT placed there by nodes' own signed lock transfers, to the buyer
+(settle) or back to the seller (refund). It can never move a node
+wallet. It is generated and held separately from the bridge payout
+key, the ETH release key and the genesis key; the operator creates it
+and no agent handles it; ETH-7 §4's per-release and daily caps bound
+it; the phase-2 keyless escrow remains the long-term target.
+
+**Prepaid-ETH note**: buy-side ETH prepayments sit in the hub's bridge
+wallet — explicitly "its own float" under the rule — with per-node
+accounting in the `prepaid_eth` table. The node voluntarily sent the
+ETH as prepayment (same class as a bridge deposit); the hub never
+needed the node's key to receive it.
+
+## Operator decisions needed
+
+- **Keyed-escrow classification (recommended, unconfirmed)**: whether
+  the dedicated hub-owned `AIT_SELL_ESCROW` key satisfies the
+  sovereignty rule as hub custody, under the conditions in the
+  sovereignty check. Strict-reading fallback: locks target the hub's
+  existing treasury address directly — inside the allowlist, but
+  escrowed AIT commingles with the bridge operating balance and loses
+  the dedicated audit trail. Carried identically in the ETH-7 design;
+  awaiting operator confirmation before any implementation.
+
 ## Could not verify (and why)
 
 - **Whether `/api/orders` is publicly reachable today** — route table
