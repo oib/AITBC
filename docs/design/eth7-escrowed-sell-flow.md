@@ -244,7 +244,7 @@ implementation deliberately goes beyond this table:
   when its outflow is found *sealed* on chain, matched on nonce +
   recipient + amount + `payload.sell_ref`. A broadcast returning a hash
   is not final — it is just "sent". A foreign transaction occupying the
-  recorded nonce resolves the row to `needs_review`, never a blind
+  recorded nonce resolves the row to `needs_review_sweep`, never a blind
   re-send.
 - **The escrow carries a fee float.** Every sweep spends the moved
   amount + the standard 0.01 AIT fee, so the escrow account is seeded
