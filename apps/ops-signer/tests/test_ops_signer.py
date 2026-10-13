@@ -350,11 +350,16 @@ def _sock_cfg(tmp_path: Path) -> Config:
 
 
 def _wait_sock(path: Path, timeout: float = 5.0) -> None:
+    """Wait until the listener actually answers (file exists is too early:
+    the path appears at bind(), before listen())."""
     for _ in range(100):
-        if path.exists():
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+                probe.connect(str(path))
             return
-        time.sleep(0.05)
-    raise AssertionError(f"socket never appeared: {path}")
+        except OSError:
+            time.sleep(0.05)
+    raise AssertionError(f"socket never served: {path}")
 
 
 def _serve(srv: OpsSignerServer) -> threading.Thread:
