@@ -123,27 +123,13 @@ def _wallet_is_unencrypted(wallet_name: str, wallet_path: Path | None = None) ->
         return False
 
 
-def resolve_wallet_password(
-    wallet_name: str | None = None,
-    *,
-    password: str | None = None,
-    password_file: str | None = None,
-    password_stdin: bool = False,
-    interactive_ok: bool = True,
-    allow_unencrypted: bool = False,
-    wallet_path: Path | None = None,
-    legacy_env_names: tuple[str, ...] = (),
-    ctx=None,
-) -> str:
-    """Resolve the wallet signing password from the standard sources.
-
-    ``interactive_ok`` disables the getpass fallback (batch/agent callers).
-    ``allow_unencrypted`` keeps the ipfs/transactions behaviour of accepting
-    a wallet file that stores no encrypted key (returns ``""``). The wallet
-    name is used for the per-wallet env var, the unencrypted check, and the
-    prompt label. ``legacy_env_names`` lists additional env vars consulted in
-    the env step for pre-WAL-1 compatibility (e.g. ``WALLET_PASSWORD``).
-    """
+def _flag_password(
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    ctx,
+) -> str | None:
+    """The --password* flag trio; ``None`` means no flag was given."""
     explicit = [
         name
         for name, given in (
@@ -177,7 +163,11 @@ def resolve_wallet_password(
             err=True,
         )
         return password
+    return None
 
+
+def _env_password(wallet_name: str | None, legacy_env_names: tuple[str, ...], ctx) -> str | None:
+    """Env-file and env-var sources; ``None`` means none was set."""
     env_file = os.environ.get(ENV_PASSWORD_FILE)
     if env_file:
         return _read_password_file(env_file, ctx)
@@ -186,31 +176,71 @@ def resolve_wallet_password(
     for var in (per_name, ENV_PASSWORD, *legacy_env_names):
         if var and var in os.environ:
             return os.environ[var]
+    return None
 
-    # System keyring — pre-existing non-TTY source used by the wallet command
-    # group; kept so existing keyring users keep working without flags.
-    if wallet_name:
-        try:
-            import keyring
 
-            kr_password = keyring.get_password("aitbc-wallet", wallet_name)
-            if kr_password:
-                return kr_password
-        except Exception:
-            pass
+def _keyring_password(wallet_name: str | None) -> str | None:
+    """System keyring — pre-existing non-TTY source used by the wallet command
+    group; kept so existing keyring users keep working without flags."""
+    if not wallet_name:
+        return None
+    try:
+        import keyring
+
+        return keyring.get_password("aitbc-wallet", wallet_name) or None
+    except Exception:
+        return None
+
+
+def _tty_password(wallet_name: str | None, ctx) -> str:
+    import getpass
+
+    prompt = f"Enter password for wallet '{wallet_name}': " if wallet_name else _PROMPT
+    try:
+        return getpass.getpass(prompt)
+    except Exception:
+        abort(ctx, "Password prompt failed")
+        raise  # unreachable
+
+
+def resolve_wallet_password(
+    wallet_name: str | None = None,
+    *,
+    password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+    interactive_ok: bool = True,
+    allow_unencrypted: bool = False,
+    wallet_path: Path | None = None,
+    legacy_env_names: tuple[str, ...] = (),
+    ctx=None,
+) -> str:
+    """Resolve the wallet signing password from the standard sources.
+
+    ``interactive_ok`` disables the getpass fallback (batch/agent callers).
+    ``allow_unencrypted`` keeps the ipfs/transactions behaviour of accepting
+    a wallet file that stores no encrypted key (returns ``""``). The wallet
+    name is used for the per-wallet env var, the unencrypted check, and the
+    prompt label. ``legacy_env_names`` lists additional env vars consulted in
+    the env step for pre-WAL-1 compatibility (e.g. ``WALLET_PASSWORD``).
+
+    Source order: --password* flags, AITBC_WALLET_PASSWORD_FILE, per-wallet
+    and shared env vars, the system keyring, the unencrypted-wallet escape,
+    then the TTY prompt.
+    """
+    resolved = _flag_password(password, password_file, password_stdin, ctx)
+    if resolved is None:
+        resolved = _env_password(wallet_name, legacy_env_names, ctx)
+    if resolved is None:
+        resolved = _keyring_password(wallet_name)
+    if resolved is not None:
+        return resolved
 
     if allow_unencrypted and wallet_name and _wallet_is_unencrypted(wallet_name, wallet_path):
         return ""
 
     if interactive_ok and sys.stdin.isatty():
-        import getpass
-
-        prompt = f"Enter password for wallet '{wallet_name}': " if wallet_name else _PROMPT
-        try:
-            return getpass.getpass(prompt)
-        except Exception:
-            abort(ctx, "Password prompt failed")
-            raise  # unreachable
+        return _tty_password(wallet_name, ctx)
 
     abort(
         ctx,
