@@ -18,6 +18,7 @@ import click
 from eth_utils import is_address
 
 from ...config import get_config
+from ...utils.wallet_secret import wallet_password_options
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
 from ...utils.chain_id import resolve_chain_id
@@ -185,8 +186,7 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
 )
 @click.option("--wallet", help="Wallet name for signing")
 @click.option("--wallet-path", help="Direct wallet file path")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
+@wallet_password_options
 @click.option("--energy-quote", help="JSON file containing the energy quote")
 @click.option("--max-ait", type=float, default=None, help="Maximum AIT buyer cap")
 @click.option("--yes", is_flag=True, help="Skip confirmation prompt")
@@ -203,6 +203,7 @@ def buy(
     wallet_path,
     password,
     password_file,
+    password_stdin,
     energy_quote,
     max_ait,
     yes,
@@ -255,16 +256,13 @@ def buy(
     breakdown = compute_settlement_breakdown(parsed)
 
     # Load the buyer wallet for signing.
-    pw = password
-    if password_file:
-        with open(password_file) as f:
-            pw = f.read().strip()
-
     buyer_address, private_key, wallet_id = load_wallet_for_payment(
         ctx,
         wallet_name=wallet,
         wallet_path=wallet_path,
-        password=pw,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
         require_private_key=True,
     )
 
@@ -579,24 +577,20 @@ def release(ctx, job_id, yes, json_output):
 @click.option("--job-id", required=True, help="Job ID")
 @click.option("--wallet", help="Wallet name for signing")
 @click.option("--wallet-path", help="Direct wallet file path")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
+@wallet_password_options
 @click.option("--reason", default="", help="Refund reason")
 @click.option("--yes", is_flag=True, help="Skip confirmation prompt")
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
-def refund(ctx, job_id, wallet, wallet_path, password, password_file, reason, yes, json_output):
+def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_stdin, reason, yes, json_output):
     """Request a refund for a GPU rental."""
-    pw = password
-    if password_file:
-        with open(password_file) as f:
-            pw = f.read().strip()
-
     buyer_address, _, _ = load_wallet_for_payment(
         ctx,
         wallet_name=wallet,
         wallet_path=wallet_path,
-        password=pw,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
         require_private_key=False,
     )
 

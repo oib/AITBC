@@ -11,6 +11,7 @@ import click
 from aitbc.utils.units import units_to_ait
 
 from ...auth import AuthManager
+from ...utils.wallet_secret import wallet_password_options
 from ...config import get_config
 from ...utils import error, info, output, success
 from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
@@ -354,9 +355,9 @@ def escrow_status(ctx, job_id: str):
 @click.option("--provider", "provider", required=True, help="The Provider.")
 @click.option("--amount", "amount", required=False, help="Amount of AIT.")
 @click.option("--wallet", "wallet_name", help="Wallet name to sign the escrow lock")
-@click.option("--password", help="Wallet password")
+@wallet_password_options
 @click.pass_context
-def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, password):
+def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, password, password_file, password_stdin):
     """Create an on-chain escrow for a job with buyer, provider, and optional amount."""
     try:
         from decimal import Decimal as _Decimal
@@ -365,7 +366,9 @@ def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, passwor
 
         config = get_config()
         amt = _Decimal(wallet_amount(amount)) if amount is not None else None
-        _, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet_name, password=password)
+        _, private_key, _ = load_wallet_for_payment(
+            ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         contract_id = _escrow_create(ctx, job_id, buyer, provider, amt, config, private_key=private_key)
         output(
             {"contract_id": contract_id, "job_id": job_id, "buyer": buyer, "provider": provider},

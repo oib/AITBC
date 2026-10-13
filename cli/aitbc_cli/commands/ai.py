@@ -31,6 +31,7 @@ from ..utils.http_client import (
     service_root_url,
 )
 from ..utils.wallet_loader import load_wallet_for_payment
+from ..utils.wallet_secret import wallet_password_options
 
 logger = get_logger(__name__)
 
@@ -587,8 +588,7 @@ def ai():
 @click.option(
     "--compliance-framework", default=None, envvar="AITBC_COMPLIANCE_FRAMEWORK", help="Compliance framework to enforce"
 )
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Password file")
+@wallet_password_options
 @click.option("--chain-id", help="Chain ID")
 @click.option("--rpc-url", help="RPC URL")
 @click.option("--coordinator-url", help="Coordinator URL")
@@ -627,6 +627,7 @@ def submit(
     compliance_framework,
     password,
     password_file,
+    password_stdin,
     chain_id,
     rpc_url,
     coordinator_url,
@@ -648,11 +649,9 @@ def submit(
         if not rpc_url:
             abort(ctx, "RPC URL not configured")
 
-        if password_file:
-            with open(password_file) as f:
-                password = f.read().strip() or password
-
-        wallet_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet, password=password)
+        wallet_address, private_key, _ = load_wallet_for_payment(
+            ctx, wallet_name=wallet, password=password, password_file=password_file, password_stdin=password_stdin
+        )
 
         # Auth once and reuse for media upload and job submission.
         headers = _auth_headers(ctx)
@@ -793,7 +792,7 @@ def _resolve_pay_params(
 
   aitbc ai pay --job-id job-123 --wallet genesis
 
-  aitbc ai pay --job-id job-123 --wallet genesis --password mypass""",
+  aitbc ai pay --job-id job-123 --wallet genesis --password-file ~/secrets/wallet.pass""",
 )
 @click.option("--job-id", required=True, help="Job ID to pay for")
 @click.option("--wallet", required=True, help="Wallet name to sign the escrow lock")
@@ -805,8 +804,7 @@ def _resolve_pay_params(
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.option("--chain-id", help="Chain ID")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Password file")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def pay(
@@ -823,6 +821,7 @@ def pay(
     chain_id,
     password,
     password_file,
+    password_stdin,
     format,
 ):
     """Create an escrow payment for an existing AI job."""
@@ -837,11 +836,9 @@ def pay(
         if not rpc_url:
             abort(ctx, "RPC URL not configured")
 
-        if password_file:
-            with open(password_file) as f:
-                password = f.read().strip() or password
-
-        wallet_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet, password=password)
+        wallet_address, private_key, _ = load_wallet_for_payment(
+            ctx, wallet_name=wallet, password=password, password_file=password_file, password_stdin=password_stdin
+        )
         if not private_key:
             abort(ctx, f"Wallet {wallet} has no usable private key")
         assert private_key is not None
@@ -1290,14 +1287,13 @@ def _refund_after_cancel(ctx, http_client: AITBCHTTPClient, result, job_id: str,
 )
 @click.option("--job-id", required=True, help="Job ID")
 @click.option("--wallet", help="Wallet name (optional)")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Password file")
+@wallet_password_options
 @click.option("--refund", is_flag=True, help="Also refund the escrowed payment after cancel")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordinator_url, format):
+def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund, reason, coordinator_url, format):
     """Cancel an AI job and optionally refund the payment to the customer."""
     get_config()
 
@@ -1308,11 +1304,6 @@ def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordin
 
         if not job_id:
             abort(ctx, "Job ID required")
-
-        # Get password (kept for backward compatibility; cancel itself does not sign)
-        if password_file:
-            with open(password_file) as f:
-                _ = f.read().strip()
 
         if not _auth_headers(ctx):
             abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")

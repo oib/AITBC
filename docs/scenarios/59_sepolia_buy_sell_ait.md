@@ -93,6 +93,28 @@ venv/bin/python -m aitbc_cli wallet bridge deposit \
 # sepolia key; the AIT recipient is that same 0x address
 ```
 
+**Non-interactive form (agents / no TTY):** the same command takes
+`--password-file` or `--password-stdin` like every signing command. Keep
+the password file **on the node that owns the wallet** (here: node0), mode
+`0600`, owned by the user that runs the CLI — never in the repo, never
+copied to another node:
+
+```bash
+# file form — /etc/aitbc/sepolia.wallet.pass must be 0600 on node0:
+venv/bin/python -m aitbc_cli wallet bridge deposit \
+  --wallet-name sepolia --amount 0.002 \
+  --eth-rpc-url https://ethereum-sepolia-rpc.publicnode.com \
+  --password-file /etc/aitbc/sepolia.wallet.pass
+
+# stdin form — the secret never touches argv or a file:
+ssh node0 'read -rs PASS'   # or deliver it from your secrets store
+printf '%s\n' "$PASS" | ssh node0 'cd /opt/aitbc && \
+  venv/bin/python -m aitbc_cli wallet bridge deposit \
+  --wallet-name sepolia --amount 0.002 \
+  --eth-rpc-url https://ethereum-sepolia-rpc.publicnode.com \
+  --password-stdin'
+```
+
 **Option A2.2 — manual send (no env change, no CLI)**
 
 Send the Sepolia tx from the `sepolia` key with any ETH tooling:
@@ -158,6 +180,10 @@ venv/bin/python -m aitbc_cli wallet bridge withdraw \
 # node2's funded wallet is named `default` (~92 AIT balance);
 # wallet password prompt if the wallet is encrypted
 ```
+
+**Non-interactive form:** `--password-file /etc/aitbc/default.wallet.pass`
+(mode `0600`, on node2 only) or `--password-stdin` — same standard as the
+deposit step above; never put the file in the repo or copy it off node2.
 
 The CLI builds the unsigned tx via `POST /v1/bridge/withdraw/build`
 (node2's wallet service is fully bridge-configured), signs it with the

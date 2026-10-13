@@ -93,8 +93,16 @@ def aitbc_ipfs_island_subscribe(
     duration: Annotated[int | None, Field(description="Subscription duration in blocks (default 1000)")],
     quota: Annotated[int | None, Field(description="Quota in bytes (default 1 GiB)")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
-    password: Annotated[str | None, Field(description="Wallet password")],
-    password_file: Annotated[str | None, Field(description="File containing wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -105,7 +113,7 @@ def aitbc_ipfs_island_subscribe(
     """Subscribe to a private island IPFS network.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "wallet_name": "wallet",
             "to_address": "to",
@@ -114,8 +122,8 @@ def aitbc_ipfs_island_subscribe(
             "quota": "quota",
             "amount": "amount",
             "fee": "fee",
-            "password": "password",
             "password_file": "password-file",
+            "password": "password",
             "rpc_url": "rpc-url",
         },
     )
@@ -162,8 +170,16 @@ def aitbc_ipfs_island_swarm_key(
     api_key: Annotated[
         str | None, Field(description="Coordinator API key (default from config / AITBC_API_KEY / MINER_API_KEYS)")
     ],
-    password: Annotated[str | None, Field(description="Wallet password")],
-    password_file: Annotated[str | None, Field(description="File containing wallet password")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     output_path: Annotated[str | None, Field(description="Optional path to write the swarm.key")],
     bootstrap: Annotated[bool | None, Field(description="Also print a bootstrap multiaddr for the hub island daemon")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -175,7 +191,7 @@ def aitbc_ipfs_island_swarm_key(
     """Request the swarm key for a subscribed island IPFS network.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"bootstrap": "bootstrap"},
+        flags={"password_stdin": "password-stdin", "bootstrap": "bootstrap"},
         values={
             "wallet_name": "wallet",
             "island_id": "island-id",
@@ -183,8 +199,8 @@ def aitbc_ipfs_island_swarm_key(
             "chain_id": "chain-id",
             "rpc_url": "rpc-url",
             "api_key": "api-key",
-            "password": "password",
             "password_file": "password-file",
+            "password": "password",
             "output_path": "output",
         },
     )

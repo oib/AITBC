@@ -8,6 +8,7 @@ from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
 from ..utils import DECIMAL, error, output, success
+from ..utils.wallet_secret import wallet_password_options
 from ..utils.chain_id import resolve_chain_id
 from ..utils.error_handling import CLIError
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -45,7 +46,7 @@ def gpu():
 @click.option("--capabilities", multiple=True, help="GPU capabilities (can specify multiple)")
 @click.option("--price-per-hour", type=DECIMAL, required=True, help="Price per hour in AIT")
 @click.option("--wallet", required=True, help="Wallet name for signing")
-@click.option("--password", help="Wallet password (or AITBC_WALLET_PASSWORD env var)")
+@wallet_password_options
 @click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -61,6 +62,8 @@ def register_onchain(
     price_per_hour: Decimal,
     wallet: str,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     wait: bool,
     format: str,
 ):
@@ -91,6 +94,8 @@ def register_onchain(
             region,
             capabilities,
             price_per_hour,
+            password_file=password_file,
+            password_stdin=password_stdin,
         )
 
         tx_hash = result.get("transaction_hash", result.get("tx_hash"))
@@ -170,11 +175,20 @@ def query_gpu(ctx, gpu_id: str, format: str):
 )
 @click.option("--gpu-id", required=True, help="GPU ID to take out of service")
 @click.option("--wallet", required=True, help="Wallet name for signing (must be the GPU's registrant)")
-@click.option("--password", help="Wallet password (or AITBC_WALLET_PASSWORD env var)")
+@wallet_password_options
 @click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def deregister_gpu(ctx, gpu_id: str, wallet: str, password: str | None, wait: bool, format: str):
+def deregister_gpu(
+    ctx,
+    gpu_id: str,
+    wallet: str,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    wait: bool,
+    format: str,
+):
     """Deactivate an on-chain GPU registration (signed by its registrant).
 
     The registration stays on the chain with status 'deactivated' and takes no
@@ -195,7 +209,9 @@ def deregister_gpu(ctx, gpu_id: str, wallet: str, password: str | None, wait: bo
 
         from ..utils.gpu_onchain import submit_gpu_deregister, wait_for_tx
 
-        result = submit_gpu_deregister(ctx, rpc_url, chain_id, wallet, password, gpu_id)
+        result = submit_gpu_deregister(
+            ctx, rpc_url, chain_id, wallet, password, gpu_id, password_file=password_file, password_stdin=password_stdin
+        )
 
         tx_hash = result.get("transaction_hash", result.get("tx_hash"))
         if wait and tx_hash:
@@ -232,7 +248,7 @@ def deregister_gpu(ctx, gpu_id: str, wallet: str, password: str | None, wait: bo
 @click.option("--duration-hours", type=float, required=True, help="Allocation duration in hours")
 @click.option("--total-cost", type=DECIMAL, required=True, help="Total cost in AIT")
 @click.option("--wallet", required=True, help="Wallet name for signing")
-@click.option("--password", help="Wallet password (or AITBC_WALLET_PASSWORD env var)")
+@wallet_password_options
 @click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
@@ -244,6 +260,8 @@ def allocate_gpu(
     total_cost: Decimal,
     wallet: str,
     password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
     wait: bool,
     format: str,
 ):
@@ -276,6 +294,8 @@ def allocate_gpu(
             hex_client_id,
             duration_hours,
             total_cost,
+            password_file=password_file,
+            password_stdin=password_stdin,
         )
 
         tx_hash = result.get("transaction_hash", result.get("tx_hash"))

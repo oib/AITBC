@@ -80,8 +80,16 @@ def aitbc_ai_accept(
 def aitbc_ai_cancel(
     job_id: Annotated[str, Field(description="Job ID")],
     wallet: Annotated[str | None, Field(description="Wallet name (optional)")],
-    password: Annotated[str | None, Field(description="Wallet password")],
-    password_file: Annotated[str | None, Field(description="Password file")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     refund: Annotated[bool | None, Field(description="Also refund the escrowed payment after cancel")],
     reason: Annotated[str | None, Field(description="Reason for refund")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
@@ -94,12 +102,12 @@ def aitbc_ai_cancel(
     """Cancel an AI job and optionally refund the payment to the customer.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"refund": "refund"},
+        flags={"password_stdin": "password-stdin", "refund": "refund"},
         values={
             "job_id": "job-id",
             "wallet": "wallet",
-            "password": "password",
             "password_file": "password-file",
+            "password": "password",
             "reason": "reason",
             "coordinator_url": "coordinator-url",
         },
@@ -176,8 +184,16 @@ def aitbc_ai_pay(
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     chain_id: Annotated[str | None, Field(description="Chain ID")],
-    password: Annotated[str | None, Field(description="Wallet password")],
-    password_file: Annotated[str | None, Field(description="Password file")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -187,7 +203,7 @@ def aitbc_ai_pay(
     """Create an escrow payment for an existing AI job.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"password_stdin": "password-stdin"},
         values={
             "job_id": "job-id",
             "wallet": "wallet",
@@ -199,8 +215,8 @@ def aitbc_ai_pay(
             "coordinator_url": "coordinator-url",
             "rpc_url": "rpc-url",
             "chain_id": "chain-id",
-            "password": "password",
             "password_file": "password-file",
+            "password": "password",
         },
     )
     args = None
@@ -521,8 +537,16 @@ def aitbc_ai_submit(
     input_url: Annotated[str | None, Field(description="Input URL or path for transcribe/reencode jobs")],
     classification: Annotated[str | None, Field(description="Data classification label (e.g. public, pii, phi)")],
     compliance_framework: Annotated[str | None, Field(description="Compliance framework to enforce")],
-    password: Annotated[str | None, Field(description="Wallet password")],
-    password_file: Annotated[str | None, Field(description="Password file")],
+    password_stdin: Annotated[bool | None, Field(description="Read the wallet password from one line of standard input")],
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ],
+    password: Annotated[
+        str | None,
+        Field(
+            description="Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file)"
+        ),
+    ],
     chain_id: Annotated[str | None, Field(description="Chain ID")],
     rpc_url: Annotated[str | None, Field(description="RPC URL")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
@@ -544,6 +568,7 @@ def aitbc_ai_submit(
             "confidential": "confidential",
             "bond_required": "bond-required",
             "deterministic_decoding": "deterministic-decoding",
+            "password_stdin": "password-stdin",
             "wait": "wait",
         },
         values={
@@ -567,8 +592,8 @@ def aitbc_ai_submit(
             "input_url": "input",
             "classification": "classification",
             "compliance_framework": "compliance-framework",
-            "password": "password",
             "password_file": "password-file",
+            "password": "password",
             "chain_id": "chain-id",
             "rpc_url": "rpc-url",
             "coordinator_url": "coordinator-url",

@@ -34,6 +34,43 @@ aitbc genesis init --create-wallet --register-service
 - [CLI testing notes (testing.md)](testing.md) — validation and test conventions
 - [Package README (cli/README.md)](../../cli/README.md) — source-level overview and group catalog
 
+## Wallet password input (all signing commands)
+
+Every `aitbc` command that signs a transaction or unlocks an encrypted
+wallet accepts the same three password options, with identical help text:
+
+- `--password-stdin` — read **one line** from stdin (the trailing newline
+  is stripped; other whitespace is kept). This is the recommended form for
+  agents and scripts: `printf '%s\n' "$PASS" | aitbc …`.
+- `--password-file <path>` — read the password from a file. The file must
+  be a regular file (symlinks are resolved), owned by the calling user (or
+  root when the CLI runs as root), **not group- or world-readable**
+  (`chmod 0600`), and at most 4 KiB. Exactly one trailing newline is
+  stripped.
+- `--password <value>` — **deprecated**: the value is visible in process
+  lists (`ps`) and shell history. Still accepted for compatibility; a
+  one-line warning is printed to stderr. Use the file or stdin form.
+
+Two environment variables are also honoured (kept for compatibility; the
+environment is inherited by child processes, so prefer stdin or a file):
+
+- `AITBC_WALLET_PASSWORD_FILE` — same rules as `--password-file`.
+- `AITBC_WALLET_PASSWORD` — the password value itself.
+  `AITBC_WALLET_PASSWORD_<WALLET_NAME>` (upper-cased, `-` → `_`) is checked
+  per wallet first.
+
+Resolution order, highest first: `--password-stdin` → `--password-file` →
+`AITBC_WALLET_PASSWORD_FILE` → `AITBC_WALLET_PASSWORD[_<NAME>]` →
+`--password` → interactive `getpass` prompt (only when a TTY exists).
+Passing two explicit sources at once (e.g. `--password` together with
+`--password-file`) is an error, not a guess. With no source and no TTY the
+command fails with a message listing the supported inputs — agents on
+headless hosts must always pass `--password-stdin` or `--password-file`.
+
+The password file belongs on the node that owns the wallet, mode `0600`,
+owned by the user that runs the CLI. Never commit it to the repository and
+never copy it to another node.
+
 ## What lives here
 
 This directory contains user-facing and technical CLI documentation. Implementation code lives in `cli/aitbc_cli/`.
