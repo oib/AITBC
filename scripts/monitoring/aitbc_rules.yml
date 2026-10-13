@@ -548,3 +548,69 @@ groups:
         annotations:
           summary: "Attestation arrival check cannot read {{ $labels.db }} ({{ $labels.instance }})"
           description: "aitbc_attestation_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no block table, so the arrival share cannot be trusted."
+
+  - name: aitbc-backup-freshness
+    rules:
+      # BackupStale: the nightly aitbc-backup.timer lands a generation ~01:0x;
+      # a newest-generation mtime older than 30 h means tonight's run never
+      # landed -- MON-2, a silent backup stop would otherwise surface only
+      # when someone needed the backup.
+      - alert: BackupStale
+        expr: time() - aitbc_backup_last_generation_timestamp_seconds > 30 * 3600
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No fresh backup generation on {{ $labels.instance }}"
+          description: "The newest generation under /var/backups/aitbc on {{ $labels.instance }} is older than 30 h — tonight's aitbc-backup run did not land. Check systemctl status aitbc-backup.timer and journalctl -u aitbc-backup.service."
+
+      # BackupFailed: the exporter reads the unit's Result each run; a
+      # completed failure is critical -- the last landing may be torn.
+      - alert: BackupFailed
+        expr: aitbc_backup_last_run_success == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "aitbc-backup.service failed on {{ $labels.instance }}"
+          description: "The last aitbc-backup.service run on {{ $labels.instance }} did not end Result=success. Check journalctl -u aitbc-backup.service -n 50."
+
+      # BackupExporterMissing: the freshness check itself must keep running.
+      # Same lesson as EscrowSettlementCheckStale/T35: no absent() arm -- it
+      # carries no instance label and would fire on every host that lacks
+      # the timer. Only hosts WITH the exporter installed emit this series;
+      # when its timer stops the file persists and the timestamp goes stale.
+      - alert: BackupExporterMissing
+        expr: time() - aitbc_backup_exporter_timestamp_seconds > 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup freshness exporter has stopped ({{ $labels.instance }})"
+          description: "aitbc_backup_exporter_timestamp_seconds is older than an hour on {{ $labels.instance }} — backup staleness is invisible on this host again. Check systemctl status aitbc-backup-metrics.timer."
+
+      # BackupSizeCollapse: a generation that still lands but is under half
+      # the 7-day median size usually means the job degraded (empty dumps,
+      # missing tarballs) rather than real growth change.
+      - alert: BackupSizeCollapse
+        expr: aitbc_backup_last_generation_bytes < 0.5 * quantile_over_time(0.5, aitbc_backup_last_generation_bytes[7d])
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Newest backup generation is under 50% of the 7-day median on {{ $labels.instance }}"
+          description: "The newest generation on {{ $labels.instance }} is {{ $value }} bytes — under half its own 7-day median. Check the run journal for skipped sources or truncated artifacts."
+
+      # OffsitePullStale: the IDE host cannot be scraped, so the pull script
+      # writes this timestamp into hub's textfile dir after each fully
+      # successful run (operator design, BK-4). No absent() arm by design:
+      # before the first successful run the series does not exist, and the
+      # IDE host may legitimately be off -- the alert text says so.
+      - alert: OffsitePullStale
+        expr: time() - aitbc_offsite_pull_last_success_timestamp_seconds > 36 * 3600
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Off-site backup pull has not succeeded for over 36 h"
+          description: "aitbc_offsite_pull_last_success_timestamp_seconds is older than 36 h — the IDE host's off-site pull has not succeeded; that includes the IDE host being powered down or unreachable. Run offsite-pull-backups.sh --status on the IDE host."

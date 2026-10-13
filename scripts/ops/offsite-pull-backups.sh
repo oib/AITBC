@@ -20,8 +20,16 @@
 #   STABLE_MIN    minutes a generation must be untouched to count complete (10)
 #   MIN_FREE_GB   refuse below this free space on the destination fs (20)
 #   REMOTE_BASE   fleet-side backup root (default /var/backups/aitbc)
+#   PULL_LOG      log file the systemd unit appends output to; rotated here
+#                 at 1 MB, keeping 3 old files (default $DEST/pull.log)
+#   METRIC_HOST   ssh alias receiving the offsite-pull success .prom file
+#                 ("hub"; empty disables). BK-4/MON-2: one atomic write to
+#                 its node-exporter textfile dir; a failure warns but never
+#                 fails the pull.
+#   METRIC_TEXTFILE_DIR  remote textfile dir (default /var/lib/prometheus/node-exporter)
 #
-# Args: --dry-run (list what would be pulled), --host <alias> (one host).
+# Args: --dry-run (list what would be pulled), --host <alias> (one host),
+#       --status (print last-success marker age; exit 1 when older than 36 h).
 # Exit: non-zero if any host failed or any checksum mismatched.
 set -euo pipefail
 umask 077
@@ -33,9 +41,14 @@ AGE_RECIPIENT="${AGE_RECIPIENT:-}"
 STABLE_MIN="${STABLE_MIN:-10}"
 MIN_FREE_GB="${MIN_FREE_GB:-20}"
 REMOTE_BASE="${REMOTE_BASE:-/var/backups/aitbc}"
+PULL_LOG="${PULL_LOG:-$DEST/pull.log}"
+STATUS_MAX_AGE_S="${STATUS_MAX_AGE_S:-129600}"   # 36 h
+METRIC_HOST="${METRIC_HOST:-hub}"
+METRIC_TEXTFILE_DIR="${METRIC_TEXTFILE_DIR:-/var/lib/prometheus/node-exporter}"
 GEN_GLOB='20??????_??????'
 DRY_RUN=0
 ONE_HOST=""
+STATUS=0
 
 log() { printf '%s\n' "$*"; }
 warn() { printf 'WARN: %s\n' "$*" >&2; }
@@ -49,12 +62,47 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --dry-run) DRY_RUN=1 ;;
         --host) ONE_HOST="${2:?--host needs an alias}"; shift ;;
+        --status) STATUS=1 ;;
         -h|--help) usage 0 ;;
         *) warn "unknown arg: $1"; usage 2 ;;
     esac
     shift
 done
 [ -n "$ONE_HOST" ] && HOSTS="$ONE_HOST"
+
+# --status: report the last fully-successful run's marker age. Exit 1 when
+# the marker is missing or older than STATUS_MAX_AGE_S (36 h default) so a
+# silent pull failure is visible to a hand run or a watcher.
+marker="$DEST/last-success.txt"
+if [ "$STATUS" -eq 1 ]; then
+    if [ ! -f "$marker" ]; then
+        log "offsite-pull status: NO last-success marker at $marker"
+        exit 1
+    fi
+    ts=$(awk -F= '/^timestamp_epoch=/{print $2}' "$marker")
+    age=$(( $(date -u +%s) - ${ts:-0} ))
+    if [ "$age" -gt "$STATUS_MAX_AGE_S" ]; then
+        log "offsite-pull status: STALE -- last success ${age}s ago (> ${STATUS_MAX_AGE_S}s)"
+        exit 1
+    fi
+    log "offsite-pull status: ok -- last success ${age}s ago"
+    exit 0
+fi
+
+# Log rotation: the unit appends stdout/stderr to PULL_LOG; keep it bounded
+# (1 MB, 3 old files). Metadata only -- never file contents.
+rotate_log() {
+    [ -f "$PULL_LOG" ] || return 0
+    local sz
+    sz=$(stat -c %s "$PULL_LOG" 2>/dev/null || echo 0)
+    [ "$sz" -gt 1048576 ] || return 0
+    [ -f "$PULL_LOG.3" ] && rm -f "$PULL_LOG.3"
+    [ -f "$PULL_LOG.2" ] && mv "$PULL_LOG.2" "$PULL_LOG.3"
+    [ -f "$PULL_LOG.1" ] && mv "$PULL_LOG.1" "$PULL_LOG.2"
+    mv "$PULL_LOG" "$PULL_LOG.1"
+    chmod 600 "$PULL_LOG.1"
+}
+rotate_log
 
 [ -n "$AGE_RECIPIENT" ] || {
     warn "AGE_RECIPIENT unset -- refusing to store unencrypted fleet backups."
@@ -109,6 +157,7 @@ retention() {
 }
 
 fails=0
+results=()
 for host in $HOSTS; do
     probe=$(remote_probe "$host") || {
         warn "$host: probe failed (rc=$? -- no stable generation or unreachable)"
@@ -122,6 +171,7 @@ for host in $HOSTS; do
     dest_dir="$DEST/$host/$gen"
     if [ -f "$dest_dir/SHA256SUMS.age" ]; then
         log "$host: $gen already verified -- skipped"
+        results+=("$host $gen")
         retention "$DEST/$host"
         continue
     fi
@@ -166,8 +216,32 @@ for host in $HOSTS; do
     fi
     rm -rf "$partial"
     log "$host: pulled $gen -> $dest_dir ($((size / 1024 / 1024)) MB, verified + encrypted)"
+    results+=("$host $gen")
     retention "$DEST/$host"
 done
+
+if [ "$fails" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
+    # Success marker: one line of run metadata plus the generation per host.
+    # A failed run deliberately leaves the previous marker in place.
+    {
+        printf '# last fully-successful offsite-pull run\n'
+        printf 'timestamp_utc=%s\n' "$(date -u +%FT%TZ)"
+        printf 'timestamp_epoch=%s\n' "$(date -u +%s)"
+        [ "${#results[@]}" -gt 0 ] && printf '%s\n' "${results[@]}"
+    } > "$marker.tmp" && mv "$marker.tmp" "$marker" && chmod 600 "$marker"
+
+    # BK-4/MON-2 (operator design): report the pull's last success into hub's
+    # node-exporter textfile dir over the existing ssh alias -- one atomic
+    # write (temp name then rename). This is the ONLY thing the IDE host
+    # writes to a fleet host; a failure warns but never fails the pull.
+    if [ -n "$METRIC_HOST" ]; then
+        # shellcheck disable=SC2029
+        printf 'aitbc_offsite_pull_last_success_timestamp_seconds{host="ide"} %s\n' "$(date -u +%s)" \
+            | ssh "$METRIC_HOST" "cat > '$METRIC_TEXTFILE_DIR'/.aitbc_offsite_pull.prom.tmp \
+                && mv '$METRIC_TEXTFILE_DIR'/.aitbc_offsite_pull.prom.tmp '$METRIC_TEXTFILE_DIR'/aitbc_offsite_pull.prom" \
+            || warn "pull-metric write to $METRIC_HOST failed (non-fatal)"
+    fi
+fi
 
 if [ "$fails" -gt 0 ]; then
     log "offsite-pull: DONE with $fails host failure(s)"
