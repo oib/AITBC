@@ -1,13 +1,19 @@
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.health_checks import create_basic_health_check
 from aitbc.rate_limiting import rate_limit
 
+from ..services.agent_auth import AgentPrincipal, optional_agent
+
 logger = get_logger(__name__)
 router = APIRouter()
+
+# Resolves the caller's principal if credentials are present, ``None``
+# otherwise — anonymous callers get a status-only response.
+OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
 
 # Build a health checker with basic system checks (memory, disk)
 _health_checker = create_basic_health_check("agent-coordinator")
@@ -16,11 +22,22 @@ _health_checker = create_basic_health_check("agent-coordinator")
 # Health check endpoint
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
-async def health_check(request: Request) -> dict[str, Any]:
-    """Health check endpoint"""
+async def health_check(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+    """Health check endpoint.
+
+    Anonymous callers get ``{status, service, timestamp}`` only — version,
+    memory and disk detail go only to a resolved principal (any mode:
+    the credential merely has to resolve, not satisfy a scope).
+    """
     result = _health_checker.get_health_dict()
     # Preserve the version field expected by callers
     result["version"] = "1.0.0"
+    if principal is None:
+        return {
+            "service": result.get("service"),
+            "status": result.get("status"),
+            "timestamp": result.get("timestamp"),
+        }
     return result
 
 
