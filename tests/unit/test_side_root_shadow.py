@@ -136,6 +136,57 @@ def test_nonzero_fraction_timestamp_is_real_divergence(tmp_path: Path) -> None:
     assert committed_fingerprint(a)["fingerprint"] != committed_fingerprint(b)["fingerprint"]
 
 
+_CCT_DDL = (
+    "CREATE TABLE cross_chain_transfer (id INTEGER PRIMARY KEY, chain_id TEXT,"
+    " transfer_id TEXT, source_chain TEXT, target_chain TEXT, sender TEXT,"
+    " recipient TEXT, amount INTEGER, asset TEXT, source_tx_hash TEXT,"
+    " status TEXT, target_tx_hash TEXT, created_at TEXT)"
+)
+
+
+def _add_transfer_rows(conn: sqlite3.Connection, rows: int, *, tag: str) -> None:
+    conn.execute(_CCT_DDL)
+    for i in range(rows):
+        conn.execute(
+            "INSERT INTO cross_chain_transfer"
+            " (id, chain_id, transfer_id, source_chain, target_chain, sender, recipient,"
+            "  amount, asset, source_tx_hash, status, created_at)"
+            " VALUES (?, 'c1', ?, 'src', 'dst', ?, ?, ?, 'AIT', ?, 'pending', ?)",
+            (i + 1, f"tid-{tag}-{i}", f"0xSenDer-{i}", f"0xRecip-{i}", 100 + i, f"0xsrc{i}", f"2026-10-1{i}"),
+        )
+    conn.commit()
+
+
+def test_cross_chain_transfer_is_not_in_committed_set() -> None:
+    """The v14 aux root covers exactly COMMITTED_TABLES; service-local bridge
+    bookkeeping must never be promoted into it without a new version rung."""
+    assert "cross_chain_transfer" not in COMMITTED_TABLES
+
+
+def test_different_cross_chain_transfer_rows_same_fingerprint(tmp_path: Path) -> None:
+    """ACT-2 evidence: two databases carrying identical committed-table rows
+    but different cross_chain_transfer content must produce the identical
+    committed fingerprint (hence the same aux_state_root at >= v14). The fleet
+    legitimately holds different per-node lock subsets (rows are born on the
+    node that served the lock RPC — see block_deltas.CONSENSUS_SENSITIVE_WATCH),
+    so this is the production shape, not a corner case."""
+    a = _mk_db(tmp_path / "a.db")  # hub-like: more rows
+    b = _mk_db(tmp_path / "b.db")  # follower-like: fewer rows
+    _add_transfer_rows(a, 5, tag="a")
+    _add_transfer_rows(b, 4, tag="b")
+    assert committed_fingerprint(a)["fingerprint"] == committed_fingerprint(b)["fingerprint"]
+
+
+def test_missing_cross_chain_transfer_table_same_fingerprint(tmp_path: Path) -> None:
+    """A host with no cross_chain_transfer table at all (fresh node) still
+    fingerprints identically — the digest never selects the table."""
+    a = _mk_db(tmp_path / "a.db")
+    b = _mk_db(tmp_path / "b.db")
+    _add_transfer_rows(a, 5, tag="a")
+    # b carries no cross_chain_transfer table at all
+    assert committed_fingerprint(a)["fingerprint"] == committed_fingerprint(b)["fingerprint"]
+
+
 def test_flag_off_issues_no_query(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from aitbc_chain.config import settings
 

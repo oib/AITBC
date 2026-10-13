@@ -40,6 +40,8 @@ Operator procedures for the live fleet:
   live-WAL copies, verification, and the replacement-node restore path.
 - [v9 pre-pin checklist](ops/v9-pre-pin-checklist.md) — the gate that must
   be green before pinning the v9 authorization height.
+- [v14 activation runbook](ops/v14-activation-runbook.md) — what activates
+  at 46,100, healthy signs, the failure decision tree, and rollback limits.
 - [Bridge deposit canary](ops/bridge-canary-runbook.md) — staged
   ETH→AIT canary after the shadow window.
 - [V-5 replay inventory](ops/v5-replay-inventory.md) — checkpoint-replay
