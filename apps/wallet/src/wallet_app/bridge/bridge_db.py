@@ -861,17 +861,31 @@ _SELL_RESERVE_STATUSES = ("locked", "releasing", "needs_review", "queued_reserve
 
 # Statuses that count ETH as already committed for the daily cap: the send
 # either happened or is in an ambiguous state where it may have happened.
-_SELL_ETH_COMMITTED_STATUSES = ("releasing", "released", "settling", "settled", "needs_review")
+# `queued_fee_settle` released its ETH already and only owes the AIT settle;
+# `refund_pending`/`queued_fee_refund` proved no ETH left and reserve nothing.
+_SELL_ETH_COMMITTED_STATUSES = (
+    "releasing",
+    "released",
+    "settling",
+    "settled",
+    "needs_review",
+    "queued_fee_settle",
+)
 
 # Every non-terminal lock status — the poll loop's worklist.
+# `refund_pending` = release provably unsent, refund owed but not yet in
+# flight; `queued_fee_*` = sweep parked on escrow fee-float deficit.
 _SELL_OPEN_STATUSES = (
     "locked",
     "releasing",
     "released",
     "settling",
     "refunding",
+    "refund_pending",
     "stale_price",
     "queued_reserve",
+    "queued_fee_settle",
+    "queued_fee_refund",
     "needs_review",
     "orphaned",
 )
@@ -1133,6 +1147,14 @@ def get_sell_locks_by_status(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
 def get_open_sell_locks() -> list[dict[str, Any]]:
     """All non-terminal sell locks — the monitor's worklist."""
     return get_sell_locks_by_status(_SELL_OPEN_STATUSES)
+
+
+def get_sell_inflight_sweep() -> dict[str, Any] | None:
+    """The in-flight escrow sweep, if any — 'settling'/'refunding' rows hold a
+    persisted intent (nonce + signed blob). Sweep serialization: a new sweep
+    must not start while one is in flight."""
+    rows = get_sell_locks_by_status(("settling", "refunding"))
+    return rows[0] if rows else None
 
 
 def get_all_sell_locks(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
