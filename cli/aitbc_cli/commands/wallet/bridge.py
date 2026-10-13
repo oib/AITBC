@@ -290,3 +290,201 @@ def status(ctx, ait_tx_hash: str):
         raise click.Abort() from e
 
     output(info, ctx.obj.get("output_format", "table"))
+
+
+@bridge.group(invoke_without_command=False)
+def sell():
+    """Escrowed AIT -> ETH sell commands (quote / lock / status)."""
+    pass
+
+
+def _hub_bridge_client(hub_url: str | None) -> AITBCHTTPClient:
+    """HTTP client for the hub's wallet service carrying the sell routes.
+
+    Defaults to the configured wallet daemon; on a shop node pass
+    ``--hub-url`` for the hub's bridge mount (the hub wallet daemon itself is
+    loopback-only).
+    """
+    config = get_config()
+    base_url = (hub_url or config.wallet_daemon_url).rstrip("/")
+    return AITBCHTTPClient(base_url=base_url, timeout=30, max_retries=0, api_key=config.wallet_api_key)
+
+
+def _resolve_wallet(ctx, wallet_name: str | None):
+    """Load the active wallet file on this node — the key never leaves it."""
+    wallet_name = wallet_name or ctx.obj["wallet_name"]
+    wallet_dir = ctx.obj["wallet_dir"]
+    if wallet_name != ctx.obj.get("wallet_name"):
+        wallet_path = wallet_dir / f"{wallet_name}.json"
+    else:
+        wallet_path = ctx.obj.get("wallet_path") or wallet_dir / f"{wallet_name}.json"
+    if not wallet_path.exists():
+        error(f"Wallet '{wallet_name}' not found")
+        raise click.Abort()
+    return _load_wallet(wallet_path, wallet_name)
+
+
+@sell.command(
+    epilog="""Examples:
+
+  aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc... --hub-url https://hub.example/wallet
+
+  aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc...   # on the hub itself"""
+)
+@click.option("--amount", "amount", required=True, type=DECIMAL, help="AIT amount to sell.")
+@click.option("--eth-address", "eth_address", required=True, help="Ethereum address to receive ETH.")
+@click.option("--wallet-name", "wallet_name", required=False, help="Shop wallet name (AIT source).")
+@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL for the quote routes.")
+@click.pass_context
+def sell_quote(ctx, amount: Decimal, eth_address: str, wallet_name: str | None, hub_url: str | None):
+    """Request an AIT->ETH sell quote from the hub escrow."""
+    wallet_data = _resolve_wallet(ctx, wallet_name)
+    ait_address = to_eip55(wallet_data["address"])
+
+    client = _hub_bridge_client(hub_url)
+    try:
+        quote = client.post(
+            "/v1/bridge/sell/quote",
+            json={"ait_amount": str(amount), "eth_address": eth_address, "ait_address": ait_address},
+        )
+    except Exception as e:
+        error(f"Failed to get sell quote: {e}")
+        raise click.Abort() from e
+
+    if quote.get("detail") or quote.get("error"):
+        error(quote.get("detail") or quote.get("error") or "Sell quote rejected")
+        raise click.Abort()
+
+    success(f"Quote {quote.get('quote_id')}: {amount} AIT -> {quote.get('eth_amount')} ETH")
+    output(
+        {
+            "quote_id": quote.get("quote_id"),
+            "rate": quote.get("rate"),
+            "fee_ait": quote.get("fee_ait"),
+            "eth_amount": quote.get("eth_amount"),
+            "expires_at": quote.get("expires_at"),
+            "escrow_address": quote.get("escrow_address"),
+            "next": f"aitbc wallet bridge sell lock --quote-id {quote.get('quote_id')}",
+        },
+        ctx.obj.get("output_format", "table"),
+    )
+
+
+@sell.command(
+    epilog="""Examples:
+
+  aitbc wallet bridge sell lock --quote-id sellq_ab12... --wallet-name sepolia"""
+)
+@click.option("--quote-id", "quote_id", required=True, help="Sell quote id from `sell quote`.")
+@click.option("--wallet-name", "wallet_name", required=False, help="Shop wallet name (signs the lock).")
+@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL for status lookup.")
+@click.pass_context
+def sell_lock(ctx, quote_id: str, wallet_name: str | None, hub_url: str | None):
+    """Sign and submit the AIT lock to the escrow address.
+
+    The TRANSFER is signed with THIS node's wallet key and submitted to the
+    local chain RPC — the hub only ever sees the sealed transaction.
+    """
+    wallet_data = _resolve_wallet(ctx, wallet_name)
+    from_address = to_eip55(wallet_data["address"])
+    private_key_hex = wallet_data.get("private_key")
+    if not private_key_hex:
+        error("Wallet does not contain a private key")
+        raise click.Abort()
+
+    client = _hub_bridge_client(hub_url)
+    try:
+        quote = client.get(f"/v1/bridge/sell/status/{quote_id}")
+    except Exception as e:
+        error(f"Failed to fetch quote: {e}")
+        raise click.Abort() from e
+
+    escrow_address = quote.get("escrow_address")
+    ait_amount_raw = quote.get("ait_amount")
+    if quote.get("kind") != "quote" or not escrow_address or not ait_amount_raw:
+        error(f"Quote {quote_id} not found or malformed: {quote.get('detail') or quote}")
+        raise click.Abort()
+    if quote.get("status") != "quoted":
+        error(f"Quote {quote_id} is {quote.get('status')}, not quotable for a lock")
+        raise click.Abort()
+
+    from aitbc.crypto.signature_recovery import canonical_address
+    from aitbc.utils import ait_to_units
+
+    escrow_address = canonical_address(escrow_address)
+    config = get_config()
+    rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    chain_id = ctx.obj.get("chain_id") or os.getenv("CHAIN_ID", "ait-localnet")
+
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=15)
+        account = http_client.get(f"/rpc/account/{from_address}")
+        nonce = account.get("nonce", 0)
+    except Exception as e:
+        error(f"Failed to fetch account nonce: {e}")
+        raise click.Abort() from e
+
+    amount_units = ait_to_units(Decimal(str(ait_amount_raw)))
+    fee_units = ait_to_units(Decimal("0.01"))
+    unsigned_tx = {
+        "type": "TRANSFER",
+        "chain_id": chain_id,
+        "from": canonical_address(from_address),
+        "to": escrow_address,
+        "amount": amount_units,
+        "fee": fee_units,
+        "nonce": nonce,
+        "payload": {"amount": amount_units, "sell_quote": quote_id},
+    }
+
+    from eth_keys import keys as eth_keys
+    from eth_utils import keccak
+
+    if private_key_hex.startswith("0x"):
+        private_key_hex = private_key_hex[2:]
+    private_key = eth_keys.PrivateKey(bytes.fromhex(private_key_hex))
+    unsigned_fields = {k: v for k, v in unsigned_tx.items() if k != "signature"}
+    message = json.dumps(unsigned_fields, sort_keys=True, separators=(",", ":")).encode()
+    signature = private_key.sign_msg_hash(keccak(message))
+    signed_tx = dict(unsigned_tx)
+    signed_tx["signature"] = signature.to_bytes().hex()
+
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.post("/rpc/transaction", json=signed_tx)
+        ait_tx_hash = result.get("transaction_hash") or result.get("tx_hash") or ""
+        success(f"Sell lock submitted: {ait_tx_hash}")
+        output(
+            {
+                "ait_tx_hash": ait_tx_hash,
+                "quote_id": quote_id,
+                "from_address": from_address,
+                "escrow_address": escrow_address,
+                "ait_amount": str(ait_amount_raw),
+                "next": f"aitbc wallet bridge sell status --id {quote_id}",
+            },
+            ctx.obj.get("output_format", "table"),
+        )
+    except Exception as e:
+        error(f"Failed to submit sell lock: {e}")
+        raise click.Abort() from e
+
+
+@sell.command(
+    epilog="""Examples:
+
+  aitbc wallet bridge sell status --id sellq_ab12..."""
+)
+@click.option("--id", "identifier", required=True, help="Quote id, lock id, or lock transaction hash.")
+@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL.")
+@click.pass_context
+def sell_status(ctx, identifier: str, hub_url: str | None):
+    """Check the status of a sell quote or lock."""
+    client = _hub_bridge_client(hub_url)
+    try:
+        info = client.get(f"/v1/bridge/sell/status/{identifier}")
+    except Exception as e:
+        error(f"Failed to get sell status: {e}")
+        raise click.Abort() from e
+
+    output(info, ctx.obj.get("output_format", "table"))

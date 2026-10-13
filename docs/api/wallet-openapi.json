@@ -1732,6 +1732,193 @@
         }
       }
     },
+    "/v1/bridge/sell/quote": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Sell Quote",
+        "description": "Issue a quote for selling AIT for ETH via the hub escrow.",
+        "operationId": "bridge_sell_quote_v1_bridge_sell_quote_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Sell Quote V1 Bridge Sell Quote Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ait_amount must be a number / ait_amount must be positive / Minimum sell is {min_sell} AIT / eth_address is required / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many open sell quotes for this shop (max {max_open}) \u2014 let one expire or lock first / Quote rate limit: wait {int(min_interval - waited) + 1}s between quotes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Sell escrow disabled: {exc} / Price feed unavailable or stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/sell/status/{identifier}": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Sell Status",
+        "description": "Sell status by quote id, lock id, or lock transaction hash.",
+        "operationId": "bridge_sell_status_v1_bridge_sell_status__identifier__get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge Sell Status V1 Bridge Sell Status  Identifier  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Sell quote or lock not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/sell/list": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Sell List",
+        "description": "List sell quotes and locks.",
+        "operationId": "bridge_sell_list_v1_bridge_sell_list_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge Sell List V1 Bridge Sell List Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/exchange/price.json": {
       "get": {
         "tags": [

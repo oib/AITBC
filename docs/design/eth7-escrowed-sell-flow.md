@@ -293,9 +293,13 @@ only for as long as the hub is operating: while the hub holds the key
 the refund is hub automation, and a down or dishonest hub can hold the
 locked AIT (§5). The phase-2 keyless escrow is what makes the refund
 enforceable on-chain. The shop's maximum exposure is therefore one
-locked amount for roughly the release deadline — bounded in size by the
-caps (§4), bounded in time by the deadlines (§5), and publicly
-verifiable on-chain the whole time.
+locked amount whose size is bounded by the caps (§4) and publicly
+verifiable on-chain the whole time — but the *deadline* bound is a
+hub-automation guarantee, not a protocol one: the deadline refund
+fires only while hub automation is running, so a down or dishonest
+hub can hold the locked AIT past it. Phase 1 exposure is thus "one
+locked amount until a live hub refunds", bounded in time only by hub
+liveness — the keyless escrow is what removes that caveat.
 
 ## Operator decisions needed
 
@@ -320,30 +324,33 @@ path ships in the node (§3(c) is blocked on BNT-2's retired
 origination RPC) — stands as the record of why.
 
 (b) **Who creates the `AIT_SELL_ESCROW` key and where it is
-custodied** (options only — no key is handled in this task):
-
-- *(recommended)* the **operator** generates it on the hub host and
-  custodies it in the hub ops-signer alongside the other signing key
-  material, as its own custody entry — no agent ever sees or handles
-  it, and it is provably a different key from the bridge payout, ETH
-  release and genesis keys;
-- operator generates it on an admin/offline machine and imports it
-  into ops-signer custody — stronger creation hygiene at the cost of
-  an extra handling step;
-- operator-held outside ops-signer, signing releases manually —
-  strongest custody but turns every settle/refund into an operator
-  action, which defeats the deadline-refund automation that bounds
-  the shop's exposure.
+custodied — DECIDED (ETH-10 brief, operator):** the operator
+generates the key on the hub host and custodies it as its own
+ops-signer entry — an encrypted wallet JSON
+(`SELL_ESCROW_WALLET_PATH`, default
+`/var/lib/aitbc/wallets/ait-sell-escrow.json`) with the password
+sealed as a systemd credential (`SELL_ESCROW_CREDENTIAL_FILE`,
+default `/etc/aitbc/credentials/sell-escrow-pass`,
+`SELL_ESCROW_CREDENTIAL_NAME` = `sell-escrow-pass`) — the same
+custody mechanism `aitbc-ops-signer` uses for its wallet. The wallet
+service reads the slot at signing time only; no agent ever sees or
+handles the key, it never appears in env values, and it is provably
+a different key from the bridge payout, ETH release and genesis
+keys. The rejected alternatives for the record: operator generates
+off-host and imports (stronger hygiene, extra handling); operator
+signs settle/refunds manually (defeats the deadline-refund
+automation that bounds shop exposure).
 
 (c) **Cap values, and topping up the float before the first live
-run.** *Recommendation:* `SELL_MAX_ETH_PER_TX=0.01` (≈20 % of the
-0.05 ETH float), `SELL_MAX_ETH_PER_DAY=0.03`, `ETH_WITHDRAW_MIN_RESERVE=0.005`
-unchanged, and **yes — top the float up before the first live run**
-(e.g. to ~0.10 ETH via a `BRIDGE_FUNDING_SOURCES` send, an operator
-action) so the first sell release plus gas plus any concurrent
-deposit payouts does not trip `insufficient_reserve` on its first
-play. The concrete target float is the operator's call; the caps
-should be re-scaled to whatever float is actually provisioned.
+run — DECIDED (ETH-10 brief, operator):**
+`SELL_MAX_ETH_PER_TX=0.01`, `SELL_MAX_ETH_PER_DAY=0.03`,
+`ETH_WITHDRAW_MIN_RESERVE=0.005` unchanged, with the stricter of the
+per-tx cap and the `BRIDGE_MAX_PAYOUT_FRACTION`-of-float rule
+binding each release; and **yes — the float is topped up before the
+first live run** (target ~0.10 ETH via a `BRIDGE_FUNDING_SOURCES`
+send, an operator action) so the first sell release plus gas plus
+any concurrent deposit payouts does not trip `queued_reserve` on its
+first play.
 
 ## Could not verify (and why)
 

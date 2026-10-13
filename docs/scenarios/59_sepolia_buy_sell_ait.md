@@ -266,6 +266,60 @@ height 30,400 and v13/v14 only arrive at 46,100.
   replay.py` (BRIDGE_WITHDRAW in the replay set). Those are the deciding
   tests if this finding is ever doubted.
 
+## Scenario C — escrowed AIT→ETH sell (ETH-10 phase 1)
+
+> Gated behind `SELL_ESCROW_ENABLED=true` on the hub (default off) plus
+> the escrow key slot (`SELL_ESCROW_WALLET_PATH` +
+> `SELL_ESCROW_CREDENTIAL_FILE`), `AIT_SELL_ESCROW`, and
+> `SELL_TREASURY_ADDRESS` in `/etc/aitbc/exchange.env` — see
+> [docs/ops/sell-escrow-runbook.md](../ops/sell-escrow-runbook.md). The
+> shop side runs on node2; the
+> shop's wallet key never leaves node2.
+
+### C.1 Happy path — quote, lock 10 AIT, release, settle
+
+```bash
+# on node2 — quote hits the hub wallet service over HTTP
+aitbc wallet bridge sell quote --amount 10 \
+  --eth-address <node2-sepolia-addr> --hub-url http://<hub>:8108
+# → quote_id sellq_…, eth_amount, expires_at (+15 min), escrow_address
+
+# on node2 — lock signs TRANSFER→AIT_SELL_ESCROW locally (node2's own
+# wallet key) and submits to node2's own chain RPC
+aitbc wallet bridge sell lock --quote-id sellq_… --wallet-name <shop>
+
+# status until settled — locked → released → settled
+aitbc wallet bridge sell status --id sellq_… --hub-url http://<hub>:8108
+```
+
+Expected ledger trace on hub (`bridge_deposits.db`, read-only inspection):
+
+- `bridge_sell_quotes` row: `quoted` → `locked` (or `expired`+requote).
+- `bridge_sell_locks` row: `locked` → `releasing` (nonce+hash persisted
+  pre-broadcast) → `released` (ETH tx hash) → `settling` → `settled`
+  (`settle_tx_hash` = escrow→treasury TRANSFER on the AIT chain).
+- Sepolia: one `out` on the bridge wallet (`amount` = quote's
+  `eth_amount`, ≤ `SELL_MAX_ETH_PER_TX`).
+
+### C.2 Forced failure — stale quote parks, deadline refunds
+
+```bash
+aitbc wallet bridge sell quote --amount 10 --eth-address <addr> --hub-url …
+# wait past SELL_QUOTE_EXPIRY_SECONDS (900 s), then lock anyway:
+aitbc wallet bridge sell lock --quote-id sellq_… --wallet-name <shop>
+```
+
+- Feed healthy: the expired quote re-quotes at the live rate
+  (`requoted=1` on the lock row) and releases — expiry alone never traps
+  funds.
+- Feed stale (older than `BRIDGE_PRICE_MAX_AGE`): the row parks
+  `stale_price` while still escrowed; on feed recovery it releases, and
+  if `SELL_RELEASE_DEADLINE` (1 h) passes first, the escrow→shop refund
+  fires — expect `status=refunded` with `refund_tx_hash`.
+
+Verify with `aitbc wallet bridge sell status --id …` or
+`GET /v1/bridge/sell/list` on the hub wallet service.
+
 ## Gaps — steps with no CLI/MCP command
 
 | # | gap | current path |
