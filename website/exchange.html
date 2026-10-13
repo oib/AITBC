@@ -9,11 +9,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=12">
+    <link rel="stylesheet" href="/style.css?v=13">
     <script src="config.js"></script>
     <script src="exchange.js?v=13"></script>
+    <script src="exchange-book.js?v=1"></script>
 </head>
 <body>
+    <div class="ob-banner">Sepolia testnet. Test ETH and test AIT have no real-world value.</div>
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/llms.txt">llms.txt</a> &middot; <a href="/openapi.json">Coordinator API</a> &middot; <a href="/explorer-api/openapi.json">Explorer API</a>.</p></noscript>
         <header>
@@ -41,6 +43,75 @@
             <p class="value-eth" id="hero-eth-rate">1 ETH &asymp; ... AIT</p>
             <p class="price-ticker" id="price-ticker">loading...</p>
             <p class="value-note">EUR serves only as a pricing reference.<br>AIT represents compute, not fiat currency.</p>
+        </div>
+
+        <!-- ═══ Order Book (ETH-11 phase 1: read-only display) ═══ -->
+        <div class="card">
+            <h2>Order Book — AIT/ETH</h2>
+            <p class="muted-text">Live bids and asks from registered nodes. All orders are
+            <strong>unfunded — display only</strong>; nothing here settles yet.</p>
+            <div class="ob-stats">
+                <span>last: <strong id="ob-last">—</strong></span>
+                <span>spread: <strong id="ob-spread">—</strong></span>
+                <span>mid: <strong id="ob-mid">—</strong></span>
+            </div>
+            <div id="ob-error" class="error-box" style="display:none;"></div>
+            <div id="ob-empty" class="ob-empty" style="display:none;">
+                No live orders yet. The book is empty; earlier entries are inactive test data.
+            </div>
+            <div id="ob-ladder" class="ob-ladder" style="display:none;">
+                <div class="ob-scroll">
+                    <table class="ob-table">
+                        <thead><tr>
+                            <th>price (ETH per AIT)</th><th>size (AIT)</th>
+                            <th>depth (AIT)</th><th>maker</th><th></th>
+                        </tr></thead>
+                        <tbody id="ob-asks-body"></tbody>
+                    </table>
+                </div>
+                <div class="ob-spread-row">asks ↑ · bids ↓</div>
+                <div class="ob-scroll">
+                    <table class="ob-table">
+                        <tbody id="ob-bids-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <details id="ob-inactive" class="ob-inactive" style="display:none;">
+                <summary><span id="ob-inactive-label">Inactive test data</span>
+                    — earlier entries, units are not ETH per AIT</summary>
+                <div class="ob-scroll">
+                    <table class="ob-table">
+                        <thead><tr><th>side</th><th>price</th><th>size</th><th>maker</th><th>date</th></tr></thead>
+                        <tbody id="ob-inactive-body"></tbody>
+                    </table>
+                </div>
+            </details>
+        </div>
+
+        <!-- ═══ Recent Trades (read-only tape) ═══ -->
+        <div class="card">
+            <h2>Recent Trades</h2>
+            <div id="ob-tape-error" class="error-box" style="display:none;"></div>
+            <div id="ob-tape-empty" class="ob-empty" style="display:none;">
+                No live trades yet. Earlier entries are inactive test data.
+            </div>
+            <div class="ob-scroll">
+                <table class="ob-table" id="ob-tape-table" style="display:none;">
+                    <thead><tr><th>price (ETH per AIT)</th><th>size (AIT)</th><th>buyer ← seller</th><th>time (UTC)</th></tr></thead>
+                    <tbody id="ob-tape-body"></tbody>
+                </table>
+            </div>
+            <details id="ob-tape-inactive" class="ob-inactive" style="display:none;">
+                <summary><span id="ob-tape-inactive-label">Inactive test data</span>
+                    — earlier entries, units are not ETH per AIT</summary>
+                <div class="ob-scroll">
+                    <table class="ob-table">
+                        <thead><tr><th>price</th><th>size</th><th>time (UTC)</th></tr></thead>
+                        <tbody id="ob-tape-inactive-body"></tbody>
+                    </table>
+                </div>
+            </details>
+            <p class="endpoint-note" id="ob-updated">last updated —</p>
         </div>
 
         <!-- ═══ Buy AIT with ETH (Bridge) ═══ -->
