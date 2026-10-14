@@ -1396,6 +1396,36 @@ regenerated; the 503 descriptions lose the `{reason}`/`{exc}`
 placeholders. Tests assert the fixed body and the logged config text
 for all three sites.
 
+### CFG-1: `block_scoped_preregistered_transactions` defaults on (2026-10-14)
+
+O-11 path A, decided by the operator 14 Oct. `f3260ea1f1` flips the
+`ChainSettings.block_scoped_preregistered_transactions` default to True:
+a node without `BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS` can no longer
+debit `account` at RPC time. With the flag unset, `/bridge` lock /
+confirm / refund used to mutate `account` immediately; at
+state-transition >= v14 that host's `aux_state_root` then differed from
+the fleet's and its block would be refused (`sync_aux_root_rejected`).
+The env override still works both ways — an explicit `false` keeps the
+legacy path — and the fleet already carries the flag `=true` in
+`/etc/aitbc/blockchain.env` on all five hosts (verified in the chain
+units' `EnvironmentFile` list and in the running process env), so
+running nodes see no behaviour change.
+
+- `config.py`: field default `False` -> `True`.
+- `bridge_transfer.py` / `poa.py`: the four `getattr` readers now fall
+  back to `True` — a missing attribute resolves to the non-divergent
+  path instead of silently restoring RPC-time debits.
+- Tests: the 12 tests asserting the legacy RPC-time mutation path pin
+  the flag off explicitly (6 files, each in its own patch style; no
+  assertion weakened). `test_signature_skip_guard.py` gains the
+  default-True and env-false-wins cases.
+- Replay unaffected: the flag is read at RPC issuance and in the
+  proposer mempool branch only; block import/apply never consults it.
+
+The parked `dev/block-scoped-account` design (O-11 path B) still
+describes where this goes next: a v15 rung that scopes the semantics to
+the block version so no env flag decides consensus at all.
+
 ### Commit index — every commit since 2026-09-30, cited for the coverage check
 
 Continuation of the 2026-09-30 index above: `### ` sections carry the
@@ -1736,6 +1766,7 @@ narrative; this list cites each remaining commit by hash so
 - `1ac6eec1e8` test(signing): DEPS-3 known-vector guards for the eth-* family
 - `4be93665d6` docs(release): DEPS-3 changelog — replica validation + vector guards
 - `40eb639b4b` docs(test): consistent wording on the vector key's provenance
+- `f3260ea1f1` fix(bridge): default block-scoped pre-registered transactions on (CFG-1)
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
