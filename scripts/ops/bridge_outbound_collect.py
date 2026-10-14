@@ -24,11 +24,13 @@ node; this script never reaches the network.
 
 Matching (``--ledger``, optional, opened mode=ro): the monitor's
 ``eth_deposits.from_address`` set identifies refund recipients -- an
-outbound send to a recorded depositor is a refund. ``--funding-json``
-(names a JSON list of funding-source addresses, the BRIDGE_FUNDING_SOURCES
-set) marks float top-up returns as ``funding``. Everything else is
-``unidentified`` -- the reconcile script treats an unidentified leg as a
-reason the verdict cannot be trusted.
+outbound send to a recorded depositor is a refund -- and
+``eth_withdrawals.eth_tx_hash`` identifies release legs -- an outbound
+tx whose hash the withdrawal ledger recorded is a withdrawal.
+``--funding-json`` (names a JSON list of funding-source addresses, the
+BRIDGE_FUNDING_SOURCES set) marks float top-up returns as ``funding``.
+Everything else is ``unidentified`` -- the reconcile script treats an
+unidentified leg as a reason the verdict cannot be trusted.
 
 Output: the ``--onchain`` JSON for bridge_wallet_reconcile.py:
 
@@ -42,9 +44,10 @@ Output: the ``--onchain`` JSON for bridge_wallet_reconcile.py:
       }
     }
 
-``withdrawals_wei`` is always 0 here: no ledger field identifies a
-withdrawal, so a send that is neither a refund nor a funding return is
-unidentified until the B13 outbound ledger exists.
+``withdrawals_wei`` sums outbound txs whose hash appears in the ledger's
+``eth_withdrawals.eth_tx_hash`` column (B13 release leg). Without
+``--ledger`` no release can be identified and every unmatched send is
+``unidentified``.
 """
 
 from __future__ import annotations
@@ -78,7 +81,23 @@ def _load_depositors(ledger: Path | None) -> set[str]:
     return {str(r[0]).lower() for r in rows}
 
 
-def classify(txs: list[dict], depositors: set[str], funding: set[str]) -> dict[str, int]:
+def _load_release_hashes(ledger: Path | None) -> set[str]:
+    """eth_tx_hash values of recorded withdrawals — the release-leg set."""
+    if ledger is None:
+        return set()
+    con = sqlite3.connect(f"file:{ledger}?mode=ro", uri=True)
+    try:
+        try:
+            rows = con.execute("SELECT eth_tx_hash FROM eth_withdrawals WHERE eth_tx_hash IS NOT NULL").fetchall()
+        except sqlite3.OperationalError:
+            return set()  # older ledger without the withdrawals table
+    finally:
+        con.close()
+    return {str(r[0]).lower() for r in rows}
+
+
+def classify(txs: list[dict], depositors: set[str], funding: set[str], releases: set[str] | None = None) -> dict[str, int]:
+    releases = releases or set()
     terms = {"refunds_wei": 0, "withdrawals_wei": 0, "gas_wei": 0, "unidentified_wei": 0}
     for i, tx in enumerate(txs):
         if not isinstance(tx, dict) or not tx.get("tx_hash") or not tx.get("to"):
@@ -92,7 +111,9 @@ def classify(txs: list[dict], depositors: set[str], funding: set[str]) -> dict[s
         if failed or value == 0:
             continue  # a failed send moves no value; the gas already counted
         to = str(tx["to"]).lower()
-        if to in depositors:
+        if str(tx["tx_hash"]).lower() in releases:
+            terms["withdrawals_wei"] += value  # hash-joined release leg: strongest evidence
+        elif to in depositors:
             terms["refunds_wei"] += value
         elif to in funding:
             terms["refunds_wei"] += value  # funding-source returns behave like refunds
@@ -115,8 +136,9 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--txs must be a JSON list")
     funding = {a.lower() for a in json.loads(args.funding_json.read_text())} if args.funding_json else set()
     depositors = _load_depositors(args.ledger)
+    releases = _load_release_hashes(args.ledger)
 
-    terms = classify(txs, depositors, funding)
+    terms = classify(txs, depositors, funding, releases)
     out = {
         "wallet_balance_wei": str(_wei(args.balance_wei, "--balance-wei")),
         "outbound": {k: str(v) for k, v in terms.items()},
@@ -129,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     if terms["unidentified_wei"]:
         print(
             f"NOTE: {terms['unidentified_wei']} wei of outbound value is UNIDENTIFIED — "
-            "the reconcile verdict cannot be read as proof until the outbound ledger (B13) exists.",
+            "matched to no release, depositor or funding source; the verdict cannot be read as proof.",
             file=sys.stderr,
         )
     return 0
