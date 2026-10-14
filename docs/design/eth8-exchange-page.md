@@ -1,6 +1,8 @@
 # ETH-8 — Hub trade exchange page (design, Sepolia only)
 
-Date: 2026-10-13 · Status: **design only — nothing implemented** ·
+Date: 2026-10-13 · revised 2026-10-14 (ETH-14/ETH-15 settlement reality,
+phase-1 shipped, open decisions listed) · Status: **design — phase 1
+(display) shipped; phases 2–3 unimplemented** ·
 Network: Sepolia (chainId 11155111) exclusively until the v1 switch.
 Builds on [eth7-escrowed-sell-flow.md](eth7-escrowed-sell-flow.md) —
 settlement, escrow, quote and failure semantics are **not redesigned
@@ -10,7 +12,7 @@ The hub website should work like a stock exchange: a visitor sees who
 wants to buy or sell AIT for ETH, at which price and size, and the
 recent trades. Today `exchange.html` shows only the spot price —
 yet the backend already serves the order book
-(`GET /api/orders/orderbook`, `handlers/__init__.py:28`) and recent
+(`GET /api/orders/orderbook`, `handlers/__init__.py:29`) and recent
 trades (`GET /api/trades/recent`, `:27`). The gap is almost entirely
 upstream of the page: orders are unsigned, unfunded, and never settle.
 
@@ -21,7 +23,9 @@ upstream of the page: orders are unsigned, unfunded, and never settle.
 1. **Read-only public page** — render the book, tape and spread from
    endpoints that already exist. No order-placement changes, no
    settlement. Marks every order visibly as `unfunded — display only`.
-   Can ship immediately; zero consensus adjacency.
+   **Shipped** as ETH-11 phase 1 (`a22794e63`, via nginx-gated
+   `/exchange-api/orderbook` + `/exchange-api/trades`); zero consensus
+   adjacency.
 2. **Signed orders** — orders carry a wallet signature over a canonical
    envelope; placement verifies it before `BEGIN IMMEDIATE`. Registered
    nodes only (the fleet wallet registry). Still database-only — no
@@ -31,10 +35,13 @@ upstream of the page: orders are unsigned, unfunded, and never settle.
    ETH at the bridge wallet. A match becomes a settlement request in
    the ETH-7 state machine. Waits until the 46,100 activation has
    settled and ETH-2 (live withdraw run) has proven the release path.
+   The release path itself changed shape under ETH-14 — receipt-gated
+   completion with estimated gas, not broadcast-equals-sent (§7).
 
 Price rule: **±10 % band around the Chainlink-derived rate**, width a
 config value (`EXCHANGE_PRICE_BAND_PCT`, default 0.10). Traders:
-**registered nodes only**, shown as `node-name (0x1234…abcd)`.
+**registered nodes only**, shown as `node-name (0x1234…abcd)`. Both are
+recommendations, not decisions — see "Operator decisions needed".
 
 ## 1. Identity and signing
 
@@ -42,14 +49,14 @@ config value (`EXCHANGE_PRICE_BAND_PCT`, default 0.10). Traders:
   expiry_height, account_nonce, chain_id:"ait-localnet"}` — canonical
   JSON (sorted keys, compact separators), the exact encoding the
   refund path already uses
-  (`bridge_withdraw_monitor.py:228`).
+  (`bridge_withdraw_monitor.py:345`).
 - **Signer**: the node's registered AIT wallet key — the same wallet
   the node uses for chain transactions, never a new key.
 - **Verify**: `verify_transaction_signature`
   (`aitbc_chain/rpc/utils.py:151`) against the claimed
   `user_address` before the insert; reject any signature that recovers
   to a different address — today `user_address` is a free-text field
-  anyone can type (`handlers/exchange.py:132-178` — the whole "anyone
+  anyone can type (`handlers/exchange.py:133-178` — the whole "anyone
   can order in anyone's name" hole).
 - **Replay protection**: `account_nonce` must equal the wallet's
   current exchange-scoped nonce — a per-address counter column
@@ -120,9 +127,9 @@ default on an illiquid testnet.
 
 - **Price unit**: **ETH per AIT** (`price` = ETH for 1 AIT) — matches
   the natural "how much ETH is one AIT" reading and the oracle
-  (`eth_ait_rate_usd` exists in `price_api.py:193`).
+  (`eth_ait_rate_usd` exists in `price_api.py:265`).
 - **Ticks**: reuse the existing `amount_ticks`/`price_ticks` 8-decimal
-  integer columns (`db.py:23-38`) — comparisons and ORDER BY already
+  integer columns (`db.py:126-127`) — comparisons and ORDER BY already
   run on integers. `amount` in whole+8dp AIT units; `price` max 8dp
   ETH-per-AIT.
 - **Minimum order**: `EXCHANGE_MIN_ORDER` (suggest 1 AIT) —
@@ -149,7 +156,7 @@ default on an illiquid testnet.
   wins, loser gets a deterministic 409 (`cancel` on a filled order,
   or fill on a cancelled one — no phantom fills).
 - **Stays in one SQLite transaction**: insert + match under
-  `BEGIN IMMEDIATE` (`:214`) is already the correct serialization for
+  `BEGIN IMMEDIATE` (`:220`) is already the correct serialization for
   a single-writer book — keep it.
 - **Match found, settlement fails**: the `trades` row and the order
   updates commit together (the match is durable — tape integrity),
@@ -165,20 +172,56 @@ Every trade = one settlement request:
 | trade event | ETH-7 state |
 |---|---|
 | match commits | `locked` (sell leg already escrowed; buy leg already prepaid) |
-| hub sends ETH to seller | `released` (`eth_tx_hash` persisted before status flip — the ETH-7 duplicate-release fix applies verbatim) |
+| hub broadcasts the ETH send to seller | `releasing` — `eth_tx_hash` + nonce persisted *with the intent*, at broadcast (the ETH-7 duplicate-release fix applies verbatim) |
+| release receipt verifies | `released` — written **only** on a status-1 receipt at `BRIDGE_RELEASE_CONFIRMATIONS` depth; since ETH-14 the broadcast echo is never payment proof, and the monitor's per-poll check owns the flip |
 | escrow sweep sell-AIT → buyer's AIT address | `settled` (escrow → buyer, not treasury — the *buyer* receives the AIT) |
-| ETH leg fails / times out | `refunded` — escrow → seller, prepaid ETH → buyer's balance restored |
+| ETH leg **provably** failed | `refunded` — escrow → seller, prepaid ETH → buyer's balance restored |
+| ETH leg unverifiable | `needs_review` / `needs_review_release` — parked for the operator, **never auto-refunded** (ETH-14/14b) |
 | refund itself fails | `failed` + operator write-off — identical to ETH-7 |
+
+**Release mechanics (post-ETH-14, 14 Oct — `9341661aa`/`8bdf20362`)** —
+this updates the "hub sends ETH to seller" step above:
+
+- **Receipt-gated completion**: a broadcast release sits `releasing`
+  and is re-verified every poll; `released`/`completed` is written only
+  on a status-1 receipt at `BRIDGE_RELEASE_CONFIRMATIONS` depth. A
+  status-0 receipt proves `not_sent`; an absence-only view (no
+  receipt, no tx, nonce not pending) younger than
+  `ETH_RELEASE_ABSENCE_GRACE_SECONDS` (default 600) reads `unknown` —
+  never a refund trigger (ETH-14b).
+- **Estimated gas, not a constant**: `eth_estimateGas(from,to,value)`
+  × `ETH_WITHDRAW_GAS_MARGIN` (default 1.25), floor 21 000, hard cap
+  `ETH_WITHDRAW_GAS_MAX` (default 300 000). Post-Glamsterdam a send to
+  a previously unseen account estimates at ~207 k gas — the static
+  100 000 limit that caused the ETH-14 incident deterministically
+  reverts, and an estimate error or over-cap result raises before
+  signing. `ETH_WITHDRAW_GAS` survives only as an explicit override.
+- **Recovery is operator-gated**: a proven-reverted release is retried
+  via `withdraw_admin release-retry` (dry-run default, two-RPC proof,
+  exact recorded amount — never re-quoted) or parked
+  `needs_review_release` for `mark-review` → refund. Runbook:
+  `docs/ops/withdraw-release-runbook.md`.
+
+Nothing in this design pinned a fixed gas limit — the 100 000
+assumption lived in the release implementation and is gone. What the
+pre-revision text *did* assume was broadcast-equals-release ("hub sends
+ETH to seller → `released`"): corrected above. The two design steps
+that depend on the new mechanics are the **ETH leg of settlement**
+(`releasing` → verified `released` → `settled`) and the **refund leg**
+(only on a *proven* failure; an unverifiable outcome parks for the
+operator rather than auto-refunding — so a slow or lagging RPC can no
+longer refund an in-flight release). The same rules already apply to
+the ETH-7 sell-escrow releases this design reuses.
 
 The escrow sweep in a trade goes escrow → *buyer* (ETH-7 settles to
 treasury because the hub was the counterparty; here the buyer is) —
 the only semantic difference, one line in the settle target.
 
 **Fee**: `apply_bridge_fee` already computes a fee on the withdraw
-path (`price_api.py:131`); reuse its shape. Recommendation: `EXCHANGE_FEE_PCT`
+path (`price_api.py:203`); reuse its shape. Recommendation: `EXCHANGE_FEE_PCT`
 (default 0 on testnet, knob present) charged on the **AIT leg to the
 seller**, swept to the same treasury address the settle leg uses —
-one fee path, one place in the ledger.
+one fee path, one place in the ledger. Open decision — see below.
 
 ## 8. The public page
 
@@ -283,7 +326,10 @@ sticky element, not a dismissible toast.
 - **Unit**: signature envelope verify/reject (wrong signer, replay,
   expired height); unfunded order refusal; self-match prevention;
   cancel-fill race under `BEGIN IMMEDIATE`; tick-exact matching;
-  band rejection; prepaid-balance debit/refund math.
+  band rejection; prepaid-balance debit/refund math; a release
+  broadcast that reverts on-chain → settlement row stays
+  `releasing`/`needs_review`, never `released`, and refunds only on
+  proven `not_sent` (ETH-14 semantics).
 - **Two-node Sepolia scenario** (node2 sells, node0 buys): register →
   node0 prepays ETH → node2 locks 10 AIT → place crossing orders →
   match → settle → verify with `aitbc eth transfers` (escrow `in`,
@@ -314,8 +360,8 @@ chain-recorded `EXCHANGE_ORDER` type. The funding-monitor change for
 prepaid deposits can ship with phase 2 (it only *adds* a funding
 class — no existing behavior changes).
 
-**Rollout**: phase 1 is pure display and can go live as soon as
-reviewed; phase 2 (signed orders, still unfunded/settlement-free)
+**Rollout**: phase 1 is pure display — **live** since ETH-11 phase 1
+(`a22794e63`); phase 2 (signed orders, still unfunded/settlement-free)
 hardens identity without touching value; phase 3 wires funding and
 settlement once ETH-7 phase 1 + ETH-2 have run. Each phase is
 independently revertible (page revert = static file; signature
@@ -393,6 +439,44 @@ needed the node's key to receive it.
   long-term target). Carried identically in the ETH-7 design;
   the strict-reading fallback (locks to the hub's existing treasury
   address, commingled escrowed AIT) is not needed.
+- **Price rule — OPEN.** *Recommended:* ±10 % band around the
+  Chainlink-derived rate, width config (`EXCHANGE_PRICE_BAND_PCT`,
+  default 0.10) — a fat-finger can't print a 10× tick and a fake print
+  is cheap to spot; consequence: a feed outage freezes *new*
+  placements (resting orders stay visible, placements 503 like the
+  quote endpoint). *Alternative:* free market — consequence: real
+  price discovery but spoofed prints move the displayed price and the
+  manipulation surface is unbounded. (§3.)
+- **Who may trade — OPEN.** *Recommended:* registered nodes only —
+  a `node_registry` row (display name + fleet AIT address, signed
+  registration envelope) is required to place; consequence: the board
+  shows accountable `label (0x1234…abcd)` identities and a new trader
+  needs one operator-side registration step. *Alternative:* open to
+  any signing address — consequence: permissionless but anonymous
+  labels can be Sybil'd, and a spoofed "node2" cannot be told apart
+  from the real one. Reads stay public either way. (§4.)
+- **Fee — OPEN.** *Recommended:* `EXCHANGE_FEE_PCT` (default 0 on
+  testnet — knob present, off) reusing the `apply_bridge_fee` shape
+  (`price_api.py:203`), charged on the **AIT leg to the seller** and
+  swept to the same treasury address the settle leg uses; consequence:
+  one fee path, one ledger entry, the seller's proceeds are net of
+  fee. *Alternative:* buyer-pays fee on the ETH leg — consequence: the
+  buyer's prepaid debit becomes `amount × price × (1+fee)`, the
+  prepaid-math direction changes, and fee income lands in a second
+  currency path. (§7.)
+- **Phase order — OPEN.** Phase 1 (read-only display) already shipped
+  as ETH-11 phase 1 (`a22794e63`). *Recommended:* phase 2 (signed
+  orders + registration, still unfunded/settlement-free) ships next;
+  phase 3 (funded settlement) waits on the 46,100 activation bedding
+  in **and** ETH-2 — noting that ETH-14's recovery (14 Oct) *was* a
+  first live withdrawal: it ran, reverted on the old fixed-100 000-gas
+  assumption, and was recovered via `withdraw_admin`; whether that
+  counts as the release path proven, or a clean live run is wanted
+  first, is part of this decision. *Alternative:* jump straight to
+  phase 3 — consequence: the signed-identity layer goes untested in
+  the field while real funds move; or hold phase 2 until phase 3 is
+  ready — consequence: signature/cancel code paths sit dark and get
+  no soak time. (Rollout, §13.)
 
 ## Could not verify (and why)
 
@@ -419,13 +503,13 @@ needed the node's key to receive it.
 
 ## Evidence pointers (verified while writing)
 
-- unsigned orders: `handlers/exchange.py:132-178` (payload = side,
+- unsigned orders: `handlers/exchange.py:133-178` (payload = side,
   amount, price, user_address — no signature anywhere)
 - db-only + comment on the retired `/rpc/sendTx`: `:205-212`
-- atomic match in one transaction: `:214` (`BEGIN IMMEDIATE`),
+- atomic match in one transaction: `:220` (`BEGIN IMMEDIATE`),
   `:532-660` (`_match_orders_in_txn`, price-time, partial fills,
   `INSERT INTO trades` at `:604`)
-- tick math: `db.py:23-58` (8dp integer tick columns; comparisons on
+- tick math: `db.py:126-127` (8dp integer tick columns; comparisons on
   ticks, TEXT for display — lexical-compare bug already fixed and
   commented)
 - routes: `handlers/__init__.py:26-36` (`/api/orders/orderbook`,
@@ -435,7 +519,7 @@ needed the node's key to receive it.
 - live counts (read-only, mode=ro, nice): `orders` 21 rows
   (2026-07-02 → 2026-08-20), `trades` 6 rows (→ 2026-08-19) at
   `/var/lib/aitbc/data/exchange/exchange.db` on hub
-- oracle: `price_api.py:139` (`calculate_eth_amount`), `:182`
+- oracle: `price_api.py:211` (`calculate_eth_amount`), `:265`
   (`eth_ait_rate_usd`), `AIT_USD_FIXED_PRICE=0.28`
 - ETH-7 reuse: `docs/design/eth7-escrowed-sell-flow.md` (states,
   quote expiry, keyed-vs-keyless escrow decision, reserve/cap math,
