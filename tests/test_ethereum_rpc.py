@@ -1,7 +1,12 @@
 """Tests for aitbc.ethereum_rpc"""
 
 from decimal import Decimal
+import logging
+import sys
+import types
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient, get_ethereum_client
 
@@ -137,3 +142,115 @@ class TestGlobalClient:
         c1 = get_ethereum_client()
         c2 = get_ethereum_client()
         assert c1 is c2
+
+
+_FAKE_KEY = "K3Y-fake-provider-key-9f8e7d6c"
+
+
+def _keyed_urls() -> list[str]:
+    """The three keyed endpoint shapes the client assembles from config."""
+    return [
+        f"https://rpc-node.example/v3/{_FAKE_KEY}",
+        f"https://sepolia.infura.io/v3/{_FAKE_KEY}",
+        f"https://eth-sepolia.g.alchemy.com/v2/{_FAKE_KEY}",
+    ]
+
+
+def _keyed_client() -> EthereumRPCClient:
+    config = EthereumConfig(
+        network="sepolia",
+        rpc_url=_keyed_urls()[0],
+        infura_key=_FAKE_KEY,
+        alchemy_key=_FAKE_KEY,
+    )
+    return EthereumRPCClient(config=config)
+
+
+def _fake_web3(behaviour) -> types.ModuleType:
+    """A `web3` module stand-in: HTTPProvider returns the URL, is_connected defers to it."""
+
+    mod = types.ModuleType("web3")
+
+    class FakeWeb3:
+        @staticmethod
+        def HTTPProvider(url, request_kwargs=None):
+            return url
+
+        def __init__(self, provider):
+            self.provider = provider
+
+        def is_connected(self):
+            return behaviour(self.provider)
+
+    mod.Web3 = FakeWeb3
+    return mod
+
+
+def _assert_no_key_leaks(caplog) -> None:
+    for record in caplog.records:
+        assert _FAKE_KEY not in record.getMessage(), f"keyed URL in log: {record.getMessage()}"
+        assert _FAKE_KEY not in (record.exc_text or "")
+
+
+class TestRpcUrlRedaction:
+    """ETH-15 follow-up: keyed RPC URLs must not reach the journal at any level."""
+
+    def test_connect_log_redacts_keyed_url(self, caplog, monkeypatch):
+        client = _keyed_client()
+        monkeypatch.setitem(sys.modules, "web3", _fake_web3(lambda url: True))
+        with caplog.at_level(logging.DEBUG, logger="aitbc.ethereum_rpc"):
+            client._get_web3()
+
+        _assert_no_key_leaks(caplog)
+        assert any("url=https://rpc-node.example" in r.getMessage() for r in caplog.records)
+        # The request path itself is unchanged: the full keyed URL is what connects.
+        assert client.connected_url == _keyed_urls()[0]
+
+    def test_failure_log_redacts_url_and_exception_text(self, caplog, monkeypatch):
+        """Provider errors re-embed the request URL — the key — in their text."""
+        client = _keyed_client()
+
+        def boom(url):
+            raise RuntimeError(f"401 Client Error for url '{url}'")
+
+        monkeypatch.setitem(sys.modules, "web3", _fake_web3(boom))
+        with caplog.at_level(logging.DEBUG, logger="aitbc.ethereum_rpc"):
+            with pytest.raises(ConnectionError):
+                client._get_web3()
+
+        _assert_no_key_leaks(caplog)
+        messages = [r.getMessage() for r in caplog.records]
+        assert sum("RPC endpoint failed" in m for m in messages) == 5  # every configured URL tried
+        assert all("url=https://" in m and _FAKE_KEY not in m for m in messages if "RPC endpoint failed" in m)
+
+    def test_fallback_after_failure_keeps_every_record_clean(self, caplog, monkeypatch):
+        """First keyed URL fails (exception echoes it), second keyed URL connects."""
+        client = _keyed_client()
+        first = _keyed_urls()[0]
+
+        def behaviour(url):
+            if url == first:
+                raise RuntimeError(f"connect timeout calling {url}")
+            return True
+
+        monkeypatch.setitem(sys.modules, "web3", _fake_web3(behaviour))
+        with caplog.at_level(logging.DEBUG, logger="aitbc.ethereum_rpc"):
+            client._get_web3()
+
+        _assert_no_key_leaks(caplog)
+        assert client.connected_url == _keyed_urls()[1]
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("RPC endpoint failed" in m for m in messages)
+        assert any("Connected to Ethereum RPC: url=https://sepolia.infura.io " in m for m in messages)
+
+    def test_reconnect_after_reset_stays_clean(self, caplog, monkeypatch):
+        client = _keyed_client()
+        monkeypatch.setitem(sys.modules, "web3", _fake_web3(lambda url: True))
+        with caplog.at_level(logging.DEBUG, logger="aitbc.ethereum_rpc"):
+            client._get_web3()
+            client._w3 = None
+            client._connected_url = None
+            client._get_web3()  # reconnect emits the INFO line again
+
+        _assert_no_key_leaks(caplog)
+        assert sum("Connected to Ethereum RPC" in r.getMessage() for r in caplog.records) == 2
