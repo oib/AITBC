@@ -33,6 +33,7 @@ from .bridge_db import (
     update_withdrawal_status,
 )
 from .price_api import calculate_eth_amount
+from .url_redact import redact_text
 
 logger = get_logger(__name__)
 
@@ -155,8 +156,12 @@ async def _post_eth_rpc(payload: Any, timeout: float) -> httpx.Response:
 async def _eth_rpc(method: str, params: list[Any]) -> Any:
     """Call the Ethereum RPC and return the ``result`` field."""
     payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
-    response = await _post_eth_rpc(payload, timeout=10.0)
-    response.raise_for_status()
+    try:
+        response = await _post_eth_rpc(payload, timeout=10.0)
+        response.raise_for_status()
+    except httpx.HTTPError as e:
+        # httpx error text embeds the full request URL — redact it (ETH-15).
+        raise RuntimeError(f"{method} request failed: {redact_text(str(e))}") from e
     data = response.json()
     if "error" in data:
         raise RuntimeError(f"{method} error: {data['error']}")
@@ -610,6 +615,36 @@ def _release_intent_age_seconds(row: dict[str, Any]) -> float:
         return float("inf")
 
 
+async def _compose_release_outcome_detail(row: dict[str, Any]) -> tuple[str, str]:
+    """(outcome, reason) — the _compose_release_outcome contract plus *why*
+    'unknown' was returned, so a caller can log an in-grace absence quietly
+    and anything genuinely unverifiable loudly (ETH-15).
+
+    reason is one of: 'chain_view' (a receipt or mempool view decided),
+    'nonce_view', 'absent_in_grace' (nothing visible, still young — normal
+    propagation lag), 'absent_expired', or 'verify_error'.
+    """
+    try:
+        eth_tx_hash = row.get("eth_tx_hash")
+        if eth_tx_hash:
+            outcome = await _release_receipt_outcome(eth_tx_hash)
+            if outcome is not None:
+                return outcome, "chain_view"
+        nonce_outcome = await _release_nonce_outcome(row)
+        if nonce_outcome is not None:
+            return nonce_outcome, "nonce_view"
+        # Absence-only view: no receipt, no tx, nonce not visibly pending.
+        # A lagging endpoint can report this for a tx still in flight —
+        # within ETH_RELEASE_ABSENCE_GRACE_SECONDS it is 'unknown', never
+        # a refund trigger (a proven revert above already returned).
+        if _release_intent_age_seconds(row) < ETH_RELEASE_ABSENCE_GRACE_SECONDS:
+            return "unknown", "absent_in_grace"
+        return "not_sent", "absent_expired"
+    except Exception as e:
+        logger.error("Release outcome verification failed for %s: %s", row.get("ait_tx_hash"), e)
+        return "unknown", "verify_error"
+
+
 async def _compose_release_outcome(row: dict[str, Any]) -> str:
     """Verify a persisted release row's ETH outcome: 'sent'/'not_sent'/'unknown'.
 
@@ -617,25 +652,23 @@ async def _compose_release_outcome(row: dict[str, Any]) -> str:
     implementation of "is the ETH out?". The row dict must carry
     ``eth_tx_hash``, ``release_nonce`` and ``ait_tx_hash`` (log context).
     """
+    outcome, _reason = await _compose_release_outcome_detail(row)
+    return outcome
+
+
+async def _verify_release_outcome_detail(ait_tx_hash: str) -> tuple[str, str]:
+    """_verify_release_outcome plus the 'unknown' reason — see
+    _compose_release_outcome_detail for the reason vocabulary."""
     try:
-        eth_tx_hash = row.get("eth_tx_hash")
-        if eth_tx_hash:
-            outcome = await _release_receipt_outcome(eth_tx_hash)
-            if outcome is not None:
-                return outcome
-        nonce_outcome = await _release_nonce_outcome(row)
-        if nonce_outcome is not None:
-            return nonce_outcome
-        # Absence-only view: no receipt, no tx, nonce not visibly pending.
-        # A lagging endpoint can report this for a tx still in flight —
-        # within ETH_RELEASE_ABSENCE_GRACE_SECONDS it is 'unknown', never
-        # a refund trigger (a proven revert above already returned).
-        if _release_intent_age_seconds(row) < ETH_RELEASE_ABSENCE_GRACE_SECONDS:
-            return "unknown"
-        return "not_sent"
+        row = get_withdrawal_by_ait_tx_hash(ait_tx_hash)
     except Exception as e:
-        logger.error("Release outcome verification failed for %s: %s", row.get("ait_tx_hash"), e)
-        return "unknown"
+        logger.error("Could not read withdrawal %s for release verification: %s", ait_tx_hash, e)
+        return "unknown", "verify_error"
+    if not row:
+        # A missing row proves nothing about the chain.
+        return "unknown", "verify_error"
+
+    return await _compose_release_outcome_detail(row)
 
 
 async def _verify_release_outcome(ait_tx_hash: str) -> str:
@@ -649,16 +682,8 @@ async def _verify_release_outcome(ait_tx_hash: str) -> str:
     on-chain. Anything ambiguous, including a missing row or RPC failures,
     is 'unknown' so the caller never refunds blind.
     """
-    try:
-        row = get_withdrawal_by_ait_tx_hash(ait_tx_hash)
-    except Exception as e:
-        logger.error("Could not read withdrawal %s for release verification: %s", ait_tx_hash, e)
-        return "unknown"
-    if not row:
-        # A missing row proves nothing about the chain.
-        return "unknown"
-
-    return await _compose_release_outcome(row)
+    outcome, _reason = await _verify_release_outcome_detail(ait_tx_hash)
+    return outcome
 
 
 async def _resolve_release_failure(ait_tx_hash: str, sender: str, gross_ait: Decimal, exc: Exception) -> None:
@@ -707,7 +732,7 @@ async def _resume_unfinished_releases() -> dict[str, int]:
     resolved = {"completed": 0, "failed": 0, "parked": 0, "still_open": 0}
     for row in get_resumable_withdrawals():
         try:
-            outcome = await _verify_release_outcome(row["ait_tx_hash"])
+            outcome, reason = await _verify_release_outcome_detail(row["ait_tx_hash"])
             if outcome == "sent":
                 await _update_status_with_retry(row["ait_tx_hash"], "completed")
                 resolved["completed"] += 1
@@ -738,11 +763,20 @@ async def _resume_unfinished_releases() -> dict[str, int]:
                     resolved["failed"] += 1
             else:
                 resolved["still_open"] += 1
-                logger.error(
-                    "Withdrawal %s (%s) still unverifiable — needs review",
-                    row["ait_tx_hash"],
-                    row["status"],
-                )
+                if reason == "absent_in_grace":
+                    # Normal propagation lag on a just-broadcast send —
+                    # routine, not an incident (ETH-15).
+                    logger.info(
+                        "Withdrawal %s (%s) not yet visible on-chain — inside absence grace; rechecking",
+                        row["ait_tx_hash"],
+                        row["status"],
+                    )
+                else:
+                    logger.error(
+                        "Withdrawal %s (%s) still unverifiable — needs review",
+                        row["ait_tx_hash"],
+                        row["status"],
+                    )
         except Exception as e:
             resolved["still_open"] += 1
             logger.error("Resume check failed for withdrawal %s: %s", row.get("ait_tx_hash"), e)

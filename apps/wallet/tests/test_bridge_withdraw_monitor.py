@@ -16,6 +16,7 @@ Covers:
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -1111,3 +1112,79 @@ class TestAbsenceGrace:
         assert result["parked"] == 1
         assert refunded == []
         assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "needs_review_release"
+
+
+class TestGraceLogLevel:
+    """ETH-15: an in-grace absence is routine propagation lag — logged at
+    INFO, never ERROR. 'unknown' for any other reason (or past the grace
+    window) stays ERROR, since it means genuinely unverifiable."""
+
+    _ABSENT_RPC = {
+        "eth_getTransactionByHash": None,
+        "eth_getTransactionReceipt": None,
+        "eth_getTransactionCount": "0x7",  # recorded nonce 7 — free, not pending
+    }
+
+    def _monitor_records(self, caplog):
+        return [(r.levelno, r.getMessage()) for r in caplog.records if r.name == "wallet_app.bridge.bridge_withdraw_monitor"]
+
+    @pytest.mark.asyncio
+    async def test_in_grace_absence_logs_info_not_error(self, monitor_env, monkeypatch, caplog):
+        ait = "0x" + "f1" * 32
+        _seed_releasing(ait)
+        _patch_rpc(monitor_env, monkeypatch, dict(self._ABSENT_RPC))
+
+        with caplog.at_level(logging.INFO, logger="wallet_app.bridge.bridge_withdraw_monitor"):
+            result = await monitor_env._resume_unfinished_releases()
+
+        assert result["still_open"] == 1
+        msgs = self._monitor_records(caplog)
+        assert any(lvl == logging.INFO and "absence grace" in m for lvl, m in msgs)
+        assert not any(lvl >= logging.ERROR for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_non_absence_unknown_still_errors(self, monitor_env, monkeypatch, caplog):
+        """Nonce consumed without a qualifying receipt is 'unknown' for a
+        real reason — ERROR even on a young row."""
+        ait = "0x" + "f2" * 32
+        _seed_releasing(ait, nonce=7)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": None,
+                "eth_getTransactionCount": "0x9",  # nonce 7 spent, hash unseen
+            },
+        )
+
+        with caplog.at_level(logging.INFO, logger="wallet_app.bridge.bridge_withdraw_monitor"):
+            result = await monitor_env._resume_unfinished_releases()
+
+        assert result["still_open"] == 1
+        msgs = self._monitor_records(caplog)
+        assert any(lvl >= logging.ERROR and "unverifiable" in m for lvl, m in msgs)
+        assert not any(lvl == logging.INFO and "absence grace" in m for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_unknown_after_grace_still_errors(self, monitor_env, monkeypatch, caplog):
+        """A tx seen by the node but unmined stays 'unknown' past grace —
+        ERROR, not the routine in-grace INFO."""
+        ait = "0x" + "f3" * 32
+        _seed_releasing(ait)
+        _backdate_release(ait, monitor_env.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": {"hash": "0x" + "ab" * 32},
+                "eth_getTransactionReceipt": None,
+            },
+        )
+
+        with caplog.at_level(logging.INFO, logger="wallet_app.bridge.bridge_withdraw_monitor"):
+            result = await monitor_env._resume_unfinished_releases()
+
+        assert result["still_open"] == 1
+        msgs = self._monitor_records(caplog)
+        assert any(lvl >= logging.ERROR and "unverifiable" in m for lvl, m in msgs)

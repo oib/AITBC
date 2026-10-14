@@ -759,6 +759,53 @@ class TestReleaseOutcomeAndResume:
         assert len(sell_env["ait_sends"]) == 1
 
 
+class TestGraceLogLevel:
+    """ETH-15: an in-grace absence parks needs_review but logs at WARNING
+    (routine propagation lag); 'unknown' for any other reason stays ERROR."""
+
+    def _sell_records(self, caplog):
+        return [(r.levelno, r.getMessage()) for r in caplog.records if r.name == "wallet_app.bridge.sell_escrow_monitor"]
+
+    @pytest.mark.asyncio
+    async def test_in_grace_absence_logs_warning_not_error(self, sell_env, monkeypatch, caplog):
+        import logging
+
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        await sellmon.poll_sells_once()  # releases — row goes 'releasing'
+        assert get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)["status"] == "releasing"
+
+        sell_env["transfers"] = []
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.sell_escrow_monitor"):
+            await sellmon.poll_sells_once()  # RPC sees nothing — in-grace
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "needs_review"
+        msgs = self._sell_records(caplog)
+        assert any(lvl == logging.WARNING and "absence grace" in m for lvl, m in msgs)
+        assert not any(lvl >= logging.ERROR for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_non_absence_unknown_still_errors(self, sell_env, monkeypatch, caplog):
+        """A consumed nonce without a receipt is a real 'unknown' — ERROR."""
+        import logging
+
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        await sellmon.poll_sells_once()
+        sell_env["transfers"] = []
+        # Release nonce consumed, recorded hash never landed.
+        sell_env["nonces"]["latest"] = 8
+        sell_env["nonces"]["pending"] = 8
+
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.sell_escrow_monitor"):
+            await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "needs_review"
+        msgs = self._sell_records(caplog)
+        assert any(lvl >= logging.ERROR and "unverifiable" in m for lvl, m in msgs)
+        assert not any(lvl == logging.WARNING and "absence grace" in m for lvl, m in msgs)
+
+
 class TestDeadlines:
     @pytest.mark.asyncio
     async def test_deadline_refund(self, sell_env, monkeypatch):
