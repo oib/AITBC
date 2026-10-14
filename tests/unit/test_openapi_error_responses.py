@@ -158,13 +158,110 @@ def test_a_computed_status_code_is_not_guessed_at():
 
 
 def test_a_status_raised_inside_a_called_helper_is_not_found():
-    """The documented floor, pinned so it is a known limit rather than a surprise."""
+    """The documented floor, pinned so it is a known limit rather than a surprise.
+
+    `find_or_404` is public, and public names are not descended into -- that would let a
+    handler's spec depend on any other module's internals. Same-module *private* helpers
+    are followed one level; see the `_helper_*` cases below.
+    """
 
     def find_or_404(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
 
     def handler(job_id: str):
         return find_or_404(job_id)
+
+    assert codes(handler) == {}
+
+
+# Helpers for the private-helper descent tests. They must live at module level: the
+# scanner resolves `_name` through the calling function's module globals, so a helper
+# defined inside a test function is a closure it correctly never sees.
+
+
+def _helper_raises_404():
+    raise HTTPException(status_code=404, detail="helper says gone")
+
+
+def _helper_chain_outer():
+    _helper_chain_inner()
+
+
+def _helper_chain_inner():
+    raise HTTPException(status_code=409, detail="two levels deep")
+
+
+def public_helper_raises_404():
+    raise HTTPException(status_code=404, detail="public says gone")
+
+
+# A private-looking name bound to another module's function: `__module__` says where it
+# was defined, and where it was defined is what "same-module" means.
+_foreign = json.dumps
+
+
+def test_a_same_module_private_helper_is_scanned():
+    """A handler can split a check into `_helper` without the response leaving the spec."""
+
+    def handler(job_id: str):
+        _helper_raises_404()
+
+    found = codes(handler)
+    assert set(found) == {404}
+    assert found[404].description() == "helper says gone"
+
+
+def test_helper_and_body_share_a_status_and_merge_in_source_order():
+    """One entry per code; both raise sites' messages, in the order the code produces them.
+
+    The helper's call site precedes the body's own raise, so its message is listed first.
+    """
+
+    def handler(job_id: str):
+        _helper_raises_404()
+        raise HTTPException(status_code=404, detail="body says gone")
+
+    found = codes(handler)
+    assert set(found) == {404}
+    assert found[404].messages == ["helper says gone", "body says gone"]
+    assert found[404].description() == "helper says gone / body says gone"
+
+
+def test_a_public_helper_is_not_followed():
+    """Public names are another module's API surface; only `_private` calls descend."""
+
+    def handler():
+        public_helper_raises_404()
+
+    assert codes(handler) == {}
+
+
+def test_the_descent_is_exactly_one_level():
+    """`_outer`'s own call to `_inner` is not followed -- the descent is not transitive."""
+
+    def handler():
+        _helper_chain_outer()
+
+    assert codes(handler) == {}
+
+
+def test_an_imported_private_name_is_not_followed():
+    """`_foreign` resolves to `json.dumps` -- a function, but of another module."""
+
+    def handler():
+        _foreign({"x": 1})
+
+    assert codes(handler) == {}
+
+
+def test_a_locally_bound_private_name_is_not_followed():
+    """A locally defined `_helper` shadows the module's -- the call reaches the local."""
+
+    def handler():
+        def _helper_raises_404():
+            return None
+
+        _helper_raises_404()
 
     assert codes(handler) == {}
 
