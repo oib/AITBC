@@ -1767,6 +1767,7 @@ narrative; this list cites each remaining commit by hash so
 - `4be93665d6` docs(release): DEPS-3 changelog — replica validation + vector guards
 - `40eb639b4b` docs(test): consistent wording on the vector key's provenance
 - `f3260ea1f1` fix(bridge): default block-scoped pre-registered transactions on (CFG-1)
+- `cb3d697fcc` fix(security): dependency-scan.sh stops reinstalling safety, uses throwaway tools venv (SEC-19)
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -1780,3 +1781,20 @@ signature; 641 repo tests passed identically in both environments.
 `tests/unit/test_eth_signing_known_vectors.py` locks those vectors so a
 future bump that changes any of them fails loudly. Host rollout of the
 pins on hub/hub1 remains a separate gated step.
+
+### SEC-19: dependency-scan.sh no longer reinstalls safety or mutates the project venv (2026-10-14)
+
+The script still ran `pip install safety bandit pip-audit` into the repo
+venv on every run — on a SEC-15-cleaned host that reinstalls the removed
+safety/Authlib chain, and the install always mutated the live venv's
+dependency set. The script now runs pip-audit only, resolved in order:
+pip-audit on PATH, an existing `AITBC_SCAN_TOOLS_VENV`, else a throwaway
+venv (env-var path or `mktemp -d`) removed on exit. It never creates
+`./venv` (that is setup-python-venv.sh's job) and never installs into it.
+Exit behaviour is unchanged — a findings report prints a warning and the
+script still exits 0; it documents itself as a report, not a gate.
+SECURITY.md and the dev-tier tool lists in install-profiles.sh /
+requirements-test.txt no longer name the removed package. New tests run a
+copy of the script under stub shims and assert no safety invocation, no
+project-venv install, tools-venv removal and clean exit, plus bash -n and
+no-safety static guards.
