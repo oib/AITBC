@@ -161,6 +161,30 @@ def node():
     """Node registration on the hub exchange."""
 
 
+def _funding_hint(result: dict[str, Any]) -> None:
+    """Render the funding instruction attached to an unfunded order
+    (EXCHANGE_SETTLEMENT_ENABLED on the hub). Flag-off responses carry no
+    'funding' key — nothing is printed, byte-identical to before."""
+    funding = result.get("funding")
+    if not isinstance(funding, dict) or funding.get("state") != "unfunded":
+        return
+    if funding.get("type") == "eth_prepay":
+        info(
+            f"To fund: send {funding.get('needed_eth')} ETH (Sepolia) to "
+            f"{funding.get('bridge_eth_address')} with the input-data tag "
+            f"'{funding.get('tag')}' — the deposit monitor records it "
+            "exchange_prepay and the settlement monitor credits your "
+            "prepaid balance."
+        )
+    elif funding.get("type") == "ait_lock":
+        payload = funding.get("payload") or f"sell_quote={result.get('id')}"
+        info(
+            f"To fund: send a TRANSFER of at least {funding.get('required_ait')} "
+            f"AIT to {funding.get('escrow')} with payload '{payload}' from "
+            "this wallet — stranger locks are refunded, never credited."
+        )
+
+
 @order.command(
     "place",
     epilog="""Examples:
@@ -186,7 +210,8 @@ def node():
 @click.option("--exchange-url", default=None, help="Override exchange service base URL")
 @click.pass_context
 def order_place(ctx, side, amount, price, expires_in, wallet, password, password_file, password_stdin, chain_id, exchange_url):
-    """Sign and place an AIT/ETH order. Unfunded — phase 2 moves no funds."""
+    """Sign and place an AIT/ETH order. Under settlement the response
+    carries the funding instruction — rendered as a hint above the JSON."""
     if amount <= 0 or price <= 0:
         abort(ctx, "amount and price must be positive")
     address, private_key, _wallet_id = _load_signer(ctx, wallet, password, password_file, password_stdin)
@@ -206,6 +231,7 @@ def order_place(ctx, side, amount, price, expires_in, wallet, password, password
     signature = _sign_envelope(envelope, private_key)
     result = _post_signed(client, ctx, "/api/orders", envelope, signature, address)
     success(f"Order placed: {side} {amount} AIT @ {price} ETH (id {result.get('id')}, status {result.get('status')})")
+    _funding_hint(result)
     output(result, resolve_output_format(ctx))
 
 
