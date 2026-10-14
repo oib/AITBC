@@ -231,6 +231,18 @@ async def _prove_release_sent(sell_env: dict, ait_tx_hash: str) -> None:
     await sellmon.poll_sells_once()
 
 
+def _backdate_lock_release(ait_tx_hash: str, seconds: int) -> None:
+    """Move a sell lock's released_at (release-intent write time) into the
+    past so the absence grace no longer covers it."""
+    from wallet_app.bridge import bridge_db as db
+
+    old = (datetime.now() - timedelta(seconds=seconds)).isoformat()
+    conn = db._connect_db()
+    conn.execute("UPDATE bridge_sell_locks SET released_at = ? WHERE ait_tx_hash = ?", (old, ait_tx_hash))
+    conn.commit()
+    conn.close()
+
+
 def _sealed_sweep_tx(
     sell_ref: str,
     to: str,
@@ -631,6 +643,13 @@ class TestReleaseOutcomeAndResume:
         await sellmon.poll_sells_once()
 
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        # Absence on a just-written intent is 'unknown' inside the grace —
+        # needs_review; the proven-unsent refund runs once the row is old.
+        assert row["status"] == "needs_review"
+        _backdate_lock_release("0x" + "aa" * 32, wdm.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
+        await sellmon.poll_sells_once()
+
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
         # Release provably unsent -> refund_pending, refund sweep in flight.
         assert row["status"] == "refunding"
         assert len(sell_env["ait_sends"]) == 1
@@ -665,6 +684,13 @@ class TestReleaseOutcomeAndResume:
 
         monkeypatch.setattr(wdm, "_broadcast_release_tx", _broadcast_fail)
         monkeypatch.setattr(sellmon, "_broadcast_ait_tx", _ait_maybe_fail)
+        await sellmon.poll_sells_once()
+
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        # Young + absent is 'unknown' under the grace — the row parks at
+        # needs_review; aging it past the window reaches the refund path.
+        assert row["status"] == "needs_review"
+        _backdate_lock_release("0x" + "aa" * 32, wdm.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
         await sellmon.poll_sells_once()
 
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
@@ -704,6 +730,33 @@ class TestReleaseOutcomeAndResume:
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
         assert row["status"] == "needs_review"
         assert not sell_env["ait_sends"]
+
+    @pytest.mark.asyncio
+    async def test_absent_release_grace_unknown_then_refund(self, sell_env, monkeypatch):
+        """ETH-14b: a just-broadcast release that the (lagging) RPC cannot
+        see is 'unknown' inside ETH_RELEASE_ABSENCE_GRACE_SECONDS — the
+        inflight check parks it needs_review and must not refund; once
+        older than the window the same view is proven not_sent."""
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        await sellmon.poll_sells_once()
+
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "releasing"
+        assert len(sell_env["eth_sends"]) == 1
+
+        # RPC sees nothing: no tx, no receipt, nonce not visibly used.
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "needs_review"
+        assert not sell_env["ait_sends"]  # no refund issued
+
+        # Past the grace window the same absence proves not_sent.
+        _backdate_lock_release("0x" + "aa" * 32, wdm.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] in ("refund_pending", "refunding")
+        assert len(sell_env["ait_sends"]) == 1
 
 
 class TestDeadlines:
