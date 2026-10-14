@@ -123,10 +123,12 @@ class TestP1_3Bridge:
             session.commit()
 
         # Disable release-only fences so the test can pass without a full validator set.
+        # CFG-1: assert the legacy RPC-time mutation path — pin the flag off explicitly.
         with (
             patch("aitbc_chain.config.settings.bridge_release_enabled", False),
             patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
             patch("aitbc_chain.config.settings.bridge_block_signature_required", True),
+            patch("aitbc_chain.config.settings.block_scoped_preregistered_transactions", False),
         ):
             transfer = bridge.initiate_transfer(source_chain, target_chain, sender, recipient, 10_000)
             assert transfer.status == BridgeStatus.locked
@@ -209,7 +211,10 @@ class TestP1_3Bridge:
             session.add(Account(chain_id=target_chain, address=recipient, balance=0, nonce=0))
             session.commit()
 
-        with patch("aitbc_chain.config.settings.bridge_release_enabled", False):
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
+            patch("aitbc_chain.config.settings.block_scoped_preregistered_transactions", False),
+        ):
             transfer = bridge.initiate_transfer(source_chain, target_chain, sender, recipient, 5_000)
 
             block, _signature = _build_and_sign_block(bridge, source_chain, proposer, 1, transfer)
