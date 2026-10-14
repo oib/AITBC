@@ -225,14 +225,19 @@ PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/
 | `write-off <ait_tx_hash> --reason "…"` | any open, non-in-flight row | terminal `written_off`; the ETH leg stays recorded, the AIT leg is marked abandoned. Refuses `releasing`/`settling`/`refunding` — a live send owns those rows |
 | `sweep-now <ait_tx_hash>` | `queued_fee_settle`/`queued_fee_refund` | runs the monitor's own `_escrow_sweep` once, synchronously — same fee-float check, so a still-short escrow re-parks identically. An accelerator for "I just funded the escrow", not an override |
 
-Rules, mirroring the monitor's own invariants: every mutating verb is a
-dry-run by default and writes only with `--confirm --note "…"`; every
+Rules, mirroring the monitor's own invariants: the module runs **on hub
+as root only** — it refuses when euid ≠ 0 or `BLOCKCHAIN_MODE` ≠ `hub` in
+the loaded env set, and it refuses when the bridge ledger file is absent
+rather than create an empty DB on the wrong host. Every mutating verb is
+a dry-run by default and writes only with `--confirm --note "…"`; every
 status change goes through `update_sell_lock_status`; resolutions stamp
-`resolved_by`/`resolved_at`/`operator_note` (ETH-13 audit columns) and
-record `operator:<verb>` in the row's error field; nothing signs or
-broadcasts except `sweep-now`, which lives inside `_escrow_sweep`'s
+`resolved_by`/`resolved_at`/`operator_note` (ETH-13 audit columns, added
+by `init_db`'s column-if-missing migration on first run) and record
+`operator:<verb>` in the row's error field; nothing signs or broadcasts
+except `sweep-now`, which lives inside `_escrow_sweep`'s
 persist-intent-then-broadcast order; sweep serialization holds across
-manual actions. `SELL_ESCROW_ENABLED` is not required — the sell config
+manual actions — a requeued row sweeps exactly once on the monitor's own
+in-flight gate. `SELL_ESCROW_ENABLED` is not required — the sell config
 addresses and the escrow key slot must still be loadable for
 chain-touching verbs.
 
