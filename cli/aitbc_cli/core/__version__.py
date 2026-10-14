@@ -1,3 +1,7 @@
-"""AITBC CLI Version Information"""
+"""AITBC CLI Version Information
 
-__version__ = "0.25.9"
+Compatibility shim: the canonical literal lives in aitbc_cli/__init__.py;
+this re-export keeps aitbc_cli.core.__version__ working for existing callers.
+"""
+
+from aitbc_cli import __version__  # noqa: F401
