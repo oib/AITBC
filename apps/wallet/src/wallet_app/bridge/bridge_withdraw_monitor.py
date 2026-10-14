@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 from decimal import Decimal
 from typing import Any, cast
@@ -49,7 +50,17 @@ BRIDGE_ENABLED = os.getenv("BRIDGE_ENABLED", "false").lower() == "true"
 WITHDRAW_ENABLED = os.getenv("BRIDGE_WITHDRAW_ENABLED", "true").lower() == "true"
 WITHDRAW_POLL_INTERVAL = int(os.getenv("BRIDGE_WITHDRAW_POLL_INTERVAL", "30"))
 MIN_AIT_WITHDRAW = Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
-ETH_WITHDRAW_GAS = int(os.getenv("ETH_WITHDRAW_GAS", "100000"))
+# ETH-14: release gas comes from eth_estimateGas — never a static value.
+# Post-Glamsterdam (Sepolia 2026-10-06, EIP-8037 state-gas) a transfer to a
+# previously unseen address costs ~207k units; the old fixed 100k guaranteed
+# an out-of-gas revert that the ledger still recorded 'completed'.
+# ETH_WITHDRAW_GAS is now an *explicit override only* (operator escape
+# hatch); unset means estimate. Margin/floor/cap bound the estimate path;
+# an estimate error or an over-cap result fails closed before signing.
+ETH_WITHDRAW_GAS = os.getenv("ETH_WITHDRAW_GAS", "")
+ETH_WITHDRAW_GAS_MARGIN = Decimal(os.getenv("ETH_WITHDRAW_GAS_MARGIN", "1.25"))
+ETH_WITHDRAW_GAS_MAX = int(os.getenv("ETH_WITHDRAW_GAS_MAX", "300000"))
+_ETH_GAS_FLOOR = 21_000
 ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"))
 # Confirmation depth a release receipt must reach before it counts as proof.
 # Defaults to the deposit-side BRIDGE_CONFIRMATIONS (3) so both directions
@@ -160,6 +171,46 @@ async def _eth_gas_price() -> int:
     return int(result, 16)
 
 
+async def _eth_estimate_gas(to_address: str, value_wei: int) -> int:
+    """eth_estimateGas for the exact release call from the bridge wallet."""
+    result = await _eth_rpc(
+        "eth_estimateGas",
+        [
+            {
+                "from": canonical_address(ETH_WALLET_ADDRESS),
+                "to": canonical_address(to_address),
+                "value": hex(value_wei),
+            },
+            "latest",
+        ],
+    )
+    return int(result, 16)
+
+
+async def _release_gas_limit(to_address: str, amount_eth: Decimal) -> int:
+    """Gas limit for a release tx: estimate x margin, floored, hard-capped.
+
+    Fail closed: an RPC error or an over-cap estimate raises before any
+    signing or intent write — a release is never sent with unverified gas.
+    A set ETH_WITHDRAW_GAS overrides the estimate entirely (documented
+    escape hatch — a stale static value is exactly how ETH-14 happened).
+    """
+    if ETH_WITHDRAW_GAS:
+        limit = int(ETH_WITHDRAW_GAS)
+        if limit <= 0 or limit > ETH_WITHDRAW_GAS_MAX:
+            raise RuntimeError(f"ETH_WITHDRAW_GAS={limit} outside (0, {ETH_WITHDRAW_GAS_MAX}]")
+        logger.warning("ETH_WITHDRAW_GAS=%d override in use — estimate skipped", limit)
+        return limit
+    estimate = await _eth_estimate_gas(to_address, int(amount_eth * Decimal(10**18)))
+    limit = max(_ETH_GAS_FLOOR, math.ceil(Decimal(estimate) * ETH_WITHDRAW_GAS_MARGIN))
+    if limit > ETH_WITHDRAW_GAS_MAX:
+        raise RuntimeError(
+            f"release gas estimate {estimate} (x{ETH_WITHDRAW_GAS_MARGIN} = {limit}) "
+            f"exceeds ETH_WITHDRAW_GAS_MAX={ETH_WITHDRAW_GAS_MAX}"
+        )
+    return limit
+
+
 def _pending_eth_reserve() -> Decimal:
     """Sum of ETH currently allocated to pending or insufficient-reserve withdrawals.
 
@@ -180,19 +231,26 @@ def _pending_eth_reserve() -> Decimal:
     return withdraw_sum + sell_sum
 
 
-def _sign_release_tx(account: Any, to_address: str, amount_eth: Decimal, nonce: int, gas_price: int) -> tuple[str, str]:
+def _sign_release_tx(
+    account: Any,
+    to_address: str,
+    amount_eth: Decimal,
+    nonce: int,
+    gas_price: int,
+    gas_limit: int,
+) -> tuple[str, str]:
     """Build and sign the release transaction, returning (raw_tx, tx_hash).
 
     The hash is deterministic for the signed payload, so it is known
     *before* broadcast — the monitor persists it as the send id so a
     crash between broadcast and status write can still identify the
-    transaction on-chain.
+    transaction on-chain. ``gas_limit`` comes from _release_gas_limit.
     """
     value_wei = int(amount_eth * Decimal(10**18))
     tx = {
         "to": canonical_address(to_address),
         "value": value_wei,
-        "gas": ETH_WITHDRAW_GAS,
+        "gas": gas_limit,
         "gasPrice": gas_price,
         "nonce": nonce,
         "chainId": _eth_chain_id(),
@@ -216,7 +274,12 @@ async def _broadcast_release_tx(raw: str) -> str:
 
 
 async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
-    """Sign and broadcast an Ethereum transfer, returning the tx hash."""
+    """Sign and broadcast an Ethereum transfer, returning the tx hash.
+
+    Broadcast only — a returned hash is NOT proof of payment. The caller
+    owns receipt verification (_release_receipt_outcome); never record a
+    send as complete on the broadcast echo alone (ETH-14).
+    """
     key, error = _validate_release_key()
     if not key:
         raise RuntimeError(error)
@@ -224,7 +287,8 @@ async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
     account = EthAccount.from_key(key)
     nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
     gas_price = await _eth_gas_price()
-    raw, eth_tx_hash = _sign_release_tx(account, to_address, amount_eth, nonce, gas_price)
+    gas_limit = await _release_gas_limit(to_address, amount_eth)
+    raw, eth_tx_hash = _sign_release_tx(account, to_address, amount_eth, nonce, gas_price, gas_limit)
     sent = await _broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("eth_sendRawTransaction returned %s, expected signed hash %s", sent, eth_tx_hash)
@@ -339,18 +403,34 @@ async def _update_status_with_retry(
     raise RuntimeError(f"could not persist withdrawal {ait_tx_hash} status {status}: {last_exc}")
 
 
-async def _release_eth_for_withdrawal(withdrawal_id: str, ait_tx_hash: str, eth_address: str, amount_eth: Decimal) -> str:
+async def _release_eth_for_withdrawal(
+    withdrawal_id: str,
+    ait_tx_hash: str,
+    eth_address: str,
+    amount_eth: Decimal,
+    *,
+    intent_status: str = "releasing",
+    nonce: int | None = None,
+) -> str:
     """Send the ETH release transaction and return the Ethereum tx hash.
 
-    Ordering guarantees (ETH-9): the intent ('releasing' + nonce +
-    deterministic tx hash) is persisted before broadcast; the tx hash
-    is persisted again with 'completed' before the function returns.
-    Any failure after the send leaves the 'releasing' row carrying the
-    send id for the on-chain re-verification, never a blind refund.
+    Ordering guarantees (ETH-9/ETH-14): the intent (``intent_status`` +
+    nonce + deterministic tx hash) is persisted BEFORE broadcast, and the
+    row stays there — 'completed' is written only by the verified-outcome
+    paths (_resume_unfinished_releases / _resolve_release_failure / the
+    release-retry command), never right after broadcast. A reverted or
+    dropped release can never again be recorded as paid.
+
+    ``intent_status`` is 'releasing_retry' for operator-driven re-releases
+    so the resume pass parks a failed retry ('needs_review_release')
+    instead of auto-refunding — the refund decision stays with the
+    operator. ``nonce`` overrides the pending-count nonce (used to reuse a
+    provably free nonce when a prior broadcast never sealed).
     """
     # Reserve guard: we need the withdrawal amount plus gas cost in ETH.
     gas_price = await _eth_gas_price()
-    estimated_gas_cost_eth = Decimal(gas_price * ETH_WITHDRAW_GAS) / Decimal(10**18)
+    gas_limit = await _release_gas_limit(eth_address, amount_eth)
+    estimated_gas_cost_eth = Decimal(gas_price * gas_limit) / Decimal(10**18)
     required = amount_eth + estimated_gas_cost_eth
     available = await _eth_balance(ETH_WALLET_ADDRESS) - _pending_eth_reserve()
     if available < required:
@@ -360,23 +440,24 @@ async def _release_eth_for_withdrawal(withdrawal_id: str, ait_tx_hash: str, eth_
     if not key:
         raise RuntimeError(error)
     account = EthAccount.from_key(key)
-    nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
-    raw, eth_tx_hash = _sign_release_tx(account, eth_address, amount_eth, nonce, gas_price)
+    if nonce is None:
+        nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
+    raw, eth_tx_hash = _sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
 
     # Persist intent BEFORE broadcast: a crash after this line leaves
     # evidence (nonce + deterministic hash) the resume check can verify.
-    await _update_status_with_retry(ait_tx_hash, "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+    await _update_status_with_retry(ait_tx_hash, intent_status, eth_tx_hash=eth_tx_hash, release_nonce=nonce)
 
     sent = await _broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
 
-    await _update_status_with_retry(ait_tx_hash, "completed", eth_tx_hash=eth_tx_hash)
     logger.info(
-        "Released %s ETH to %s (ETH tx: %s) for withdrawal %s",
+        "Broadcast release %s ETH to %s (ETH tx: %s, gas %d) for withdrawal %s — awaiting receipt proof",
         amount_eth,
         eth_address,
         eth_tx_hash,
+        gas_limit,
         withdrawal_id,
     )
     return eth_tx_hash
@@ -588,7 +669,7 @@ async def _resume_unfinished_releases() -> dict[str, int]:
     Proven-sent rows complete; proven-unsent rows fail and refund;
     unknown rows stay open for the operator.
     """
-    resolved = {"completed": 0, "failed": 0, "still_open": 0}
+    resolved = {"completed": 0, "failed": 0, "parked": 0, "still_open": 0}
     for row in get_resumable_withdrawals():
         try:
             outcome = await _verify_release_outcome(row["ait_tx_hash"])
@@ -597,14 +678,29 @@ async def _resume_unfinished_releases() -> dict[str, int]:
                 resolved["completed"] += 1
                 logger.info("Resumed withdrawal %s: ETH release confirmed on chain", row["ait_tx_hash"])
             elif outcome == "not_sent":
-                update_withdrawal_status(row["ait_tx_hash"], "failed", error="release never reached the chain")
-                await _refund_withdrawal(
-                    row["ait_tx_hash"],
-                    row["from_address"],
-                    Decimal(str(row["amount_ait"])),
-                    "release never reached the chain",
-                )
-                resolved["failed"] += 1
+                if row["status"] == "releasing_retry":
+                    # Operator-driven retry: park, never auto-refund — the
+                    # refund path is the operator's deliberate fallback
+                    # (mark-review), not an automatic outcome (ETH-14).
+                    update_withdrawal_status(
+                        row["ait_tx_hash"],
+                        "needs_review_release",
+                        error="release retry reverted or never landed — operator decision required",
+                    )
+                    resolved["parked"] += 1
+                    logger.error(
+                        "Withdrawal %s: release retry proven unsent — parked needs_review_release",
+                        row["ait_tx_hash"],
+                    )
+                else:
+                    update_withdrawal_status(row["ait_tx_hash"], "failed", error="release never reached the chain")
+                    await _refund_withdrawal(
+                        row["ait_tx_hash"],
+                        row["from_address"],
+                        Decimal(str(row["amount_ait"])),
+                        "release never reached the chain",
+                    )
+                    resolved["failed"] += 1
             else:
                 resolved["still_open"] += 1
                 logger.error(
