@@ -423,3 +423,85 @@ class TestPollRequestRoute:
 
         resp = client.post("/v1/bridge/poll-request")
         assert resp.status_code == 200  # kick is best-effort, never fatal
+
+
+class TestReleaseAttempts:
+    """ETH-14: operator release attempts — recorded with operator, note,
+    hash/nonce and outcome; the row's retry_count tracks them."""
+
+    def _seed(self, ait_tx_hash: str = "0xa" * 64) -> str:
+        from wallet_app.bridge.bridge_db import insert_withdrawal
+
+        return insert_withdrawal(
+            ait_tx_hash=ait_tx_hash,
+            from_address="0x1111111111111111111111111111111111111111",
+            eth_address="0x2222222222222222222222222222222222222222",
+            amount_ait=Decimal("10"),
+            fee_ait=Decimal("0.05"),
+            net_ait=Decimal("9.95"),
+            amount_eth=Decimal("0.001"),
+        )
+
+    def test_record_attempt_bumps_retry_count_and_lists(self, bridge_db):
+        from wallet_app.bridge.bridge_db import (
+            get_release_attempts,
+            get_withdrawal_by_ait_tx_hash,
+            record_release_attempt,
+            update_release_attempt,
+        )
+
+        h = "0xa" * 64
+        self._seed(h)
+        first = record_release_attempt(h, resolved_by="operator", operator_note="ETH-14 retry 1")
+        second = record_release_attempt(h, resolved_by="operator", operator_note="ETH-14 retry 2")
+        assert first != second
+
+        update_release_attempt(first, eth_tx_hash="0x" + "ee" * 32, release_nonce=1, outcome="sent")
+
+        row = get_withdrawal_by_ait_tx_hash(h)
+        assert row["retry_count"] == 2
+
+        attempts = get_release_attempts(h)
+        assert len(attempts) == 2
+        assert attempts[0]["resolved_by"] == "operator"
+        assert attempts[0]["operator_note"] == "ETH-14 retry 1"
+        assert attempts[0]["eth_tx_hash"] == "0x" + "ee" * 32
+        assert attempts[0]["release_nonce"] == 1
+        assert attempts[0]["outcome"] == "sent"
+        assert attempts[0]["resolved_at"]
+        assert attempts[1]["outcome"] == "attempted"
+        assert attempts[1]["eth_tx_hash"] is None
+
+    def test_resumable_includes_releasing_retry_not_needs_review_release(self, bridge_db):
+        from wallet_app.bridge.bridge_db import (
+            get_resumable_withdrawals,
+            update_withdrawal_status,
+        )
+
+        self._seed("0xa" * 64)
+        self._seed("0xb" * 64)
+        self._seed("0xc" * 64)
+        update_withdrawal_status("0xa" * 64, "releasing_retry", eth_tx_hash="0x" + "ee" * 32, release_nonce=1)
+        update_withdrawal_status("0xb" * 64, "needs_review_release")
+        update_withdrawal_status("0xc" * 64, "needs_review")
+
+        resumable = {r["ait_tx_hash"] for r in get_resumable_withdrawals()}
+        assert "0xa" * 64 in resumable
+        assert "0xc" * 64 in resumable
+        assert "0xb" * 64 not in resumable  # parked — operator-only
+
+    def test_pending_includes_retry_statuses(self, bridge_db):
+        """retry/parked rows still hold their amount_eth against the reserve."""
+        from wallet_app.bridge.bridge_db import (
+            get_pending_withdrawals,
+            update_withdrawal_status,
+        )
+
+        self._seed("0xa" * 64)
+        self._seed("0xb" * 64)
+        update_withdrawal_status("0xa" * 64, "releasing_retry")
+        update_withdrawal_status("0xb" * 64, "needs_review_release")
+
+        pending = {r["ait_tx_hash"] for r in get_pending_withdrawals()}
+        assert "0xa" * 64 in pending
+        assert "0xb" * 64 in pending

@@ -122,6 +122,25 @@ def init_db() -> None:
     # ETH-9: nonce recorded before an ETH release is broadcast, so a crash or
     # restart can prove from the chain whether the send consumed the nonce.
     _add_column_if_not_exists(conn, "eth_withdrawals", "release_nonce", "INTEGER")
+    # ETH-14: operator release-retry bookkeeping. retry_count on the row is
+    # bumped per attempt; every attempt is recorded in
+    # eth_withdrawal_release_attempts with operator + note + outcome.
+    _add_column_if_not_exists(conn, "eth_withdrawals", "retry_count", "INTEGER NOT NULL DEFAULT 0")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS eth_withdrawal_release_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ait_tx_hash TEXT NOT NULL,
+            eth_tx_hash TEXT,
+            release_nonce INTEGER,
+            resolved_by TEXT,
+            resolved_at TIMESTAMP,
+            operator_note TEXT,
+            outcome TEXT NOT NULL DEFAULT 'attempted'
+        )
+    """)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_withdrawal_release_attempts_tx ON eth_withdrawal_release_attempts(ait_tx_hash)"
+    )
 
     # ETH-10: escrowed AIT->ETH sell flow. Quotes are hub-issued price
     # promises; locks are the shop-signed TRANSFERs to AIT_SELL_ESCROW.
@@ -618,7 +637,7 @@ def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce
+            released_at, completed_at, refunded_at, release_nonce, retry_count
         FROM eth_withdrawals
         WHERE ait_tx_hash = ?
         """,
@@ -646,6 +665,7 @@ def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
         "completed_at",
         "refunded_at",
         "release_nonce",
+        "retry_count",
     ]
     return dict(zip(keys, row, strict=False))
 
@@ -661,7 +681,8 @@ def get_pending_withdrawals() -> list[dict[str, Any]]:
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
             released_at, completed_at, refunded_at, release_nonce
         FROM eth_withdrawals
-        WHERE status IN ('pending', 'insufficient_reserve', 'failed', 'releasing', 'needs_review')
+        WHERE status IN ('pending', 'insufficient_reserve', 'failed', 'releasing', 'needs_review',
+                         'releasing_retry', 'needs_review_release')
         ORDER BY created_at ASC
         """,
     )
@@ -690,12 +711,16 @@ def get_pending_withdrawals() -> list[dict[str, Any]]:
 
 
 def get_resumable_withdrawals() -> list[dict[str, Any]]:
-    """Withdrawals left mid-release ('releasing') or unverifiable ('needs_review').
+    """Withdrawals left mid-release ('releasing'/'releasing_retry') or
+    unverifiable ('needs_review').
 
     A crash between the ETH broadcast and the status write leaves a
     'releasing' row; the monitor re-verifies these against the chain
     on every poll and after restart instead of retrying or refunding
-    blindly.
+    blindly. 'releasing_retry' rows are operator-driven re-releases —
+    they are re-verified the same way, but a proven failure parks them
+    at 'needs_review_release' instead of auto-refunding. That parked
+    status is deliberately NOT resumable: only an operator moves it.
     """
     conn = _connect_db()
     cursor = conn.cursor()
@@ -706,7 +731,7 @@ def get_resumable_withdrawals() -> list[dict[str, Any]]:
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
             released_at, completed_at, refunded_at, release_nonce
         FROM eth_withdrawals
-        WHERE status IN ('releasing', 'needs_review')
+        WHERE status IN ('releasing', 'needs_review', 'releasing_retry')
         ORDER BY created_at ASC
         """,
     )
@@ -807,6 +832,94 @@ def update_withdrawal_status(
     rows_affected = cursor.rowcount
     conn.close()
     return rows_affected > 0
+
+
+# ---------------------------------------------------------------------------
+# ETH-14 — operator release-retry attempts
+# ---------------------------------------------------------------------------
+
+
+def record_release_attempt(ait_tx_hash: str, resolved_by: str, operator_note: str | None) -> int:
+    """Register an operator release attempt BEFORE the send is signed.
+
+    Bumps ``retry_count`` on the withdrawal row and inserts the attempt
+    record carrying who asked and why. Returns the attempt id — the caller
+    fills in ``eth_tx_hash``/``release_nonce``/``outcome`` afterwards via
+    :func:`update_release_attempt`.
+    """
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE eth_withdrawals SET retry_count = COALESCE(retry_count, 0) + 1 WHERE ait_tx_hash = ?",
+        (ait_tx_hash,),
+    )
+    cursor.execute(
+        """
+        INSERT INTO eth_withdrawal_release_attempts
+            (ait_tx_hash, resolved_by, resolved_at, operator_note)
+        VALUES (?, ?, ?, ?)
+        """,
+        (ait_tx_hash, resolved_by, datetime.now().isoformat(), operator_note),
+    )
+    attempt_id = int(cursor.lastrowid or 0)
+    conn.commit()
+    conn.close()
+    return attempt_id
+
+
+def update_release_attempt(
+    attempt_id: int,
+    *,
+    eth_tx_hash: str | None = None,
+    release_nonce: int | None = None,
+    outcome: str | None = None,
+) -> bool:
+    """Fill in an attempt row with the produced hash/nonce and its outcome."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE eth_withdrawal_release_attempts
+        SET eth_tx_hash = COALESCE(?, eth_tx_hash),
+            release_nonce = COALESCE(?, release_nonce),
+            outcome = COALESCE(?, outcome)
+        WHERE id = ?
+        """,
+        (eth_tx_hash, release_nonce, outcome, attempt_id),
+    )
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
+
+
+def get_release_attempts(ait_tx_hash: str) -> list[dict[str, Any]]:
+    """All recorded release attempts for a withdrawal, oldest first."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, ait_tx_hash, eth_tx_hash, release_nonce, resolved_by,
+               resolved_at, operator_note, outcome
+        FROM eth_withdrawal_release_attempts
+        WHERE ait_tx_hash = ?
+        ORDER BY id ASC
+        """,
+        (ait_tx_hash,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    keys = [
+        "id",
+        "ait_tx_hash",
+        "eth_tx_hash",
+        "release_nonce",
+        "resolved_by",
+        "resolved_at",
+        "operator_note",
+        "outcome",
+    ]
+    return [dict(zip(keys, row, strict=False)) for row in rows]
 
 
 # ---------------------------------------------------------------------------

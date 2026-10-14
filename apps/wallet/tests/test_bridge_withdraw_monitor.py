@@ -2,11 +2,15 @@
 
 Covers:
 - reserve guard in _release_eth_for_withdrawal
-- successful ETH release updates the withdrawal record
+- ETH-14: broadcast leaves the row 'releasing'; only a verified receipt
+  may complete it (resume pass), never the broadcast echo
+- _release_gas_limit: estimate x margin, floor, cap, fail-closed, override
 - release failure with insufficient reserve
 - _refund_withdrawal submits a refund transfer and updates the record
 - refund failure marks the record failed
 - _pending_eth_reserve sums pending/insufficient-reserve withdrawals
+- ETH-14: releasing_retry rows park at needs_review_release on proven
+  failure and are never auto-refunded
 """
 
 from __future__ import annotations
@@ -56,7 +60,9 @@ def monitor_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(monitor, "ETH_WALLET_PRIVATE_KEY", TEST_ETH_PRIVATE_KEY)
         monkeypatch.setattr(monitor, "GENESIS_WALLET_ADDRESS", TEST_ETH_ADDRESS)
         monkeypatch.setattr(monitor, "GENESIS_WALLET_PRIVATE_KEY", TEST_ETH_PRIVATE_KEY)
-        monkeypatch.setattr(monitor, "ETH_WITHDRAW_GAS", 100_000)
+        # Static override so existing tests never reach eth_estimateGas;
+        # gas-policy tests clear it and stub the RPC instead.
+        monkeypatch.setattr(monitor, "ETH_WITHDRAW_GAS", "100000")
         yield monitor
 
 
@@ -169,10 +175,26 @@ class TestReleaseEthForWithdrawal:
         assert eth_tx_hash.startswith("0x") and len(eth_tx_hash) == 66
         assert len(sent) == 1
 
+        # ETH-14: broadcast alone leaves the row 'releasing' — 'completed'
+        # requires a status-1 receipt at depth, proven by the resume pass.
+        record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
+        assert record["status"] == "releasing"
+        assert record["eth_tx_hash"] == eth_tx_hash
+        assert record["release_nonce"] == 7
+
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionReceipt": {"status": "0x1", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+            },
+        )
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["completed"] == 1
         record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
         assert record["status"] == "completed"
         assert record["eth_tx_hash"] == eth_tx_hash
-        assert record["release_nonce"] == 7
 
     @pytest.mark.asyncio
     async def test_release_fails_when_reserve_insufficient(self, monitor_env, seed_withdrawal, monkeypatch):
@@ -295,7 +317,7 @@ class TestRefundWithdrawal:
         assert "refund transaction rejected" in record["error"]
 
 
-def _seed_releasing(ait_tx_hash: str, nonce: int = 7) -> None:
+def _seed_releasing(ait_tx_hash: str, nonce: int = 7, status: str = "releasing") -> None:
     from wallet_app.bridge.bridge_db import update_withdrawal_status
 
     insert_withdrawal(
@@ -307,7 +329,7 @@ def _seed_releasing(ait_tx_hash: str, nonce: int = 7) -> None:
         net_ait=Decimal("9.95"),
         amount_eth=Decimal("0.001"),
     )
-    update_withdrawal_status(ait_tx_hash, "releasing", eth_tx_hash="0x" + "ab" * 32, release_nonce=nonce)
+    update_withdrawal_status(ait_tx_hash, status, eth_tx_hash="0x" + "ab" * 32, release_nonce=nonce)
 
 
 def _patch_rpc(monitor_env, monkeypatch, responses: dict):
@@ -341,13 +363,24 @@ class TestDuplicateReleaseSafety:
 
     @pytest.mark.asyncio
     async def test_completed_write_fails_once_then_retries(self, monitor_env, seed_withdrawal, monkeypatch):
-        """A transient DB error on 'completed' is retried, never falls to refund."""
+        """A transient DB error on 'completed' is retried, never falls to refund.
+
+        ETH-14: the 'completed' write lives on the verified resume path —
+        the broadcast itself only leaves 'releasing'."""
         _patch_release_path(monitor_env, monkeypatch)
 
         async def _broadcast(raw: str) -> str:
             return "0x" + "ab" * 32
 
         monkeypatch.setattr(monitor_env, "_broadcast_release_tx", _broadcast)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionReceipt": {"status": "0x1", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+            },
+        )
 
         real_update = monitor_env.update_withdrawal_status
         calls = {"completed": 0}
@@ -364,7 +397,10 @@ class TestDuplicateReleaseSafety:
         eth_tx_hash = await monitor_env._release_eth_for_withdrawal(
             "w1", seed_withdrawal, "0x2222222222222222222222222222222222222222", Decimal("0.001")
         )
+        assert get_withdrawal_by_ait_tx_hash(seed_withdrawal)["status"] == "releasing"
 
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["completed"] == 1
         record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
         assert record["status"] == "completed"
         assert record["eth_tx_hash"] == eth_tx_hash
@@ -372,8 +408,9 @@ class TestDuplicateReleaseSafety:
 
     @pytest.mark.asyncio
     async def test_send_then_db_failure_no_refund_resume_completes(self, monitor_env, seed_withdrawal, monkeypatch):
-        """The ETH-9 crash: send ok, 'completed' write fails, verify proves
-        sent -> no refund; a later resume pass completes the row."""
+        """The ETH-9/ETH-14 crash: send ok, then every 'completed' write
+        fails — no refund may issue; once the DB recovers a later resume
+        pass completes the row."""
         _patch_release_path(monitor_env, monkeypatch)
 
         async def _broadcast(raw: str) -> str:
@@ -399,6 +436,14 @@ class TestDuplicateReleaseSafety:
 
         monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
 
+        await monitor_env._release_eth_for_withdrawal(
+            "w1", seed_withdrawal, "0x2222222222222222222222222222222222222222", Decimal("0.001")
+        )
+        record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
+        assert record["status"] == "releasing"
+        assert record["eth_tx_hash"].startswith("0x")
+        assert record["release_nonce"] == 7
+
         real_update = monitor_env.update_withdrawal_status
         fail_completed = {"on": True}
 
@@ -409,20 +454,12 @@ class TestDuplicateReleaseSafety:
 
         monkeypatch.setattr(monitor_env, "update_withdrawal_status", flaky)
 
-        with pytest.raises(RuntimeError, match="could not persist"):
-            await monitor_env._release_eth_for_withdrawal(
-                "w1", seed_withdrawal, "0x2222222222222222222222222222222222222222", Decimal("0.001")
-            )
-
-        # Send succeeded, persist failed -> the except path must NOT refund.
-        await monitor_env._resolve_release_failure(
-            seed_withdrawal, "0x1111111111111111111111111111111111111111", Decimal("10"), RuntimeError("boom")
-        )
+        # First resume: chain proves sent but every persist fails — the row
+        # stays open, never refunded.
+        first = await monitor_env._resume_unfinished_releases()
+        assert first["still_open"] == 1
         assert refunded == []
-        record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
-        assert record["status"] == "releasing"
-        assert record["eth_tx_hash"].startswith("0x")
-        assert record["release_nonce"] == 7
+        assert get_withdrawal_by_ait_tx_hash(seed_withdrawal)["status"] == "releasing"
 
         # Simulate restart: DB healthy again, resume completes the row.
         fail_completed["on"] = False
@@ -695,3 +732,228 @@ class TestDuplicateReleaseSafety:
 
         monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc_down)
         assert await monitor_env._verify_release_outcome("0x" + "a1" * 32) == "unknown"
+
+
+class TestReleaseGasPolicy:
+    """ETH-14: _release_gas_limit — estimate x margin, floor, cap, fail closed.
+
+    Post-Glamsterdam Sepolia a plain transfer to a fresh address estimates
+    at ~207,391 (EIP-8037 state-gas) — a static 100k limit is a guaranteed
+    out-of-gas revert. The release path must always estimate (or take the
+    documented override) and refuse anything unverifiable.
+    """
+
+    def _estimator(self, monitor_env, monkeypatch, estimate_hex: str = "0x32a1f"):
+        calls = []
+
+        async def _rpc(method: str, params: list):
+            calls.append((method, params))
+            if method == "eth_estimateGas":
+                return estimate_hex
+            raise AssertionError(f"unexpected eth_rpc call {method}")
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc)
+        monkeypatch.setattr(monitor_env, "ETH_WITHDRAW_GAS", "")
+        return calls
+
+    @pytest.mark.asyncio
+    async def test_estimate_times_margin(self, monitor_env, monkeypatch):
+        """207,391 x 1.25 = 259,238.75 -> ceil 259,239."""
+        calls = self._estimator(monitor_env, monkeypatch, "0x32a1f")
+        limit = await monitor_env._release_gas_limit("0x2222222222222222222222222222222222222222", Decimal("0.001"))
+        assert limit == 259_239
+        # The estimate call carries the exact (from, to, value) tuple.
+        assert calls[0][0] == "eth_estimateGas"
+        call = calls[0][1][0]
+        assert call["to"] == "0x2222222222222222222222222222222222222222"
+        assert call["value"] == hex(int(Decimal("0.001") * 10**18))
+        assert call["from"].lower() == TEST_ETH_ADDRESS.lower()
+
+    @pytest.mark.asyncio
+    async def test_floor_applies_below_21000(self, monitor_env, monkeypatch):
+        """A 15,000 estimate x 1.25 = 18,750 -> floored to 21,000."""
+        self._estimator(monitor_env, monkeypatch, hex(15_000))
+        limit = await monitor_env._release_gas_limit("0x2222222222222222222222222222222222222222", Decimal("0.001"))
+        assert limit == 21_000
+
+    @pytest.mark.asyncio
+    async def test_estimate_over_cap_fails_closed(self, monitor_env, monkeypatch):
+        """500k x 1.25 exceeds the 300k cap -> raise before any signing."""
+        self._estimator(monitor_env, monkeypatch, hex(500_000))
+        with pytest.raises(RuntimeError, match="ETH_WITHDRAW_GAS_MAX"):
+            await monitor_env._release_gas_limit("0x2222222222222222222222222222222222222222", Decimal("0.001"))
+
+    @pytest.mark.asyncio
+    async def test_estimate_rpc_error_fails_closed(self, monitor_env, monkeypatch):
+        async def _rpc_down(method: str, params: list):
+            raise RuntimeError("rpc down")
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc_down)
+        monkeypatch.setattr(monitor_env, "ETH_WITHDRAW_GAS", "")
+        with pytest.raises(RuntimeError):
+            await monitor_env._release_gas_limit("0x2222222222222222222222222222222222222222", Decimal("0.001"))
+
+    @pytest.mark.asyncio
+    async def test_estimate_failure_never_broadcasts(self, monitor_env, seed_withdrawal, monkeypatch):
+        """An estimation error raises before intent persist or broadcast —
+        _resolve_release_failure then proves 'not_sent' (no hash, no nonce)
+        and refunds."""
+        sent: list[str] = []
+
+        async def _broadcast(raw: str) -> str:
+            sent.append(raw)
+            return "0x" + "ab" * 32
+
+        monkeypatch.setattr(monitor_env, "_broadcast_release_tx", _broadcast)
+        monkeypatch.setattr(monitor_env, "ETH_WITHDRAW_GAS", "")
+
+        async def _coro(value):
+            return value
+
+        monkeypatch.setattr(monitor_env, "_eth_gas_price", lambda: asyncio.ensure_future(_coro(1_000_000_000)))
+
+        async def _rpc(method: str, params: list):
+            if method == "eth_estimateGas":
+                raise RuntimeError("estimation failed")
+            return None  # outcome verification: nothing on chain
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc)
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+
+        with pytest.raises(RuntimeError, match="estimation failed"):
+            await monitor_env._release_eth_for_withdrawal(
+                "w1", seed_withdrawal, "0x2222222222222222222222222222222222222222", Decimal("0.001")
+            )
+        assert sent == []
+        # No intent was persisted — the row cannot look sent.
+        record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
+        assert record["status"] == "pending"
+        assert record["eth_tx_hash"] is None
+        assert record["release_nonce"] is None
+        await monitor_env._resolve_release_failure(
+            seed_withdrawal, "0x1111111111111111111111111111111111111111", Decimal("10"), RuntimeError("x")
+        )
+        assert get_withdrawal_by_ait_tx_hash(seed_withdrawal)["status"] == "refunded"
+        assert len(refunded) == 1
+
+    @pytest.mark.asyncio
+    async def test_explicit_override_skips_estimate(self, monitor_env, monkeypatch):
+        """ETH_WITHDRAW_GAS=250000 override is honoured without any RPC."""
+
+        async def _rpc(method: str, params: list):
+            raise AssertionError("estimate must not be called under the override")
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc)
+        monkeypatch.setattr(monitor_env, "ETH_WITHDRAW_GAS", "250000")
+        limit = await monitor_env._release_gas_limit("0x2222222222222222222222222222222222222222", Decimal("0.001"))
+        assert limit == 250_000
+
+    @pytest.mark.asyncio
+    async def test_override_over_cap_fails(self, monitor_env, monkeypatch):
+        monkeypatch.setattr(monitor_env, "ETH_WITHDRAW_GAS", "400000")
+        with pytest.raises(RuntimeError, match="outside"):
+            await monitor_env._release_gas_limit("0x2222222222222222222222222222222222222222", Decimal("0.001"))
+
+    @pytest.mark.asyncio
+    async def test_release_uses_estimated_gas_in_signed_tx(self, monitor_env, seed_withdrawal, monkeypatch):
+        """End-to-end: with the override cleared the signed tx carries the
+        margined estimate, not a static limit."""
+
+        async def _coro(value):
+            return value
+
+        monkeypatch.setattr(monitor_env, "_eth_balance", lambda a: asyncio.ensure_future(_coro(Decimal("0.1"))))
+        monkeypatch.setattr(monitor_env, "_eth_gas_price", lambda: asyncio.ensure_future(_coro(1_000_000_000)))
+        monkeypatch.setattr(monitor_env, "_eth_nonce", lambda a: asyncio.ensure_future(_coro(7)))
+        monkeypatch.setattr(monitor_env, "ETH_WITHDRAW_GAS", "")
+
+        async def _rpc(method: str, params: list):
+            if method == "eth_estimateGas":
+                return "0x32a1f"  # 207,391 — the post-Glamsterdam fresh-account cost
+            raise AssertionError(f"unexpected {method}")
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _rpc)
+        sent = []
+
+        async def _broadcast(raw: str) -> str:
+            sent.append(raw)
+            return "0x" + "ab" * 32
+
+        monkeypatch.setattr(monitor_env, "_broadcast_release_tx", _broadcast)
+        await monitor_env._release_eth_for_withdrawal(
+            "w1", seed_withdrawal, "0x2222222222222222222222222222222222222222", Decimal("0.001")
+        )
+        assert len(sent) == 1
+        # Legacy typed-0 tx: rlp fields [nonce, gasPrice, gas, to, value, data, v, r, s]
+        import rlp
+
+        decoded = rlp.decode(bytes.fromhex(sent[0][2:]))
+        gas_field = int.from_bytes(decoded[2], "big")
+        assert gas_field == 259_239
+
+
+class TestRetryResumeStatuses:
+    """ETH-14: operator retry statuses — releasing_retry parks on proven
+    failure instead of auto-refunding; needs_review_release is terminal
+    for the machine (operator-only)."""
+
+    @pytest.mark.asyncio
+    async def test_releasing_retry_reverted_parks_no_refund(self, monitor_env, monkeypatch):
+        """A retry whose receipt proves reverted parks at
+        needs_review_release — the refund decision stays with the operator."""
+        _seed_releasing("0x" + "b1" * 32, nonce=8, status="releasing_retry")
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": {"status": "0x0", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+                "eth_getTransactionCount": "0x9",
+            },
+        )
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["parked"] == 1
+        assert result["failed"] == 0
+        assert refunded == []
+        record = get_withdrawal_by_ait_tx_hash("0x" + "b1" * 32)
+        assert record["status"] == "needs_review_release"
+        assert record["refund_tx_hash"] is None
+
+    @pytest.mark.asyncio
+    async def test_releasing_retry_sent_completes(self, monitor_env, monkeypatch):
+        """A retry verified sent completes the row the same as any release."""
+        _seed_releasing("0x" + "b2" * 32, nonce=8, status="releasing_retry")
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionReceipt": {"status": "0x1", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+            },
+        )
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["completed"] == 1
+        assert get_withdrawal_by_ait_tx_hash("0x" + "b2" * 32)["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_needs_review_release_not_resumed(self, monitor_env, monkeypatch):
+        """Parked retry rows are not machine-resumable — only an operator
+        action (release-retry or mark-review) may move them."""
+        _seed_releasing("0x" + "b3" * 32, nonce=8, status="needs_review_release")
+        result = await monitor_env._resume_unfinished_releases()
+        assert result == {"completed": 0, "failed": 0, "parked": 0, "still_open": 0}
+        assert get_withdrawal_by_ait_tx_hash("0x" + "b3" * 32)["status"] == "needs_review_release"
