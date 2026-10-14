@@ -62,6 +62,7 @@ from .bridge_monitor import (
     set_bridge_polling_enabled,
 )
 from .price_api import AIT_REFERENCE_PRICE_EUR, calculate_ait_amount, calculate_eth_amount, get_exchange_rate
+from .url_redact import redact_text
 
 exchange_router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
 bridge_router = APIRouter(prefix="/v1/bridge", tags=["bridge"])
@@ -830,7 +831,8 @@ def _sell_gate() -> None:
 
     enabled, reason = sell_config_status()
     if not enabled:
-        raise HTTPException(status_code=503, detail=f"Sell escrow disabled: {reason}")
+        logger.warning("Sell escrow disabled: %s", redact_text(reason))
+        raise HTTPException(status_code=503, detail="Sell escrow disabled")
 
 
 def _validate_sell_quote_params(body: dict[str, Any]) -> tuple[Decimal, str, str]:
@@ -907,7 +909,8 @@ async def bridge_sell_quote(
     try:
         cfg = _sell_config()
     except ValueError as exc:
-        raise HTTPException(status_code=503, detail=f"Sell escrow disabled: {exc}") from exc
+        logger.warning("Sell escrow disabled: %s", redact_text(str(exc)))
+        raise HTTPException(status_code=503, detail="Sell escrow disabled") from exc
 
     _check_sell_quote_rate_limit(ait_address)
 
