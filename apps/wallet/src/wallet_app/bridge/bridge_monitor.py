@@ -20,6 +20,7 @@ from .bridge_db import (
     get_deposit_by_tx_hash,
     init_db,
     insert_deposit,
+    insert_exchange_prepay_deposit,
     update_deposit_status,
     update_deposit_tx_hash,
 )
@@ -87,6 +88,26 @@ def _canonical_address(address: str) -> str | None:
     normalized = canonical_address(address)
     if normalized.startswith("0x") and len(normalized) == 42:
         return normalized
+    return None
+
+
+def _parse_exchange_deposit_tag(tx_input: str | None) -> str | None:
+    """The exchange-prepay tag — ``EXCHANGE_DEPOSIT:<addr>`` as UTF-8 in the
+    tx input data. The order-placement funding instruction shows the buyer
+    exactly this tag, so the prefix match is case-insensitive on the tag but
+    the address text is returned verbatim (the settlement monitor
+    canonicalizes and validates it)."""
+    if not tx_input or tx_input == "0x":
+        return None
+    try:
+        data = tx_input[2:] if tx_input.startswith("0x") else tx_input
+        if len(data) % 2:
+            data = "0" + data
+        decoded = bytes.fromhex(data).decode("utf-8").strip()
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if decoded.upper().startswith("EXCHANGE_DEPOSIT:"):
+        return decoded.split(":", 1)[1].strip() or None
     return None
 
 
@@ -315,6 +336,30 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
     if existing:
         return False
 
+    # Exchange-prepay lane (ETH-8 phase 3): an EXCHANGE_DEPOSIT tag routes
+    # the ETH to the buyer's prepaid exchange balance via the settlement
+    # monitor — it must never take the AIT mint path. Recorded atomically
+    # as 'exchange_prepay' so no poll can pick it up as a payout.
+    tx_input = tx.get("input") or tx.get("data") or "0x"
+    exchange_tag = _parse_exchange_deposit_tag(tx_input)
+    if exchange_tag is not None:
+        try:
+            deposit_id = insert_exchange_prepay_deposit(tx_hash, from_address, amount_eth, exchange_tag)
+            logger.info(
+                "Recorded exchange-prepay deposit %s: %s ETH tagged '%s' (tx: %s)",
+                deposit_id,
+                amount_eth,
+                exchange_tag,
+                tx_hash,
+            )
+            return True
+        except ValueError:
+            logger.warning("Deposit already exists for tx %s", tx_hash)
+            return False
+        except Exception as e:
+            logger.error("Error recording exchange-prepay deposit %s: %s", tx_hash, e)
+            return False
+
     # Calculate AIT amount
     amount_ait = await calculate_ait_amount(amount_eth)
     if amount_ait is None:
@@ -322,7 +367,6 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
         return False
 
     # Resolve recipient: tx data first, then default configured wallet.
-    tx_input = tx.get("input") or tx.get("data") or "0x"
     recipient = _parse_recipient_from_input(tx_input)
     if not recipient:
         if DEFAULT_RECIPIENT:

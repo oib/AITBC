@@ -433,6 +433,33 @@ def _funding_sources() -> set[str]:
     return {a.strip().lower() for a in raw.split(",") if a.strip()}
 
 
+def _exchange_lock_lane(quote_value: Any) -> bool:
+    """True when ``payload.sell_quote`` names an exchange order — an int or
+    an all-digit string (ETH-7 quote ids are ``sellq_<hex>``). Only applies
+    while the exchange settlement flag is on; flag-off the value falls
+    through to the quote lookup like before."""
+    if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() != "true":
+        return False
+    if isinstance(quote_value, bool):
+        return False
+    if isinstance(quote_value, int):
+        return True
+    return isinstance(quote_value, str) and quote_value.isdigit()
+
+
+def _exchange_inflight_sweep() -> bool:
+    """An exchange settlement row holds the escrow's one in-flight sweep —
+    shared nonce space, so this lane defers while it resolves."""
+    if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() != "true":
+        return False
+    try:
+        from .bridge_db import get_exchange_inflight_sweep
+
+        return get_exchange_inflight_sweep() is not None
+    except Exception:
+        return False
+
+
 async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
     """Record confirmed TRANSFERs to the escrow address as sell locks.
 
@@ -463,6 +490,10 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
         amount_ait = units_to_ait(int(tx.get("value", 0) or 0))
         payload = tx.get("payload") or {}
         quote_id = payload.get("sell_quote")
+        if _exchange_lock_lane(quote_id):
+            # An int order id in sell_quote belongs to the exchange
+            # settlement lane (ETH-8 phase 3) — this lane owns sellq_* only.
+            continue
         quote = get_sell_quote(str(quote_id)) if quote_id else None
         error = None
         if quote and sender.lower() != str(quote.get("shop_ait_address") or "").lower():
@@ -624,7 +655,7 @@ async def _escrow_sweep(
     found *sealed* (see ``_resolve_escrow_sweep``). A broadcast returning a
     hash is not proof of seal, so terminal status is never written here.
     """
-    if get_sell_inflight_sweep():
+    if get_sell_inflight_sweep() or _exchange_inflight_sweep():
         logger.info(
             "Sell lock %s: escrow sweep %s deferred — another sweep is in flight",
             row["ait_tx_hash"],

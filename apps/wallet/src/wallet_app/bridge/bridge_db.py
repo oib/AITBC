@@ -244,6 +244,19 @@ def init_db() -> None:
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_exchange_settlements_status ON exchange_settlements(status)")
 
+    # Monitor-private dedupe/audit marks — one row per processed chain
+    # artifact (lock:<ait_tx_hash>, credit:<eth_tx_hash>) so the full-history
+    # escrow/deposit scans stay cheap across restarts and an unattributable
+    # deposit is recorded exactly once.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS exchange_monitor_marks (
+            mark TEXT PRIMARY KEY,
+            detail TEXT,
+            outcome TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # Expression index keeps the public by-recipient lookup off a full table
     # scan; the query stays LOWER() = LOWER() so either service's stored
     # casing matches.
@@ -343,6 +356,40 @@ def insert_deposit(
         return deposit_id
     except sqlite3.IntegrityError:
         conn.close()
+        raise ValueError(f"Deposit with tx_hash {tx_hash} already exists") from None
+    finally:
+        conn.close()
+
+
+def insert_exchange_prepay_deposit(tx_hash: str, from_address: str, amount_eth: Decimal, tag: str) -> str:
+    """Record an exchange-prepay ETH deposit atomically as
+    'exchange_prepay' — outside the payout loop's 'pending' vocabulary, so
+    it can never be auto-minted. The raw tag the buyer typed stays in
+    ``recipient``; the settlement monitor canonicalizes and validates it.
+    ``amount_ait`` is 0: no AIT is owed, the credit lands exchange-side."""
+    import uuid
+
+    deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
+    conn = _connect_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
+            VALUES (?, ?, ?, ?, ?, '0', 'exchange_prepay', ?)
+            """,
+            (
+                deposit_id,
+                tx_hash,
+                from_address,
+                f"EXCHANGE_DEPOSIT:{tag}",
+                amount_eth,
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.commit()
+        return deposit_id
+    except sqlite3.IntegrityError:
         raise ValueError(f"Deposit with tx_hash {tx_hash} already exists") from None
     finally:
         conn.close()
@@ -1821,3 +1868,38 @@ def update_exchange_settlement(
     rows_affected = cursor.rowcount
     conn.close()
     return rows_affected > 0
+
+
+def insert_monitor_mark(mark: str, detail: str | None = None, outcome: str | None = None) -> bool:
+    """Record a processed chain artifact (``lock:<ait_tx_hash>`` /
+    ``credit:<eth_tx_hash>``). Returns False when the mark already exists —
+    the PK dedupe is the monitor's whole restart-safe "have I seen this"
+    test."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT OR IGNORE INTO exchange_monitor_marks (mark, detail, outcome) VALUES (?, ?, ?)",
+        (mark, detail, outcome),
+    )
+    conn.commit()
+    inserted = cursor.rowcount > 0
+    conn.close()
+    return inserted
+
+
+def update_monitor_mark(mark: str, outcome: str) -> None:
+    conn = _connect_db()
+    conn.execute("UPDATE exchange_monitor_marks SET outcome = ? WHERE mark = ?", (outcome, mark))
+    conn.commit()
+    conn.close()
+
+
+def monitor_mark(mark: str) -> dict[str, Any] | None:
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT mark, detail, outcome, created_at FROM exchange_monitor_marks WHERE mark = ?", (mark,))
+    row = cursor.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return {"mark": row[0], "detail": row[1], "outcome": row[2], "created_at": row[3]}
