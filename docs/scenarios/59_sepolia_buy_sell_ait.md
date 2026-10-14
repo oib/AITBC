@@ -349,6 +349,62 @@ aitbc wallet bridge sell lock --quote-id sellq_… --wallet-name <shop>
 Verify with `aitbc wallet bridge sell status --id …` or
 `GET /v1/bridge/sell/list` on the hub wallet service.
 
+## Scenario D — signed exchange orders (ETH-11 phase 2)
+
+> Hub-side order book with real node identities. Orders are **unfunded**
+> — placing one moves no funds, a match books a `trades` row, and nothing
+> settles on-chain (funded settlement is phase 3 / ETH-16). The point of
+> the play: signatures, the exchange-scoped nonce, the registry, and the
+> cancel path all work end-to-end against the live hub.
+>
+> Prerequisites: the hub exchange runs `EXCHANGE_REQUIRE_SIGNED_ORDERS`
+> (default on); the hub operator has seeded `node_registry` labels from
+> the fleet wallet table. Signing happens **on each node with its own
+> wallet** — `aitbc exchange …` resolves `exchange_service_url` from
+> `HUB_EXCHANGE_URL`/`HUB_DISCOVERY_URL` in `/etc/aitbc/*.env` (or pass
+> `--exchange-url http://<hub>:8106`).
+
+```bash
+# on node2 — claim the seeded registry row (signs exchange_register locally)
+aitbc exchange node register --wallet <node2-wallet> --password-file ~/.aitbc-wallet-pw
+
+# on node2 — sell offer: signed envelope, exchange-scoped nonce from the hub
+aitbc exchange order place --side SELL --amount 10 --price 0.000083 \
+    --wallet <node2-wallet> --password-file ~/.aitbc-wallet-pw
+
+# on node0 — the same, buy side; the two orders cross on the hub book
+aitbc exchange node register --wallet <node0-wallet> --password-file ~/.aitbc-wallet-pw
+aitbc exchange order place --side BUY --amount 4 --price 0.000083 \
+    --wallet <node0-wallet> --password-file ~/.aitbc-wallet-pw
+```
+
+Verify (any host, read-only):
+
+```bash
+aitbc exchange order my --wallet <node2-wallet>   # own orders + next nonce
+curl -s http://<hub>:8106/api/exchange/nodes      # registered-node board
+curl -s http://<hub>:8106/api/orders/orderbook    # remaining sell depth: 6 AIT
+curl -s http://<hub>:8106/api/trades/recent       # tape row names buyer+seller labels
+```
+
+Expected: the buy fills against the sell — `trades` carries
+`buyer_address`/`seller_address`/`fee_ait`, node2's sell shows
+`remaining=6` (`filled=4`), and `order my` reports the advanced
+`next_nonce`. Nothing on Sepolia or the AIT chain changes — the book is
+display-only by design this phase.
+
+### D.2 — cancel and replay behaviour
+
+```bash
+# cancel the open remainder; the signed cancel races any fill under the
+# same SQLite write lock — loser gets a deterministic 409
+aitbc exchange order cancel <order-id> --wallet <node2-wallet> --password-file ~/.aitbc-wallet-pw
+```
+
+Re-submitting the *same* place command after a crash returns the recorded
+order (the `(address, envelope_hash)` dedupe), while a *different* order
+reusing a consumed nonce is 409 — that is the replay guard, not a bug.
+
 ## Gaps — steps with no CLI/MCP command
 
 | # | gap | current path |

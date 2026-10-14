@@ -1,8 +1,10 @@
 # ETH-8 — Hub trade exchange page (design, Sepolia only)
 
 Date: 2026-10-13 · revised 2026-10-14 (ETH-14/ETH-15 settlement reality,
-phase-1 shipped, open decisions listed) · Status: **design — phase 1
-(display) shipped; phases 2–3 unimplemented** ·
+phase-1 shipped, open decisions listed; phase 2 built 14 Oct) · Status:
+**design — phase 1 (display) + phase 2 (signed orders, registration,
+cancel, unfunded book) shipped; phase 3 (funded settlement) unimplemented
+and gated on a clean ETH-2 live withdraw run (ETH-16)** ·
 Network: Sepolia (chainId 11155111) exclusively until the v1 switch.
 Builds on [eth7-escrowed-sell-flow.md](eth7-escrowed-sell-flow.md) —
 settlement, escrow, quote and failure semantics are **not redesigned
@@ -29,7 +31,11 @@ upstream of the page: orders are unsigned, unfunded, and never settle.
 2. **Signed orders** — orders carry a wallet signature over a canonical
    envelope; placement verifies it before `BEGIN IMMEDIATE`. Registered
    nodes only (the fleet wallet registry). Still database-only — no
-   funds move — but identity is now real.
+   funds move — but identity is now real. **Shipped** as ETH-11 phase 2:
+   `POST /api/orders` (signed envelope), `POST /api/orders/<id>/cancel`,
+   `POST /api/exchange/nodes/register`, `GET /api/exchange/nodes`,
+   `GET /api/exchange/my-orders`, CLI `aitbc exchange order|node`;
+   revertible via `EXCHANGE_REQUIRE_SIGNED_ORDERS=0`.
 3. **Funded settlement** — sell orders lock AIT through the ETH-7
    keyed escrow (`AIT_SELL_ESCROW`); buy orders are backed by prepaid
    ETH at the bridge wallet. A match becomes a settlement request in
@@ -235,9 +241,9 @@ Needed additions:
 |---|---|---|
 | `GET /api/orders/orderbook` (extend) | bid/ask ladder rows + per-level depth sums | 10 s edge cache, 60 req/min/IP |
 | `GET /api/trades/recent` (extend) | tape rows incl. buyer/seller node labels | 10 s, 60/min |
-| `GET /api/exchange/depth` new | aggregated ±band depth buckets for the depth chart | 30 s, 30/min |
-| `GET /api/exchange/ohlc` new | 24 h candles from `trades` | 60 s, 30/min |
-| `GET /api/exchange/stats` new | last price, 24 h vol, spread, open-order counts | 10 s, 60/min |
+| `GET /api/exchange/depth` new *(deferred — read-only, no phase marker; follow-up, decided 14 Oct)* | aggregated ±band depth buckets for the depth chart | 30 s, 30/min |
+| `GET /api/exchange/ohlc` new *(deferred — read-only, no phase marker; follow-up, decided 14 Oct)* | 24 h candles from `trades` | 60 s, 30/min |
+| `GET /api/exchange/stats` new *(deferred — read-only, no phase marker; follow-up, decided 14 Oct)* | last price, 24 h vol, spread, open-order counts | 10 s, 60/min |
 | `GET /api/exchange/nodes` new | registered node labels (no addresses beyond short form) | 5 min, 30/min |
 | `GET /api/exchange/my-orders?addr=` | open orders for one wallet — read-only by address, no auth needed (public testnet board) | 10 s, 60/min |
 
@@ -282,7 +288,7 @@ sticky element, not a dismissible toast.
 | order rate | `EXCHANGE_MAX_ORDERS_PER_MIN` per address (suggest 20) + per IP |
 | open orders | `EXCHANGE_MAX_OPEN_PER_NODE` (suggest 50) — placement over the cap rejects the *new* order, never evicts the old |
 | min size | `EXCHANGE_MIN_ORDER` — dust spam |
-| spoofing | signature + funding make an unfunded fake book impossible; a cancel-rate > `EXCHANGE_CANCEL_RATIO` (say 90 % of placements in a window) flags the node `watchlisted` on the page |
+| spoofing | signature + funding make an unfunded fake book impossible; a cancel-rate strictly > `EXCHANGE_CANCEL_RATIO` (default 0.9) over at least `EXCHANGE_WATCHLIST_MIN_PLACEMENTS` (default 10) placements within `EXCHANGE_WATCHLIST_WINDOW_S` (default 24 h) flags the node `watchlisted` on the page — flag-and-log only, it never blocks or throttles an order (auto-blocking is a separate decision) |
 | wash trading | self-match is prevented outright (§6); matched-pair reporting (same two nodes trading round-trips) is a stats column, not hidden — on a named board it outs itself |
 | book size | `EXCHANGE_MAX_BOOK_ROWS` (suggest 5000 open); oldest-expired evictions are logged |
 | endpoint DoS | all reads cached (§8); the POST surface is signature-verified before any DB write — unsigned garbage costs a 401, not a transaction |
