@@ -100,7 +100,30 @@ def get_db_path():
 # Schema definitions — monetary columns are TEXT (Decimal-as-string) for exact arithmetic.
 # Using TEXT instead of REAL prevents float rounding drift (e.g., 0.1 * 0.3 = 0.03, not 0.030000000000000002).
 
-_TRADES_SCHEMA = """
+# Mirrored settlement vocabulary written onto trades rows by the internal
+# endpoint (NULL = settlement not started / phase 3 off). The authoritative
+# machine lives in the wallet ledger's exchange_settlements table; these
+# values exist for the tape + the B13 join and are write-once per field.
+_SETTLEMENT_STATES = (
+    "locked",
+    "releasing",
+    "released",
+    "settling",
+    "refunding",
+    "refund_pending",
+    "needs_review",
+    "needs_review_release",
+    "needs_review_sweep",
+    "queued_reserve",
+    "queued_fee_settle",
+    "queued_fee_refund",
+    "settled",
+    "refunded",
+    "failed",
+)
+_SETTLEMENT_STATES_SQL = ", ".join(f"'{s}'" for s in _SETTLEMENT_STATES)
+
+_TRADES_SCHEMA = f"""
     CREATE TABLE IF NOT EXISTS trades (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         amount TEXT NOT NULL,
@@ -109,7 +132,13 @@ _TRADES_SCHEMA = """
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         buyer_address TEXT,
         seller_address TEXT,
-        fee_ait TEXT
+        fee_ait TEXT,
+        buy_order_id INTEGER,
+        sell_order_id INTEGER,
+        settlement_state TEXT CHECK(settlement_state IN ({_SETTLEMENT_STATES_SQL})),
+        settlement_eth_tx_hash TEXT,
+        settlement_ait_tx_hash TEXT,
+        settlement_fee_tx_hash TEXT
     )
 """
 
@@ -138,7 +167,11 @@ _ORDERS_SCHEMA = """
         expiry_height INTEGER,
         funded_state TEXT NOT NULL DEFAULT 'unfunded'
             CHECK(funded_state IN ('unfunded', 'funded', 'backing_expired')),
-        cancelled_at TIMESTAMP
+        cancelled_at TIMESTAMP,
+        backing_tx_hash TEXT,
+        locked_ticks INTEGER CHECK(locked_ticks >= 0),
+        seller_eth_address TEXT,
+        funded_at TIMESTAMP
     )
 """
 
@@ -153,7 +186,9 @@ _NODE_REGISTRY_SCHEMA = """
         label TEXT NOT NULL UNIQUE,
         status TEXT NOT NULL DEFAULT 'seeded' CHECK(status IN ('seeded', 'registered', 'suspended')),
         registered_tx TEXT,
-        registered_at TIMESTAMP
+        registered_at TIMESTAMP,
+        eth_address TEXT,
+        eth_address_set_at TIMESTAMP
     )
 """
 
@@ -190,6 +225,48 @@ _MARKET_ORDERS_SCHEMA = """
         wallet TEXT,
         status TEXT DEFAULT 'open',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+# ── ETH-8 phase 3 (dark): funded settlement ──────────────────────────────
+# The prepaid ledger is a pair of tables so invariants are structural, not
+# conventional: a deposit can never be credited twice (tx_hash UNIQUE) and an
+# order can never carry two debits (order_id UNIQUE). Balance =
+# Σdeposits − Σ(debits where state != 'refunded'); reserved = debits 'open'.
+# 'consume' is a state transition on the debit row, not a new money row.
+_PREPAID_DEPOSITS_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS prepaid_deposits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_address TEXT NOT NULL,
+        amount_eth TEXT NOT NULL,
+        eth_tx_hash TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+_PREPAID_DEBITS_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS prepaid_debits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        node_address TEXT NOT NULL,
+        order_id INTEGER UNIQUE NOT NULL,
+        amount_eth TEXT NOT NULL,
+        state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open', 'consumed', 'refunded')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        closed_at TIMESTAMP
+    )
+"""
+
+# Every exchange_set_payout claim is appended here — the registry row keeps
+# only the current address; this table is the change history (old address +
+# when it was replaced + the signed envelope hash that authorized it).
+_PAYOUT_AUDIT_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS payout_address_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        address TEXT NOT NULL,
+        old_eth_address TEXT,
+        new_eth_address TEXT NOT NULL,
+        envelope_hash TEXT NOT NULL,
+        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 """
 
@@ -424,6 +501,9 @@ def init_db():
     cursor.execute(_MARKET_ORDERS_SCHEMA)
     cursor.execute(_NODE_REGISTRY_SCHEMA)
     cursor.execute(_ORDER_NONCES_SCHEMA)
+    cursor.execute(_PREPAID_DEPOSITS_SCHEMA)
+    cursor.execute(_PREPAID_DEBITS_SCHEMA)
+    cursor.execute(_PAYOUT_AUDIT_SCHEMA)
 
     # Add columns if they don't exist (for existing databases)
     _order_columns = [
@@ -435,6 +515,12 @@ def init_db():
         "expiry_height INTEGER",
         "funded_state TEXT NOT NULL DEFAULT 'unfunded' CHECK(funded_state IN ('unfunded', 'funded', 'backing_expired'))",
         "cancelled_at TIMESTAMP",
+        # ETH-8 phase 3 (dark): funding proof + payout snapshot. NULL on all
+        # phase-2 rows; written only when EXCHANGE_SETTLEMENT_ENABLED is on.
+        "backing_tx_hash TEXT",
+        "locked_ticks INTEGER CHECK(locked_ticks >= 0)",
+        "seller_eth_address TEXT",
+        "funded_at TIMESTAMP",
     ]
     for column_def in _order_columns:
         try:
@@ -442,9 +528,34 @@ def init_db():
         except Exception:
             pass
 
-    for column_def in ["buyer_address TEXT", "seller_address TEXT", "fee_ait TEXT"]:
+    _trade_columns = [
+        "buyer_address TEXT",
+        "seller_address TEXT",
+        "fee_ait TEXT",
+        # ETH-8 phase 3 (dark): order linkage + mirrored settlement state.
+        "buy_order_id INTEGER",
+        "sell_order_id INTEGER",
+        f"settlement_state TEXT CHECK(settlement_state IN ({_SETTLEMENT_STATES_SQL}))",
+        "settlement_eth_tx_hash TEXT",
+        "settlement_ait_tx_hash TEXT",
+        "settlement_fee_tx_hash TEXT",
+    ]
+    for column_def in _trade_columns:
         try:
             cursor.execute(f"ALTER TABLE trades ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
+        except Exception:
+            pass
+
+    # ETH-8 phase 3 (dark): the node's signed payout address (set via the
+    # exchange_set_payout verb) and when it was claimed. History lives in
+    # payout_address_audit; NULL means the node never set one.
+    _registry_columns = [
+        "eth_address TEXT",
+        "eth_address_set_at TIMESTAMP",
+    ]
+    for column_def in _registry_columns:
+        try:
+            cursor.execute(f"ALTER TABLE node_registry ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
         except Exception:
             pass
 
