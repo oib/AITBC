@@ -1081,3 +1081,60 @@ class TestDocsCoverage:
         documented = set(re.findall(r"`(BRIDGE_[A-Z0-9_]+|PAYOUT_[A-Z0-9_]+|MIN_ETH_DEPOSIT)`", readme))
         stale = sorted(n for n in documented if n not in used)
         assert not stale, "knobs documented in the README that no code reads: " + ", ".join(stale)
+
+
+class TestExchangePrepay:
+    """ETH-8 phase 3: an EXCHANGE_DEPOSIT:<addr> tag routes to the prepaid
+    exchange ledger — never the AIT mint path — under
+    EXCHANGE_SETTLEMENT_ENABLED only."""
+
+    @staticmethod
+    def _tagged_input(addr_text: str) -> str:
+        return "0x" + f"EXCHANGE_DEPOSIT:{addr_text}".encode().hex()
+
+    def test_tagged_deposit_records_prepay(self, monitor, monkeypatch):
+        from bridge_monitor.storage import get_deposit
+
+        monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "true")
+        with patch.object(monitor, "submit_ait_transfer") as mock_submit:
+            monitor.process_deposit("0xtag1", "0xfrom", Decimal("0.01"), self._tagged_input("0xN0DE"))
+        dep = get_deposit("0xtag1")
+        assert dep is not None
+        assert dep["status"] == BridgeDepositStatus.EXCHANGE_PREPAY.value
+        # The raw tag text stays on the row — the settlement monitor
+        # canonicalizes and validates it.
+        assert dep["ait_recipient"] == "EXCHANGE_DEPOSIT:0xN0DE"
+        assert Decimal(str(dep["ait_amount"])) == Decimal("0")
+        mock_submit.assert_not_called()
+
+    def test_flag_off_tagged_deposit_fails_as_before(self, monitor, monkeypatch):
+        from bridge_monitor.storage import get_deposit
+
+        monkeypatch.delenv("EXCHANGE_SETTLEMENT_ENABLED", raising=False)
+        monitor.process_deposit("0xtag2", "0xfrom", Decimal("0.01"), self._tagged_input("0xN0DE"))
+        dep = get_deposit("0xtag2")
+        assert dep["status"] == BridgeDepositStatus.FAILED.value
+        assert "Invalid AIT recipient" in (dep["error_message"] or "")
+
+    def test_reseen_prepay_row_is_terminal(self, monitor, monkeypatch):
+        """A second sighting of the same tx must not take the retry path —
+        the prepay row is terminal for the payout lane."""
+        from bridge_monitor.storage import get_deposit
+
+        monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "true")
+        tx_data = self._tagged_input("0xN0DE")
+        monitor.process_deposit("0xtag3", "0xfrom", Decimal("0.01"), tx_data)
+        monitor.process_deposit("0xtag3", "0xfrom", Decimal("0.01"), tx_data)
+        dep = get_deposit("0xtag3")
+        assert dep["status"] == BridgeDepositStatus.EXCHANGE_PREPAY.value
+
+    def test_tag_parser(self, monitor):
+        parse = monitor._parse_exchange_deposit_tag
+        assert parse(self._tagged_input("0xAbC")) == "0xAbC"
+        assert parse(self._tagged_input("")) is None  # bare tag — no address
+        assert parse("0x") is None
+        assert parse(None) is None
+        # An ordinary AIT-address data field is not a tag.
+        assert parse("0x" + ("aa" * 20)) is None
+        # A raw address as utf-8 text is not a tag either.
+        assert parse("0x" + ("0x" + "aa" * 20).encode().hex()) is None

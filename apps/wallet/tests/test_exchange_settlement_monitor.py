@@ -844,3 +844,164 @@ class TestLedgerAdditions:
         assert row[1] == "EXCHANGE_DEPOSIT:0xN0DE"
         assert Decimal(str(row[2])) == Decimal("0")
         assert bridge_db.get_pending_deposits() == []
+
+
+# ---------------------------------------------------------------------------
+# C5 fixup — owner check, zero/dust fee handling, flag independence
+# ---------------------------------------------------------------------------
+
+
+class TestFixup:
+    @pytest.mark.asyncio
+    async def test_foreign_lock_refunded_not_funded(self, exchange_env):
+        """A lock sent by anyone but the order owner is a stray — refunded
+        to its sender, never posted as order backing."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        stranger = "0x6666666666666666666666666666666666666666"
+        lock = _lock_tx(oid, "0xforeign", stranger, 3_636_000_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["funded"] == 0 and stats["refunds"] == 1
+        assert not [p for p in exchange_env["posts"] if p["event"] == "order_funded"]
+        row = get_exchange_settlement("order_refund", oid)
+        assert row is not None
+        assert row["seller_address"] == stranger
+        assert monitor_mark("lock:0xforeign")["outcome"] == "refunding"
+
+    @pytest.mark.asyncio
+    async def test_owner_lock_still_funds(self, exchange_env):
+        """The owner check canonicalizes — same address in a different case
+        spelling still funds its own order."""
+        cfg = _cfg(exchange_env)
+        owner = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded", user_address=owner)
+        lock = _lock_tx(oid, "0xown", "0xABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD", 3_636_000_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["funded"] == 1
+
+    @pytest.mark.asyncio
+    async def test_zero_fee_settles_without_fee_leg(self, exchange_env):
+        """EXCHANGE_FEE_PCT=0: leg 1 sealing settles the trade — no
+        zero-value fee transfer to the treasury is ever signed."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(status="settling", escrow_out_nonce=3, escrow_out_tx="{}", fee_ait=Decimal("0"))
+        leg1 = {
+            "tx_hash": "0xleg1",
+            "sender": exchange_env["escrow"],
+            "recipient": BUYER_AIT,
+            "value": 360_000_000,
+            "block_height": 610,
+            "nonce": 3,
+            "payload": {"exs_ref": row["id"], "reason": "settling"},
+        }
+        exchange_env["transfers"].append(leg1)
+        exchange_env["escrow_nonce"] = 4
+        await esm._resolve_sweep(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "settled"
+        assert fresh["settle_ait_tx_hash"] == "0xleg1"
+        assert fresh["settle_fee_tx_hash"] is None
+        assert exchange_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_sub_unit_fee_settles_without_fee_leg(self, exchange_env):
+        """A fee under one chain unit floors to zero — same skip as fee 0."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(
+            status="settling",
+            escrow_out_nonce=3,
+            escrow_out_tx="{}",
+            fee_ait=Decimal("0.00000001"),  # 1e-8 AIT < 1 unit (2.78e-8)
+        )
+        leg1 = {
+            "tx_hash": "0xleg1",
+            "sender": exchange_env["escrow"],
+            "recipient": BUYER_AIT,
+            "value": 360_000_000,
+            "block_height": 610,
+            "nonce": 3,
+            "payload": {"exs_ref": row["id"], "reason": "settling"},
+        }
+        exchange_env["transfers"].append(leg1)
+        exchange_env["escrow_nonce"] = 4
+        await esm._resolve_sweep(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "settled"
+        assert fresh["settle_ait_tx_hash"] == "0xleg1"
+        assert exchange_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_dust_remainder_skips_order_refund(self, exchange_env):
+        """Cumulative-difference fees can leave a lock remainder below the
+        sweep fee — refunding it would cost more than it returns."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(
+            exchange_env,
+            order_type="SELL",
+            status="filled",
+            funded_state="funded",
+            backing_tx_hash="0xback",
+            locked_ticks=1_050_000_000,  # 10.5 AIT
+        )
+        _insert_trade(
+            exchange_env,
+            amount="10",
+            fee_ait="0.495",
+            sell_order_id=oid,
+            settlement_state="settled",
+        )
+        # remainder = 10.5 − 10.495 = 0.005 AIT ≤ 0.01 sweep fee
+        stats = await esm._scan_backing(cfg, head=1000)
+        assert stats["refunds"] == 0
+        assert get_exchange_settlement("order_refund", oid) is None
+
+    @pytest.mark.asyncio
+    async def test_above_dust_remainder_still_refunds(self, exchange_env):
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(
+            exchange_env,
+            order_type="SELL",
+            status="filled",
+            funded_state="funded",
+            backing_tx_hash="0xback2",
+            locked_ticks=1_050_000_000,
+        )
+        _insert_trade(
+            exchange_env,
+            amount="10",
+            fee_ait="0.45",
+            sell_order_id=oid,
+            settlement_state="settled",
+        )
+        # remainder = 0.05 AIT > 0.01 sweep fee → refund still created
+        stats = await esm._scan_backing(cfg, head=1000)
+        assert stats["refunds"] == 1
+        assert get_exchange_settlement("order_refund", oid) is not None
+
+    @pytest.mark.asyncio
+    async def test_queued_fee_settle_with_zero_fee_settles(self, exchange_env):
+        """A row parked by an older build with no fee owed settles instead
+        of broadcasting a zero-value leg."""
+        cfg = _cfg(exchange_env)
+        row = _trade_row(
+            status="queued_fee_settle",
+            settle_ait_tx_hash="0xleg1",
+            fee_ait=Decimal("0"),
+        )
+        await esm._resolve_sweep(cfg, row)
+        fresh = get_exchange_settlement("trade", 1)
+        assert fresh["status"] == "settled"
+        assert exchange_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_monitor_runs_with_sell_flag_unset(self, exchange_env, monkeypatch):
+        """The exchange lane shares the escrow key slot but not the sell
+        feature flag — a full poll works with SELL_ESCROW_ENABLED unset."""
+        monkeypatch.delenv("SELL_ESCROW_ENABLED", raising=False)
+        summary = await esm.poll_exchange_settlements_once()
+        assert summary["skipped"] is False
+        assert "locks" in summary and "credits" in summary

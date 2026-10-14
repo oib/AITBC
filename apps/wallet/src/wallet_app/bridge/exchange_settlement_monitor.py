@@ -273,7 +273,7 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
         lock_ait = units_to_ait(int(tx.get("value", 0) or 0))
         order = _ro_one(
             cfg,
-            "SELECT status, funded_state, backing_tx_hash FROM orders WHERE id = ?",
+            "SELECT status, funded_state, backing_tx_hash, user_address FROM orders WHERE id = ?",
             (order_id,),
         )
         outcome = "ignored"
@@ -284,7 +284,11 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
                     stats["refunds"] += 1
             elif order["backing_tx_hash"] == tx_hash:
                 outcome = "recorded"
-            elif order["status"] == "open" and order["funded_state"] == "unfunded":
+            elif (
+                order["status"] == "open"
+                and order["funded_state"] == "unfunded"
+                and _sender_owns_order(sender, order["user_address"])
+            ):
                 event: dict[str, Any] = {
                     "event": "order_funded",
                     "order_id": order_id,
@@ -313,6 +317,15 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
             continue  # unmarked — retried next poll
         insert_monitor_mark(f"lock:{tx_hash}", detail=sender, outcome=outcome)
     return stats
+
+
+def _sender_owns_order(sender: str, user_address: Any) -> bool:
+    """A lock funds only its owner's order — a lock sent by anyone else is a
+    stray and gets refunded to its sender, never credited as order backing."""
+    try:
+        return canonical_address(sender, strict=True) == canonical_address(str(user_address or ""), strict=True)
+    except (TypeError, ValueError):
+        return False
 
 
 async def _ensure_order_refund(cfg: ExchangeCfg, order_id: int, sender: str, amount_ait: Decimal, tx_hash: str) -> str:
@@ -508,6 +521,16 @@ async def _scan_backing(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
             continue  # live settlements still owe their draw from the lock
         remaining_ait = Decimal(int(row["locked_ticks"])) / Decimal(_TICKS_PER_UNIT) - draw_ait
         if remaining_ait <= 0:
+            continue
+        if remaining_ait <= _sweep_fee_ait():
+            # Dust: cumulative-difference fees can leave a remainder that
+            # costs more in sweep fee than it returns — leave it in escrow.
+            logger.info(
+                "Order %s lock remainder %s AIT is at/below the %s AIT sweep fee — no order_refund",
+                row["id"],
+                remaining_ait,
+                _sweep_fee_ait(),
+            )
             continue
         sender = await _lock_sender(cfg, str(row["backing_tx_hash"]))
         outcome = await _ensure_order_refund(
@@ -791,10 +814,11 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
     if not key:
         raise RuntimeError(error)
     account = wdm.EthAccount.from_key(key)
-    nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
-    raw, eth_tx_hash = wdm._sign_release_tx(account, seller_eth, amount_eth, nonce, gas_price, gas_limit)
-    await _update_with_retry(str(row["id"]), "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
-    sent = await wdm._broadcast_release_tx(raw)
+    async with wdm.ETH_RELEASE_NONCE_LOCK:
+        nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
+        raw, eth_tx_hash = wdm._sign_release_tx(account, seller_eth, amount_eth, nonce, gas_price, gas_limit)
+        await _update_with_retry(str(row["id"]), "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+        sent = await wdm._broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
     await _mirror_trade_state(cfg, str(row["ref_id"]), "releasing", {**row, "eth_tx_hash": eth_tx_hash})
@@ -929,6 +953,11 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     always describe the currently unsealed leg."""
     row_id = str(row["id"])
     status = str(row["status"])
+    if status == "queued_fee_settle" and _expected_sweep(cfg, row)[1] <= 0:
+        # A row parked by an older build with a zero/sub-unit fee — no fee
+        # leg is owed, settle straight away.
+        await _set_status_and_mirror(cfg, row, "settled")
+        return
     if status in ("queued_fee_settle", "queued_fee_refund"):
         # Fee-float park — retry the same leg's sweep initiation.
         intent = "settling" if status == "queued_fee_settle" else "refunding"
@@ -959,6 +988,12 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
                 logger.info("Settlement %s: fee leg deferred — another sweep in flight", row_id)
                 return
             to2, amount2, ref2 = _expected_sweep(cfg, {**row, "settle_ait_tx_hash": sealed_hash})
+            if amount2 <= 0:
+                # EXCHANGE_FEE_PCT=0 or a fee under one chain unit — sending
+                # leg 2 would be a zero-value transfer; leg 1 alone settles.
+                await _set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash=sealed_hash)
+                logger.info("Settlement %s: leg 1 sealed, no fee owed — settled", row_id)
+                return
             nonce2, balance = await sellmon._account_view(cfg.escrow.escrow_address)
             leg2_ait = units_to_ait(amount2)
             if balance < leg2_ait + _sweep_fee_ait():
