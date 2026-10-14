@@ -250,6 +250,7 @@ _PREPAID_DEBITS_SCHEMA = """
         node_address TEXT NOT NULL,
         order_id INTEGER UNIQUE NOT NULL,
         amount_eth TEXT NOT NULL,
+        committed_eth TEXT NOT NULL DEFAULT '0',
         state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open', 'consumed', 'refunded')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         closed_at TIMESTAMP
@@ -556,6 +557,18 @@ def init_db():
     for column_def in _registry_columns:
         try:
             cursor.execute(f"ALTER TABLE node_registry ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
+        except Exception:
+            pass
+
+    # committed_eth tracks the debit's LIVE trade obligations (trades that
+    # matched and still owe their cost): +trade_total at match, −trade_total
+    # when the trade settles or refunds. Refund math: amount_eth − committed.
+    _prepaid_columns = [
+        "committed_eth TEXT NOT NULL DEFAULT '0'",
+    ]
+    for column_def in _prepaid_columns:
+        try:
+            cursor.execute(f"ALTER TABLE prepaid_debits ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
         except Exception:
             pass
 
