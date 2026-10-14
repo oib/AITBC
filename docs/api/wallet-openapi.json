@@ -995,7 +995,7 @@
             }
           },
           "503": {
-            "description": "Service Unavailable",
+            "description": "Bridge poll skipped",
             "content": {
               "application/json": {
                 "schema": {

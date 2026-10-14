@@ -346,9 +346,10 @@ async def trigger_bridge_poll(
     """Manually trigger one bridge poll cycle (admin operation)."""
     result = await poll_once()
     if result.get("skipped"):
+        logger.warning("Bridge poll skipped: %s", redact_text(str(result.get("reason", "unknown"))))
         raise HTTPException(
             status_code=503,
-            detail=result.get("reason", "Bridge poll skipped"),
+            detail="Bridge poll skipped",
         )
     return {
         "success": True,
