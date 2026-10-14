@@ -17,8 +17,9 @@ if REPO_ROOT not in sys.path:
     sys.path.append(REPO_ROOT)
 
 import click
-from aitbc_cli.utils.http_client import get_logger
 import importlib
+from aitbc_cli import __version__
+from aitbc_cli.utils.http_client import get_logger
 
 # Lazy command proxies. Each command module is imported only when the command is
 # invoked or its help text is needed, so `aitbc --help` remains usable even when
@@ -251,9 +252,6 @@ update = _lazy("aitbc_cli.commands.update", "update", name="update", group=False
 wallet = _lazy("aitbc_cli.commands.wallet", "wallet", name="wallet", group=True)
 workflow = _lazy("aitbc_cli.commands.workflow", "workflow", name="workflow", group=True)
 zk = _lazy("aitbc_cli.commands.zk", "zk", name="zk", group=True)
-
-# Force CLI version for user-facing output
-__version__ = "0.10.18"
 
 logger = get_logger(__name__)
 
