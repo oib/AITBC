@@ -188,13 +188,21 @@ def init_db() -> None:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             released_at TIMESTAMP,
             settled_at TIMESTAMP,
-            refunded_at TIMESTAMP
+            refunded_at TIMESTAMP,
+            resolved_by TEXT,
+            resolved_at TIMESTAMP,
+            operator_note TEXT
         )
     """)
 
     # Sell tables are new in ETH-10; these ALTERs keep any early dev DB whole.
     _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_nonce", "INTEGER")
     _add_column_if_not_exists(conn, "bridge_sell_locks", "escrow_out_tx", "TEXT")
+    # ETH-13: operator-resolution audit columns (sell_admin writes them on
+    # every resolution — confirm-swept/requeue/write-off/sweep-now).
+    _add_column_if_not_exists(conn, "bridge_sell_locks", "resolved_by", "TEXT")
+    _add_column_if_not_exists(conn, "bridge_sell_locks", "resolved_at", "TIMESTAMP")
+    _add_column_if_not_exists(conn, "bridge_sell_locks", "operator_note", "TEXT")
 
     conn.execute("CREATE INDEX IF NOT EXISTS idx_bridge_sell_locks_status ON bridge_sell_locks(status)")
 
@@ -974,6 +982,9 @@ _SELL_LOCK_KEYS = [
     "released_at",
     "settled_at",
     "refunded_at",
+    "resolved_by",
+    "resolved_at",
+    "operator_note",
 ]
 
 # Lock statuses whose ETH release is still possible — they reserve float.
@@ -1314,6 +1325,9 @@ def update_sell_lock_status(
     refund_tx_hash: str | None = None,
     escrow_out_nonce: int | None = None,
     escrow_out_tx: str | None = None,
+    resolved_by: str | None = None,
+    resolved_at: str | None = None,
+    operator_note: str | None = None,
     error: str | None = None,
 ) -> bool:
     """Update a sell lock's status and optional lifecycle fields."""
@@ -1342,6 +1356,9 @@ def update_sell_lock_status(
                 refund_tx_hash = COALESCE(?, refund_tx_hash),
                 escrow_out_nonce = COALESCE(?, escrow_out_nonce),
                 escrow_out_tx = COALESCE(?, escrow_out_tx),
+                resolved_by = COALESCE(?, resolved_by),
+                resolved_at = COALESCE(?, resolved_at),
+                operator_note = COALESCE(?, operator_note),
                 error = COALESCE(?, error)
             WHERE ait_tx_hash = ?
         """  # nosec B608 - timestamp_field is a hardcoded literal above, never caller input
@@ -1358,6 +1375,9 @@ def update_sell_lock_status(
             refund_tx_hash,
             escrow_out_nonce,
             escrow_out_tx,
+            resolved_by,
+            resolved_at,
+            operator_note,
             error,
             ait_tx_hash,
         )
@@ -1375,6 +1395,9 @@ def update_sell_lock_status(
                 refund_tx_hash = COALESCE(?, refund_tx_hash),
                 escrow_out_nonce = COALESCE(?, escrow_out_nonce),
                 escrow_out_tx = COALESCE(?, escrow_out_tx),
+                resolved_by = COALESCE(?, resolved_by),
+                resolved_at = COALESCE(?, resolved_at),
+                operator_note = COALESCE(?, operator_note),
                 error = COALESCE(?, error)
             WHERE ait_tx_hash = ?
         """
@@ -1390,6 +1413,9 @@ def update_sell_lock_status(
             refund_tx_hash,
             escrow_out_nonce,
             escrow_out_tx,
+            resolved_by,
+            resolved_at,
+            operator_note,
             error,
             ait_tx_hash,
         )
@@ -1421,13 +1447,24 @@ def get_sell_pending_eth_reserve() -> Decimal:
 
 def get_sell_eth_committed_since(since_iso: str) -> Decimal:
     """Sum of ETH released (or possibly released) by sell locks since a
-    timestamp — the persisted basis for the daily release cap."""
+    timestamp — the persisted basis for the daily release cap.
+
+    `written_off` stays out of `_SELL_ETH_COMMITTED_STATUSES` itself, but
+    a written-off row that *recorded a release tx* still counts here:
+    the cap measures ETH that left the wallet and operator bookkeeping
+    does not undo a payment (ETH-13, decided 14 Oct). A row written off
+    before any release spent nothing — the `eth_tx_hash IS NOT NULL`
+    check is what tells the two apart. The pending-ETH reserve is the
+    opposite semantic (ETH not yet paid), so `written_off` remains fully
+    excluded from `_SELL_RESERVE_STATUSES`."""
     conn = _connect_db()
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _SELL_ETH_COMMITTED_STATUSES)
     cursor.execute(
         f"""SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks
-            WHERE status IN ({placeholders}) AND released_at >= ?""",  # nosec B608 - placeholders are literal '?' generated from _SELL_ETH_COMMITTED_STATUSES; all values bound
+            WHERE (status IN ({placeholders})
+                   OR (status = 'written_off' AND eth_tx_hash IS NOT NULL))
+              AND released_at >= ?""",  # nosec B608 - placeholders are literal '?' generated from _SELL_ETH_COMMITTED_STATUSES; all values bound
         (*_SELL_ETH_COMMITTED_STATUSES, since_iso),
     )
     total = cursor.fetchone()[0]
