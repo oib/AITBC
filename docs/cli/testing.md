@@ -28,8 +28,11 @@ From anywhere in the tree, with the root configuration. To run one file or one c
 /opt/aitbc/venv/bin/pytest cli/tests/test_cli_comprehensive.py::TestSimulateCommand -v
 ```
 
-Use `venv/bin/pytest` rather than a system pytest: the root configuration requires
-`pytest-rerunfailures` and `pytest-timeout`, which are installed in the virtualenv.
+Use `venv/bin/pytest` rather than a system pytest: the root configuration still
+requires `pytest-timeout` (the `timeout` ini option), and the virtualenv carries
+the rest of the test tier. Retries are no longer global — `pytest.mark.flaky`
+marks them per test, and the root conftest treats `--reruns` as a no-op where
+`pytest-rerunfailures` is absent.
 
 `cd cli && pytest` still runs just these 87. Removing `cli/pytest.ini` did not change that:
 rootdir is now the repository root, so the real configuration applies, and pytest skips
