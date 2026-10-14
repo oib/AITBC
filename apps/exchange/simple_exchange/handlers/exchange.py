@@ -23,7 +23,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
-from ..db import get_db_path, ticks_to_decimal, to_ticks
+from ..db import _SETTLEMENT_STATES, get_db_path, ticks_to_decimal, to_ticks
 from .base import RPC_BASE_URL, RPC_TIMEOUT, _idempotency_key, get_operation_ledger
 
 logger = get_logger(__name__)
@@ -64,6 +64,29 @@ _PAYOUT_ENVELOPE_FIELDS = frozenset({"action", "eth_address", "account_nonce", "
 _CANCEL_ACTION = "exchange_cancel"
 _REGISTER_ACTION = "exchange_register"
 _PAYOUT_ACTION = "exchange_set_payout"
+
+# Mirrored settlement transitions on trades rows (phase 3): the wallet
+# ledger is authoritative — the mirror only moves forward. The
+# needs_review family can be entered from any live state and resumes along
+# the release/refund lanes; terminal states accept nothing. Same-state
+# re-posts are handled separately as no-op dedupes.
+_TRADE_STATE_FORWARD: dict[str, frozenset[str]] = {
+    "locked": frozenset({"releasing", "queued_reserve", "needs_review"}),
+    "queued_reserve": frozenset({"releasing", "needs_review"}),
+    "releasing": frozenset({"released", "needs_review", "needs_review_release", "refund_pending"}),
+    "released": frozenset({"settling", "queued_fee_settle", "needs_review_sweep", "refund_pending"}),
+    "queued_fee_settle": frozenset({"settling", "needs_review_sweep"}),
+    "settling": frozenset({"settled", "needs_review_sweep"}),
+    "refund_pending": frozenset({"refunding", "queued_fee_refund", "needs_review_sweep"}),
+    "queued_fee_refund": frozenset({"refunding", "needs_review_sweep"}),
+    "refunding": frozenset({"refunded", "needs_review_sweep"}),
+    "needs_review": frozenset({"releasing", "refund_pending"}),
+    "needs_review_release": frozenset({"released", "refund_pending"}),
+    "needs_review_sweep": frozenset({"settling", "refunding", "settled", "refunded"}),
+    "settled": frozenset(),
+    "refunded": frozenset(),
+    "failed": frozenset(),
+}
 
 # Watchlist is flag-and-log only (decided 14 Oct): it never blocks or
 # throttles an order — auto-blocking would be a separate operator decision.
@@ -107,10 +130,11 @@ def _payout_address_blocked(eth_address: str) -> bool:
 
 
 def _prepaid_spendable(cursor, address: str) -> Decimal:
-    """Node's spendable prepaid ETH: deposits − live obligations − open
-    reservations. committed_eth is the live part (trades awaiting
-    resolution); an open debit's (amount − committed) stays reserved for
-    the order's remaining fills. All Decimal — this is the money path."""
+    """Node's spendable prepaid ETH: deposits − cumulative committed − open
+    reservations. committed_eth is spent-or-owed minus returned (settled
+    trades stay counted — that ETH is gone); an open debit's
+    (amount − committed) stays reserved for the order's remaining fills.
+    All Decimal — this is the money path."""
     deposits = Decimal(0)
     for (amt,) in cursor.execute("SELECT amount_eth FROM prepaid_deposits WHERE node_address = ?", (address,)):
         deposits += _to_decimal(amt)
@@ -129,7 +153,9 @@ def _prepaid_spendable(cursor, address: str) -> Decimal:
 def _commit_trade_cost(cursor, buy_order_id: int, trade_total: Decimal) -> None:
     """Commit a matched trade's cost to the buy order's prepaid debit. A
     matched trade always settles or parks needs_review — it never
-    un-happens — so the commitment lands inside the match transaction."""
+    un-happens — so the commitment lands inside the match transaction.
+    committed_eth is cumulative spent-or-owed: settlement does NOT
+    decrement (the ETH is gone); only a trade refund releases it."""
     row = cursor.execute(
         "SELECT COALESCE(committed_eth, '0') FROM prepaid_debits WHERE order_id = ?", (buy_order_id,)
     ).fetchone()
@@ -1061,7 +1087,10 @@ class ExchangeMixin:
         cursor.execute(
             "UPDATE orders SET funded_state = 'backing_expired' WHERE status = 'expired' AND funded_state != 'backing_expired'"
         )
-        for (oid,) in cursor.execute("SELECT id FROM orders WHERE status = 'expired' AND order_type = 'BUY'").fetchall():
+        for (oid,) in cursor.execute(
+            "SELECT o.id FROM orders o JOIN prepaid_debits d ON d.order_id = o.id "
+            "WHERE o.status = 'expired' AND o.order_type = 'BUY' AND d.state = 'open'"
+        ).fetchall():
             _close_buy_debit(cursor, oid)
 
     def handle_cancel_order(self, order_id_str: str) -> None:
@@ -1395,6 +1424,282 @@ class ExchangeMixin:
             logger.warning("exchange watchlist: %s flagged (cancel ratio > %s in %ss window)", addr, ratio, window_s)
             _WATCHLIST_LOGGED.add(addr)
         return flagged
+
+    # ── ETH-8 phase 3 (dark): internal settlement endpoint ───────────────
+    # The wallet bridge's settlement monitor is the ONLY non-exchange writer
+    # of exchange.db — and it writes through this endpoint, never SQL. Raw
+    # peer must be loopback (the service binds 0.0.0.0 and nginx does not
+    # proxy this path, so a leaked network path still fails closed), plus
+    # the existing EXCHANGE_API_KEY. Flag unset → 404 like any unknown
+    # route. Every event applies inside its own BEGIN IMMEDIATE and is
+    # idempotent: re-posting a known fact is a no-op, never an error.
+
+    def _raw_peer_ip(self) -> str:
+        """The socket peer — never proxy headers. This endpoint trusts only
+        the wire address."""
+        peer = getattr(self, "client_address", None)
+        if isinstance(peer, (tuple, list)) and peer:
+            return str(peer[0])
+        return ""
+
+    def _peer_is_loopback(self) -> bool:
+        import ipaddress
+
+        try:
+            addr = ipaddress.ip_address(self._raw_peer_ip())
+        except ValueError:
+            return False
+        if isinstance(addr, ipaddress.IPv6Address):
+            mapped = addr.ipv4_mapped
+            if mapped is not None:
+                addr = mapped
+        return addr.is_loopback
+
+    def handle_internal_settlement(self) -> None:
+        """POST /api/internal/exchange-settlement — typed settlement events."""
+        if not _settlement_enabled():
+            self.send_error(404, "Not Found")  # type: ignore[attr-defined]
+            return
+        if not self._peer_is_loopback():
+            self.send_error(403, "Forbidden")  # type: ignore[attr-defined]
+            return
+        if not self._require_api_key():  # type: ignore[attr-defined]
+            return
+        data = self._read_json_body()  # type: ignore[attr-defined]
+        if not data:
+            self.send_error(400, "Missing request body")  # type: ignore[attr-defined]
+            return
+        dispatch = {
+            "prepaid_credit": self._event_prepaid_credit,
+            "order_funded": self._event_order_funded,
+            "order_backing_expired": self._event_order_backing_expired,
+            "debit_refund": self._event_debit_refund,
+            "trade_state": self._event_trade_state,
+        }
+        handler = dispatch.get(str(data.get("event")))
+        if handler is None:
+            self.send_error(400, "Unknown settlement event")  # type: ignore[attr-defined]
+            return
+        handler(data)
+
+    def _internal_txn(self, work):
+        """Open a BEGIN IMMEDIATE transaction around an event application.
+        ``work(cursor)`` returns the response dict or (status, payload) on a
+        refused event — refusals roll back like the request paths do."""
+        conn = sqlite3.connect(get_db_path(), timeout=30)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cursor = conn.cursor()
+            outcome = work(cursor)
+            if isinstance(outcome, tuple):
+                conn.rollback()
+                self.send_json_response(outcome[1], status=outcome[0])  # type: ignore[attr-defined]
+                return
+            conn.commit()
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, RuntimeError):
+            conn.rollback()
+            logger.exception("Internal settlement event failed")
+            self.send_json_response({"error": "Settlement event failed"}, status=503)  # type: ignore[attr-defined]
+            return
+        finally:
+            conn.close()
+        self.send_json_response(outcome)  # type: ignore[attr-defined]
+
+    def _event_prepaid_credit(self, data: dict) -> None:
+        """Credit a node-tagged ETH deposit, then fund the node's still-open
+        unfunded BUYs (id order) while the spendable covers them —
+        re-matching each in the same transaction."""
+        node = str(data.get("node_address") or "")
+        tx_hash = str(data.get("eth_tx_hash") or "")
+        head = data.get("head")
+        try:
+            amount = _to_decimal(data.get("amount_eth"))
+        except (InvalidOperation, ValueError, TypeError):
+            amount = Decimal(0)
+        if not node or not tx_hash or amount <= 0:
+            self.send_error(400, "prepaid_credit requires node_address, amount_eth > 0, eth_tx_hash")  # type: ignore[attr-defined]
+            return
+
+        def work(cursor):
+            cursor.execute(
+                "INSERT OR IGNORE INTO prepaid_deposits (node_address, amount_eth, eth_tx_hash) VALUES (?, ?, ?)",
+                (node, str(amount), tx_hash),
+            )
+            credited = cursor.rowcount > 0
+            funded: list[int] = []
+            for oid, total in cursor.execute(
+                "SELECT id, total FROM orders WHERE user_address = ? AND order_type = 'BUY' "
+                "AND status = 'open' AND funded_state = 'unfunded' ORDER BY id",
+                (node,),
+            ).fetchall():
+                cost = _to_decimal(total)
+                if _prepaid_spendable(cursor, node) < cost:
+                    continue
+                cursor.execute(
+                    "INSERT INTO prepaid_debits (node_address, order_id, amount_eth, state) VALUES (?, ?, ?, 'open')",
+                    (node, oid, str(cost)),
+                )
+                cursor.execute(
+                    "UPDATE orders SET funded_state = 'funded', funded_at = ? WHERE id = ?",
+                    (datetime.now(UTC).isoformat(), oid),
+                )
+                row = cursor.execute("SELECT price, remaining, filled FROM orders WHERE id = ?", (oid,)).fetchone()
+                order = {
+                    "id": oid,
+                    "order_type": "BUY",
+                    "price": row[0],
+                    "remaining": row[1],
+                    "filled": row[2],
+                    "status": "open",
+                    "funded_state": "funded",
+                    "user_address": node,
+                }
+                self._match_orders_in_txn(
+                    cursor, order, head_height=head if isinstance(head, int) else None, guard_address=node
+                )
+                funded.append(oid)
+            return {"ok": True, "credited": credited, "funded_orders": funded}
+
+        self._internal_txn(work)
+
+    def _event_order_funded(self, data: dict) -> None:
+        """A SELL's escrow lock landed: flip it to 'funded' when the recorded
+        lock covers remaining + fee, then re-run matching inside the same
+        transaction."""
+        order_id = data.get("order_id")
+        locked = data.get("locked_ticks")
+        backing = str(data.get("backing_tx_hash") or "")
+        head = data.get("head")
+        if (
+            not isinstance(order_id, int)
+            or isinstance(order_id, bool)
+            or not isinstance(locked, int)
+            or isinstance(locked, bool)
+        ):
+            self.send_error(400, "order_funded requires integer order_id and locked_ticks")  # type: ignore[attr-defined]
+            return
+
+        def work(cursor):
+            row = cursor.execute(
+                "SELECT order_type, status, funded_state, price, remaining, filled, user_address FROM orders WHERE id = ?",
+                (order_id,),
+            ).fetchone()
+            if row is None:
+                return 404, {"error": "Order not found"}
+            if row[1] != "open" or row[2] != "unfunded":
+                return {"ok": True, "order_id": order_id, "funded_state": row[2], "unchanged": True}
+            if row[0] != "SELL":
+                return 400, {"error": "order_funded applies to SELL orders (escrow lock)"}
+            remaining = _to_decimal(row[4])
+            required = to_ticks(remaining + _apply_exchange_fee(remaining)[0])
+            if locked < required:
+                return 409, {"error": f"Lock below required cover ({locked} < {required} ticks)"}
+            cursor.execute(
+                "UPDATE orders SET funded_state = 'funded', locked_ticks = ?, backing_tx_hash = ?, funded_at = ? WHERE id = ?",
+                (locked, backing, datetime.now(UTC).isoformat(), order_id),
+            )
+            order = {
+                "id": order_id,
+                "order_type": "SELL",
+                "price": row[3],
+                "remaining": row[4],
+                "filled": row[5],
+                "status": "open",
+                "funded_state": "funded",
+                "user_address": row[6],
+            }
+            self._match_orders_in_txn(cursor, order, head_height=head if isinstance(head, int) else None, guard_address=row[6])
+            return {"ok": True, "order_id": order_id, "funded_state": "funded", "order": order}
+
+        self._internal_txn(work)
+
+    def _event_order_backing_expired(self, data: dict) -> None:
+        """The monitor can no longer prove an order's backing — mark it and
+        release any open prepaid debit (same txn)."""
+        order_id = data.get("order_id")
+        if not isinstance(order_id, int) or isinstance(order_id, bool):
+            self.send_error(400, "order_backing_expired requires integer order_id")  # type: ignore[attr-defined]
+            return
+
+        def work(cursor):
+            row = cursor.execute("SELECT funded_state FROM orders WHERE id = ?", (order_id,)).fetchone()
+            if row is None:
+                return 404, {"error": "Order not found"}
+            cursor.execute("UPDATE orders SET funded_state = 'backing_expired' WHERE id = ?", (order_id,))
+            _close_buy_debit(cursor, order_id)
+            return {"ok": True, "order_id": order_id, "funded_state": "backing_expired", "was": row[0]}
+
+        self._internal_txn(work)
+
+    def _event_debit_refund(self, data: dict) -> None:
+        """Close a buy order's open debit — the uncommitted residual returns
+        to spendable. Idempotent: a closed debit is a no-op."""
+        order_id = data.get("order_id")
+        if not isinstance(order_id, int) or isinstance(order_id, bool):
+            self.send_error(400, "debit_refund requires integer order_id")  # type: ignore[attr-defined]
+            return
+
+        def work(cursor):
+            deb = cursor.execute(
+                "SELECT amount_eth, COALESCE(committed_eth, '0'), state FROM prepaid_debits WHERE order_id = ?",
+                (order_id,),
+            ).fetchone()
+            if deb is None:
+                return 404, {"error": "No prepaid debit for order"}
+            refunded = str(_to_decimal(deb[0]) - _to_decimal(deb[1])) if deb[2] == "open" else None
+            _close_buy_debit(cursor, order_id)
+            return {"ok": True, "order_id": order_id, "refunded_eth": refunded, "was": deb[2]}
+
+        self._internal_txn(work)
+
+    def _event_trade_state(self, data: dict) -> None:
+        """Mirror the wallet ledger's settlement state onto the tape row —
+        forward-only; a 'refunded' trade releases its committed ETH back to
+        the buyer's prepaid balance (a 'settled' trade deliberately does NOT:
+        committed is cumulative, the ETH is gone)."""
+        trade_id = data.get("trade_id")
+        state = str(data.get("state") or "")
+        if not isinstance(trade_id, int) or isinstance(trade_id, bool) or state not in _SETTLEMENT_STATES:
+            self.send_error(400, "trade_state requires integer trade_id and a valid state")  # type: ignore[attr-defined]
+            return
+
+        def work(cursor):
+            row = cursor.execute(
+                "SELECT settlement_state, buy_order_id, total FROM trades WHERE id = ?", (trade_id,)
+            ).fetchone()
+            if row is None:
+                return 404, {"error": "Trade not found"}
+            current = row[0]
+            if current is None:
+                return 409, {"error": "Trade is not in the settlement machine"}
+            if current == state:
+                return {"ok": True, "trade_id": trade_id, "settlement_state": state, "unchanged": True}
+            if state not in _TRADE_STATE_FORWARD.get(current, frozenset()):
+                return 409, {"error": f"settlement_state cannot move {current} -> {state}"}
+            cursor.execute(
+                "UPDATE trades SET settlement_state = ?, "
+                "settlement_eth_tx_hash = COALESCE(?, settlement_eth_tx_hash), "
+                "settlement_ait_tx_hash = COALESCE(?, settlement_ait_tx_hash), "
+                "settlement_fee_tx_hash = COALESCE(?, settlement_fee_tx_hash) WHERE id = ?",
+                (state, data.get("eth_tx_hash"), data.get("ait_tx_hash"), data.get("fee_tx_hash"), trade_id),
+            )
+            released = None
+            if state == "refunded" and row[1] is not None:
+                deb = cursor.execute(
+                    "SELECT COALESCE(committed_eth, '0') FROM prepaid_debits WHERE order_id = ?", (row[1],)
+                ).fetchone()
+                if deb is not None:
+                    new_committed = _to_decimal(deb[0]) - _to_decimal(row[2])
+                    if new_committed < 0:
+                        logger.warning("trade %s refund underflowed committed_eth — clamped", trade_id)
+                        new_committed = Decimal(0)
+                    released = str(_to_decimal(deb[0]) - new_committed)
+                    cursor.execute(
+                        "UPDATE prepaid_debits SET committed_eth = ? WHERE order_id = ?", (str(new_committed), row[1])
+                    )
+            return {"ok": True, "trade_id": trade_id, "settlement_state": state, "released_eth": released}
+
+        self._internal_txn(work)
 
     def handle_my_orders(self, parsed) -> None:
         """GET /api/exchange/my-orders?addr= — one wallet's orders + next nonce."""
@@ -1797,7 +2102,16 @@ class ExchangeMixin:
             # EXCHANGE_FEE_PCT knob's value at match time (default 0 on
             # testnet, DECIDED 14 Oct) — phase 2 moves no funds, this is the
             # ledger column only.
-            fee_ait, _net_ait = _apply_exchange_fee(trade_qty)
+            # Phase 3: per-fill fee = the DIFFERENCE of the seller's
+            # cumulative fee at its running filled total — independently
+            # quantized fills could sum to more than fee(amount) and
+            # outrun the escrow lock; the cumulative form can never exceed
+            # fee(sell_amount).
+            if settlement:
+                sell_filled_before = _to_decimal(order.get("filled", 0)) if new_type == "SELL" else match_filled
+                fee_ait = _apply_exchange_fee(sell_filled_before + trade_qty)[0] - _apply_exchange_fee(sell_filled_before)[0]
+            else:
+                fee_ait, _net_ait = _apply_exchange_fee(trade_qty)
             buyer_addr = order.get("user_address") if new_type == "BUY" else match_row[9]
             seller_addr = match_row[9] if new_type == "BUY" else order.get("user_address")
             if settlement:
