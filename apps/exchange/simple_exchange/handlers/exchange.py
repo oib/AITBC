@@ -106,6 +106,59 @@ def _payout_address_blocked(eth_address: str) -> bool:
     return any(v.strip().lower() == addr for v in (os.getenv(e, "") for e in _BLOCKED_PAYOUT_ENVS) if v)
 
 
+def _prepaid_spendable(cursor, address: str) -> Decimal:
+    """Node's spendable prepaid ETH: deposits − live obligations − open
+    reservations. committed_eth is the live part (trades awaiting
+    resolution); an open debit's (amount − committed) stays reserved for
+    the order's remaining fills. All Decimal — this is the money path."""
+    deposits = Decimal(0)
+    for (amt,) in cursor.execute("SELECT amount_eth FROM prepaid_deposits WHERE node_address = ?", (address,)):
+        deposits += _to_decimal(amt)
+    committed = Decimal(0)
+    reserved = Decimal(0)
+    for amt, comm, state in cursor.execute(
+        "SELECT amount_eth, COALESCE(committed_eth, '0'), state FROM prepaid_debits WHERE node_address = ?",
+        (address,),
+    ):
+        committed += _to_decimal(comm)
+        if state == "open":
+            reserved += _to_decimal(amt) - _to_decimal(comm)
+    return deposits - committed - reserved
+
+
+def _commit_trade_cost(cursor, buy_order_id: int, trade_total: Decimal) -> None:
+    """Commit a matched trade's cost to the buy order's prepaid debit. A
+    matched trade always settles or parks needs_review — it never
+    un-happens — so the commitment lands inside the match transaction."""
+    row = cursor.execute(
+        "SELECT COALESCE(committed_eth, '0') FROM prepaid_debits WHERE order_id = ?", (buy_order_id,)
+    ).fetchone()
+    if row is None:
+        return  # defensive: a funded buy always has a debit row
+    cursor.execute(
+        "UPDATE prepaid_debits SET committed_eth = ? WHERE order_id = ?",
+        (str(_to_decimal(row[0]) + trade_total), buy_order_id),
+    )
+
+
+def _close_buy_debit(cursor, order_id: int) -> None:
+    """Close a buy order's open debit when the order is done filling:
+    the uncommitted residual returns to spendable ('refunded'), a fully
+    committed debit is 'consumed'. committed_eth keeps tracking live
+    trades past close — they settle or refund against it."""
+    row = cursor.execute(
+        "SELECT amount_eth, COALESCE(committed_eth, '0'), state FROM prepaid_debits WHERE order_id = ?",
+        (order_id,),
+    ).fetchone()
+    if row is None or row[2] != "open":
+        return
+    residual = _to_decimal(row[0]) - _to_decimal(row[1])
+    cursor.execute(
+        "UPDATE prepaid_debits SET state = ?, closed_at = ? WHERE order_id = ?",
+        ("consumed" if residual <= 0 else "refunded", datetime.now(UTC).isoformat(), order_id),
+    )
+
+
 def _exchange_chain_id() -> str:
     """Expected envelope chain_id: EXCHANGE_CHAIN_ID > CHAIN_ID > design literal."""
     return os.getenv("EXCHANGE_CHAIN_ID") or os.getenv("CHAIN_ID") or _EXCHANGE_CHAIN_DEFAULT
@@ -314,26 +367,30 @@ class ExchangeMixin:
             labels = self._registry_labels(cursor)
             band = self._ait_eth_band()
 
+            # Phase 3 (dark): under settlement the book shows only matchable
+            # orders — an unfunded row must not inflate visible depth.
+            funded_pred = "AND funded_state = 'funded'" if _settlement_enabled() else ""
+
             # Sell orders — integer ticks sort; TEXT '10' would sort below '2'.
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at,
                        user_address, expiry_height, funded_state
                 FROM orders
-                WHERE order_type = 'SELL' AND status = 'open'
+                WHERE order_type = 'SELL' AND status = 'open' {funded_pred}
                 ORDER BY price_ticks ASC, id ASC
                 LIMIT 20
-            """)
+            """)  # nosec B608 - funded_pred is a fixed literal fragment, never input
             sells = [self._orderbook_row(row, labels, band) for row in cursor.fetchall()]
 
             # Buy orders — integer ticks, then id for deterministic FIFO ties.
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at,
                        user_address, expiry_height, funded_state
                 FROM orders
-                WHERE order_type = 'BUY' AND status = 'open'
+                WHERE order_type = 'BUY' AND status = 'open' {funded_pred}
                 ORDER BY price_ticks DESC, id ASC
                 LIMIT 20
-            """)
+            """)  # nosec B608 - same fixed fragment
             buys = [self._orderbook_row(row, labels, band) for row in cursor.fetchall()]
         finally:
             conn.close()
@@ -779,6 +836,13 @@ class ExchangeMixin:
         existing = self._order_by_envelope(cursor, address, env_hash)
         if existing is not None:
             return 200, existing
+        # ETH-8 phase 3 (dark): with settlement on, a SELL must have a
+        # registered payout address before the nonce is claimed — a refused
+        # order never burns the account nonce.
+        if _settlement_enabled() and envelope["side"] == "SELL":
+            eth_row = cursor.execute("SELECT eth_address FROM node_registry WHERE address = ?", (address,)).fetchone()
+            if eth_row is None or not eth_row[0]:
+                return 409, {"error": "SELL requires a registered payout address (exchange_set_payout)"}
         if envelope["account_nonce"] != self._expected_nonce(cursor, address) or not self._claim_nonce(
             cursor, address, envelope["account_nonce"]
         ):
@@ -817,6 +881,8 @@ class ExchangeMixin:
                 existing = self._order_by_envelope(cursor, address, env_hash)
                 self.send_json_response(existing or {"error": "Duplicate envelope"})  # type: ignore[attr-defined]
                 return
+            if _settlement_enabled():
+                self._fund_order_in_txn(cursor, order, envelope, address)
             self._match_orders_in_txn(cursor, order, head_height=head, guard_address=address)
             if idempotency_key and not get_operation_ledger().complete(idempotency_key, operation_attempt, order, conn=conn):
                 raise RuntimeError("operation lease superseded mid-transaction")
@@ -887,6 +953,57 @@ class ExchangeMixin:
             "funded_state": "unfunded",
         }
 
+    def _fund_order_in_txn(self, cursor, order: dict, envelope: dict, address: str) -> None:
+        """ETH-8 phase 3 (dark): attach backing to a fresh signed order
+        inside the placement transaction. Only runs under
+        EXCHANGE_SETTLEMENT_ENABLED; flag-off callers never reach here.
+
+        - SELL: snapshots the registry payout address onto the order and
+          stays 'unfunded' — the node still has to send its escrow lock
+          (payload sell_quote=<order_id>, covering amount + fee). The
+          response carries the lock instruction.
+        - BUY: debits prepaid ETH for the full notional now when the
+          spendable balance covers it ('funded'); otherwise 'unfunded'
+          with the prepay instruction (EXCHANGE_DEPOSIT tag).
+        """
+        if order["order_type"] == "SELL":
+            eth_row = cursor.execute("SELECT eth_address FROM node_registry WHERE address = ?", (address,)).fetchone()
+            seller_eth = eth_row[0] if eth_row else None
+            cursor.execute("UPDATE orders SET seller_eth_address = ? WHERE id = ?", (seller_eth, order["id"]))
+            amount = _to_decimal(order["amount"])
+            required = amount + _apply_exchange_fee(amount)[0]
+            order["funding"] = {
+                "type": "ait_lock",
+                "state": "unfunded",
+                "escrow": os.getenv("AIT_SELL_ESCROW", ""),
+                "payload": f"sell_quote={order['id']}",
+                "required_ait": str(required),
+            }
+            return
+        # BUY: cost is the full notional (remaining fills draw from the same
+        # debit as trades commit).
+        cost = _to_decimal(order["total"])
+        spendable = _prepaid_spendable(cursor, address)
+        if spendable >= cost:
+            cursor.execute(
+                "INSERT INTO prepaid_debits (node_address, order_id, amount_eth, state) VALUES (?, ?, ?, 'open')",
+                (address, order["id"], str(cost)),
+            )
+            cursor.execute(
+                "UPDATE orders SET funded_state = 'funded', funded_at = ? WHERE id = ?",
+                (datetime.now(UTC).isoformat(), order["id"]),
+            )
+            order["funded_state"] = "funded"
+            order["funding"] = {"type": "eth_prepaid", "state": "funded", "debited_eth": str(cost)}
+        else:
+            order["funding"] = {
+                "type": "eth_prepay",
+                "state": "unfunded",
+                "needed_eth": str(cost - spendable),
+                "tag": f"EXCHANGE_DEPOSIT:{address}",
+                "bridge_eth_address": os.getenv("BRIDGE_ETH_ADDRESS", ""),
+            }
+
     def _order_by_envelope(self, cursor, address, env_hash):
         """Fetch the recorded order for a byte-identical resubmit."""
         row = cursor.execute(
@@ -935,6 +1052,17 @@ class ExchangeMixin:
             "UPDATE orders SET status = 'expired' WHERE status = 'open' AND expiry_height IS NOT NULL AND expiry_height <= ?",
             (head,),
         )
+        if not _settlement_enabled():
+            return
+        # The order's backing window ended with it — funded or not. Any
+        # still-open prepaid debit releases its uncommitted part inside the
+        # same write transaction; committed ETH stays earmarked for the
+        # trades that already matched.
+        cursor.execute(
+            "UPDATE orders SET funded_state = 'backing_expired' WHERE status = 'expired' AND funded_state != 'backing_expired'"
+        )
+        for (oid,) in cursor.execute("SELECT id FROM orders WHERE status = 'expired' AND order_type = 'BUY'").fetchall():
+            _close_buy_debit(cursor, oid)
 
     def handle_cancel_order(self, order_id_str: str) -> None:
         """POST /api/orders/<id>/cancel — signed cancel (design section 6)."""
@@ -1008,6 +1136,17 @@ class ExchangeMixin:
                 (datetime.now(UTC).isoformat(), order_id),
             )
             result = {"id": order_id, "status": "cancelled"}
+            if _settlement_enabled():
+                # The backing window ended with the order; the uncommitted
+                # part of any prepaid debit refunds atomically here.
+                cursor.execute("UPDATE orders SET funded_state = 'backing_expired' WHERE id = ?", (order_id,))
+                deb = cursor.execute(
+                    "SELECT amount_eth, COALESCE(committed_eth, '0'), state FROM prepaid_debits WHERE order_id = ?",
+                    (order_id,),
+                ).fetchone()
+                if deb is not None and deb[2] == "open":
+                    result["refunded_eth"] = str(_to_decimal(deb[0]) - _to_decimal(deb[1]))
+                _close_buy_debit(cursor, order_id)
             if idempotency_key and not get_operation_ledger().complete(idempotency_key, operation_attempt, result, conn=conn):
                 raise RuntimeError("operation lease superseded mid-transaction")
             conn.commit()
@@ -1574,6 +1713,12 @@ class ExchangeMixin:
         if not order or "order_type" not in order:
             return
 
+        # ETH-8 phase 3 (dark): under settlement, unfunded orders never
+        # enter the matchable set and candidates must be 'funded' too.
+        settlement = _settlement_enabled()
+        if settlement and order.get("funded_state") != "funded":
+            return
+
         new_type = order["order_type"]
         new_price = _to_decimal(order["price"])
         new_price_ticks = to_ticks(new_price)
@@ -1591,26 +1736,31 @@ class ExchangeMixin:
         # guard compares case-insensitively: stored addresses may be legacy
         # free-text, signed orders write the canonical EIP-55 form.
         self_guard = "AND (user_address IS NULL OR LOWER(user_address) != LOWER(?))" if guard_address else ""
+        # Flag-off must run the phase-2 query byte-for-byte: the lock column
+        # and the funded predicate only exist in the statement when the
+        # settlement flag is on.
+        lock_col = ", locked_ticks" if settlement else ""
+        funded_pred = "AND funded_state = 'funded'" if settlement else ""
         if new_type == "BUY":
             # Match against SELL orders with price <= our buy price
             cursor.execute(
                 f"""
-                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash
+                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
                 FROM orders
-                WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ? {self_guard}
+                WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ? {self_guard} {funded_pred}
                 ORDER BY price_ticks ASC, id ASC
-                """,  # nosec B608 - self_guard is a fixed literal fragment, never input
+                """,  # nosec B608 - lock_col/self_guard/funded_pred are fixed literal fragments, never input
                 (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
             )
         else:
             # Match against BUY orders with price >= our sell price
             cursor.execute(
                 f"""
-                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash
+                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
                 FROM orders
-                WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ? {self_guard}
+                WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ? {self_guard} {funded_pred}
                 ORDER BY price_ticks DESC, id ASC
-                """,  # nosec B608 - same fixed fragment
+                """,  # nosec B608 - same fixed fragments
                 (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
             )
 
@@ -1628,6 +1778,16 @@ class ExchangeMixin:
             if match_remaining <= 0:
                 continue
 
+            # A candidate SELL's remaining fills must stay inside its
+            # recorded escrow lock (amount + fee). Funding enforces the
+            # cover at lock time; this is the in-scan safety net — a row
+            # that fails it awaits the monitor's backing_expired event.
+            if settlement and match_row[1] == "SELL":
+                locked = match_row[11]
+                required_ticks = to_ticks(match_remaining + _apply_exchange_fee(match_remaining)[0])
+                if locked is None or locked < required_ticks:
+                    continue
+
             # B2: Calculate trade quantity with Decimal (exact arithmetic)
             trade_qty = min(new_remaining, match_remaining)
             trade_total = trade_qty * match_price
@@ -1640,21 +1800,47 @@ class ExchangeMixin:
             fee_ait, _net_ait = _apply_exchange_fee(trade_qty)
             buyer_addr = order.get("user_address") if new_type == "BUY" else match_row[9]
             seller_addr = match_row[9] if new_type == "BUY" else order.get("user_address")
-            cursor.execute(
-                """
-                INSERT INTO trades (amount, price, total, created_at, buyer_address, seller_address, fee_ait)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(trade_qty),
-                    str(match_price),
-                    str(trade_total),
-                    datetime.now(UTC).isoformat(),
-                    buyer_addr,
-                    seller_addr,
-                    str(fee_ait),
-                ),
-            )
+            if settlement:
+                # Phase 3: the trade row names its parent orders and enters
+                # the settlement machine at 'locked'; the buyer's cost
+                # commits to the prepaid debit in the same transaction.
+                buy_order = new_id if new_type == "BUY" else match_id
+                sell_order = new_id if new_type == "SELL" else match_id
+                cursor.execute(
+                    """
+                    INSERT INTO trades (amount, price, total, created_at, buyer_address, seller_address,
+                                        fee_ait, buy_order_id, sell_order_id, settlement_state)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'locked')
+                    """,
+                    (
+                        str(trade_qty),
+                        str(match_price),
+                        str(trade_total),
+                        datetime.now(UTC).isoformat(),
+                        buyer_addr,
+                        seller_addr,
+                        str(fee_ait),
+                        buy_order,
+                        sell_order,
+                    ),
+                )
+                _commit_trade_cost(cursor, buy_order, trade_total)
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO trades (amount, price, total, created_at, buyer_address, seller_address, fee_ait)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(trade_qty),
+                        str(match_price),
+                        str(trade_total),
+                        datetime.now(UTC).isoformat(),
+                        buyer_addr,
+                        seller_addr,
+                        str(fee_ait),
+                    ),
+                )
 
             # Update the matching order (B2: Decimal arithmetic, store as TEXT)
             new_match_filled = match_filled + trade_qty
@@ -1676,6 +1862,11 @@ class ExchangeMixin:
                     match_id,
                 ),
             )
+
+            # A candidate BUY that just filled releases the uncommitted
+            # residual of its prepaid debit in the same transaction.
+            if settlement and match_row[1] == "BUY" and new_match_status == "filled":
+                _close_buy_debit(cursor, match_id)
 
             # Update the new order (in-memory)
             new_remaining -= trade_qty
@@ -1702,6 +1893,9 @@ class ExchangeMixin:
                     new_id,
                 ),
             )
+            # An inbound BUY that filled releases its uncommitted residual.
+            if settlement and new_type == "BUY" and order.get("status") == "filled":
+                _close_buy_debit(cursor, new_id)
 
     def match_orders(self, order: dict) -> None:
         """Match a new order against existing open orders (standalone transaction).
