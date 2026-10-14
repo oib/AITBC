@@ -21,14 +21,13 @@ Security tooling is installed via `requirements-dev.txt` and run locally or in
 CI:
 
 1. **pip-audit** — scans Python packages for known vulnerabilities
-2. **Safety** — checks against the Python Safety DB
-3. **Bandit** — static analysis for Python security issues
-4. **CodeQL** — configuration lives under `.github/codeql/` (`suppressions.yml`)
+2. **Bandit** — static analysis for Python security issues
+3. **CodeQL** — configuration lives under `.github/codeql/` (`suppressions.yml`)
 
 ### Running a scan
 
 ```bash
-# Scan Python dependencies (pip-audit + safety)
+# Scan Python dependencies (pip-audit; scan tools run in a throwaway venv)
 ./scripts/security/dependency-scan.sh
 
 # Scan source for hardcoded secrets
@@ -107,7 +106,6 @@ Enable warnings for:
 
 ### Resources
 
-- [Python Safety Database](https://pyup.io/safety/)
 - [pip-audit Documentation](https://pip-audit.readthedocs.io/)
 - [OWASP Python Security](https://owasp.org/www-project-python-security/)
 - [GitHub Security Best Practices](https://docs.github.com/en/code-security)
