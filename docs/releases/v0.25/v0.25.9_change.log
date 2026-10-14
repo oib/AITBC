@@ -1543,3 +1543,191 @@ narrative; this list cites each remaining commit by hash so
 - `40fd20a3b4` docs(release): DEPS-2 section + commit index for the deps stack
 - `d3f2356be2` fix(ci): accept canonical __version__ import in cli/setup.py version check
 - `434a31ac01` chore(version): align pyproject.toml [project] version with the release line
+- `94e212dc43` docs(release): draft v0.25.11 change log
+- `7a3c057251` docs(release): drop unverifiable provenance claim from v0.25.11 draft
+- `9a8ab55a86` docs(release): refresh v0.25.11 log for the watch-commit chain
+- `c0797723f5` fix(bridge): keep replay-guard fields through the validators/block-header request models
+- `1bf88b27bd` test(bridge): replay-guard fields round-trip through validators/block-header request models
+- `9c16a42739` feat(ops): file-sourced validator keys with mode/owner checks in register_bridge_validators
+- `30aef0a276` feat(ops): compare bridge_validators active sets across chain.db files
+- `4df673a41e` test(bridge): header threshold arithmetic — non-attester sets cannot meet t
+- `4de8ab4709` feat(ops): bridge validator set vs consensus-set threshold checker
+- `e38f7983c7` feat(ops): admin key file gets the same mode/owner/symlink checks as validator files
+- `e9b0a30ad8` feat(ops): emit/consume validator self-signature blobs for custody-safe registration
+- `541cd659a5` test(bridge): prove freshness gate is timestamp-only, fails closed after grace
+- `e78938b237` test(bridge): prove registry accumulates same-epoch POSTs; threshold is settings
+- `65f382616b` feat(ops): add read-only bridge proof dry-run against real chain.db
+- `50111ddd4c` feat(monitoring): bridge validator-set textfile exporter + alerts
+- `fce9f52d7b` fix(bridge): make validator-set freshness epoch-aware, matching its docstring
+- `068ce64ddc` test(bridge): pin replay-guard fields through the request models
+- `3906a18d5b` test(ops): make wrong-owner key-file refusals run under root too
+- `0311246378` test(ops): pass gid to os.chown in wrong-owner fixture fix
+- `25077ddfd3` docs(ops): document bridge lock pause/cap defaults + bridge-set exporter; fix deploy env example path
+- `30e4c598d3` fix(monitoring): dedicated bridge-set.env in unit + docs; neutral blockchain.env.example seed
+- `9b2f911196` refactor(coordinator): remove dead SETTLEMENT_PRIVATE_KEY signer and startup gate
+- `3245cb90ee` fix(bridge): report validator_count for latest epoch only
+- `02d05dd528` test(bridge): pin validator_count excluding inactive latest-epoch rows
+- `f7df5b478b` docs(governance): state that votes are advisory (V-7) at every vote surface
+- `ef9807ed6c` feat(ops): read-only escrow reconciliation proof (SD-1)
+- `0c51568cb4` refactor(coordinator): freeze 001 baseline migration as explicit DDL (B-8)
+- `65cb2067da` fix(ops): tolerate pre-billed_legs escrow schema in SD-1 proof
+- `759cac2f3f` ci(c901): re-baseline complexity ratchet and wire it into pre-push
+- `f078b6f30c` test(coordinator): semantic schema conformance + downgrade guard for frozen 001 (B-8)
+- `c9d20847f5` fix(rpc): log expected account 404s at INFO, keep other 4xx at WARNING
+- `8048de9c0e` test(coordinator): B-8 follow-on proofs + fix c3a91f7e5b02 sqlite downgrade
+- `7c832822b3` docs(joining): seed bridge_validators as a fresh-node bring-up step (B43 #6)
+- `de042656b3` docs(alembic): correct stale _index_or_constraint_exists docstring (B2a)
+- `6b718fc801` fix(ops): stop polling /rpc/transaction/None; validate executor list duplicates
+- `f74210fd4e` fix(rpc): emit authority-parameter advisory once per process per parameter
+- `c7cdab6f62` fix(rpc): log pending-tx hash 404s at INFO like expected account 404s
+- `1449386402` chore(deps): bump markdown-it-py 4.1.0 -> 4.2.0 in poetry.lock (B2b)
+- `95c0739e87` docs(monitoring): fix alert-path drift — watcher unit origin, BridgeSet severity, remote_write, RpcErrorsSpiking expr
+- `d0dbd63b37` feat(consensus): v13 governance binding — EXECUTE applies sealed PROPOSE payload (inert)
+- `50d3150c6f` test(contracts): BR-1 owner-path, 2-of-3 Safe owner, deposit/withdraw round-trip
+- `aeb2582410` fix(alembic): f53990f9d6cc downgrade drops dependent indexes first (B3)
+- `238a5c7840` docs(ops): manual escrow refund runbook (B4)
+- `487b0420fc` docs(ops): correct _reconcile_refund_state line cite in refund runbook
+- `fc01e75851` test(alembic): whole-chain downgrade/upgrade round-trip sweep (B3, slow)
+- `8cb5a7fd23` feat(monitoring): C10 state-sync divergence alerts on hub rules
+- `6eb34e623a` feat(ops): read-only side-table digest probe (V-3 fleet check)
+- `43df11d59e` feat(ops): verify-genesis-root.py — prove a genesis file before trusting it
+- `f9a13e9aac` feat(ops): read-only bridge-leaf recomputation audit (V-4 measurement)
+- `23d6923b15` fix(payments): hashless release claim marks settlement_failed, not released
+- `718cb323d9` style: ruff format drift sweep — 19 files (C13)
+- `3bd39e6b60` feat(scripts): bridge-wallet-reconcile — BR-6 ledger-side audit pass
+- `890893e989` test(consensus): v13 binding adversarial tests + already-executed rejection
+- `72dd0b8ffd` test: un-stale four suites after deliberate changes (C14)
+- `a92d63d490` test+docs: un-stale five more suites / close env-doc gaps (C14)
+- `2784734447` feat(ops): snapshot manifest generator (V-5 attested-snapshot step 1)
+- `1a58eddffd` build(make): test-migrations-slow target for the slow alembic sweep
+- `ca0500d7ee` fix(ops): side-root-probe and bridge-leaf-audit open the db mode=ro without immutable
+- `afdcf2b7e7` feat(bridge): fail-closed per-lock cap in production (BR-3, BR-4)
+- `d337248034` feat(blockchain-node): verify genesis claims before writing block 0 (V-5)
+- `5c58191259` docs(joining): genesis.json is verified at bootstrap; transplant is the fallback (V-5)
+- `b959711173` feat(consensus): v13 binding shadow counters (v13_would_reject_*, branch only)
+- `5cbd65e666` feat(ops): read-only bridge mainnet preflight (BR-5)
+- `70c54a2738` fix(monitoring): BridgeSetCannotMeetThreshold critical; fix stale paused comments (BR-2)
+- `8c1459529a` test(consensus): enumerate sender-authority coverage for every tx type (V-8)
+- `4fac4085ef` feat(contracts): BR-1 deploy runbook + deploy script hands ownership to Safe
+- `462ccac9c8` feat(ops): rebuild-escrows --plan write-phase dry run; mode=ro on live-db readers
+- `ed431c89d9` fix(ops): write-plan still lists classes under an abort (review-only)
+- `0ef22b7056` fix(ops): shorten job ids in the write-plan report-only list
+- `521fa884c5` revert(payments): drop TEE-gate hunk from 23d6923b1 — ship S-10 fix only (B9 split)
+- `c422589ff5` feat(monitoring): severity floor for alert pushes + daily warning digest (SD-2)
+- `8206c3f64c` feat(ops): side-root-probe --canonical mode with V-3 activation rules
+- `f78929cc9c` feat(ops): outbound-figure collector spec for BR-6 (B13)
+- `b2368b02ac` feat(ops): bridge-leaf-audit --boundary grandfathering classification (V-4)
+- `32a34a98db` feat(ops): escrow residue dry-run tool + EscrowResidueStale alert (S-11)
+- `2ef76dc1db` test(ops): FIX-1 give digest scheme test a response-shaped urlopen mock
+- `d4eb7341dd` feat(monitoring): OPS-2 deployed-rules drift check + copy/reload doc line
+- `6a21a451a1` feat(ops): rebuild-escrows --plan records known R2 anomaly instead of aborting
+- `05ee3b7e01` feat(ops): classify residue rows by sealed legs (S-12)
+- `80694ae85b` feat(ops): side-root-probe --canonical normalize+exclude rules (V-3)
+- `86022a6c02` docs(decisions): V-1 live-exercise waiver list — 22 types + replay test per type
+- `75f12a34b9` feat(ops): bridge-leaf-audit default boundary 30000 + V-4 activation design doc
+- `4642967ff2` fix(monitoring): EscrowResidueStale watches only fee-leg rows (S-13)
+- `2c6707d8d7` test(v9): fixture replay for all 22 waived types (V-1 close condition)
+- `01e21d8745` docs: mark pre-rotation validator lists as historical (DOC-1)
+- `d9bd70a25d` docs(testing): explain the missing pytest summary line under a second -q (DOC-2)
+- `f54decccce` test(v9): pin every unsigned protocol-transfer emission as unsealable at v9 (BNT-1)
+- `9030f969ed` refactor(ops): one shared classify() for the residue tool and exporter (S-15)
+- `922acc03cd` feat(monitoring): attestation-arrival textfile exporter and warning rules (MON-1)
+- `3e0949c009` test(ops): B13 bridge_outbound migration dry-run harness + fixtures (BR-7)
+- `c03ddbc662` feat(rpc): retire protocol-transfer surfaces that cannot seal at v9 (BNT-2)
+- `d4f2662c93` test(monitoring): expect BridgeSetCannotMeetThreshold as critical in promtool fixture (FIX-2)
+- `3bc8dff704` feat(ops): V-3 committed set = all 13 apply-written tables + shadow design
+- `083e6aa82d` feat(ops): flag-gated escrow write-phase tool (SD-1)
+- `26e97a54b6` docs(design): escrow anomaly remedy options paper (SD-6)
+- `12a2a7d6ac` feat(cli): clear message for BNT-2-retired RPC surfaces + docs marks (BNT-3)
+- `9e4bd3a394` feat(consensus): V-3 side-table root shadow hook (compare-only, flag-gated)
+- `313b741d8a` feat(consensus): V-4 bridge-lock missing-data guard, dry-run mode only
+- `f59d6f209b` fix(ops): repeatable --env-file for bridge mainnet preflight (BR-8)
+- `6ce99e9295` feat(consensus): V-4 guard — exception containment + malformed-input tests
+- `4e75284316` docs(decisions): record the 12 Oct operator decisions (BR-8)
+- `d37492c890` feat(consensus): V-3 shadow — interval + retention knobs, cost measured
+- `65d27db74d` docs(design): key custody proposal — plaintext key inventory + offline copy plan (K-4)
+- `b4e1a98b58` merge: V-4 bridge-lock guard (dry-run hardened) for shared activation
+- `3016e2c70c` merge: V-3 side-table root shadow for shared activation
+- `95499c2a78` merge: V-2 v13 governance binding for shared activation
+- `ce99ea30c5` feat(consensus): ACT-1 shared activation at height 46,100 (V-2 + V-3 + V-4)
+- `6cd5c14f57` docs(design): node-held wallet access for agents — ops wallet + signer wrapper (SEC-1)
+- `e3d4ee8e18` Merge remote-tracking branch 'origin/main' into HEAD
+- `0bbb4d0dc4` feat(ops-signer): flag-gated unix-socket signer with allow-list + caps (SEC-2)
+- `0938c6c88b` feat(ops): snapshot-manifest sign/verify tooling + trusted signer constant (V-5)
+- `56997c21b8` feat(contracts): BR-9 Sepolia rehearsal tooling — scripted 2-of-3 Safe flow
+- `44e3fa9e6a` fix(contracts): BR-9 rehearsal — Array.map getAddress footgun + signer3 fee recipient
+- `df8c6a70ef` fix(contracts): bind deploy-bridge factory to the resolved deployer
+- `c0d1cf7315` fix(contracts): submit Safe execTransaction from a funded executor kit
+- `0e1c41e802` feat(ops): BR-12 post-activation audit script + SEC-3 checklist + runbook fixes
+- `016f149573` docs(contracts): record the 2026-10-13 Sepolia rehearsal run (BR-9 phase B)
+- `78fb32bf18` perf(ops): post-activation audit — 25-block attestation lookback
+- `846857f9f5` fix(ops): BR-12 audit — distinguish unverifiable locks, JSON alerts.log
+- `45f41ce9a8` fix(contracts): BR-11 rehearsal tooling hardening per BR-10 review
+- `d092401015` feat(website): dashboards read live public APIs with honest states
+- `8e4c4d24a0` test(escrow): count the residue exporter's series in the rules-coverage test (DEV-2)
+- `de7c90c321` docs(architecture): rewrite 1_system-flow.md against live fleet (DEV-4)
+- `6dffbbc800` docs(architecture): system-flow chain facts + verification-gate marking; fix dump_mcp_tools port map
+- `24edde3841` fix(market): redact customer and rental fields from the public jobs feed
+- `0d7fb51f9a` feat(cli,mcp): add --since/--grep filters to system logs and get_service_logs
+- `0891b332c1` feat(cli,mcp): add --no-deploy/--check with SHA report to aitbc update
+- `b172fbe597` docs(architecture): drop version string from system-flow verification note
+- `4552b41873` fix(api-gateway): parametrize uvicorn bind host via API_GATEWAY_BIND_HOST
+- `d46dc30781` fix(blockchain-p2p): parametrize gossip relay bind host via P2P_BIND_HOST
+- `5c004f17be` docs(ops): backup & restore runbook from BK-1 drill
+- `c41ad91cee` feat(ops): offsite-pull-backups script + user timer (BK-2)
+- `33c09e453e` fix(agent-coordinator): gate consensus/ai routers and anonymous /health detail (SEC-8)
+- `2397f7d884` docs(ops): v14 activation runbook + aux-root cross_chain_transfer independence test (ACT-2)
+- `9abd61e761` feat(ops): BK-4 pull logging/marker/status + MON-2 backup freshness alerts
+- `1a0367224f` feat(ops): secret_scan.py repo secret-pattern scanner (SEC-10)
+- `eeac63e1d0` chore(deps): bump pyjwt 2.13.0 -> 2.15.0 (SEC-13)
+- `5628bcfc64` chore(deps): bump urllib3 2.7.0 -> 2.8.0 (SEC-13)
+- `7df8c87e54` chore(deps): bump multidict 6.7.1 -> 6.9.1 (SEC-13)
+- `4117829ed5` chore(deps): bump werkzeug 3.1.8 -> 3.1.9 (SEC-13)
+- `dc74e4ce3c` chore(deps): bump zk-circuits brace-expansion 2.1.4 -> 2.1.7 (SEC-13)
+- `8c791e22dd` chore(gitignore): ignore keys/ and wallets/ dirs (SEC-14)
+- `d8f8ac6a9f` fix(logs): create /var/log/aitbc files 0640 aitbc:adm (SEC-14)
+- `d2f69e5262` fix(ops-signer): systemd-creds decrypt fallback for LXC hosts (SEC-3b)
+- `2da5feafd8` fix(ops-signer): survive restart by clearing stale socket (SEC-3c)
+- `62ddff8ae8` test(ops-signer): wait for listener readiness, not socket file (SEC-3c)
+- `75a0c51237` fix(logrotate): rotate flat aitbc logs via copytruncate, exclude self-rotating service logs (LOG-1)
+- `3d72b5cc54` fix(logrotate): size-trigger flat logs so alerts.log stays handler-managed (LOG-1b)
+- `05939e8020` docs(ops): self-hosted ntfy staging runbook for ns2 incus container (SD-2a)
+- `63fef9f92e` chore(docs): move ntfy ns2 staging out of the repo (SD-2a)
+- `ae50febd97` feat(monitoring): ntfy publish format for watcher, digest and heartbeat (SD-2c)
+- `9609231088` docs(bridge): per-node Sepolia wallets, buy/sell scenario, read-only balance script (ETH-1)
+- `821321fc15` docs(ops): keep live wallet dir untouched in Sepolia key recipe (ETH-1-fix)
+- `02f4afb665` docs(scenarios): node0 cannot reach hub wallet daemon — real deposit paths (ETH-1)
+- `e35538589d` feat(cli): aitbc eth transfers — read-only Sepolia transfer log (ETH-6)
+- `2cd13f036c` docs(design): escrowed AIT->ETH sell flow (ETH-7, design only)
+- `0123864d70` docs(design): hub trade exchange page (ETH-8, design only)
+- `4a03239529` docs(design): wallet-sovereignty check in ETH-7/ETH-8 (13 Oct rule)
+- `3ab0b10580` docs(design): ETH-7b — trust window + operator decisions list
+- `8d1d2ed178` fix(bridge): kill duplicate-release race in withdraw monitor (ETH-9)
+- `fa160b7342` docs(design): ETH-7c — record operator decision (a) on escrow classification
+- `83136d6057` fix(bridge): harden release outcome verification (ETH-9b)
+- `a22794e63a` feat(website): ETH-11 phase 1 — read-only order book + trade tape on exchange page
+- `1edb2d2c09` fix(examples): exchange-api zone split + 429 status — match deployed conf
+- `8f18edcaf6` feat(bridge): ETH-10 phase 1 — keyed-escrow AIT->ETH sell flow
+- `e6646db9ef` fix(bridge): ETH-10 review — serialize escrow sweeps, fee float, lock binding
+- `5b2630d95e` fix(bridge): ETH-10 round 2 — terminal sweep review status, fee-deficit marker split
+- `cf40650aef` refactor(bridge): ETH-10 follow-up — monitor decomposition, handler table, nosec annotations
+- `c0dbd1fa9f` chore(ci): C901 baseline entry for bridge_routes.py — bridge_sell_quote held at 17
+- `e928a8a806` fix(bridge): sell lock resolves chain id strictly — no silent default
+- `f59864dba6` feat(cli): WAL-1 unified wallet-secret input for all signing commands
+- `8869c8be20` fix(cli): WAL-1 F1-F3 — MCP stdin surface, flag-over-env precedence
+- `505893e2d2` fix(cli): WAL-1 — split resolve_wallet_password source scan for C901
+- `4e01a537d0` fix(deps): align cli requirement pins with root (SEC-17)
+- `7b2baade23` feat(tooling): OAPI-1 — openapi error scan follows same-module private helpers
+- `e222d33af1` refactor(bridge): OAPI-1 — split bridge_sell_quote into validation and rate-limit helpers
+- `9341661aab` fix(bridge): receipt-gate ETH releases + estimate gas + withdraw_admin recovery (ETH-14)
+- `8bdf203622` fix(bridge): absence-grace before refunding an unseen release (ETH-14b)
+- `5b6681ce4b` fix(bridge): never emit a keyed RPC URL; systemd env precedence; grace log levels (ETH-15)
+- `c523d88e37` docs(ops): withdraw-release runbook — env loading, archive endpoints, ETH-15 log entry
+- `bbde1ad1d2` fix(logging): keep the httpx 4xx/5xx signal while dropping URL lines (ETH-15)
+- `6ef1cc71a6` fix(deps): pin venv interpreter in update.sh, repair copy-mode shebangs, unshadow CLI version (DEPS-2)
+- `9908a71dab` test(cli): TEST-1 -- isolate CLI subprocess env; stop cross-suite env leaks
+- `91ff60adec` test(pytest): TEST-1 -- scope retries to flaky-marked tests with named causes
+- `c48dad3f89` docs(design): ETH-8 revision — open decisions + post-ETH-14 settlement reality
+- `cd76706bd7` docs(design): ETH-8 — record operator decisions (14 Oct)
+- `2148179a10` docs(release): SEC-18 section + commit index for the wallet 503 fixes
+- `bd88adf7d3` docs(release): correct the SEC-18 commit SHAs after the second rebase
