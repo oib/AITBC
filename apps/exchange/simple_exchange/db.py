@@ -106,10 +106,15 @@ _TRADES_SCHEMA = """
         amount TEXT NOT NULL,
         price TEXT NOT NULL,
         total TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        buyer_address TEXT,
+        seller_address TEXT,
+        fee_ait TEXT
     )
 """
 
+# Phase-2 order state (ETH-8 design): 'expired' joins the CHECK via a table
+# rebuild migration below — a CHECK constraint cannot be ALTERed in place.
 _ORDERS_SCHEMA = """
     CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,14 +124,47 @@ _ORDERS_SCHEMA = """
         total TEXT NOT NULL,
         filled TEXT DEFAULT '0',
         remaining TEXT NOT NULL,
-        status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),
+        status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled', 'expired')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         user_address TEXT,
         tx_hash TEXT,
         amount_ticks INTEGER CHECK(amount_ticks >= 0),
         price_ticks INTEGER CHECK(price_ticks >= 0),
         filled_ticks INTEGER DEFAULT 0 CHECK(filled_ticks >= 0),
-        remaining_ticks INTEGER CHECK(remaining_ticks >= 0)
+        remaining_ticks INTEGER CHECK(remaining_ticks >= 0),
+        signature TEXT,
+        envelope_hash TEXT,
+        account_nonce INTEGER,
+        expiry_height INTEGER,
+        funded_state TEXT NOT NULL DEFAULT 'unfunded'
+            CHECK(funded_state IN ('unfunded', 'funded', 'backing_expired')),
+        cancelled_at TIMESTAMP
+    )
+"""
+
+# ETH-8 phase 2: the participants board. Fleet addresses are seeded from the
+# CLI's DEFAULT_WALLETS table (the label table is the single source of truth);
+# a seeded row becomes 'registered' when the node claims it with a signed
+# registration envelope. registered_tx stores the claim envelope's keccak
+# hash — phase 2 registration is application-layer, not a chain tx.
+_NODE_REGISTRY_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS node_registry (
+        address TEXT PRIMARY KEY,
+        label TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'seeded' CHECK(status IN ('seeded', 'registered', 'suspended')),
+        registered_tx TEXT,
+        registered_at TIMESTAMP
+    )
+"""
+
+# Per-address exchange-scoped counter (ETH-8 design section 1: explicitly NOT
+# the chain nonce — an order is not a chain tx). Every signed envelope
+# (register, place, cancel) must carry account_nonce equal to next_nonce;
+# a successful request advances it inside the same transaction.
+_ORDER_NONCES_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS order_nonces (
+        address TEXT PRIMARY KEY,
+        next_nonce INTEGER NOT NULL DEFAULT 0 CHECK(next_nonce >= 0)
     )
 """
 
@@ -299,6 +337,75 @@ def _backfill_tick_columns(cursor, table: str, columns: dict) -> None:
         cursor.execute(f"UPDATE {table} SET {assignments} WHERE id = ?", (*values.values(), row_id))  # nosec B608
 
 
+def _orders_check_allows_expired(cursor) -> bool:
+    """Whether the live orders table's status CHECK already accepts 'expired'."""
+    row = cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'").fetchone()
+    return bool(row and row[0] and "'expired'" in row[0])
+
+
+def _migrate_orders_status_check(cursor) -> bool:
+    """Widen ``orders.status`` CHECK to include 'expired' via table rebuild.
+
+    SQLite cannot ALTER a CHECK constraint, so this follows the same
+    rename-recreate-copy pattern as ``_migrate_real_to_text``. Every existing
+    row is copied verbatim — the migration only widens what *new* rows may
+    say; no stored value changes. Caller wraps this in BEGIN IMMEDIATE.
+    """
+    row = cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'").fetchone()
+    if row is None or _orders_check_allows_expired(cursor):
+        return False
+
+    old_name = "orders_old_check"
+    cursor.execute(f"DROP TABLE IF EXISTS {old_name}")
+    cursor.execute(f"ALTER TABLE orders RENAME TO {old_name}")
+    cursor.execute(_ORDERS_SCHEMA)
+
+    # Copy only columns present in both schemas (the new schema is a superset;
+    # columns absent from the old table take their declared defaults).
+    old_cols = [r[1] for r in cursor.execute(f"PRAGMA table_info({old_name})").fetchall()]
+    new_cols = {r[1] for r in cursor.execute("PRAGMA table_info(orders)").fetchall()}
+    shared = [c for c in old_cols if c in new_cols]
+    col_list = ", ".join(shared)
+    cursor.execute(f"INSERT INTO orders ({col_list}) SELECT {col_list} FROM {old_name}")  # nosec B608 - identifiers come from PRAGMA on the fixed 'orders' table
+    cursor.execute(f"DROP TABLE {old_name}")
+    return True
+
+
+def _seed_node_registry(cursor) -> int:
+    """Seed node_registry with the fleet wallets from DEFAULT_WALLETS.
+
+    The CLI's label table (``cli/aitbc_cli/commands/eth.py``) is the single
+    source of truth for fleet name -> AIT address (ETH-8 design section 4).
+    Seeded rows are claims waiting to happen: a node becomes 'registered'
+    only by signing a registration envelope for its seeded address+label.
+
+    Best-effort: a deployment without the CLI tree on sys.path skips seeding
+    (registration then starts from an empty board) rather than failing init.
+    """
+    try:
+        import sys
+        from pathlib import Path
+
+        repo_root = str(Path(__file__).resolve().parents[3])
+        if repo_root not in sys.path:
+            sys.path.insert(0, repo_root)
+        from cli.aitbc_cli.commands.eth import DEFAULT_WALLETS
+    except (ImportError, AttributeError) as e:
+        import logging
+
+        logging.getLogger(__name__).warning("node_registry seed skipped (DEFAULT_WALLETS unavailable): %s", e)
+        return 0
+
+    seeded = 0
+    for label, address in DEFAULT_WALLETS:
+        cursor.execute(
+            "INSERT OR IGNORE INTO node_registry (address, label, status) VALUES (?, ?, 'seeded')",
+            (address, label),
+        )
+        seeded += cursor.rowcount
+    return seeded
+
+
 def init_db():
     """Initialize SQLite database.
 
@@ -315,17 +422,31 @@ def init_db():
     cursor.execute(_ORDERS_SCHEMA)
     cursor.execute(_MARKET_OFFERS_SCHEMA)
     cursor.execute(_MARKET_ORDERS_SCHEMA)
+    cursor.execute(_NODE_REGISTRY_SCHEMA)
+    cursor.execute(_ORDER_NONCES_SCHEMA)
 
     # Add columns if they don't exist (for existing databases)
-    try:
-        cursor.execute("ALTER TABLE orders ADD COLUMN user_address TEXT")
-    except Exception:
-        pass
+    _order_columns = [
+        "user_address TEXT",
+        "tx_hash TEXT",
+        "signature TEXT",
+        "envelope_hash TEXT",
+        "account_nonce INTEGER",
+        "expiry_height INTEGER",
+        "funded_state TEXT NOT NULL DEFAULT 'unfunded' CHECK(funded_state IN ('unfunded', 'funded', 'backing_expired'))",
+        "cancelled_at TIMESTAMP",
+    ]
+    for column_def in _order_columns:
+        try:
+            cursor.execute(f"ALTER TABLE orders ADD COLUMN {column_def}")  # nosec B608 - column definitions are the hardcoded list above
+        except Exception:
+            pass
 
-    try:
-        cursor.execute("ALTER TABLE orders ADD COLUMN tx_hash TEXT")
-    except Exception:
-        pass
+    for column_def in ["buyer_address TEXT", "seller_address TEXT", "fee_ait TEXT"]:
+        try:
+            cursor.execute(f"ALTER TABLE trades ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
+        except Exception:
+            pass
 
     # B2 migration: convert REAL columns to TEXT for exact decimal storage
     # Only runs if existing tables have REAL columns (pre-v0.10.3 databases)
@@ -356,7 +477,21 @@ def init_db():
     conn.commit()  # settle whatever implicit txn the migrations above opened
     try:
         conn.execute("BEGIN IMMEDIATE")
+        # 'expired' joins orders.status: CHECK rebuild copies rows verbatim.
+        if _migrate_orders_status_check(cursor):
+            import logging
+
+            logging.getLogger(__name__).info("Rebuilt orders table with 'expired' status")
         _migrate_add_tick_columns(cursor)
+        # Byte-identical resubmits of a signed order dedupe on (signer,
+        # envelope hash); legacy unsigned rows carry NULL hashes and never
+        # collide. Created after the CHECK rebuild because a table rename
+        # would have carried the index onto the old name and dropped it.
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_signer_envelope "
+            "ON orders (user_address, envelope_hash) WHERE envelope_hash IS NOT NULL"
+        )
+        _seed_node_registry(cursor)
         conn.commit()
     except Exception:
         conn.rollback()
