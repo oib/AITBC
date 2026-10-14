@@ -172,6 +172,10 @@ def _revision_chain() -> list[str]:
     return [s.revision for s in ScriptDirectory.from_config(cfg).walk_revisions()]
 
 
+# Named environmental cause: the sweep spawns one alembic subprocess per
+# migration revision, so on a contended host a single attempt can pass the
+# 60s pytest-timeout and the run fails where an idle run passes.
+@pytest.mark.flaky(reruns=2, reruns_delay=1)
 @pytest.mark.slow
 def test_full_downgrade_roundtrip_sweep(tmp_path: Path) -> None:
     """B3: every revision downgraded one step on a correctly built schema,

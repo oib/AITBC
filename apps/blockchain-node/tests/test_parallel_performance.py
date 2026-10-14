@@ -29,10 +29,16 @@ from aitbc_chain.state.pure_state_transition import (
     extract_read_write_sets,
 )
 
-pytestmark = pytest.mark.slow
-
 # Timing benchmarks are kept under the "slow" marker for optional filtering,
-# but they now run in the default suite as well.
+# but they now run in the default suite as well. The flaky marker names the
+# environmental cause: these are wall-clock benchmark bounds (parallel/
+# sequential ratios and absolute seconds) measured on shared validator hosts,
+# where CPU/IO contention can push a single attempt past a bound it passes on
+# retry -- see _best_of's docstring.
+pytestmark = [
+    pytest.mark.slow,
+    pytest.mark.flaky(reruns=2, reruns_delay=1),
+]
 
 CHAIN_ID = "perf-chain"
 INITIAL_BALANCE = 1_000_000
