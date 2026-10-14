@@ -1,5 +1,6 @@
 """Tests for the `aitbc update` command."""
 
+import shutil
 from unittest.mock import Mock, patch
 
 import pytest
@@ -20,6 +21,25 @@ def test_update_command_is_registered():
 
 class TestUpdateCommand:
     """Test `aitbc update` subprocess invocations."""
+
+    @pytest.fixture(autouse=True)
+    def _fake_repo_root(self, tmp_path):
+        """Satisfy the command's ``.git`` and update.sh gates on any tree.
+
+        Every subprocess call below is mocked, so the tests only need the
+        command's own ``REPO_ROOT / ".git"`` existence gate to pass — without
+        it a git-less export aborts before the first (mocked) git call.
+        """
+        (tmp_path / ".git").mkdir()
+        script = tmp_path / "scripts" / "deployment" / "update.sh"
+        script.parent.mkdir(parents=True)
+        script.touch()
+        with patch.multiple(
+            "aitbc_cli.commands.update",
+            REPO_ROOT=tmp_path,
+            UPDATE_SCRIPT=script,
+        ):
+            yield
 
     @patch("aitbc_cli.commands.update.subprocess.run")
     def test_update_pulls_git_and_runs_update_sh(self, mock_run, runner):
@@ -139,6 +159,8 @@ def _make_remote_and_clone(tmp_path):
 
 class TestUpdateTempRepo:
     """Real-git tests on a throwaway repo (DEV-6)."""
+
+    pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="needs the git binary")
 
     def _invoke(self, runner, tmp_path, argv):
         import aitbc_cli.commands.update as upd
