@@ -21,6 +21,7 @@ Each inflow lands a row in `eth_deposits` (`DATA_DIR/bridge_deposits.db`):
 | `FAILED` | permanent failure (bad recipient, over-cap, dust) — deliberate resolution required |
 | `WRITTEN_OFF` | operator-declared terminal loss (reason recorded) |
 | `FUNDING` | inflow from a configured `BRIDGE_FUNDING_SOURCES` sender — recorded, never paid out |
+| `EXCHANGE_PREPAY` | inflow carrying an `EXCHANGE_DEPOSIT:<addr>` tag — credited to the buyer's prepaid exchange balance by the wallet-side settlement monitor (ETH-8 phase 3), never minted |
 
 ## Operator commands
 
@@ -76,6 +77,7 @@ cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin <command>
 | `GENESIS_WALLET_ADDRESS` / `GENESIS_WALLET_PRIVATE_KEY` | — | transitional fallback for the payout wallet — deprecated; set `BRIDGE_PAYOUT_*` instead (a warning is logged when the fallback signs) |
 | `CHAIN_ID` | `ait-localnet` | chain ID bound into signed payout transactions |
 | `BRIDGE_BURST_INTERVAL` / `BRIDGE_BURST_WINDOW` | `20` / `60` | fast poll cadence and the window it applies for after a kick-file touch |
+| `EXCHANGE_SETTLEMENT_ENABLED` | `false` | ETH-8 phase 3: routes `EXCHANGE_DEPOSIT:<addr>`-tagged inflows to `EXCHANGE_PREPAY` rows instead of the mint path; bypasses `MIN_ETH_DEPOSIT` (no payout is owed). Flag-off leaves the old path — the tag fails recipient parsing → `FAILED` |
 
 ## Layout
 
