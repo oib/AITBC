@@ -106,7 +106,7 @@ def test_a_failed_post_never_prints_the_token(monkeypatch, capsys):
 
 
 def test_title_names_the_fleet_host(monkeypatch):
-    monkeypatch.setattr(heartbeat.socket, "gethostname", lambda: "node2.aitbc.bubuit.net")
+    monkeypatch.setattr(heartbeat.socket, "gethostname", lambda: "node2.example.net")
     calls = _capture(monkeypatch)
     _env(monkeypatch)
     heartbeat.main(["--kind", "daily"])

@@ -709,7 +709,7 @@ def test_ntfy_host_label_outside_the_allowlist_becomes_fleet(watch, monkeypatch,
     # Non-fleet label value and a non-fleet hostname both stay off the wire.
     monkeypatch.setattr(prom.socket, "gethostname", lambda: "desktop-9")
     watch(
-        [[_alert(instance="10.9.9.9:9100")]],
+        [[_alert(instance="192.0.2.9:9100")]],
         "--notify-url",
         url,
         "--notify-format",
@@ -724,7 +724,7 @@ def test_ntfy_localhost_instance_falls_back_to_the_sending_hostname(watch, monke
     """Local-service targets carry instance=localhost:PORT — the sending host is the hint."""
     url, captured = notify_listener
     monkeypatch.setenv("AITBC_WATCH_NOTIFY_TOKEN", "tk_TESTONLY")
-    monkeypatch.setattr(prom.socket, "gethostname", lambda: "node1.aitbc.bubuit.net")
+    monkeypatch.setattr(prom.socket, "gethostname", lambda: "node1.example.net")
     watch(
         [[_alert("AitbcServiceDown", instance="localhost:8202")]],
         "--notify-url",
