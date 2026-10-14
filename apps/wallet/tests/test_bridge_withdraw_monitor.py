@@ -1188,3 +1188,95 @@ class TestGraceLogLevel:
         assert result["still_open"] == 1
         msgs = self._monitor_records(caplog)
         assert any(lvl >= logging.ERROR and "unverifiable" in m for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_young_unmined_tx_logs_info(self, monitor_env, monkeypatch, caplog):
+        """ETH-18 (the ETH-16 case): the broadcast tx is visible but not yet
+        mined — a routine delay, logged below ERROR with the reason and age."""
+        ait = "0x" + "f4" * 32
+        _seed_releasing(ait)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": {"hash": "0x" + "ab" * 32},
+                "eth_getTransactionReceipt": None,
+            },
+        )
+
+        with caplog.at_level(logging.INFO, logger="wallet_app.bridge.bridge_withdraw_monitor"):
+            result = await monitor_env._resume_unfinished_releases()
+
+        assert result["still_open"] == 1
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
+        msgs = self._monitor_records(caplog)
+        assert any(lvl == logging.INFO and "reason=chain_view" in m and "age=" in m for lvl, m in msgs)
+        assert not any(lvl >= logging.ERROR for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_young_shallow_receipt_logs_info(self, monitor_env, monkeypatch, caplog):
+        """ETH-18: a mined-but-shallow receipt (below ETH_RELEASE_CONFIRMATIONS)
+        is the same routine delay — INFO, never the 'needs review' ERROR."""
+        ait = "0x" + "f5" * 32
+        _seed_releasing(ait)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": {"hash": "0x" + "ab" * 32},
+                "eth_getTransactionReceipt": {"status": "0x1", "blockNumber": "0x1f4"},
+                "eth_blockNumber": "0x1f4",  # depth 1 < ETH_RELEASE_CONFIRMATIONS=3
+            },
+        )
+
+        with caplog.at_level(logging.INFO, logger="wallet_app.bridge.bridge_withdraw_monitor"):
+            result = await monitor_env._resume_unfinished_releases()
+
+        assert result["still_open"] == 1
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
+        msgs = self._monitor_records(caplog)
+        assert any(lvl == logging.INFO and "reason=chain_view" in m and "age=" in m for lvl, m in msgs)
+        assert not any(lvl >= logging.ERROR for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_young_nonce_pending_logs_info(self, monitor_env, monkeypatch, caplog):
+        """ETH-18: tx hash invisible but the recorded nonce sits in the
+        pending pool — routine propagation lag, below ERROR."""
+        ait = "0x" + "f6" * 32
+        _seed_releasing(ait, nonce=7)
+
+        async def _fake_rpc(method: str, params: list):
+            if method == "eth_getTransactionCount":
+                return "0x8" if params[1] == "pending" else "0x7"
+            return None
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _fake_rpc)
+
+        with caplog.at_level(logging.INFO, logger="wallet_app.bridge.bridge_withdraw_monitor"):
+            result = await monitor_env._resume_unfinished_releases()
+
+        assert result["still_open"] == 1
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
+        msgs = self._monitor_records(caplog)
+        assert any(lvl == logging.INFO and "reason=nonce_pending" in m and "age=" in m for lvl, m in msgs)
+        assert not any(lvl >= logging.ERROR for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_verify_error_logs_error(self, monitor_env, monkeypatch, caplog):
+        """An RPC failure is never routine — verify_error keeps ERROR even
+        on a just-broadcast row, and the reason is named in the line."""
+        ait = "0x" + "f7" * 32
+        _seed_releasing(ait)
+
+        async def _failing_rpc(method: str, params: list):
+            raise RuntimeError("RPC unreachable")
+
+        monkeypatch.setattr(monitor_env, "_eth_rpc", _failing_rpc)
+
+        with caplog.at_level(logging.INFO, logger="wallet_app.bridge.bridge_withdraw_monitor"):
+            result = await monitor_env._resume_unfinished_releases()
+
+        assert result["still_open"] == 1
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
+        msgs = self._monitor_records(caplog)
+        assert any(lvl >= logging.ERROR and "unverifiable" in m and "reason=verify_error" in m for lvl, m in msgs)
