@@ -405,12 +405,81 @@ Re-submitting the *same* place command after a crash returns the recorded
 order (the `(address, envelope_hash)` dedupe), while a *different* order
 reusing a consumed nonce is 409 — that is the replay guard, not a bug.
 
+## Scenario E — funded exchange orders (ETH-19 phase 3, dark)
+
+> Same book, now with money. Requires `EXCHANGE_SETTLEMENT_ENABLED=true` on
+> the hub exchange *and* the wallet-side settlement monitor, plus
+> `AIT_SELL_ESCROW` and `BRIDGE_ETH_ADDRESS` set to EIP-55 checksummed
+> addresses — placement refuses 503 on a missing destination, and
+> `/readyz` reports `settlement_envs` while they are absent. The same
+> outcome is also observable: a refused order never burns `account_nonce`.
+
+### E.1 Buyer prepay (node0)
+
+```bash
+aitbc exchange order place --side BUY --amount 1 --price 0.001 \
+    --wallet <node0-wallet> --password-file ~/.aitbc-wallet-pw
+# response carries funding={type:"eth_prepay", tag:"EXCHANGE_DEPOSIT:<node0>",
+#   bridge_eth_address:"0x…", needed_eth:"0.001"} and the CLI prints it
+```
+
+Send `needed_eth` (plus a little headroom) on Sepolia to
+`bridge_eth_address` with the printed tag as tx input data — the same
+hand-built-send caveat as gap #2 below. `aitbc-bridge-monitor` records it
+`exchange_prepay` (terminal — never enters the mint path, dust floor
+bypassed); the settlement monitor then posts `prepaid_credit` and the
+order flips `funded`. The credit is idempotent on `eth_tx_hash`.
+
+### E.2 Seller lock (node2)
+
+```bash
+aitbc exchange order place --side SELL --amount 10 --price 0.001 \
+    --wallet <node2-wallet> --password-file ~/.aitbc-wallet-pw
+# funding={type:"ait_lock", escrow:"0x…", payload:"sell_quote=<id>",
+#   required_ait:"10 + fee"}
+```
+
+Send a chain `TRANSFER` of ≥ `required_ait` AIT to `escrow` with
+`payload.sell_quote=<id>` **from the node's own wallet** — the monitor
+credits a lock only when sender (canonicalized) equals the order owner; a
+stranger's lock earns an `order_refund`, not backing.
+
+### E.3 Match and settle
+
+When the orders cross, `trades` gets the row and the settlement monitor
+drives it: AIT sweeps escrow→buyer, ETH releases bridge→seller's
+registered payout address, and the `EXCHANGE_FEE_PCT` treasury leg runs
+only when it converts to at least one chain unit. Lock remainders at or
+below the sweep fee are logged and left in escrow rather than refunded.
+
+### E.4 Verify
+
+```bash
+ssh hub 'venv/bin/python /opt/aitbc/scripts/ops/exchange_verify.py \
+    --db /var/lib/aitbc/data/exchange/exchange.db \
+    --bridge-db /var/lib/aitbc/bridge_deposits.db \
+    --bridge-address "$BRIDGE_ETH_ADDRESS" \
+    --ait-rpc "$BLOCKCHAIN_RPC_URL" --escrow-address "$AIT_SELL_ESCROW"'
+```
+
+Read-only: DB-internal invariants, the bridge prepay cross-check, the
+Sepolia settlement legs, and the escrow lock/sweep history. `FAIL` rows
+block reopening the book; `WARN` marks unsealed or still-pending work.
+Also `aitbc eth transfers <addr>` on both nodes and
+`sepolia_balance.py --json` on the seller payout address.
+
+### E.5 Abort conditions
+
+Any `FAIL` from the verifier; a funded order whose backing/lock never
+appears on-chain; a trade settled on the tape with a missing or reverted
+settlement leg; a prepaid balance the endpoint and the ledger disagree on.
+
 ## Gaps — steps with no CLI/MCP command
 
 | # | gap | current path |
 |---|---|---|
 | 1 | `POST /v1/bridge/deposit` on node0/node1 503s — their `exchange.env` lacks `ETH_WALLET_ADDRESS`, and hub's daemon is `127.0.0.1:8108` only with no node→hub route or ssh path. The fix is an env append + `aitbc-wallet` restart on the node (A2.1) — an operator change — or the manual send (A2.2). | operator env change or manual |
-| 2 | No CLI/MCP command sends an ETH tx crediting an AIT address **other than the sender's** — `wallet bridge deposit` hard-binds recipient = signing wallet. A deposit for someone else's AIT address needs a hand-built ETH tx (`data = 0x` + utf8-hex of the recipient). | manual ETH send |
+| 2 | No CLI/MCP command sends an ETH tx crediting an AIT address **other than the sender's** — `wallet bridge deposit` hard-binds recipient = signing wallet. A deposit for someone else's AIT address needs a hand-built ETH tx (`data = 0x` + utf8-hex of the recipient). The phase-3 `EXCHANGE_DEPOSIT:<addr>` prepay tag is the same mechanism: input data = the printed tag, `to` = `bridge_eth_address`. | manual ETH send |
 | 3 | No CLI/MCP deposit-status tool — only withdraw status exists (`bridge status`, `get_eth_bridge_withdrawal`). Deposit verification is `bridge_monitor.admin status <eth_tx_hash>` on hub or `GET /v1/bridge/deposit/by-recipient/<addr>` on a wallet service. | ssh/curl |
 | 4 | `aitbc wallet bridge status` reads the **local** wallet db — withdraw rows exist only on hub; remote hosts cannot reach its loopback daemon, so status checks go through `ssh hub` or MCP `host=`/`role=hub`. | ssh/MCP |
 | 5 | Faucet funding and any bridge-wallet refund send have no command — operator wallet/browser actions by design. | manual |

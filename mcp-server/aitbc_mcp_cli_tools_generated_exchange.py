@@ -373,7 +373,7 @@ def aitbc_exchange_order_place(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sign and place an AIT/ETH order. Unfunded — phase 2 moves no funds.."""
+    """Sign and place an AIT/ETH order. Under settlement the response."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
