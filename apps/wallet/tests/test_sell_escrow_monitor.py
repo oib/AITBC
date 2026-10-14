@@ -356,6 +356,20 @@ class TestSellRouteGateHardening:
         assert "AIT_SELL_ESCROW" not in excinfo.value.detail
         assert "AIT_SELL_ESCROW" in caplog.text
 
+    @pytest.mark.asyncio
+    async def test_poll_skip_503_body_is_fixed_and_reason_logged(self, monkeypatch, caplog):
+        async def _skipped_poll():
+            return {"skipped": True, "reason": "ETH_WALLET_ADDRESS not set"}
+
+        monkeypatch.setattr(bridge_routes, "poll_once", _skipped_poll)
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.bridge_routes"):
+            with pytest.raises(HTTPException) as excinfo:
+                await bridge_routes.trigger_bridge_poll(None)
+        assert excinfo.value.status_code == 503
+        assert excinfo.value.detail == "Bridge poll skipped"
+        assert "ETH_WALLET_ADDRESS" not in excinfo.value.detail
+        assert "ETH_WALLET_ADDRESS" in caplog.text
+
 
 class TestQuoteAndLockMatching:
     @pytest.mark.asyncio
