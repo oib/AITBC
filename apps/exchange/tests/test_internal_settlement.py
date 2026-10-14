@@ -47,6 +47,10 @@ def _env(monkeypatch):
 @pytest.fixture
 def settlement_on(monkeypatch):
     monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "true")
+    # Placement under the flag refuses when a funding destination env is
+    # unset — same EIP-55 test vectors as test_funded_orders.
+    monkeypatch.setenv("AIT_SELL_ESCROW", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
+    monkeypatch.setenv("BRIDGE_ETH_ADDRESS", "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359")
 
 
 @pytest.fixture

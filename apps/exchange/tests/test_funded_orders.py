@@ -42,9 +42,18 @@ def _env(monkeypatch):
             buckets.clear()
 
 
+# EIP-55 test vectors — valid checksummed funding destinations, no secrets.
+_ESCROW_ADDR = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+_BRIDGE_ADDR = "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359"
+
+
 @pytest.fixture
 def settlement_on(monkeypatch):
     monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "true")
+    # Under the flag the funding destinations must be configured EIP-55
+    # addresses — placement refuses the order when either env is missing.
+    monkeypatch.setenv("AIT_SELL_ESCROW", _ESCROW_ADDR)
+    monkeypatch.setenv("BRIDGE_ETH_ADDRESS", _BRIDGE_ADDR)
 
 
 @pytest.fixture
@@ -309,6 +318,7 @@ def test_buy_without_deposit_unfunded(exchange_db, settlement_on):
     assert doc["funding"]["type"] == "eth_prepay"
     assert doc["funding"]["needed_eth"] == "0.01"
     assert doc["funding"]["tag"] == f"EXCHANGE_DEPOSIT:{node.address}"
+    assert doc["funding"]["bridge_eth_address"] == _BRIDGE_ADDR
 
 
 def test_buy_with_sufficient_deposit_funded(exchange_db, settlement_on):
@@ -579,3 +589,93 @@ def test_orderbook_shows_only_funded(exchange_db, settlement_on):
     book = _last_json(h)
     assert len(book["sells"]) == 1
     assert book["sells"][0]["id"] == s2_doc_id
+
+
+# --- funding-destination env guard (C6) -------------------------------------
+
+
+def _orders_count(db_path):
+    conn = sqlite3.connect(db_path)
+    n = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+    conn.close()
+    return n
+
+
+def _last_status(h):
+    return h.send_json_response.call_args[1].get("status")
+
+
+def test_buy_refused_when_bridge_env_unset(exchange_db, settlement_on, monkeypatch):
+    monkeypatch.delenv("BRIDGE_ETH_ADDRESS", raising=False)
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-novault")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", nonce=1))
+    assert _last_status(h) == 503
+    assert "BRIDGE_ETH_ADDRESS" in _last_json(h)["error"]
+    assert _orders_count(exchange_db) == 0
+    # The refusal never burned the account nonce — the same envelope lands
+    # once the env is configured.
+    monkeypatch.setenv("BRIDGE_ETH_ADDRESS", _BRIDGE_ADDR)
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", nonce=1))
+    assert _last_json(h)["status"] == "open"
+
+
+def test_sell_refused_when_escrow_env_unset(exchange_db, settlement_on, monkeypatch):
+    monkeypatch.delenv("AIT_SELL_ESCROW", raising=False)
+    node, payout = Account.create(), Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-noesc")
+    h = _handler()
+    _set_payout(exchange_db, h, node.address, node.key.hex(), payout.address, nonce=1)
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="SELL", nonce=2))
+    assert _last_status(h) == 503
+    assert "AIT_SELL_ESCROW" in _last_json(h)["error"]
+    assert _orders_count(exchange_db) == 0
+
+
+def test_buy_refused_when_env_empty(exchange_db, settlement_on, monkeypatch):
+    monkeypatch.setenv("BRIDGE_ETH_ADDRESS", "")
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-empty")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", nonce=1))
+    assert _last_status(h) == 503
+    assert _orders_count(exchange_db) == 0
+
+
+def test_buy_refused_when_env_malformed(exchange_db, settlement_on, monkeypatch):
+    monkeypatch.setenv("BRIDGE_ETH_ADDRESS", "exchange-bridge-wallet")
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-badaddr")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", nonce=1))
+    assert _last_status(h) == 503
+    assert _orders_count(exchange_db) == 0
+
+
+def test_buy_refused_when_env_not_checksummed(exchange_db, settlement_on, monkeypatch):
+    # Valid shape but not the EIP-55 form — the vector's checksum has
+    # uppercase letters, so the lowered spelling must fail.
+    monkeypatch.setenv("BRIDGE_ETH_ADDRESS", _BRIDGE_ADDR.lower())
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-lowcase")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", nonce=1))
+    assert _last_status(h) == 503
+    assert _orders_count(exchange_db) == 0
+
+
+def test_flag_off_never_reads_destination_envs(exchange_db, monkeypatch):
+    # Settlement off + both destination envs unset: placement is byte-
+    # identical to before the guard — the order lands unfunded, no funding
+    # instruction is attached.
+    monkeypatch.delenv("AIT_SELL_ESCROW", raising=False)
+    monkeypatch.delenv("BRIDGE_ETH_ADDRESS", raising=False)
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-flagoff")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", nonce=1))
+    doc = _last_json(h)
+    assert doc["status"] == "open"
+    assert doc["funded_state"] == "unfunded"
+    assert "funding" not in doc
