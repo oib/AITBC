@@ -119,6 +119,10 @@ def init_db() -> None:
     _add_column_if_not_exists(conn, "eth_deposits", "envelope_hash", "TEXT")
     _add_column_if_not_exists(conn, "eth_deposits", "submitted_height", "INTEGER")
     _add_column_if_not_exists(conn, "eth_deposits", "rebroadcast_count", "INTEGER NOT NULL DEFAULT 0")
+    # B13: which bridge wallet actually received the deposit. NULL on rows
+    # that predate the column — the reconcile reports them "address unknown"
+    # and treats them as the configured current wallet. No backfill.
+    _add_column_if_not_exists(conn, "eth_deposits", "deposit_address", "TEXT")
     # ETH-9: nonce recorded before an ETH release is broadcast, so a crash or
     # restart can prove from the chain whether the send consumed the nonce.
     _add_column_if_not_exists(conn, "eth_withdrawals", "release_nonce", "INTEGER")
@@ -257,7 +261,12 @@ def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
 
 
 def insert_deposit(
-    tx_hash: str, from_address: str, amount_eth: Decimal, amount_ait: Decimal, recipient: str | None = None
+    tx_hash: str,
+    from_address: str,
+    amount_eth: Decimal,
+    amount_ait: Decimal,
+    recipient: str | None = None,
+    deposit_address: str | None = None,
 ) -> str:
     """Insert a new deposit record."""
     import uuid
@@ -270,8 +279,8 @@ def insert_deposit(
     try:
         cursor.execute(
             """
-            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
             """,
             (
                 deposit_id,
@@ -281,6 +290,7 @@ def insert_deposit(
                 amount_eth,
                 amount_ait,
                 datetime.now().isoformat(),
+                deposit_address,
             ),
         )
         conn.commit()

@@ -17,11 +17,14 @@ FUNDING = "0x2222222222222222222222222222222222222222"
 STRANGER = "0x3333333333333333333333333333333333333333"
 
 
-def _ledger(tmp_path: Path) -> Path:
+def _ledger(tmp_path: Path, releases: list[str] | None = None) -> Path:
     db = tmp_path / "ledger.db"
     con = sqlite3.connect(db)
     con.execute("CREATE TABLE eth_deposits (id TEXT PRIMARY KEY, from_address TEXT)")
     con.execute("INSERT INTO eth_deposits VALUES ('d1', ?)", (DEPOSITOR,))
+    if releases is not None:
+        con.execute("CREATE TABLE eth_withdrawals (id TEXT PRIMARY KEY, eth_tx_hash TEXT)")
+        con.executemany("INSERT INTO eth_withdrawals VALUES (?, ?)", [(f"w{i}", h) for i, h in enumerate(releases)])
     con.commit()
     con.close()
     return db
@@ -71,6 +74,40 @@ def test_case_insensitive_matching(tmp_path):
 def test_malformed_tx_rejected():
     with pytest.raises(SystemExit):
         boc.classify([{"to": DEPOSITOR}], set(), set())
+
+
+def test_release_hash_classifies_as_withdrawal(tmp_path):
+    tx = _tx(STRANGER, 1113060053784850)
+    ledger = _ledger(tmp_path, releases=[tx["tx_hash"]])
+    terms = boc.classify([tx], boc._load_depositors(ledger), set(), boc._load_release_hashes(ledger))
+    assert terms["withdrawals_wei"] == 1113060053784850
+    assert terms["unidentified_wei"] == 0
+    assert terms["refunds_wei"] == 0
+
+
+def test_release_hash_beats_unidentified_even_to_depositor(tmp_path):
+    # A recorded release hash is stronger evidence than the recipient class.
+    tx = _tx(DEPOSITOR, 700)
+    ledger = _ledger(tmp_path, releases=[tx["tx_hash"]])
+    terms = boc.classify([tx], boc._load_depositors(ledger), set(), boc._load_release_hashes(ledger))
+    assert terms["withdrawals_wei"] == 700 and terms["refunds_wei"] == 0
+
+
+def test_ledger_without_withdrawals_table_tolerated(tmp_path):
+    # Pre-B13 ledgers have no eth_withdrawals — falls back to unidentified.
+    tx = _tx(STRANGER, 700)
+    ledger = _ledger(tmp_path)  # no withdrawals table
+    assert boc._load_release_hashes(ledger) == set()
+    terms = boc.classify([tx], boc._load_depositors(ledger), set(), boc._load_release_hashes(ledger))
+    assert terms["unidentified_wei"] == 700
+
+
+def test_failed_release_counts_gas_only(tmp_path):
+    tx = _tx(STRANGER, 500, status=0)
+    ledger = _ledger(tmp_path, releases=[tx["tx_hash"]])
+    terms = boc.classify([tx], boc._load_depositors(ledger), set(), boc._load_release_hashes(ledger))
+    assert terms["withdrawals_wei"] == 0
+    assert terms["gas_wei"] == 21000 * 2_000_000_000
 
 
 def test_main_emits_onchain_document(tmp_path, capsys):
