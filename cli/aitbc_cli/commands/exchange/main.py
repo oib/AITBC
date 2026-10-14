@@ -13,6 +13,9 @@ from aitbc_cli.config import get_config  # noqa: F401
 from aitbc_cli.utils import DECIMAL, error, output, resolve_output_format, success, warning
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger  # noqa: F401
 
+from .hub_orders import node as hub_node
+from .hub_orders import order as hub_order
+
 logger = get_logger(__name__)
 
 
@@ -381,3 +384,11 @@ def status(ctx, exchange_name: str):
 
     exchange_data = exchanges[exchange_name.lower()]
     output(exchange_data, resolve_output_format(ctx), title=f"Exchange Status: {exchange_name}")
+
+
+# ETH-11 phase 2: signed AIT/ETH orders + node registration on the hub
+# exchange (design eth8-exchange-page). These are the on-island counterparts
+# of the external-exchange integrations above — `aitbc exchange order …` and
+# `aitbc exchange node register`.
+exchange.add_command(hub_order)
+exchange.add_command(hub_node)

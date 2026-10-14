@@ -40,7 +40,7 @@ aitbc --help
 | `dispute` | File, inspect and rule on disputes: evidence, arbitrator votes, and payment rulings. | `active`, `arbitrator`, `auto-adjudicate`, `evidence`, `file`, `get`, `resolve`, `user`, `vote`, `votes` |
 | `economics` | Economic intelligence, modeling, and OpenClaw DAO governance. | `distributed`, `market`, `model`, `propose`, `status`, `vote` |
 | `edge` | Edge API commands for island, GPU, database, serve, and metrics operations | `balance`, `database`, `gpu`, `island`, `metrics`, `serve`, `status`, `transfer` |
-| `exchange` | Exchange integration and trading management commands | `add-liquidity`, `create-pair`, `list`, `monitor`, `register`, `start-trading`, `status` |
+| `exchange` | Exchange integration and trading management commands | `add-liquidity`, `create-pair`, `list`, `monitor`, `node`, `order`, `register`, `start-trading`, `status` |
 | `exchange-island` | Exchange commands for trading AIT against ETH on the island | `buy`, `cancel`, `orderbook`, `orders`, `rates`, `sell` |
 | `energy` | Energy-floor pricing, operator signing, and provider tariff management | `floor`, `operator`, `provider`, `suggest` |
 | `explorer` | Blockchain Explorer commands - access blockchain data via Explorer API | `activity-timeline`, `block`, `block-by-hash`, `blocks-by-address`, `chain-head`, `chains`, `latest-blocks`, `network-stats`, `non-empty-blocks`, `provider-reputation`, `search-transactions`, `top-addresses`, `transaction`, `transaction-by-hash` |
