@@ -1426,6 +1426,56 @@ The parked `dev/block-scoped-account` design (O-11 path B) still
 describes where this goes next: a v15 rung that scopes the semantics to
 the block version so no env flag decides consensus at all.
 
+### ETH-11 phase 2: signed orders + node registration on the hub exchange (2026-10-14)
+
+Phase 2 of `docs/design/eth8-exchange-page.md` (decisions DECIDED 14 Oct):
+the hub exchange now accepts only **signed** order envelopes from
+registered nodes, still entirely unfunded — placement moves no funds and
+a match books a `trades` row but settles nothing (funded settlement is
+phase 3 / ETH-16, gated on a clean ETH-2 live withdraw run).
+
+- `db.py`: `node_registry` (seeded from the fleet wallet labels), the
+  exchange-scoped `order_nonces` counter (explicitly not the chain
+  nonce), and order columns `signature`/`envelope_hash`/`account_nonce`/
+  `expiry_height`/`funded_state`/`cancelled_at`; `orders.status` gains
+  `expired` via a table-rebuild migration preserving existing rows;
+  `trades` gains `buyer_address`/`seller_address`/`fee_ait`. The design's
+  `prepaid_eth` table was deliberately left out — it is phase-3 funding
+  machinery with no phase-2 readers.
+- `handlers/exchange.py`: `keccak256(canonical JSON)` envelope verify via
+  the repo's `signature_recovery`/`crypto` primitives before any DB
+  write; per-IP rate limit runs *before* the secp256k1 verify; nonce
+  replay guard with byte-identical resubmit dedupe via
+  `(user_address, envelope_hash)`; expiry bound to chain head; ±10%
+  `EXCHANGE_PRICE_BAND_PCT` oracle band (feed stale → 503 like the quote
+  endpoint); `EXCHANGE_MIN_ORDER_AIT`; per-node and book-wide open-order
+  caps; cancel shares the placement `BEGIN IMMEDIATE` lock so
+  cancel-vs-fill is a deterministic 409 for the loser; self-match never
+  fills; watchlist flag for cancel-ratio abuse — flag-and-log only
+  (never blocks), knobs `EXCHANGE_CANCEL_RATIO` (0.9),
+  `EXCHANGE_WATCHLIST_MIN_PLACEMENTS` (10), `EXCHANGE_WATCHLIST_WINDOW_S`
+  (86400); per-IP limits read `X-Real-IP` only from peers in
+  `EXCHANGE_TRUSTED_PROXIES` (default `127.0.0.1,::1`); all phase-2 rows
+  stay `funded_state='unfunded'`. Chart feeds `depth`/`ohlc`/`stats`
+  (design §8, no phase marker) are deferred — read-only follow-up, no
+  schema gap (trades/orders tick columns already cover them).
+- Routes: `POST /api/orders` (signed), `POST /api/orders/<id>/cancel`,
+  `POST /api/exchange/nodes/register`, `GET /api/exchange/nodes`,
+  `GET /api/exchange/my-orders?addr=`. The signature is the credential —
+  `X-Api-Key` stays only on the legacy unsigned path, which remains
+  reachable by pinning `EXCHANGE_REQUIRE_SIGNED_ORDERS=0` (flag-off also
+  404s the phase-2 routes).
+- CLI: `aitbc exchange order place|cancel|my` and
+  `aitbc exchange node register`, signing with the node's own wallet via
+  `load_wallet_for_payment` (`--password-file`/`--password-stdin`; no
+  secrets in argv/logs). `chain_id` resolves fail-closed through
+  `resolve_chain_id` against the node's own RPC. MCP wrappers
+  regenerated.
+- Docs: exchange API documented by hand in `docs/apps/exchange/
+  exchange.md` — the service is a `BaseHTTPRequestHandler`, excluded
+  from generated OpenAPI by design; scenario 59 gains a phase-2
+  Scenario D addendum.
+
 ### Commit index — every commit since 2026-09-30, cited for the coverage check
 
 Continuation of the 2026-09-30 index above: `### ` sections carry the
@@ -1776,6 +1826,11 @@ narrative; this list cites each remaining commit by hash so
 - `c2b963f5b` feat(bridge): ETH-13 sell-lock operator command — sell_admin + audit columns (ETH-13)
 - `4ada8732f` feat(bridge): ETH-13 sell_admin host gates — root/hub-only + ledger presence (ETH-13)
 - `68a55381fc` fix(bridge): ETH-18 — a young pending release logs below ERROR, not 'needs review'
+- `f91fbe281` feat(exchange): ETH-11 phase 2 (db) — node registry, order nonces, signed-order columns
+- `100722997` feat(exchange): ETH-11 phase 2 (handlers) — signed orders, registration, cancel, abuse limits
+- `619083069` feat(cli): ETH-11 phase 2 — signed hub orders + node registration commands
+- `655974bba` test(exchange): raise phase-2 rate-limit windows for module-identity isolation
+- `0e307921d` feat(exchange): trusted-proxy client IP + env-configurable watchlist knobs
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
