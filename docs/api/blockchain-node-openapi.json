@@ -20732,7 +20732,17 @@
             }
           },
           "409": {
-            "description": "Escrow for job_id={job_id} has already been refunded / Escrow for job_id={job_id} is not locked (status={record.status}) / escrow row unavailable for a protected contract; refusing to release without the frozen quote terms",
+            "description": "Escrow for job_id={job_id} has already been refunded / Escrow for job_id={job_id} is not locked (status={record.status}) / escrow lock for job_id={job_id} returned without a readable block_height; routes do not settle locks of unverifiable era \u2014 retry or repair manually / escrow lock for job_id={job_id} sealed at block {block_height}, below state_transition_v3_height={settings.state_transition_v3_height} (v2-era); routes do not settle these rows \u2014 operator repair only / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "425": {
+            "description": "escrow lock for job_id={job_id} is not yet sealed in a block (absent or still in mempool); retry after the ESCROW_LOCK lands",
             "content": {
               "application/json": {
                 "schema": {
@@ -20841,6 +20851,26 @@
           },
           "404": {
             "description": "No escrow contract found for job_id={job_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "escrow lock for job_id={job_id} returned without a readable block_height; routes do not settle locks of unverifiable era \u2014 retry or repair manually / escrow lock for job_id={job_id} sealed at block {block_height}, below state_transition_v3_height={settings.state_transition_v3_height} (v2-era); routes do not settle these rows \u2014 operator repair only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "425": {
+            "description": "escrow lock for job_id={job_id} is not yet sealed in a block (absent or still in mempool); retry after the ESCROW_LOCK lands",
             "content": {
               "application/json": {
                 "schema": {

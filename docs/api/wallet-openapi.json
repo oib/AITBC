@@ -1796,7 +1796,7 @@
             }
           },
           "503": {
-            "description": "Sell escrow disabled: {exc} / Price feed unavailable or stale",
+            "description": "Sell escrow disabled: {reason} / Sell escrow disabled: {exc} / Price feed unavailable or stale",
             "content": {
               "application/json": {
                 "schema": {

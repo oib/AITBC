@@ -24,11 +24,15 @@ next release and could not be checked -- this reads the handler and reports what
   otherwise would document a body no client will receive;
 * the message, when it is a literal, as the response description.
 
-**Only literals are collected, and only from the handler's own source and its route
-dependencies.** A code computed at runtime, or raised inside a service method the handler
-calls, is not found. That makes the output a floor rather than a ceiling: everything
-documented is genuinely reachable, and some reachable responses are still missing. A floor
-that is derived and regenerable is worth more than a ceiling that is hand-written and rots --
+**Only literals are collected, and only from the handler's own source, its route
+dependencies, and the same-module private helpers they call.** A private helper is a
+module-level function in the handler's own module whose name starts with `_`; the scan
+descends one level into it and no further, so a handler can split out a validation or
+rate-limit block without its error responses vanishing from the spec. A code computed at
+runtime, or raised inside a service method the handler calls, is not found. That makes the
+output a floor rather than a ceiling: everything documented is genuinely reachable, and
+some reachable responses are still missing. A floor that is derived and regenerable is
+worth more than a ceiling that is hand-written and rots --
 `make openapi-check` fails the moment a handler and its spec disagree.
 
 Nothing already present in the spec is overwritten. A route that declares its own
@@ -171,20 +175,95 @@ def _source_tree(fn: Any) -> ast.AST | None:
         return None
 
 
-def _scan(fn: Any, found: dict[int, ErrorResponse]) -> None:
-    """Add every literal >=400 response constructed in `fn`'s own source to `found`."""
+def _private_call_name(node: ast.Call) -> str | None:
+    """A bare `_name(...)` call, or None for anything else.
+
+    Only a plain name is followed: `self._helper()` and `mod._helper()` are method/module
+    attribute calls, and following them would drag the scan into whatever they resolve to.
+    """
+    if isinstance(node.func, ast.Name) and node.func.id.startswith("_"):
+        return node.func.id
+    return None
+
+
+def _bound_names(tree: ast.AST) -> frozenset[str]:
+    """Names a function binds itself: parameters, assignments, nested defs, imports.
+
+    A `_name()` call site only reaches the module-level helper when the function has
+    not bound the name to something else first -- a parameter, a local, a nested def or
+    an `import _x` is a different object, and following the module's function instead
+    would document a raise that is not on the path.
+    """
+    bound: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bound.add(node.id)
+        elif isinstance(node, ast.arg):
+            bound.add(node.arg)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, ast.alias):
+            bound.add(node.asname or node.name.split(".")[0])
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            bound.add(node.rest)
+        elif isinstance(node, ast.Nonlocal):
+            bound.update(node.names)
+    return frozenset(bound)
+
+
+def _same_module_helper(fn: Any, name: str) -> Any | None:
+    """Resolve `name` to a module-level function defined in `fn`'s own module.
+
+    `fn.__globals__` is the module namespace `fn` was defined in, so a hit there is
+    already module-level; the `__module__` check is what keeps an imported helper
+    (`from other import _x`) from being followed -- the name binds here, but the
+    function's source lives in another module.
+    """
+    helper = getattr(fn, "__globals__", {}).get(name)
+    if not inspect.isfunction(helper):
+        return None
+    if getattr(helper, "__module__", None) != getattr(fn, "__module__", None):
+        return None
+    return helper
+
+
+def _scan(fn: Any, found: dict[int, ErrorResponse], _depth: int = 0) -> None:
+    """Add every literal >=400 response constructed in `fn`'s own source to `found`.
+
+    At `_depth == 0`, calls to same-module private helpers are descended into and their
+    raise sites count toward the route. Helpers are scanned at `_depth == 1`, so calls
+    they make are never followed -- the descent is exactly one level.
+    """
     tree = _source_tree(fn)
     if tree is None:
         return
 
+    bound = _bound_names(tree) if _depth == 0 else frozenset()
+
     # Source order, not `ast.walk` order. `walk` is breadth-first, so the last branch of a
     # handler would be described first -- stable, but arbitrary, and the truncated message
-    # list would keep whichever four the tree shape happened to surface.
-    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and _call_name(n) in _RESPONSE_CALLS]
+    # list would keep whichever four the tree shape happened to surface. Helper calls sit
+    # in the same ordering, so a helper's messages land where the call site is.
+    calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and (_call_name(n) in _RESPONSE_CALLS or _private_call_name(n) is not None)
+    ]
     calls.sort(key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)))
 
     for node in calls:
         name = _call_name(node)
+        if name not in _RESPONSE_CALLS:
+            helper_name = _private_call_name(node)
+            if _depth == 0 and helper_name not in bound:
+                helper = _same_module_helper(fn, helper_name or "")
+                if helper is not None:
+                    _scan(helper, found, _depth=1)
+            continue
         code: int | None = None
         shape: tuple[str, ...] = ()
         message: str | None = None
