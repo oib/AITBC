@@ -19,6 +19,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 TEST_REQ = REPO / "requirements-test.txt"
 DEV_REQ = REPO / "requirements-dev.txt"
+ROOT_REQ = REPO / "requirements.txt"
+CLI_REQ = REPO / "cli" / "requirements.txt"
+CLI_CLI_REQ = REPO / "cli" / "requirements-cli.txt"
 
 
 def _canon(name: str) -> str:
@@ -35,13 +38,18 @@ def _test_tier_names() -> set[str]:
     return names
 
 
-def _dev_tier_pins() -> dict[str, str]:
+def _pins(path: Path) -> dict[str, str]:
+    """name -> version for `pkg==ver` lines; ignores comments, markers, extras."""
     pins = {}
-    for line in DEV_REQ.read_text().splitlines():
+    for line in path.read_text().splitlines():
         match = re.match(r"^([A-Za-z0-9._\[\]-]+)==([^\s;]+)", line.split("#")[0].strip())
         if match:
             pins[_canon(match.group(1))] = match.group(2)
     return pins
+
+
+def _dev_tier_pins() -> dict[str, str]:
+    return _pins(DEV_REQ)
 
 
 def test_test_tier_is_a_subset_of_the_dev_tier():
@@ -153,4 +161,37 @@ def test_cli_runtime_requirements_carry_no_test_tooling():
         f"{leaked} are test-tier packages listed as CLI runtime dependencies. "
         "cli/setup.py passes this file to install_requires, so they would be "
         "installed on every production host and can conflict with the root lock."
+    )
+
+
+def test_cli_requirement_pins_match_root_export():
+    """cli requirement files must pin the same versions as the root export.
+
+    cli/requirements.txt (setup.py's install_requires) and
+    cli/requirements-cli.txt are hand-maintained mirrors of the poetry.lock
+    resolution. When the root export moved and they did not, `pip check`
+    reported stale editable metadata fleet-wide and nobody noticed the drift
+    until an audit diffed the files (SEC-17/DEPS-1).
+
+    Names pinned only in the cli files are allowed -- they just do not get an
+    agreement check -- but are listed so a reviewer sees the split.
+    """
+    root = _pins(ROOT_REQ)
+    assert root, f"no pins parsed from {ROOT_REQ} -- file missing or empty?"
+
+    mismatches = []
+    cli_only: dict[str, str] = {}
+    for cli_file in (CLI_REQ, CLI_CLI_REQ):
+        for name, version in _pins(cli_file).items():
+            if name not in root:
+                cli_only[name] = version
+            elif root[name] != version:
+                mismatches.append(f"{name}: {cli_file.name} pins {version}, requirements.txt pins {root[name]}")
+
+    assert not mismatches, (
+        "cli requirement pins disagree with requirements.txt:\n  "
+        + "\n  ".join(mismatches)
+        + "\nFix: re-run scripts/ci/export-requirements.sh on the poetry toolchain, "
+        + "then update the cli pin to the exported version. "
+        + f"cli-only pins (not checked): {sorted(cli_only)}"
     )
