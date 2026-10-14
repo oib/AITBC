@@ -32,6 +32,11 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
             self.handle_wallet_balance()
         elif path in ("/api/total-supply", "/api/treasury-balance"):
             self.handle_treasury_balance()
+        elif path == "/api/exchange/nodes":
+            # ETH-11 phase 2: participants board (registered/seeded nodes).
+            self.handle_exchange_nodes()
+        elif path == "/api/exchange/my-orders":
+            self.handle_my_orders(parsed)
         else:
             return False
         return True
@@ -93,6 +98,12 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
         path = parsed.path
         if path == "/api/orders":
             self.handle_place_order()
+        elif path.startswith("/api/orders/") and path.endswith("/cancel"):
+            # ETH-11 phase 2: signed cancel — POST /api/orders/<id>/cancel.
+            self.handle_cancel_order(path[len("/api/orders/") : -len("/cancel")].rstrip("/"))
+        elif path == "/api/exchange/nodes/register":
+            # Node registration: a seeded row claims its label by signature.
+            self.handle_node_register()
         elif path == "/api/wallet/connect":
             self.handle_wallet_connect()
         elif path == "/v1/market/offers":

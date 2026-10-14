@@ -35,7 +35,10 @@ def temp_db(tmp_path):
             amount TEXT NOT NULL,
             price TEXT NOT NULL,
             total TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            buyer_address TEXT,
+            seller_address TEXT,
+            fee_ait TEXT
         )
     """)
     cursor.execute("""
@@ -47,14 +50,35 @@ def temp_db(tmp_path):
             total TEXT NOT NULL,
             filled TEXT DEFAULT '0',
             remaining TEXT NOT NULL,
-            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),
+            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled', 'expired')),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             user_address TEXT,
             tx_hash TEXT,
             amount_ticks INTEGER,
             price_ticks INTEGER,
             filled_ticks INTEGER DEFAULT 0,
-            remaining_ticks INTEGER
+            remaining_ticks INTEGER,
+            signature TEXT,
+            envelope_hash TEXT,
+            account_nonce INTEGER,
+            expiry_height INTEGER,
+            funded_state TEXT DEFAULT 'unfunded',
+            cancelled_at TEXT
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS node_registry (
+            address TEXT PRIMARY KEY,
+            label TEXT,
+            status TEXT DEFAULT 'seeded',
+            registered_tx TEXT,
+            registered_at TEXT
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS order_nonces (
+            address TEXT PRIMARY KEY,
+            next_nonce INTEGER NOT NULL DEFAULT 0
         )
     """)
     cursor.execute("""
