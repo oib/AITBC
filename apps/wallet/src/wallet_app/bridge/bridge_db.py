@@ -1519,6 +1519,29 @@ def get_sell_eth_committed_since(since_iso: str) -> Decimal:
 # broadcast hash is never terminal proof — sealed chain state decides.
 # ---------------------------------------------------------------------------
 
+# Full settlement vocabulary — kept identical to _SETTLEMENT_STATES in
+# apps/exchange/simple_exchange/db.py; a parity test in
+# apps/wallet/tests/test_exchange_settlement_db.py pins the two together.
+_EXCHANGE_SETTLEMENT_STATUSES = frozenset(
+    {
+        "locked",
+        "releasing",
+        "released",
+        "settling",
+        "refunding",
+        "refund_pending",
+        "queued_reserve",
+        "queued_fee_settle",
+        "queued_fee_refund",
+        "needs_review",
+        "needs_review_release",
+        "needs_review_sweep",
+        "settled",
+        "refunded",
+        "failed",
+    }
+)
+
 # Statuses still in motion — the settlement monitor's worklist. Mirrors
 # _SELL_OPEN_STATUSES; needs_review_sweep stays listed (unresolved) but the
 # router never auto-processes it.
@@ -1685,17 +1708,22 @@ def get_exchange_inflight_sweep() -> dict[str, Any] | None:
 
 def get_exchange_pending_eth_reserve() -> Decimal:
     """ETH owed by open exchange settlements — counted against the shared
-    bridge float alongside withdrawals and sell locks."""
+    bridge float alongside withdrawals and sell locks. Rows are summed as
+    Decimal in Python: SQL SUM() would run the NUMERIC column through float
+    arithmetic before the Decimal converter ever saw it."""
     conn = _connect_db()
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_RESERVE_STATUSES)
     cursor.execute(
-        f"SELECT COALESCE(SUM(eth_amount), 0) FROM exchange_settlements WHERE status IN ({placeholders})",  # nosec B608 - same literal-placeholder pattern
+        f"SELECT eth_amount FROM exchange_settlements WHERE status IN ({placeholders})",  # nosec B608 - same literal-placeholder pattern
         _EXCHANGE_SETTLEMENT_RESERVE_STATUSES,
     )
-    total = cursor.fetchone()[0]
+    total = Decimal(0)
+    for (amount,) in cursor.fetchall():
+        if amount is not None:
+            total += amount if isinstance(amount, Decimal) else Decimal(str(amount))
     conn.close()
-    return Decimal(str(total)) if total is not None else Decimal("0")
+    return total
 
 
 def update_exchange_settlement(
@@ -1718,7 +1746,12 @@ def update_exchange_settlement(
     every field writes via COALESCE so a NULL argument never blanks a
     recorded hash or nonce. Forward-only/no-rewrite discipline is enforced
     by the monitor and the mirror endpoint above this layer, like sell locks.
+    status is validated against the full vocabulary in Python: the table
+    carries no CHECK on this column, so a typo'd status would otherwise
+    silently park the row outside every worklist.
     """
+    if status not in _EXCHANGE_SETTLEMENT_STATUSES:
+        raise ValueError(f"unknown settlement status: {status!r}")
     conn = _connect_db()
     cursor = conn.cursor()
 

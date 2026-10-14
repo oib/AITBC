@@ -81,6 +81,31 @@ def _settlement_enabled() -> bool:
     return os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").strip().lower() == "true"
 
 
+# Addresses that can never be a payout destination: the zero and dead burn
+# addresses, plus the hub's own operational accounts — a typo or hostile
+# claim pointing at any of them would burn or loop the seller's proceeds.
+_BLOCKED_PAYOUT_CONSTANTS = frozenset(
+    {
+        "0x0000000000000000000000000000000000000000",
+        "0x000000000000000000000000000000000000dead",
+    }
+)
+_BLOCKED_PAYOUT_ENVS = (
+    "AIT_SELL_ESCROW",
+    "BRIDGE_PAYOUT_ADDRESS",
+    "GENESIS_WALLET_ADDRESS",
+    "BRIDGE_ETH_ADDRESS",
+    "SELL_TREASURY_ADDRESS",
+)
+
+
+def _payout_address_blocked(eth_address: str) -> bool:
+    addr = eth_address.strip().lower()
+    if addr in _BLOCKED_PAYOUT_CONSTANTS:
+        return True
+    return any(v.strip().lower() == addr for v in (os.getenv(e, "") for e in _BLOCKED_PAYOUT_ENVS) if v)
+
+
 def _exchange_chain_id() -> str:
     """Expected envelope chain_id: EXCHANGE_CHAIN_ID > CHAIN_ID > design literal."""
     return os.getenv("EXCHANGE_CHAIN_ID") or os.getenv("CHAIN_ID") or _EXCHANGE_CHAIN_DEFAULT
@@ -1101,6 +1126,9 @@ class ExchangeMixin:
         eth_address = envelope["eth_address"]
         if not isinstance(eth_address, str) or not is_checksum_address(eth_address):
             self.send_error(400, "Invalid eth_address (EIP-55 checksum form required)")  # type: ignore[attr-defined]
+            return
+        if _payout_address_blocked(eth_address):
+            self.send_error(400, "Invalid eth_address (reserved address)")  # type: ignore[attr-defined]
             return
         if not isinstance(envelope["account_nonce"], int) or isinstance(envelope["account_nonce"], bool):
             self.send_error(400, "Invalid account_nonce")  # type: ignore[attr-defined]
