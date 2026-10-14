@@ -560,9 +560,11 @@ def init_db():
         except Exception:
             pass
 
-    # committed_eth tracks the debit's LIVE trade obligations (trades that
-    # matched and still owe their cost): +trade_total at match, −trade_total
-    # when the trade settles or refunds. Refund math: amount_eth − committed.
+    # committed_eth is CUMULATIVE spent-or-owed minus anything returned:
+    # +trade_total at match, −trade_total ONLY when the trade refunds. A
+    # settled trade never decrements — the ETH already left the float, and
+    # decrementing would resurrect spent money as spendable balance.
+    # Refund math: amount_eth − committed.
     _prepaid_columns = [
         "committed_eth TEXT NOT NULL DEFAULT '0'",
     ]
