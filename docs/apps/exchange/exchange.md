@@ -139,8 +139,14 @@ GET  /api/exchange/my-orders?addr=0x...   # one wallet's orders + next expected 
   per address, `EXCHANGE_MAX_OPEN_PER_NODE` (50), `EXCHANGE_MAX_BOOK_ROWS`
   (5000), `EXCHANGE_MIN_ORDER_AIT` (1), `EXCHANGE_READS_PER_MIN` (60) on the
   read endpoints, `EXCHANGE_REGISTER_PER_MIN` (5), and a cancel-ratio
-  watchlist (`EXCHANGE_CANCEL_RATIO`, default 0.9) surfaced as
-  `watchlisted` on `GET /api/exchange/nodes`. `EXCHANGE_CHAIN_ID` overrides
+  watchlist surfaced as `watchlisted` on `GET /api/exchange/nodes` —
+  flag-and-log only, it never blocks or throttles an order. Watchlist knobs:
+  `EXCHANGE_CANCEL_RATIO` (0.9, strictly-greater edge),
+  `EXCHANGE_WATCHLIST_MIN_PLACEMENTS` (10 — a single order+cancel is normal),
+  `EXCHANGE_WATCHLIST_WINDOW_S` (86400). Per-IP limits trust `X-Real-IP`
+  only when the direct peer is in `EXCHANGE_TRUSTED_PROXIES`
+  (default `127.0.0.1,::1` — the nginx hop); a raw spoofed header from an
+  untrusted peer is ignored. `EXCHANGE_CHAIN_ID` overrides
   the envelope `chain_id` expectation (default `CHAIN_ID` env or
   `ait-localnet`). `EXCHANGE_FEE_PCT` (default `0`) is recorded on each trade
   row as `fee_ait` — the AIT-leg fee knob, decided 14 Oct; phase 2 moves no
