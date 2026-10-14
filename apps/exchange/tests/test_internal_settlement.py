@@ -180,9 +180,11 @@ def _place(db_path, h, body):
         h.handle_place_order()
 
 
-def _post(h, db_path, body, peer="127.0.0.1", key="test-key"):
+def _post(h, db_path, body, peer="127.0.0.1", key="test-key", extra_headers=None):
     h.client_address = (peer, 43210)
-    h.headers = {"X-Api-Key": key} if key else {}
+    h.headers = dict(extra_headers or {})
+    if key:
+        h.headers["X-Api-Key"] = key
     h._read_json_body = MagicMock(return_value=body)
     h.send_error.reset_mock()
     h.send_json_response.reset_mock()
@@ -261,6 +263,15 @@ def test_bad_api_key_refused(exchange_db, settlement_on):
     assert h.send_error.called and h.send_error.call_args[0][0] == 401
 
 
+def test_proxy_headers_refused(exchange_db, settlement_on):
+    # Loopback peer + valid key still refuses when a proxy stamp is present —
+    # a future nginx rule must never reach this endpoint.
+    for stamp in ("X-Forwarded-For", "X-Real-IP"):
+        h = _handler()
+        _post(h, exchange_db, {"event": "debit_refund", "order_id": 1}, extra_headers={stamp: "127.0.0.1"})
+        assert h.send_error.called and h.send_error.call_args[0][0] == 403, stamp
+
+
 # --- prepaid_credit ----------------------------------------------------------
 
 
@@ -293,6 +304,52 @@ def test_prepaid_credit_funds_waiting_buy_and_matches(exchange_db, settlement_on
     trades = _row(exchange_db, "SELECT buy_order_id, sell_order_id, settlement_state FROM trades")
     assert trades[0] == buy_doc["id"] and trades[1] == sell_doc["id"] and trades[2] == "locked"
     assert _row(exchange_db, "SELECT funded_state FROM orders WHERE id = ?", (buy_doc["id"],))[0] == "funded"
+
+
+def test_prepaid_credit_canonicalizes_lowercase(exchange_db, settlement_on):
+    # The tag text arrives however the user typed it — a lowercase address
+    # must credit the same node and fund its waiting orders.
+    buyer = Account.create()
+    _register(exchange_db, buyer.address, buyer.key.hex(), "n-lower")
+    h = _handler()
+    _place(exchange_db, h, _order_body(buyer.address, buyer.key.hex(), side="BUY", amount=5, price="0.001", nonce=1))
+    buy_doc = _last_json(h)
+    assert buy_doc["funded_state"] == "unfunded"
+    _post(
+        h,
+        exchange_db,
+        {"event": "prepaid_credit", "node_address": buyer.address.lower(), "amount_eth": "0.02", "eth_tx_hash": "0xlc"},
+    )
+    resp = _last_json(h)
+    assert resp["ok"] and resp["credited"] and resp["funded_orders"] == [buy_doc["id"]]
+    assert _row(exchange_db, "SELECT node_address FROM prepaid_deposits")[0] == buyer.address
+
+
+def test_prepaid_credit_unregistered_node_refused(exchange_db, settlement_on):
+    # Tag points at an address that never registered — refuse 409 and credit
+    # nothing; the monitor records the deposit as unattributable.
+    node = Account.create()
+    h = _handler()
+    _post(
+        h,
+        exchange_db,
+        {"event": "prepaid_credit", "node_address": node.address, "amount_eth": "0.02", "eth_tx_hash": "0xunreg"},
+    )
+    resp = _last_json(h)
+    assert "registered" in resp.get("error", "")
+    assert h.send_json_response.call_args[1].get("status") == 409
+    assert _row(exchange_db, "SELECT COUNT(*) FROM prepaid_deposits")[0] == 0
+
+
+def test_prepaid_credit_invalid_hex_refused(exchange_db, settlement_on):
+    h = _handler()
+    _post(
+        h,
+        exchange_db,
+        {"event": "prepaid_credit", "node_address": "0xZZZZ1234", "amount_eth": "0.02", "eth_tx_hash": "0xbad"},
+    )
+    assert h.send_error.called and h.send_error.call_args[0][0] == 400
+    assert _row(exchange_db, "SELECT COUNT(*) FROM prepaid_deposits")[0] == 0
 
 
 def test_prepaid_credit_dedupes_on_tx_hash(exchange_db, settlement_on):

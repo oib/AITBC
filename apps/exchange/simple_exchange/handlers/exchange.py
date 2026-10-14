@@ -1463,6 +1463,12 @@ class ExchangeMixin:
         if not self._peer_is_loopback():
             self.send_error(403, "Forbidden")  # type: ignore[attr-defined]
             return
+        headers = getattr(self, "headers", None)
+        if headers is None or headers.get("X-Forwarded-For") or headers.get("X-Real-IP"):
+            # A proxy hop always stamps one of these — refuse so a future
+            # nginx rule can never expose this endpoint through loopback.
+            self.send_error(403, "Forbidden")  # type: ignore[attr-defined]
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         data = self._read_json_body()  # type: ignore[attr-defined]
@@ -1509,18 +1515,31 @@ class ExchangeMixin:
         """Credit a node-tagged ETH deposit, then fund the node's still-open
         unfunded BUYs (id order) while the spendable covers them —
         re-matching each in the same transaction."""
-        node = str(data.get("node_address") or "")
+        from aitbc.crypto.signature_recovery import canonical_address
+
         tx_hash = str(data.get("eth_tx_hash") or "")
         head = data.get("head")
+        try:
+            # The monitor derives this from tag text a user typed — any case.
+            # Orders and the registry store the canonical EIP-55 form.
+            node = canonical_address(str(data.get("node_address") or ""), strict=True)
+        except ValueError:
+            self.send_error(400, "prepaid_credit requires a 0x + 40-hex node_address")  # type: ignore[attr-defined]
+            return
         try:
             amount = _to_decimal(data.get("amount_eth"))
         except (InvalidOperation, ValueError, TypeError):
             amount = Decimal(0)
-        if not node or not tx_hash or amount <= 0:
+        if not tx_hash or amount <= 0:
             self.send_error(400, "prepaid_credit requires node_address, amount_eth > 0, eth_tx_hash")  # type: ignore[attr-defined]
             return
 
         def work(cursor):
+            status_row = cursor.execute("SELECT status FROM node_registry WHERE address = ?", (node,)).fetchone()
+            if status_row is None or status_row[0] != "registered":
+                # Unattributable deposit — the monitor records it for operator
+                # handling; crediting it would strand ETH no order can draw on.
+                return 409, {"error": "node_address is not a registered exchange node"}
             cursor.execute(
                 "INSERT OR IGNORE INTO prepaid_deposits (node_address, amount_eth, eth_tx_hash) VALUES (?, ?, ?)",
                 (node, str(amount), tx_hash),
