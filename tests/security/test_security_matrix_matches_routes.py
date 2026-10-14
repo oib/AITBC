@@ -117,7 +117,17 @@ def test_the_declared_probes_are_public(path: str) -> None:
     )
 
 
-def test_the_docs_exemption_is_still_conditional() -> None:
+def test_the_docs_exemption_is_still_conditional(monkeypatch: pytest.MonkeyPatch) -> None:
+    # tests/integration/conftest.py leaves DEBUG=true in os.environ, and the
+    # coordinator-api ``settings`` singleton keeps whatever it saw at import
+    # time, so in a full-suite run this build would silently serve /docs. Pin
+    # the flag the assertion is about, whatever the ambient state.
+    if str(SRC) not in sys.path:
+        sys.path.insert(0, str(SRC))
+    from coordinator_api.config import settings
+
+    monkeypatch.setattr(settings, "debug", False)
+
     app = _app()
     assert app.docs_url is None and app.redoc_url is None, (
         "/docs and /redoc are served unconditionally now, so they are no longer a "
