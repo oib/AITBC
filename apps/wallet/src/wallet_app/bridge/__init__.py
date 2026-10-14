@@ -7,6 +7,7 @@ from .bridge_db import get_pending_deposits, init_db, insert_deposit, update_dep
 from .bridge_monitor import start_monitoring
 from .bridge_routes import router
 from .bridge_withdraw_monitor import start_withdrawal_monitoring
+from .exchange_settlement_monitor import start_exchange_settlement_monitoring
 from .price_api import calculate_ait_amount, get_eth_price_usd, get_exchange_rate
 from .sell_escrow_monitor import start_sell_monitoring
 
@@ -21,5 +22,6 @@ __all__ = [
     "start_monitoring",
     "start_withdrawal_monitoring",
     "start_sell_monitoring",
+    "start_exchange_settlement_monitoring",
     "router",
 ]
