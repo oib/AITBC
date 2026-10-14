@@ -757,13 +757,15 @@ async def _refund_lock(cfg: SellConfig, row: dict[str, Any], reason: str) -> Non
 # ---------------------------------------------------------------------------
 
 
-async def _verify_sell_release_outcome(row: dict[str, Any]) -> str:
-    """'sent'/'not_sent'/'unknown' for a sell lock's ETH release — the shared
-    ETH-9b compose (deep receipt wins; nonce alone is never proof)."""
+async def _verify_sell_release_outcome(row: dict[str, Any]) -> tuple[str, str]:
+    """(outcome, reason) for a sell lock's ETH release — the shared
+    ETH-9b compose (deep receipt wins; nonce alone is never proof). The
+    reason distinguishes an in-grace absence from a genuine verification
+    problem so callers can pick the log level (ETH-15)."""
     fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"])
     if not fresh:
-        return "unknown"
-    return str(await wdm._compose_release_outcome(fresh))
+        return "unknown", "verify_error"
+    return await wdm._compose_release_outcome_detail(fresh)
 
 
 async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth: Decimal) -> None:
@@ -829,7 +831,7 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
 
 async def _resolve_lock_release_failure(cfg: SellConfig, row: dict[str, Any], exc: Exception) -> None:
     """Same rule as withdrawals: refund only on positive proof of no send."""
-    outcome = await _verify_sell_release_outcome(row)
+    outcome, _reason = await _verify_sell_release_outcome(row)
     if outcome == "sent":
         logger.warning("Sell lock %s: ETH release confirmed despite error (%s)", row["ait_tx_hash"], exc)
         try:
@@ -970,7 +972,7 @@ async def _handle_orphaned(cfg: SellConfig, row: dict[str, Any]) -> None:
 async def _handle_inflight(cfg: SellConfig, row: dict[str, Any]) -> None:
     """'releasing'/'needs_review': the ETH-9b resume check — sent → released,
     proven unsent → refund_pending + refund sweep, unknown → stays."""
-    outcome = await _verify_sell_release_outcome(row)
+    outcome, reason = await _verify_sell_release_outcome(row)
     if outcome == "sent":
         await _update_lock_status_with_retry(row["ait_tx_hash"], "released")
         logger.info("Sell lock %s: ETH release confirmed on chain", row["ait_tx_hash"])
@@ -980,13 +982,26 @@ async def _handle_inflight(cfg: SellConfig, row: dict[str, Any]) -> None:
     else:
         if row["status"] != "needs_review":
             update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="release outcome unverifiable")
-        logger.error("Sell lock %s (%s) still unverifiable — needs review", row["ait_tx_hash"], row["status"])
+        if reason == "absent_in_grace":
+            # Invisible-but-young is routine propagation lag, not an
+            # incident — the parked row still surfaces at WARNING (ETH-15).
+            logger.warning(
+                "Sell lock %s (%s) not yet visible on-chain — inside absence grace; parked needs_review",
+                row["ait_tx_hash"],
+                row["status"],
+            )
+        else:
+            logger.error(
+                "Sell lock %s (%s) still unverifiable — needs review",
+                row["ait_tx_hash"],
+                row["status"],
+            )
 
 
 async def _handle_released(cfg: SellConfig, row: dict[str, Any]) -> None:
     """'released': re-verify the receipt each poll; on 'sent' settle the
     escrowed AIT to treasury; on 'not_sent' (reorg/dropped tx) refund."""
-    outcome = await _verify_sell_release_outcome(row)
+    outcome, _reason = await _verify_sell_release_outcome(row)
     if outcome == "sent":
         await _settle_lock(cfg, row)
     elif outcome == "not_sent":

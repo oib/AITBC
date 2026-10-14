@@ -194,6 +194,21 @@ class TestConfigureLogging:
         assert root_logger.level == logging.INFO
         assert [type(h.formatter) for h in root_logger.handlers] == [JournalFormatter]
 
+    def test_httpx_and_httpcore_are_quiet_after_configure_logging(self):
+        """ETH-15: httpx logs every request URL at INFO — a keyed RPC
+        endpoint's credential path must never reach the journal."""
+        httpx_logger = logging.getLogger("httpx")
+        httpcore_logger = logging.getLogger("httpcore")
+        saved_levels = (httpx_logger.level, httpcore_logger.level)
+        try:
+            configure_logging()
+            assert httpx_logger.level == logging.WARNING
+            assert httpcore_logger.level == logging.WARNING
+            assert not httpx_logger.isEnabledFor(logging.INFO)
+        finally:
+            httpx_logger.setLevel(saved_levels[0])
+            httpcore_logger.setLevel(saved_levels[1])
+
 
 class TestLogContext:
     """Test log_context context manager"""

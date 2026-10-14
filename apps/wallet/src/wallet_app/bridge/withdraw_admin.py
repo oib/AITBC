@@ -48,6 +48,8 @@ Safety rules (ETH-14):
 - A retry row ends 'completed' only on a status-1 receipt at depth; a proven
   failure parks at 'needs_review_release' for the operator — auto-refund is
   never triggered by a retried release.
+- ETH-15: an endpoint is never printed or stored with its path/query —
+  keyed RPC URLs appear as scheme://host only, including inside error text.
 """
 
 from __future__ import annotations
@@ -61,6 +63,8 @@ from decimal import Decimal
 from typing import Any
 
 import httpx
+
+from .url_redact import redact_text, redact_url
 
 # The aitbc-wallet unit's EnvironmentFile set, in unit order.
 _DEFAULT_ENV_FILES = [
@@ -84,11 +88,15 @@ _RETRY_OUTCOME_POLL_SECONDS = 10
 
 
 def _load_env_files(paths: list[str]) -> None:
-    """Populate os.environ from EnvironmentFile-style files (first set wins).
+    """Populate os.environ from EnvironmentFile-style files (last file wins).
 
     Missing files are skipped with a warning, like systemd's optional '-'
-    prefix. Already-exported variables always win.
+    prefix. Among the files themselves this matches systemd EnvironmentFile
+    semantics — a variable set by a later file overrides an earlier file.
+    An already-exported shell variable still wins over every file, so the
+    operator can always override any single value (e.g. ETH_RPC_URL).
     """
+    values: dict[str, str] = {}
     for path in paths:
         try:
             with open(path) as fh:
@@ -97,9 +105,11 @@ def _load_env_files(paths: list[str]) -> None:
                     if not line or line.startswith("#") or "=" not in line:
                         continue
                     key, _, val = line.partition("=")
-                    os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+                    values[key.strip()] = val.strip().strip('"').strip("'")
         except OSError as e:
             print(f"warning: cannot read env file {path}: {e}", file=sys.stderr)
+    for key, val in values.items():
+        os.environ.setdefault(key, val)
 
 
 def _sync_wdm_env(wdm: Any) -> None:
@@ -133,12 +143,16 @@ def _sync_wdm_env(wdm: Any) -> None:
 async def _rpc_call(rpc_url: str, method: str, params: list[Any]) -> Any:
     """Plain JSON-RPC POST to an arbitrary endpoint (not the monitor's)."""
     payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": 1}
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(rpc_url, json=payload)
-        resp.raise_for_status()
-        data = resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(rpc_url, json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as e:
+        # httpx error text embeds the full request URL — redact it (ETH-15).
+        raise RuntimeError(f"{method} request to {redact_url(rpc_url)} failed: {redact_text(str(e))}") from e
     if "error" in data:
-        raise RuntimeError(f"{method} error from {rpc_url}: {data['error']}")
+        raise RuntimeError(f"{method} error from {redact_url(rpc_url)}: {data['error']}")
     return data.get("result")
 
 
@@ -149,7 +163,7 @@ async def _release_verdict(wdm: Any, rpc_url: str, row: dict[str, Any]) -> dict[
     'reverted' and 'never_mined' permit a retry — anything else means the
     row cannot be proven unpaid and must be left for the operator.
     """
-    out: dict[str, Any] = {"rpc": rpc_url}
+    out: dict[str, Any] = {"rpc": redact_url(rpc_url)}
     eth_tx_hash = str(row.get("eth_tx_hash") or "")
     nonce = row.get("release_nonce")
     to_address = str(row.get("eth_address") or "")
@@ -210,10 +224,13 @@ async def _release_verdict(wdm: Any, rpc_url: str, row: dict[str, Any]) -> dict[
 
 async def _ait_rpc_get(url: str) -> Any:
     """GET a hub chain-rpc endpoint (seam for tests)."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        return resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.HTTPError as e:
+        raise RuntimeError(f"chain RPC request to {redact_url(url)} failed: {redact_text(str(e))}") from e
 
 
 async def _ait_leg_confirmed(wdm: Any, ait_tx_hash: str) -> tuple[bool, str]:
@@ -282,7 +299,12 @@ async def _gather_proofs(
         try:
             verdicts.append(await _release_verdict(wdm, url, row))
         except Exception as e:
-            verdicts.append({"rpc": url, "verdict": "ambiguous", "detail": f"rpc error: {e}"})
+            detail = f"rpc error: {redact_text(str(e))}"
+            if "historical state" in detail or "-32000" in detail:
+                # The receiver-balance proof reads state at the failed
+                # block — a pruned endpoint can never answer it.
+                detail += " — endpoint is not archive-capable (proof needs state at the failed block)"
+            verdicts.append({"rpc": redact_url(url), "verdict": "ambiguous", "detail": detail})
     return verdicts
 
 
@@ -383,7 +405,7 @@ async def _release_retry_preflight(wdm: Any, row: dict[str, Any], verify_rpc: st
         gas_limit = await wdm._release_gas_limit(to_address, amount_eth)
         gas_price = await wdm._eth_gas_price()
     except Exception as e:
-        print(f"refusing: cannot bound release gas safely: {e}")
+        print(f"refusing: cannot bound release gas safely: {redact_text(str(e))}")
         return None
     print("planned retry:")
     print(f"  to: {to_address}")
@@ -464,8 +486,8 @@ async def _cmd_release_retry(wdm: Any, db: Any, args: argparse.Namespace) -> int
             nonce=nonce,
         )
     except Exception as e:
-        db.update_release_attempt(attempt_id, outcome=f"failed: {e}")
-        print(f"release attempt failed before/at broadcast: {e}")
+        db.update_release_attempt(attempt_id, outcome=f"failed: {redact_text(str(e))}")
+        print(f"release attempt failed before/at broadcast: {redact_text(str(e))}")
         print("row stays eligible for another proven retry or mark-review")
         return 1
     db.update_release_attempt(attempt_id, eth_tx_hash=tx_hash, release_nonce=nonce, outcome="broadcast")
