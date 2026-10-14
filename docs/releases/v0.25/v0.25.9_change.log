@@ -1731,3 +1731,16 @@ narrative; this list cites each remaining commit by hash so
 - `cd76706bd7` docs(design): ETH-8 — record operator decisions (14 Oct)
 - `2148179a10` docs(release): SEC-18 section + commit index for the wallet 503 fixes
 - `bd88adf7d3` docs(release): correct the SEC-18 commit SHAs after the second rebase
+
+### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
+
+Phase-1 replica evidence for the five-package move (anyio 4.14.2,
+eth-account 0.14.0, eth-keyfile 0.10.0, eth-rlp 3.0.0, hexbytes 2.0.0):
+OLD (hub Sep-11 set) and NEW (node set) scratch venvs on node2 produced
+byte-identical EIP-191 signatures, unsafe_sign_hash output, legacy and
+EIP-1559 Sepolia raw transaction bytes/hashes, keyfile round trips both
+directions, rlp codec output, and the ops-signer canonical-JSON
+signature; 641 repo tests passed identically in both environments.
+`tests/unit/test_eth_signing_known_vectors.py` locks those vectors so a
+future bump that changes any of them fails loudly. Host rollout of the
+pins on hub/hub1 remains a separate gated step.
