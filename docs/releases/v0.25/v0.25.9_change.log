@@ -1774,6 +1774,7 @@ narrative; this list cites each remaining commit by hash so
 - `090ea8820b` docs(release): single version reality in the releases README
 - `be4eeebb5f` test(migrations): pin sweep timeout at 1800s, drop the flaky rerun
 - `c2b963f5b` feat(bridge): ETH-13 sell-lock operator command — sell_admin + audit columns (ETH-13)
+- `4ada8732f` feat(bridge): ETH-13 sell_admin host gates — root/hub-only + ledger presence (ETH-13)
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -1864,5 +1865,12 @@ feature stays dark; chain-touching verbs still need the sell config and
 (for `sweep-now`) a loadable escrow key slot. Runbook
 `docs/ops/sell-escrow-runbook.md` gained the real procedures.
 
-Commit: `c2b963f5b` (code + tests). `docs/ops/sell-escrow-runbook.md` +
-this section land in the accompanying docs commit.
+Host gates (decided 14 Oct, enforced in code): the module refuses unless
+euid 0 and `BLOCKCHAIN_MODE=hub` in the loaded env set, and refuses when
+the bridge ledger file is absent — `init_db` can never create an empty
+DB on the wrong host.
+
+Commits: `c2b963f5b` (module + audit columns + cap rule + tests),
+`4ada8732f` (host gates + settled/foreign-nonce/requeue-serialization
+proofs). `docs/ops/sell-escrow-runbook.md` + this section land in the
+accompanying docs commit.
