@@ -29,7 +29,7 @@ async def _ready() -> Response:
 
 def _make_bridge_db(path) -> None:
     conn = sqlite3.connect(path)
-    conn.execute("CREATE TABLE IF NOT EXISTS bridge_deposits (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE IF NOT EXISTS eth_deposits (id INTEGER PRIMARY KEY)")
     conn.commit()
     conn.close()
 
@@ -88,3 +88,30 @@ class TestExchangeReadiness:
     async def test_api_ready_alias(self, exchange_db, bridge_disabled):
         resp = await _dispatch(_request("GET", "/api/ready"), "GET")
         assert resp.status_code == 200
+
+    async def test_settlement_envs_checked_when_enabled(self, exchange_db, bridge_storage, monkeypatch):
+        # With the settlement flag on, both funding destinations must be
+        # configured EIP-55 addresses — readiness surfaces the misconfig
+        # instead of refusing every order at placement.
+        monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "true")
+        monkeypatch.delenv("AIT_SELL_ESCROW", raising=False)
+        monkeypatch.delenv("BRIDGE_ETH_ADDRESS", raising=False)
+        resp = await _ready()
+        assert resp.status_code == 503
+        assert "settlement_envs" in json.loads(resp.body)["failed"]
+
+    async def test_settlement_envs_pass_when_configured(self, exchange_db, bridge_storage, monkeypatch):
+        monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "true")
+        monkeypatch.setenv("AIT_SELL_ESCROW", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
+        monkeypatch.setenv("BRIDGE_ETH_ADDRESS", "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359")
+        resp = await _ready()
+        assert resp.status_code == 200
+        assert "settlement_envs" in json.loads(resp.body)["checks"]
+
+    async def test_settlement_envs_absent_when_flag_off(self, exchange_db, bridge_storage, monkeypatch):
+        monkeypatch.delenv("EXCHANGE_SETTLEMENT_ENABLED", raising=False)
+        monkeypatch.delenv("AIT_SELL_ESCROW", raising=False)
+        monkeypatch.delenv("BRIDGE_ETH_ADDRESS", raising=False)
+        resp = await _ready()
+        assert resp.status_code == 200
+        assert "settlement_envs" not in json.loads(resp.body)["checks"]
