@@ -6,9 +6,12 @@ actually appears in the dev export -- otherwise pip silently resolves an
 unpinned version from PyPI and the two tiers drift apart without anyone
 noticing. These tests make that impossible.
 
-Background: pyproject's addopts pass --reruns unconditionally, so a host without
-pytest-rerunfailures cannot collect the suite at all. node0, node2 and hub2 were
-in exactly that state because the profile installer exports `--only main`.
+Background: pyproject's addopts used to pass --reruns unconditionally, so a
+host without pytest-rerunfailures could not collect the suite at all. node0,
+node2 and hub2 were in exactly that state because the profile installer
+exports `--only main`. Retries are now per-test via `pytest.mark.flaky`
+(TEST-1); the marker is ini-registered so plugin-less hosts still parse, and
+the root conftest keeps the legacy flags accepted as no-ops there.
 """
 
 from __future__ import annotations
