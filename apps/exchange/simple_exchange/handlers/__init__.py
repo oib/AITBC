@@ -108,6 +108,10 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
             # ETH-8 phase 3 (dark): signed payout-address claim — exists only
             # under EXCHANGE_SETTLEMENT_ENABLED, else 404 like any unknown path.
             self.handle_set_payout()
+        elif path == "/api/internal/exchange-settlement":
+            # ETH-8 phase 3 (dark): the wallet bridge's only write path into
+            # exchange.db — loopback raw peer + EXCHANGE_API_KEY, flag-gated.
+            self.handle_internal_settlement()
         elif path == "/api/wallet/connect":
             self.handle_wallet_connect()
         elif path == "/v1/market/offers":
