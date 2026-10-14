@@ -174,6 +174,28 @@ class BridgeMonitor:
             pass
         return None
 
+    @staticmethod
+    def _parse_exchange_deposit_tag(tx_data: str | bytes | None) -> str | None:
+        """The exchange-prepay tag — ``EXCHANGE_DEPOSIT:<addr>`` as UTF-8 in
+        the tx input (ETH-8 phase 3). The exchange's funding instruction
+        shows the buyer exactly this tag, so the prefix match is
+        case-insensitive; the address text is returned verbatim — the
+        settlement monitor canonicalizes and validates it."""
+        if not tx_data or tx_data == "0x":
+            return None
+        if isinstance(tx_data, bytes | bytearray):
+            tx_data = "0x" + bytes(tx_data).hex()
+        try:
+            data = tx_data[2:] if tx_data.startswith("0x") else tx_data
+            if len(data) % 2:
+                data = "0" + data
+            decoded = bytes.fromhex(data).decode("utf-8").strip()
+        except (ValueError, UnicodeDecodeError):
+            return None
+        if decoded.upper().startswith("EXCHANGE_DEPOSIT:"):
+            return decoded.split(":", 1)[1].strip() or None
+        return None
+
     def calculate_ait_amount(self, eth_amount: Decimal, eth_usd=None, ait_usd=None) -> Decimal | None:
         """Calculate AIT amount based on ETH amount and oracle prices.
 
@@ -313,6 +335,7 @@ class BridgeMonitor:
                 BridgeDepositStatus.FAILED.value,
                 BridgeDepositStatus.WRITTEN_OFF.value,
                 BridgeDepositStatus.FUNDING.value,
+                BridgeDepositStatus.EXCHANGE_PREPAY.value,
             ):
                 logger.info("Deposit %s already terminal (%s), skipping", tx_hash, status)
                 return
@@ -327,6 +350,32 @@ class BridgeMonitor:
             logger.warning("Deposit %s in non-terminal state %s, marking for retry", tx_hash, status)
             self._mark_for_retry(tx_hash, f"Recovered from non-terminal state: {status}")
             return
+        # Exchange-prepay lane (ETH-8 phase 3): an EXCHANGE_DEPOSIT tag
+        # routes the ETH to the buyer's prepaid exchange balance via the
+        # wallet-side settlement monitor — it must never take the AIT mint
+        # path. Recorded atomically as 'exchange_prepay'; flag-off leaves
+        # the old path untouched (tag fails recipient parsing → FAILED).
+        if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() == "true":
+            exchange_tag = self._parse_exchange_deposit_tag(tx_data)
+            if exchange_tag is not None:
+                deposit_id = create_deposit(
+                    tx_hash,
+                    from_address,
+                    str(eth_amount),
+                    f"EXCHANGE_DEPOSIT:{exchange_tag}",
+                    status=BridgeDepositStatus.EXCHANGE_PREPAY,
+                )
+                if deposit_id:
+                    logger.info(
+                        "Recorded exchange-prepay deposit %s: %s ETH tagged '%s' (tx: %s)",
+                        deposit_id,
+                        eth_amount,
+                        exchange_tag,
+                        tx_hash,
+                    )
+                else:
+                    logger.info("Deposit %s already exists in database", tx_hash)
+                return
         ait_recipient = self.parse_ait_recipient(tx_data)
         if not ait_recipient:
             logger.warning("Could not parse AIT recipient from tx data: %s", tx_data)
@@ -1011,7 +1060,16 @@ class BridgeMonitor:
                                     "Operator funding recorded: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount
                                 )
                             continue
-                        if eth_amount < self.min_eth_deposit:
+                        tx_data = tx.get("input", "0x")
+                        # An EXCHANGE_DEPOSIT tag is explicit user intent and
+                        # costs no payout — it bypasses the dust floor and
+                        # reaches the prepay lane at any amount.
+                        exchange_tag = (
+                            self._parse_exchange_deposit_tag(tx_data)
+                            if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() == "true"
+                            else None
+                        )
+                        if eth_amount < self.min_eth_deposit and exchange_tag is None:
                             # Dust is still an inflow — record it so the
                             # ledger (and the payout audit) accounts for
                             # every wei that reached the bridge wallet.
@@ -1039,7 +1097,6 @@ class BridgeMonitor:
                                     self.min_eth_deposit,
                                 )
                             continue
-                        tx_data = tx.get("input", "0x")
                         logger.info("Found deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
                         try:
                             self.process_deposit(tx_hash, from_address, eth_amount, tx_data)

@@ -327,7 +327,19 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
         return False
     amount_eth = Decimal(value_wei) / Decimal(10**18)  # Convert wei to ETH
 
-    if amount_eth < MIN_ETH_DEPOSIT:
+    # Exchange-prepay lane (ETH-8 phase 3): an EXCHANGE_DEPOSIT tag routes
+    # the ETH to the buyer's prepaid exchange balance via the settlement
+    # monitor — it must never take the AIT mint path. Recorded atomically
+    # as 'exchange_prepay' so no poll can pick it up as a payout. The tag
+    # is explicit user intent and owes no payout, so it bypasses the dust
+    # floor. Flag-off leaves the old path untouched: the tag fails
+    # recipient parsing and the deposit lands FAILED as before.
+    tx_input = tx.get("input") or tx.get("data") or "0x"
+    exchange_tag = (
+        _parse_exchange_deposit_tag(tx_input) if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() == "true" else None
+    )
+
+    if amount_eth < MIN_ETH_DEPOSIT and exchange_tag is None:
         logger.info("Skipping tx %s: %s ETH below minimum %s", tx_hash, amount_eth, MIN_ETH_DEPOSIT)
         return False
 
@@ -336,12 +348,6 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
     if existing:
         return False
 
-    # Exchange-prepay lane (ETH-8 phase 3): an EXCHANGE_DEPOSIT tag routes
-    # the ETH to the buyer's prepaid exchange balance via the settlement
-    # monitor — it must never take the AIT mint path. Recorded atomically
-    # as 'exchange_prepay' so no poll can pick it up as a payout.
-    tx_input = tx.get("input") or tx.get("data") or "0x"
-    exchange_tag = _parse_exchange_deposit_tag(tx_input)
     if exchange_tag is not None:
         try:
             deposit_id = insert_exchange_prepay_deposit(tx_hash, from_address, amount_eth, exchange_tag)

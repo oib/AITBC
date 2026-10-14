@@ -34,6 +34,12 @@ class BridgeDepositStatus(StrEnum):
     # operator funding source (BRIDGE_FUNDING_SOURCES). Recorded in the
     # ledger for the audit trail but owed no payout.
     FUNDING = "funding"
+    # Terminal prepay: ETH carrying an EXCHANGE_DEPOSIT:<addr> tag — routed
+    # to the buyer's prepaid exchange balance by the wallet-side settlement
+    # monitor (ETH-8 phase 3), never minted as AIT. Only written under
+    # EXCHANGE_SETTLEMENT_ENABLED; outside the payout vocabulary so no
+    # poll can pick it up.
+    EXCHANGE_PREPAY = "exchange_prepay"
 
 
 def valid_ait_recipient(addr: object) -> bool:

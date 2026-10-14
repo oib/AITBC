@@ -73,6 +73,13 @@ _ETH_GAS_FLOOR = 21_000
 # returning 'not_sent' at any age.
 ETH_RELEASE_ABSENCE_GRACE_SECONDS = int(os.getenv("ETH_RELEASE_ABSENCE_GRACE_SECONDS", "600"))
 ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"))
+# ETH nonce serialization across the three release lanes (withdraw, sell
+# escrow, exchange settlement): the nonce comes from
+# eth_getTransactionCount(pending), so two lanes racing fetch→sign→broadcast
+# can read the same count and collide — the loser then parks in
+# needs_review. One shared lock keeps a lane's whole nonce→sign→broadcast
+# section atomic; the second lane's pending-count then sees the first's tx.
+ETH_RELEASE_NONCE_LOCK = asyncio.Lock()
 # Confirmation depth a release receipt must reach before it counts as proof.
 # Defaults to the deposit-side BRIDGE_CONFIRMATIONS (3) so both directions
 # agree on finality.
@@ -307,11 +314,12 @@ async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
         raise RuntimeError(error)
 
     account = EthAccount.from_key(key)
-    nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
     gas_price = await _eth_gas_price()
     gas_limit = await _release_gas_limit(to_address, amount_eth)
-    raw, eth_tx_hash = _sign_release_tx(account, to_address, amount_eth, nonce, gas_price, gas_limit)
-    sent = await _broadcast_release_tx(raw)
+    async with ETH_RELEASE_NONCE_LOCK:
+        nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
+        raw, eth_tx_hash = _sign_release_tx(account, to_address, amount_eth, nonce, gas_price, gas_limit)
+        sent = await _broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("eth_sendRawTransaction returned %s, expected signed hash %s", sent, eth_tx_hash)
     return eth_tx_hash
@@ -462,15 +470,16 @@ async def _release_eth_for_withdrawal(
     if not key:
         raise RuntimeError(error)
     account = EthAccount.from_key(key)
-    if nonce is None:
-        nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
-    raw, eth_tx_hash = _sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
+    async with ETH_RELEASE_NONCE_LOCK:
+        if nonce is None:
+            nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
+        raw, eth_tx_hash = _sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
 
-    # Persist intent BEFORE broadcast: a crash after this line leaves
-    # evidence (nonce + deterministic hash) the resume check can verify.
-    await _update_status_with_retry(ait_tx_hash, intent_status, eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+        # Persist intent BEFORE broadcast: a crash after this line leaves
+        # evidence (nonce + deterministic hash) the resume check can verify.
+        await _update_status_with_retry(ait_tx_hash, intent_status, eth_tx_hash=eth_tx_hash, release_nonce=nonce)
 
-    sent = await _broadcast_release_tx(raw)
+        sent = await _broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
 

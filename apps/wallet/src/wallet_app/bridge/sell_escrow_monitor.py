@@ -845,11 +845,12 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
     if not key:
         raise RuntimeError(error)
     account = wdm.EthAccount.from_key(key)
-    nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
-    raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
+    async with wdm.ETH_RELEASE_NONCE_LOCK:
+        nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
+        raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
 
-    await _update_lock_status_with_retry(row["ait_tx_hash"], "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
-    sent = await wdm._broadcast_release_tx(raw)
+        await _update_lock_status_with_retry(row["ait_tx_hash"], "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+        sent = await wdm._broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
     # ETH-14: 'released' is written only on a verified receipt — the
