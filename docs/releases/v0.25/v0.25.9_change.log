@@ -1768,6 +1768,10 @@ narrative; this list cites each remaining commit by hash so
 - `40eb639b4b` docs(test): consistent wording on the vector key's provenance
 - `f3260ea1f1` fix(bridge): default block-scoped pre-registered transactions on (CFG-1)
 - `cb3d697fcc` fix(security): dependency-scan.sh stops reinstalling safety, uses throwaway tools venv (SEC-19)
+- `5afb8733d3` test(security): placeholder fleet literals so the no-fleet guard passes
+- `2706722b71` test(consistency): skip git-metadata tests on exports; probe endpoint reachability
+- `a01dcec217` docs(test): record the TEST-1 rerun policy and the .git scratch rule
+- `090ea8820b` docs(release): single version reality in the releases README
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -1798,3 +1802,20 @@ requirements-test.txt no longer name the removed package. New tests run a
 copy of the script under stub shims and assert no safety invocation, no
 project-venv install, tools-venv removal and clean exit, plus bash -n and
 no-safety static guards.
+
+### TEST-2(B): test hygiene — fleet literals, .git skips, endpoint probes (2026-10-14)
+
+Leftovers from TEST-1. The no-fleet-details guard failed on literal hostnames
+and an internal IP in `test_prometheus_alert_watch.py`,
+`test_ntfy_heartbeat.py`, and quoted commit subjects in this log — all now
+RFC-5737/`*.example.*` placeholders of the same shape, assertions unchanged.
+Tests that enumerate the repo through `git ls-files`/`git grep` failed (or
+passed vacuously) on `.git`-less exports; they share one skip mark in
+`tests/git_checkout.py`, while the mocked `aitbc update` tests satisfy the
+command's real `.git` gate with a patched `REPO_ROOT` and keep running
+everywhere. The phase-8 endpoint checks now probe their env-provided URL for
+reachability — the conftest `setdefault`s had disarmed every set-based skip.
+The OpenAPI drift tests skip only when extraction fails for every app (an
+interpreter without app dependencies); real drift still fails. Docs record
+the TEST-1 rerun policy, and the releases README drops the stale
+two-version-scheme story for the checker-enforced single `0.25.9`.
