@@ -22,6 +22,26 @@ import urllib.request
 import pytest
 
 
+def _env_url_or_skip(var: str) -> str:
+    """Return the env-gated URL, or skip when it cannot serve the test.
+
+    Skips when the variable is unset and when nothing answers a quick probe —
+    the tests' conftest provides loopback defaults, so "set" alone does not
+    mean a service is up. An HTTP error still counts as reachable: the test
+    itself asserts on the response.
+    """
+    url = os.getenv(var)
+    if not url:
+        pytest.skip(f"{var} not set; check skipped")
+    try:
+        urllib.request.urlopen(url, timeout=2).close()  # nosec: B310 external URL controlled via env
+    except urllib.error.HTTPError:
+        pass
+    except (urllib.error.URLError, OSError) as exc:
+        pytest.skip(f"{var} endpoint {url} is not reachable ({exc}); check skipped")
+    return url
+
+
 def _check_json(url: str) -> None:
     """Check that URL returns valid JSON"""
     with urllib.request.urlopen(url, timeout=5) as resp:  # nosec: B310 external URL controlled via env
@@ -48,55 +68,40 @@ def _check_health(url: str, expect_status_field: bool = True) -> None:
 
 
 # Optional endpoint tests
-@pytest.mark.skipif(not os.getenv("EXPLORER_API_URL"), reason="EXPLORER_API_URL not set; explorer check skipped")
 def test_explorer_api_head():
     """Test explorer API head endpoint"""
-    _check_json(os.environ["EXPLORER_API_URL"])
+    _check_json(_env_url_or_skip("EXPLORER_API_URL"))
 
 
-@pytest.mark.skipif(not os.getenv("MARKET_STATS_URL"), reason="MARKET_STATS_URL not set; market stats check skipped")
 def test_market_stats():
     """Test market statistics endpoint"""
-    _check_json(os.environ["MARKET_STATS_URL"])
+    _check_json(_env_url_or_skip("MARKET_STATS_URL"))
 
 
-@pytest.mark.skipif(not os.getenv("ECON_STATS_URL"), reason="ECON_STATS_URL not set; economics stats check skipped")
 def test_economics_stats():
     """Test economics statistics endpoint"""
-    _check_json(os.environ["ECON_STATS_URL"])
+    _check_json(_env_url_or_skip("ECON_STATS_URL"))
 
 
 # Task-based health check tests
-@pytest.mark.skipif(
-    not os.getenv("MARKET_HEALTH_URL"),
-    reason="MARKET_HEALTH_URL not set; market health check skipped",
-)
 def test_market_health_primary():
     """Test primary market health endpoint"""
-    _check_health(os.environ.get("MARKET_HEALTH_URL", ""))
+    _check_health(_env_url_or_skip("MARKET_HEALTH_URL"))
 
 
-@pytest.mark.skipif(
-    not os.getenv("MARKET_HEALTH_URL_ALT"),
-    reason="MARKET_HEALTH_URL_ALT not set; alt market health check skipped",
-)
 def test_market_health_secondary():
     """Test secondary market health endpoint"""
-    _check_health(os.environ.get("MARKET_HEALTH_URL_ALT", ""))
+    _check_health(_env_url_or_skip("MARKET_HEALTH_URL_ALT"))
 
 
-@pytest.mark.skipif(not os.getenv("BLOCKCHAIN_RPC_URL"), reason="BLOCKCHAIN_RPC_URL not set; blockchain RPC check skipped")
 def test_blockchain_rpc_head():
     """Test blockchain RPC head endpoint"""
-    url = os.environ["BLOCKCHAIN_RPC_URL"].rstrip("/")
+    url = _env_url_or_skip("BLOCKCHAIN_RPC_URL").rstrip("/")
     if not url.endswith("/rpc/head"):
         url = f"{url}/rpc/head"
     _check_json(url)
 
 
-@pytest.mark.skipif(
-    not os.getenv("COORDINATOR_HEALTH_URL"), reason="COORDINATOR_HEALTH_URL not set; coordinator health check skipped"
-)
 def test_coordinator_health():
     """Test coordinator API health endpoint"""
-    _check_health(os.environ["COORDINATOR_HEALTH_URL"])
+    _check_health(_env_url_or_skip("COORDINATOR_HEALTH_URL"))
