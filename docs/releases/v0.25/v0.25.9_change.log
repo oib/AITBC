@@ -1362,6 +1362,20 @@ env precedence), `test_bridge_withdraw_monitor.py` +
 unknowns), `test_aitbc_logging.py` (httpx/httpcore WARNING after
 `configure_logging`).
 
+### DEPS-2: venv-pinned pip in update.sh, copied-venv shebang repair, CLI version source (2026-10-14)
+
+`update.sh`'s four bare `pip` sites now run `"$VENV_DIR/bin/python" -m
+pip` with stderr visible, and a post-install assert proves pip resolves
+inside the venv (`command -v`, `pip -V`, and the `bin/pip` shebang).
+`setup-python-venv.sh --mode copy` repoints `bin/*` shebangs, the
+`activate*` files' `VIRTUAL_ENV`/`VIRTUAL_ENV_PROMPT`, and `pyvenv.cfg`'s
+`command =` line to the destination, then fails if any script's shebang
+escapes its own venv; the CLI's stray version literals collapse onto
+`aitbc_cli/__init__.py`. The new `update.sh` venv check fails on a venv
+whose `bin/*` shebangs still name `/var/cache/aitbc/python-venvs` (hub
+and hub1 today), so such a host needs the SEC-15 venv repair before
+`update.sh` will run there.
+
 ### Commit index — every commit since 2026-09-30, cited for the coverage check
 
 Continuation of the 2026-09-30 index above: `### ` sections carry the
@@ -1503,3 +1517,6 @@ narrative; this list cites each remaining commit by hash so
 - `75a3eab6a2` test(consensus): ESCROW_FEE_SWEEP v11 gate, admission parity, replay equivalence
 - `ec58bb6a3c` feat(rpc): post-settlement ESCROW_FEE_SWEEP leg behind ESCROW_FEE_SWEEP_ENABLED
 - `a08fde4bfe` docs+ops: ESCROW_FEE_SWEEP explorer label, config drift, escrow docs
+- `83960271b3` fix(deps): align root requirements with lock, bump fsspec/virtualenv (DEPS-1)
+- `e5cbc50a16` test(deps): pin cli requirement files to the root export
+- `cf8ad44714` fix(cli): single source of truth for the CLI version (DEPS-2 follow-up)
