@@ -105,7 +105,6 @@
       1 apps/wallet/src/wallet_app/api_jsonrpc.py
       1 apps/wallet/src/wallet_app/api_rest.py
       2 apps/wallet/src/wallet_app/bridge/bridge_monitor.py
-      1 apps/wallet/src/wallet_app/bridge/bridge_routes.py
       1 apps/wallet/src/wallet_app/main.py
       3 cli/aitbc_cli/commands/agent.py
       2 cli/aitbc_cli/commands/agent_sdk.py
