@@ -56,8 +56,14 @@ _ORDER_ENVELOPE_FIELDS = frozenset(
 # discriminator keeps the envelope classes unambiguous.
 _CANCEL_ENVELOPE_FIELDS = frozenset({"action", "order_id", "expiry_height", "account_nonce", "chain_id"})
 _REGISTER_ENVELOPE_FIELDS = frozenset({"action", "address", "label", "account_nonce", "chain_id"})
+# ETH-8 phase 3: the node's ETH payout address is set once, deliberately, by
+# its own signed verb — the fixed order envelope (design section 1) never
+# carries it. History is appended to payout_address_audit; a change applies
+# to orders placed after the claim, never retroactively.
+_PAYOUT_ENVELOPE_FIELDS = frozenset({"action", "eth_address", "account_nonce", "chain_id"})
 _CANCEL_ACTION = "exchange_cancel"
 _REGISTER_ACTION = "exchange_register"
+_PAYOUT_ACTION = "exchange_set_payout"
 
 # Watchlist is flag-and-log only (decided 14 Oct): it never blocks or
 # throttles an order — auto-blocking would be a separate operator decision.
@@ -67,6 +73,12 @@ _WATCHLIST_LOGGED: set[str] = set()
 def _signed_orders_required() -> bool:
     """EXCHANGE_REQUIRE_SIGNED_ORDERS — signature enforcement is revertible."""
     return os.getenv("EXCHANGE_REQUIRE_SIGNED_ORDERS", "true").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _settlement_enabled() -> bool:
+    """EXCHANGE_SETTLEMENT_ENABLED — every phase-3 code path is inert when
+    unset. Fail closed: only an explicit 'true' turns settlement on."""
+    return os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").strip().lower() == "true"
 
 
 def _exchange_chain_id() -> str:
@@ -1059,6 +1071,87 @@ class ExchangeMixin:
             conn.close()
         self.send_json_response(result)  # type: ignore[attr-defined]
 
+    def handle_set_payout(self) -> None:
+        """POST /api/exchange/nodes/payout — signed exchange_set_payout claim.
+
+        ETH-8 phase 3 (dark): only exists under EXCHANGE_SETTLEMENT_ENABLED;
+        flag-off answers 404 exactly like an unregistered route. The claimed
+        address must be EIP-55 checksum form — a typo'd or lowercase address
+        can never be accepted into the payout path.
+        """
+        if not _settlement_enabled():
+            self.send_error(404, "Not Found")  # type: ignore[attr-defined]
+            return
+        if _rate_limit_hit(f"ip:{self._client_ip()}:payout", _env_int("EXCHANGE_REGISTER_PER_MIN", 5)):
+            self.send_json_response({"error": "Rate limit reached"}, status=429)  # type: ignore[attr-defined]
+            return
+        data = self._read_json_body()  # type: ignore[attr-defined]
+        if not data:
+            self.send_error(400, "Missing request body")  # type: ignore[attr-defined]
+            return
+        verified = self._verify_signed_body(data, _PAYOUT_ENVELOPE_FIELDS)
+        if verified is None:
+            return
+        envelope, address, env_hash = verified
+        if envelope["action"] != _PAYOUT_ACTION:
+            self.send_error(400, "Invalid set_payout action")  # type: ignore[attr-defined]
+            return
+        from eth_utils import is_checksum_address
+
+        eth_address = envelope["eth_address"]
+        if not isinstance(eth_address, str) or not is_checksum_address(eth_address):
+            self.send_error(400, "Invalid eth_address (EIP-55 checksum form required)")  # type: ignore[attr-defined]
+            return
+        if not isinstance(envelope["account_nonce"], int) or isinstance(envelope["account_nonce"], bool):
+            self.send_error(400, "Invalid account_nonce")  # type: ignore[attr-defined]
+            return
+        self._commit_payout(envelope, address, env_hash, eth_address)
+
+    def _commit_payout(self, envelope, address, env_hash, eth_address) -> None:
+        conn = sqlite3.connect(get_db_path(), timeout=30)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            cursor = conn.cursor()
+            row = cursor.execute("SELECT status, eth_address FROM node_registry WHERE address = ?", (address,)).fetchone()
+            if row is None or row[0] != "registered":
+                conn.rollback()
+                self.send_json_response({"error": "Node not registered"}, status=403)  # type: ignore[attr-defined]
+                return
+            old_eth = row[1]
+            if envelope["account_nonce"] != self._expected_nonce(cursor, address) or not self._claim_nonce(
+                cursor, address, envelope["account_nonce"]
+            ):
+                conn.rollback()
+                self.send_json_response({"error": "Stale account_nonce"}, status=409)  # type: ignore[attr-defined]
+                return
+            now = datetime.now(UTC).isoformat()
+            cursor.execute(
+                "UPDATE node_registry SET eth_address = ?, eth_address_set_at = ? WHERE address = ?",
+                (eth_address, now, address),
+            )
+            cursor.execute(
+                "INSERT INTO payout_address_audit (address, old_eth_address, new_eth_address, envelope_hash, changed_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (address, old_eth, eth_address, env_hash, now),
+            )
+            result = {
+                "address": address,
+                "status": "payout_set",
+                "eth_address": eth_address,
+                "previous_eth_address": old_eth,
+                "applies_to": "orders placed after this claim",
+                "next_nonce": envelope["account_nonce"] + 1,
+            }
+            conn.commit()
+        except (sqlite3.Error, OSError, ValueError, TypeError, KeyError, RuntimeError):
+            conn.rollback()
+            logger.exception("Payout address claim failed")
+            self.send_json_response({"error": "Payout address claim failed"}, status=503)  # type: ignore[attr-defined]
+            return
+        finally:
+            conn.close()
+        self.send_json_response(result)  # type: ignore[attr-defined]
+
     def handle_exchange_nodes(self) -> None:
         """GET /api/exchange/nodes — the participants board (design section 4/8)."""
         if not _signed_orders_required():
@@ -1076,7 +1169,9 @@ class ExchangeMixin:
 
     def _node_rows(self, conn) -> list[dict]:
         cursor = conn.cursor()
-        rows = cursor.execute("SELECT address, label, status, registered_at FROM node_registry ORDER BY label").fetchall()
+        rows = cursor.execute(
+            "SELECT address, label, status, registered_at, eth_address FROM node_registry ORDER BY label"
+        ).fetchall()
         open_counts = dict(
             cursor.execute(
                 "SELECT user_address, COUNT(*) FROM orders WHERE status = 'open' AND user_address IS NOT NULL GROUP BY user_address"
@@ -1091,8 +1186,11 @@ class ExchangeMixin:
                 "registered_at": registered_at,
                 "open_orders": open_counts.get(address, 0),
                 "watchlisted": address in watchlisted,
+                # ETH-8 phase 3 (dark): the node's signed payout address —
+                # deliberately public on the participants board.
+                "eth_address": _short_addr(eth_address),
             }
-            for address, label, status, registered_at in rows
+            for address, label, status, registered_at, eth_address in rows
         ]
 
     @staticmethod
