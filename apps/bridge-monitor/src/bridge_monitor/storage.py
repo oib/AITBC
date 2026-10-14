@@ -67,7 +67,8 @@ _DEPOSIT_SELECT = """
            verified_at,
            error_message,
            retry_count,
-           next_retry_at
+           next_retry_at,
+           deposit_address
     FROM eth_deposits
 """
 
@@ -125,6 +126,10 @@ def init_db() -> None:
             ("envelope_hash", "TEXT"),
             ("submitted_height", "INTEGER"),
             ("rebroadcast_count", "INTEGER NOT NULL DEFAULT 0"),
+            # B13: the bridge wallet that received the deposit. NULL on
+            # pre-column rows — reported "address unknown" by the reconcile
+            # and treated as the configured current wallet. No backfill.
+            ("deposit_address", "TEXT"),
         ]:
             if column in columns:
                 continue
@@ -170,6 +175,7 @@ def create_deposit(
     eth_amount: str,
     ait_recipient: str,
     status: BridgeDepositStatus = BridgeDepositStatus.PENDING,
+    deposit_address: str | None = None,
 ) -> str | None:
     """Create a new bridge deposit record.
 
@@ -185,8 +191,8 @@ def create_deposit(
             cursor.execute(
                 """
                 INSERT INTO eth_deposits
-                (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
-                VALUES (?, ?, ?, ?, ?, '0', ?, ?)
+                (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address)
+                VALUES (?, ?, ?, ?, ?, '0', ?, ?, ?)
                 """,
                 (
                     deposit_id,
@@ -196,6 +202,7 @@ def create_deposit(
                     eth_amount,
                     status,
                     datetime.now(UTC).isoformat(),
+                    deposit_address,
                 ),
             )
             conn.commit()

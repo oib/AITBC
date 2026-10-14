@@ -330,7 +330,7 @@ class BridgeMonitor:
         ait_recipient = self.parse_ait_recipient(tx_data)
         if not ait_recipient:
             logger.warning("Could not parse AIT recipient from tx data: %s", tx_data)
-            create_deposit(tx_hash, from_address, str(eth_amount), "")
+            create_deposit(tx_hash, from_address, str(eth_amount), "", deposit_address=self.bridge_eth_address)
             update_deposit(tx_hash, status=BridgeDepositStatus.FAILED, error_message="Invalid AIT recipient address")
             logger.critical(
                 "ALERT: deposit %s permanently FAILED — %s ETH from %s received but cannot be paid (no recipient)",
@@ -350,12 +350,12 @@ class BridgeMonitor:
             # leave the row PENDING_RETRY so a later pass recomputes the
             # price — never strand funds received.
             logger.error("Could not calculate AIT amount — deposit stays PENDING_RETRY")
-            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
+            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address)
             self._mark_for_retry(tx_hash, "Price oracle unavailable")
             return
         if ait_amount < self.min_ait_deposit:
             logger.warning("Deposit %s: AIT amount %s below minimum %s, rejecting", tx_hash, ait_amount, self.min_ait_deposit)
-            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
+            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address)
             update_deposit(
                 tx_hash,
                 ait_amount=str(ait_amount),
@@ -366,7 +366,9 @@ class BridgeMonitor:
                 "ALERT: deposit %s permanently FAILED — %s ETH received but below minimum payout", tx_hash, eth_amount
             )
             return
-        deposit_id = create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient)
+        deposit_id = create_deposit(
+            tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address
+        )
         if not deposit_id:
             logger.info("Deposit %s already exists in database", tx_hash)
             return
@@ -997,7 +999,14 @@ class BridgeMonitor:
                         eth_amount = Decimal(value) / Decimal(10**18)
                         tx_hash = tx.hash.hex()
                         if from_address.lower() in self.funding_sources:
-                            if create_deposit(tx_hash, from_address, str(eth_amount), "", status=BridgeDepositStatus.FUNDING):
+                            if create_deposit(
+                                tx_hash,
+                                from_address,
+                                str(eth_amount),
+                                "",
+                                status=BridgeDepositStatus.FUNDING,
+                                deposit_address=self.bridge_eth_address,
+                            ):
                                 logger.info(
                                     "Operator funding recorded: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount
                                 )
@@ -1009,7 +1018,11 @@ class BridgeMonitor:
                             # FAILED is terminal: an operator resolves it
                             # deliberately (refund / write-off), never paid.
                             if create_deposit(
-                                tx_hash, from_address, str(eth_amount), self.parse_ait_recipient(tx.get("input", "0x")) or ""
+                                tx_hash,
+                                from_address,
+                                str(eth_amount),
+                                self.parse_ait_recipient(tx.get("input", "0x")) or "",
+                                deposit_address=self.bridge_eth_address,
                             ):
                                 update_deposit(
                                     tx_hash,

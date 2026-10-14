@@ -147,6 +147,15 @@ table lives in `cli/aitbc_cli/commands/eth.py` (`DEFAULT_WALLETS`);
 this doc's custody inventory mirrors it — keep them in sync when a
 wallet rotates.
 
+The rotation-aware reconcile is
+`scripts/ops/bridge_wallet_rotation_report.py` (report-only, Sepolia):
+it reads the ledger plus an operator-supplied tx dump, attributes
+deposits to the wallet that received them (`eth_deposits.deposit_address`),
+labels sends between listed wallets as internal transfers, and exits 1
+when anything is "unexplained, needs operator note". Its wallet list
+comes from `--wallets`/`BRIDGE_KNOWN_WALLETS` — keep it in sync with
+`DEFAULT_WALLETS` when a wallet rotates.
+
 ## What these wallets are *not* for
 
 - No mainnet use, ever — the recipe and amounts above are Sepolia-only.
