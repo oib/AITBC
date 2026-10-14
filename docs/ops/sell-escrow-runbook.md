@@ -181,13 +181,8 @@ nothing is stranded by a disabled monitor except time.
   send from the escrow account), the nonce was never persisted, or the
   stored signed blob is gone. Unlike `needs_review` this status is
   **terminal for the monitor** — it is never auto-processed, never
-  re-swept, and the row only moves by an explicit operator action. To
-  resolve: inspect the escrow account's sealed history at the row's
-  `escrow_out_nonce` (compare recipient/amount/`payload.sell_ref` against
-  the row's intent), decide whether the funds actually moved, then set
-  the row to its true outcome. There is **no admin command for sell
-  locks yet** — resolving is a deliberate manual row correction, tracked
-  as a tool gap; the poll alone will never touch the row.
+  re-swept, and the row only moves by an explicit operator action via
+  `sell_admin` (see "Operator command" below).
 - Escrow sweeps are **serialized**: at most one `settling`/`refunding`
   row is in flight at a time. A row leaves that state only when its
   outflow is found *sealed* — matched on nonce + recipient + amount +
@@ -208,6 +203,54 @@ nothing is stranded by a disabled monitor except time.
 - Deadline and orphan refunds are evaluated on successful polls only: a
   failed lock scan aborts the poll, so an RPC outage can never drive a
   refund decision on stale data.
+
+## Operator command (ETH-13)
+
+`needs_review_sweep` rows and fee-parked sweeps are operated from hub as
+root, through the wallet-package admin module — same environment and the
+same dry-run/`--confirm --note` contract as `withdraw_admin`:
+
+```bash
+cd /opt/aitbc
+PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src \
+    venv/bin/python -m wallet_app.bridge.sell_admin <command>
+```
+
+| verb | scope | effect |
+|---|---|---|
+| `list [--status S]…` | read-only | lock rows (default: all open statuses) |
+| `inspect <ait_tx_hash>` | read-only | full row, quote, parsed sweep intent (the signed blob is never printed), escrow nonce/balance |
+| `confirm-swept <hash> --tx <sealed_hash>` | `needs_review_sweep` | re-verifies `--tx` on-chain with the monitor's own match rule (nonce + recipient + amount + `payload.sell_ref`), then writes `settled`/`refunded` with the real hash — no hash or mismatch ⇒ refuse |
+| `requeue <ait_tx_hash>` | `needs_review_sweep` | returns the row to the lane its intent was in — `released` for a settle, `refund_pending` for a refund; the monitor re-runs its normal sweep next poll (no quote/cap re-check). Refuses while another sweep is in flight, and when the intent blob is unreadable (lane indeterminate) |
+| `write-off <ait_tx_hash> --reason "…"` | any open, non-in-flight row | terminal `written_off`; the ETH leg stays recorded, the AIT leg is marked abandoned. Refuses `releasing`/`settling`/`refunding` — a live send owns those rows |
+| `sweep-now <ait_tx_hash>` | `queued_fee_settle`/`queued_fee_refund` | runs the monitor's own `_escrow_sweep` once, synchronously — same fee-float check, so a still-short escrow re-parks identically. An accelerator for "I just funded the escrow", not an override |
+
+Rules, mirroring the monitor's own invariants: every mutating verb is a
+dry-run by default and writes only with `--confirm --note "…"`; every
+status change goes through `update_sell_lock_status`; resolutions stamp
+`resolved_by`/`resolved_at`/`operator_note` (ETH-13 audit columns) and
+record `operator:<verb>` in the row's error field; nothing signs or
+broadcasts except `sweep-now`, which lives inside `_escrow_sweep`'s
+persist-intent-then-broadcast order; sweep serialization holds across
+manual actions. `SELL_ESCROW_ENABLED` is not required — the sell config
+addresses and the escrow key slot must still be loadable for
+chain-touching verbs.
+
+Typical `needs_review_sweep` resolution:
+
+```bash
+# 1. what does the row think happened?
+venv/bin/python -m wallet_app.bridge.sell_admin inspect <ait_tx_hash>
+# 2. inspect the escrow account's sealed history at escrow_out_nonce —
+#    does a transaction carry this row's sell_ref/amount/recipient?
+#    (chain explorer or /rpc/transactions?address=<escrow>)
+# 3a. it sealed → venv/bin/python -m wallet_app.bridge.sell_admin \
+#       confirm-swept <ait_tx_hash> --tx 0x<sealed> --confirm --note "…"
+# 3b. nothing sealed → venv/bin/python -m wallet_app.bridge.sell_admin \
+#       requeue <ait_tx_hash> --confirm --note "…"
+# 3c. unrecoverable → venv/bin/python -m wallet_app.bridge.sell_admin \
+#       write-off <ait_tx_hash> --reason "…" --confirm --note "…"
+```
 
 ## First live run (shop side, e.g. node2)
 
