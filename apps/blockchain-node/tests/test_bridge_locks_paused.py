@@ -149,6 +149,8 @@ class TestInitiateTransferPaused:
     def test_refund_still_works_while_paused(self, bridge, engine, monkeypatch):
         """A lock taken before the pause stays refundable while locks are
         paused — BRIDGE_REFUND issuance is not part of the pause."""
+        # CFG-1: legacy RPC-time mutation path — pin the flag off explicitly.
+        monkeypatch.setattr(settings, "block_scoped_preregistered_transactions", False)
         _seed(engine, "chain-a", "0xsender", 10_000)
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecipient", 1000)
         monkeypatch.setattr(settings, "bridge_locks_paused", True)

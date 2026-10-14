@@ -78,6 +78,9 @@ def _patch_settings():
     with (
         patch("aitbc_chain.config.settings.supported_chains", "chain-a,chain-b"),
         patch("aitbc_chain.config.settings.bridge_supported_chains", "chain-b"),
+        # CFG-1: these tests assert the legacy RPC-time mutation path; the
+        # fleet default is now True, so pin it off explicitly.
+        patch("aitbc_chain.config.settings.block_scoped_preregistered_transactions", False),
     ):
         yield
 

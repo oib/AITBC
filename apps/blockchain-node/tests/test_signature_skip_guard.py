@@ -56,3 +56,20 @@ def test_past_timestamp_leaves_validation_enabled() -> None:
 def test_malformed_timestamp_leaves_validation_enabled() -> None:
     s = _settings("not-a-timestamp")
     assert s.sync_validate_signatures is True
+
+
+def test_block_scoped_preregistered_defaults_true(monkeypatch) -> None:
+    """CFG-1: a fresh or misconfigured node must never debit an account at
+    RPC time, so the block-scoped path is the code default."""
+    from aitbc_chain.config import ChainSettings
+
+    monkeypatch.delenv("BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS", raising=False)
+    assert ChainSettings(_env_file=None).block_scoped_preregistered_transactions is True
+
+
+def test_block_scoped_preregistered_env_false_still_wins(monkeypatch) -> None:
+    """CFG-1: an explicit env `false` still overrides the new default."""
+    from aitbc_chain.config import ChainSettings
+
+    monkeypatch.setenv("BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS", "false")
+    assert ChainSettings(_env_file=None).block_scoped_preregistered_transactions is False

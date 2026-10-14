@@ -144,7 +144,7 @@ class BridgeTransferMixin(BridgeBase):
             if sender_account.balance < total_deduction:
                 raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_deduction}")
             lock_nonce = sender_account.nonce
-            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", False)
+            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
             if not block_scoped:
                 sender_account.balance -= total_deduction
                 sender_account.nonce += 1
@@ -317,7 +317,7 @@ class BridgeTransferMixin(BridgeBase):
             # GAP-47: cross-chain swaps may release a converted amount that
             # differs from the locked amount; plain bridges release `amount`.
             release_amount = record.release_amount if record.release_amount is not None else record.amount
-            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", False)
+            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
             if not block_scoped:
                 recipient_account = session.get(Account, (record.target_chain, record.recipient))
                 if not recipient_account:
@@ -509,7 +509,7 @@ class BridgeTransferMixin(BridgeBase):
                     raise ValueError(f"Refund not allowed yet: {elapsed:.0f}s since lock, minimum delay is {refund_delay}s")
 
             # Return the locked amount to the sender (fee was already deducted at lock time)
-            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", False)
+            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
             if not block_scoped:
                 sender_account = session.get(Account, (record.source_chain, record.sender))
                 if not sender_account:
