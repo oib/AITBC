@@ -4,7 +4,8 @@ These lock deterministic outputs of the pinned signing stack
 (anyio, eth-account, eth-keyfile, eth-rlp, hexbytes) so a future
 dependency bump that silently changes raw transaction bytes, hashes,
 signatures, or keyfile format fails loudly here instead of on a hub.
-The key is a generated throwaway test key, never used anywhere else.
+The key is the public ethereum-test-vector key #2 (Hardhat account #1),
+with no funds anywhere.
 """
 
 import json
@@ -14,7 +15,7 @@ from eth_account.messages import encode_defunct
 from eth_keys import keys as eth_keys
 from eth_utils import keccak
 
-# Well-known throwaway test key (ethereum-test-vector key #2 — no funds anywhere).
+# Public ethereum-test-vector key #2 — the well-known Hardhat account #1.
 KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
 ADDRESS = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 
