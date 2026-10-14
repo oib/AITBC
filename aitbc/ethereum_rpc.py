@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from aitbc import get_logger
+from aitbc.url_redact import redact_text, redact_url
 
 logger = get_logger(__name__)
 
@@ -89,10 +90,12 @@ class EthereumRPCClient:
                 if w3.is_connected():
                     self._w3 = w3
                     self._connected_url = url
-                    logger.info("Connected to Ethereum RPC: url=%s network=%s", url, self.config.network)
+                    logger.info("Connected to Ethereum RPC: url=%s network=%s", redact_url(url), self.config.network)
                     return w3
             except Exception as e:
-                logger.debug("RPC endpoint failed: url=%s error=%s", url, str(e))
+                # Provider errors (httpx/requests) can re-embed the request URL —
+                # the key — in their text, so redact inside the message too.
+                logger.debug("RPC endpoint failed: url=%s error=%s", redact_url(url), redact_text(str(e)))
                 continue
 
         raise ConnectionError(
