@@ -833,14 +833,8 @@ def _sell_gate() -> None:
         raise HTTPException(status_code=503, detail=f"Sell escrow disabled: {reason}")
 
 
-@bridge_router.post("/sell/quote")
-async def bridge_sell_quote(
-    body: dict[str, Any],
-    _admin: Annotated[None, Depends(require_admin_api_key)],
-) -> dict[str, Any]:
-    """Issue a quote for selling AIT for ETH via the hub escrow."""
-    _sell_gate()
-
+def _validate_sell_quote_params(body: dict[str, Any]) -> tuple[Decimal, str, str]:
+    """Validate the sell-quote body; returns (ait_amount, eth_address, ait_address)."""
     try:
         ait_amount = Decimal(str(body.get("ait_amount", 0)))
     except Exception as exc:
@@ -868,14 +862,11 @@ async def bridge_sell_quote(
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Invalid ait_address: {exc}") from exc
 
-    from .sell_escrow_monitor import _sell_config, compute_sell_quote
+    return ait_amount, eth_address, ait_address
 
-    try:
-        cfg = _sell_config()
-    except ValueError as exc:
-        raise HTTPException(status_code=503, detail=f"Sell escrow disabled: {exc}") from exc
 
-    # Per-shop limits: open-quote cap and a minimum interval between quotes.
+def _check_sell_quote_rate_limit(ait_address: str) -> None:
+    """Per-shop limits: open-quote cap and a minimum interval between quotes."""
     try:
         max_open = int(os.getenv("SELL_MAX_OPEN_QUOTES_PER_SHOP", "5"))
     except Exception:
@@ -900,6 +891,25 @@ async def bridge_sell_quote(
                 status_code=429,
                 detail=f"Quote rate limit: wait {int(min_interval - waited) + 1}s between quotes",
             )
+
+
+@bridge_router.post("/sell/quote")
+async def bridge_sell_quote(
+    body: dict[str, Any],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
+) -> dict[str, Any]:
+    """Issue a quote for selling AIT for ETH via the hub escrow."""
+    _sell_gate()
+    ait_amount, eth_address, ait_address = _validate_sell_quote_params(body)
+
+    from .sell_escrow_monitor import _sell_config, compute_sell_quote
+
+    try:
+        cfg = _sell_config()
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=f"Sell escrow disabled: {exc}") from exc
+
+    _check_sell_quote_rate_limit(ait_address)
 
     computed = await compute_sell_quote(ait_amount)
     if computed is None:
