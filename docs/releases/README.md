@@ -23,22 +23,26 @@
 
 ---
 
-## � **Two version numbers, on purpose**
+## 🧾 **One version number, one source of truth**
 
-The repository carries two version schemes that are **not** expected to match:
+The package version and the release train are the same number — currently
+`0.25.9`. `aitbc/_version.py` is the single source of truth (`pip`, `make
+version-check`, and `aitbc --version` all report it), and
+`scripts/ci/check-version-consistency.py` enforces that every other reference
+matches it:
 
-- **Package semver** — `aitbc/_version.py` (currently `0.10.18`). This is the
-  version `pip`, `make version-check`, and `aitbc --version` report. It bumps
-  with API/library-level changes.
-- **Release train** — `v0.25.x` directory names under `docs/releases/`. This is
-  the operational release series the change logs, deployment notes, and fleet
-  rollouts are organized by.
+- `pyproject.toml` — `version = "…"` (every occurrence must equal the canonical value)
+- `cli/aitbc_cli/__init__.py` — the CLI package's literal `__version__`
+- `cli/setup.py` — imports `__version__` from `aitbc_cli` (a matching literal is also accepted)
+- `README.md` — the `version-…` badge (a `v` prefix is tolerated)
 
-They diverged when the release-train numbering jumped ahead of the package
-semver; reconciling them would rename either the installed package version or
-the historical log directories, so the distinction is documented instead.
+Bumping a release means setting the new value in `aitbc/_version.py` and
+updating the checked references above; the checker fails on any it finds
+stale, and `cli/tests/test_version.py` holds the same rules. Release
+directories under `docs/releases/` follow the same number — `v0.25/` holds
+the `v0.25.x` logs.
 
-## �📦 **Release History**
+## 📦 **Release History**
 
 Read the release notes newest-first:
 
