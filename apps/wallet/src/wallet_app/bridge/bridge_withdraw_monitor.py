@@ -569,16 +569,20 @@ async def _release_receipt_outcome(eth_tx_hash: str) -> str | None:
     return None
 
 
-async def _release_nonce_outcome(row: dict[str, Any]) -> str | None:
-    """Outcome from the recorded nonce, or None when nothing is recorded.
+async def _release_nonce_outcome(row: dict[str, Any]) -> tuple[str | None, str | None]:
+    """(outcome, reason) from the recorded nonce, or (None, None) when the
+    nonce view cannot decide.
 
-    A consumed nonce without a qualifying receipt for the recorded hash is
-    'unknown', never 'sent' — a manual send or replacement may have taken
-    the nonce while the recorded release never landed.
+    'nonce_consumed' — the latest nonce passed the recorded release nonce
+    without a qualifying receipt for the recorded hash: a manual send or
+    replacement may have taken the nonce while the recorded release never
+    landed. A real anomaly, never routine lag.
+    'nonce_pending' — the recorded nonce is still visible in the pending
+    pool: the broadcast reached the chain and awaits mining. Routine.
     """
     nonce = row.get("release_nonce")
     if nonce is None:
-        return None
+        return None, None
     latest = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "latest"]), 16)
     pending = int(await _eth_rpc("eth_getTransactionCount", [ETH_WALLET_ADDRESS, "pending"]), 16)
     if latest > nonce:
@@ -590,10 +594,10 @@ async def _release_nonce_outcome(row: dict[str, Any]) -> str | None:
             latest,
             pending,
         )
-        return "unknown"
+        return "unknown", "nonce_consumed"
     if pending > nonce:
-        return "unknown"
-    return None
+        return "unknown", "nonce_pending"
+    return None, None
 
 
 def _release_intent_age_seconds(row: dict[str, Any]) -> float:
@@ -621,8 +625,9 @@ async def _compose_release_outcome_detail(row: dict[str, Any]) -> tuple[str, str
     and anything genuinely unverifiable loudly (ETH-15).
 
     reason is one of: 'chain_view' (a receipt or mempool view decided),
-    'nonce_view', 'absent_in_grace' (nothing visible, still young — normal
-    propagation lag), 'absent_expired', or 'verify_error'.
+    'nonce_consumed'/'nonce_pending' (the nonce view — see
+    _release_nonce_outcome), 'absent_in_grace' (nothing visible, still
+    young — normal propagation lag), 'absent_expired', or 'verify_error'.
     """
     try:
         eth_tx_hash = row.get("eth_tx_hash")
@@ -630,9 +635,9 @@ async def _compose_release_outcome_detail(row: dict[str, Any]) -> tuple[str, str
             outcome = await _release_receipt_outcome(eth_tx_hash)
             if outcome is not None:
                 return outcome, "chain_view"
-        nonce_outcome = await _release_nonce_outcome(row)
+        nonce_outcome, nonce_reason = await _release_nonce_outcome(row)
         if nonce_outcome is not None:
-            return nonce_outcome, "nonce_view"
+            return nonce_outcome, nonce_reason or "nonce_view"
         # Absence-only view: no receipt, no tx, nonce not visibly pending.
         # A lagging endpoint can report this for a tx still in flight —
         # within ETH_RELEASE_ABSENCE_GRACE_SECONDS it is 'unknown', never
@@ -763,19 +768,37 @@ async def _resume_unfinished_releases() -> dict[str, int]:
                     resolved["failed"] += 1
             else:
                 resolved["still_open"] += 1
+                age = _release_intent_age_seconds(row)
+                age_txt = f"{int(age)}s" if age != float("inf") else "unknown"
                 if reason == "absent_in_grace":
                     # Normal propagation lag on a just-broadcast send —
                     # routine, not an incident (ETH-15).
                     logger.info(
-                        "Withdrawal %s (%s) not yet visible on-chain — inside absence grace; rechecking",
+                        "Withdrawal %s (%s) not yet visible on-chain — inside absence grace; rechecking (age=%s)",
                         row["ait_tx_hash"],
                         row["status"],
+                        age_txt,
+                    )
+                elif reason in ("chain_view", "nonce_pending") and age < ETH_RELEASE_ABSENCE_GRACE_SECONDS:
+                    # Just-broadcast release whose chain view is merely
+                    # pending or below confirmation depth — a normal
+                    # delay, not an incident (ETH-18). verify_error and a
+                    # consumed nonce keep ERROR regardless of age.
+                    logger.info(
+                        "Withdrawal %s (%s) not yet confirmed on-chain — reason=%s, age=%s (grace %ds); rechecking",
+                        row["ait_tx_hash"],
+                        row["status"],
+                        reason,
+                        age_txt,
+                        ETH_RELEASE_ABSENCE_GRACE_SECONDS,
                     )
                 else:
                     logger.error(
-                        "Withdrawal %s (%s) still unverifiable — needs review",
+                        "Withdrawal %s (%s) still unverifiable — needs review (reason=%s, age=%s)",
                         row["ait_tx_hash"],
                         row["status"],
+                        reason,
+                        age_txt,
                     )
         except Exception as e:
             resolved["still_open"] += 1
