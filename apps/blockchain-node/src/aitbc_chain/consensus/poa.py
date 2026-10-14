@@ -2168,7 +2168,7 @@ class PoAProposer:
 
                 # v0.24.2: Block-scoped pre-registered credits (BRIDGE_RELEASE,
                 # BRIDGE_REFUND) have a magic sender and should be applied now, not earlier.
-                if getattr(settings, "block_scoped_preregistered_transactions", False) and tx_type in {
+                if getattr(settings, "block_scoped_preregistered_transactions", True) and tx_type in {
                     "BRIDGE_RELEASE",
                     "BRIDGE_REFUND",
                 }:

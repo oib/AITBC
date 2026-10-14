@@ -32,6 +32,15 @@ def bridge(engine):
     return CrossChainBridge(lambda: Session(engine))
 
 
+@pytest.fixture(autouse=True)
+def _legacy_rpc_mutation():
+    """CFG-1: these tests assert the legacy RPC-time mutation path
+    (nonce bumps and pre-registered Transaction rows); pin the flag off
+    explicitly now that the default is True."""
+    with patch("aitbc_chain.config.settings.block_scoped_preregistered_transactions", False):
+        yield
+
+
 def _seed(engine, chain_id: str, address: str, balance: int) -> None:
     with Session(engine) as session:
         session.add(Account(chain_id=chain_id, address=address, balance=balance, nonce=0))
