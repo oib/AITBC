@@ -24,6 +24,7 @@ from .bridge_db import (
     update_deposit_tx_hash,
 )
 from .price_api import calculate_ait_amount
+from .url_redact import redact_text
 
 logger = get_logger(__name__)
 
@@ -166,8 +167,12 @@ async def _post_eth_rpc(payload: Any, timeout: float) -> httpx.Response:
 async def _rpc(method: str, params: list[Any], req_id: int = 1) -> Any:
     """Send a single JSON-RPC request and return the ``result`` field."""
     payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": req_id}
-    response = await _post_eth_rpc(payload, timeout=10.0)
-    response.raise_for_status()
+    try:
+        response = await _post_eth_rpc(payload, timeout=10.0)
+        response.raise_for_status()
+    except httpx.HTTPError as e:
+        # httpx error text embeds the full request URL — redact it (ETH-15).
+        raise RuntimeError(f"{method} request failed: {redact_text(str(e))}") from e
     data = response.json()
     if not isinstance(data, dict):
         raise RuntimeError(f"Unexpected response for {method}: {data!r}")
@@ -178,8 +183,11 @@ async def _rpc(method: str, params: list[Any], req_id: int = 1) -> Any:
 
 async def _rpc_batch(payloads: list[dict[str, Any]]) -> dict[int, Any]:
     """Send a JSON-RPC batch and map responses by request ``id``."""
-    response = await _post_eth_rpc(payloads, timeout=30.0)
-    response.raise_for_status()
+    try:
+        response = await _post_eth_rpc(payloads, timeout=30.0)
+        response.raise_for_status()
+    except httpx.HTTPError as e:
+        raise RuntimeError(f"batch request failed: {redact_text(str(e))}") from e
     data = response.json()
     if not isinstance(data, list):
         raise RuntimeError(f"Expected JSON-RPC batch response list, got {type(data)}")
