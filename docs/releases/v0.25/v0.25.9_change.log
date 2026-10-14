@@ -1772,6 +1772,7 @@ narrative; this list cites each remaining commit by hash so
 - `2706722b71` test(consistency): skip git-metadata tests on exports; probe endpoint reachability
 - `a01dcec217` docs(test): record the TEST-1 rerun policy and the .git scratch rule
 - `090ea8820b` docs(release): single version reality in the releases README
+- `be4eeebb5f` test(migrations): pin sweep timeout at 1800s, drop the flaky rerun
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -1816,6 +1817,9 @@ command's real `.git` gate with a patched `REPO_ROOT` and keep running
 everywhere. The phase-8 endpoint checks now probe their env-provided URL for
 reachability — the conftest `setdefault`s had disarmed every set-based skip.
 The OpenAPI drift tests skip only when extraction fails for every app (an
-interpreter without app dependencies); real drift still fails. Docs record
+interpreter without app dependencies); real drift still fails. The migration
+downgrade sweep's flaky rerun was masking a wrong ceiling — it measures ~525s
+(9 min) on node2, so the 60s ini timeout could only ever kill it; it now pins
+`pytest.mark.timeout(1800)` (~3.4x measured) and drops the rerun. Docs record
 the TEST-1 rerun policy, and the releases README drops the stale
 two-version-scheme story for the checker-enforced single `0.25.9`.
