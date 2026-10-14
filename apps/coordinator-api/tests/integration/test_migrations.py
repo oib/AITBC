@@ -172,10 +172,11 @@ def _revision_chain() -> list[str]:
     return [s.revision for s in ScriptDirectory.from_config(cfg).walk_revisions()]
 
 
-# Named environmental cause: the sweep spawns one alembic subprocess per
-# migration revision, so on a contended host a single attempt can pass the
-# 60s pytest-timeout and the run fails where an idle run passes.
-@pytest.mark.flaky(reruns=2, reruns_delay=1)
+# The sweep spawns one alembic subprocess per migration revision and measured
+# 525s on node2 (2026-10-14), so the 60s ini timeout could only ever kill it —
+# every observed failure was that boundary, not intermittency. 1800s is ~3x
+# the measurement; a miss under it is a real hang, so no flaky mark.
+@pytest.mark.timeout(1800)
 @pytest.mark.slow
 def test_full_downgrade_roundtrip_sweep(tmp_path: Path) -> None:
     """B3: every revision downgraded one step on a correctly built schema,
@@ -183,7 +184,8 @@ def test_full_downgrade_roundtrip_sweep(tmp_path: Path) -> None:
 
     Asserts the *tolerance lists above exactly*: any revision that newly
     fails to downgrade, newly fails to re-upgrade, or newly drifts makes this
-    test fail. Runs ~15 minutes (fresh database per revision) -- hence slow.
+    test fail. Runs ~9 minutes measured on node2 (fresh database per
+    revision) -- hence slow and the explicit timeout.
     """
     head_db = tmp_path / "sweep_head.db"
     _run_alembic(tmp_path, "upgrade", "head", db_name="sweep_head.db")
