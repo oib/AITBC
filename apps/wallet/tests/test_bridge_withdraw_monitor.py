@@ -16,6 +16,7 @@ Covers:
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
@@ -332,6 +333,19 @@ def _seed_releasing(ait_tx_hash: str, nonce: int = 7, status: str = "releasing")
     update_withdrawal_status(ait_tx_hash, status, eth_tx_hash="0x" + "ab" * 32, release_nonce=nonce)
 
 
+def _backdate_release(ait_tx_hash: str, seconds: int) -> None:
+    """Move the row's released_at (the release-intent write time) into the
+    past — update_withdrawal_status always stamps now(), so age tests
+    rewrite the column directly."""
+    from wallet_app.bridge import bridge_db as db
+
+    old = (datetime.now() - timedelta(seconds=seconds)).isoformat()
+    conn = db._connect_db()
+    conn.execute("UPDATE eth_withdrawals SET released_at = ? WHERE ait_tx_hash = ?", (old, ait_tx_hash))
+    conn.commit()
+    conn.close()
+
+
 def _patch_rpc(monitor_env, monkeypatch, responses: dict):
     async def _fake_rpc(method: str, params: list):
         return responses.get(method)
@@ -496,6 +510,9 @@ class TestDuplicateReleaseSafety:
                 "w1", seed_withdrawal, "0x2222222222222222222222222222222222222222", Decimal("0.001")
             )
 
+        # The absence grace covers young rows only — backdate past it so
+        # the proven-absent refund path is what this test exercises.
+        _backdate_release(seed_withdrawal, monitor_env.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
         await monitor_env._resolve_release_failure(
             seed_withdrawal,
             "0x1111111111111111111111111111111111111111",
@@ -533,6 +550,7 @@ class TestDuplicateReleaseSafety:
             await monitor_env._release_eth_for_withdrawal(
                 "w1", seed_withdrawal, "0x2222222222222222222222222222222222222222", Decimal("0.001")
             )
+        _backdate_release(seed_withdrawal, monitor_env.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
         await monitor_env._resolve_release_failure(
             seed_withdrawal,
             "0x1111111111111111111111111111111111111111",
@@ -575,8 +593,11 @@ class TestDuplicateReleaseSafety:
 
     @pytest.mark.asyncio
     async def test_restart_releasing_row_no_tx_refunds(self, monitor_env, monkeypatch):
-        """Restart with a 'releasing' row that never reached chain -> refund."""
+        """Restart with an old 'releasing' row that never reached chain -> refund."""
         _seed_releasing("0x" + "ef" * 32)
+        # A crash-recovery row is naturally older than the absence grace —
+        # absence-only 'not_sent' resolves exactly as before.
+        _backdate_release("0x" + "ef" * 32, monitor_env.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
         _patch_rpc(
             monitor_env,
             monkeypatch,
@@ -957,3 +978,136 @@ class TestRetryResumeStatuses:
         result = await monitor_env._resume_unfinished_releases()
         assert result == {"completed": 0, "failed": 0, "parked": 0, "still_open": 0}
         assert get_withdrawal_by_ait_tx_hash("0x" + "b3" * 32)["status"] == "needs_review_release"
+
+
+class TestAbsenceGrace:
+    """ETH-14b: a lagging / load-balanced RPC can report a just-broadcast
+    release as absent (no tx, no receipt, nonce not pending). Treating
+    that view as 'not_sent' refunds a send that may still seal — a double
+    pay. Inside ETH_RELEASE_ABSENCE_GRACE_SECONDS an absence-only result
+    is 'unknown'; a reverted receipt stays 'not_sent' at any age."""
+
+    _ABSENT_RPC = {
+        "eth_getTransactionByHash": None,
+        "eth_getTransactionReceipt": None,
+        "eth_getTransactionCount": "0x7",  # recorded nonce 7 — not consumed, not pending
+    }
+
+    @pytest.mark.asyncio
+    async def test_young_absent_release_reports_unknown_no_refund(self, monitor_env, monkeypatch):
+        ait = "0x" + "e1" * 32
+        _seed_releasing(ait)
+        _patch_rpc(monitor_env, monkeypatch, dict(self._ABSENT_RPC))
+
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["still_open"] == 1
+        assert result["failed"] == 0
+        assert refunded == []
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
+
+    @pytest.mark.asyncio
+    async def test_old_absent_release_reports_not_sent_refunds(self, monitor_env, monkeypatch):
+        ait = "0x" + "e2" * 32
+        _seed_releasing(ait)
+        _backdate_release(ait, monitor_env.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
+        _patch_rpc(monitor_env, monkeypatch, dict(self._ABSENT_RPC))
+
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["failed"] == 1
+        assert len(refunded) == 1
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "refunded"
+
+    @pytest.mark.asyncio
+    async def test_young_reverted_receipt_still_not_sent(self, monitor_env, monkeypatch):
+        """A status-0 receipt is unambiguous — proven failure at any age,
+        no grace delay before the refund."""
+        ait = "0x" + "e3" * 32
+        _seed_releasing(ait)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": {"status": "0x0", "blockNumber": "0x64"},
+                "eth_blockNumber": "0x67",
+                "eth_getTransactionCount": "0x8",
+            },
+        )
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["failed"] == 1
+        assert len(refunded) == 1
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "refunded"
+
+    @pytest.mark.asyncio
+    async def test_young_absent_retry_stays_open_not_parked(self, monitor_env, monkeypatch):
+        """releasing_retry takes the same grace: absent while young is
+        'unknown' — it must NOT park at needs_review_release (that state
+        means *proven* failure, not 'cannot see the tx yet')."""
+        ait = "0x" + "e4" * 32
+        _seed_releasing(ait, nonce=8, status="releasing_retry")
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": None,
+                "eth_getTransactionCount": "0x8",
+            },
+        )
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["still_open"] == 1
+        assert result["parked"] == 0
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing_retry"
+
+    @pytest.mark.asyncio
+    async def test_old_absent_retry_parks(self, monitor_env, monkeypatch):
+        """Past the grace window the same absence is 'not_sent' — a retry
+        parks for the operator, still never auto-refunded."""
+        ait = "0x" + "e5" * 32
+        _seed_releasing(ait, nonce=8, status="releasing_retry")
+        _backdate_release(ait, monitor_env.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
+        _patch_rpc(
+            monitor_env,
+            monkeypatch,
+            {
+                "eth_getTransactionByHash": None,
+                "eth_getTransactionReceipt": None,
+                "eth_getTransactionCount": "0x8",
+            },
+        )
+        refunded = []
+
+        async def _refund(recipient, amount):
+            refunded.append((recipient, amount))
+            return "0xait_refund"
+
+        monkeypatch.setattr(monitor_env, "_submit_bridge_refund", _refund)
+
+        result = await monitor_env._resume_unfinished_releases()
+        assert result["parked"] == 1
+        assert refunded == []
+        assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "needs_review_release"

@@ -22,6 +22,12 @@ required confirmation depth, and `releasing`/`releasing_retry` rows are
 re-verified every poll — a reverted or dropped release can no longer be
 recorded as paid.
 
+A lagging RPC is not proof either (ETH-14b): an *absence-only* view (no
+receipt, no tx, nonce not pending) on a row whose intent is younger than
+`ETH_RELEASE_ABSENCE_GRACE_SECONDS` (default `600`) reports `unknown`,
+never `not_sent` — so a still-in-flight release can never trigger a
+refund. A status-0 receipt stays `not_sent` at any age.
+
 ## Release gas policy (post-Glamsterdam)
 
 Since Sepolia's Glamsterdam activation (2026-10-06, EIP-8037 state-gas) a
@@ -37,6 +43,10 @@ transfer to a previously unseen account estimates at ~207k gas — a static
 - floor is 21,000. An estimate error or an over-cap result raises before
   signing — the row then lands `failed` + refund via the normal
   `not_sent` path, never a blind broadcast.
+- `ETH_RELEASE_ABSENCE_GRACE_SECONDS` — how long an absence-only RPC view
+  on a just-broadcast release reads `unknown` instead of `not_sent`
+  (default `600`; covers `releasing`, `releasing_retry` and sell-escrow
+  releases — they share `_compose_release_outcome`).
 
 ## Operator commands
 
