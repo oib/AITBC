@@ -104,6 +104,10 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
         elif path == "/api/exchange/nodes/register":
             # Node registration: a seeded row claims its label by signature.
             self.handle_node_register()
+        elif path == "/api/exchange/nodes/payout":
+            # ETH-8 phase 3 (dark): signed payout-address claim — exists only
+            # under EXCHANGE_SETTLEMENT_ENABLED, else 404 like any unknown path.
+            self.handle_set_payout()
         elif path == "/api/wallet/connect":
             self.handle_wallet_connect()
         elif path == "/v1/market/offers":
