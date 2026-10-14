@@ -2156,6 +2156,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -2228,6 +2238,16 @@
               }
             }
           },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "GPU {gpu_id} is currently booked. Use force=true to delete anyway.",
             "content": {
@@ -2282,8 +2302,38 @@
               }
             }
           },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "GPU {request.gpu_id} is not available for quoting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to sign energy quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Energy pricing oracle is not configured / Could not read energy inputs; refusing protected funding",
             "content": {
               "application/json": {
                 "schema": {
@@ -2365,7 +2415,7 @@
             }
           },
           "404": {
-            "description": "Prepared job {request.job_id} not found",
+            "description": "GPU {gpu_id} not found / Prepared job {request.job_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2442,6 +2492,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2527,6 +2587,16 @@
               }
             }
           },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "GPU {gpu_id} is not available",
             "content": {
@@ -2594,6 +2664,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2670,7 +2750,7 @@
             }
           },
           "404": {
-            "description": "Active booking for {gpu_id} not found",
+            "description": "GPU {gpu_id} not found / Active booking for {gpu_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2747,6 +2827,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2889,6 +2979,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -2945,6 +3045,16 @@
           },
           "400": {
             "description": "Rating must be between 1 and 5",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GPU {gpu_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -7338,6 +7448,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "FHE provider is unavailable / FHE provider is unavailable; install 'tenseal' to enable FHE operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7413,6 +7533,16 @@
           },
           "404": {
             "description": "FHE context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "FHE provider is unavailable / FHE provider is unavailable; install 'tenseal' to enable FHE operations",
             "content": {
               "application/json": {
                 "schema": {
@@ -7502,6 +7632,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "FHE provider is unavailable / FHE provider is unavailable; install 'tenseal' to enable FHE operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7577,6 +7717,16 @@
           },
           "404": {
             "description": "FHE context not found / Encrypted payload not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "FHE provider is unavailable / FHE provider is unavailable; install 'tenseal' to enable FHE operations",
             "content": {
               "application/json": {
                 "schema": {
@@ -7666,6 +7816,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "FHE provider is unavailable / FHE provider is unavailable; install 'tenseal' to enable FHE operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7748,6 +7908,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "FHE provider is unavailable / FHE provider is unavailable; install 'tenseal' to enable FHE operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7812,6 +7982,16 @@
           },
           "404": {
             "description": "FHE context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "FHE provider is unavailable / FHE provider is unavailable; install 'tenseal' to enable FHE operations",
             "content": {
               "application/json": {
                 "schema": {
@@ -30010,6 +30190,26 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not found on the blockchain node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Blockchain RPC unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -30052,6 +30252,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found on the blockchain node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Blockchain RPC unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
