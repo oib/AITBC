@@ -57,3 +57,43 @@ def test_list_and_count_filter_by_status(db) -> None:
 
 def test_get_unknown_deposit_returns_none(db) -> None:
     assert db.get_deposit("0xnonexistent") is None
+
+
+def test_create_deposit_records_deposit_address(db) -> None:
+    """B13: the watched wallet is stored on the row for the reconcile."""
+    db.create_deposit("0xhash9", "0xfrom", "100", "ait1r", deposit_address="0x310dcE00270D0aC10CAccfBD636Ff07BD5648781")
+    row = db.get_deposit("0xhash9")
+    assert row["deposit_address"] == "0x310dcE00270D0aC10CAccfBD636Ff07BD5648781"
+
+
+def test_create_deposit_address_defaults_null(db) -> None:
+    db.create_deposit("0xhash8", "0xfrom", "100", "ait1r")
+    assert db.get_deposit("0xhash8")["deposit_address"] is None
+
+
+def test_init_db_migrates_pre_b13_schema(tmp_path, monkeypatch) -> None:
+    """A ledger predating the column migrates forward; existing rows keep
+    NULL and init_db is idempotent."""
+    import sqlite3
+
+    monkeypatch.setattr(storage, "DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(storage, "DB_PATH", str(tmp_path / "old.db"))
+    con = sqlite3.connect(tmp_path / "old.db")
+    con.execute(
+        "CREATE TABLE eth_deposits (id TEXT PRIMARY KEY, tx_hash TEXT UNIQUE NOT NULL, "
+        "from_address TEXT NOT NULL, amount_eth NUMERIC NOT NULL, amount_ait NUMERIC NOT NULL, "
+        "status TEXT NOT NULL DEFAULT 'pending')"
+    )
+    con.execute("INSERT INTO eth_deposits VALUES ('d0','0x01','0xabc','0.05','0','completed')")
+    con.commit()
+    con.close()
+
+    storage.init_db()
+    storage.init_db()  # idempotent
+
+    con = sqlite3.connect(tmp_path / "old.db")
+    columns = {row[1] for row in con.execute("PRAGMA table_info(eth_deposits)")}
+    (addr,) = con.execute("SELECT deposit_address FROM eth_deposits WHERE id = 'd0'").fetchone()
+    con.close()
+    assert "deposit_address" in columns
+    assert addr is None

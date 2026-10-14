@@ -337,7 +337,9 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
 
     # Record deposit
     try:
-        deposit_id = insert_deposit(tx_hash, from_address, amount_eth, amount_ait, recipient=recipient)
+        deposit_id = insert_deposit(
+            tx_hash, from_address, amount_eth, amount_ait, recipient=recipient, deposit_address=ETH_WALLET_ADDRESS or None
+        )
         logger.info(
             "Recorded deposit %s: %s ETH → %s AIT for %s (tx: %s)",
             deposit_id,

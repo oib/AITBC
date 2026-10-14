@@ -505,3 +505,59 @@ class TestReleaseAttempts:
         pending = {r["ait_tx_hash"] for r in get_pending_withdrawals()}
         assert "0xa" * 64 in pending
         assert "0xb" * 64 in pending
+
+
+class TestDepositAddressColumn:
+    """B13: eth_deposits.deposit_address records the receiving wallet."""
+
+    def test_column_exists_after_init(self, bridge_db):
+        import sqlite3
+
+        conn = sqlite3.connect(bridge_db)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(eth_deposits)")}
+        conn.close()
+        assert "deposit_address" in columns
+
+    def test_insert_deposit_records_address(self, bridge_db):
+        deposit_id = insert_deposit(
+            "0x" + "cd" * 32,
+            "0x1111111111111111111111111111111111111111",
+            Decimal("0.01"),
+            Decimal("1"),
+            deposit_address="0x310dcE00270D0aC10CAccfBD636Ff07BD5648781",
+        )
+        import sqlite3
+
+        conn = sqlite3.connect(bridge_db)
+        (addr,) = conn.execute("SELECT deposit_address FROM eth_deposits WHERE id = ?", (deposit_id,)).fetchone()
+        conn.close()
+        assert addr == "0x310dcE00270D0aC10CAccfBD636Ff07BD5648781"
+
+    def test_migration_idempotent_and_default_preserves_rows(self, tmp_path):
+        """A pre-column DB migrates forward: column added, existing rows keep
+        NULL (reported 'address unknown'), and init_db runs cleanly twice."""
+        import sqlite3
+
+        from wallet_app.bridge.bridge_db import init_db
+
+        db_path = tmp_path / "old.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "CREATE TABLE eth_deposits (id TEXT PRIMARY KEY, tx_hash TEXT UNIQUE NOT NULL, "
+            "from_address TEXT NOT NULL, amount_eth NUMERIC NOT NULL, amount_ait NUMERIC NOT NULL, "
+            "status TEXT NOT NULL DEFAULT 'pending')"
+        )
+        conn.execute("INSERT INTO eth_deposits VALUES ('d0','0x01','0xabc','0.05','0','completed')")
+        conn.commit()
+        conn.close()
+
+        with patch("wallet_app.bridge.bridge_db.DB_PATH", str(db_path)):
+            init_db()
+            init_db()  # idempotent
+
+        conn = sqlite3.connect(db_path)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(eth_deposits)")}
+        (addr,) = conn.execute("SELECT deposit_address FROM eth_deposits WHERE id = 'd0'").fetchone()
+        conn.close()
+        assert "deposit_address" in columns
+        assert addr is None  # pre-existing row keeps NULL — 'address unknown'
