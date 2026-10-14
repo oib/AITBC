@@ -270,53 +270,64 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
         if monitor_mark(f"lock:{tx_hash}") is not None:
             continue
         sender = tx.get("sender") or tx.get("from") or ""
-        lock_ait = units_to_ait(int(tx.get("value", 0) or 0))
         order = _ro_one(
             cfg,
             "SELECT status, funded_state, backing_tx_hash, user_address FROM orders WHERE id = ?",
             (order_id,),
         )
-        outcome = "ignored"
         try:
-            if order is None:
-                outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash)
-                if outcome == "refunding":
-                    stats["refunds"] += 1
-            elif order["backing_tx_hash"] == tx_hash:
-                outcome = "recorded"
-            elif (
-                order["status"] == "open"
-                and order["funded_state"] == "unfunded"
-                and _sender_owns_order(sender, order["user_address"])
-            ):
-                event: dict[str, Any] = {
-                    "event": "order_funded",
-                    "order_id": order_id,
-                    "locked_ticks": _units_to_ticks(int(tx.get("value") or 0)),
-                    "backing_tx_hash": tx_hash,
-                }
-                if head is not None:
-                    event["head"] = head
-                status_code, body = await _post_event(cfg, event)
-                if status_code == 200:
-                    outcome = "funded"
-                    stats["funded"] += 1
-                elif status_code in (404, 409):
-                    # Order gone or lock can't cover it — the AIT goes back.
-                    outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash)
-                    if outcome == "refunding":
-                        stats["refunds"] += 1
-                else:
-                    outcome = f"http_{status_code}"
-            else:
-                outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash)
-                if outcome == "refunding":
-                    stats["refunds"] += 1
+            outcome = await _order_lock_outcome(cfg, order, tx, order_id, sender, tx_hash, head, stats)
         except Exception as e:
             logger.error("order-lock handling failed for %s on order %s: %s", tx_hash, order_id, e)
             continue  # unmarked — retried next poll
         insert_monitor_mark(f"lock:{tx_hash}", detail=sender, outcome=outcome)
     return stats
+
+
+async def _lock_refund(
+    cfg: ExchangeCfg, order_id: int, sender: str, lock_ait: Decimal, tx_hash: str, stats: dict[str, int]
+) -> str:
+    """order_refund for a lock the order can't take; counts the row."""
+    outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash)
+    if outcome == "refunding":
+        stats["refunds"] += 1
+    return outcome
+
+
+async def _order_lock_outcome(
+    cfg: ExchangeCfg,
+    order: Any,
+    tx: dict[str, Any],
+    order_id: int,
+    sender: str,
+    tx_hash: str,
+    head: int | None,
+    stats: dict[str, int],
+) -> str:
+    """The monitor-mark outcome for one escrow-bound lock tx."""
+    lock_ait = units_to_ait(int(tx.get("value", 0) or 0))
+    if order is None:
+        return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
+    if order["backing_tx_hash"] == tx_hash:
+        return "recorded"
+    if order["status"] == "open" and order["funded_state"] == "unfunded" and _sender_owns_order(sender, order["user_address"]):
+        event: dict[str, Any] = {
+            "event": "order_funded",
+            "order_id": order_id,
+            "locked_ticks": _units_to_ticks(int(tx.get("value") or 0)),
+            "backing_tx_hash": tx_hash,
+        }
+        if head is not None:
+            event["head"] = head
+        status_code, body = await _post_event(cfg, event)
+        if status_code == 200:
+            stats["funded"] += 1
+            return "funded"
+        if status_code in (404, 409):
+            # Order gone or lock can't cover it — the AIT goes back.
+            return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
+        return f"http_{status_code}"
+    return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
 
 
 def _sender_owns_order(sender: str, user_address: Any) -> bool:
@@ -458,25 +469,26 @@ def _connect_bridge_db() -> sqlite3.Connection:
 # ---------------------------------------------------------------------------
 
 
-async def _scan_backing(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
-    """Expire order backing whose window lapsed, reconcile stranded BUY
-    debits, and create order_refund rows for expired/cancelled funded SELL
-    orders whose lock remainder is stranded once all their trades resolve."""
-    stats = {"expired": 0, "debits": 0, "refunds": 0}
-    if head is not None:
-        for row in _ro_all(
-            cfg,
-            "SELECT id FROM orders WHERE status = 'open' AND funded_state != 'backing_expired' "
-            "AND expiry_height IS NOT NULL AND expiry_height <= ?",
-            (head,),
-        ):
-            try:
-                status_code, _body = await _post_event(cfg, {"event": "order_backing_expired", "order_id": row["id"]})
-                if status_code == 200:
-                    stats["expired"] += 1
-            except Exception as e:
-                logger.error("order_backing_expired post failed for order %s: %s", row["id"], e)
+async def _expire_order_backings(cfg: ExchangeCfg, head: int | None, stats: dict[str, int]) -> None:
+    """order_backing_expired events for open orders whose window lapsed."""
+    if head is None:
+        return
+    for row in _ro_all(
+        cfg,
+        "SELECT id FROM orders WHERE status = 'open' AND funded_state != 'backing_expired' "
+        "AND expiry_height IS NOT NULL AND expiry_height <= ?",
+        (head,),
+    ):
+        try:
+            status_code, _body = await _post_event(cfg, {"event": "order_backing_expired", "order_id": row["id"]})
+            if status_code == 200:
+                stats["expired"] += 1
+        except Exception as e:
+            logger.error("order_backing_expired post failed for order %s: %s", row["id"], e)
 
+
+async def _refund_stranded_debits(cfg: ExchangeCfg, stats: dict[str, int]) -> None:
+    """debit_refund events for open prepaid debits on closed orders."""
     for row in _ro_all(
         cfg,
         "SELECT d.order_id AS order_id FROM prepaid_debits d JOIN orders o ON o.id = d.order_id "
@@ -489,10 +501,12 @@ async def _scan_backing(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
         except Exception as e:
             logger.error("debit_refund post failed for order %s: %s", row["order_id"], e)
 
-    # Funded SELL orders that closed without spending their whole lock. The
-    # remainder is locked_ait − Σ(trade draws); every trade consumes exactly
-    # its amount+fee from the lock regardless of outcome, so a live trade
-    # still owes its draw — refund only once none remain open.
+
+async def _refund_stranded_locks(cfg: ExchangeCfg, stats: dict[str, int]) -> None:
+    """Funded SELL orders that closed without spending their whole lock. The
+    remainder is locked_ait − Σ(trade draws); every trade consumes exactly
+    its amount+fee from the lock regardless of outcome, so a live trade
+    still owes its draw — refund only once none remain open."""
     for row in _ro_all(
         cfg,
         "SELECT id, user_address, locked_ticks, backing_tx_hash, funded_state, status FROM orders "
@@ -538,6 +552,16 @@ async def _scan_backing(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
         )
         if outcome == "refunding":
             stats["refunds"] += 1
+
+
+async def _scan_backing(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
+    """Expire order backing whose window lapsed, reconcile stranded BUY
+    debits, and create order_refund rows for expired/cancelled funded SELL
+    orders whose lock remainder is stranded once all their trades resolve."""
+    stats = {"expired": 0, "debits": 0, "refunds": 0}
+    await _expire_order_backings(cfg, head, stats)
+    await _refund_stranded_debits(cfg, stats)
+    await _refund_stranded_locks(cfg, stats)
     return stats
 
 
@@ -972,53 +996,7 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     to_address, amount_units, exs_ref = _expected_sweep(cfg, row)
     outflow = await _find_escrow_outflow(cfg, int(nonce), to_address, amount_units, exs_ref)
     if outflow is not None:
-        sealed_hash = outflow.get("tx_hash") or outflow.get("hash")
-        if status == "refunding":
-            await _set_status_and_mirror(cfg, row, "refunded", refund_tx_hash=sealed_hash)
-            logger.info("Settlement %s: refund sealed at escrow nonce %d", row_id, nonce)
-            return
-        if not row.get("settle_ait_tx_hash"):
-            # Leg 1 sealed — sign leg 2 and persist (hash + new intent) in
-            # one update, then broadcast. A crash before the update replays
-            # the whole step next poll: leg2 is never broadcast unsigned.
-            # Another lane may still hold an unsigned intent at the same
-            # nonce — leg-2 defers in that case; the sealed leg-1 outflow is
-            # simply re-found next poll.
-            if _inflight_sweep(exclude_id=row_id):
-                logger.info("Settlement %s: fee leg deferred — another sweep in flight", row_id)
-                return
-            to2, amount2, ref2 = _expected_sweep(cfg, {**row, "settle_ait_tx_hash": sealed_hash})
-            if amount2 <= 0:
-                # EXCHANGE_FEE_PCT=0 or a fee under one chain unit — sending
-                # leg 2 would be a zero-value transfer; leg 1 alone settles.
-                await _set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash=sealed_hash)
-                logger.info("Settlement %s: leg 1 sealed, no fee owed — settled", row_id)
-                return
-            nonce2, balance = await sellmon._account_view(cfg.escrow.escrow_address)
-            leg2_ait = units_to_ait(amount2)
-            if balance < leg2_ait + _sweep_fee_ait():
-                await _update_with_retry(
-                    row_id,
-                    "queued_fee_settle",
-                    settle_ait_tx_hash=sealed_hash,
-                    error=f"escrow fee float deficit before fee leg (need {leg2_ait + _sweep_fee_ait()}, have {balance})",
-                )
-                return
-            signed2 = await sellmon._sign_escrow_transfer(
-                cfg.escrow, to2, leg2_ait, {"exs_ref": ref2, "reason": "settle_fee"}, nonce2
-            )
-            await _update_with_retry(
-                row_id,
-                "settling",
-                settle_ait_tx_hash=sealed_hash,
-                escrow_out_nonce=nonce2,
-                escrow_out_tx=json.dumps(signed2),
-            )
-            tx_hash2 = await sellmon._broadcast_ait_tx(signed2)
-            logger.info("Settlement %s: fee leg broadcast (tx %s, nonce %d)", row_id, tx_hash2, nonce2)
-            return
-        await _set_status_and_mirror(cfg, row, "settled", settle_fee_tx_hash=sealed_hash)
-        logger.info("Settlement %s: fee leg sealed — settled", row_id)
+        await _handle_sealed_sweep(cfg, row, outflow)
         return
     # No matching sealed outflow: consumed nonce by a foreign tx is
     # undecidable → needs_review_sweep; a still-free nonce means the
@@ -1039,6 +1017,65 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
         return
     tx_hash = await sellmon._broadcast_ait_tx(json.loads(stored))
     logger.info("Settlement %s: re-broadcast stored %s blob (tx %s) — still in flight", row_id, status, tx_hash)
+
+
+async def _handle_sealed_sweep(cfg: ExchangeCfg, row: dict[str, Any], outflow: dict[str, Any]) -> None:
+    """The sealed outflow matching this row's intent — terminal status for
+    refunds, leg-1→leg-2 advance for settles, or the fee-leg seal.
+
+    Leg 1 sealing triggers leg 2: sign first, then ONE update records
+    leg1's hash and leg2's intent together, so the intent fields always
+    describe the currently unsealed leg."""
+    row_id = str(row["id"])
+    status = str(row["status"])
+    nonce = row.get("escrow_out_nonce")
+    sealed_hash = outflow.get("tx_hash") or outflow.get("hash")
+    if status == "refunding":
+        await _set_status_and_mirror(cfg, row, "refunded", refund_tx_hash=sealed_hash)
+        logger.info("Settlement %s: refund sealed at escrow nonce %d", row_id, nonce)
+        return
+    if not row.get("settle_ait_tx_hash"):
+        # Leg 1 sealed — sign leg 2 and persist (hash + new intent) in
+        # one update, then broadcast. A crash before the update replays
+        # the whole step next poll: leg2 is never broadcast unsigned.
+        # Another lane may still hold an unsigned intent at the same
+        # nonce — leg-2 defers in that case; the sealed leg-1 outflow is
+        # simply re-found next poll.
+        if _inflight_sweep(exclude_id=row_id):
+            logger.info("Settlement %s: fee leg deferred — another sweep in flight", row_id)
+            return
+        to2, amount2, ref2 = _expected_sweep(cfg, {**row, "settle_ait_tx_hash": sealed_hash})
+        if amount2 <= 0:
+            # EXCHANGE_FEE_PCT=0 or a fee under one chain unit — sending
+            # leg 2 would be a zero-value transfer; leg 1 alone settles.
+            await _set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash=sealed_hash)
+            logger.info("Settlement %s: leg 1 sealed, no fee owed — settled", row_id)
+            return
+        nonce2, balance = await sellmon._account_view(cfg.escrow.escrow_address)
+        leg2_ait = units_to_ait(amount2)
+        if balance < leg2_ait + _sweep_fee_ait():
+            await _update_with_retry(
+                row_id,
+                "queued_fee_settle",
+                settle_ait_tx_hash=sealed_hash,
+                error=f"escrow fee float deficit before fee leg (need {leg2_ait + _sweep_fee_ait()}, have {balance})",
+            )
+            return
+        signed2 = await sellmon._sign_escrow_transfer(
+            cfg.escrow, to2, leg2_ait, {"exs_ref": ref2, "reason": "settle_fee"}, nonce2
+        )
+        await _update_with_retry(
+            row_id,
+            "settling",
+            settle_ait_tx_hash=sealed_hash,
+            escrow_out_nonce=nonce2,
+            escrow_out_tx=json.dumps(signed2),
+        )
+        tx_hash2 = await sellmon._broadcast_ait_tx(signed2)
+        logger.info("Settlement %s: fee leg broadcast (tx %s, nonce %d)", row_id, tx_hash2, nonce2)
+        return
+    await _set_status_and_mirror(cfg, row, "settled", settle_fee_tx_hash=sealed_hash)
+    logger.info("Settlement %s: fee leg sealed — settled", row_id)
 
 
 async def _mirror_pass(cfg: ExchangeCfg) -> int:
@@ -1185,54 +1222,35 @@ _TRADE_STATUS_HANDLERS: dict[str, Callable[[ExchangeCfg, dict[str, Any]], Awaita
 # ---------------------------------------------------------------------------
 
 
-async def poll_exchange_settlements_once() -> dict[str, Any]:
-    """Run a single settlement poll cycle."""
+def _settlement_preflight() -> tuple[ExchangeCfg | None, str | None]:
+    """The env/key gate every poll passes: returns (cfg, None) when the lane
+    may run, else (None, the skip reason the summary reports verbatim)."""
     enabled, reason = exchange_config_status()
     if not enabled:
-        return {"skipped": True, "reason": reason}
+        return None, reason
     try:
         cfg = _exchange_config()
     except ValueError as e:
-        return {"skipped": True, "reason": str(e)}
+        return None, str(e)
     key_error = sellmon._validate_escrow_key(cfg.escrow)
     if key_error:
-        return {"skipped": True, "reason": key_error}
+        return None, key_error
     if not wdm.ETH_WALLET_ADDRESS:
-        return {"skipped": True, "reason": "ETH_WALLET_ADDRESS not set"}
+        return None, "ETH_WALLET_ADDRESS not set"
+    return cfg, None
 
-    _ensure_db()
-    summary: dict[str, Any] = {"skipped": False}
 
+async def _run_lane(summary: dict[str, Any], key: str, label: str, awaitable: Any) -> None:
+    """One poll lane: a failure lands in the summary as 'failed: …' and is
+    logged — the other lanes still run."""
     try:
-        head: int | None = await sellmon._chain_height()
+        summary[key] = await awaitable
     except Exception as e:
-        logger.error("Chain height unavailable — expiry lane skipped this poll: %s", e)
-        head = None
+        logger.error("%s failed this poll: %s", label, e)
+        summary[key] = f"failed: {e}"
 
-    try:
-        summary["locks"] = await _scan_order_locks(cfg, head)
-    except Exception as e:
-        logger.error("Escrow lock scan failed this poll: %s", e)
-        summary["locks"] = f"failed: {e}"
 
-    try:
-        summary["credits"] = await _scan_prepay_credits(cfg)
-    except Exception as e:
-        logger.error("Prepay scan failed this poll: %s", e)
-        summary["credits"] = f"failed: {e}"
-
-    try:
-        summary["backing"] = await _scan_backing(cfg, head)
-    except Exception as e:
-        logger.error("Backing scan failed this poll: %s", e)
-        summary["backing"] = f"failed: {e}"
-
-    try:
-        summary["new_rows"] = _ensure_trade_rows(cfg)
-    except Exception as e:
-        logger.error("Trade-row ensure failed this poll: %s", e)
-        summary["new_rows"] = f"failed: {e}"
-
+async def _drain_open_settlements(cfg: ExchangeCfg, summary: dict[str, Any]) -> None:
     # In-flight sweeps resolve first — a sealed outflow frees the
     # serialized escrow slot before any new sweep initiation runs.
     open_rows = get_open_exchange_settlements()
@@ -1247,11 +1265,34 @@ async def poll_exchange_settlements_once() -> dict[str, Any]:
             logger.error("Error processing settlement %s: %s", row.get("id"), e)
     summary["processed"] = processed
 
+
+async def poll_exchange_settlements_once() -> dict[str, Any]:
+    """Run a single settlement poll cycle."""
+    cfg, skip_reason = _settlement_preflight()
+    if cfg is None:
+        return {"skipped": True, "reason": skip_reason}
+
+    _ensure_db()
+    summary: dict[str, Any] = {"skipped": False}
+
     try:
-        summary["mirrored"] = await _mirror_pass(cfg)
+        head: int | None = await sellmon._chain_height()
     except Exception as e:
-        logger.error("Mirror pass failed this poll: %s", e)
-        summary["mirrored"] = f"failed: {e}"
+        logger.error("Chain height unavailable — expiry lane skipped this poll: %s", e)
+        head = None
+
+    await _run_lane(summary, "locks", "Escrow lock scan", _scan_order_locks(cfg, head))
+    await _run_lane(summary, "credits", "Prepay scan", _scan_prepay_credits(cfg))
+    await _run_lane(summary, "backing", "Backing scan", _scan_backing(cfg, head))
+
+    try:
+        summary["new_rows"] = _ensure_trade_rows(cfg)
+    except Exception as e:
+        logger.error("Trade-row ensure failed this poll: %s", e)
+        summary["new_rows"] = f"failed: {e}"
+
+    await _drain_open_settlements(cfg, summary)
+    await _run_lane(summary, "mirrored", "Mirror pass", _mirror_pass(cfg))
     return summary
 
 
