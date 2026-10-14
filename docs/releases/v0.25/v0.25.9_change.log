@@ -1866,6 +1866,7 @@ narrative; this list cites each remaining commit by hash so
 - `0f105d7e6` feat(ops): ETH-19 C7 — exchange_verify.py read-only book checker
 - `60f864368` docs(exchange): ETH-19 C8 — phase-3 docs, CLI funding hints, scenario 59 E
 - `95eb8e948` refactor: split C901-complex functions in ETH-8 phase-3 paths
+- `3aab495b1` docs(release): commit index catches up post-queue — cite CFG-1/SEC-19/TEST-2/ETH-13/ETH-18/ETH-15/BR-6/ETH-11 tail + ETH-8 phase 3 stack
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
