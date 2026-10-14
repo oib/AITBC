@@ -26,12 +26,18 @@ def _chain_env(monkeypatch):
     monkeypatch.setenv("EXCHANGE_CHAIN_ID", "ait-localnet")
     monkeypatch.delenv("EXCHANGE_REQUIRE_SIGNED_ORDERS", raising=False)
     monkeypatch.delenv("EXCHANGE_PRICE_BAND_PCT", raising=False)
-    # Rate-limit buckets live on the module object — which test_http_contract's
-    # sys.modules purge can duplicate — so rather than clear a possibly-stale
-    # module's dict, just raise every window past what a test can spend.
+    # Rate-limit buckets live on whichever module object defined the bound
+    # functions — test_http_contract's sys.modules purge can duplicate it —
+    # so clear the dict reached through the function's own __globals__ (always
+    # the executing module) and raise every window past what a test can spend.
     monkeypatch.setenv("EXCHANGE_MAX_ORDERS_PER_MIN", "100000")
     monkeypatch.setenv("EXCHANGE_REGISTER_PER_MIN", "100000")
     monkeypatch.setenv("EXCHANGE_READS_PER_MIN", "100000")
+    buckets = ExchangeMixin.handle_node_register.__globals__.get("_RATE_BUCKETS")
+    lock = ExchangeMixin.handle_node_register.__globals__.get("_RATE_LOCK")
+    if buckets is not None and lock is not None:
+        with lock:
+            buckets.clear()
 
 
 @pytest.fixture
@@ -327,3 +333,93 @@ class TestAbuseLimits:
         flagged = EM._watchlisted_addresses(cur)
         conn.close()
         assert addr in flagged
+
+    def _place_n_then_cancel(self, exchange_db, h, addr, key, n, nonce_base=1):
+        order_ids = []
+        for i in range(n):
+            _place(exchange_db, h, _order_body(addr, key, price=f"0.000{i + 1}", nonce=nonce_base + i))
+            order_ids.append(_last_json(h)["id"])
+        for i, oid in enumerate(order_ids):
+            cancel_env = {
+                "action": "exchange_cancel",
+                "order_id": oid,
+                "expiry_height": 2000,
+                "account_nonce": nonce_base + n + i,
+                "chain_id": "ait-localnet",
+            }
+            h._read_json_body = MagicMock(
+                return_value={"envelope": cancel_env, "signature": _sign(cancel_env, key), "user_address": addr}
+            )
+            h.send_json_response.reset_mock()
+            with patch("apps.exchange.simple_exchange.handlers.exchange.get_db_path", return_value=exchange_db):
+                h.handle_cancel_order(str(oid))
+            assert _last_json(h)["status"] == "cancelled"
+        return order_ids
+
+    def test_watchlist_floor_boundary(self, exchange_db, pair_keys):
+        """9 placements + 9 cancels stays unflagged; the 10th pair trips it."""
+        (addr, key), _ = pair_keys
+        _seed_and_register(exchange_db, addr, key, "n-floor")
+        h = _handler()
+        h._ait_eth_band = MagicMock(return_value=(Decimal("0"), Decimal("1e18")))
+        h._chain_head_height = MagicMock(return_value=1000)
+        self._place_n_then_cancel(exchange_db, h, addr, key, 9)
+        from apps.exchange.simple_exchange.handlers.exchange import ExchangeMixin as EM
+
+        conn = sqlite3.connect(exchange_db)
+        assert addr not in EM._watchlisted_addresses(conn.cursor())
+        conn.close()
+        # one more placement+cancel crosses the >= 10 floor with ratio 1.0
+        self._place_n_then_cancel(exchange_db, h, addr, key, 1, nonce_base=19)
+        conn = sqlite3.connect(exchange_db)
+        assert addr in EM._watchlisted_addresses(conn.cursor())
+        conn.close()
+
+    def test_watchlist_exact_ratio_edge(self, exchange_db, pair_keys):
+        """Exactly 90% cancelled does not flag — the design says strictly >90%."""
+        (addr, key), _ = pair_keys
+        _seed_and_register(exchange_db, addr, key, "n-edge")
+        h = _handler()
+        h._ait_eth_band = MagicMock(return_value=(Decimal("0"), Decimal("1e18")))
+        h._chain_head_height = MagicMock(return_value=1000)
+        order_ids = self._place_n_then_cancel(exchange_db, h, addr, key, 9)
+        # 10th placement left open: 9 cancels / 10 placements = exactly 0.9
+        _place(exchange_db, h, _order_body(addr, key, price="0.00011", nonce=19))
+        assert _last_json(h)["id"] not in order_ids
+        from apps.exchange.simple_exchange.handlers.exchange import ExchangeMixin as EM
+
+        conn = sqlite3.connect(exchange_db)
+        assert addr not in EM._watchlisted_addresses(conn.cursor())
+        conn.close()
+
+    def test_register_rate_limit_sixth_refused(self, exchange_db, monkeypatch):
+        """The sixth registration from one IP within the minute is refused."""
+        monkeypatch.setenv("EXCHANGE_REGISTER_PER_MIN", "5")
+        for i in range(6):
+            acct = Account.create()
+            conn = sqlite3.connect(exchange_db)
+            conn.execute(
+                "INSERT INTO node_registry (address, label, status) VALUES (?, ?, 'seeded')",
+                (acct.address, f"n-rl{i}"),
+            )
+            conn.commit()
+            conn.close()
+            env = {
+                "action": "exchange_register",
+                "address": acct.address,
+                "label": f"n-rl{i}",
+                "account_nonce": 0,
+                "chain_id": "ait-localnet",
+            }
+            h = _handler()
+            h._read_json_body = MagicMock(
+                return_value={"envelope": env, "signature": _sign(env, acct.key.hex()), "user_address": acct.address}
+            )
+            with patch("apps.exchange.simple_exchange.handlers.exchange.get_db_path", return_value=exchange_db):
+                h.handle_node_register()
+            if i < 5:
+                assert _last_json(h)["status"] == "registered", f"register {i + 1} unexpectedly refused"
+            else:
+                assert h.send_json_response.call_args[1].get("status") == 429 or (
+                    h.send_json_response.call_args[0][0].get("error") == "Rate limit reached"
+                )
