@@ -1,6 +1,8 @@
 # ETH-7 — Escrowed AIT→ETH sell flow (design, Sepolia only)
 
-Date: 2026-10-13 · Status: **design only — nothing implemented** ·
+Date: 2026-10-13 · revised 2026-10-14 (ETH-10 build landed, ETH-14
+release semantics) · Status: **phase 1 implemented (ETH-10) — dark
+behind `SELL_ESCROW_ENABLED`; phase 2 post-settle** ·
 Network: Sepolia (chainId 11155111) exclusively until the v1 switch.
 
 The shop (node2) holds earned AIT and wants ETH. Counterparties do not
@@ -16,17 +18,19 @@ on failure or timeout.
 
 ## Recommendation (first, per scope)
 
-**Phase 1 — build it today, zero consensus change.** A dedicated
+**Phase 1 — built as ETH-10, zero consensus change.** A dedicated
 **keyed** escrow address `AIT_SELL_ESCROW` whose AIT key lives in hub
 custody (ops-signer slot, not the genesis key and not the bridge payout
 key). The lock is an ordinary signed `TRANSFER` shop → escrow — an
 open user type at every current protocol version
 (`admission_authority.py:49`, payload-carrying — the existing refund
-path already sets `payload.reason`). A hub-side *sell monitor* (new
-module beside `bridge_withdraw_monitor.py`) watches inbound locks,
-quotes-then-releases ETH through the existing `_send_eth` path, and
-signs the escrow leg's settle/refund `TRANSFER` itself. Every step is
-either an existing tx type or a service action.
+path already sets `payload.reason`). A hub-side *sell monitor*
+(`sell_escrow_monitor.py`, beside `bridge_withdraw_monitor.py`) watches
+inbound locks, quotes-then-releases ETH through the shared release
+path — post-ETH-14 that means estimateGas + receipt verification
+(`_release_eth_for_lock`), not a fixed limit — and signs the escrow
+leg's settle/refund `TRANSFER` itself. Every step is either an
+existing tx type or a service action.
 
 **Phase 2 — post-settle (after the 46,100 activation has bedded in).**
 Move to a *keyless* protocol escrow `aitbc.bridge.sell.escrow`
@@ -45,29 +49,43 @@ buyer-binding leg this design deliberately does not spec yet.
 
 ## 1. State machine
 
-States: `quoted → locked → released → settled`, with `refunded` and
-`failed` as terminal escapes.
+Core states: `quoted → locked → released → settled`, with `refunded`
+and `failed` as terminal escapes. The ETH-10 build adds the
+intermediate states the failure modes need: `releasing` (broadcast,
+unproven), `refund_pending` (release provably never landed, sweep not
+yet in flight), `needs_review`/`needs_review_sweep` (unverifiable
+outcomes parked for the operator), `queued_reserve`/`stale_price`
+(waiting on float or a fresh feed), `queued_fee_settle`/
+`queued_fee_refund` (escrow fee float short), `orphaned` and `expired`.
 
 | transition | trigger | persisted | third-party-visible proof |
 |---|---|---|---|
 | `quoted` | shop calls `POST /v1/bridge/sell/quote` | quote row: id, shop AIT addr, ETH addr, `ait_amount`, `rate_usd`, `fee_ait`, `eth_amount`, `expires_at`, price-feed block/time | quote JSON (signed receipt string is enough — hash of row + hub MAC or ed25519 signature) |
 | `locked` | shop's signed `TRANSFER` seals on-chain to `AIT_SELL_ESCROW` with `payload.sell_quote=<id>` | lock row: `ait_tx_hash` (UNIQUE), sender, amount, quote_id, lock height | the on-chain transfer — anyone can show the escrow balance grew |
-| `released` | monitor sends ETH (existing `_send_eth`), receipt confirmed `BRIDGE_CONFIRMATIONS` deep | `eth_tx_hash`, `released_at`, gas cost | Sepolia tx from the bridge wallet to the shop's ETH address |
+| `releasing` (as-built) | monitor broadcasts the ETH send — intent persisted at broadcast: `eth_tx_hash` + nonce + `released_at` | release intent row | nothing yet — a broadcast echo is not payment proof (ETH-14) |
+| `released` | a status-1 receipt for the recorded hash verifies at `BRIDGE_RELEASE_CONFIRMATIONS` depth (default = `BRIDGE_CONFIRMATIONS`, 3) — written **only** by the verify path | verified receipt | Sepolia tx from the bridge wallet to the shop's ETH address |
 | `settled` | monitor signs escrow → hub-treasury `TRANSFER` (the AIT leg completes: shop sold it) | settle tx hash, `completed_at` | escrow → treasury transfer on the AIT chain |
-| `refunded` | release fails, quote expires unclaimed, or deadline passes without ETH send | `refund_tx_hash`, reason, `refunded_at` | escrow → shop transfer on the AIT chain |
+| `refunded` | release **provably** never landed (`refund_pending` → sweep), quote expires unclaimed, or deadline passes without ETH send | `refund_tx_hash`, reason, `refunded_at` | escrow → shop transfer on the AIT chain |
 | `failed` | refund itself fails, or a row needs operator write-off | `error`, `failed_at`, admin notes | ledger row via `wallet bridge sell status` |
 
 `locked → released` is the only transition that spends ETH;
 `released → settled` is bookkeeping on the AIT side and can never be
 reordered before `released` (the escrow sweep requires a confirmed
-`eth_tx_hash`).
+`eth_tx_hash`). An ETH-leg outcome that cannot be proven either way
+(RPC failures, ambiguous nonce) parks `needs_review` and is re-checked
+every poll — **never auto-refunded**; an absence-only view younger
+than `ETH_RELEASE_ABSENCE_GRACE_SECONDS` (default 600) reads `unknown`,
+so a just-broadcast release can never trigger a refund (ETH-14b).
+The live recovery procedure for a failed or stuck release is
+`docs/ops/withdraw-release-runbook.md` — deliberately not duplicated
+here.
 
 ## 2. Quote
 
 - `POST /v1/bridge/sell/quote {ait_amount, eth_address}` → returns
   `{quote_id, rate, fee_ait, eth_amount, expires_at}` computed from the
   Chainlink Sepolia ETH/USD feed + `AIT_USD_FIXED_PRICE=0.28`
-  (`price_api.py:139`), stored on the row.
+  (`price_api.py:211`), stored on the row.
 - **Expiry: 15 minutes.** The shop must get its lock tx *broadcast*
   inside the window; the monitor accepts a lock for an expired quote
   only at the current re-quoted rate (which it re-computes and records
@@ -114,10 +132,14 @@ are auto-refunded after `SELL_LOCK_ORPHAN_BLOCKS` — no silent holds.
   shows it.
 - **Reserve floor**: existing `ETH_WITHDRAW_MIN_RESERVE=0.005` stays;
   `available = balance − pending_reserve` already subtracts in-flight
-  rows (`bridge_withdraw_monitor.py:158`). Note a wart:
+  rows (`bridge_withdraw_monitor.py:229` — the shared sum now also
+  counts sell-side pending ETH so both directions see one float). As
+  built, the sell-lock reserve excludes `failed` via
+  `_SELL_RESERVE_STATUSES` (`bridge_db.py:974`) — the wart this design
+  flagged. The legacy wart itself still stands:
   `get_pending_withdrawals` counts `failed` rows toward the reserve
-  (`bridge_db.py:608`) — a failed row parks float until refunded;
-  the new table should exclude `failed` from its pending sum.
+  (`bridge_db.py:684`) — a failed withdrawal row parks float until
+  refunded.
 - **Queueing**: insufficient float → row sits `insufficient_reserve`
   (existing status) and the monitor retries each poll; the shop sees
   `status: queued_reserve` + the deficit in `sell status`.
@@ -133,7 +155,7 @@ are auto-refunded after `SELL_LOCK_ORPHAN_BLOCKS` — no silent holds.
 |---|---|---|
 | `quoted` | 15 min | quote row → `expired`; a late lock is re-quoted or refunded |
 | `locked` (awaiting release) | `SELL_RELEASE_DEADLINE` — suggested 1 h | monitor refunds escrow → shop, marks `refunded` |
-| `released` (awaiting confirmations) | 2 × `BRIDGE_CONFIRMATIONS` + 30 min | re-check receipt; if the ETH tx dropped out, release is *re-attempted once* under a stored nonce-locked envelope (see failure matrix), else `refunded` |
+| `releasing` (awaiting confirmations) | re-checked every poll; absence-only views grace for `ETH_RELEASE_ABSENCE_GRACE_SECONDS` | proven `sent` → `released`; proven `not_sent` → `refund_pending` → refund sweep; `unknown` past grace → `needs_review` (parked, keeps re-checking — **no automatic ETH re-send**; recovery is operator-gated per `docs/ops/withdraw-release-runbook.md`) |
 | orphan lock (no quote) | `SELL_LOCK_ORPHAN_BLOCKS` (suggest ~150 blocks) | auto-refund; alert if it repeats (probing) |
 | any `failed` | — | operator `write-off` after review; never auto-forgotten |
 
@@ -155,11 +177,11 @@ balance anomalies (lock without row, row without lock) emit the same
 |---|---|
 | hub crash between lock and ETH release | lock row persists; on restart the monitor re-scans confirmed transfers to the escrow address and resumes `locked` rows. The shop's AIT stays visibly locked — never burned. |
 | ETH send succeeds, AIT settle fails | `released` row holds the `eth_tx_hash`; settle is retried idempotently (escrow → treasury transfer re-issued; the settle tx is deduplicated on `sell_id` via a UNIQUE column). |
-| ETH send succeeds, DB write fails | **the real duplicate-release risk.** `_release_eth_for_withdrawal` sends ETH *then* updates the row (`bridge_withdraw_monitor.py:278-279`); a crash in between + a re-run today marks `failed` and *refunds on top of the released ETH* — over-delivery. Design rule: **send, then wait for the receipt inside the same step, and persist `eth_tx_hash` + receipt block before any status change**; on recovery, a `locked`/`released` row with a `eth_tx_hash` is verified on-chain first — never re-sent blindly. The new monitor must also gate on `eth_getTransactionByHash` receipt existence before refunding. |
+| ETH send succeeds, DB write fails | **the real duplicate-release risk — fixed by ETH-14.** `_release_eth_for_withdrawal` now persists the release intent (`releasing` + nonce + deterministic `eth_tx_hash`) *before* broadcast (`bridge_withdraw_monitor.py:421`), and `completed`/`released` is written only on a verified status-1 receipt — the crash window can no longer produce a row that "refunds on top of released ETH". Design rule as built: **persist intent before broadcast; verify the receipt before any terminal status**; on recovery a `releasing` row is re-proven on-chain first — never re-sent blindly, and a refund requires a proven `not_sent`. |
 | double submit of the same lock | `ait_tx_hash` UNIQUE on the lock row — second insert is a no-op (`INSERT OR IGNORE`); duplicate polls already skip via `get_withdrawal_by_ait_tx_hash`. |
 | refund tx fails | row → `failed` with `error`; retried on a backoff (`next_retry_at` pattern from `eth_deposits`); funds stay escrowed, not burned — refund is always possible later. |
 | monitor restarts mid-flight | every state is derivable: `locked` rows rescan the chain, `released` rows re-read their receipt, `settled/refunded` are terminal. `_ensure_db` + UNIQUE keys make replays idempotent. |
-| Sepolia reorg > 3 confs | release rows re-verify `eth_getTransactionReceipt` each poll until `settled`; a dropped ETH tx → one re-send under the stored envelope (new signed tx, *same* nonce only if the old one never landed — else fresh nonce) then `refunded` on second failure. The AIT lock row anchors on `block_number` seen at confirmation — a reorged lock is treated as never-locked (auto-unlock path, no ETH sent). |
+| Sepolia reorg > 3 confs | release rows re-verify `eth_getTransactionReceipt` each poll until `settled`; a dropped/reverted ETH tx proves `not_sent` → `refund_pending` → refund sweep — there is **no automatic ETH re-send** (ETH-14/14b); an ambiguous outcome parks `needs_review` and an operator retries deliberately via `withdraw_admin` (`docs/ops/withdraw-release-runbook.md`). The AIT lock row anchors on `block_number` seen at confirmation — a reorged lock is treated as never-locked (auto-unlock path, no ETH sent). |
 | RPC down (either side) | poll cycle skips with a logged error; deadlines are evaluated on successful polls, not wall-clock, so an outage cannot trigger a wrongful refund. |
 
 ## 7. Buyer-facing variant — later phase
@@ -223,15 +245,19 @@ options for when the float is real.
   sum at any checkpoint. On abort: monitor stops releasing (rows stay
   escrowed — the safe state), alert fires, operator resolves.
 
-## 11. Code changes (sized) — none consensus, none now
+## 11. Code changes — none consensus; **landed as ETH-10**
 
-| file | Δ | what |
+The table below is the original sizing estimate, kept as the record of
+what was planned. All of it exists on main today (sell monitor,
+tables, routes, CLI) plus `withdraw_admin.py` (ETH-14).
+
+| file | Δ (estimate) | what |
 |---|---|---|
-| `apps/wallet/…/bridge/sell_escrow_monitor.py` | ~300 new | poll loop, lock scan, quote/deadline checks, release + settle/refund signing calls into ops-signer |
+| `apps/wallet/…/bridge/sell_escrow_monitor.py` | ~300 new → ~1100 as-built | poll loop, lock scan, quote/deadline checks, release + settle/refund signing calls into ops-signer |
 | `apps/wallet/…/bridge/bridge_db.py` | +60 | `bridge_sell_locks` + `bridge_sell_quotes` tables; pending-reserve query *excluding* `failed` |
 | `apps/wallet/…/bridge/bridge_routes.py` | +120 | `/sell/quote`, `/sell/status/<id>`, `/sell/list` |
 | `apps/wallet/…/bridge/price_api.py` | +25 | `BRIDGE_PRICE_MAX_AGE` staleness gate on the Chainlink round |
-| `apps/wallet/…/bridge/bridge_withdraw_monitor.py` | +15 | persist `eth_tx_hash` *before* status flip + receipt re-verify on restart (fixes the duplicate-release edge in the shared code path) |
+| `apps/wallet/…/bridge/bridge_withdraw_monitor.py` | +15 → landed via ETH-14/14b | persist release intent (nonce + deterministic `eth_tx_hash`) *before* broadcast + per-poll receipt re-verify (fixed the duplicate-release edge in the shared path) |
 | `cli/aitbc_cli/commands/wallet/bridge.py` | +80 | `aitbc wallet bridge sell quote/lock/status` |
 | `docs/ops` + `docs/scenarios` | +60 | sell-escrow runbook + scenario steps |
 | ops-signer env | config | `AIT_SELL_ESCROW` address + key slot |
@@ -265,6 +291,17 @@ implementation deliberately goes beyond this table:
   open until the refund sweep is in flight (the sweep itself is
   serialized, so the row waits rather than racing a second escrow
   spend).
+- **The ETH release leg is receipt-gated (ETH-14).** `_release_eth_for_lock`
+  persists `releasing` + nonce + deterministic `eth_tx_hash` before
+  broadcast; `_handle_inflight` re-verifies every poll and writes
+  `released` only on a status-1 receipt at
+  `BRIDGE_RELEASE_CONFIRMATIONS` depth. Gas is `eth_estimateGas` ×
+  `ETH_WITHDRAW_GAS_MARGIN` (default 1.25, cap `ETH_WITHDRAW_GAS_MAX`
+  300 000) — a fixed limit is gone after a fresh-account send needed
+  ~207 k gas post-Glamsterdam. Proven `not_sent` → `refund_pending` →
+  refund sweep; unverifiable → `needs_review` parked (absence grace
+  `ETH_RELEASE_ABSENCE_GRACE_SECONDS`, default 600 — ETH-14b). Operator
+  recovery: `docs/ops/withdraw-release-runbook.md`.
 
 **Post-settle (after 46,100 is live and quiet)**: keyless escrow
 `aitbc.bridge.sell.escrow` + a node-internal origination path for its
@@ -288,8 +325,8 @@ step may need SSH trust between nodes. Per-step key location:
 | buyer variant (§7, phase 2) | buyer node | buyer signs its own Sepolia ETH send to the bridge wallet | hub via RPC/explorer receipt |
 
 The hub's key material is limited to: its bridge payout key, its ETH
-release key, its own float wallets, and (per the pending decision
-below) the dedicated `AIT_SELL_ESCROW` key. It never holds, receives
+release key, its own float wallets, and (per decision (a) below —
+DECIDED 13 Oct 2026) the dedicated `AIT_SELL_ESCROW` key. It never holds, receives
 or uses a node's key material; it never signs on behalf of a node —
 every node-originated value movement is signed by the node itself on
 its own host; it never calls a node's wallet service or reads its
@@ -390,10 +427,16 @@ first play.
   is ~40 bytes, so any sane cap admits it. If payload proves not to
   be stored for plain TRANSFERs, the fallback binds lock↔quote on
   (sender, amount, fresh nonce) — documented, not blocking.
-- **`eth_withdrawals.status` enumeration under live load** — the
-  table has 0 rows; `insufficient_reserve`/`refunded`/`failed`
-  transitions are code-read, not observed. ETH-2/scenario 59 will be
-  the first live data.
+- **`eth_withdrawals.status` enumeration under live load** — the first
+  live data arrived 14 Oct as ETH-14: `withdrawal_90ff8a73` broadcast
+  with a fixed 100 000 gas limit, reverted on-chain (post-Glamsterdam
+  fresh-account sends need ~207 k), and was recovered via
+  `withdraw_admin release-retry` — so `releasing`, the receipt
+  verification paths, and `needs_review_release` are now live-proven,
+  while `insufficient_reserve`/`refunded`/`failed` remain code-read.
+  Per the 14-Oct operator decision (recorded in the ETH-8 doc), a
+  *clean* ETH-2/scenario 59 run is still the release-path gate —
+  ETH-14's recovery does not count as it.
 - **Chainlink feed staleness on Sepolia** — `get_eth_prices` return
   shape was read, but the live `updatedAt` cadence of the configured
   feed wasn't probed (read-only on hosts, no call made from this
@@ -416,11 +459,15 @@ first play.
   creates or credits the pseudo-recipient")
 - signature requirement: `v9_policy.py` unsigned-allowed set =
   BRIDGE_LOCK/RELEASE/REFUND only
-- monitor flow: `bridge_withdraw_monitor.py:281-343` (record →
-  release → status), `:246-258` (refund via genesis TRANSFER),
-  `:158-164` (pending-reserve sum)
-- ledger schema: `bridge_db.py:83-101` (eth_withdrawals,
-  `ait_tx_hash` UNIQUE); `:597-608` (pending incl. `failed`)
+- monitor flow: `bridge_withdraw_monitor.py:421` (release — intent
+  persisted before broadcast), `:724` (`_resume_unfinished_releases`
+  per-poll re-verify), `:313-345` (refund via genesis TRANSFER),
+  `:229-247` (pending-reserve sum, sell-aware)
+- ledger schema: `bridge_db.py:83-100` (eth_withdrawals,
+  `ait_tx_hash` UNIQUE — ETH-14 added `retry_count` and the
+  `eth_withdrawal_release_attempts` table); `:673-685` (pending incl.
+  `failed`); `:974` (`_SELL_RESERVE_STATUSES` — sell pending excludes
+  `failed`)
 - pricing: `price_api.py:139-164` (computed at poll time — quote is
   *not* locked at signing, one of the gaps this design fixes)
 - confirmations: `bridge_monitor/main.py:61` (`BRIDGE_CONFIRMATIONS`=3),
