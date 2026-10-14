@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -59,8 +61,11 @@ def admin_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         "BLOCKCHAIN_RPC_URL",
         "CREDENTIALS_DIRECTORY",
         "SELL_ESCROW_ENABLED",
+        "BLOCKCHAIN_MODE",
     ):
         monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("BLOCKCHAIN_MODE", "hub")
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setenv("AIT_SELL_ESCROW", escrow)
     monkeypatch.setenv("SELL_ESCROW_WALLET_PATH", str(wallet_file))
     monkeypatch.setenv("SELL_TREASURY_ADDRESS", TEST_TREASURY)
@@ -203,6 +208,35 @@ def _sweep_review_lock(lane: str = "settle", nonce: int = 5, **kw: Any) -> str:
     )
 
 
+class TestHostGates:
+    """Root-on-hub-only + ledger-presence refusals (decided 14 Oct)."""
+
+    def test_refuse_non_root(self, admin_env, monkeypatch, capsys):
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        assert _run(admin_env, ["list"]) == 2
+        assert "as root" in capsys.readouterr().out
+
+    def test_refuse_non_hub(self, admin_env, monkeypatch, capsys):
+        monkeypatch.setenv("BLOCKCHAIN_MODE", "follower")
+        assert _run(admin_env, ["list"]) == 2
+        assert "hub" in capsys.readouterr().out
+
+    def test_refuse_missing_default_db(self, admin_env, monkeypatch, capsys, tmp_path):
+        """Without the ledger the command refuses — it must not let
+        init_db create an empty DB on a host that never had one."""
+        missing = tmp_path / "absent" / "bridge.db"
+        monkeypatch.setattr("wallet_app.bridge.bridge_db.DB_PATH", str(missing))
+        rc = admin.main(["--env-file", str(admin_env["env_file"]), "list"])
+        assert rc == 2
+        assert "ledger" in capsys.readouterr().out
+        assert not missing.exists()
+
+    def test_refuse_missing_db_arg(self, admin_env, capsys, tmp_path):
+        rc = _run(admin_env, ["--db", str(tmp_path / "gone.db"), "list"])
+        assert rc == 2
+        assert "ledger" in capsys.readouterr().out
+
+
 class TestList:
     def test_lists_open_rows(self, admin_env):
         _seed_lock("locked", tx=LOCK_HASH)
@@ -321,6 +355,26 @@ class TestConfirmSwept:
         assert "does not equal" in capsys.readouterr().out
         assert get_sell_lock_by_ait_tx_hash(LOCK_HASH)["status"] == "needs_review_sweep"
 
+    def test_refuse_already_settled(self, admin_env, capsys):
+        """Double-sweep guard: a settled row is terminal — confirm-swept
+        must refuse it even with a valid-looking hash."""
+        _seed_lock("settled")
+        admin_env["transfers"] = [_sealed_sweep_tx(LOCK_HASH, TEST_TREASURY, Decimal("10"), 5)]
+        rc = _run(admin_env, ["confirm-swept", LOCK_HASH, "--tx", SEALED_HASH, "--confirm", "--note", "n"])
+        assert rc == 1
+        assert "not operator-gated" in capsys.readouterr().out
+
+    def test_refuse_foreign_nonce_outflow(self, admin_env, capsys):
+        """An outflow sealed at a nonce this row never recorded — another
+        row's sweep — can never be credited here."""
+        _sweep_review_lock(nonce=5)
+        foreign = _sealed_sweep_tx(LOCK_HASH, TEST_TREASURY, Decimal("10"), 6, tx_hash=SEALED_HASH)
+        admin_env["transfers"] = [foreign]
+        rc = _run(admin_env, ["confirm-swept", LOCK_HASH, "--tx", SEALED_HASH, "--confirm", "--note", "n"])
+        assert rc == 1
+        assert "no sealed escrow outflow" in capsys.readouterr().out
+        assert get_sell_lock_by_ait_tx_hash(LOCK_HASH)["status"] == "needs_review_sweep"
+
     def test_refuse_sell_ref_mismatch(self, admin_env, capsys):
         """Same nonce+recipient+amount but a different sell_ref — hard refuse."""
         _sweep_review_lock()
@@ -394,6 +448,30 @@ class TestRequeue:
         rc = _run(admin_env, ["requeue", LOCK_HASH, "--confirm", "--note", "n"])
         assert rc == 1
         assert "not operator-gated" in capsys.readouterr().out
+
+    def test_requeued_row_sweeps_once_under_monitor(self, admin_env):
+        """Serialization across a manual requeue: the monitor's own sweep
+        path sends exactly once and its in-flight gate defers a concurrent
+        sweep — a requeued row can never be swept twice."""
+        _sweep_review_lock()
+        assert _run(admin_env, ["requeue", LOCK_HASH, "--confirm", "--note", "n"]) == 0
+        row = get_sell_lock_by_ait_tx_hash(LOCK_HASH)
+        assert row["status"] == "released"
+
+        cfg = sellmon._sell_config()
+        outcome = asyncio.run(
+            sellmon._escrow_sweep(cfg, row, cfg.treasury_address, "sell_settle", "settling", "queued_fee_settle")
+        )
+        assert outcome == "sent"
+        assert len(admin_env["ait_sends"]) == 1
+        in_flight = get_sell_lock_by_ait_tx_hash(LOCK_HASH)
+        assert in_flight["status"] == "settling"
+
+        second = asyncio.run(
+            sellmon._escrow_sweep(cfg, in_flight, cfg.treasury_address, "sell_settle", "settling", "queued_fee_settle")
+        )
+        assert second == "deferred"
+        assert len(admin_env["ait_sends"]) == 1
 
 
 class TestWriteOff:

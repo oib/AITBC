@@ -29,6 +29,10 @@ Commands:
                                           not an override (a short float re-parks)
 
 Safety rules (ETH-13):
+- Root on the hub host only: the command refuses when euid != 0 and when
+  BLOCKCHAIN_MODE != 'hub' in the loaded env set — the check is env-derived,
+  no hostname is hardcoded. It also refuses when the ledger DB does not
+  exist rather than let init_db create an empty one elsewhere.
 - 'needs_review_sweep' is the only operator-gated status: confirm-swept and
   requeue refuse any other row, and plain 'needs_review' (the ETH-release
   path) is never matched — the monitor still auto-resumes it.
@@ -151,6 +155,21 @@ def _print_lock(row: dict[str, Any]) -> None:
         print("  sweep intent (parsed):")
         for key, val in meta.items():
             print(f"    {key}: {val}")
+
+
+def _host_gates() -> int:
+    """Root on the hub host only (decided 14 Oct): the command exists to
+    operate on hub's live ledger — env files and /var/lib/aitbc are
+    root-owned there, and only hub carries the bridge monitor. The hub
+    check reads BLOCKCHAIN_MODE from the loaded env set, so no hostname is
+    baked in."""
+    if os.geteuid() != 0:
+        print("refusing: sell_admin must run as root — the ledger and env files are root-owned")
+        return 2
+    if os.environ.get("BLOCKCHAIN_MODE") != "hub":
+        print("refusing: sell_admin runs on the hub only (BLOCKCHAIN_MODE=hub in the loaded env set)")
+        return 2
+    return 0
 
 
 def _audit_fields(args: argparse.Namespace) -> dict[str, Any]:
@@ -507,16 +526,19 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     _load_env_files(args.env_file or _DEFAULT_ENV_FILES)
+    if _host_gates():
+        return 2
 
     from . import bridge_db as db
     from . import bridge_withdraw_monitor as wdm
     from . import sell_escrow_monitor as sellmon
 
     _sync_wdm_env(wdm)
+    db_target = args.db or db.DB_PATH
+    if not os.path.exists(db_target):
+        print(f"refusing: no bridge ledger at {db_target} — the command runs where the ledger exists")
+        return 2
     if args.db:
-        if not os.path.exists(args.db):
-            print(f"no such db: {args.db}")
-            return 2
         db.DB_PATH = args.db
     db.init_db()
 
