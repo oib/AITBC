@@ -859,6 +859,84 @@ class TestGraceLogLevel:
         assert any(lvl >= logging.ERROR and "unverifiable" in m for lvl, m in msgs)
         assert not any(lvl == logging.WARNING and "absence grace" in m for lvl, m in msgs)
 
+    @pytest.mark.asyncio
+    async def test_young_pending_release_logs_warning(self, sell_env, monkeypatch, caplog):
+        """ETH-18 (the ETH-16 case): a just-broadcast release whose tx is
+        visible but unmined/below depth is a routine delay — WARNING (the
+        row did park needs_review), never ERROR, with reason and age."""
+        import logging
+
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "releasing"
+
+        sell_env["transfers"] = []
+        tx_hash = row["eth_tx_hash"]
+        monkeypatch.setattr(
+            wdm,
+            "_eth_rpc",
+            _eth_rpc_stub(txs={tx_hash: {"hash": tx_hash}}, receipts={}, nonces={"latest": 0, "pending": 0}),
+        )
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.sell_escrow_monitor"):
+            await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "needs_review"
+        msgs = self._sell_records(caplog)
+        assert any(lvl == logging.WARNING and "reason=chain_view" in m and "age=" in m for lvl, m in msgs)
+        assert not any(lvl >= logging.ERROR for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_old_pending_release_logs_error(self, sell_env, monkeypatch, caplog):
+        """ETH-18: the same pending chain view past the grace window is
+        genuinely unverifiable — stays ERROR with the reason named."""
+        import logging
+
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        tx_hash = row["eth_tx_hash"]
+
+        sell_env["transfers"] = []
+        _backdate_lock_release("0x" + "aa" * 32, wdm.ETH_RELEASE_ABSENCE_GRACE_SECONDS + 60)
+        monkeypatch.setattr(
+            wdm,
+            "_eth_rpc",
+            _eth_rpc_stub(txs={tx_hash: {"hash": tx_hash}}, receipts={}, nonces={"latest": 0, "pending": 0}),
+        )
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.sell_escrow_monitor"):
+            await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "needs_review"
+        msgs = self._sell_records(caplog)
+        assert any(lvl >= logging.ERROR and "unverifiable" in m and "reason=chain_view" in m for lvl, m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_verify_error_logs_error(self, sell_env, monkeypatch, caplog):
+        """An RPC failure is never routine — verify_error keeps ERROR even
+        on a just-broadcast lock."""
+        import logging
+
+        quote_id = _insert_quote()
+        sell_env["transfers"] = [_lock_tx(quote_id)]
+        await sellmon.poll_sells_once()
+        assert get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)["status"] == "releasing"
+
+        sell_env["transfers"] = []
+
+        async def _failing_rpc(method, params):
+            raise RuntimeError("RPC unreachable")
+
+        monkeypatch.setattr(wdm, "_eth_rpc", _failing_rpc)
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.sell_escrow_monitor"):
+            await sellmon.poll_sells_once()
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "needs_review"
+        msgs = self._sell_records(caplog)
+        assert any(lvl >= logging.ERROR and "unverifiable" in m and "reason=verify_error" in m for lvl, m in msgs)
+
 
 class TestDeadlines:
     @pytest.mark.asyncio

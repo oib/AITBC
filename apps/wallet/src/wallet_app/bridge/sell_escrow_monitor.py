@@ -987,19 +987,37 @@ async def _handle_inflight(cfg: SellConfig, row: dict[str, Any]) -> None:
     else:
         if row["status"] != "needs_review":
             update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="release outcome unverifiable")
+        age = wdm._release_intent_age_seconds(row)
+        age_txt = f"{int(age)}s" if age != float("inf") else "unknown"
         if reason == "absent_in_grace":
             # Invisible-but-young is routine propagation lag, not an
             # incident — the parked row still surfaces at WARNING (ETH-15).
             logger.warning(
-                "Sell lock %s (%s) not yet visible on-chain — inside absence grace; parked needs_review",
+                "Sell lock %s (%s) not yet visible on-chain — inside absence grace; parked needs_review (age=%s)",
                 row["ait_tx_hash"],
                 row["status"],
+                age_txt,
+            )
+        elif reason in ("chain_view", "nonce_pending") and age < wdm.ETH_RELEASE_ABSENCE_GRACE_SECONDS:
+            # Pending/below-depth view on a just-broadcast release — a
+            # normal delay (ETH-18). The row did change status, so it
+            # still surfaces at WARNING; verify_error and a consumed
+            # nonce keep ERROR regardless of age.
+            logger.warning(
+                "Sell lock %s (%s) not yet confirmed on-chain — reason=%s, age=%s (grace %ds); parked needs_review",
+                row["ait_tx_hash"],
+                row["status"],
+                reason,
+                age_txt,
+                wdm.ETH_RELEASE_ABSENCE_GRACE_SECONDS,
             )
         else:
             logger.error(
-                "Sell lock %s (%s) still unverifiable — needs review",
+                "Sell lock %s (%s) still unverifiable — needs review (reason=%s, age=%s)",
                 row["ait_tx_hash"],
                 row["status"],
+                reason,
+                age_txt,
             )
 
 
