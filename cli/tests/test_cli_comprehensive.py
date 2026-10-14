@@ -3,7 +3,9 @@ import pytest
 #!/usr/bin/env python3
 """Comprehensive tests for the unified AITBC CLI hierarchy."""
 
+import os
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -16,13 +18,18 @@ CLI_BIN = PROJECT_ROOT / "scripts" / "aitbc-cli"
 
 
 def run_cli(*args):
-    return subprocess.run(
-        [str(CLI_BIN), *args],
-        capture_output=True,
-        text=True,
-        cwd=str(PROJECT_ROOT),
-        timeout=20,
-    )
+    # Isolate the subprocess from the invoking user's CLI state — see
+    # test_cli_basic.py for why (host config, wallets, and writes into HOME).
+    with tempfile.TemporaryDirectory(prefix="aitbc-cli-test-") as home:
+        env = dict(os.environ, HOME=home, AITBC_CONFIG_FILE=str(Path(home) / "config.yaml"))
+        return subprocess.run(
+            [str(CLI_BIN), *args],
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
+            timeout=20,
+            env=env,
+        )
 
 
 pytestmark = pytest.mark.skipif(False, reason="G8 gate removed")

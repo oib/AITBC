@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 CLI_DIR = Path(__file__).resolve().parent.parent
@@ -15,13 +16,20 @@ CLI_BIN = PROJECT_ROOT / "scripts" / "aitbc-cli"
 
 
 def run_cli(*args):
-    return subprocess.run(
-        [str(CLI_BIN), *args],
-        capture_output=True,
-        text=True,
-        timeout=15,
-        cwd=str(PROJECT_ROOT),
-    )
+    # Isolate the subprocess from the invoking user's CLI state. A real
+    # ~/.aitbc.yaml (remote RPC URLs), ~/.aitbc/wallets, or credentials change
+    # what these calls hit and how long they take — and without an isolated
+    # HOME the calls write into that home directory as a side effect.
+    with tempfile.TemporaryDirectory(prefix="aitbc-cli-test-") as home:
+        env = dict(os.environ, HOME=home, AITBC_CONFIG_FILE=str(Path(home) / "config.yaml"))
+        return subprocess.run(
+            [str(CLI_BIN), *args],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=str(PROJECT_ROOT),
+            env=env,
+        )
 
 
 class TestCLIBasicFunctionality:

@@ -601,15 +601,16 @@ class TestChainAwareTaskDistribution:
 class TestWebSocketAuth:
     """Test WebSocket authentication (v0.6.5 hardening)."""
 
-    def test_authenticate_websocket_with_valid_api_key(self):
+    def test_authenticate_websocket_with_valid_api_key(self, monkeypatch):
         """_authenticate_websocket accepts valid COORDINATOR_API_KEY."""
         from agent_app.routers.websocket import _authenticate_websocket
 
-        os.environ["COORDINATOR_API_KEY"] = "test-coordinator-key"
-        try:
-            assert _authenticate_websocket(websocket=None, token="test-coordinator-key") is True
-        finally:
-            del os.environ["COORDINATOR_API_KEY"]
+        # monkeypatch restores the pre-test value; a bare ``del`` here used to
+        # remove COORDINATOR_API_KEY for every suite collected before this file
+        # ran (e.g. apps/wallet's conftest ``setdefault``), failing downstream
+        # Settings() builds with "Field required".
+        monkeypatch.setenv("COORDINATOR_API_KEY", "test-coordinator-key")
+        assert _authenticate_websocket(websocket=None, token="test-coordinator-key") is True
 
     def test_authenticate_websocket_rejects_no_token(self):
         """_authenticate_websocket rejects None token."""
