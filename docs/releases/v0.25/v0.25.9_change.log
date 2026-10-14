@@ -1289,6 +1289,14 @@ receipt machinery only ran on crash/resume paths, never the happy path.
   `needs_review_release` for the operator, never auto-refunds.
 - `bridge_monitor.py`: dropped the dead `ETH_WITHDRAW_GAS` constant.
 - Runbook: `docs/ops/withdraw-release-runbook.md`.
+- Absence grace (follow-up): receipt verification now runs on the happy
+  path, so a lagging RPC can report a just-broadcast release as absent.
+  `_compose_release_outcome` treats an absence-only view (no receipt, no
+  tx, nonce not pending) on a row whose release intent is younger than
+  `ETH_RELEASE_ABSENCE_GRACE_SECONDS` (default `600`, measured from the
+  row's `released_at` intent-write timestamp) as `unknown` — never a
+  refund trigger. A status-0 receipt is `not_sent` at any age. Applies to
+  `releasing`, `releasing_retry` and sell-escrow releases alike.
 
 Tests: `test_bridge_withdraw_monitor.py` (broadcast-leaves-releasing,
 estimate/margin/floor/cap/override, estimate-failure refund path,

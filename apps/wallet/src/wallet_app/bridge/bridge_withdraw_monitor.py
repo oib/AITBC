@@ -13,6 +13,7 @@ import asyncio
 import json
 import math
 import os
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
 
@@ -61,6 +62,15 @@ ETH_WITHDRAW_GAS = os.getenv("ETH_WITHDRAW_GAS", "")
 ETH_WITHDRAW_GAS_MARGIN = Decimal(os.getenv("ETH_WITHDRAW_GAS_MARGIN", "1.25"))
 ETH_WITHDRAW_GAS_MAX = int(os.getenv("ETH_WITHDRAW_GAS_MAX", "300000"))
 _ETH_GAS_FLOOR = 21_000
+# Grace window for an *absence-only* outcome on a just-broadcast release.
+# Receipt verification now runs on the happy path ~one poll after the
+# send, and a lagging / load-balanced RPC can report "no tx, no receipt,
+# nonce not pending" while the transaction is still in flight. Refunding
+# on that view would double-pay once it seals — so within the grace
+# window an absence-only result reports 'unknown' (re-checked next poll)
+# instead of 'not_sent'. A status-0 receipt is never ambiguous and keeps
+# returning 'not_sent' at any age.
+ETH_RELEASE_ABSENCE_GRACE_SECONDS = int(os.getenv("ETH_RELEASE_ABSENCE_GRACE_SECONDS", "600"))
 ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"))
 # Confirmation depth a release receipt must reach before it counts as proof.
 # Defaults to the deposit-side BRIDGE_CONFIRMATIONS (3) so both directions
@@ -581,6 +591,25 @@ async def _release_nonce_outcome(row: dict[str, Any]) -> str | None:
     return None
 
 
+def _release_intent_age_seconds(row: dict[str, Any]) -> float:
+    """Seconds since the release intent was persisted for this row.
+
+    ``released_at`` is refreshed by every non-terminal status write on both
+    withdrawal rows and sell locks — for an in-flight row it is the moment
+    the 'releasing'/'releasing_retry' intent (nonce + deterministic hash)
+    was written, i.e. the broadcast time. A missing or unparseable value
+    means infinitely old — no grace — so crash-recovery rows keep their
+    previous resolution.
+    """
+    raw = row.get("released_at")
+    if not raw:
+        return float("inf")
+    try:
+        return (datetime.now() - datetime.fromisoformat(str(raw))).total_seconds()
+    except (TypeError, ValueError):
+        return float("inf")
+
+
 async def _compose_release_outcome(row: dict[str, Any]) -> str:
     """Verify a persisted release row's ETH outcome: 'sent'/'not_sent'/'unknown'.
 
@@ -597,6 +626,12 @@ async def _compose_release_outcome(row: dict[str, Any]) -> str:
         nonce_outcome = await _release_nonce_outcome(row)
         if nonce_outcome is not None:
             return nonce_outcome
+        # Absence-only view: no receipt, no tx, nonce not visibly pending.
+        # A lagging endpoint can report this for a tx still in flight —
+        # within ETH_RELEASE_ABSENCE_GRACE_SECONDS it is 'unknown', never
+        # a refund trigger (a proven revert above already returned).
+        if _release_intent_age_seconds(row) < ETH_RELEASE_ABSENCE_GRACE_SECONDS:
+            return "unknown"
         return "not_sent"
     except Exception as e:
         logger.error("Release outcome verification failed for %s: %s", row.get("ait_tx_hash"), e)
