@@ -1775,6 +1775,7 @@ narrative; this list cites each remaining commit by hash so
 - `be4eeebb5f` test(migrations): pin sweep timeout at 1800s, drop the flaky rerun
 - `c2b963f5b` feat(bridge): ETH-13 sell-lock operator command — sell_admin + audit columns (ETH-13)
 - `4ada8732f` feat(bridge): ETH-13 sell_admin host gates — root/hub-only + ledger presence (ETH-13)
+- `68a55381fc` fix(bridge): ETH-18 — a young pending release logs below ERROR, not 'needs review'
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -1874,3 +1875,24 @@ Commits: `c2b963f5b` (module + audit columns + cap rule + tests),
 `4ada8732f` (host gates + settled/foreign-nonce/requeue-serialization
 proofs). `docs/ops/sell-escrow-runbook.md` + this section land in the
 accompanying docs commit.
+
+### ETH-18: a young pending release logs below ERROR, not 'needs review' (2026-10-14)
+
+During ETH-16's live withdrawal the hub withdraw monitor broadcast the
+release and, 30 s later, logged ERROR "still unverifiable — needs review"
+while the row stayed `releasing`; the next poll confirmed the receipt and
+completed it. The tx had simply been mined below
+`BRIDGE_RELEASE_CONFIRMATIONS` depth — a normal delay, not an incident.
+
+`_release_nonce_outcome` now splits the nonce view into `nonce_consumed`
+(the nonce was taken without a qualifying receipt — a real anomaly that
+keeps ERROR, per ETH-15's documented intent) and `nonce_pending` (the tx
+sits in the pending pool — routine). In `_resume_unfinished_releases`, a
+`chain_view`/`nonce_pending` "unknown" younger than
+`ETH_RELEASE_ABSENCE_GRACE_SECONDS` logs at INFO with the reason and age;
+`verify_error`, `nonce_consumed` and aged rows keep ERROR, and the ERROR
+line now names the reason. The sell-escrow inflight check applies the same
+split at WARNING (its unknown path does persist `needs_review`). Log level
+and log content only — no outcome, status, refund or parking decision
+moved. Watcher note: `AITBCJournalErrors` counts `[ERROR]` lines per unit,
+so routine young-release delays no longer feed it; real anomalies do.
