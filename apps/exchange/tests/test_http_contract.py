@@ -41,6 +41,11 @@ def server(tmp_path_factory):
     db_dir = tmp_path_factory.mktemp("exchange-db")
     os.environ["EXCHANGE_DATABASE_URL"] = f"sqlite:///{db_dir}/exchange.db"
     os.environ["EXCHANGE_API_KEY"] = API_KEY
+    # This file characterises the PRE-phase-2 contract (X-Api-Key write guard,
+    # free-text user_address). ETH-11 phase 2 made signed envelopes the
+    # default auth for /api/orders; the phase-2 surface gets its own contract
+    # module (test_signed_orders_contract.py).
+    os.environ["EXCHANGE_REQUIRE_SIGNED_ORDERS"] = "0"
     # Point the RPC base at a port nothing is listening on: the routes that reach for the
     # chain should fail as "upstream unavailable", not hang or contact a real node.
     os.environ["BLOCKCHAIN_RPC_BASE_URL"] = "http://127.0.0.1:1"
