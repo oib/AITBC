@@ -23,15 +23,15 @@ import tempfile
 
 
 def pytest_addoption(parser):
-    """Keep `addopts` parseable on hosts without the dev/test tier.
+    """Keep `--reruns` invocations parseable on hosts without the test tier.
 
-    `pyproject.toml` addopts carry `--reruns 2 --reruns-delay 1`, which are
-    defined by pytest-rerunfailures — a test-tier dependency that production
-    installs may lack. Without the plugin, pytest aborts collection with
-    "unrecognized arguments", which is what made every node need
-    requirements-test.txt just to run its own suite. When the plugin is not
-    importable, register the options as no-ops so parsing succeeds; reruns
-    simply do not happen on those hosts.
+    `addopts` no longer carries `--reruns` — retries are per-test
+    `pytest.mark.flaky` marks — but scripts and muscle memory still pass the
+    flag, which only pytest-rerunfailures defines. Production installs may
+    lack the plugin, and without it pytest aborts collection with
+    "unrecognized arguments". When the plugin is not importable, register the
+    options as no-ops so parsing succeeds; reruns simply do not happen on
+    those hosts.
     """
     if importlib.util.find_spec("pytest_rerunfailures") is None:
         parser.addoption(
