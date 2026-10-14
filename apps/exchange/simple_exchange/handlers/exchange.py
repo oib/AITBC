@@ -59,7 +59,9 @@ _REGISTER_ENVELOPE_FIELDS = frozenset({"action", "address", "label", "account_no
 _CANCEL_ACTION = "exchange_cancel"
 _REGISTER_ACTION = "exchange_register"
 
-_WATCHLIST_WINDOW_S = 24 * 3600  # cancel-ratio window for the /nodes flag
+# Watchlist is flag-and-log only (decided 14 Oct): it never blocks or
+# throttles an order — auto-blocking would be a separate operator decision.
+_WATCHLIST_LOGGED: set[str] = set()
 
 
 def _signed_orders_required() -> bool:
@@ -506,11 +508,27 @@ class ExchangeMixin:
     # ── ETH-11 phase 2 — signed orders (design sections 1–6, 9) ──────────
 
     def _client_ip(self) -> str:
-        """Best-effort client IP for the per-IP order-rate bucket."""
+        """Client IP for per-IP rate buckets.
+
+        The service sits behind nginx which sets ``X-Real-IP $remote_addr``.
+        The forwarded header is trusted only when the direct peer is in
+        ``EXCHANGE_TRUSTED_PROXIES`` (default loopback) — otherwise the raw
+        header is client-spoofable and ignored.
+        """
         request = getattr(self, "request", None)
         client = getattr(request, "client", None)
-        host = getattr(client, "host", None)
-        return host if isinstance(host, str) and host else "unknown"
+        peer = getattr(client, "host", None)
+        if not (isinstance(peer, str) and peer):
+            return "unknown"
+        trusted = {a.strip() for a in os.getenv("EXCHANGE_TRUSTED_PROXIES", "127.0.0.1,::1").split(",") if a.strip()}
+        if peer in trusted:
+            headers = getattr(self, "headers", None)
+            get_header = getattr(headers, "get", None)
+            if callable(get_header):
+                real = get_header("x-real-ip") or get_header("X-Real-IP")
+                if isinstance(real, str) and real.strip():
+                    return real.strip()
+        return peer
 
     def _chain_head_height(self) -> int | None:
         """Current chain height for expiry checks; None when the node RPC is down."""
@@ -1079,8 +1097,15 @@ class ExchangeMixin:
 
     @staticmethod
     def _watchlisted_addresses(cursor) -> set:
-        """Cancel-ratio flag (section 9): cancels/placements over the last 24 h."""
-        cutoff = datetime.now(UTC).timestamp() - _WATCHLIST_WINDOW_S
+        """Cancel-ratio flag (section 9): flag-only, never blocks an order.
+
+        Flags an address once it has at least ``EXCHANGE_WATCHLIST_MIN_PLACEMENTS``
+        placements (default 10 — a one-order-then-cancel user is normal) with
+        cancels/placements strictly above ``EXCHANGE_CANCEL_RATIO`` (0.9) inside
+        ``EXCHANGE_WATCHLIST_WINDOW_S`` seconds (default 24 h).
+        """
+        window_s = _env_int("EXCHANGE_WATCHLIST_WINDOW_S", 24 * 3600)
+        cutoff = datetime.now(UTC).timestamp() - window_s
         cutoff_iso = datetime.fromtimestamp(cutoff, UTC).isoformat()
         placed = dict(
             cursor.execute(
@@ -1095,11 +1120,16 @@ class ExchangeMixin:
             ).fetchall()
         )
         ratio = _env_decimal("EXCHANGE_CANCEL_RATIO", "0.9")
-        return {
+        min_placed = _env_int("EXCHANGE_WATCHLIST_MIN_PLACEMENTS", 10)
+        flagged = {
             addr
             for addr, placed_count in placed.items()
-            if placed_count >= 10 and Decimal(cancelled.get(addr, 0)) / placed_count > ratio
+            if placed_count >= min_placed and Decimal(cancelled.get(addr, 0)) / placed_count > ratio
         }
+        for addr in sorted(flagged - _WATCHLIST_LOGGED):
+            logger.warning("exchange watchlist: %s flagged (cancel ratio > %s in %ss window)", addr, ratio, window_s)
+            _WATCHLIST_LOGGED.add(addr)
+        return flagged
 
     def handle_my_orders(self, parsed) -> None:
         """GET /api/exchange/my-orders?addr= — one wallet's orders + next nonce."""
