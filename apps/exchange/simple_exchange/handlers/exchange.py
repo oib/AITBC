@@ -129,6 +129,25 @@ def _payout_address_blocked(eth_address: str) -> bool:
     return any(v.strip().lower() == addr for v in (os.getenv(e, "") for e in _BLOCKED_PAYOUT_ENVS) if v)
 
 
+# Order side → env naming the destination its funding leg points at:
+# SELL instructions send the lock to AIT_SELL_ESCROW; BUY prepay
+# instructions send ETH to the bridge wallet BRIDGE_ETH_ADDRESS.
+_SIDE_DESTINATION_ENV = {"SELL": "AIT_SELL_ESCROW", "BUY": "BRIDGE_ETH_ADDRESS"}
+
+
+def _funding_destination(env_name: str) -> str | None:
+    """The configured funding destination in env_name — an EIP-55
+    checksummed address — or None when unset/empty/malformed.
+
+    Shape+checksum only: unlike a payout target, the destination is
+    allowed to equal a blocklisted env value (BRIDGE_ETH_ADDRESS is the
+    bridge wallet itself), so the payout blocklist must not run here."""
+    from eth_utils import is_checksum_address
+
+    value = os.getenv(env_name, "").strip()
+    return value if is_checksum_address(value) else None
+
+
 def _prepaid_spendable(cursor, address: str) -> Decimal:
     """Node's spendable prepaid ETH: deposits − cumulative committed − open
     reservations. committed_eth is spent-or-owed minus returned (settled
@@ -862,13 +881,19 @@ class ExchangeMixin:
         existing = self._order_by_envelope(cursor, address, env_hash)
         if existing is not None:
             return 200, existing
-        # ETH-8 phase 3 (dark): with settlement on, a SELL must have a
-        # registered payout address before the nonce is claimed — a refused
-        # order never burns the account nonce.
-        if _settlement_enabled() and envelope["side"] == "SELL":
-            eth_row = cursor.execute("SELECT eth_address FROM node_registry WHERE address = ?", (address,)).fetchone()
-            if eth_row is None or not eth_row[0]:
-                return 409, {"error": "SELL requires a registered payout address (exchange_set_payout)"}
+        # ETH-8 phase 3 (dark): under settlement the side's funding
+        # destination must be a configured EIP-55 address — unset/malformed
+        # would emit an instruction telling the node to send value nowhere.
+        # Both refusals run before the nonce claim: a refused order never
+        # burns the account nonce.
+        if _settlement_enabled():
+            dest_env = _SIDE_DESTINATION_ENV.get(envelope["side"])
+            if dest_env is not None and _funding_destination(dest_env) is None:
+                return 503, {"error": f"Exchange settlement misconfigured: {dest_env} is unset or not an EIP-55 address"}
+            if envelope["side"] == "SELL":
+                eth_row = cursor.execute("SELECT eth_address FROM node_registry WHERE address = ?", (address,)).fetchone()
+                if eth_row is None or not eth_row[0]:
+                    return 409, {"error": "SELL requires a registered payout address (exchange_set_payout)"}
         if envelope["account_nonce"] != self._expected_nonce(cursor, address) or not self._claim_nonce(
             cursor, address, envelope["account_nonce"]
         ):
@@ -1828,6 +1853,8 @@ class ExchangeMixin:
         checks = {"database": _check_exchange_db}
         if bridge_config.deposit_enabled or bridge_config.withdraw_enabled:
             checks["bridge_storage"] = _check_bridge_storage
+        if _settlement_enabled():
+            checks["settlement_envs"] = _check_settlement_envs
         failed = run_readiness_checks(checks)
         if failed:
             self.send_json_response(  # type: ignore[attr-defined]
@@ -2267,6 +2294,16 @@ def _check_exchange_db() -> None:
         conn.close()
 
 
+def _check_settlement_envs() -> None:
+    """Under EXCHANGE_SETTLEMENT_ENABLED both funding destinations must be
+    configured EIP-55 addresses. Placement enforces the same rule per
+    side — failing readiness surfaces the misconfig once instead of
+    refusing every order."""
+    for env_name in _SIDE_DESTINATION_ENV.values():
+        if _funding_destination(env_name) is None:
+            raise RuntimeError(f"{env_name} unset or not an EIP-55 address")
+
+
 def _check_bridge_storage() -> None:
     """The bridge monitor's deposits store exists and has its schema.
 
@@ -2280,7 +2317,7 @@ def _check_bridge_storage() -> None:
         raise RuntimeError("bridge deposits database not initialized")
     conn = sqlite3.connect(path)
     try:
-        row = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bridge_deposits'").fetchone()
+        row = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='eth_deposits'").fetchone()
         if row is None:
             raise RuntimeError("bridge deposits table missing")
     finally:
