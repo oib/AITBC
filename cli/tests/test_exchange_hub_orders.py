@@ -250,6 +250,57 @@ class TestOrderPlace:
         assert result.exit_code != 0
         assert not mock_client.instances[0].posts  # nothing POSTed
 
+    def test_unfunded_buy_prints_prepay_hint(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
+        mock_client.get_responses = {**self._merge(_head_response(1000), _registered_doc(wallet_key[0], nonce=1))}
+        mock_client.post_responses = {
+            "default": {
+                "id": 9,
+                "status": "open",
+                "funded_state": "unfunded",
+                "funding": {
+                    "type": "eth_prepay",
+                    "state": "unfunded",
+                    "needed_eth": "0.00083",
+                    "tag": f"EXCHANGE_DEPOSIT:{wallet_key[0]}",
+                    "bridge_eth_address": "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359",
+                },
+            }
+        }
+        result = self._invoke(runner, ["--side", "BUY"])
+        assert result.exit_code == 0, result.output
+        assert "To fund: send 0.00083 ETH" in result.output
+        assert "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359" in result.output
+
+    def test_unfunded_sell_prints_lock_hint(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
+        mock_client.get_responses = {**self._merge(_head_response(1000), _registered_doc(wallet_key[0], nonce=1))}
+        mock_client.post_responses = {
+            "default": {
+                "id": 9,
+                "status": "open",
+                "funded_state": "unfunded",
+                "funding": {
+                    "type": "ait_lock",
+                    "state": "unfunded",
+                    "escrow": "0x52908400098527886E0F7030069857D2E4169EE7",
+                    "payload": "sell_quote=9",
+                    "required_ait": "10",
+                },
+            }
+        }
+        result = self._invoke(runner)
+        assert result.exit_code == 0, result.output
+        assert "To fund: send a TRANSFER of at least 10 AIT" in result.output
+        assert "sell_quote=9" in result.output
+
+    def test_no_hint_without_funding_key(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
+        # Flag-off response — plain order row, no funding block: nothing
+        # extra is printed (byte-identical to the pre-phase-3 CLI output).
+        mock_client.get_responses = {**self._merge(_head_response(1000), _registered_doc(wallet_key[0], nonce=1))}
+        mock_client.post_responses = {"default": {"id": 9, "status": "open", "funded_state": "unfunded"}}
+        result = self._invoke(runner)
+        assert result.exit_code == 0, result.output
+        assert "To fund:" not in result.output
+
     def test_nine_decimal_amount_aborts_before_network(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
         mock_client.get_responses = {**_head_response(1000), **_registered_doc(wallet_key[0])}
         result = runner.invoke(

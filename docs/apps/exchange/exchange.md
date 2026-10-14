@@ -28,6 +28,7 @@ Key variables:
 - `BLOCKCHAIN_RPC_URL` — blockchain RPC base URL
 - `EXCHANGE_HOST` — bind host (systemd sets `127.0.0.1`)
 - Bridge: `BRIDGE_ETH_ADDRESS`, `BRIDGE_CONTRACT_ADDRESS`, `BRIDGE_FEE_RATE`, `BRIDGE_DEPOSIT_ENABLED`, `BRIDGE_WITHDRAW_ENABLED`, `BRIDGE_CUSTODIAN_MODE`, `BRIDGE_MULTISIG_*`, `BRIDGE_SAFE_ADDRESS`, `ETH_NETWORK`, `MIN_ETH_DEPOSIT`
+- Settlement (phase 3, all inert unless `EXCHANGE_SETTLEMENT_ENABLED=true`): `AIT_SELL_ESCROW` and `BRIDGE_ETH_ADDRESS` — both **must be EIP-55 checksummed**; placement refuses 503 when the order's side has an unset/malformed destination, and `/readyz` reports `settlement_envs` while they are. `EXCHANGE_FEE_PCT` (default `0` — the treasury leg is skipped when it floors to zero chain units), `EXCHANGE_PRICE_BAND_PCT`, `EXCHANGE_CANCEL_RATIO`, `EXCHANGE_WATCHLIST_*`, `EXCHANGE_TRUSTED_PROXIES`, `EXCHANGE_CHAIN_ID`. The wallet-side settlement monitor additionally reads `EXCHANGE_INTERNAL_URL` (default `http://127.0.0.1:8106`) for its event posts.
 
 ### Running the Service
 
@@ -153,6 +154,61 @@ GET  /api/exchange/my-orders?addr=0x...   # one wallet's orders + next expected 
   funds.
 - **Cancel/fill races** resolve under the same `BEGIN IMMEDIATE` write lock:
   whoever commits first wins; the loser gets `409`.
+
+### Funded settlement (ETH-19 phase 3, dark)
+
+Everything below is inert unless `EXCHANGE_SETTLEMENT_ENABLED=true`; with the
+flag off placement never emits a `funding` block and the monitors idle.
+
+**Funding an order.** A placed order answers with a `funding` block:
+
+- **BUY** (`eth_prepay`): `needed_eth`, `tag=EXCHANGE_DEPOSIT:<your address>`,
+  `bridge_eth_address`. Send the ETH **on Sepolia** to the bridge wallet with
+  that tag as the tx input data — `aitbc exchange order place` prints the
+  instruction when it applies.
+- **SELL** (`ait_lock`): `escrow`, `payload=sell_quote=<order id>`,
+  `required_ait` (amount + fee). Send a chain `TRANSFER` of at least that
+  amount to the escrow account with that payload, **from the order owner's
+  wallet** — the settlement monitor credits a lock only when the sender
+  (canonicalized) equals the order owner; stranger locks get an
+  `order_refund`, never credit.
+
+**The watchers.** `aitbc-bridge-monitor` (the live deposit watcher on hub)
+intercepts tagged inflows into `eth_deposits` at status `exchange_prepay` —
+terminal, outside the payout vocabulary, never minted; tagged deposits bypass
+the dust floor since they owe no payout. The wallet-side deposit monitor
+carries the same intercept for hosts where it is the live watcher. The
+wallet's exchange-settlement monitor then polls `exchange_prepay` rows and
+posts `prepaid_credit` to the exchange (registered nodes only), scans escrow
+for order locks (`order_funded`), and drives each trade's three legs: AIT to
+the buyer, ETH release to the seller's registered payout address, and the
+`EXCHANGE_FEE_PCT` treasury leg — skipped entirely when the fee floors to
+zero chain units. Lock remainders at or below the sweep fee are logged and
+left in escrow rather than refunded. The three ETH release lanes (withdraw,
+sell, exchange) share one nonce-fetch→sign→broadcast lock so two lanes can
+never grab the same pending nonce.
+
+**Misconfiguration surfaces early.** Placement under the flag refuses 503
+when the side's destination env (`BRIDGE_ETH_ADDRESS` for BUY,
+`AIT_SELL_ESCROW` for SELL) is unset, empty, malformed, or not EIP-55
+checksummed — refused orders burn no `account_nonce` — and `/readyz` reports
+a `settlement_envs` failure while either env is missing. `/readyz` also
+verifies the bridge monitor's `eth_deposits` table under `bridge_storage`
+when bridge deposits/withdrawals are enabled.
+
+**Post-incident audit.** Before reopening the book after a crash or restore:
+
+```bash
+venv/bin/python scripts/ops/exchange_verify.py --db /var/lib/aitbc/data/exchange/exchange.db \
+    --bridge-db /var/lib/aitbc/bridge_deposits.db \
+    --bridge-address "$BRIDGE_ETH_ADDRESS" \
+    --ait-rpc "$BLOCKCHAIN_RPC_URL" --escrow-address "$AIT_SELL_ESCROW"
+```
+
+The verifier is read-only (sqlite `mode=ro`, stdlib, no keys): DB-internal
+consistency, bridge-deposit cross-checks, Sepolia settlement legs, and the
+escrow lock/sweep history on the chain RPC. Exit 1 on any FAIL; WARN marks
+unsealed or still-pending rows. `--no-chain` limits it to DB-internal checks.
 
 The exchange service is intentionally absent from the generated OpenAPI
 specs (`scripts/extract_openapi_specs.py` skips it — the catch-all FastAPI
