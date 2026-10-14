@@ -62,11 +62,17 @@ def _eth_rpc_stub(
     nonces: dict[str, int] | None = None,
     block: int = 500,
     txs: dict[str, Any] | None = None,
+    estimate: int = 21_000,
 ):
-    """Dispatch wdm._eth_rpc calls used by the release-outcome checks."""
-    receipts = receipts or {}
+    """Dispatch wdm._eth_rpc calls used by the release-outcome checks.
+
+    ``receipts``/``nonces`` may be mutable dicts owned by the test — rows
+    can gain a chain outcome between polls. ``estimate`` feeds
+    eth_estimateGas (ETH-14: release gas is estimated, not static).
+    """
+    receipts = receipts if receipts is not None else {}
     txs = txs or {}
-    nonces = nonces or {"latest": 0, "pending": 0}
+    nonces = nonces if nonces is not None else {"latest": 0, "pending": 0}
 
     async def _stub(method: str, params: list[Any]) -> Any:
         if method == "eth_getTransactionReceipt":
@@ -77,6 +83,8 @@ def _eth_rpc_stub(
             return hex(block)
         if method == "eth_getTransactionCount":
             return hex(nonces.get(params[1], 0))
+        if method == "eth_estimateGas":
+            return hex(estimate)
         raise AssertionError(f"unexpected eth_rpc call {method}")
 
     return _stub
@@ -114,16 +122,12 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(wdm, "ETH_WALLET_ADDRESS", TEST_ETH_ADDRESS)
     monkeypatch.setattr(wdm, "ETH_WALLET_PRIVATE_KEY", TEST_ETH_PRIVATE_KEY)
     monkeypatch.setattr(wdm, "BRIDGE_ADMIN_PRIVATE_KEY", "")
-    monkeypatch.setattr(wdm, "ETH_WITHDRAW_GAS", 100_000)
+    # No static gas override — the release path must estimate (ETH-14).
+    monkeypatch.setattr(wdm, "ETH_WITHDRAW_GAS", "")
     monkeypatch.setattr(wdm, "BLOCKCHAIN_RPC_URL", "http://localhost:0")
 
     async def _coro(value):
         return value
-
-    monkeypatch.setattr(wdm, "_eth_balance", lambda address: _coro(Decimal("0.1")))
-    monkeypatch.setattr(wdm, "_eth_gas_price", lambda: _coro(1_000_000_000))
-    monkeypatch.setattr(wdm, "_eth_nonce", lambda address: _coro(7))
-    monkeypatch.setattr(wdm, "_eth_rpc", _eth_rpc_stub())
 
     state = {
         "eth_sends": [],
@@ -131,7 +135,14 @@ def sell_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         "escrow_nonce": 0,
         "escrow_balance": Decimal("1000"),
         "chain_height": 1000,
+        "receipts": {},
+        "nonces": {"latest": 0, "pending": 0},
     }
+
+    monkeypatch.setattr(wdm, "_eth_balance", lambda address: _coro(Decimal("0.1")))
+    monkeypatch.setattr(wdm, "_eth_gas_price", lambda: _coro(1_000_000_000))
+    monkeypatch.setattr(wdm, "_eth_nonce", lambda address: _coro(7))
+    monkeypatch.setattr(wdm, "_eth_rpc", _eth_rpc_stub(receipts=state["receipts"], nonces=state["nonces"]))
 
     async def _broadcast(raw: str) -> str:
         state["eth_sends"].append(raw)
@@ -207,6 +218,17 @@ def _lock_tx(
         "status": "confirmed",
         "type": "TRANSFER",
     }
+
+
+async def _prove_release_sent(sell_env: dict, ait_tx_hash: str) -> None:
+    """Give a 'releasing' row's recorded release a deep successful receipt
+    and run one poll — the ETH-14 gate: only a verified receipt may move
+    the row 'released'."""
+    row = get_sell_lock_by_ait_tx_hash(ait_tx_hash)
+    assert row is not None and row["status"] == "releasing"
+    sell_env["receipts"][row["eth_tx_hash"]] = {"status": "0x1", "blockNumber": hex(450)}
+    sell_env["transfers"] = []
+    await sellmon.poll_sells_once()
 
 
 def _sealed_sweep_tx(
@@ -293,12 +315,18 @@ class TestQuoteAndLockMatching:
         assert result["recorded"] == 1
         assert len(sell_env["eth_sends"]) == 1
 
+        # ETH-14: broadcast alone leaves the row 'releasing'.
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
-        assert row["status"] == "released"
+        assert row["status"] == "releasing"
         assert row["quote_id"] == quote_id
         assert row["eth_tx_hash"]
         assert row["release_nonce"] == 7
         assert get_sell_quote(quote_id)["status"] == "locked"
+
+        # A verified status-1 receipt at depth moves it 'released'.
+        await _prove_release_sent(sell_env, "0x" + "aa" * 32)
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "released"
 
     @pytest.mark.asyncio
     async def test_lock_on_expired_quote_requotes(self, sell_env):
@@ -310,8 +338,11 @@ class TestQuoteAndLockMatching:
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
         assert row["requoted"] == 1
         assert row["eth_amount"] is not None
-        assert row["status"] == "released"
+        assert row["status"] == "releasing"
         assert get_sell_quote(quote_id)["status"] == "expired"
+
+        await _prove_release_sent(sell_env, "0x" + "aa" * 32)
+        assert get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)["status"] == "released"
 
     @pytest.mark.asyncio
     async def test_expired_quote_stale_feed_parks(self, sell_env, monkeypatch):
@@ -414,9 +445,12 @@ class TestQuoteAndLockMatching:
         await sellmon.poll_sells_once()
         first = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
         second = get_sell_lock_by_ait_tx_hash("0x" + "cc" * 32)
-        assert first["status"] == "released"
+        assert first["status"] == "releasing"
         assert second["status"] == "orphaned"
         assert len(sell_env["eth_sends"]) == 1
+
+        await _prove_release_sent(sell_env, "0x" + "aa" * 32)
+        assert get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)["status"] == "released"
 
 
 class TestCapsAndReserve:
@@ -441,8 +475,11 @@ class TestCapsAndReserve:
         sell_env["transfers"] = []
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
-        assert row["status"] == "released"
+        assert row["status"] == "releasing"
         assert len(sell_env["eth_sends"]) == 1
+
+        await _prove_release_sent(sell_env, "0x" + "aa" * 32)
+        assert get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)["status"] == "released"
 
     @pytest.mark.asyncio
     async def test_per_tx_cap_queues(self, sell_env):
@@ -507,8 +544,11 @@ class TestStalePriceParking:
         sell_env["transfers"] = []
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
-        assert row["status"] == "released"
+        assert row["status"] == "releasing"
         assert len(sell_env["eth_sends"]) == 1
+
+        await _prove_release_sent(sell_env, "0x" + "aa" * 32)
+        assert get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)["status"] == "released"
 
 
 class TestReleaseOutcomeAndResume:
@@ -537,21 +577,27 @@ class TestReleaseOutcomeAndResume:
                 return hex(460)
             if method == "eth_getTransactionCount":
                 return hex(8)
+            if method == "eth_estimateGas":
+                return hex(21_000)
             raise AssertionError(method)
 
         monkeypatch.setattr(wdm, "_eth_rpc", _eth_rpc)
         monkeypatch.setattr(sellmon, "update_sell_lock_status", _flaky_update)
         await sellmon.poll_sells_once()
-        # DB recovered — real updater again.
-        monkeypatch.setattr(sellmon, "update_sell_lock_status", real_update)
 
+        # ETH-14: the broadcast itself only leaves 'releasing'; the
+        # 'released' write happens on the verified inflight pass — poll
+        # again with the DB still failing: exhausted retries keep the row
+        # open and no refund issues.
+        sell_env["transfers"] = []
+        await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
         assert row["status"] == "releasing"
         assert row["eth_tx_hash"]
         assert not sell_env["ait_sends"]  # no refund despite the failure
 
-        # Resume pass: 'sent' -> released; next poll starts the settle sweep
-        # (in-flight, not terminal — a broadcast is not a seal).
+        # DB recovered — real updater again; the verified receipt completes it.
+        monkeypatch.setattr(sellmon, "update_sell_lock_status", real_update)
         await sellmon.poll_sells_once()
         row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
         assert row["status"] == "released"
