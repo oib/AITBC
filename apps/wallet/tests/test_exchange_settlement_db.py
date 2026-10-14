@@ -131,3 +131,31 @@ def test_pending_reserve_sums_only_reserve_statuses(fresh_ledger):
     bridge_db.update_exchange_settlement(sid4, "refunded")
     # locked + releasing reserve; settled + refunded do not.
     assert bridge_db.get_exchange_pending_eth_reserve() == Decimal("0.003")
+
+
+def test_pending_reserve_sums_as_decimal_not_float(fresh_ledger):
+    """0.1 + 0.2 is 0.3 in Decimal and 0.30000000000000004 in float — a SQL
+    SUM() on the NUMERIC column goes through float before the converter sees
+    it, so the sum must happen in Python."""
+    _insert_trade(ref_id=1, eth_amount=Decimal("0.1"))
+    _insert_trade(ref_id=2, eth_amount=Decimal("0.2"))
+    total = bridge_db.get_exchange_pending_eth_reserve()
+    assert total == Decimal("0.3")
+    assert total != Decimal(str(0.1 + 0.2))  # what a float SUM would return
+
+
+def test_update_rejects_unknown_status(fresh_ledger):
+    """The table carries no CHECK on status — a typo'd status would park the
+    row outside every worklist, so the helper validates the vocabulary."""
+    sid = _insert_trade()
+    with pytest.raises(ValueError, match="unknown settlement status"):
+        bridge_db.update_exchange_settlement(sid, "setteld")
+    assert bridge_db.get_exchange_settlement("trade", 1)["status"] == "locked"
+
+
+def test_status_vocabulary_matches_exchange_schema(fresh_ledger):
+    """Parity pin: the wallet-side set and _SETTLEMENT_STATES in the exchange
+    schema describe one state machine and must never drift apart."""
+    from apps.exchange.simple_exchange import db as exchange_db
+
+    assert bridge_db._EXCHANGE_SETTLEMENT_STATUSES == frozenset(exchange_db._SETTLEMENT_STATES)

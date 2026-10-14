@@ -21,6 +21,15 @@ def _env(monkeypatch):
     monkeypatch.delenv("EXCHANGE_REQUIRE_SIGNED_ORDERS", raising=False)
     monkeypatch.setenv("EXCHANGE_REGISTER_PER_MIN", "100000")
     monkeypatch.setenv("EXCHANGE_READS_PER_MIN", "100000")
+    # Hermetic: real operational addresses must not leak into the blocklist.
+    for name in (
+        "AIT_SELL_ESCROW",
+        "BRIDGE_PAYOUT_ADDRESS",
+        "GENESIS_WALLET_ADDRESS",
+        "BRIDGE_ETH_ADDRESS",
+        "SELL_TREASURY_ADDRESS",
+    ):
+        monkeypatch.delenv(name, raising=False)
     buckets = ExchangeMixin.handle_node_register.__globals__.get("_RATE_BUCKETS")
     lock = ExchangeMixin.handle_node_register.__globals__.get("_RATE_LOCK")
     if buckets is not None and lock is not None:
@@ -185,6 +194,31 @@ def test_lowercase_and_typo_addresses_rejected(db_path, settlement_on):
     assert bad != known
     _set_payout(db_path, h, _payout_body(node.address, node.key.hex(), eth_address=bad))
     assert h.send_error.called and h.send_error.call_args[0][0] == 400
+    assert _row(db_path, node.address)[0] is None
+
+
+def test_burn_and_operational_addresses_rejected(db_path, settlement_on, monkeypatch):
+    """Burn addresses and the hub's own operational accounts can never be a
+    payout destination — a typo or hostile claim would strand or loop funds."""
+    node = Account.create()
+    h = _register(db_path, node.address, node.key.hex())
+    # Known EIP-55 strings: zero/dead pass is_checksum_address trivially or
+    # famously, so the blocklist (not the checksum) must be what rejects them.
+    blocked = [
+        "0x0000000000000000000000000000000000000000",
+        "0x000000000000000000000000000000000000dEaD",
+    ]
+    for name, addr in (
+        ("AIT_SELL_ESCROW", "0xCf1719140054AB3fD52ce8aa3128dec9317426E3"),
+        ("BRIDGE_PAYOUT_ADDRESS", "0x310dcE00270D0aC10CAccfBD636Ff07BD5648781"),
+        ("SELL_TREASURY_ADDRESS", Account.create().address),
+    ):
+        monkeypatch.setenv(name, addr)
+        blocked.append(addr)
+    for addr in blocked:
+        _set_payout(db_path, h, _payout_body(node.address, node.key.hex(), eth_address=addr))
+        assert h.send_error.called and h.send_error.call_args[0][0] == 400, addr
+        h.send_error.reset_mock()
     assert _row(db_path, node.address)[0] is None
 
 
