@@ -40,8 +40,8 @@ upstream of the page: orders are unsigned, unfunded, and never settle.
 
 Price rule: **±10 % band around the Chainlink-derived rate**, width a
 config value (`EXCHANGE_PRICE_BAND_PCT`, default 0.10). Traders:
-**registered nodes only**, shown as `node-name (0x1234…abcd)`. Both are
-recommendations, not decisions — see "Operator decisions needed".
+**registered nodes only**, shown as `node-name (0x1234…abcd)`. Both
+DECIDED 14 Oct 2026 — see "Operator decisions needed".
 
 ## 1. Identity and signing
 
@@ -439,44 +439,48 @@ needed the node's key to receive it.
   long-term target). Carried identically in the ETH-7 design;
   the strict-reading fallback (locks to the hub's existing treasury
   address, commingled escrowed AIT) is not needed.
-- **Price rule — OPEN.** *Recommended:* ±10 % band around the
+- **Price rule — DECIDED 14 Oct 2026, operator reply verbatim:
+  "±10% oracle band (rec.)".** ±10 % band around the
   Chainlink-derived rate, width config (`EXCHANGE_PRICE_BAND_PCT`,
   default 0.10) — a fat-finger can't print a 10× tick and a fake print
   is cheap to spot; consequence: a feed outage freezes *new*
   placements (resting orders stay visible, placements 503 like the
-  quote endpoint). *Alternative:* free market — consequence: real
-  price discovery but spoofed prints move the displayed price and the
+  quote endpoint). *Rejected alternative:* free market — real price
+  discovery but spoofed prints move the displayed price and the
   manipulation surface is unbounded. (§3.)
-- **Who may trade — OPEN.** *Recommended:* registered nodes only —
-  a `node_registry` row (display name + fleet AIT address, signed
+- **Who may trade — DECIDED 14 Oct 2026, operator reply verbatim:
+  "Registered nodes (rec.)".** Registered nodes only — a
+  `node_registry` row (display name + fleet AIT address, signed
   registration envelope) is required to place; consequence: the board
   shows accountable `label (0x1234…abcd)` identities and a new trader
-  needs one operator-side registration step. *Alternative:* open to
-  any signing address — consequence: permissionless but anonymous
-  labels can be Sybil'd, and a spoofed "node2" cannot be told apart
-  from the real one. Reads stay public either way. (§4.)
-- **Fee — OPEN.** *Recommended:* `EXCHANGE_FEE_PCT` (default 0 on
+  needs one operator-side registration step. *Rejected alternative:*
+  open to any signing address — permissionless but anonymous labels
+  can be Sybil'd, and a spoofed "node2" cannot be told apart from the
+  real one. Reads stay public either way. (§4.)
+- **Fee — DECIDED 14 Oct 2026, operator reply verbatim:
+  "AIT leg to seller (rec.)".** `EXCHANGE_FEE_PCT` (default 0 on
   testnet — knob present, off) reusing the `apply_bridge_fee` shape
   (`price_api.py:203`), charged on the **AIT leg to the seller** and
   swept to the same treasury address the settle leg uses; consequence:
   one fee path, one ledger entry, the seller's proceeds are net of
-  fee. *Alternative:* buyer-pays fee on the ETH leg — consequence: the
-  buyer's prepaid debit becomes `amount × price × (1+fee)`, the
-  prepaid-math direction changes, and fee income lands in a second
-  currency path. (§7.)
-- **Phase order — OPEN.** Phase 1 (read-only display) already shipped
-  as ETH-11 phase 1 (`a22794e63`). *Recommended:* phase 2 (signed
-  orders + registration, still unfunded/settlement-free) ships next;
-  phase 3 (funded settlement) waits on the 46,100 activation bedding
-  in **and** ETH-2 — noting that ETH-14's recovery (14 Oct) *was* a
-  first live withdrawal: it ran, reverted on the old fixed-100 000-gas
-  assumption, and was recovered via `withdraw_admin`; whether that
-  counts as the release path proven, or a clean live run is wanted
-  first, is part of this decision. *Alternative:* jump straight to
-  phase 3 — consequence: the signed-identity layer goes untested in
-  the field while real funds move; or hold phase 2 until phase 3 is
-  ready — consequence: signature/cancel code paths sit dark and get
-  no soak time. (Rollout, §13.)
+  fee. *Rejected alternative:* buyer-pays fee on the ETH leg — the
+  buyer's prepaid debit would become `amount × price × (1+fee)`,
+  changing the prepaid-math direction and landing fee income in a
+  second currency path. (§7.)
+- **Phase order — DECIDED 14 Oct 2026, operator reply verbatim:
+  "Phase 2 next (rec.)".** Phase 1 (read-only display) already shipped
+  as ETH-11 phase 1 (`a22794e63`). Phase 2 (signed orders +
+  registration, still unfunded/settlement-free) ships next; phase 3
+  (funded settlement) waits on the 46,100 activation bedding in **and
+  a clean ETH-2 live withdraw run** — ETH-14's recovery (14 Oct) was a
+  first live withdrawal (ran, reverted on the old fixed-100 000-gas
+  assumption, recovered via `withdraw_admin`) but does **not** count
+  as ETH-2: the operator wants the release path proven by a clean run,
+  not only by a recovery. *Rejected alternatives:* jump straight to
+  phase 3 — the signed-identity layer would go untested in the field
+  while real funds move; hold phase 2 until phase 3 is ready —
+  signature/cancel code paths would sit dark and get no soak time.
+  (Rollout, §13.)
 
 ## Could not verify (and why)
 
