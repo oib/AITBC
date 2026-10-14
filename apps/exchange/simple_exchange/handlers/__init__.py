@@ -92,10 +92,9 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
         else:
             self.send_error(404, "Not Found")
 
-    def do_POST(self):
-        """Handle POST requests"""
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
+    def _post_api_route(self, path: str) -> bool:
+        """Dispatch the /api/* POST routes. Returns True when one handled
+        the request; False leaves routing to the caller."""
         if path == "/api/orders":
             self.handle_place_order()
         elif path.startswith("/api/orders/") and path.endswith("/cancel"):
@@ -114,7 +113,17 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
             self.handle_internal_settlement()
         elif path == "/api/wallet/connect":
             self.handle_wallet_connect()
-        elif path == "/v1/market/offers":
+        else:
+            return False
+        return True
+
+    def do_POST(self):
+        """Handle POST requests"""
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if self._post_api_route(path):
+            return
+        if path == "/v1/market/offers":
             self.handle_market_create_offer()
         elif path.startswith("/v1/market/offers/") and path.endswith("/book"):
             self.handle_market_book_offer(path)
