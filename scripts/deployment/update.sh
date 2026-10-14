@@ -448,8 +448,31 @@ sync_venv() {
         return 1
     fi
 
-    # Upgrade pip quietly
-    pip install --upgrade pip --quiet 2>/dev/null || warning "pip upgrade failed (continuing)"
+    # Post-activation assert: pip must resolve inside $VENV_DIR. A venv copied
+    # out of the CI cache keeps bin/* shebangs pointing at
+    # /var/cache/aitbc/python-venvs/... — a bare `pip` then runs a foreign
+    # interpreter and every install lands in the cache venv. A stale
+    # VIRTUAL_ENV in bin/activate similarly prepends the cache bin dir to
+    # PATH. Fail loudly here instead of silently drifting the node.
+    local pip_resolved pip_location pip_shebang
+    pip_resolved="$(command -v pip 2>/dev/null || true)"
+    pip_location="$("$VENV_DIR/bin/python" -m pip -V 2>/dev/null || true)"
+    pip_shebang="$(head -n1 "$VENV_DIR/bin/pip" 2>/dev/null || true)"
+    if [ "$pip_resolved" != "$VENV_DIR/bin/pip" ] \
+       || [[ "$pip_location" != *"$VENV_DIR/"* ]] \
+       || [[ "$pip_shebang" != '#!'*"$VENV_DIR/bin/"* ]]; then
+        error "venv sanity check failed — pip does not resolve inside $VENV_DIR:"
+        error "  command -v pip         = ${pip_resolved:-<not found>}  (expected $VENV_DIR/bin/pip)"
+        error "  python -m pip -V       = ${pip_location:-<no output>}"
+        error "  head -1 bin/pip        = ${pip_shebang:-<unreadable>}  (expected #!$VENV_DIR/bin/python*)"
+        error "bin/* shebangs or activate likely point at a stale cache venv — recreate it with setup.sh"
+        return 1
+    fi
+
+    # Upgrade pip via the venv interpreter itself — never a bare `pip`, which
+    # could resolve to a script with a foreign shebang. stderr stays visible:
+    # discarding it is what let wrong-venv installs fail silently.
+    "$VENV_DIR/bin/python" -m pip install --upgrade pip --quiet || warning "pip upgrade failed (continuing)"
 
     # Try install-profiles.sh with detected profile (mirrors setup.sh)
     local role profile
@@ -474,7 +497,7 @@ sync_venv() {
     if [ -f "$AITBC_ROOT/cli/setup.py" ] || [ -f "$AITBC_ROOT/cli/pyproject.toml" ]; then
         log "Reinstalling AITBC CLI..."
         # shellcheck disable=SC2015
-        ( cd "$AITBC_ROOT/cli" && pip install -e . --quiet 2>/dev/null ) \
+        ( cd "$AITBC_ROOT/cli" && "$VENV_DIR/bin/python" -m pip install -e . --quiet ) \
             && success "CLI reinstalled" \
             || warning "CLI reinstall failed (continuing)"
     fi
@@ -498,12 +521,12 @@ fallback_pip_install() {
     log "Installing from requirements.txt..."
     if [ -f "$AITBC_ROOT/requirements.txt" ]; then
         # shellcheck disable=SC2015
-        pip install -r "$AITBC_ROOT/requirements.txt" --quiet 2>/dev/null \
+        "$VENV_DIR/bin/python" -m pip install -r "$AITBC_ROOT/requirements.txt" --quiet \
             && success "Core requirements installed" \
             || warning "Failed to install some core requirements"
     fi
     if [ -f "$AITBC_ROOT/cli/requirements-cli.txt" ]; then
-        pip install -r "$AITBC_ROOT/cli/requirements-cli.txt" --quiet 2>/dev/null \
+        "$VENV_DIR/bin/python" -m pip install -r "$AITBC_ROOT/cli/requirements-cli.txt" --quiet \
             || warning "Failed to install some CLI requirements"
     fi
 }
