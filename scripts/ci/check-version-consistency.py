@@ -74,12 +74,26 @@ def main() -> int:
         "pyproject.toml",
         all_matches=True,
     )
-    ok &= _check_file(
-        REPO_ROOT / "cli" / "setup.py",
-        r'version\s*=\s*"([^"]+)"',
-        expected,
-        "cli/setup.py",
+    # cli/setup.py pins version=__version__ imported from aitbc_cli (canonical);
+    # a literal is still accepted if it matches. cli/tests/test_version.py
+    # enforces the same rule.
+    setup_path = REPO_ROOT / "cli" / "setup.py"
+    setup_match = (
+        re.search(r"version\s*=\s*([^,\s)]+)", setup_path.read_text(encoding="utf-8")) if setup_path.is_file() else None
     )
+    if setup_match is None:
+        print(f"ERROR: Could not find version pattern in cli/setup.py ({setup_path})", file=sys.stderr)
+        ok = False
+    elif setup_match.group(1) == "__version__":
+        print("OK: cli/setup.py -> __version__ (imported from aitbc_cli)")
+    elif setup_match.group(1).strip("\"'") == expected:
+        print(f"OK: cli/setup.py -> {expected}")
+    else:
+        print(
+            f"ERROR: Version mismatch in cli/setup.py ({setup_path}): expected {expected!r} or __version__ import, found {setup_match.group(1)!r}",
+            file=sys.stderr,
+        )
+        ok = False
     ok &= _check_file(
         REPO_ROOT / "cli" / "aitbc_cli" / "__init__.py",
         r'__version__\s*=\s*"([^"]+)"',
