@@ -1378,7 +1378,7 @@ and hub1 today), so such a host needs the SEC-15 venv repair before
 
 ### SEC-18: wallet bridge 5xx bodies drop config and exception text (2026-10-14)
 
-`f8f9cf4864` and `aac12bf1b0` fix three `bridge_routes.py` sites that put
+`4bd1aca607` and `2f04b11160` fix three `bridge_routes.py` sites that put
 server configuration or exception text into 503 response bodies — the
 class `tests/security/test_http_exception_hardening.py` already forbids
 (the wallet parametrization was red on main because nothing ran the full
