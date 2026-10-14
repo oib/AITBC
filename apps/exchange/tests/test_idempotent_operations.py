@@ -9,9 +9,22 @@ attempt leaves no residue.
 import asyncio
 import json
 import sqlite3
+
+import pytest
 from starlette.requests import Request
 
 from apps.exchange.simple_exchange.main import _dispatch
+
+
+@pytest.fixture(autouse=True)
+def _legacy_unsigned_placement(monkeypatch):
+    """Idempotency-Key semantics here belong to the pre-phase-2 unsigned path.
+
+    ETH-11 phase 2 made signed envelopes the default auth for POST
+    /api/orders (the signature itself is the dedupe key there); pin the flag
+    off so these tests keep exercising exactly the contract they document.
+    """
+    monkeypatch.setenv("EXCHANGE_REQUIRE_SIGNED_ORDERS", "0")
 
 
 def _request(method: str, path: str, body: bytes = b"", headers: dict[str, str] | None = None) -> Request:

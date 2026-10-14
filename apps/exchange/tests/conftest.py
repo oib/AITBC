@@ -35,22 +35,44 @@ def exchange_db(tmp_path, monkeypatch):
             total TEXT NOT NULL,
             filled TEXT DEFAULT '0',
             remaining TEXT NOT NULL,
-            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),
+            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled', 'expired')),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             user_address TEXT,
             tx_hash TEXT,
             amount_ticks INTEGER,
             price_ticks INTEGER,
             filled_ticks INTEGER DEFAULT 0,
-            remaining_ticks INTEGER
+            remaining_ticks INTEGER,
+            signature TEXT,
+            envelope_hash TEXT,
+            account_nonce INTEGER,
+            expiry_height INTEGER,
+            funded_state TEXT NOT NULL DEFAULT 'unfunded',
+            cancelled_at TIMESTAMP
         );
         CREATE TABLE trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             amount TEXT NOT NULL,
             price TEXT NOT NULL,
             total TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            buyer_address TEXT,
+            seller_address TEXT,
+            fee_ait TEXT
         );
+        CREATE TABLE node_registry (
+            address TEXT PRIMARY KEY,
+            label TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL DEFAULT 'seeded' CHECK(status IN ('seeded', 'registered', 'suspended')),
+            registered_tx TEXT,
+            registered_at TIMESTAMP
+        );
+        CREATE TABLE order_nonces (
+            address TEXT PRIMARY KEY,
+            next_nonce INTEGER NOT NULL DEFAULT 0 CHECK(next_nonce >= 0)
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_signer_envelope
+            ON orders (user_address, envelope_hash) WHERE envelope_hash IS NOT NULL;
         """
     )
     conn.commit()
