@@ -26,12 +26,12 @@ def _chain_env(monkeypatch):
     monkeypatch.setenv("EXCHANGE_CHAIN_ID", "ait-localnet")
     monkeypatch.delenv("EXCHANGE_REQUIRE_SIGNED_ORDERS", raising=False)
     monkeypatch.delenv("EXCHANGE_PRICE_BAND_PCT", raising=False)
-    # Rate-limit buckets are module-level process state — clear between tests
-    # so a suite's worth of requests from one IP can't trip the window.
-    from apps.exchange.simple_exchange.handlers import exchange as ex
-
-    with ex._RATE_LOCK:
-        ex._RATE_BUCKETS.clear()
+    # Rate-limit buckets live on the module object — which test_http_contract's
+    # sys.modules purge can duplicate — so rather than clear a possibly-stale
+    # module's dict, just raise every window past what a test can spend.
+    monkeypatch.setenv("EXCHANGE_MAX_ORDERS_PER_MIN", "100000")
+    monkeypatch.setenv("EXCHANGE_REGISTER_PER_MIN", "100000")
+    monkeypatch.setenv("EXCHANGE_READS_PER_MIN", "100000")
 
 
 @pytest.fixture
