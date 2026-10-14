@@ -1831,6 +1831,41 @@ narrative; this list cites each remaining commit by hash so
 - `619083069` feat(cli): ETH-11 phase 2 — signed hub orders + node registration commands
 - `655974bba` test(exchange): raise phase-2 rate-limit windows for module-identity isolation
 - `0e307921d` feat(exchange): trusted-proxy client IP + env-configurable watchlist knobs
+- `05a174cd2` docs(release): commit index catches up — cite every post-tag commit
+- `8e6def6f4` fix(bridge): default block-scoped pre-registered transactions on (CFG-1)
+- `69f36cc85` docs(release): CFG-1 entry — block-scoped preregistration default flip
+- `2356c02f6` fix(security): dependency-scan.sh stops reinstalling safety, uses throwaway tools venv (SEC-19)
+- `826aab0e2` docs(release): SEC-19 changelog — dependency-scan.sh tool isolation
+- `b984065ff` test(security): placeholder fleet literals so the no-fleet guard passes
+- `9162b3f40` test(consistency): skip git-metadata tests on exports; probe endpoint reachability
+- `9a79ffedc` docs(test): record the TEST-1 rerun policy and the .git scratch rule
+- `55f59a939` docs(release): single version reality in the releases README
+- `02fc71068` docs(release): TEST-2(B) changelog note + commit index catch-up
+- `52296b3f0` test(migrations): pin sweep timeout at 1800s, drop the flaky rerun
+- `01ea6e271` docs(release): cite the sweep-timeout pin + drop its flaky rerun note
+- `c7d640785` fix(bridge): redact keyed RPC URLs in ethereum_rpc log lines (ETH-15 residual)
+- `b43601be1` feat(bridge): BR-6/B13 — rotation-aware bridge reconcile (report-only)
+- `d6754fae5` feat(bridge): ETH-13 sell-lock operator command — sell_admin + audit columns
+- `1dd0242c5` docs(ops): sell-escrow runbook gains the ETH-13 operator command; changelog
+- `22877b900` feat(bridge): ETH-13 sell_admin host gates — root/hub-only + ledger presence
+- `c3ce571f3` docs(ops): ETH-13 changelog cites host-gates commit; runbook gains gate rules
+- `8b880cd11` docs(ops): sell_admin host gates are a guard rail, not a security boundary
+- `184a39b5f` fix(bridge): ETH-18 a young pending release logs below ERROR, not 'needs review'
+- `8b0b8d679` docs(release): ETH-18 changelog — young release delay logs below ERROR
+- `5a80f0ae5` docs(exchange): ETH-11 phase 2 status, scenario 59 addendum, changelog
+- `115ca9ddb` docs(scenarios): scenario 33 — signed order envelope is the live POST contract
+- `3b5ff6770` feat(exchange): ETH-8 phase 3 (C1, dark) — prepaid ledger, settlement schemas
+- `333ab2f54` feat(exchange): ETH-8 phase 3 (C2, dark) — exchange_set_payout verb
+- `cfa161e92` fix(exchange): ETH-8 phase 3 review notes — payout blocklist, status vocab, Decimal reserve
+- `71af575ae` feat(exchange): ETH-8 phase 3 (C3, dark) — funding gates and prepaid debit lifecycle
+- `74c111ddb` feat(exchange): ETH-8 phase 3 (C4, dark) — internal settlement endpoint, cumulative commits, per-fill fee delta
+- `48907c3fd` fix(exchange): ETH-8 phase 3 C4 review — canonicalize prepaid node, registered-only, refuse proxy stamps
+- `5f87cd6f4` feat(wallet): ETH-8 phase 3 (C5, dark) — exchange settlement monitor
+- `a29a87530` fix(wallet): ETH-8 phase 3 C5 review — standalone tag intercept, lock owner, fee/dust skips, ETH nonce lock
+- `715e8e1b2` fix(exchange): ETH-19 C6 — funding-destination env guard + bridge-store readiness fix
+- `0f105d7e6` feat(ops): ETH-19 C7 — exchange_verify.py read-only book checker
+- `60f864368` docs(exchange): ETH-19 C8 — phase-3 docs, CLI funding hints, scenario 59 E
+- `95eb8e948` refactor: split C901-complex functions in ETH-8 phase-3 paths
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
