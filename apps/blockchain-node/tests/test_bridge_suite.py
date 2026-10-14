@@ -139,7 +139,11 @@ def bridge(engine) -> CrossChainBridge:
 @pytest.fixture(autouse=True)
 def _patch_supported_chains():
     """Allow test chain IDs (chain-a, chain-b, chain-c) in bridge RPC validation."""
-    with patch("aitbc_chain.config.settings.supported_chains", "chain-a,chain-b,chain-c,chain-empty"):
+    with (
+        patch("aitbc_chain.config.settings.supported_chains", "chain-a,chain-b,chain-c,chain-empty"),
+        # CFG-1: this suite asserts the legacy RPC-time mutation path; pin it off explicitly.
+        patch("aitbc_chain.config.settings.block_scoped_preregistered_transactions", False),
+    ):
         yield
 
 
