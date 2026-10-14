@@ -779,7 +779,8 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
         raise RuntimeError(f"Sell lock {row['ait_tx_hash']} has no valid shop ETH address")
 
     gas_price = await wdm._eth_gas_price()
-    gas_cost = Decimal(gas_price * wdm.ETH_WITHDRAW_GAS) / Decimal(10**18)
+    gas_limit = await wdm._release_gas_limit(eth_address, amount_eth)
+    gas_cost = Decimal(gas_price * gas_limit) / Decimal(10**18)
     required = amount_eth + gas_cost
     balance = await wdm._eth_balance(wdm.ETH_WALLET_ADDRESS)
     available = balance - wdm._pending_eth_reserve()
@@ -807,14 +808,23 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
         raise RuntimeError(error)
     account = wdm.EthAccount.from_key(key)
     nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
-    raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price)
+    raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
 
     await _update_lock_status_with_retry(row["ait_tx_hash"], "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
     sent = await wdm._broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
-    await _update_lock_status_with_retry(row["ait_tx_hash"], "released", eth_tx_hash=eth_tx_hash)
-    logger.info("Sell lock %s: released %s ETH to %s (tx %s)", row["ait_tx_hash"], amount_eth, eth_address, eth_tx_hash)
+    # ETH-14: 'released' is written only on a verified receipt — the
+    # inflight handler proves the outcome next poll; a reverted or dropped
+    # release can never again be recorded as sent here.
+    logger.info(
+        "Sell lock %s: broadcast %s ETH to %s (tx %s, gas %d) — awaiting receipt proof",
+        row["ait_tx_hash"],
+        amount_eth,
+        eth_address,
+        eth_tx_hash,
+        gas_limit,
+    )
 
 
 async def _resolve_lock_release_failure(cfg: SellConfig, row: dict[str, Any], exc: Exception) -> None:

@@ -1247,6 +1247,57 @@ bounded path. The three live phantom rows were terminal-marked by hand.
   bridge verdict split + float-alert throttle (`a44db9744d`); block
   content breakdown in Latest Blocks + Live Feed (`ed4a319976`).
 
+### ETH-14: release gas estimation + receipt-gated completion + withdraw_admin recovery (2026-10-14)
+
+Withdrawal `withdrawal_90ff8a73` was recorded `completed` on a broadcast
+that reverted on-chain (gas limit 100,000 vs the ~207,391 a fresh-account
+transfer needs post-Glamsterdam — Sepolia activated EIP-8037 state-gas on
+2026-10-06). The broadcast echo was trusted as payment proof; the ETH-9
+receipt machinery only ran on crash/resume paths, never the happy path.
+
+- `bridge_withdraw_monitor.py`: `_release_eth_for_withdrawal` now leaves
+  the row `releasing` after broadcast — `completed` is written only by
+  the verified-outcome paths (`_resume_unfinished_releases`,
+  `_resolve_release_failure`, the retry command). Gas is
+  `eth_estimateGas(from, to, value)` × `ETH_WITHDRAW_GAS_MARGIN`
+  (default 1.25), floored at 21,000, hard-capped by
+  `ETH_WITHDRAW_GAS_MAX` (default 300,000); an estimate error or an
+  over-cap result raises before signing. `ETH_WITHDRAW_GAS` survives only
+  as an explicit override escape hatch (rejected outside (0, MAX]).
+- `sell_escrow_monitor.py`: `_release_eth_for_lock` takes the same gas
+  path and drops its post-broadcast `released` write — `_handle_inflight`
+  verifies the receipt each poll and moves `releasing` → `released` →
+  settle only on proof.
+- `bridge_db.py`: additive `eth_withdrawals.retry_count` +
+  `eth_withdrawal_release_attempts` (id, ait_tx_hash, eth_tx_hash,
+  release_nonce, resolved_by, resolved_at, operator_note, outcome);
+  resumable/pending status lists cover `releasing_retry` +
+  `needs_review_release` — the parked retry status is deliberately NOT
+  auto-resumed.
+- `withdraw_admin.py` (new, `python -m wallet_app.bridge.withdraw_admin`
+  on hub, in the unit env): `status`, `release-retry` (dry-run default;
+  `--confirm --note` required to sign), `mark-review` (the refund
+  fallback). `release-retry` refuses unless two independent Ethereum RPCs
+  in the same run prove the recorded release reverted at depth + nonce
+  consumed + receiver gained nothing in the failed block (or, for a
+  retry that never sealed, hash absent + nonce still free), and the AIT
+  `BRIDGE_WITHDRAW` leg is `confirmed`. The resend uses exactly the
+  recorded `amount_eth`/`eth_address` at the current account nonce —
+  never re-quoted — with intent (`releasing_retry` + nonce +
+  deterministic hash + attempt row) persisted before broadcast. A
+  verified `sent` completes the row; a proven failure parks it
+  `needs_review_release` for the operator, never auto-refunds.
+- `bridge_monitor.py`: dropped the dead `ETH_WITHDRAW_GAS` constant.
+- Runbook: `docs/ops/withdraw-release-runbook.md`.
+
+Tests: `test_bridge_withdraw_monitor.py` (broadcast-leaves-releasing,
+estimate/margin/floor/cap/override, estimate-failure refund path,
+releasing_retry park + sent, parked row not resumable),
+`test_sell_escrow_monitor.py` (releasing → verified released on all
+release tests), `test_bridge_db.py` (attempt record/retry_count/status
+lists), `test_withdraw_admin.py` (dry-run purity, every refusal gate,
+confirm→completed, revert→parked, single-use nonce reuse).
+
 ### Commit index — every commit since 2026-09-30, cited for the coverage check
 
 Continuation of the 2026-09-30 index above: `### ` sections carry the

@@ -47,6 +47,9 @@ Operator procedures for the live fleet:
 - [Sell escrow runbook](ops/sell-escrow-runbook.md) — the keyed-escrow
   AIT→ETH sell flow: env keys, the ops-signer-style escrow key slot,
   enable/rollback, and runtime states.
+- [Withdrawal release runbook](ops/withdraw-release-runbook.md) — the
+  receipt-gated AIT→ETH release states, the gas policy
+  (estimate/margin/cap), and the `withdraw_admin` recovery commands.
 - [Node Sepolia wallets](ops/node-sepolia-wallets.md) — per-host Sepolia
   key custody (address-only output, 0600 wallet files), faucet funding,
   and the read-only balance check.
