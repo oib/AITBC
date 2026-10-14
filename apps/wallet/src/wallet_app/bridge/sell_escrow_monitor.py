@@ -557,13 +557,18 @@ async def _update_lock_status_with_retry(ait_tx_hash: str, status: str, **fields
     raise RuntimeError(f"could not persist sell lock {ait_tx_hash} status {status}: {last_exc}")
 
 
-def _expected_sweep(cfg: SellConfig, row: dict[str, Any]) -> tuple[str, int, str]:
+def _expected_sweep(cfg: SellConfig, row: dict[str, Any], lane: str | None = None) -> tuple[str, int, str]:
     """(recipient, amount_units, sell_ref) the row's escrow outflow must
-    match — derived from the row, the same values the stored blob carries."""
-    if row["status"] in ("settling", "queued_fee_settle"):
-        to_address = cfg.treasury_address
-    else:
-        to_address = str(row["shop_ait_address"])
+    match — derived from the row, the same values the stored blob carries.
+
+    ``lane`` is "settle" or "refund"; when omitted it is read from the
+    row's current status (the monitor's resolver sees only
+    'settling'/'refunding' rows). sell_admin passes the lane it recovered
+    from the persisted intent, since a 'needs_review_sweep' status no
+    longer says which lane the sweep was in."""
+    if lane is None:
+        lane = "settle" if row["status"] in ("settling", "queued_fee_settle") else "refund"
+    to_address = cfg.treasury_address if lane == "settle" else str(row["shop_ait_address"])
     return canonical_address(to_address), ait_to_units(Decimal(str(row["amount_ait"]))), str(row["ait_tx_hash"])
 
 
