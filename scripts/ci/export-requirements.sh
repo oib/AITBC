@@ -11,6 +11,27 @@ header="# Generated from poetry.lock by scripts/ci/export-requirements.sh.\n# Do
 # the file does not carry a pin nothing enforces. The same regex lives in
 # install-profiles.sh as TOOLCHAIN_FILTER; keep them in sync.
 TOOLCHAIN_FILTER='^(pip|setuptools|wheel)[[:space:]]*(==|[<>=!~])'
+
+# Marker serialization is plugin-version-sensitive: the committed exports were
+# generated with poetry-plugin-export 1.10.1 (the version install-profiles.sh
+# lands in venv-poetry). A different plugin writes differently-shaped markers,
+# which is how the committed files drifted from the lock once before (DEPS-1).
+# Fail loudly instead of emitting a differently-shaped export.
+EXPECTED_EXPORT_PLUGIN="1.10.1"
+command -v poetry >/dev/null || {
+    echo "error: poetry not on PATH (expected /opt/aitbc/venv-poetry/bin)" >&2
+    exit 1
+}
+plugin_version="$(poetry self show plugins 2>/dev/null \
+    | sed -n 's/.*poetry-plugin-export (\(.*\)).*/\1/p')" || true
+if [ "$plugin_version" != "$EXPECTED_EXPORT_PLUGIN" ]; then
+    echo "error: need poetry-plugin-export $EXPECTED_EXPORT_PLUGIN," \
+        "found '${plugin_version:-not installed}'." >&2
+    echo "install-profiles.sh installs the plugin unpinned; regenerate with" >&2
+    echo "the venv-poetry toolchain or bump EXPECTED_EXPORT_PLUGIN deliberately." >&2
+    exit 1
+fi
+
 run_export() {
     local group="$1"
     local output="$2"
