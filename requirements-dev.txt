@@ -81,7 +81,7 @@ pycparser==3.0 ; sys_platform == "win32" and python_full_version == "3.13.5" and
 pydantic-core==2.46.3 ; python_full_version == "3.13.5"
 pydantic-settings==2.14.2 ; python_full_version == "3.13.5"
 pydantic==2.13.3 ; python_full_version == "3.13.5"
-pygments==2.20.0 ; python_full_version == "3.13.5"
+pygments==2.21.0 ; python_full_version == "3.13.5"
 pyparsing==3.3.2 ; python_full_version == "3.13.5"
 pytest-asyncio==1.4.0 ; python_full_version == "3.13.5"
 pytest-cov==7.1.0 ; python_full_version == "3.13.5"
