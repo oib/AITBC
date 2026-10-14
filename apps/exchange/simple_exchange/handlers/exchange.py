@@ -204,6 +204,21 @@ def _close_buy_debit(cursor, order_id: int) -> None:
     )
 
 
+def _cancel_settlement_effects(cursor, order_id: int, result: dict) -> None:
+    """Cancel ends the backing window; under settlement the uncommitted part
+    of any prepaid debit refunds atomically in the caller's transaction."""
+    if not _settlement_enabled():
+        return
+    cursor.execute("UPDATE orders SET funded_state = 'backing_expired' WHERE id = ?", (order_id,))
+    deb = cursor.execute(
+        "SELECT amount_eth, COALESCE(committed_eth, '0'), state FROM prepaid_debits WHERE order_id = ?",
+        (order_id,),
+    ).fetchone()
+    if deb is not None and deb[2] == "open":
+        result["refunded_eth"] = str(_to_decimal(deb[0]) - _to_decimal(deb[1]))
+    _close_buy_debit(cursor, order_id)
+
+
 def _exchange_chain_id() -> str:
     """Expected envelope chain_id: EXCHANGE_CHAIN_ID > CHAIN_ID > design literal."""
     return os.getenv("EXCHANGE_CHAIN_ID") or os.getenv("CHAIN_ID") or _EXCHANGE_CHAIN_DEFAULT
@@ -1190,17 +1205,7 @@ class ExchangeMixin:
                 (datetime.now(UTC).isoformat(), order_id),
             )
             result = {"id": order_id, "status": "cancelled"}
-            if _settlement_enabled():
-                # The backing window ended with the order; the uncommitted
-                # part of any prepaid debit refunds atomically here.
-                cursor.execute("UPDATE orders SET funded_state = 'backing_expired' WHERE id = ?", (order_id,))
-                deb = cursor.execute(
-                    "SELECT amount_eth, COALESCE(committed_eth, '0'), state FROM prepaid_debits WHERE order_id = ?",
-                    (order_id,),
-                ).fetchone()
-                if deb is not None and deb[2] == "open":
-                    result["refunded_eth"] = str(_to_decimal(deb[0]) - _to_decimal(deb[1]))
-                _close_buy_debit(cursor, order_id)
+            _cancel_settlement_effects(cursor, order_id, result)
             if idempotency_key and not get_operation_ledger().complete(idempotency_key, operation_attempt, result, conn=conn):
                 raise RuntimeError("operation lease superseded mid-transaction")
             conn.commit()
@@ -2092,141 +2097,17 @@ class ExchangeMixin:
         # settlement flag is on.
         lock_col = ", locked_ticks" if settlement else ""
         funded_pred = "AND funded_state = 'funded'" if settlement else ""
-        if new_type == "BUY":
-            # Match against SELL orders with price <= our buy price
-            cursor.execute(
-                f"""
-                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
-                FROM orders
-                WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ? {self_guard} {funded_pred}
-                ORDER BY price_ticks ASC, id ASC
-                """,  # nosec B608 - lock_col/self_guard/funded_pred are fixed literal fragments, never input
-                (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
-            )
-        else:
-            # Match against BUY orders with price >= our sell price
-            cursor.execute(
-                f"""
-                SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
-                FROM orders
-                WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ? {self_guard} {funded_pred}
-                ORDER BY price_ticks DESC, id ASC
-                """,  # nosec B608 - same fixed fragments
-                (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
-            )
-
-        matching_orders = cursor.fetchall()
+        matching_orders = _match_candidates(
+            cursor, new_type, new_price_ticks, self_guard, guard_address, lock_col, funded_pred
+        )
 
         for match_row in matching_orders:
             if new_remaining <= 0:
                 break
 
-            match_id = match_row[0]
-            match_remaining = _to_decimal(match_row[6])
-            match_price = _to_decimal(match_row[3])
-            match_filled = _to_decimal(match_row[5])
-
-            if match_remaining <= 0:
+            trade_qty = _fill_from_match(cursor, order, match_row, new_remaining, new_type, new_id, settlement)
+            if trade_qty is None:
                 continue
-
-            # A candidate SELL's remaining fills must stay inside its
-            # recorded escrow lock (amount + fee). Funding enforces the
-            # cover at lock time; this is the in-scan safety net — a row
-            # that fails it awaits the monitor's backing_expired event.
-            if settlement and match_row[1] == "SELL":
-                locked = match_row[11]
-                required_ticks = to_ticks(match_remaining + _apply_exchange_fee(match_remaining)[0])
-                if locked is None or locked < required_ticks:
-                    continue
-
-            # B2: Calculate trade quantity with Decimal (exact arithmetic)
-            trade_qty = min(new_remaining, match_remaining)
-            trade_total = trade_qty * match_price
-
-            # Buyer/seller attribution (phase 2): the tape row names the two
-            # sides so the page can print node labels. fee_ait records the
-            # EXCHANGE_FEE_PCT knob's value at match time (default 0 on
-            # testnet, DECIDED 14 Oct) — phase 2 moves no funds, this is the
-            # ledger column only.
-            # Phase 3: per-fill fee = the DIFFERENCE of the seller's
-            # cumulative fee at its running filled total — independently
-            # quantized fills could sum to more than fee(amount) and
-            # outrun the escrow lock; the cumulative form can never exceed
-            # fee(sell_amount).
-            if settlement:
-                sell_filled_before = _to_decimal(order.get("filled", 0)) if new_type == "SELL" else match_filled
-                fee_ait = _apply_exchange_fee(sell_filled_before + trade_qty)[0] - _apply_exchange_fee(sell_filled_before)[0]
-            else:
-                fee_ait, _net_ait = _apply_exchange_fee(trade_qty)
-            buyer_addr = order.get("user_address") if new_type == "BUY" else match_row[9]
-            seller_addr = match_row[9] if new_type == "BUY" else order.get("user_address")
-            if settlement:
-                # Phase 3: the trade row names its parent orders and enters
-                # the settlement machine at 'locked'; the buyer's cost
-                # commits to the prepaid debit in the same transaction.
-                buy_order = new_id if new_type == "BUY" else match_id
-                sell_order = new_id if new_type == "SELL" else match_id
-                cursor.execute(
-                    """
-                    INSERT INTO trades (amount, price, total, created_at, buyer_address, seller_address,
-                                        fee_ait, buy_order_id, sell_order_id, settlement_state)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'locked')
-                    """,
-                    (
-                        str(trade_qty),
-                        str(match_price),
-                        str(trade_total),
-                        datetime.now(UTC).isoformat(),
-                        buyer_addr,
-                        seller_addr,
-                        str(fee_ait),
-                        buy_order,
-                        sell_order,
-                    ),
-                )
-                _commit_trade_cost(cursor, buy_order, trade_total)
-            else:
-                cursor.execute(
-                    """
-                    INSERT INTO trades (amount, price, total, created_at, buyer_address, seller_address, fee_ait)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        str(trade_qty),
-                        str(match_price),
-                        str(trade_total),
-                        datetime.now(UTC).isoformat(),
-                        buyer_addr,
-                        seller_addr,
-                        str(fee_ait),
-                    ),
-                )
-
-            # Update the matching order (B2: Decimal arithmetic, store as TEXT)
-            new_match_filled = match_filled + trade_qty
-            new_match_remaining = match_remaining - trade_qty
-            new_match_status = "filled" if new_match_remaining <= 0 else "open"
-
-            cursor.execute(
-                """
-                UPDATE orders SET filled = ?, remaining = ?, status = ?,
-                    filled_ticks = ?, remaining_ticks = ?
-                WHERE id = ?
-                """,
-                (
-                    str(new_match_filled),
-                    str(new_match_remaining),
-                    new_match_status,
-                    to_ticks(new_match_filled),
-                    to_ticks(new_match_remaining),
-                    match_id,
-                ),
-            )
-
-            # A candidate BUY that just filled releases the uncommitted
-            # residual of its prepaid debit in the same transaction.
-            if settlement and match_row[1] == "BUY" and new_match_status == "filled":
-                _close_buy_debit(cursor, match_id)
 
             # Update the new order (in-memory)
             new_remaining -= trade_qty
@@ -2237,25 +2118,7 @@ class ExchangeMixin:
                 order["status"] = "filled"
 
         # Update the new order in the database (B2: store as TEXT)
-        if new_id:
-            cursor.execute(
-                """
-                UPDATE orders SET filled = ?, remaining = ?, status = ?,
-                    filled_ticks = ?, remaining_ticks = ?
-                WHERE id = ?
-                """,
-                (
-                    str(order.get("filled", 0)),
-                    str(order.get("remaining", 0)),
-                    order.get("status", "open"),
-                    to_ticks(_to_decimal(order.get("filled", 0))),
-                    to_ticks(_to_decimal(order.get("remaining", 0))),
-                    new_id,
-                ),
-            )
-            # An inbound BUY that filled releases its uncommitted residual.
-            if settlement and new_type == "BUY" and order.get("status") == "filled":
-                _close_buy_debit(cursor, new_id)
+        _persist_new_order(cursor, order, new_id, new_type, settlement)
 
     def match_orders(self, order: dict) -> None:
         """Match a new order against existing open orders (standalone transaction).
@@ -2283,6 +2146,205 @@ class ExchangeMixin:
             raise
         finally:
             conn.close()
+
+
+def _match_candidates(cursor, new_type, new_price_ticks, self_guard, guard_address, lock_col, funded_pred):
+    """Opposite-side open orders at compatible tick prices, within the
+    caller's transaction. The flag-off query is byte-for-byte the phase-2
+    statement — lock_col/funded_pred only exist when settlement is on."""
+    if new_type == "BUY":
+        # Match against SELL orders with price <= our buy price
+        cursor.execute(
+            f"""
+            SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
+            FROM orders
+            WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ? {self_guard} {funded_pred}
+            ORDER BY price_ticks ASC, id ASC
+            """,  # nosec B608 - lock_col/self_guard/funded_pred are fixed literal fragments, never input
+            (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
+        )
+    else:
+        # Match against BUY orders with price >= our sell price
+        cursor.execute(
+            f"""
+            SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
+            FROM orders
+            WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ? {self_guard} {funded_pred}
+            ORDER BY price_ticks DESC, id ASC
+            """,  # nosec B608 - same fixed fragments
+            (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
+        )
+    return cursor.fetchall()
+
+
+def _match_fee_ait(order: dict, match_filled: Decimal, trade_qty: Decimal, new_type: str, settlement: bool) -> Decimal:
+    """Per-fill fee: the DIFFERENCE of the seller's cumulative fee at its
+    running filled total — independently quantized fills could sum to more
+    than fee(amount) and outrun the escrow lock; the cumulative form can
+    never exceed fee(sell_amount). Flag-off: plain per-trade fee."""
+    if settlement:
+        sell_filled_before = _to_decimal(order.get("filled", 0)) if new_type == "SELL" else match_filled
+        return _apply_exchange_fee(sell_filled_before + trade_qty)[0] - _apply_exchange_fee(sell_filled_before)[0]
+    fee_ait, _net_ait = _apply_exchange_fee(trade_qty)
+    return fee_ait
+
+
+def _sell_lock_covers(match_row, match_remaining: Decimal) -> bool:
+    """A candidate SELL's remaining fills must stay inside its recorded
+    escrow lock (amount + fee). Funding enforces the cover at lock time;
+    this is the in-scan safety net — a row that fails it awaits the
+    monitor's backing_expired event."""
+    locked = match_row[11]
+    required_ticks = to_ticks(match_remaining + _apply_exchange_fee(match_remaining)[0])
+    return locked is not None and locked >= required_ticks
+
+
+def _insert_matched_trade(
+    cursor,
+    settlement: bool,
+    trade_qty: Decimal,
+    match_price: Decimal,
+    trade_total: Decimal,
+    fee_ait: Decimal,
+    buyer_addr,
+    seller_addr,
+    new_id,
+    new_type: str,
+    match_id,
+) -> None:
+    """Buyer/seller attribution (phase 2): the tape row names the two sides
+    so the page can print node labels. fee_ait records the EXCHANGE_FEE_PCT
+    knob's value at match time (default 0 on testnet, DECIDED 14 Oct) —
+    phase 2 moves no funds, this is the ledger column only. Phase 3: the
+    trade row names its parent orders and enters the settlement machine at
+    'locked'; the buyer's cost commits to the prepaid debit in the same
+    transaction."""
+    if settlement:
+        buy_order = new_id if new_type == "BUY" else match_id
+        sell_order = new_id if new_type == "SELL" else match_id
+        cursor.execute(
+            """
+            INSERT INTO trades (amount, price, total, created_at, buyer_address, seller_address,
+                                fee_ait, buy_order_id, sell_order_id, settlement_state)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'locked')
+            """,
+            (
+                str(trade_qty),
+                str(match_price),
+                str(trade_total),
+                datetime.now(UTC).isoformat(),
+                buyer_addr,
+                seller_addr,
+                str(fee_ait),
+                buy_order,
+                sell_order,
+            ),
+        )
+        _commit_trade_cost(cursor, buy_order, trade_total)
+    else:
+        cursor.execute(
+            """
+            INSERT INTO trades (amount, price, total, created_at, buyer_address, seller_address, fee_ait)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(trade_qty),
+                str(match_price),
+                str(trade_total),
+                datetime.now(UTC).isoformat(),
+                buyer_addr,
+                seller_addr,
+                str(fee_ait),
+            ),
+        )
+
+
+def _fill_from_match(
+    cursor, order: dict, match_row, new_remaining: Decimal, new_type: str, new_id, settlement: bool
+) -> Decimal | None:
+    """One fill against a matching row, inside the caller's transaction.
+    Returns the traded quantity, or None when the row can't fill."""
+    match_id = match_row[0]
+    match_remaining = _to_decimal(match_row[6])
+    match_price = _to_decimal(match_row[3])
+    match_filled = _to_decimal(match_row[5])
+
+    if match_remaining <= 0:
+        return None
+
+    if settlement and match_row[1] == "SELL" and not _sell_lock_covers(match_row, match_remaining):
+        return None
+
+    # B2: Calculate trade quantity with Decimal (exact arithmetic)
+    trade_qty = min(new_remaining, match_remaining)
+    trade_total = trade_qty * match_price
+    fee_ait = _match_fee_ait(order, match_filled, trade_qty, new_type, settlement)
+    buyer_addr = order.get("user_address") if new_type == "BUY" else match_row[9]
+    seller_addr = match_row[9] if new_type == "BUY" else order.get("user_address")
+    _insert_matched_trade(
+        cursor,
+        settlement,
+        trade_qty,
+        match_price,
+        trade_total,
+        fee_ait,
+        buyer_addr,
+        seller_addr,
+        new_id,
+        new_type,
+        match_id,
+    )
+
+    # Update the matching order (B2: Decimal arithmetic, store as TEXT)
+    new_match_filled = match_filled + trade_qty
+    new_match_remaining = match_remaining - trade_qty
+    new_match_status = "filled" if new_match_remaining <= 0 else "open"
+
+    cursor.execute(
+        """
+        UPDATE orders SET filled = ?, remaining = ?, status = ?,
+            filled_ticks = ?, remaining_ticks = ?
+        WHERE id = ?
+        """,
+        (
+            str(new_match_filled),
+            str(new_match_remaining),
+            new_match_status,
+            to_ticks(new_match_filled),
+            to_ticks(new_match_remaining),
+            match_id,
+        ),
+    )
+
+    # A candidate BUY that just filled releases the uncommitted
+    # residual of its prepaid debit in the same transaction.
+    if settlement and match_row[1] == "BUY" and new_match_status == "filled":
+        _close_buy_debit(cursor, match_id)
+    return trade_qty
+
+
+def _persist_new_order(cursor, order: dict, new_id, new_type: str, settlement: bool) -> None:
+    """Write back the inbound order's filled/remaining after matching; an
+    inbound BUY that filled releases its uncommitted debit residual."""
+    if not new_id:
+        return
+    cursor.execute(
+        """
+        UPDATE orders SET filled = ?, remaining = ?, status = ?,
+            filled_ticks = ?, remaining_ticks = ?
+        WHERE id = ?
+        """,
+        (
+            str(order.get("filled", 0)),
+            str(order.get("remaining", 0)),
+            order.get("status", "open"),
+            to_ticks(_to_decimal(order.get("filled", 0))),
+            to_ticks(_to_decimal(order.get("remaining", 0))),
+            new_id,
+        ),
+    )
+    if settlement and new_type == "BUY" and order.get("status") == "filled":
+        _close_buy_debit(cursor, new_id)
 
 
 def _check_exchange_db() -> None:

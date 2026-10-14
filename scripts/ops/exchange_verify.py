@@ -108,6 +108,76 @@ def _has_table(conn: sqlite3.Connection, name: str) -> bool:
     return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
 
 
+def _check_order_rows(orders: dict, debits: dict, add) -> None:
+    """Funded-state invariants per order row."""
+    for order in orders.values():
+        funded = order["funded_state"] == "funded"
+        if order["order_type"] == "BUY" and funded and order["id"] not in debits:
+            add(FAIL, "db", f"order {order['id']}: funded BUY without a prepaid_debits row")
+        if order["order_type"] == "SELL" and funded and not order["backing_tx_hash"]:
+            add(FAIL, "db", f"order {order['id']}: funded SELL without backing_tx_hash")
+        if not funded and order["backing_tx_hash"]:
+            add(FAIL, "db", f"order {order['id']}: {order['funded_state']} but backing_tx_hash set")
+
+
+def _check_nonce_uniqueness(orders: dict, add) -> None:
+    seen_nonce: dict[tuple[str, Any], int] = {}
+    for order in orders.values():
+        key = (str(order["user_address"]).lower(), order["account_nonce"])
+        if order["account_nonce"] is not None:
+            if key in seen_nonce:
+                add(FAIL, "db", f"orders {seen_nonce[key]} and {order['id']}: duplicate account_nonce")
+            seen_nonce[key] = order["id"]
+
+
+def _check_debit_rows(orders: dict, debits: dict, add) -> None:
+    for order_id, d in debits.items():
+        if order_id not in orders:
+            add(FAIL, "db", f"prepaid_debit order_id={order_id}: no such order")
+            continue
+        amt, com = _dec(d["amount_eth"]), _dec(d["committed_eth"])
+        if amt is None or com is None or com > amt:
+            add(
+                FAIL,
+                "db",
+                f"prepaid_debit order {order_id}: committed_eth={d['committed_eth']} > amount_eth={d['amount_eth']}",
+            )
+        if d["node_address"].lower() != str(orders[order_id]["user_address"]).lower():
+            add(
+                FAIL,
+                "db",
+                f"prepaid_debit order {order_id}: node {d['node_address']} != order owner {orders[order_id]['user_address']}",
+            )
+
+
+def _check_trade_row(t: sqlite3.Row, orders: dict, filled_by_order: dict, add) -> None:
+    for col in ("buy_order_id", "sell_order_id"):
+        oid = t[col]
+        if oid is not None and oid not in orders:
+            add(FAIL, "db", f"trade {t['id']}: {col}={oid} references a missing order")
+    if t["settlement_state"] == "settled" and (not t["settlement_eth_tx_hash"] or not t["settlement_ait_tx_hash"]):
+        add(FAIL, "db", f"trade {t['id']}: settled but missing settlement tx hash")
+    amt_ticks = _dec(t["amount"])
+    if t["sell_order_id"] is not None and amt_ticks is not None:
+        filled_by_order[t["sell_order_id"]] = filled_by_order.get(t["sell_order_id"], Decimal(0)) + amt_ticks
+    if t["buy_order_id"] is not None and amt_ticks is not None:
+        filled_by_order[t["buy_order_id"]] = filled_by_order.get(t["buy_order_id"], Decimal(0)) + amt_ticks
+
+
+def _check_trade_rows(orders: dict, trades: list, add) -> None:
+    filled_by_order: dict[int, Decimal] = {}
+    for t in trades:
+        _check_trade_row(t, orders, filled_by_order, add)
+    for order_id, filled_ait in filled_by_order.items():
+        recorded = _dec(orders[order_id]["filled_ticks"] or 0)
+        if recorded is not None and abs(Decimal(int(recorded)) / TICKS_PER_UNIT - filled_ait) > Decimal("1e-8"):
+            add(
+                WARN,
+                "db",
+                f"order {order_id}: recorded filled {Decimal(int(recorded)) / TICKS_PER_UNIT} != Σ trades {filled_ait}",
+            )
+
+
 def check_db_internal(conn: sqlite3.Connection, add) -> None:
     try:
         orders = {
@@ -133,62 +203,10 @@ def check_db_internal(conn: sqlite3.Connection, add) -> None:
         "settlement_state, settlement_eth_tx_hash, settlement_ait_tx_hash FROM trades"
     ).fetchall()
 
-    for order in orders.values():
-        funded = order["funded_state"] == "funded"
-        if order["order_type"] == "BUY" and funded and order["id"] not in debits:
-            add(FAIL, "db", f"order {order['id']}: funded BUY without a prepaid_debits row")
-        if order["order_type"] == "SELL" and funded and not order["backing_tx_hash"]:
-            add(FAIL, "db", f"order {order['id']}: funded SELL without backing_tx_hash")
-        if not funded and order["backing_tx_hash"]:
-            add(FAIL, "db", f"order {order['id']}: {order['funded_state']} but backing_tx_hash set")
-
-    seen_nonce: dict[tuple[str, Any], int] = {}
-    for order in orders.values():
-        key = (str(order["user_address"]).lower(), order["account_nonce"])
-        if order["account_nonce"] is not None:
-            if key in seen_nonce:
-                add(FAIL, "db", f"orders {seen_nonce[key]} and {order['id']}: duplicate account_nonce")
-            seen_nonce[key] = order["id"]
-
-    for order_id, d in debits.items():
-        if order_id not in orders:
-            add(FAIL, "db", f"prepaid_debit order_id={order_id}: no such order")
-            continue
-        amt, com = _dec(d["amount_eth"]), _dec(d["committed_eth"])
-        if amt is None or com is None or com > amt:
-            add(
-                FAIL,
-                "db",
-                f"prepaid_debit order {order_id}: committed_eth={d['committed_eth']} > amount_eth={d['amount_eth']}",
-            )
-        if d["node_address"].lower() != str(orders[order_id]["user_address"]).lower():
-            add(
-                FAIL,
-                "db",
-                f"prepaid_debit order {order_id}: node {d['node_address']} != order owner {orders[order_id]['user_address']}",
-            )
-
-    filled_by_order: dict[int, Decimal] = {}
-    for t in trades:
-        for col in ("buy_order_id", "sell_order_id"):
-            oid = t[col]
-            if oid is not None and oid not in orders:
-                add(FAIL, "db", f"trade {t['id']}: {col}={oid} references a missing order")
-        if t["settlement_state"] == "settled" and (not t["settlement_eth_tx_hash"] or not t["settlement_ait_tx_hash"]):
-            add(FAIL, "db", f"trade {t['id']}: settled but missing settlement tx hash")
-        amt_ticks = _dec(t["amount"])
-        if t["sell_order_id"] is not None and amt_ticks is not None:
-            filled_by_order[t["sell_order_id"]] = filled_by_order.get(t["sell_order_id"], Decimal(0)) + amt_ticks
-        if t["buy_order_id"] is not None and amt_ticks is not None:
-            filled_by_order[t["buy_order_id"]] = filled_by_order.get(t["buy_order_id"], Decimal(0)) + amt_ticks
-    for order_id, filled_ait in filled_by_order.items():
-        recorded = _dec(orders[order_id]["filled_ticks"] or 0)
-        if recorded is not None and abs(Decimal(int(recorded)) / TICKS_PER_UNIT - filled_ait) > Decimal("1e-8"):
-            add(
-                WARN,
-                "db",
-                f"order {order_id}: recorded filled {Decimal(int(recorded)) / TICKS_PER_UNIT} != Σ trades {filled_ait}",
-            )
+    _check_order_rows(orders, debits, add)
+    _check_nonce_uniqueness(orders, add)
+    _check_debit_rows(orders, debits, add)
+    _check_trade_rows(orders, trades, add)
 
     if _has_table(conn, "node_registry"):
         for r in conn.execute("SELECT address, status, eth_address FROM node_registry"):
@@ -247,6 +265,61 @@ def _receipt_ok(receipt: dict | None) -> str | None:
     return None
 
 
+def _check_prepaid_deposit(d: sqlite3.Row, rpc_url: str, bridge_address: str | None, add) -> None:
+    """One prepaid_deposits row against its ETH transaction + receipt."""
+    txh = d["eth_tx_hash"]
+    try:
+        tx, receipt = _eth_tx(rpc_url, txh)
+    except RpcError as e:
+        add(WARN, "eth", f"deposit {txh}: {e}")
+        return
+    if tx is None:
+        add(FAIL, "eth", f"deposit {txh}: not on chain")
+        return
+    bad = _receipt_ok(receipt)
+    if bad:
+        add(WARN if bad == "unsealed" else FAIL, "eth", f"deposit {txh}: {bad}")
+        return
+    want_eth = _dec(d["amount_eth"])
+    value_wei = int(str(tx.get("value") or "0x0"), 16)
+    if want_eth is None or Decimal(value_wei) != want_eth * WEI_PER_ETH:
+        add(FAIL, "eth", f"deposit {txh}: value {value_wei} wei != {d['amount_eth']} ETH")
+    data = str(tx.get("input") or "")
+    try:
+        tag = bytes.fromhex(data[2:] if data.startswith("0x") else data).decode("utf-8").strip()
+    except (ValueError, UnicodeDecodeError):
+        tag = ""
+    want_tag = f"EXCHANGE_DEPOSIT:{d['node_address']}"
+    if tag.lower() != want_tag.lower():
+        add(FAIL, "eth", f"deposit {txh}: input tag {tag!r} != {want_tag!r}")
+    if bridge_address and str(tx.get("to") or "").lower() != bridge_address.lower():
+        add(FAIL, "eth", f"deposit {txh}: to {tx.get('to')} != bridge {bridge_address}")
+
+
+def _check_settlement_leg(t: sqlite3.Row, seller_eth: dict, rpc_url: str, add) -> None:
+    """One trade's settlement_eth_tx_hash against its ETH tx + receipt."""
+    txh = t["settlement_eth_tx_hash"]
+    try:
+        tx, receipt = _eth_tx(rpc_url, txh)
+    except RpcError as e:
+        add(WARN, "eth", f"trade {t['id']} settle {txh}: {e}")
+        return
+    if tx is None:
+        add(FAIL, "eth", f"trade {t['id']} settle {txh}: not on chain")
+        return
+    bad = _receipt_ok(receipt)
+    if bad:
+        add(WARN if bad == "unsealed" else FAIL, "eth", f"trade {t['id']} settle {txh}: {bad}")
+        return
+    want_wei = _dec(t["total"])
+    value_wei = int(str(tx.get("value") or "0x0"), 16)
+    if want_wei is None or Decimal(value_wei) != want_wei * WEI_PER_ETH:
+        add(FAIL, "eth", f"trade {t['id']} settle {txh}: value != {t['total']} ETH")
+    want_to = seller_eth.get(t["sell_order_id"])
+    if want_to and str(tx.get("to") or "").lower() != str(want_to).lower():
+        add(FAIL, "eth", f"trade {t['id']} settle {txh}: to {tx.get('to')} != seller {want_to}")
+
+
 def check_eth_chain(conn: sqlite3.Connection, rpc_url: str, bridge_address: str | None, add) -> None:
     deposits = (
         conn.execute("SELECT node_address, amount_eth, eth_tx_hash FROM prepaid_deposits").fetchall()
@@ -254,33 +327,7 @@ def check_eth_chain(conn: sqlite3.Connection, rpc_url: str, bridge_address: str 
         else []
     )
     for d in deposits:
-        txh = d["eth_tx_hash"]
-        try:
-            tx, receipt = _eth_tx(rpc_url, txh)
-        except RpcError as e:
-            add(WARN, "eth", f"deposit {txh}: {e}")
-            continue
-        if tx is None:
-            add(FAIL, "eth", f"deposit {txh}: not on chain")
-            continue
-        bad = _receipt_ok(receipt)
-        if bad:
-            add(WARN if bad == "unsealed" else FAIL, "eth", f"deposit {txh}: {bad}")
-            continue
-        want_eth = _dec(d["amount_eth"])
-        value_wei = int(str(tx.get("value") or "0x0"), 16)
-        if want_eth is None or Decimal(value_wei) != want_eth * WEI_PER_ETH:
-            add(FAIL, "eth", f"deposit {txh}: value {value_wei} wei != {d['amount_eth']} ETH")
-        data = str(tx.get("input") or "")
-        try:
-            tag = bytes.fromhex(data[2:] if data.startswith("0x") else data).decode("utf-8").strip()
-        except (ValueError, UnicodeDecodeError):
-            tag = ""
-        want_tag = f"EXCHANGE_DEPOSIT:{d['node_address']}"
-        if tag.lower() != want_tag.lower():
-            add(FAIL, "eth", f"deposit {txh}: input tag {tag!r} != {want_tag!r}")
-        if bridge_address and str(tx.get("to") or "").lower() != bridge_address.lower():
-            add(FAIL, "eth", f"deposit {txh}: to {tx.get('to')} != bridge {bridge_address}")
+        _check_prepaid_deposit(d, rpc_url, bridge_address, add)
     add(INFO, "eth", f"{len(deposits)} prepaid deposits checked")
 
     settled = conn.execute(
@@ -288,27 +335,53 @@ def check_eth_chain(conn: sqlite3.Connection, rpc_url: str, bridge_address: str 
     ).fetchall()
     seller_eth = {r["id"]: r["seller_eth_address"] for r in conn.execute("SELECT id, seller_eth_address FROM orders")}
     for t in settled:
-        txh = t["settlement_eth_tx_hash"]
-        try:
-            tx, receipt = _eth_tx(rpc_url, txh)
-        except RpcError as e:
-            add(WARN, "eth", f"trade {t['id']} settle {txh}: {e}")
-            continue
-        if tx is None:
-            add(FAIL, "eth", f"trade {t['id']} settle {txh}: not on chain")
-            continue
-        bad = _receipt_ok(receipt)
-        if bad:
-            add(WARN if bad == "unsealed" else FAIL, "eth", f"trade {t['id']} settle {txh}: {bad}")
-            continue
-        want_wei = _dec(t["total"])
-        value_wei = int(str(tx.get("value") or "0x0"), 16)
-        if want_wei is None or Decimal(value_wei) != want_wei * WEI_PER_ETH:
-            add(FAIL, "eth", f"trade {t['id']} settle {txh}: value != {t['total']} ETH")
-        want_to = seller_eth.get(t["sell_order_id"])
-        if want_to and str(tx.get("to") or "").lower() != str(want_to).lower():
-            add(FAIL, "eth", f"trade {t['id']} settle {txh}: to {tx.get('to')} != seller {want_to}")
+        _check_settlement_leg(t, seller_eth, rpc_url, add)
     add(INFO, "eth", f"{len(settled)} settlement ETH legs checked")
+
+
+def _check_sell_backing(o: sqlite3.Row, escrow_txs: dict, escrow: str, add) -> None:
+    """One funded SELL order's backing_tx_hash against the escrow history."""
+    txh = o["backing_tx_hash"]
+    tx = escrow_txs.get(str(txh))
+    if tx is None:
+        add(FAIL, "ait", f"order {o['id']}: backing {txh} not in escrow transfer history")
+        return
+    to_addr = str(tx.get("recipient") or tx.get("to") or "")
+    sender = str(tx.get("sender") or tx.get("from") or "")
+    payload = tx.get("payload") or {}
+    if to_addr.lower() != escrow.lower():
+        add(FAIL, "ait", f"order {o['id']}: backing {txh} to {to_addr} != escrow")
+    if payload.get("sell_quote") != o["id"]:
+        add(FAIL, "ait", f"order {o['id']}: backing {txh} sell_quote={payload.get('sell_quote')}")
+    if sender.lower() != str(o["user_address"]).lower():
+        add(FAIL, "ait", f"order {o['id']}: backing {txh} from {sender} != owner {o['user_address']}")
+    want_units = Decimal(int(o["amount_ticks"])) / TICKS_PER_UNIT * UNITS_PER_AIT
+    if Decimal(int(tx.get("value") or 0)) < want_units:
+        add(FAIL, "ait", f"order {o['id']}: lock {tx.get('value')} units < notional {want_units}")
+
+
+def _check_ait_leg(t: sqlite3.Row, escrow_txs: dict, add) -> None:
+    """One trade's settlement AIT leg (+ fee leg) against the escrow history."""
+    txh = t["settlement_ait_tx_hash"]
+    tx = escrow_txs.get(str(txh))
+    if tx is None:
+        add(FAIL, "ait", f"trade {t['id']}: ait leg {txh} not in escrow history")
+    else:
+        to_addr = str(tx.get("recipient") or tx.get("to") or "")
+        if to_addr.lower() != str(t["buyer_address"]).lower():
+            add(FAIL, "ait", f"trade {t['id']}: ait leg to {to_addr} != buyer {t['buyer_address']}")
+        want = _dec(t["amount"])
+        if want is not None and Decimal(int(tx.get("value") or 0)) != want * UNITS_PER_AIT:
+            add(FAIL, "ait", f"trade {t['id']}: ait leg value {tx.get('value')} != {want * UNITS_PER_AIT} units")
+    fee_hash = t["settlement_fee_tx_hash"]
+    fee = _dec(t["fee_ait"])
+    if fee and fee > 0:
+        if fee_hash is None:
+            add(FAIL, "ait", f"trade {t['id']}: fee owed ({t['fee_ait']} AIT) but no fee tx hash")
+        elif str(fee_hash) not in escrow_txs:
+            add(FAIL, "ait", f"trade {t['id']}: fee leg {fee_hash} not in escrow history")
+    elif fee_hash is not None:
+        add(WARN, "ait", f"trade {t['id']}: fee leg {fee_hash} recorded for a zero-fee trade")
 
 
 def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add) -> None:
@@ -322,23 +395,7 @@ def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add) ->
         "WHERE order_type='SELL' AND funded_state='funded'"
     ).fetchall()
     for o in sells:
-        txh = o["backing_tx_hash"]
-        tx = escrow_txs.get(str(txh))
-        if tx is None:
-            add(FAIL, "ait", f"order {o['id']}: backing {txh} not in escrow transfer history")
-            continue
-        to_addr = str(tx.get("recipient") or tx.get("to") or "")
-        sender = str(tx.get("sender") or tx.get("from") or "")
-        payload = tx.get("payload") or {}
-        if to_addr.lower() != escrow.lower():
-            add(FAIL, "ait", f"order {o['id']}: backing {txh} to {to_addr} != escrow")
-        if payload.get("sell_quote") != o["id"]:
-            add(FAIL, "ait", f"order {o['id']}: backing {txh} sell_quote={payload.get('sell_quote')}")
-        if sender.lower() != str(o["user_address"]).lower():
-            add(FAIL, "ait", f"order {o['id']}: backing {txh} from {sender} != owner {o['user_address']}")
-        want_units = Decimal(int(o["amount_ticks"])) / TICKS_PER_UNIT * UNITS_PER_AIT
-        if Decimal(int(tx.get("value") or 0)) < want_units:
-            add(FAIL, "ait", f"order {o['id']}: lock {tx.get('value')} units < notional {want_units}")
+        _check_sell_backing(o, escrow_txs, escrow, add)
     add(INFO, "ait", f"{len(sells)} funded SELL backings checked")
 
     legs = conn.execute(
@@ -346,26 +403,7 @@ def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add) ->
         "FROM trades WHERE settlement_ait_tx_hash IS NOT NULL"
     ).fetchall()
     for t in legs:
-        txh = t["settlement_ait_tx_hash"]
-        tx = escrow_txs.get(str(txh))
-        if tx is None:
-            add(FAIL, "ait", f"trade {t['id']}: ait leg {txh} not in escrow history")
-        else:
-            to_addr = str(tx.get("recipient") or tx.get("to") or "")
-            if to_addr.lower() != str(t["buyer_address"]).lower():
-                add(FAIL, "ait", f"trade {t['id']}: ait leg to {to_addr} != buyer {t['buyer_address']}")
-            want = _dec(t["amount"])
-            if want is not None and Decimal(int(tx.get("value") or 0)) != want * UNITS_PER_AIT:
-                add(FAIL, "ait", f"trade {t['id']}: ait leg value {tx.get('value')} != {want * UNITS_PER_AIT} units")
-        fee_hash = t["settlement_fee_tx_hash"]
-        fee = _dec(t["fee_ait"])
-        if fee and fee > 0:
-            if fee_hash is None:
-                add(FAIL, "ait", f"trade {t['id']}: fee owed ({t['fee_ait']} AIT) but no fee tx hash")
-            elif str(fee_hash) not in escrow_txs:
-                add(FAIL, "ait", f"trade {t['id']}: fee leg {fee_hash} not in escrow history")
-        elif fee_hash is not None:
-            add(WARN, "ait", f"trade {t['id']}: fee leg {fee_hash} recorded for a zero-fee trade")
+        _check_ait_leg(t, escrow_txs, add)
     add(INFO, "ait", f"{len(legs)} settlement AIT legs checked")
 
 
