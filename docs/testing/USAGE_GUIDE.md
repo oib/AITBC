@@ -257,6 +257,12 @@ pytest --cov=aitbc_cli --cov-report=term-missing
 python -m pytest   # no tests/test_runner.py exists — pytest is the runner --coverage
 ```
 
+> **Copied or exported trees need `.git`.** Guards and audit tests enumerate
+> the repository through `git ls-files`/`git grep`; on a `git archive` export
+> they fail or, worse, pass vacuously over an empty file list. rsync the tree
+> *with* its `.git` (or use a worktree) for a faithful run — the affected tests
+> skip with "needs a .git checkout" when it is absent.
+
 ## 📈 Performance Tips
 
 ### **Fast Test Execution**
@@ -286,7 +292,7 @@ pytest tests/cli/
 > `pytest -q` on the command line becomes `-qq` and pytest prints only the
 > result characters (`....`), no `N passed in …` line. This looks like a
 > `nohup`/non-tty effect but is not one. Either drop the extra `-q`, or run
-> `pytest -o addopts= -q …` (which also drops `--reruns 2`), or count the
+> `pytest -o addopts= -q …` (which also drops `-ra` and the rest of addopts), or count the
 > result characters: `.` pass, `F` fail, `E` error, `s` skip, `R` rerun.
 
 ## 🔍 Debugging
