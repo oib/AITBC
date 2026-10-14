@@ -84,14 +84,74 @@ The service dispatches to `ExchangeAPIHandler` (stdlib-style handler under the F
 ### Trading
 
 ```http
-GET  /api/orders/orderbook          # order book (buys/sells)
-POST /api/orders                    # place order — {"order_type": "BUY"|"SELL", "amount": "...", "price": "...", "user_address": "0x..."}
-GET  /api/trades/recent             # recent trades
+GET  /api/orders/orderbook          # order book (buys/sells; rows carry node label, expiry, out_of_band)
+POST /api/orders                    # place order — signed envelope when enforcement is on (see below)
+GET  /api/trades/recent             # recent trades (buyer/seller node labels + fee_ait)
 GET  /api/total-supply              # total supply
 GET  /api/treasury-balance          # treasury balance (auth)
 GET  /v1/exchange/history           # exchange history
 GET  /exchange/price.json           # current price JSON
 ```
+
+### Signed orders & node registry (ETH-11 phase 2)
+
+Enforcement is controlled by `EXCHANGE_REQUIRE_SIGNED_ORDERS` (default **on**;
+set to `false`/`0`/`off` to revert to the pre-phase-2 unsigned `POST /api/orders`
+behavior — the phase-2 routes then answer 404). When on:
+
+```http
+POST /api/orders                  # signed place — {"envelope": {...}, "signature": "0x...", "user_address": "0x..."}
+POST /api/orders/{id}/cancel      # signed cancel by the order's owner
+POST /api/exchange/nodes/register # claim a seeded registry row — signed register envelope
+GET  /api/exchange/nodes          # participants board (label, short address, status, open_orders, watchlisted)
+GET  /api/exchange/my-orders?addr=0x...   # one wallet's orders + next expected account_nonce
+```
+
+- **Envelope (place)**: `{side: "BUY"|"SELL", pair: "AIT/ETH", amount_ticks: int,
+  price_ticks: int, expiry_height: int, account_nonce: int,
+  chain_id: "ait-localnet"}` — ticks are ×10⁸ integer minor units.
+- **Envelope (cancel)**: `{action: "exchange_cancel", order_id: int,
+  expiry_height: int, account_nonce: int, chain_id}` — `order_id` must equal
+  the path id.
+- **Envelope (register)**: `{action: "exchange_register", address, label,
+  account_nonce, chain_id}` — the label is pinned by the registry seed.
+- **Signature**: secp256k1 over `keccak256(canonical_json(envelope))` —
+  canonical JSON = sorted keys, compact separators; the repo's bare-digest
+  convention (no EIP-191 prefix), the same encoding
+  `aitbc.crypto.sign_transaction_data` produces. Verified via
+  `aitbc.crypto.signature_recovery.verify_signature`.
+- **Auth**: while enforcement is on, the signed envelope is the credential —
+  `X-Api-Key` is not required on the three signed writes (a per-node wallet
+  signature is strictly stronger than a shared write secret, and nodes never
+  see the exchange's key). With the flag off, `POST /api/orders` again
+  requires `X-Api-Key` exactly as before.
+- **account_nonce** is the exchange-scoped per-address counter
+  (`order_nonces`), **not** the chain nonce. GET `my-orders` returns the next
+  expected value; a stale or skipped nonce answers 409.
+- **Price rule** (decided 14 Oct): an order's `price_ticks` must sit inside the
+  oracle AIT/ETH rate ± `EXCHANGE_PRICE_BAND_PCT` (default `0.10`). A stale or
+  unavailable feed answers **503**, like the bridge quote endpoint.
+- **Registration**: only addresses seeded into `node_registry` can register —
+  the signed claim flips `seeded → registered` and only `registered` nodes may
+  place orders (`403` otherwise). Phase 2 orders stay **unfunded** and
+  settlement-free; `funded_state` is recorded for the phase-3 ledger only.
+- **Abuse limits** (design §9): `EXCHANGE_MAX_ORDERS_PER_MIN` (20) per IP and
+  per address, `EXCHANGE_MAX_OPEN_PER_NODE` (50), `EXCHANGE_MAX_BOOK_ROWS`
+  (5000), `EXCHANGE_MIN_ORDER_AIT` (1), `EXCHANGE_READS_PER_MIN` (60) on the
+  read endpoints, `EXCHANGE_REGISTER_PER_MIN` (5), and a cancel-ratio
+  watchlist (`EXCHANGE_CANCEL_RATIO`, default 0.9) surfaced as
+  `watchlisted` on `GET /api/exchange/nodes`. `EXCHANGE_CHAIN_ID` overrides
+  the envelope `chain_id` expectation (default `CHAIN_ID` env or
+  `ait-localnet`). `EXCHANGE_FEE_PCT` (default `0`) is recorded on each trade
+  row as `fee_ait` — the AIT-leg fee knob, decided 14 Oct; phase 2 moves no
+  funds.
+- **Cancel/fill races** resolve under the same `BEGIN IMMEDIATE` write lock:
+  whoever commits first wins; the loser gets `409`.
+
+The exchange service is intentionally absent from the generated OpenAPI
+specs (`scripts/extract_openapi_specs.py` skips it — the catch-all FastAPI
+adapter cannot produce useful route schemas); this document is the canonical
+API reference.
 
 ### Market
 

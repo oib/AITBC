@@ -24,6 +24,8 @@ def temp_db(tmp_path):
     for stmt in (
         exchange_db._TRADES_SCHEMA,
         exchange_db._ORDERS_SCHEMA,
+        exchange_db._NODE_REGISTRY_SCHEMA,
+        exchange_db._ORDER_NONCES_SCHEMA,
         exchange_db._MARKET_OFFERS_SCHEMA,
         exchange_db._MARKET_ORDERS_SCHEMA,
     ):
@@ -210,6 +212,11 @@ class TestLexicalMatchingRegression:
 class TestPlaceOrderBoundary:
     """The API boundary rejects values the tick columns cannot represent."""
 
+    @pytest.fixture(autouse=True)
+    def _unsigned_placement(self, monkeypatch):
+        """These tests exercise the legacy unsigned path (ETH-11 phase 2 flag off)."""
+        monkeypatch.setenv("EXCHANGE_REQUIRE_SIGNED_ORDERS", "0")
+
     def _handler(self, body):
         from apps.exchange.simple_exchange.handlers.exchange import ExchangeMixin
 
@@ -219,6 +226,7 @@ class TestPlaceOrderBoundary:
         handler.send_error = MagicMock()
         handler.send_json_response = MagicMock()
         handler.handle_place_order = ExchangeMixin.handle_place_order.__get__(handler, ExchangeMixin)
+        handler._place_order_unsigned = ExchangeMixin._place_order_unsigned.__get__(handler, ExchangeMixin)
         handler._parse_order_payload = ExchangeMixin._parse_order_payload.__get__(handler, ExchangeMixin)
         handler._match_orders_in_txn = ExchangeMixin._match_orders_in_txn.__get__(handler, ExchangeMixin)
         return handler
@@ -344,6 +352,12 @@ class TestOrderbookOrdering:
         handler = MagicMock(spec=ExchangeMixin)
         handler.send_json_response = MagicMock()
         handler.get_orderbook = ExchangeMixin.get_orderbook.__get__(handler, ExchangeMixin)
+        # phase-2 collaborators the spec'd mock would otherwise answer with
+        # MagicMocks: the registry lookup feeds the row's node label, and the
+        # band feeds the out-of-band flag.
+        handler._registry_labels = MagicMock(return_value={})
+        handler._ait_eth_band = MagicMock(return_value=None)
+        handler._orderbook_row = ExchangeMixin._orderbook_row.__get__(handler, ExchangeMixin)
         with patch("apps.exchange.simple_exchange.handlers.exchange.get_db_path", return_value=temp_db):
             handler.get_orderbook()
 
