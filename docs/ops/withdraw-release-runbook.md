@@ -59,8 +59,37 @@ PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/
 Environment comes from the unit's env files by default
 (`/etc/aitbc/blockchain.env`, `blockchain-secrets.env`, `node.env`,
 `exchange.env`, `aitbc-wallet.env` — repeatable `--env-file` overrides).
+Files apply in unit order with **later files overriding earlier ones**
+(systemd `EnvironmentFile` semantics); an already-exported shell variable
+still wins over every file — that is the documented way to pick the RPC
+pair below.
 Two independent Ethereum RPC endpoints are mandatory for anything
 mutating: `ETH_RPC_URL` plus `--verify-rpc` or `ETH_VERIFY_RPC_URL`.
+
+**Load the env before python starts.** `wallet_app.settings` requires
+`COORDINATOR_API_KEY` at *import* time, so `PYTHONPATH=... venv/bin/python
+-m wallet_app.bridge.withdraw_admin` fails without the unit's environment
+already in the shell. Run in a subshell that sources the files first —
+
+```bash
+(
+cd /opt/aitbc
+set -a
+. /etc/aitbc/blockchain.env
+. /etc/aitbc/blockchain-secrets.env 2>/dev/null   # a line with an unquoted
+. /etc/aitbc/node.env                            # '&' misparses under a
+. /etc/aitbc/exchange.env                        # plain source — silence it;
+. /etc/aitbc/aitbc-wallet.env 2>/dev/null        # the needed vars still load
+set +a
+export PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
+export ETH_RPC_URL=https://sepolia.drpc.org
+export ETH_VERIFY_RPC_URL=https://sepolia.gateway.tenderly.co
+venv/bin/python -m wallet_app.bridge.withdraw_admin <command> [args]
+)
+```
+
+Endpoints in output are always shown as `scheme://host` — a keyed RPC
+URL's credential path is never printed or stored (ETH-15).
 
 - `status <ait_tx_hash>` — dump the ledger row, every recorded release
   attempt, the monitor's verify verdict, and the per-RPC proof bundle.
@@ -84,6 +113,26 @@ whose recorded release proves failed, and `needs_review_release` rows.
 Anything monitor-owned (`releasing`, `releasing_retry`, `needs_review`),
 already-`refunded`/refund-recorded, or `failed` is refused — never race
 the machine, never double-compensate.
+
+### Choosing the proof endpoints
+
+The release-fate proof calls `eth_getBalance` at `block−1` — it needs an
+**archive-capable** endpoint for releases older than ~120 blocks. Known
+good (keyless public endpoints, used for the ETH-14 recovery):
+
+- `https://sepolia.drpc.org`
+- `https://sepolia.gateway.tenderly.co`
+
+Endpoints known to fail this leg: `sepolia-rpc.publicnode.com` is pruned
+(`-32000 historical state is not available`), and the service's Infura URL
+intermittently returns `-32603 Internal error` on the same call. A refusal
+whose detail mentions `historical state` or `-32000` means that endpoint
+is **not archive-capable** — swap in an archive endpoint, do not retry
+the same pair.
+
+Note: `ETH_RPC_URL` serves both the proof bundle and (with `--confirm`)
+the **broadcast** — pick an endpoint you want the signed transaction
+sent through. The verify endpoint is proof-only.
 
 ## Failure modes to remember
 

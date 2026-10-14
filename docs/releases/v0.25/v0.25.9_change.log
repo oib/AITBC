@@ -1306,6 +1306,53 @@ release tests), `test_bridge_db.py` (attempt record/retry_count/status
 lists), `test_withdraw_admin.py` (dry-run purity, every refusal gate,
 confirm→completed, revert→parked, single-use nonce reuse).
 
+### ETH-15: keyed RPC URLs out of output, env precedence, log levels, runbook gaps (2026-10-14)
+
+The ETH-14 recovery surfaced three hygiene gaps: `withdraw_admin` printed
+the effective `ETH_RPC_URL` verbatim (a gateway URL carrying its API-key
+path), httpx's INFO request lines logged the same URL into the
+aitbc-wallet journal on every poll, and the admin's env-file loader
+applied *first-wins* precedence where systemd `EnvironmentFile` — which
+the unit actually uses — is *last-wins*.
+
+- `wallet_app/bridge/url_redact.py` (new): `redact_url` /
+  `redact_text` — `scheme://host[:port]` only; path, query, userinfo and
+  fragments never reach stdout, the journal, or a stored field.
+- `withdraw_admin.py`: every endpoint print (`_print_verdicts`, verdict
+  dicts) stores only the redacted form; `_rpc_call`/`_ait_rpc_get` wrap
+  httpx errors so exception text never carries the URL; stored attempt
+  `outcome` text is redacted the same way. `_load_env_files` now collects
+  file values first and applies them last-file-wins (systemd semantics)
+  while an already-exported shell variable still wins — the documented
+  operator override for picking the proof RPC pair. Proof refusals caused
+  by a pruned endpoint now say "not archive-capable" instead of only the
+  raw RPC error.
+- `aitbc_logging.py`: `configure_httpx_logging` sets the `httpx` and
+  `httpcore` loggers to `WARNING` — httpx logs every request URL at INFO.
+  Shared setup, so wallet, exchange and bridge-monitor all inherit it.
+- `bridge_withdraw_monitor.py` / `bridge_monitor.py`: `_eth_rpc`/`_rpc`
+  wrap `raise_for_status`/transport errors so an HTTP failure's exception
+  text (which embeds the request URL) is redacted before it reaches logs
+  or error fields.
+- Grace log level: `_compose_release_outcome_detail` returns the reason
+  behind `unknown`; the withdraw resume pass logs an in-grace absence at
+  INFO and the sell inflight check at WARNING (its row still parks
+  `needs_review` — state transitions unchanged), while `unknown` after
+  the grace window or for any non-absence reason stays ERROR.
+- Runbook: documents sourcing the unit env before python starts (import-
+  time `COORDINATOR_API_KEY`), the `&`-misparsing line in
+  `blockchain-secrets.env`, the archive-endpoint requirement for the
+  `block−1` balance proof (drpc/tenderly pair; publicnode is pruned,
+  Infura flakes), and that `ETH_RPC_URL` also picks the broadcast
+  endpoint on `--confirm`.
+
+Tests: `test_withdraw_admin.py` (keyed URL never in stdout/stderr across
+status/retry/mark-review incl. error paths, attempt outcome redaction,
+env precedence), `test_bridge_withdraw_monitor.py` +
+`test_sell_escrow_monitor.py` (in-grace log level vs. ERROR for real
+unknowns), `test_aitbc_logging.py` (httpx/httpcore WARNING after
+`configure_logging`).
+
 ### Commit index — every commit since 2026-09-30, cited for the coverage check
 
 Continuation of the 2026-09-30 index above: `### ` sections carry the
