@@ -7,11 +7,12 @@
 | **test** | `requirements-test.txt` | pytest + asyncio/cov/mock/rerunfailures/timeout, coverage, fakeredis | **every** host |
 | **dev** | `requirements-dev.txt` | the above **plus** mypy, ruff, pre-commit, bandit, safety, pip-audit, ipython, `types-*` | hosts marked as dev nodes |
 
-The test tier is not optional anywhere. `pyproject.toml`'s
-`[tool.pytest.ini_options] addopts` unconditionally passes `--reruns`, which
-only `pytest-rerunfailures` provides, so a host without it cannot *collect* the
-suite at all — every invocation dies with `unrecognized arguments`. A node that
-cannot run its own tests cannot be verified after a deploy.
+The test tier is not optional anywhere. `--reruns` no longer lives in
+`addopts`: retries are per-test `pytest.mark.flaky(reruns=…)` marks on tests
+with a named environmental cause, and the root `conftest.py` registers the
+rerun options as no-ops where `pytest-rerunfailures` is absent. The tier still
+provides pytest itself — a node that cannot run its own tests cannot be
+verified after a deploy.
 
 Test-tier versions are not pinned in `requirements-test.txt`. They come from
 `requirements-dev.txt` used as a pip constraints file, and that file is
@@ -47,4 +48,7 @@ form. The hosts that were complete were complete only by accident: they had
 been provisioned through `deployment/setup.sh`'s fallback branch, which
 installed `requirements-dev.txt` wholesale (and did it with `|| warning`, so a
 failure there would have been silent too). The tier split exists so that
-neither the gap nor the silent-failure path can recur.
+neither the gap nor the silent-failure path can recur. The `--reruns` addopt
+behind the collision is itself gone: retries moved to per-test
+`pytest.mark.flaky` marks, and the root conftest keeps manual `--reruns`
+invocations parseable where the plugin is not installed.
