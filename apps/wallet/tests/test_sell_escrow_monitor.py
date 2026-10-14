@@ -11,6 +11,7 @@ Covers:
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -19,8 +20,9 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+from fastapi import HTTPException
 
-from wallet_app.bridge import bridge_withdraw_monitor as wdm
+from wallet_app.bridge import bridge_routes, bridge_withdraw_monitor as wdm
 from wallet_app.bridge import sell_escrow_monitor as sellmon
 from wallet_app.bridge.bridge_db import (
     _SELL_OPEN_STATUSES,
@@ -315,6 +317,44 @@ class TestSellDisabled:
         enabled, reason = sellmon.sell_config_status()
         assert not enabled
         assert "SELL_MAX_ETH_PER_TX" in reason
+
+
+class TestSellRouteGateHardening:
+    """SEC-18: the 503 body is a fixed string; the config detail goes to the log."""
+
+    def test_gate_503_body_is_fixed_and_reason_logged(self, monkeypatch, caplog):
+        monkeypatch.delenv("AIT_SELL_ESCROW", raising=False)
+        monkeypatch.delenv("SELL_TREASURY_ADDRESS", raising=False)
+        monkeypatch.setenv("SELL_ESCROW_ENABLED", "true")
+        monkeypatch.setattr(wdm, "BRIDGE_ENABLED", True)
+
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.bridge_routes"):
+            with pytest.raises(HTTPException) as excinfo:
+                bridge_routes._sell_gate()
+        assert excinfo.value.status_code == 503
+        assert excinfo.value.detail == "Sell escrow disabled"
+        assert "AIT_SELL_ESCROW" not in excinfo.value.detail
+        assert "AIT_SELL_ESCROW" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_quote_config_error_503_body_is_fixed_and_logged(self, monkeypatch, caplog):
+        def _boom():
+            raise ValueError("AIT_SELL_ESCROW (escrow address) not configured")
+
+        monkeypatch.setattr(sellmon, "sell_config_status", lambda: (True, ""))
+        monkeypatch.setattr(sellmon, "_sell_config", _boom)
+        monkeypatch.setattr(
+            bridge_routes,
+            "_validate_sell_quote_params",
+            lambda body: (Decimal("1"), TEST_ETH_ADDRESS, SHOP_AIT),
+        )
+        with caplog.at_level(logging.WARNING, logger="wallet_app.bridge.bridge_routes"):
+            with pytest.raises(HTTPException) as excinfo:
+                await bridge_routes.bridge_sell_quote({}, None)
+        assert excinfo.value.status_code == 503
+        assert excinfo.value.detail == "Sell escrow disabled"
+        assert "AIT_SELL_ESCROW" not in excinfo.value.detail
+        assert "AIT_SELL_ESCROW" in caplog.text
 
 
 class TestQuoteAndLockMatching:
