@@ -1505,7 +1505,7 @@ narrative; this list cites each remaining commit by hash so
 - `d39a308882` fix(escrow): apply the configured rate window when the node funds a protected escrow
 - `f86c9cd13f` test(cli): exercise the real CLIConfig for the energy rate window
 - `44ea7a5c43` docs(release): scrub residual fleet tokens from the v0.25.8 log
-- `4f32967727` test(security): add ns2 to INTERNAL_HOST_TOKENS and scrub residual hits
+- `4f32967727` test(security): add an internal host token to INTERNAL_HOST_TOKENS and scrub residual hits
 - `3c6ec6bb83` fix(cli): harden protected gpu buy path against rpc and buyer-id failures
 - `242452abe9` fix(monitoring): scope authority-balance alerts to the exporter host
 - `db0df5f158` fix(coordinator): mark refused escrow funding as failed instead of silent pending
@@ -1721,8 +1721,8 @@ narrative; this list cites each remaining commit by hash so
 - `62ddff8ae8` test(ops-signer): wait for listener readiness, not socket file (SEC-3c)
 - `75a0c51237` fix(logrotate): rotate flat aitbc logs via copytruncate, exclude self-rotating service logs (LOG-1)
 - `3d72b5cc54` fix(logrotate): size-trigger flat logs so alerts.log stays handler-managed (LOG-1b)
-- `05939e8020` docs(ops): self-hosted ntfy staging runbook for ns2 incus container (SD-2a)
-- `63fef9f92e` chore(docs): move ntfy ns2 staging out of the repo (SD-2a)
+- `05939e8020` docs(ops): self-hosted ntfy staging runbook for a staging container (SD-2a)
+- `63fef9f92e` chore(docs): move ntfy staging docs out of the repo (SD-2a)
 - `ae50febd97` feat(monitoring): ntfy publish format for watcher, digest and heartbeat (SD-2c)
 - `9609231088` docs(bridge): per-node Sepolia wallets, buy/sell scenario, read-only balance script (ETH-1)
 - `821321fc15` docs(ops): keep live wallet dir untouched in Sepolia key recipe (ETH-1-fix)
