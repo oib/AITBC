@@ -1376,6 +1376,26 @@ whose `bin/*` shebangs still name `/var/cache/aitbc/python-venvs` (hub
 and hub1 today), so such a host needs the SEC-15 venv repair before
 `update.sh` will run there.
 
+### SEC-18: wallet bridge 5xx bodies drop config and exception text (2026-10-14)
+
+`f8f9cf4864` and `aac12bf1b0` fix three `bridge_routes.py` sites that put
+server configuration or exception text into 503 response bodies — the
+class `tests/security/test_http_exception_hardening.py` already forbids
+(the wallet parametrization was red on main because nothing ran the full
+suite). `_sell_gate` and the sell-quote config path return
+`detail="Sell escrow disabled"` instead of `Sell escrow disabled:
+<reason>`/`<exc>` — the removed text named the missing env keys
+(`AIT_SELL_ESCROW`, `SELL_ESCROW_WALLET_PATH`, `CHAIN_ID`). The
+admin-gated poll trigger returns `"Bridge poll skipped"` instead of
+echoing the monitor's `"ETH_WALLET_ADDRESS not set"` reason. Each site
+logs the removed text via `logger.warning` with `redact_text`, so a
+keyed RPC URL cannot reach the journal either; the remaining 5xx
+details were audited and are fixed constants (rate_info "error",
+"Internal server error" + `logging.exception`). `wallet-openapi.json`
+regenerated; the 503 descriptions lose the `{reason}`/`{exc}`
+placeholders. Tests assert the fixed body and the logged config text
+for all three sites.
+
 ### Commit index — every commit since 2026-09-30, cited for the coverage check
 
 Continuation of the 2026-09-30 index above: `### ` sections carry the
@@ -1520,3 +1540,6 @@ narrative; this list cites each remaining commit by hash so
 - `83960271b3` fix(deps): align root requirements with lock, bump fsspec/virtualenv (DEPS-1)
 - `e5cbc50a16` test(deps): pin cli requirement files to the root export
 - `cf8ad44714` fix(cli): single source of truth for the CLI version (DEPS-2 follow-up)
+- `40fd20a3b4` docs(release): DEPS-2 section + commit index for the deps stack
+- `d3f2356be2` fix(ci): accept canonical __version__ import in cli/setup.py version check
+- `434a31ac01` chore(version): align pyproject.toml [project] version with the release line
