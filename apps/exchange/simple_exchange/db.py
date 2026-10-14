@@ -484,6 +484,38 @@ def _seed_node_registry(cursor) -> int:
     return seeded
 
 
+def _add_columns(cursor, table: str, column_defs: list) -> None:
+    """ALTER TABLE ADD COLUMN for each def — a duplicate column raises and
+    is skipped, which is how idempotent migrations run on existing DBs."""
+    for column_def in column_defs:
+        try:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")  # nosec B608 - hardcoded lists only
+        except Exception:
+            pass
+
+
+def _migrate_money_columns(conn, cursor) -> None:
+    """B2 migration: convert REAL columns to TEXT for exact decimal storage.
+    Only runs if existing tables have REAL columns (pre-v0.10.3 databases)."""
+    migrations = [
+        ("trades", _TRADES_SCHEMA, ["amount", "price", "total"]),
+        ("orders", _ORDERS_SCHEMA, ["amount", "price", "total", "filled", "remaining"]),
+        ("marketplace_offers", _MARKET_OFFERS_SCHEMA, ["price"]),
+        ("marketplace_orders", _MARKET_ORDERS_SCHEMA, ["price"]),
+    ]
+    for table, schema, money_cols in migrations:
+        try:
+            migrated = _migrate_real_to_text(conn, cursor, table, schema, money_cols)
+            if migrated:
+                import logging
+
+                logging.getLogger(__name__).info("Migrated %s REAL columns to TEXT", table)
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).warning("Could not migrate %s: %s", table, e)
+
+
 def init_db():
     """Initialize SQLite database.
 
@@ -507,92 +539,58 @@ def init_db():
     cursor.execute(_PAYOUT_AUDIT_SCHEMA)
 
     # Add columns if they don't exist (for existing databases)
-    _order_columns = [
-        "user_address TEXT",
-        "tx_hash TEXT",
-        "signature TEXT",
-        "envelope_hash TEXT",
-        "account_nonce INTEGER",
-        "expiry_height INTEGER",
-        "funded_state TEXT NOT NULL DEFAULT 'unfunded' CHECK(funded_state IN ('unfunded', 'funded', 'backing_expired'))",
-        "cancelled_at TIMESTAMP",
-        # ETH-8 phase 3 (dark): funding proof + payout snapshot. NULL on all
-        # phase-2 rows; written only when EXCHANGE_SETTLEMENT_ENABLED is on.
-        "backing_tx_hash TEXT",
-        "locked_ticks INTEGER CHECK(locked_ticks >= 0)",
-        "seller_eth_address TEXT",
-        "funded_at TIMESTAMP",
-    ]
-    for column_def in _order_columns:
-        try:
-            cursor.execute(f"ALTER TABLE orders ADD COLUMN {column_def}")  # nosec B608 - column definitions are the hardcoded list above
-        except Exception:
-            pass
+    _add_columns(
+        cursor,
+        "orders",
+        [
+            "user_address TEXT",
+            "tx_hash TEXT",
+            "signature TEXT",
+            "envelope_hash TEXT",
+            "account_nonce INTEGER",
+            "expiry_height INTEGER",
+            "funded_state TEXT NOT NULL DEFAULT 'unfunded' CHECK(funded_state IN ('unfunded', 'funded', 'backing_expired'))",
+            "cancelled_at TIMESTAMP",
+            # ETH-8 phase 3 (dark): funding proof + payout snapshot. NULL on
+            # all phase-2 rows; written only when EXCHANGE_SETTLEMENT_ENABLED
+            # is on.
+            "backing_tx_hash TEXT",
+            "locked_ticks INTEGER CHECK(locked_ticks >= 0)",
+            "seller_eth_address TEXT",
+            "funded_at TIMESTAMP",
+        ],
+    )
 
-    _trade_columns = [
-        "buyer_address TEXT",
-        "seller_address TEXT",
-        "fee_ait TEXT",
-        # ETH-8 phase 3 (dark): order linkage + mirrored settlement state.
-        "buy_order_id INTEGER",
-        "sell_order_id INTEGER",
-        f"settlement_state TEXT CHECK(settlement_state IN ({_SETTLEMENT_STATES_SQL}))",
-        "settlement_eth_tx_hash TEXT",
-        "settlement_ait_tx_hash TEXT",
-        "settlement_fee_tx_hash TEXT",
-    ]
-    for column_def in _trade_columns:
-        try:
-            cursor.execute(f"ALTER TABLE trades ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
-        except Exception:
-            pass
+    _add_columns(
+        cursor,
+        "trades",
+        [
+            "buyer_address TEXT",
+            "seller_address TEXT",
+            "fee_ait TEXT",
+            # ETH-8 phase 3 (dark): order linkage + mirrored settlement state.
+            "buy_order_id INTEGER",
+            "sell_order_id INTEGER",
+            f"settlement_state TEXT CHECK(settlement_state IN ({_SETTLEMENT_STATES_SQL}))",
+            "settlement_eth_tx_hash TEXT",
+            "settlement_ait_tx_hash TEXT",
+            "settlement_fee_tx_hash TEXT",
+        ],
+    )
 
     # ETH-8 phase 3 (dark): the node's signed payout address (set via the
     # exchange_set_payout verb) and when it was claimed. History lives in
     # payout_address_audit; NULL means the node never set one.
-    _registry_columns = [
-        "eth_address TEXT",
-        "eth_address_set_at TIMESTAMP",
-    ]
-    for column_def in _registry_columns:
-        try:
-            cursor.execute(f"ALTER TABLE node_registry ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
-        except Exception:
-            pass
+    _add_columns(cursor, "node_registry", ["eth_address TEXT", "eth_address_set_at TIMESTAMP"])
 
     # committed_eth is CUMULATIVE spent-or-owed minus anything returned:
     # +trade_total at match, −trade_total ONLY when the trade refunds. A
     # settled trade never decrements — the ETH already left the float, and
     # decrementing would resurrect spent money as spendable balance.
     # Refund math: amount_eth − committed.
-    _prepaid_columns = [
-        "committed_eth TEXT NOT NULL DEFAULT '0'",
-    ]
-    for column_def in _prepaid_columns:
-        try:
-            cursor.execute(f"ALTER TABLE prepaid_debits ADD COLUMN {column_def}")  # nosec B608 - hardcoded list
-        except Exception:
-            pass
+    _add_columns(cursor, "prepaid_debits", ["committed_eth TEXT NOT NULL DEFAULT '0'"])
 
-    # B2 migration: convert REAL columns to TEXT for exact decimal storage
-    # Only runs if existing tables have REAL columns (pre-v0.10.3 databases)
-    migrations = [
-        ("trades", _TRADES_SCHEMA, ["amount", "price", "total"]),
-        ("orders", _ORDERS_SCHEMA, ["amount", "price", "total", "filled", "remaining"]),
-        ("marketplace_offers", _MARKET_OFFERS_SCHEMA, ["price"]),
-        ("marketplace_orders", _MARKET_ORDERS_SCHEMA, ["price"]),
-    ]
-    for table, schema, money_cols in migrations:
-        try:
-            migrated = _migrate_real_to_text(conn, cursor, table, schema, money_cols)
-            if migrated:
-                import logging
-
-                logging.getLogger(__name__).info("Migrated %s REAL columns to TEXT", table)
-        except Exception as e:
-            import logging
-
-            logging.getLogger(__name__).warning("Could not migrate %s: %s", table, e)
+    _migrate_money_columns(conn, cursor)
 
     # Tick columns: added/backfilled fail-closed inside an explicit
     # transaction so ALTER + backfill commit or roll back together. A value
