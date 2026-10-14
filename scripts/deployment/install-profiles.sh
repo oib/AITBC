@@ -124,7 +124,7 @@ pip install -r "$REQ_FILE.filtered" || {
 #   test tier -- every node. Small, and a node that cannot run its own tests
 #                cannot be verified after a deploy.
 #   dev  tier -- the IDE host and the designated dev nodes only. mypy, ruff,
-#                pre-commit, bandit, safety, pip-audit, ipython, types-*.
+#                pre-commit, bandit, pip-audit, ipython, types-*.
 #                Which hosts are dev nodes is deployment-specific -- see docs/fleet-roles.md.
 #
 # Versions for the test tier come from requirements-dev.txt used as a
@@ -173,5 +173,5 @@ if [ "$IS_DEV_NODE" = "1" ]; then
         error "AITBC_DEV_NODE is set but requirements-dev.txt is missing"
     fi
 else
-    echo "Not a dev node: skipping dev tier (mypy/ruff/pre-commit/bandit/safety)."
+    echo "Not a dev node: skipping dev tier (mypy/ruff/pre-commit/bandit/pip-audit)."
 fi
