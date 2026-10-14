@@ -50,6 +50,10 @@ from pathlib import Path
 
 import pytest
 
+from tests.git_checkout import requires_git_checkout
+
+pytestmark = requires_git_checkout
+
 REPO = Path(__file__).resolve().parents[2]
 
 # Names of specific machines and of the hosting they run on. None of these is a

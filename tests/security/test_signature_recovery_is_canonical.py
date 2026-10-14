@@ -20,6 +20,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
+from tests.git_checkout import requires_git_checkout
 from eth_account import Account
 from eth_utils import keccak
 
@@ -44,6 +46,7 @@ def _sign(digest: bytes) -> str:
 class TestOnlyOneImplementation:
     """V23-05: the defect was the duplication, not any single copy of it."""
 
+    @requires_git_checkout
     def test_no_other_module_constructs_a_signature(self):
         result = subprocess.run(
             ["git", "grep", "-n", "keys.Signature(", "--", "aitbc/", "apps/", "cli/", "packages/"],
