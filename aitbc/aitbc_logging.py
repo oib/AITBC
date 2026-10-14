@@ -286,10 +286,19 @@ class _HttpxStatusFilter(logging.Filter):
 
 
 def configure_httpx_logging() -> None:
-    """Add a filter so httpx logs 4xx at WARNING and 5xx at ERROR."""
+    """Silence httpx/httpcore request logging below WARNING (ETH-15).
+
+    httpx logs every request at INFO with the full URL — a keyed RPC
+    endpoint's credential path then lands in the journal on every poll.
+    The _HttpxStatusFilter upgrade is kept for callers that deliberately
+    lower the level again; at WARNING+ httpx never emits the URL lines.
+    HTTP errors still surface through the callers' own error paths.
+    """
     httpx_logger = logging.getLogger("httpx")
     if not any(isinstance(f, _HttpxStatusFilter) for f in httpx_logger.filters):
         httpx_logger.addFilter(_HttpxStatusFilter())
+    httpx_logger.setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def configure_logging(

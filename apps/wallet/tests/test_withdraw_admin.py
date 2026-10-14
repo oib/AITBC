@@ -14,6 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 import pytest
 
 from wallet_app.bridge.bridge_db import (
@@ -29,6 +30,10 @@ TEST_ETH_ADDRESS = "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"
 
 RPC_A = "http://rpc-a.test"
 RPC_B = "http://rpc-b.test"
+# Obviously fake keyed gateway URLs (ETH-15) — the key path must never
+# reach stdout, stderr, an exception, or a stored field.
+KEYED_RPC_A = "https://rpc-a.test/v3/FAKEKEY123A"
+KEYED_RPC_B = "https://rpc-b.test/v3/FAKEKEY123B"
 AIT_HASH = "0xa" * 64
 OLD_ETH_TX = "0x" + "ab" * 32
 ETH_TO = "0x2222222222222222222222222222222222222222"
@@ -494,3 +499,232 @@ class TestMarkReview:
         rc = _run(["--env-file", str(env_path), "--db", str(db_path), "mark-review", AIT_HASH, "--confirm", "--note", "x"])
         assert rc == 1
         assert get_withdrawal_by_ait_tx_hash(AIT_HASH)["status"] == "completed"
+
+
+def _keyed_env(env_dir: Path) -> Path:
+    """An ops env file whose RPC URLs carry fake key paths (ETH-15)."""
+    env = env_dir / "ops-keyed.env"
+    env.write_text(
+        f"ETH_RPC_URL={KEYED_RPC_A}\n"
+        f"ETH_VERIFY_RPC_URL={KEYED_RPC_B}\n"
+        f"ETH_WALLET_ADDRESS={TEST_ETH_ADDRESS}\n"
+        f"ETH_WALLET_PRIVATE_KEY={TEST_ETH_PRIVATE_KEY}\n"
+        "BRIDGE_ENABLED=true\n"
+        "BLOCKCHAIN_RPC_URL=http://chain.test\n"
+    )
+    return env
+
+
+def _keyed_state(state: dict) -> None:
+    """Point the stubbed endpoints at the keyed URLs, both proving reverted."""
+    state["rpc"][KEYED_RPC_A] = _reverted_rpc()
+    state["rpc"][KEYED_RPC_B] = _reverted_rpc()
+
+
+def _assert_no_key_leak(capsys) -> None:
+    captured = capsys.readouterr()
+    for key in ("FAKEKEY123A", "FAKEKEY123B", "/v3/"):
+        assert key not in captured.out, f"{key} leaked to stdout"
+        assert key not in captured.err, f"{key} leaked to stderr"
+
+
+class TestKeyedUrlNeverPrinted:
+    """ETH-15: a keyed RPC URL must never appear in command output — every
+    endpoint is printed as scheme://host only, including on error paths."""
+
+    def test_status(self, admin_env, capsys, tmp_path):
+        state, _, db_path = admin_env
+        _seed_completed_row()
+        _keyed_state(state)
+        env = _keyed_env(tmp_path)
+
+        rc = _run(["--env-file", str(env), "--db", str(db_path), "status", AIT_HASH])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "https://rpc-a.test" in out  # host still shown
+        _assert_no_key_leak(capsys)
+
+    def test_release_retry_dry_run(self, admin_env, capsys, tmp_path):
+        state, _, db_path = admin_env
+        _seed_completed_row()
+        _keyed_state(state)
+        env = _keyed_env(tmp_path)
+
+        rc = _run(["--env-file", str(env), "--db", str(db_path), "release-retry", AIT_HASH])
+        assert rc == 0
+        _assert_no_key_leak(capsys)
+
+    def test_release_retry_confirm(self, admin_env, capsys, tmp_path):
+        state, _, db_path = admin_env
+        _seed_completed_row()
+        _keyed_state(state)
+        state["verify_outcome"] = "sent"
+        env = _keyed_env(tmp_path)
+
+        rc = _run(
+            ["--env-file", str(env), "--db", str(db_path), "release-retry", AIT_HASH, "--confirm", "--note", "ETH-14 retry"]
+        )
+        assert rc == 0
+        _assert_no_key_leak(capsys)
+
+    def test_mark_review(self, admin_env, capsys, tmp_path):
+        state, _, db_path = admin_env
+        _seed_completed_row()
+        _keyed_state(state)
+        env = _keyed_env(tmp_path)
+
+        rc = _run(
+            ["--env-file", str(env), "--db", str(db_path), "mark-review", AIT_HASH, "--confirm", "--note", "refund path"]
+        )
+        assert rc == 0
+        _assert_no_key_leak(capsys)
+
+    def test_rpc_error_path(self, admin_env, capsys, tmp_path, monkeypatch):
+        """An endpoint that errors still prints only its host — including
+        when the exception text itself carried the keyed URL."""
+        import wallet_app.bridge.withdraw_admin as admin
+
+        state, _, db_path = admin_env
+        _seed_completed_row()
+        env = _keyed_env(tmp_path)
+
+        async def _raise_keyed(url: str, method: str, params: list):
+            raise RuntimeError(f"{method} request to {url} failed: connection refused")
+
+        monkeypatch.setattr(admin, "_rpc_call", _raise_keyed)
+        rc = _run(["--env-file", str(env), "--db", str(db_path), "status", AIT_HASH])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "rpc error" in out
+        _assert_no_key_leak(capsys)
+
+    def test_broadcast_failure_never_stores_keyed_url(self, admin_env, capsys, tmp_path, monkeypatch):
+        """The attempt row's outcome field is persisted — it must carry
+        the redacted exception text too."""
+        import wallet_app.bridge.bridge_withdraw_monitor as wdm
+
+        state, _, db_path = admin_env
+        _seed_completed_row()
+        _keyed_state(state)
+        env = _keyed_env(tmp_path)
+
+        async def _broadcast_fails(raw: str) -> str:
+            raise RuntimeError(f"send to {KEYED_RPC_A} timed out")
+
+        monkeypatch.setattr(wdm, "_broadcast_release_tx", _broadcast_fails)
+        rc = _run(
+            ["--env-file", str(env), "--db", str(db_path), "release-retry", AIT_HASH, "--confirm", "--note", "ETH-14 retry"]
+        )
+        assert rc == 1
+        _assert_no_key_leak(capsys)
+        attempts = get_release_attempts(AIT_HASH)
+        assert len(attempts) == 1
+        assert "FAKEKEY123A" not in (attempts[0]["outcome"] or "")
+        assert "https://rpc-a.test" in attempts[0]["outcome"]
+
+
+class TestRpcCallRedaction:
+    """_rpc_call wraps httpx so an HTTP error never raises text carrying
+    the endpoint URL (httpx embeds it in the exception message)."""
+
+    class _Client:
+        """AsyncContextManager double returning a canned response."""
+
+        def __init__(self, response):
+            self._response = response
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, json=None):
+            return self._response
+
+    def test_http_status_error_is_redacted(self, monkeypatch):
+        import wallet_app.bridge.withdraw_admin as admin
+
+        request = httpx.Request("POST", KEYED_RPC_A)
+        response = httpx.Response(503, request=request)
+        client = self._Client(response)
+        monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: client)
+
+        with pytest.raises(RuntimeError) as exc:
+            asyncio.run(admin._rpc_call(KEYED_RPC_A, "eth_getBalance", ["0x0", "latest"]))
+        msg = str(exc.value)
+        assert "FAKEKEY123A" not in msg
+        assert "/v3/" not in msg
+        assert "https://rpc-a.test" in msg
+
+    def test_json_rpc_error_is_redacted(self, monkeypatch):
+        import wallet_app.bridge.withdraw_admin as admin
+
+        request = httpx.Request("POST", KEYED_RPC_A)
+        response = httpx.Response(
+            200,
+            json={"error": {"code": -32000, "message": "historical state is not available"}},
+            request=request,
+        )
+        client = self._Client(response)
+        monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: client)
+
+        with pytest.raises(RuntimeError) as exc:
+            asyncio.run(admin._rpc_call(KEYED_RPC_A, "eth_getBalance", ["0x0", "latest"]))
+        msg = str(exc.value)
+        assert "FAKEKEY123A" not in msg
+        assert "https://rpc-a.test" in msg
+        assert "historical state is not available" in msg
+
+
+class TestUrlRedact:
+    def test_redact_url_drops_path_query_userinfo(self):
+        from wallet_app.bridge.url_redact import redact_url
+
+        assert redact_url("https://user:pw@rpc-a.test/v3/KEY?q=1#f") == "https://rpc-a.test"
+        assert redact_url("http://127.0.0.1:8202/rpc/transaction") == "http://127.0.0.1:8202"
+        assert redact_url(KEYED_RPC_A) == "https://rpc-a.test"
+
+    def test_redact_url_never_echoes_bad_input(self):
+        from wallet_app.bridge.url_redact import redact_url
+
+        assert redact_url("") == "(unset)"
+        assert redact_url(None) == "(unset)"
+        assert redact_url("KEYMATERIAL without scheme") == "(redacted)"
+
+    def test_redact_text_replaces_urls_in_sentence(self):
+        from wallet_app.bridge.url_redact import redact_text
+
+        out = redact_text(f"Client error '404' for url '{KEYED_RPC_A}'. retry later")
+        assert "FAKEKEY123A" not in out
+        assert "https://rpc-a.test'." in out
+
+
+class TestEnvFilePrecedence:
+    """_load_env_files is last-file-wins between the files (systemd
+    EnvironmentFile semantics), while an already-exported shell variable
+    still wins over every file (ETH-15)."""
+
+    def test_later_file_overrides_earlier(self, tmp_path, monkeypatch):
+        import wallet_app.bridge.withdraw_admin as admin
+
+        first = tmp_path / "first.env"
+        first.write_text("ETH15_VAR=first\nETH15_KEEP=keep\n")
+        second = tmp_path / "second.env"
+        second.write_text("ETH15_VAR=second\n")
+        monkeypatch.delenv("ETH15_VAR", raising=False)
+        monkeypatch.delenv("ETH15_KEEP", raising=False)
+
+        admin._load_env_files([str(first), str(second)])
+        assert os.environ["ETH15_VAR"] == "second"
+        assert os.environ["ETH15_KEEP"] == "keep"
+
+    def test_exported_variable_still_wins(self, tmp_path, monkeypatch):
+        import wallet_app.bridge.withdraw_admin as admin
+
+        env_file = tmp_path / "one.env"
+        env_file.write_text("ETH15_VAR=file\n")
+        monkeypatch.setenv("ETH15_VAR", "exported")
+
+        admin._load_env_files([str(env_file)])
+        assert os.environ["ETH15_VAR"] == "exported"
