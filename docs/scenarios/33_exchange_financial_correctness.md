@@ -28,7 +28,7 @@ breadcrumb: Home > Scenarios > Exchange Financial Correctness
 
 > **Live vs. simulated:** `aitbc exchange-island` commands are **live** when the exchange service (port 8106) is running. If the exchange is unreachable, the CLI returns `(Simulated)` orders and transactions.
 
-The live hub exchange is `apps/exchange/simple_exchange` on port 8106 (API-key auth, Decimal/TEXT money columns, `BEGIN IMMEDIATE` matching — B1/B2/B3). Operators trade through `aitbc exchange-island`, not raw `/v1/exchange/orderbook` (that path 404s).
+The live hub exchange is `apps/exchange/simple_exchange` on port 8106 (signed-order envelopes since ETH-11 phase 2, Decimal/TEXT money columns, `BEGIN IMMEDIATE` matching — B1/B2/B3). Operators trade through `aitbc exchange-island`, not raw `/v1/exchange/orderbook` (that path 404s).
 
 `buy` / `sell` / `cancel` still need `/var/lib/aitbc/keystore/validator_keys.json`. `orderbook`, `rates`, and `orders` work without it.
 
@@ -71,10 +71,10 @@ aitbc exchange-island orders --status open
 
 Do **not** call `GET /v1/exchange/orderbook` or `POST /v1/exchange/orders`. Live contract:
 
-- `GET /api/orders/orderbook`
-- `POST /api/orders` with `X-Api-Key`
+- `GET /api/orders/orderbook` — unsigned read
+- `POST /api/orders` — signed order envelope only; `aitbc exchange order place|cancel` signs it. A raw `X-Api-Key` post gets 401 while `EXCHANGE_REQUIRE_SIGNED_ORDERS=1` (the default)
 
-The CLI wraps that surface.
+The `exchange-island` steps above trade through a signed chain `EXCHANGE` transaction, not this surface; the `exchange order/node` group wraps the hub API.
 
 ### Step 2: Place a buy only if the keystore exists
 
