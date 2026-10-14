@@ -432,7 +432,7 @@ minversion = "8.0"
 # and whichever is imported first wins. Collecting both then fails the other with
 # "No module named 'tests.consensus'". importlib mode imports each file by location and
 # does not put test packages on sys.path at all, so the two coexist.
-addopts = "-ra -q --strict-markers --strict-config --reruns 2 --reruns-delay 1 --import-mode=importlib"
+addopts = "-ra -q --strict-markers --strict-config --import-mode=importlib"
 timeout = 60
 filterwarnings = [
     "ignore::sqlalchemy.exc.SAWarning",
@@ -560,6 +560,11 @@ markers = [
     "postgres: marks tests that require a PostgreSQL database",
     "redis: marks tests that require a Redis instance",
     "smoke: marks tests that import production modules in fresh subprocesses",
+    # pytest-rerunfailures' per-test API. Registered here (not only by the
+    # plugin) so marked tests also parse under --strict-markers on hosts that
+    # lack the plugin; without the plugin the mark is inert and the test runs
+    # once. Mark only tests with a named environmental cause (TEST-1).
+    "flaky(reruns, reruns_delay): retry on failure only where a named environmental cause exists",
 ]
 
 [tool.coverage.run]
