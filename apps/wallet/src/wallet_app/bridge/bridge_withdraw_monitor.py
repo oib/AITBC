@@ -229,11 +229,12 @@ async def _release_gas_limit(to_address: str, amount_eth: Decimal) -> int:
 def _pending_eth_reserve() -> Decimal:
     """Sum of ETH currently allocated to pending or insufficient-reserve withdrawals.
 
-    Includes pending sell-escrow locks (ETH-10): withdrawals and sells draw
-    from the same bridge-wallet float, so each side's reserve check must see
-    the other's in-flight rows. The sell-side sum excludes 'failed' rows.
+    Includes pending sell-escrow locks (ETH-10) and open exchange
+    settlements (ETH-8 phase 3): all three lanes draw from the same
+    bridge-wallet float, so each side's reserve check must see the others'
+    in-flight rows. The sell-side sum excludes 'failed' rows.
     """
-    from .bridge_db import get_pending_withdrawals, get_sell_pending_eth_reserve
+    from .bridge_db import get_exchange_pending_eth_reserve, get_pending_withdrawals, get_sell_pending_eth_reserve
 
     pending = get_pending_withdrawals()
     withdraw_sum = Decimal(sum((Decimal(w["amount_eth"]) for w in pending), Decimal("0")))
@@ -243,7 +244,13 @@ def _pending_eth_reserve() -> Decimal:
         # Pre-ETH-10 databases lack the sell tables; withdraw reserve must not
         # depend on them existing.
         sell_sum = Decimal("0")
-    return withdraw_sum + sell_sum
+    try:
+        exchange_sum = get_exchange_pending_eth_reserve()
+    except Exception:
+        # Same fail-open as the sell term: a pre-phase-3 database may lack
+        # the table; reserve must not depend on it existing.
+        exchange_sum = Decimal("0")
+    return withdraw_sum + sell_sum + exchange_sum
 
 
 def _sign_release_tx(
