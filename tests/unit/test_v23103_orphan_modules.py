@@ -29,6 +29,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.git_checkout import requires_git_checkout
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "lint" / "no_orphan_modules.py"
 BASELINE = REPO_ROOT / "scripts" / "lint" / "no_orphan_modules_baseline.json"
@@ -57,18 +59,21 @@ def baseline() -> dict:
 class TestTheScanSeparatesReachableFromUnreachable:
     """The finding itself: which modules the import graph can and cannot reach."""
 
+    @requires_git_checkout
     def test_a_module_nothing_imports_is_reported(self, lint):
         # fhe_enhanced.py is a permanent fixture of this set -- a deliberate stub, verdict
         # "keep" -- so this assertion does not decay as the delete queue is worked off.
         found = lint._scan()
         assert COORD + "contexts/zk_applications/services/fhe_enhanced.py" in found
 
+    @requires_git_checkout
     def test_a_module_the_router_imports_is_not_reported(self, lint):
         # The control. Without it, a scan that returned every file in the tree would pass
         # the test above.
         found = lint._scan()
         assert COORD + "contexts/market/services/market.py" not in found
 
+    @requires_git_checkout
     def test_a_name_that_appears_only_as_a_string_does_not_count_as_an_import(self, lint):
         """The reason the conservative count is wrong.
 
@@ -93,6 +98,7 @@ class TestATestOnlyImportStillCountsAsReachable:
     modules a test suite depends on -- and the deletion would be green until the suite ran.
     """
 
+    @requires_git_checkout
     def test_files_under_tests_are_importers_but_never_candidates(self, lint):
         assert not lint._is_candidate(Path(COORD + "contexts/market/tests/helper.py"))
         tracked = {p.as_posix() for p in lint._tracked_python_files()}
@@ -128,6 +134,7 @@ class TestTheGuardFailsOnlyOnSomethingNew:
         assert lint.main() == 1
         assert "new_orphan.py" in capsys.readouterr().err
 
+    @requires_git_checkout
     def test_the_tree_as_it_stands_passes(self, lint, monkeypatch, capsys):
         monkeypatch.setattr("sys.argv", ["no_orphan_modules.py"])
         assert lint.main() == 0, capsys.readouterr().err
@@ -147,6 +154,7 @@ class TestDeletingAFileDoesNotCrashTheHook:
     def test_a_tracked_file_that_is_not_on_disk_yields_no_imports(self, lint):
         assert lint._imported_module_names(Path("apps/nope/gone.py")) == set()
 
+    @requires_git_checkout
     def test_a_whole_scan_survives_a_tracked_file_that_is_not_on_disk(self, lint):
         real = lint._tracked_python_files
         try:
@@ -160,6 +168,7 @@ class TestEveryBaselinedOrphanCarriesADecision:
     """'Nothing imports it' is a reason to look, not a reason to delete. The baseline holds
     the looking, so an entry cannot quietly become an accepted state."""
 
+    @requires_git_checkout
     def test_the_baseline_covers_the_current_scan(self, lint, baseline):
         assert set(lint._scan()) <= set(baseline["orphans"])
 

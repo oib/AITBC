@@ -25,6 +25,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.git_checkout import requires_git_checkout
+
 from aitbc_cli.config import CLIConfig
 
 CLI_ROOT = Path(__file__).resolve().parents[2] / "cli"
@@ -51,6 +53,7 @@ def test_the_environment_overrides_the_default(monkeypatch: pytest.MonkeyPatch) 
     assert CLIConfig().genesis_wallet_address == "0xf3290d4F0D96a2Dd231C44362c57d5ad0AF0A281"
 
 
+@requires_git_checkout
 def test_no_command_module_hardcodes_a_chain_address() -> None:
     """config.py may carry the default. A command module carrying one is the old bug."""
     offenders = []
