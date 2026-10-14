@@ -17,6 +17,7 @@ from aitbc.aitbc_logging import (
     LogContext,
     StructuredFormatter,
     _get_log_file_path,
+    _HttpxStatusFilter,
     configure_logging,
     get_logger,
     log_context,
@@ -194,20 +195,74 @@ class TestConfigureLogging:
         assert root_logger.level == logging.INFO
         assert [type(h.formatter) for h in root_logger.handlers] == [JournalFormatter]
 
-    def test_httpx_and_httpcore_are_quiet_after_configure_logging(self):
-        """ETH-15: httpx logs every request URL at INFO — a keyed RPC
-        endpoint's credential path must never reach the journal."""
+    def test_httpx_level_untouched_and_httpcore_quiet(self):
+        """ETH-15: the httpx logger's level is left alone — INFO records
+        must still reach _HttpxStatusFilter, which does the dropping.
+        Setting WARNING instead would silently kill the 4xx/5xx signal."""
+        configure_logging()
         httpx_logger = logging.getLogger("httpx")
-        httpcore_logger = logging.getLogger("httpcore")
-        saved_levels = (httpx_logger.level, httpcore_logger.level)
-        try:
-            configure_logging()
-            assert httpx_logger.level == logging.WARNING
-            assert httpcore_logger.level == logging.WARNING
-            assert not httpx_logger.isEnabledFor(logging.INFO)
-        finally:
-            httpx_logger.setLevel(saved_levels[0])
-            httpcore_logger.setLevel(saved_levels[1])
+        assert httpx_logger.isEnabledFor(logging.INFO)
+        assert any(isinstance(f, _HttpxStatusFilter) for f in httpx_logger.filters)
+        assert logging.getLogger("httpcore").level == logging.WARNING
+
+
+class TestHttpxRequestLineGate:
+    """ETH-15: _HttpxStatusFilter drops routine httpx request lines (they
+    carry the full URL) and keeps 4xx/5xx at WARNING/ERROR — with the URL
+    rewritten to scheme://host so a keyed path never reaches the journal."""
+
+    _KEYED = "https://rpc.example.invalid/v3/FAKEKEY123?x=y"
+
+    def _record(self, tail: str) -> logging.LogRecord:
+        return logging.LogRecord(
+            name="httpx",
+            level=logging.INFO,
+            pathname="httpx/_client.py",
+            lineno=1025,
+            msg=f"HTTP Request: POST {self._KEYED} {tail}",
+            args=None,
+            exc_info=None,
+        )
+
+    def _formatted(self, record: logging.LogRecord) -> str:
+        return JournalFormatter().format(record)
+
+    def test_2xx_request_line_is_dropped(self):
+        assert _HttpxStatusFilter().filter(self._record('"HTTP/1.1 200 OK"')) is False
+
+    def test_5xx_is_error_and_url_redacted(self):
+        record = self._record('"HTTP/1.1 500 Internal Server Error"')
+        assert _HttpxStatusFilter().filter(record) is True
+        assert record.levelno == logging.ERROR
+        out = self._formatted(record)
+        assert "FAKEKEY123" not in out
+        assert "x=y" not in out
+        assert "https://rpc.example.invalid" in out
+        assert "500" in out
+
+    def test_4xx_is_warning_and_url_redacted(self):
+        record = self._record('"HTTP/1.1 404 Not Found"')
+        assert _HttpxStatusFilter().filter(record) is True
+        assert record.levelno == logging.WARNING
+        out = self._formatted(record)
+        assert "FAKEKEY123" not in out
+        assert "x=y" not in out
+        assert "https://rpc.example.invalid" in out
+
+    def test_unparseable_request_line_is_dropped(self):
+        """No status the regex can read — never pass a possible URL."""
+        assert _HttpxStatusFilter().filter(self._record("<no status here>")) is False
+
+    def test_non_request_httpx_lines_pass(self):
+        record = self._record("")
+        record.msg = "a non-request httpx message with no URL shape"
+        assert _HttpxStatusFilter().filter(record) is True
+
+    def test_other_loggers_untouched(self):
+        """The gate is attached to the httpx logger only."""
+        configure_logging()
+        other = logging.getLogger("wallet_app.bridge.somewhere")
+        assert not any(isinstance(f, _HttpxStatusFilter) for f in other.filters)
 
 
 class TestLogContext:

@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from . import constants
+from .url_redact import redact_text
 
 
 class JournalFormatter(logging.Formatter):
@@ -263,10 +264,20 @@ def configure_uvicorn_logging() -> None:
 
 
 _HTTPX_STATUS_RE = re.compile(r'"HTTP/\d+(?:\.\d+)? (\d{3})[^"]*"')
+_HTTPX_REQUEST_MARK = "HTTP Request:"
 
 
 class _HttpxStatusFilter(logging.Filter):
-    """Upgrade httpx request logs to WARNING/ERROR when the response is an error."""
+    """Gate httpx request logs: drop routine lines, keep errors — redacted.
+
+    httpx logs every request at INFO with the full URL; a keyed RPC
+    endpoint's credential path would land in the journal on every poll.
+    Sub-400 lines are dropped entirely (routine noise), 4xx/5xx keep their
+    upgrade to WARNING/ERROR but with the URL rewritten to scheme://host
+    (the error signal survives without the credential path), and an
+    'HTTP Request:' line the regex cannot parse is dropped rather than
+    risk passing a URL (ETH-15).
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
@@ -275,29 +286,38 @@ class _HttpxStatusFilter(logging.Filter):
             try:
                 status = int(match.group(1))
             except ValueError:
-                return True
-            if status >= 500:
-                record.levelno = logging.ERROR
-                record.levelname = "ERROR"
-            elif status >= 400:
+                status = -1
+            if 400 <= status < 500:
                 record.levelno = logging.WARNING
                 record.levelname = "WARNING"
+            elif status >= 500:
+                record.levelno = logging.ERROR
+                record.levelname = "ERROR"
+            else:
+                # Routine success lines — the noisy ones carrying the URL.
+                return False
+            # Keep the error signal; rewrite the message so it can never
+            # carry a URL path/query.
+            record.msg = redact_text(msg)
+            record.args = ()
+            return True
+        if _HTTPX_REQUEST_MARK in msg:
+            return False
         return True
 
 
 def configure_httpx_logging() -> None:
-    """Silence httpx/httpcore request logging below WARNING (ETH-15).
+    """Attach the httpx request-line gate and quiet httpcore (ETH-15).
 
-    httpx logs every request at INFO with the full URL — a keyed RPC
-    endpoint's credential path then lands in the journal on every poll.
-    The _HttpxStatusFilter upgrade is kept for callers that deliberately
-    lower the level again; at WARNING+ httpx never emits the URL lines.
-    HTTP errors still surface through the callers' own error paths.
+    The httpx logger's level is left alone: _HttpxStatusFilter does the
+    dropping, so 4xx/5xx request lines still reach the journal at
+    WARNING/ERROR (with the URL redacted) instead of disappearing at a
+    WARNING-level logger — filters never see records below the level.
+    httpcore's own request lines are DEBUG; WARNING silences them too.
     """
     httpx_logger = logging.getLogger("httpx")
     if not any(isinstance(f, _HttpxStatusFilter) for f in httpx_logger.filters):
         httpx_logger.addFilter(_HttpxStatusFilter())
-    httpx_logger.setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
