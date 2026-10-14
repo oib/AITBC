@@ -1327,9 +1327,18 @@ the unit actually uses — is *last-wins*.
   operator override for picking the proof RPC pair. Proof refusals caused
   by a pruned endpoint now say "not archive-capable" instead of only the
   raw RPC error.
-- `aitbc_logging.py`: `configure_httpx_logging` sets the `httpx` and
-  `httpcore` loggers to `WARNING` — httpx logs every request URL at INFO.
-  Shared setup, so wallet, exchange and bridge-monitor all inherit it.
+- `aitbc_logging.py`: `_HttpxStatusFilter` now drops sub-400 `HTTP
+  Request:` lines entirely (they carried the full URL on every poll) and
+  keeps 4xx/5xx at WARNING/ERROR with the URL rewritten to
+  `scheme://host` — the error signal survives without the credential
+  path; an unparseable `HTTP Request:` line is dropped rather than risk a
+  URL. The httpx logger's level is untouched (a WARNING level would drop
+  records *before* the filter could see them — silently killing the
+  4xx/5xx signal); `httpcore` is set to WARNING. Shared setup, so wallet,
+  exchange and bridge-monitor all inherit it.
+- `aitbc/url_redact.py`: the redaction helpers live in the shared package
+  so `aitbc_logging` can use them; `wallet_app/bridge/url_redact.py` is a
+  re-export shim so bridge imports keep working.
 - `bridge_withdraw_monitor.py` / `bridge_monitor.py`: `_eth_rpc`/`_rpc`
   wrap `raise_for_status`/transport errors so an HTTP failure's exception
   text (which embeds the request URL) is redacted before it reaches logs
