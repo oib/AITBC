@@ -228,7 +228,10 @@ PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/
 Rules, mirroring the monitor's own invariants: the module runs **on hub
 as root only** — it refuses when euid ≠ 0 or `BLOCKCHAIN_MODE` ≠ `hub` in
 the loaded env set, and it refuses when the bridge ledger file is absent
-rather than create an empty DB on the wrong host. Every mutating verb is
+rather than create an empty DB on the wrong host. These gates are a
+guard rail for the operator, not a security boundary — env-file values
+load through `os.environ.setdefault`, so a `BLOCKCHAIN_MODE` already
+exported in the shell wins over the files. Every mutating verb is
 a dry-run by default and writes only with `--confirm --note "…"`; every
 status change goes through `update_sell_lock_status`; resolutions stamp
 `resolved_by`/`resolved_at`/`operator_note` (ETH-13 audit columns, added
