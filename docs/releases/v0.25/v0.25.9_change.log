@@ -1731,6 +1731,11 @@ narrative; this list cites each remaining commit by hash so
 - `cd76706bd7` docs(design): ETH-8 — record operator decisions (14 Oct)
 - `2148179a10` docs(release): SEC-18 section + commit index for the wallet 503 fixes
 - `bd88adf7d3` docs(release): correct the SEC-18 commit SHAs after the second rebase
+- `879fa3a9cd` docs(release): commit index catches up — cite every post-tag commit
+- `00447e7c67` docs(design): ETH-7 revision — as-built reality after ETH-10/ETH-14
+- `1ac6eec1e8` test(signing): DEPS-3 known-vector guards for the eth-* family
+- `4be93665d6` docs(release): DEPS-3 changelog — replica validation + vector guards
+- `40eb639b4b` docs(test): consistent wording on the vector key's provenance
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
