@@ -2,6 +2,8 @@
 """AITBC CLI Setup Script"""
 
 from pathlib import Path
+
+from aitbc_cli import __version__
 from setuptools import find_packages, setup
 
 
@@ -23,7 +25,7 @@ def read_requirements() -> list[str]:
 
 setup(
     name="aitbc-cli",
-    version="0.25.9",
+    version=__version__,
     author="AITBC Team",
     author_email="team@aitbc.net",
     description="AITBC Command Line Interface Tools",

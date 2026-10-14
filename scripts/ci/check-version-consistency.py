@@ -86,18 +86,10 @@ def main() -> int:
         expected,
         "cli/aitbc_cli/__init__.py",
     )
-    ok &= _check_file(
-        REPO_ROOT / "cli" / "aitbc_cli" / "core" / "__version__.py",
-        r'__version__\s*=\s*"([^"]+)"',
-        expected,
-        "cli/aitbc_cli/core/__version__.py",
-    )
-    ok &= _check_file(
-        REPO_ROOT / "cli" / "aitbc_cli" / "core" / "main.py",
-        r'__version__\s*=\s*"([^"]+)"',
-        expected,
-        "cli/aitbc_cli/core/main.py",
-    )
+    # cli/aitbc_cli/core/{__init__,__version__,main}.py intentionally carry no
+    # literal: they import __version__ from aitbc_cli (the package canonical
+    # source). cli/tests/test_version.py enforces that only __init__.py may
+    # define a literal __version__ under cli/aitbc_cli.
 
     # README badge may use a leading 'v' in markdown; accept vX.Y.Z or X.Y.Z
     readme_path = REPO_ROOT / "README.md"
