@@ -411,8 +411,8 @@ Rule check against the four violations: none applies.
    signed envelope over HTTP plus on-chain data. Nodes never connect
    to each other at all in this flow.
 
-**The escrow key itself (hub custody — pending operator confirmation,
-see below)**: same terms as ETH-7 — a dedicated key whose only
+**The escrow key itself (hub custody — DECIDED 13 Oct 2026, decision
+below)**: same terms as ETH-7 — a dedicated key whose only
 permitted action is sweeping `AIT_SELL_ESCROW`'s balance, exclusively
 AIT placed there by nodes' own signed lock transfers, to the buyer
 (settle) or back to the seller (refund). It can never move a node
