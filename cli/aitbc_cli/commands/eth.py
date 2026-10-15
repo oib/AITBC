@@ -17,6 +17,7 @@ from pathlib import Path
 import click
 
 from ..utils import error, info, warning
+from ..utils.evm_rpc import display_rpc_url, mask_rpc_url
 
 SEPOLIA_CHAIN_ID = 11155111
 DEFAULT_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com"
@@ -89,9 +90,11 @@ def _rpc(rpc_url: str, method: str, params: list[object]) -> object:
         with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - https-only public RPC
             payload = json.load(resp)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
-        raise ExplorerError(f"RPC {method} failed against {rpc_url}: {exc}") from exc
+        raise ExplorerError(
+            f"RPC {method} failed against {display_rpc_url(rpc_url)}: {mask_rpc_url(str(exc), rpc_url)}"
+        ) from exc
     if payload.get("error"):
-        raise ExplorerError(f"RPC {method} error: {payload['error']}")
+        raise ExplorerError(f"RPC {method} error: {mask_rpc_url(str(payload['error']), rpc_url)}")
     return payload["result"]
 
 
@@ -99,7 +102,8 @@ def _verify_sepolia(rpc_url: str) -> None:
     chain_id = int(str(_rpc(rpc_url, "eth_chainId", [])), 16)
     if chain_id != SEPOLIA_CHAIN_ID:
         raise ExplorerError(
-            f"refusing non-Sepolia network: {rpc_url} reports chainId {chain_id} (only {SEPOLIA_CHAIN_ID} is allowed)"
+            f"refusing non-Sepolia network: {display_rpc_url(rpc_url)} reports chainId {chain_id} "
+            f"(only {SEPOLIA_CHAIN_ID} is allowed)"
         )
 
 

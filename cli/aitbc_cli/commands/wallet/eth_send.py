@@ -41,7 +41,7 @@ import click
 from ...utils import DECIMAL, info, output, resolve_output_format, success
 from ...utils.address import to_eip55
 from ...utils.error_handling import abort
-from ...utils.evm_rpc import broadcast_raw, hex_to_int, resolve_rpc_url, rpc_call
+from ...utils.evm_rpc import broadcast_raw, display_rpc_url, hex_to_int, resolve_rpc_url, rpc_call
 from ...utils.wallet_secret import wallet_password_options
 from . import _load_signing_key, wallet
 from .bridge import _resolve_wallet_path
@@ -112,7 +112,10 @@ def _validated_gas_ceiling(ctx, max_gas_gwei: Decimal) -> int:
 def _check_rpc_chain(ctx, rpc_url: str) -> None:
     rpc_chain = hex_to_int(ctx, rpc_call(ctx, rpc_url, "eth_chainId", []), "chain id")
     if rpc_chain != SEPOLIA_CHAIN_ID:
-        abort(ctx, f"RPC at {rpc_url} reports chain id {rpc_chain}, not Sepolia ({SEPOLIA_CHAIN_ID}) — refusing")
+        abort(
+            ctx,
+            f"RPC at {display_rpc_url(rpc_url)} reports chain id {rpc_chain}, not Sepolia ({SEPOLIA_CHAIN_ID}) — refusing",
+        )
 
 
 def _validated_recipient(ctx, to_address: str, from_address: str) -> str:
