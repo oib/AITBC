@@ -239,7 +239,6 @@ def _candidate_columns():
         col(Transaction.tx_hash),
         col(Transaction.block_height),
         col(Transaction.sender),
-        col(Transaction.timestamp),
         col(Transaction.fee),
         _env_text("kind").label("env_kind"),
         _env_text("topic").label("env_topic"),
@@ -341,7 +340,7 @@ def _resolve_parents(session, chain_id: str, items: list[dict[str, Any]]) -> Non
             m["parent_resolved"] = m["parent"] in resolved
 
 
-def _view(row: Any) -> dict[str, Any]:
+def _view(row: Any, block_times: dict[int, Any]) -> dict[str, Any]:
     env = _env_from_row(row)
     sender = _to_ait_address(row.sender)
     view: dict[str, Any] = {
@@ -354,7 +353,10 @@ def _view(row: Any) -> dict[str, Any]:
         "kind": env.get("kind"),
         "body": env.get("body"),
         "parent": env.get("parent"),
-        "timestamp": row.timestamp,
+        # F5: the block's timestamp, not Transaction.timestamp — the only
+        # clock value all nodes agree on (the row's is nullable and may be
+        # submitter-set).
+        "timestamp": block_times.get(row.block_height),
         "fee": row.fee,
     }
     return view
@@ -377,7 +379,8 @@ def list_messages(
     parsed = parse_cursor(cursor)
     stmt = _candidate_select(chain_id, topic=topic, author=author, body_contains=body_contains)
     rows, next_cursor, bounded = _scan_valid(session, stmt, cursor=parsed, limit=limit + offset, scan_bound=SCAN_BOUND)
-    items = [_view(row) for row in rows[offset:]]
+    times = _block_timestamps(session, chain_id, (r.block_height for r in rows[offset:]))
+    items = [_view(row, times) for row in rows[offset:]]
     _resolve_parents(session, chain_id, items)
     return {
         "success": True,
@@ -396,7 +399,7 @@ def get_message(session, chain_id: str, tx_hash: str) -> dict[str, Any] | None:
     row = session.exec(stmt).first()
     if row is None or _row_error(row) is not None:
         return None
-    view = _view(row)
+    view = _view(row, _block_timestamps(session, chain_id, [row.block_height]))
     _resolve_parents(session, chain_id, [view])
     return view
 
