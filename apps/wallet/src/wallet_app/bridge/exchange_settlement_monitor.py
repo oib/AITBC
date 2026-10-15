@@ -841,7 +841,7 @@ async def _set_status_and_mirror(cfg: ExchangeCfg, row: dict[str, Any], status: 
     unrelated trade, so they never mirror."""
     await _update_with_retry(str(row["id"]), status, **fields)
     if str(row.get("kind")) == "trade":
-        await _mirror_trade_state(cfg, str(row["ref_id"]), status, row)
+        await _mirror_trade_state(cfg, str(row["ref_id"]), status, {**row, **fields})
 
 
 # Canonical replay lanes — the happy-path states the ledger actually walks.
