@@ -21,7 +21,14 @@ def main():
     # Imported here so --help is fast; app triggers DB init via lifespan.
     from .main import app
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level="critical", access_log=False)
+    # ETH-19B: keep scope["client"] as the wire peer. uvicorn's default
+    # ProxyHeadersMiddleware rewrites it from X-Forwarded-For whenever the
+    # immediate peer is trusted (default 127.0.0.1, widened by
+    # FORWARDED_ALLOW_IPS) — spoofable input for the internal settlement
+    # endpoint's loopback gate. Nothing else consumes request.client: the
+    # rate limiter prefers nginx's X-Real-IP under its own
+    # EXCHANGE_TRUSTED_PROXIES check, so the rewrite bought nothing.
+    uvicorn.run(app, host=args.host, port=args.port, log_level="critical", access_log=False, proxy_headers=False)
 
 
 if __name__ == "__main__":
