@@ -17,17 +17,6 @@ from aitbc.rate_limiting import client_ip_for_rate_limit, rate_limit
 logger = logging.getLogger(__name__)
 
 
-def _money_str(value: Decimal | float | str | None) -> str:
-    """Return a fixed-point, no-exponent decimal string for money amounts."""
-    if value is None:
-        return ""
-    d = Decimal(str(value))
-    s = format(d, "f")
-    if "." in s:
-        s = s.rstrip("0").rstrip(".")
-    return s or "0"
-
-
 from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.utils.validation import validate_address_strict
 
@@ -39,6 +28,7 @@ import httpx
 from wallet_app.deps import require_admin_api_key
 
 from .bridge_db import (
+    _money_str,
     get_all_deposits,
     get_all_sell_locks,
     get_all_sell_quotes,
