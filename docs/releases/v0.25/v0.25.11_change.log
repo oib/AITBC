@@ -248,3 +248,18 @@ that a location denies (404), or that the proxied app does not implement.
   Live-vs-reference location diff (read-only nginx -T): the reference
   is a subset of live; live extras are monitoring/internal (awstats,
   /prom-write, /v1/metrics, plain /agent/).
+
+### Verifier: cancel-funded orders keep backing_tx_hash (VERIFY-1)
+
+`exchange_verify.py` reported FAIL for every non-funded order keeping
+`backing_tx_hash`, but the cancel path sets `funded_state='backing_expired'`
+and keeps the hash on purpose — the monitor needs it non-NULL to build the
+`order_refund` row and it is the audit link to the lock.
+
+- `bcd72050a` — `--bridge-db` now feeds `order_refund` ref_id→status into the
+  order-row check: `backing_expired`+hash passes when a pending or terminal
+  refund row exists, reports INFO when the monitor DB is not provided, and
+  still FAILs when no row exists (stranded lock) or the row is `failed`.
+  Other funded-state rules unchanged. Docstring documents the hub AIT RPC
+  port (`127.0.0.1:8202`, not the auth-gated 8201) and a `--settlement`
+  example.
