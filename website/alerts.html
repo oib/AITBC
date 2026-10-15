@@ -43,6 +43,7 @@
         <!-- aitbc-status:end -->
 
         <main id="main" tabindex="-1">
+            <span id="sr-announcer" class="visually-hidden" role="status" aria-live="polite"></span>
 
         <div class="card">
             <div id="monitor-strip" class="monitor-strip">Checking monitor status...</div>
@@ -71,8 +72,8 @@
             <div class="journal-head">
                 <h2>Service Journal</h2>
                 <div class="journal-controls">
-                    <select id="journal-unit"><option value="">all aitbc units</option></select>
-                    <select id="journal-priority">
+                    <select id="journal-unit" aria-label="Filter journal by service unit"><option value="">all aitbc units</option></select>
+                    <select id="journal-priority" aria-label="Filter journal by minimum priority">
                         <option value="warning">warning+</option>
                         <option value="err">err+</option>
                     </select>

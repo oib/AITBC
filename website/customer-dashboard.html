@@ -49,7 +49,7 @@
             <h2>Operator Credential</h2>
             <p class="endpoint-note">Optional. Paste the auth token printed by <code>aitbc auth login</code> to see jobs for your account; without it this page shows market-wide public data.</p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
-                <input type="password" id="cust-cred-input" class="endpoint" placeholder="auth token (JWT)" style="flex:1;min-width:16rem" autocomplete="off">
+                <input type="password" id="cust-cred-input" class="endpoint" aria-label="Auth token (JWT)" placeholder="auth token (JWT)" style="flex:1;min-width:16rem" autocomplete="off">
                 <button class="endpoint" onclick="applyCredential('cust-cred-input')">Apply</button>
                 <button class="endpoint" onclick="clearCredential('cust-cred-input')">Clear</button>
             </div>

@@ -7,9 +7,17 @@ function formatHash(hash) {
     return escapeHtml(hash);
 }
 
+function announceCopy() {
+    const s = document.getElementById('sr-announcer');
+    if (!s) return;
+    s.textContent = '';
+    setTimeout(() => { s.textContent = 'Copied to clipboard'; }, 50);
+}
+
 function copyToClipboard(text, btnEl) {
     if (!text || text === 'N/A') return;
     navigator.clipboard.writeText(text).then(() => {
+        announceCopy();
         const original = btnEl.innerHTML;
         btnEl.innerHTML = '<span style="color:var(--success)">Copied!</span>';
         setTimeout(() => { btnEl.innerHTML = original; }, 1200);
@@ -28,7 +36,7 @@ function copyToClipboard(text, btnEl) {
 }
 
 function copyBtn(text) {
-    return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation(); copyToClipboard(this.dataset.copy, this)" title="Copy to clipboard">📋</button>`;
+    return `<button type="button" class="copy-btn" aria-label="Copy value" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation(); copyToClipboard(this.dataset.copy, this)" title="Copy to clipboard">📋</button>`;
 }
 
 // Transaction-type palette — kept in sync with the activity timeline's
@@ -122,13 +130,13 @@ function renderBlockCard(block) {
         : '';
     return `
         <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
-            <table class="block-list-table">
-                <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
-                <tr><td>Hash</td><td>${escapeHtml(blockHash)} ${copyBtn(blockHash)}</td></tr>
-                <tr><td>Proposer</td><td>${escapeHtml(proposer)}</td></tr>
-                <tr><td>Transactions</td><td>${escapeHtml(txCount)}</td></tr>
+            <table class="block-list-table" aria-label="Block summary">
+                <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
+                <tr><th scope="row">Hash</th><td>${escapeHtml(blockHash)} ${copyBtn(blockHash)}</td></tr>
+                <tr><th scope="row">Proposer</th><td>${escapeHtml(proposer)}</td></tr>
+                <tr><th scope="row">Transactions</th><td>${escapeHtml(txCount)}</td></tr>
                 ${contentRow}
-                <tr><td>Timestamp</td><td>${escapeHtml(timestamp)} UTC</td></tr>
+                <tr><th scope="row">Timestamp</th><td>${escapeHtml(timestamp)} UTC</td></tr>
             </table>
         </div>
     `;
@@ -149,7 +157,10 @@ function renderBlockTransactions(block) {
                     .map(([key, value]) => {
                         let displayValue = value;
                         if (typeof value === 'object') displayValue = JSON.stringify(value);
-                        if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
+                        if (String(displayValue).length > 60) {
+                            displayValue = `<span aria-hidden="true">${escapeHtml(String(displayValue).substring(0, 57))}...</span><span class="visually-hidden">${escapeHtml(String(displayValue))}</span>`;
+                            return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                        }
                         return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                     }).join('');
                 if (rows) txDetails = `<div class="tx-market-details">${rows}</div>`;
@@ -304,9 +315,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    let lastAnnouncedFeedKey = null;
+
     function renderLiveFeed() {
         const container = document.getElementById('live-feed-list');
         if (!container) return;
+        const statusEl = document.getElementById('live-feed-status');
+        if (statusEl && liveFeedItems.length && liveFeedItems[0].hash !== lastAnnouncedFeedKey) {
+            lastAnnouncedFeedKey = liveFeedItems[0].hash;
+            statusEl.textContent = `Live feed updated: ${liveFeedItems[0].type} ${liveFeedItems[0].label}`;
+        }
         if (liveFeedItems.length === 0) {
             container.innerHTML = '<p class="loading-text">Waiting for activity...</p>';
             return;
@@ -314,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = liveFeedItems.map(item => {
             const timeStr = item.time ? new Date(item.time).toLocaleTimeString() : '';
             return `
-                <div class="live-feed-item" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='${escapeHtml(item.url)}'">
+                <div class="live-feed-item" tabindex="0" role="link" aria-label="${escapeHtml(item.type)} ${escapeHtml(item.hash || '')}" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='${escapeHtml(item.url)}'">
                     <span class="live-feed-type">${escapeHtml(item.type)}</span>
                     <span class="live-feed-hash">${escapeHtml(item.label)}</span>
                     ${item.comp ? `<span class="live-feed-comp">${item.comp}</span>` : ''}
@@ -337,8 +355,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             container.innerHTML = `
-                <table>
-                    <thead><tr><th>#</th><th>Address</th><th>TXs</th><th>Volume (AIT)</th></tr></thead>
+                <table aria-label="Top addresses by volume">
+                    <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">TXs</th><th scope="col">Volume (AIT)</th></tr></thead>
                     <tbody>
                         ${addresses.map((a, i) => `
                             <tr tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
@@ -592,7 +610,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             const rows = Object.entries(payload).map(([key, value]) => {
                                 let displayValue = value;
                                 if (typeof value === 'object') displayValue = JSON.stringify(value);
-                                if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
+                                if (String(displayValue).length > 60) {
+                            displayValue = `<span aria-hidden="true">${escapeHtml(String(displayValue).substring(0, 57))}...</span><span class="visually-hidden">${escapeHtml(String(displayValue))}</span>`;
+                            return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                        }
                                 return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                             }).join('');
                             if (rows) payloadDetails = `<div class="tx-market-details">${rows}</div>`;
@@ -805,7 +826,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             .map(([key, value]) => {
                                 let displayValue = value;
                                 if (typeof value === 'object') displayValue = JSON.stringify(value);
-                                if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
+                                if (String(displayValue).length > 60) {
+                            displayValue = `<span aria-hidden="true">${escapeHtml(String(displayValue).substring(0, 57))}...</span><span class="visually-hidden">${escapeHtml(String(displayValue))}</span>`;
+                            return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                        }
                                 return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                             }).join('');
                         if (rows) payloadDetails = `<div class="tx-market-details">${rows}</div>`;

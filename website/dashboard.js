@@ -219,7 +219,7 @@ function shortHex(v, keep) {
 function txLink(hash) {
     if (!hash || typeof hash !== 'string') return null;
     const esc = escapeHtml(hash);
-    return `<a href="/tx.html?hash=${encodeURIComponent(esc)}">${escapeHtml(shortHex(hash))}</a>`;
+    return `<a href="/tx.html?hash=${encodeURIComponent(esc)}" aria-label="Transaction ${esc}">${escapeHtml(shortHex(hash))}</a>`;
 }
 
 const JOB_COLUMNS = [
@@ -227,7 +227,7 @@ const JOB_COLUMNS = [
     { label: 'State', key: 'state' },
     { label: 'Payment', key: 'payment' },
     { label: 'Model', key: 'model' },
-    { label: 'Escrow', key: 'escrow' },
+    { label: 'Escrow', key: 'escrow', html: true },
     { label: 'Settlement Tx', key: 'tx', html: true },
     { label: 'Created', key: 'created' },
 ];
@@ -241,7 +241,9 @@ function jobRow(job) {
         state: job.state || 'N/A',
         payment: job.payment_status || 'N/A',
         model: model,
-        escrow: shortHex(job.escrow_contract_id) || '—',
+        escrow: job.escrow_contract_id
+            ? `<span aria-hidden="true">${escapeHtml(shortHex(job.escrow_contract_id))}</span><span class="visually-hidden">${escapeHtml(job.escrow_contract_id)}</span>`
+            : '—',
         tx: txLink(job.tx_hash || job.refund_tx_hash) || '—',
         created: formatDate(job.requested_at || job.created_at),
     };
