@@ -19,6 +19,7 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from aitbc.utils import ait_to_units, format_ait
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from . import _load_wallet, _resave_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
 
@@ -855,7 +856,7 @@ def address(ctx, name: str | None, password: str | None, password_file: str | No
 )
 @click.option("--to-address", "to_address", required=True, help="Destination address.")
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
-@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.option(
     "--wait",
     "wait_seal",
