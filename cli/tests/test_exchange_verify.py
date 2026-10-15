@@ -3,8 +3,9 @@ around scripts/ops/exchange_verify.py.
 
 The wrapper execs the script with the CLI's own interpreter as an argv list
 (never a shell), validates --db/--bridge-db as absolute existing regular
-files (no '..', no symlinks), defaults to --no-chain unless an RPC endpoint
-is given, and passes the script's exit code + FAIL/WARN lines through.
+files under /var/lib/aitbc/ (no '..', no symlinks), defaults to --no-chain
+unless an RPC endpoint is given, and passes the script's exit code +
+FAIL/WARN lines through.
 """
 
 import os
@@ -20,6 +21,13 @@ from aitbc_cli.commands.exchange.hub_orders import verify as verify_cmd
 @pytest.fixture
 def runner():
     return CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _db_prefix(tmp_path):
+    """Point the /var/lib/aitbc/ containment root at tmp_path for the suite."""
+    with mock.patch.object(hub_mod, "_VERIFY_DB_ALLOWED_PREFIX", str(tmp_path) + "/"):
+        yield tmp_path
 
 
 def test_verify_builds_argv_no_chain_default(runner, tmp_path):
@@ -118,3 +126,57 @@ def test_verify_missing_script_clear_error(runner, tmp_path):
         result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=["--db", str(db)])
     assert result.exit_code != 0
     assert "exchange_verify.py not found" in result.output
+
+
+def test_verify_accepts_db_under_prefix(runner, tmp_path):
+    db = tmp_path / "data" / "exchange" / "exchange.db"
+    db.parent.mkdir(parents=True)
+    db.write_bytes(b"SQLite")
+    bridge = tmp_path / "bridge_deposits.db"
+    bridge.write_bytes(b"SQLite")
+    captured = {}
+
+    def fake_run(argv, **kw):
+        captured["argv"] = argv
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    with (
+        mock.patch.object(hub_mod, "_verify_script_path", return_value=tmp_path / "s.py"),
+        mock.patch.object(hub_mod.subprocess, "run", side_effect=fake_run),
+    ):
+        result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=["--db", str(db), "--bridge-db", str(bridge)])
+    assert result.exit_code == 0, result.output
+    assert str(db) in captured["argv"] and str(bridge) in captured["argv"]
+
+
+def test_verify_rejects_db_outside_prefix(runner):
+    # /etc/hosts: absolute, exists, regular file — fails only the prefix check.
+    # Re-patch to the production root so the error names it.
+    with mock.patch.object(hub_mod, "_VERIFY_DB_ALLOWED_PREFIX", "/var/lib/aitbc/"):
+        result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=["--db", "/etc/hosts"])
+    assert result.exit_code != 0
+    assert "--db must be under /var/lib/aitbc: /etc/hosts" in result.output
+
+
+def test_verify_rejects_bridge_db_outside_prefix(runner, tmp_path):
+    db = tmp_path / "exchange.db"
+    db.write_bytes(b"x")
+    result = runner.invoke(
+        verify_cmd,
+        obj={"output_format": "table"},
+        args=["--db", str(db), "--bridge-db", "/etc/hosts"],
+    )
+    assert result.exit_code != 0
+    assert "--bridge-db must be under" in result.output
+
+
+def test_verify_prefix_boundary_not_fooled(runner, tmp_path):
+    """``<prefix>-evil/`` must not satisfy a startswith check on ``<prefix>/``."""
+    evil = tmp_path / "aitbc-evil"
+    evil.mkdir()
+    db = evil / "exchange.db"
+    db.write_bytes(b"x")
+    with mock.patch.object(hub_mod, "_VERIFY_DB_ALLOWED_PREFIX", str(tmp_path / "aitbc") + "/"):
+        result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=["--db", str(db)])
+    assert result.exit_code != 0
+    assert "must be under" in result.output
