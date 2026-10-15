@@ -14,6 +14,10 @@ byte-identical by rewriting marked regions only:
     ...generated block...
     <!-- aitbc-dashboard-menu:end -->
 
+    <!-- aitbc-skip:start -->            skip link (every page, incl. menu-less)
+    ...generated block...
+    <!-- aitbc-skip:end -->
+
 To change the menu: edit ``MENU`` (or ``DASHBOARD_MENU``) below and run this
 script once; commit the resulting diff. The guard test
 ``tests/unit/test_website_menu_consistency.py`` runs ``--check`` and fails
@@ -56,37 +60,52 @@ NO_MENU_PAGES = {"follower-api-key-announcement.html"}
 
 MENU_MARK = "aitbc-menu"
 DASH_MARK = "aitbc-dashboard-menu"
+SKIP_MARK = "aitbc-skip"
 
 LEGACY_NAV_RE = re.compile(
     r'^(?P<i>[ \t]*)<div class="header-nav">\s*\n(?P<body>.*?)^(?P=i)</div>[ \t]*\n?',
     re.M | re.S,
 )
 
+BODY_RE = re.compile(r"^(?P<i>[ \t]*)<body[^>]*>\s*\n(?P<next>[ \t]*)\S", re.M)
+
 
 def own_path(name: str) -> str:
     return "/" if name == "index.html" else f"/{name}"
 
 
-def nav_block(mark: str, div_class: str, items: list[tuple[str, str]], current: str | None, aria: str) -> str:
-    lines = [f"{INDENT}<!-- {mark}:start -->", f'{INDENT}<div class="{div_class}"{aria}>']
-    for href, label in items:
+def nav_block(mark: str, div_class: str, items: list[tuple[str, str]], current: str | None) -> str:
+    label = "Main" if mark == MENU_MARK else "Dashboards"
+    lines = [
+        f"{INDENT}<!-- {mark}:start -->",
+        f'{INDENT}<nav class="{div_class}" aria-label="{label}">',
+    ]
+    for href, text in items:
         if href == current:
-            lines.append(f'{INDENT}    <a href="{href}" class="is-current" aria-current="page">{label}</a>')
+            lines.append(f'{INDENT}    <a href="{href}" class="is-current" aria-current="page">{text}</a>')
         else:
-            lines.append(f'{INDENT}    <a href="{href}">{label}</a>')
-    lines += [f"{INDENT}</div>", f"{INDENT}<!-- {mark}:end -->"]
+            lines.append(f'{INDENT}    <a href="{href}">{text}</a>')
+    lines += [f"{INDENT}</nav>", f"{INDENT}<!-- {mark}:end -->"]
     return "\n".join(lines) + "\n"
 
 
-def marked_region(mark: str) -> re.Pattern[str]:
+def skip_block(indent: str) -> str:
+    return (
+        f"{indent}<!-- {SKIP_MARK}:start -->\n"
+        f'{indent}<a href="#main" class="skip-link">Skip to content</a>\n'
+        f"{indent}<!-- {SKIP_MARK}:end -->\n"
+    )
+
+
+def marked_region(mark: str, indent: str = INDENT) -> re.Pattern[str]:
     return re.compile(
-        rf"{INDENT}<!-- {mark}:start -->\n.*?{INDENT}<!-- {mark}:end -->\n?",
+        rf"{indent}<!-- {mark}:start -->\n.*?{indent}<!-- {mark}:end -->\n?",
         re.S,
     )
 
 
 def stamp_main_menu(text: str, name: str) -> str:
-    block = nav_block(MENU_MARK, "header-nav", MENU, own_path(name), "")
+    block = nav_block(MENU_MARK, "header-nav", MENU, own_path(name))
     if marked_region(MENU_MARK).search(text):
         return marked_region(MENU_MARK).sub(block, text, count=1)
     m = LEGACY_NAV_RE.search(text)
@@ -96,7 +115,7 @@ def stamp_main_menu(text: str, name: str) -> str:
 
 
 def stamp_dashboard_row(text: str, name: str) -> str:
-    block = nav_block(DASH_MARK, "dashboard-nav", DASHBOARD_MENU, own_path(name), ' aria-label="Dashboards"')
+    block = nav_block(DASH_MARK, "dashboard-nav", DASHBOARD_MENU, own_path(name))
     if marked_region(DASH_MARK).search(text):
         return marked_region(DASH_MARK).sub(block, text, count=1)
     if name in DASHBOARD_PAGES:
@@ -108,11 +127,23 @@ def stamp_dashboard_row(text: str, name: str) -> str:
     return text
 
 
+def stamp_skip_link(text: str, name: str) -> str:
+    m = re.search(r"(?P<i>[ \t]*)<!-- " + SKIP_MARK + r":start -->", text)
+    if m:
+        region = marked_region(SKIP_MARK, re.escape(m.group("i")))
+        return region.sub(skip_block(m.group("i")), text, count=1)
+    body = BODY_RE.search(text)
+    if not body:
+        raise ValueError(f"{name}: no <body> tag found for the skip link")
+    line_end = text.find("\n", body.start()) + 1
+    return text[:line_end] + skip_block(body.group("next")) + text[line_end:]
+
+
 def expected_content(path: Path) -> str:
     name = path.name
+    text = stamp_skip_link(path.read_text(encoding="utf-8"), name)
     if name in NO_MENU_PAGES:
-        return path.read_text(encoding="utf-8")
-    text = path.read_text(encoding="utf-8")
+        return text
     if "header-nav" not in text and f"<!-- {MENU_MARK}:start -->" not in text:
         raise ValueError(f"{name}: no menu and not in NO_MENU_PAGES")
     return stamp_dashboard_row(stamp_main_menu(text, name), name)
