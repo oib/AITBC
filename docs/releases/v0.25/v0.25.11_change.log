@@ -181,7 +181,7 @@ Every menu page now carries a compact status strip under the header
 every page including the menu-less announcement page carries an identical
 static footer (GitHub mirror, llms.txt, Coordinator API, Explorer API).
 
-- `<pending>` — new `website/status.js` (no CDN, no vendor): exactly two
+- `67850ac59` — new `website/status.js` (no CDN, no vendor): exactly two
   same-origin requests per cycle (`/explorer-api/api/chain/head` +
   `/explorer-api/api/alerts`), jittered >=30s polling, paused while the
   tab is hidden, capped error backoff that stops after repeated failures
@@ -193,16 +193,16 @@ static footer (GitHub mirror, llms.txt, Coordinator API, Explorer API).
   `watcher.stale` is true; the firing count links to `/alerts.html`.
   Fetch failure renders "network status unavailable" — never throws,
   never blocks rendering.
-- `<pending>` — generator `sync-website-menu.py` extended with
+- `67850ac59` — generator `sync-website-menu.py` extended with
   `aitbc-status` / `aitbc-footer` marker regions; still idempotent and
   `--check`-verified. Status strip is stamped as a sibling before
   `<main>` on the 12 menu pages; footer after the container on all 13.
-- `<pending>` — no build line: no public endpoint reports a commit
+- `67850ac59` — no build line: no public endpoint reports a commit
   (`/explorer-api/health`'s `version: "2.0.0"` is a static app version,
   deliberately not shown). `docs/ops/website-version-json.md` proposes a
   gitignored `website/version.json` written by an operator-installed
   post-merge hook — proposal only, hook install is its own gated task.
-- `<pending>` — `tests/unit/test_website_menu_consistency.py` extended:
+- `67850ac59` — `tests/unit/test_website_menu_consistency.py` extended:
   one status strip with `role="status"` on menu pages, `status.js`
   deferred exactly once, identical footer link set on every page, no CDN
   scripts/styles, `status.js` calls only same-origin paths that exist
@@ -229,15 +229,15 @@ New `tests/unit/test_website_api_contract.py` fails loudly when a website
 script calls a path that the hub nginx reference config does not expose,
 that a location denies (404), or that the proxied app does not implement.
 
-- `<pending>` — extractor scans website/*.js + inline <script> blocks:
+- `3a7337022` — extractor scans website/*.js + inline <script> blocks:
   fetch/EventSource/WebSocket/XHR plus request helpers (apiGet/apiPost/
   apiPostOrGet/fetchJson/getJSON), resolving constants through
   config.js (EXPLORER_API_URL, explorerBase, svc.url object props).
-- `<pending>` — nginx model implements real matching order (exact,
+- `3a7337022` — nginx model implements real matching order (exact,
   longest ^~, first regex, longest prefix) over
   examples/nginx/nginx-aitbc.conf.example; AITBC_NGINX_CONF env var
   overrides the config path for live-config drift checks.
-- `<pending>` — app side discovers FastAPI decorators + include_router
+- `3a7337022` — app side discovers FastAPI decorators + include_router
   prefixes for coordinator/explorer/rpc/wallet/market/pool-hub/agent-
   coordinator/api-gateway, and parses the exchange's hand-dispatched
   path==/startswith/endswith table. Unmappable upstreams are
