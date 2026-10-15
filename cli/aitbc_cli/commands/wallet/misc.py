@@ -64,7 +64,10 @@ def inspect(ctx, wallet_file: str, field: str | None):
 
     Reads the JSON directly and only ever returns fields on a public
     allowlist — private_key, seed/mnemonic material, and any unknown field
-    are refused. Works on encrypted wallets without a password."""
+    are refused. Only scalar values are printed: a public field holding a
+    dict or list (e.g. `encrypted` as a crypto object in some keystore
+    formats) is refused rather than dumped. Works on encrypted wallets
+    without a password."""
     path = Path(wallet_file)
     if not path.is_file():
         error(f"Wallet file not found: {wallet_file}")
@@ -86,13 +89,21 @@ def inspect(ctx, wallet_file: str, field: str | None):
         if field not in _INSPECT_PUBLIC_FIELDS:
             error(f"refusing: '{field}' is not a public wallet field (allowed: {', '.join(sorted(_INSPECT_PUBLIC_FIELDS))})")
             raise click.Abort()
+        value = wallet_data.get(field)
+        if isinstance(value, (dict, list)):
+            error(f"refusing: '{field}' holds a structured value — inspect prints plain scalar fields only")
+            raise click.Abort()
         output(
-            {"field": field, "value": wallet_data.get(field)},
+            {"field": field, "value": value},
             ctx.obj.get("output_format", "table"),
         )
         return
 
-    public_view = {k: wallet_data.get(k) for k in sorted(_INSPECT_PUBLIC_FIELDS) if k in wallet_data}
+    public_view = {
+        k: "<redacted: structured value>" if isinstance(wallet_data[k], (dict, list)) else wallet_data[k]
+        for k in sorted(_INSPECT_PUBLIC_FIELDS)
+        if k in wallet_data
+    }
     public_view["path"] = str(path)
     output(public_view, ctx.obj.get("output_format", "table"))
 
