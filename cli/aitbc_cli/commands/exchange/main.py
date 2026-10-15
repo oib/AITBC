@@ -16,6 +16,7 @@ from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logge
 from .hub_orders import node as hub_node
 from .hub_orders import order as hub_order
 from .hub_orders import verify as hub_verify
+from .prepay import prepay as hub_prepay
 
 logger = get_logger(__name__)
 
@@ -394,3 +395,4 @@ def status(ctx, exchange_name: str):
 exchange.add_command(hub_order)
 exchange.add_command(hub_node)
 exchange.add_command(hub_verify)
+exchange.add_command(hub_prepay)
