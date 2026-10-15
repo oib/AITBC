@@ -1094,6 +1094,10 @@ def aitbc_wallet_send(
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
+    wait_seal: Annotated[
+        bool | None,
+        Field(description="Wait for the transaction to seal into a block; without it the hash is only a submission receipt"),
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -1107,7 +1111,7 @@ def aitbc_wallet_send(
     """Send AITBC tokens from the active wallet to another address.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"wait_seal": "wait"},
         values={
             "to_address": "to-address",
             "amount": "amount",
