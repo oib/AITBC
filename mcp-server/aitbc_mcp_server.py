@@ -1847,6 +1847,32 @@ def search_transactions(
     return _aitbc_cli_read_tool(role, host, "transactions", "search", args=[address], options=options)
 
 
+def _service_logs_error(
+    service: str,
+    since: str | None,
+    grep: str | None,
+    priority: str | None,
+    severity_pattern: bool,
+) -> dict[str, Any] | None:
+    """The get_service_logs input-validation failure, or None."""
+    if re.search(r"[;&|<>$`\\!\n\r]", service):
+        return {"error": "invalid service name", "service": service}
+    for name, value in (("since", since), ("grep", grep)):
+        if value is None:
+            continue
+        if len(value) > 200:
+            return {"error": f"{name} too long (max 200 chars)"}
+        if re.search(r"[;&|<>$`\\!\n\r\x00]", value):
+            return {"error": f"invalid {name}", name: value}
+    if grep is not None and severity_pattern:
+        return {"error": "grep and severity_pattern are mutually exclusive"}
+    if priority is not None:
+        # server-side validation only — the CLI enforces the level vocabulary
+        if len(priority) > 40 or re.search(r"[^A-Za-z0-9.]", priority):
+            return {"error": "invalid priority", "priority": priority}
+    return None
+
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_service_logs(
     service: Annotated[
@@ -1865,6 +1891,19 @@ def get_service_logs(
         str | None,
         Field(description="Filter entries matching this journalctl --grep pattern (max 200 chars)."),
     ] = None,
+    priority: Annotated[
+        str | None,
+        Field(
+            description="journalctl -p priority filter: a level name/number (err, warning, 3) or a 'from..to' range (err..warning)."
+        ),
+    ] = None,
+    severity_pattern: Annotated[
+        bool,
+        Field(
+            description="Filter on app-level severity text (WARN/ERROR/CRITICAL) — app logs carry no journal "
+            "priority. Mutually exclusive with grep; the pattern is fixed server-side."
+        ),
+    ] = False,
     role: Annotated[
         NodeRole | None,
         Field(description="Node role to query."),
@@ -1876,20 +1915,18 @@ def get_service_logs(
 ) -> str:
     """Tail systemd journal logs for an AITBC service."""
     target = _host_for_role(role, host)
-    if re.search(r"[;&|<>$`\\!\n\r]", service):
-        return _json({"error": "invalid service name", "service": service})
-    for name, value in (("since", since), ("grep", grep)):
-        if value is None:
-            continue
-        if len(value) > 200:
-            return _json({"error": f"{name} too long (max 200 chars)"})
-        if re.search(r"[;&|<>$`\\!\n\r\x00]", value):
-            return _json({"error": f"invalid {name}", name: value})
+    validation = _service_logs_error(service, since, grep, priority, severity_pattern)
+    if validation is not None:
+        return _json(validation)
     options = {"service": service, "lines": str(lines)}
     if since is not None:
         options["since"] = since
     if grep is not None:
         options["grep"] = grep
+    if priority is not None:
+        options["priority"] = priority
+    if severity_pattern:
+        options["severity-pattern"] = ""
     return _json(
         _run_aitbc_cli(
             target,
