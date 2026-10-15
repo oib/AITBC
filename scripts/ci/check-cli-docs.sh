@@ -11,14 +11,9 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_DIR"
 
-PYTHON="${PYTHON:-}"
-if [ -z "$PYTHON" ]; then
-  if [ -x ./venv/bin/python ]; then
-    PYTHON=./venv/bin/python
-  else
-    PYTHON=python3
-  fi
-fi
+# Shared resolution: $PYTHON env, checkout venv, then main-checkout venv —
+# a PATH python3 without repo deps would silently check nothing in a worktree.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
 
 echo "==> Running CLI doc sync tests"
 "$PYTHON" -m pytest -q tests/test_cli_docs_sync.py tests/test_syspath_hygiene.py

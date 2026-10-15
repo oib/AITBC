@@ -10,14 +10,17 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-PYTHON="${PYTHON:-}"
-if [ -z "$PYTHON" ]; then
-  if [ -x ./venv/bin/python ]; then PYTHON=./venv/bin/python; else PYTHON=python3; fi
-fi
+# Shared resolution: $PYTHON env, checkout venv, then main-checkout venv.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
 
-RUFF="${RUFF:-}"
-if [ -z "$RUFF" ]; then
-  if [ -x ./venv/bin/ruff ]; then RUFF=./venv/bin/ruff; else RUFF=ruff; fi
+# ruff must be the pinned one — a PATH ruff at a different version formats the
+# generated files differently and reports false drift. `python -m ruff` on the
+# resolved interpreter is pinned by construction; RUFF= stays an explicit
+# override.
+if [ -n "${RUFF:-}" ]; then
+  RUFF_CMD=("$RUFF")
+else
+  RUFF_CMD=("$PYTHON" -m ruff)
 fi
 
 tmpdir="$(mktemp -d)"
@@ -25,7 +28,7 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 generated="$tmpdir/aitbc_mcp_cli_tools_generated.py"
 "$PYTHON" scripts/dev/generate_mcp_cli_tools.py --mode all --split-by-group --output "$generated"
-"$RUFF" format --quiet "$generated" "$tmpdir"/aitbc_mcp_cli_tools_generated_*.py
+"${RUFF_CMD[@]}" format --quiet "$generated" "$tmpdir"/aitbc_mcp_cli_tools_generated_*.py
 
 drifted=0
 for src in mcp-server/aitbc_mcp_cli_tools_generated*.py; do
@@ -43,6 +46,6 @@ done
 
 if [ "$drifted" -ne 0 ]; then
   echo "MCP CLI tool modules are out of sync with the current CLI command tree." >&2
-  echo "Run: python3 scripts/dev/generate_mcp_cli_tools.py --mode all --split-by-group" >&2
+  echo "Run: $PYTHON scripts/dev/generate_mcp_cli_tools.py --mode all --split-by-group  (self-formats its output)" >&2
   exit 1
 fi
