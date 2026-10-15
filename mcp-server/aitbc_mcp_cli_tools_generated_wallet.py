@@ -640,6 +640,9 @@ def aitbc_wallet_eth_send(
     ] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet name or wallet file path on this host")] = None,
     max_eth: Annotated[str | None, Field(description="Per-call send cap — raise explicitly for larger transfers")] = None,
+    max_gas_gwei: Annotated[
+        str | None, Field(description="Gas-price ceiling in gwei — --confirm refuses to sign above it")
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and broadcast once (default: dry run, prints the unsigned transfer)")
     ] = None,
@@ -666,6 +669,7 @@ def aitbc_wallet_eth_send(
             "eth_rpc_url": "eth-rpc-url",
             "wallet_name": "wallet",
             "max_eth": "max-eth",
+            "max_gas_gwei": "max-gas-gwei",
             "password_file": "password-file",
         },
     )
