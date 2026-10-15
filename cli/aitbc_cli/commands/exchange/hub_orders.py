@@ -31,6 +31,8 @@ from typing import Any, NoReturn
 
 import click
 
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT
+
 from ...utils import DECIMAL, info, output, resolve_output_format, success
 from ...utils.error_handling import abort
 from ...utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, http_response_status
@@ -347,7 +349,13 @@ def order_my(ctx, wallet, address_opt, exchange_url):
   aitbc exchange order fund 42 --wallet node2 --print""",
 )
 @click.argument("order_id", type=int)
-@click.option("--fee", type=DECIMAL, default=Decimal("0.001"), show_default=True, help="AIT chain fee for the lock transfer")
+@click.option(
+    "--fee",
+    type=DECIMAL,
+    default=DEFAULT_TX_FEE_AIT,
+    show_default=True,
+    help="AIT chain fee for the lock transfer (standard chain fee)",
+)
 @click.option("--print", "print_only", is_flag=True, help="Emit the equivalent 'transactions send' line; broadcast nothing")
 @click.option("--wallet", default=None, help="Wallet name (not a file path) — must be the order owner's")
 @wallet_password_options

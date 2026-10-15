@@ -395,7 +395,7 @@ def aitbc_exchange_order_cancel(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_order_fund(
     order_id: Annotated[str, Field(description="Positional argument: order_id")],
-    fee: Annotated[str | None, Field(description="AIT chain fee for the lock transfer")] = None,
+    fee: Annotated[str | None, Field(description="AIT chain fee for the lock transfer (standard chain fee)")] = None,
     print_only: Annotated[
         bool | None, Field(description="Emit the equivalent 'transactions send' line; broadcast nothing")
     ] = None,
