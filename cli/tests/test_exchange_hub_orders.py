@@ -23,6 +23,7 @@ from eth_account import Account
 
 from aitbc_cli.commands.exchange.hub_orders import node, order
 from aitbc_cli.utils.error_handling import CLIError
+from aitbc_cli.utils.http_client import NetworkError
 
 
 @pytest.fixture
@@ -181,6 +182,99 @@ class TestResolution:
         monkeypatch.setattr("aitbc_cli.commands.exchange.hub_orders.resolve_chain_id", _fake_resolve)
         assert _envelope_chain_id(None, None) == "resolved-chain"
         assert seen == ["http://test-rpc.invalid"]
+
+    def test_chain_id_probe_uses_root_base(self, monkeypatch):
+        """An /rpc-suffixed endpoint probes <root>/rpc/proposer then <root>/health — never /rpc/rpc/…"""
+        from aitbc_cli.commands.exchange.hub_orders import _envelope_chain_id
+
+        monkeypatch.delenv("CHAIN_ID", raising=False)
+        monkeypatch.setattr(
+            "aitbc_cli.commands.exchange.hub_orders.get_rpc_endpoint",
+            lambda: "https://hub.example/rpc",
+        )
+        created: list[str] = []
+        gets: list[str] = []
+
+        class _Prober:
+            def __init__(self, base_url=None, **kw):
+                created.append(base_url)
+
+            def get(self, path, **kw):
+                gets.append(path)
+                if path == "/rpc/proposer":
+                    raise NetworkError("404")
+                return {"chain_id": "ait-probed"}
+
+        monkeypatch.setattr("aitbc_cli.utils.chain_id.AITBCHTTPClient", _Prober)
+        assert _envelope_chain_id(None, None) == "ait-probed"
+        assert created == ["https://hub.example"]
+        assert gets == ["/rpc/proposer", "/health"]
+        assert all("/rpc/rpc" not in f"{b}{p}" for b in created for p in gets)
+
+    def test_chain_id_falls_back_to_island_creds(self, monkeypatch):
+        """Probe failure falls back to the credentials' island_chain_id."""
+        from aitbc_cli.commands.exchange.hub_orders import _envelope_chain_id
+
+        monkeypatch.delenv("CHAIN_ID", raising=False)
+        monkeypatch.setattr(
+            "aitbc_cli.commands.exchange.hub_orders.get_rpc_endpoint",
+            lambda: "https://hub.example/rpc",
+        )
+
+        class _FailProber:
+            def __init__(self, **kw):
+                pass
+
+            def get(self, *a, **k):
+                raise NetworkError("unreachable")
+
+        monkeypatch.setattr("aitbc_cli.utils.chain_id.AITBCHTTPClient", _FailProber)
+        monkeypatch.setattr(
+            "aitbc_cli.commands.exchange.hub_orders.get_island_chain_id",
+            lambda: "ait-creds-chain",
+        )
+        assert _envelope_chain_id(None, None) == "ait-creds-chain"
+
+    def test_chain_id_aborts_when_nothing_resolves(self, monkeypatch):
+        """Probe failure + no creds island_chain_id → the fail-closed abort."""
+        from aitbc_cli.commands.exchange.hub_orders import _envelope_chain_id
+
+        monkeypatch.delenv("CHAIN_ID", raising=False)
+        monkeypatch.setattr(
+            "aitbc_cli.commands.exchange.hub_orders.get_rpc_endpoint",
+            lambda: "https://hub.example/rpc",
+        )
+
+        class _FailProber:
+            def __init__(self, **kw):
+                pass
+
+            def get(self, *a, **k):
+                raise NetworkError("unreachable")
+
+        monkeypatch.setattr("aitbc_cli.utils.chain_id.AITBCHTTPClient", _FailProber)
+        monkeypatch.setattr(
+            "aitbc_cli.commands.exchange.hub_orders.get_island_chain_id",
+            MagicMock(side_effect=FileNotFoundError("no creds file")),
+        )
+        ctx = MagicMock()
+        ctx.obj = {"output_format": "table"}
+        with pytest.raises(CLIError):
+            _envelope_chain_id(ctx, None)
+
+    def test_chain_id_env_wins_without_probe(self, monkeypatch):
+        """CHAIN_ID env resolves before any probing — no HTTP client is built."""
+        from aitbc_cli.commands.exchange.hub_orders import _envelope_chain_id
+
+        monkeypatch.setenv("CHAIN_ID", "ait-env-chain")
+        monkeypatch.setattr(
+            "aitbc_cli.commands.exchange.hub_orders.get_rpc_endpoint",
+            lambda: "https://hub.example/rpc",
+        )
+        prober_cls = MagicMock()
+        monkeypatch.setattr("aitbc_cli.utils.chain_id.AITBCHTTPClient", prober_cls)
+        assert _envelope_chain_id(None, None) == "ait-env-chain"
+        prober_cls.assert_not_called()
 
 
 # --- order place ----------------------------------------------------------

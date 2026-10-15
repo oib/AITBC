@@ -365,3 +365,51 @@ def test_ai_submit_nonce_failure_omits_chain_hint(runner, ai_patches):
     assert "job-1" in text
     assert "pay-job job-1" in text
     assert "CHAIN_ID" not in text
+
+
+# --- probe base normalization (CLI-3) -------------------------------------
+
+
+class TestRpcProbeRoot:
+    """``_rpc_probe_root`` strips exactly one trailing ``/rpc`` so the probe
+    paths (service-native ``/rpc/proposer``, ``/health``) resolve for both
+    bare and ``/rpc``-suffixed bases."""
+
+    def test_rpc_probe_root_strips_suffix(self):
+        from aitbc_cli.utils.chain_id import _rpc_probe_root
+
+        assert _rpc_probe_root("https://hub.example/rpc") == "https://hub.example"
+        assert _rpc_probe_root("https://hub.example/rpc/") == "https://hub.example"
+        assert _rpc_probe_root("http://localhost:8202") == "http://localhost:8202"
+        assert _rpc_probe_root("http://localhost:8202/") == "http://localhost:8202"
+        # only ONE trailing /rpc segment is stripped
+        assert _rpc_probe_root("http://x/rpc/rpc") == "http://x/rpc"
+        # non-/rpc suffixes are left alone
+        assert _rpc_probe_root("http://x/api") == "http://x/api"
+
+    def test_probed_urls_never_double_rpc(self, monkeypatch):
+        from aitbc_cli.utils.chain_id import get_chain_id
+
+        created: list[str] = []
+        gets: list[str] = []
+
+        class _Prober:
+            def __init__(self, base_url=None, **kw):
+                created.append(base_url)
+
+            def get(self, path, **kw):
+                gets.append(path)
+                if path == "/rpc/proposer":
+                    raise RuntimeError("404")
+                return {"chain_id": "ait-x"}
+
+        for base in ("http://node:8202", "http://node:8202/rpc", "https://hub.example/rpc"):
+            created.clear()
+            gets.clear()
+            monkeypatch.setattr("aitbc_cli.utils.chain_id.AITBCHTTPClient", _Prober)
+            monkeypatch.delenv("CHAIN_ID", raising=False)
+            assert get_chain_id(base, override=None, timeout=5, strict=True) == "ait-x"
+            (base_url,) = created
+            assert not base_url.endswith("/rpc"), base_url
+            assert gets == ["/rpc/proposer", "/health"]
+            assert all("/rpc/rpc" not in f"{base_url}{p}" for p in gets)
