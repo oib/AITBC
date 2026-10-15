@@ -223,9 +223,16 @@ def main(argv: list[str] | None = None) -> int:
     # optional-file marker is exactly that ("--env-file -/path"). Fold the pair
     # into "--env-file=-/path" before parsing so the documented form works.
     argv = list(sys.argv[1:] if argv is None else argv)
-    for i, tok in enumerate(argv[:-1]):
-        if tok == "--env-file" and argv[i + 1].startswith("-") and not argv[i + 1].startswith("--"):
-            argv[i : i + 2] = ["--env-file=" + argv[i + 1]]
+    folded: list[str] = []
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--env-file" and i + 1 < len(argv) and argv[i + 1].startswith("-") and not argv[i + 1].startswith("--"):
+            folded.append("--env-file=" + argv[i + 1])
+            i += 2
+        else:
+            folded.append(argv[i])
+            i += 1
+    argv = folded
     args = parser.parse_args(argv)
 
     if args.env_file:
