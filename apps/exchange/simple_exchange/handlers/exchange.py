@@ -19,6 +19,9 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+# File-relative repo root — see handlers/bridge.py for why (no /opt/aitbc hardcode).
+_REPO_ROOT = str(Path(__file__).resolve().parents[4])
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.decimal import to_decimal as _to_decimal
@@ -1913,7 +1916,7 @@ class ExchangeMixin:
         try:
             import sys
 
-            sys.path.insert(0, "/opt/aitbc")
+            sys.path.insert(0, _REPO_ROOT)
             from aitbc.oracles.price_oracle import get_price_oracle
 
             oracle = get_price_oracle()
@@ -1953,7 +1956,7 @@ class ExchangeMixin:
         try:
             import sys
 
-            sys.path.insert(0, "/opt/aitbc")
+            sys.path.insert(0, _REPO_ROOT)
             from aitbc.oracles.price_oracle import get_price_oracle
 
             oracle = get_price_oracle()
