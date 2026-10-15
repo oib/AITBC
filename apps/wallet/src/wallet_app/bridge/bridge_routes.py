@@ -54,6 +54,7 @@ from .bridge_db import (
     get_sell_quote,
     get_withdrawal_by_ait_tx_hash,
     insert_sell_quote,
+    list_exchange_settlements,
     update_deposit_status,
 )
 from .bridge_monitor import (
@@ -978,6 +979,40 @@ async def bridge_sell_list(limit: int = 50, offset: int = 0) -> dict[str, Any]:
         "quotes": [_normalize_sell_quote(q) for q in quotes],
         "locks": [_normalize_sell_lock(lk) for lk in locks],
         "count": len(locks),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+def _normalize_settlement(row: dict[str, Any]) -> dict[str, Any]:
+    out = dict(row)
+    for key in ("amount_ait", "eth_amount", "fee_ait"):
+        out[key] = _money_str(row.get(key))
+    return out
+
+
+@bridge_router.get("/settlements")
+async def bridge_settlements(
+    status: str | None = None,
+    kind: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    _admin: Annotated[None, Depends(require_admin_api_key)] = None,
+) -> dict[str, Any]:
+    """List exchange-settlement ledger rows (CLI-1).
+
+    Admin-keyed like sell/quote: the /v1/bridge mount is publicly exposed on
+    hub and settlement rows carry diagnostic error text plus release
+    nonces/hashes — not a participants board. Flag-off the table is empty and
+    the route returns []."""
+    if kind is not None and kind not in ("trade", "order_refund"):
+        raise HTTPException(status_code=400, detail="kind must be 'trade' or 'order_refund'")
+    limit = max(0, min(limit, 500))
+    offset = max(0, offset)
+    rows = list_exchange_settlements(status=status, kind=kind, limit=limit, offset=offset)
+    return {
+        "settlements": [_normalize_settlement(r) for r in rows],
+        "count": len(rows),
         "limit": limit,
         "offset": offset,
     }

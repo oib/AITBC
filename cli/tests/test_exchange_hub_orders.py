@@ -542,3 +542,238 @@ class TestErrors:
             obj={"output_format": "json"},
         )
         assert result.exit_code != 0
+
+
+# --- order fund (CLI-1, mocks only — no live exchange/wallet/chain) ---------
+
+
+def _unfunded_sell_doc(addr, order_id=42, required="10", escrow="0x52908400098527886E0F7030069857D2E4169EE7", nonce=0):
+    return {
+        "/api/exchange/my-orders": {
+            "address": addr,
+            "label": "node2",
+            "registered": True,
+            "next_nonce": nonce,
+            "orders": [
+                {
+                    "id": order_id,
+                    "order_type": "SELL",
+                    "status": "open",
+                    "funded_state": "unfunded",
+                    "funding": {
+                        "type": "ait_lock",
+                        "state": "unfunded",
+                        "escrow": escrow,
+                        "payload": f"sell_quote={order_id}",
+                        "required_ait": required,
+                    },
+                }
+            ],
+        }
+    }
+
+
+@pytest.fixture
+def mock_send():
+    """The chain send + password resolution — must never fire without consent."""
+    calls = []
+    with (
+        patch("aitbc_cli.commands.exchange.hub_orders._send_transaction_impl") as send,
+        patch("aitbc_cli.commands.exchange.hub_orders.resolve_wallet_password", return_value="pw") as pw,
+        patch("aitbc_cli.commands.exchange.hub_orders.wallet_dir", return_value=__import__("pathlib").Path("/tmp/wallets")),
+    ):
+        send.return_value = "0x" + "aa" * 32
+
+        def _record(*args, **kwargs):
+            calls.append((args, kwargs))
+            return send.return_value
+
+        send.side_effect = _record
+        yield send, pw, calls
+
+
+def _fund_args(order_id=42, extra=None):
+    return [
+        "fund",
+        str(order_id),
+        "--wallet",
+        "testwallet",
+        "--password-file",
+        "/x",
+        "--exchange-url",
+        "http://e.invalid",
+    ] + (extra or [])
+
+
+class TestOrderFund:
+    def test_happy_path_sends_lock(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, pw, calls = mock_send
+        mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
+        result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        assert len(calls) == 1
+        args, kwargs = calls[0]
+        assert args[0] == "testwallet"
+        assert args[1] == "0x52908400098527886E0F7030069857D2E4169EE7"
+        assert args[2] == Decimal("10")  # required_ait verbatim
+        assert kwargs["payload"] == {"sell_quote": 42}
+        pw.assert_called_once()
+
+    def test_print_emits_raw_command_without_broadcast(
+        self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key
+    ):
+        send, pw, calls = mock_send
+        mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
+        result = runner.invoke(order, _fund_args(extra=["--print"]), obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        assert not calls
+        pw.assert_not_called()
+        assert "--from testwallet" in result.output
+        assert "sell_quote" in result.output and '"sell_quote": 42' in result.output
+        assert "0x52908400098527886E0F7030069857D2E4169EE7" in result.output
+
+    def test_unknown_order_aborts(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, _pw, calls = mock_send
+        mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
+        result = runner.invoke(order, _fund_args(order_id=99), obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert not calls
+
+    def test_buy_order_refused(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, _pw, calls = mock_send
+        doc = _unfunded_sell_doc(wallet_key[0])
+        doc["/api/exchange/my-orders"]["orders"][0]["order_type"] = "BUY"
+        mock_client.get_responses = doc
+        result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert "BUY" in result.output
+        assert not calls
+
+    def test_funded_order_refused(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, _pw, calls = mock_send
+        doc = _unfunded_sell_doc(wallet_key[0])
+        doc["/api/exchange/my-orders"]["orders"][0]["funded_state"] = "funded"
+        doc["/api/exchange/my-orders"]["orders"][0].pop("funding")
+        mock_client.get_responses = doc
+        result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert not calls
+
+    def test_flag_off_no_funding_block_refused(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, _pw, calls = mock_send
+        doc = _unfunded_sell_doc(wallet_key[0])
+        doc["/api/exchange/my-orders"]["orders"][0].pop("funding")
+        mock_client.get_responses = doc
+        result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert not calls
+
+    def test_missing_escrow_aborts(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, _pw, calls = mock_send
+        mock_client.get_responses = _unfunded_sell_doc(wallet_key[0], escrow="")
+        result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert not calls
+
+    def test_bad_required_ait_aborts(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, _pw, calls = mock_send
+        mock_client.get_responses = _unfunded_sell_doc(wallet_key[0], required="abc")
+        result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert not calls
+
+
+# --- node set-payout (CLI-1) -----------------------------------------------
+
+
+class TestNodeSetPayout:
+    _ETH = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+
+    def test_payout_envelope_checksums_and_posts(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
+        mock_client.get_responses = _registered_doc(wallet_key[0], nonce=4)
+        mock_client.post_responses = {
+            "default": {
+                "address": wallet_key[0],
+                "status": "payout_set",
+                "eth_address": self._ETH,
+                "previous_eth_address": None,
+                "next_nonce": 5,
+            }
+        }
+        result = runner.invoke(
+            node,
+            [
+                "set-payout",
+                "--eth-address",
+                self._ETH.lower(),  # lowercase input is normalized before signing
+                "--wallet",
+                "testwallet",
+                "--password-file",
+                "/x",
+                "--exchange-url",
+                "http://e.invalid",
+            ],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code == 0, result.output
+        post = mock_client.instances[0].posts[0]
+        assert post["path"] == "/api/exchange/nodes/payout"
+        env = post["json"]["envelope"]
+        assert env == {
+            "action": "exchange_set_payout",
+            "eth_address": self._ETH,
+            "account_nonce": 4,
+            "chain_id": "ait-test-chain",
+        }
+        from eth_utils import keccak
+
+        from aitbc.crypto.signature_recovery import canonical_address, verify_signature
+
+        digest = keccak(json.dumps(env, sort_keys=True, separators=(",", ":")).encode())
+        assert verify_signature(digest, post["json"]["signature"], canonical_address(wallet_key[0]))
+
+    def test_bad_eth_address_aborts_before_network(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
+        result = runner.invoke(
+            node,
+            [
+                "set-payout",
+                "--eth-address",
+                "not-an-address",
+                "--wallet",
+                "w",
+                "--password-file",
+                "/x",
+                "--exchange-url",
+                "http://e.invalid",
+            ],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code != 0
+        assert not mock_client.instances or not mock_client.instances[0].posts
+
+
+# --- node list (CLI-1) -----------------------------------------------------
+
+
+class TestNodeList:
+    def test_lists_nodes(self, runner, mock_client):
+        mock_client.get_responses = {
+            "/api/exchange/nodes": {
+                "nodes": [
+                    {"label": "node2", "address": "0x5290…", "status": "registered", "open_orders": 2},
+                    {"label": "node1", "address": "0xab12…", "status": "seeded", "open_orders": 0},
+                ]
+            }
+        }
+        result = runner.invoke(node, ["list", "--exchange-url", "http://e.invalid"], obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        path, _params = mock_client.instances[0].gets[0]
+        assert path == "/api/exchange/nodes"
+        payload = json.loads(result.output)
+        assert [n["label"] for n in payload["nodes"]] == ["node2", "node1"]
+
+    def test_no_wallet_needed(self, runner, mock_client):
+        # No mock_wallet fixture: the command must not touch the keystore.
+        mock_client.get_responses = {"/api/exchange/nodes": {"nodes": []}}
+        result = runner.invoke(node, ["list", "--exchange-url", "http://e.invalid"], obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output

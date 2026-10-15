@@ -328,6 +328,34 @@ def status(ctx, ait_tx_hash: str):
     output(info, ctx.obj.get("output_format", "table"))
 
 
+@bridge.command(
+    "settlements",
+    epilog="""Examples:
+
+  aitbc wallet bridge settlements
+  aitbc wallet bridge settlements --state needs_review --kind order_refund
+  aitbc wallet bridge settlements --hub-url https://hub.example/wallet   # from a shop node""",
+)
+@click.option("--state", "state", default=None, help="Filter by settlement status (needs_review, settled, refunded, ...)")
+@click.option("--kind", "kind", type=click.Choice(["trade", "order_refund"]), default=None, help="Filter by settlement kind")
+@click.option("--limit", "limit", type=int, default=50, show_default=True, help="Max rows (server caps at 500)")
+@click.option("--hub-url", "hub_url", default=None, help="Hub wallet-service base URL (default: configured wallet daemon)")
+@click.pass_context
+def settlements(ctx, state, kind, limit, hub_url):
+    """List exchange-settlement ledger rows on the hub wallet service
+    (admin-keyed — CLI-1)."""
+    client = _hub_bridge_client(hub_url)
+    try:
+        doc = client.get(
+            "/v1/bridge/settlements",
+            params={k: v for k, v in (("status", state), ("kind", kind), ("limit", limit)) if v is not None},
+        )
+    except Exception as e:
+        error(f"Failed to list settlements: {e}")
+        raise click.Abort() from e
+    output(doc, ctx.obj.get("output_format", "table"))
+
+
 @bridge.group(invoke_without_command=False)
 def sell():
     """Escrowed AIT -> ETH sell commands (quote / lock / status)."""
