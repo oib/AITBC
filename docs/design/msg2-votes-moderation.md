@@ -1,7 +1,8 @@
 # MSG-2 — votes, moderation and reputation as signed on-chain actions (design note, Phase 0)
 
-Status: **draft for director review**. Written from a read-only audit of
-`origin/main` `25eba26f5` (MSG-1 + MSG-FIX-1 landed). Builds on
+Status: **accepted with amendments** (director review; answers to §10
+incorporated verbatim in §10 and the referenced sections). Written from a
+read-only audit of `origin/main` `25eba26f5` (MSG-1 + MSG-FIX-1 landed). Builds on
 `docs/design/msg1-onchain-messaging.md`; every mechanism below is a pure
 function of sealed `transaction` rows, exactly as MSG-1's index is.
 
@@ -74,7 +75,11 @@ ascending — the same total order F3 fixed for cursors, reused here so
 authority and pagination share one ordering and one proof. Within one
 block there is no recorded position column, so tx-hash order is the
 tiebreak — arbitrary but identical on every node, and it never changes
-once sealed.
+once sealed. **Stated plainly: the tx-hash tiebreak is grindable** — a
+signer can vary a harmless field until its hash orders where it wants,
+so it can win a same-block founding race or make its own second vote
+the "last" one. It matters only for same-block races and is accepted as
+a limitation; nothing cross-block is grindable.
 
 Derived moderator set of a topic at action height `h`, evaluated by
 replaying that topic's `mod_grant`/`mod_revoke` actions and the founding
@@ -90,6 +95,24 @@ An action is **effective** only if its signer is in the topic's moderator
 set at the action's own `(height, tx_hash)` position. Ineffective actions
 are still indexed (they are sealed, valid envelopes) but are no-ops in the
 derivation and marked `effective: false` in any action listing.
+
+**Director amendment — the authority scan must not truncate silently.** A
+topic-scoped scan bounded by `SCAN_BOUND` lets a non-moderator bury real
+grants under paid ineffective envelopes. The scan therefore runs in two
+phases:
+
+1. **Founding moderator** — a pure SQL aggregate: the minimum
+   `(block_height, tx_hash)` over the topic's valid `post`/`reply` rows.
+   Aggregates are exact, not scan-bounded (the F2 fix already made topic
+   aggregates SQL-side).
+2. **Fixpoint over moderator-signed actions** — iterate: collect the
+   `mod_grant`/`mod_revoke` rows signed by *current* set members (one
+   bounded query per signer, canonical order), apply them in canonical
+   order under the set-at-that-position rule, repeat until the set stops
+   changing. Each iteration can only add signers that an earlier
+   iteration's actions authorised, so it converges; a defensive pass cap
+   (64) raises rather than truncates. Envelopes from non-members never
+   enter the scan at all — spam costs them fees and moves nothing.
 
 Edge cases, spelled out:
 
@@ -107,19 +130,24 @@ Edge cases, spelled out:
   then. Revoking a moderator does not cascade — actions they granted stay
   granted (no transitive revocation; that would make authority depend on
   future events).
-- **Founding moderator revoked.** Allowed. A topic can become
-  unmoderated — the set is empty, no further actions are effective, and
-  that state is permanent (there is no re-founding). Open question §10.1.
-- **Self-revocation.** Allowed, same as any revoke.
+- **Founding moderator revoked.** Allowed, with the director's rule: a
+  `mod_revoke` that would leave the set **empty** is ineffective (marked
+  `effective: false`, no state change). A topic can never become
+  unmoderated by a revoke, including self-revoke — to abandon a topic a
+  moderator must grant to someone else first.
+- **Self-revocation.** Allowed, subject to the same non-empty rule.
 - **`mod_grant` by a non-moderator.** Indexed, ineffective.
 - **Grant to self.** No-op (already in the set or not — granting to self
   as a non-member is ineffective either way).
 
 No global moderators: there is no derivation path that produces one, and
 none is proposed (MSG-11, parked). The `broadcast` slug follows the same
-rule as everything else — its first poster moderates it. That is worth an
-explicit director confirmation (§10.2): under MSG-1 the slug was
-deliberately authority-free.
+rule as everything else — its first poster moderates it (director
+decision: uniform rule, no slug exception). Because existing topics get
+moderators retroactively, **Phase 1 must ship a read-only report of every
+live topic and its would-be founder**, taken from
+`/rpc/messaging/topics`, before activation — so we see who gains the
+authority before it exists.
 
 ## (3) Hiding is a read-side filter — never deletion
 
@@ -144,16 +172,24 @@ the full payload unchanged. Hiding only changes the *derived index views*:
 - Replies to a hidden message are not themselves hidden — `parent_resolved`
   still resolves; the reader sees `parent_hidden: true`.
 - `hide`/`unhide` pairs resolve by canonical order: the latest effective
-  action wins. A `hide` of a `hide` action is meaningless — action kinds
-  are not hideable targets (§10.3).
-- `pin`/`unpin`: pinned messages carry `pinned: true` and are returned
-  first within their topic listing (canonical order among pins), subject
-  to the same page bounds.
+  action wins. `hide`/`pin` targets must resolve to a `post`/`reply`
+  (director decision) — action kinds are not hideable targets.
+- `pin`/`unpin`: **amended** — pinning does not reorder the main list.
+  The `<height>:<tx_hash>` cursor must stay monotone, so a topic listing
+  returns pinned messages as a separate `pinned` array beside `messages`
+  (each entry carrying `pinned: true` + `pinned_by`), while `messages`
+  stays in canonical order and keeps paging correctly.
 - `lock`/`unlock`: the topic (or the subtree rooted at `target`) carries
-  `locked: true` + `locked_by`. Messages sealed **after** the lock's
-  position still index — sealing is permissionless — but are excluded from
-  default views like hidden rows and flagged `after_lock: true` under
-  `include_hidden`. Votes on locked content still count.
+  `locked: true` + `locked_by`. A lock applies at the action's **sealed
+  canonical position** — messages ordered after it are `after_lock`
+  (excluded by default, shown flagged under `include_hidden`), earlier
+  ones are unaffected. A lock never blocks `unlock`, `mod_grant`,
+  `mod_revoke`, or any moderation action — moderation actions always apply
+  regardless of lock state. Votes on locked content still count.
+  Subtree-lock walk is bounded (`LOCK_WALK_LIMIT = 512` descendants in
+  canonical order): a reply beyond the bound is treated as outside the
+  locked subtree — visible, not flagged. Stated as the fail-open side of
+  a deliberate bound so reads never hang on a giant thread.
 
 ## (4) Votes — one per signer, last wins
 
@@ -169,6 +205,15 @@ the full payload unchanged. Hiding only changes the *derived index views*:
   never fabricate score on an arbitrary row.
 - Self-votes are recorded and displayed (`self_vote: true`) but excluded
   from the reputation formula (§5).
+- **Vote/score aggregates are exact, never scan-bounded** (director
+  amendment — same class of bug as F2): the standing vote per
+  `(signer, target)` is computed in SQL — a `ROW_NUMBER() OVER
+  (PARTITION BY signer, target ORDER BY block_height DESC, tx_hash DESC)`
+  window over the topic's valid `vote` rows (SQLite ≥3.25; a MAX-join
+  equivalent exists if ever needed), then `sum`/`count` over the rn=1
+  survivors. A bounded Python scan that silently understates a score is
+  not acceptable; where exactness is impossible the field must carry an
+  explicit `truncated` flag.
 - Cost: the standard MESSAGE fee, user-chosen as today (baseline 0.01
   AIT). **No fee change proposed** — that is MSG-12. Vote spam is bounded
   by exactly what bounds post spam: fee + nonce economics per signer, and
@@ -222,6 +267,8 @@ Manipulation cases and what the formula does:
 
 Scores are integers end to end; nothing here is a balance, but the
 no-float-money gate is honoured anyway (integer arithmetic only).
+**Reputation gates nothing in v1** (director decision): it is a display
+field only and must never feed authority, visibility, or admission.
 
 ## (6) Index and read API
 
@@ -238,11 +285,12 @@ Changes inside `messaging_index.py` / `aitbc.messaging`:
   (kind IN <action kinds> AND <their exact clauses>)`. Same rule as F1 —
   SQL only narrows what the Python predicate also enforces; the predicate
   stays the arbiter.
-- New derived helpers: `_moderators_at(topic, height, tx_hash)`,
-  `_moderation_state(session, chain_id)` (per-topic moderator set, locks,
-  hides, pins — computed by one ordered scan of the topic's action rows),
-  `_standing_votes(...)`. All bounded by the same `SCAN_BOUND`; action
-  scans are additionally topic-scoped, so they stay small.
+- New derived helpers: `_moderators_at(topic, height, tx_hash)`
+  (the fixpoint scan of §2 — moderator-signed rows only, iterated to
+  convergence, never truncated silently), `_moderation_state(...)`,
+  `_standing_votes(...)` (exact SQL window aggregate of §4). Message-list
+  scans stay under `SCAN_BOUND`; authority and vote derivations do not —
+  they are aggregates/fixpoint queries, exact by construction.
 - F1 interplay: action envelopes carry no body, so the body narrowing
   clauses apply only to `post`/`reply` — the OR-structure above is exactly
   what keeps the byte-length gate precise. Junk action payloads get the
@@ -342,33 +390,33 @@ Global moderation/bans (MSG-11), fee schedule or per-byte fees (MSG-12),
 direct messages (MSG-8), any browser UI (MSG-16), the coordinator
 reputation subsystem, any live host, any restart, any migration.
 
-## (10) Open questions (each with a recommendation)
+## (10) Open questions — decided (director, verbatim answers)
 
-1. **Founding moderator revocable?** *Recommend yes* (a moderator set can
-   become empty; the topic is then permanently unmoderated — simple, no
-   anchor special-case). Alternative: founder is irrevocable — protects
-   against a grantee coup, but a compromised founder key then owns the
-   topic forever.
-2. **`broadcast` moderation.** Under this design its first poster becomes
-   its moderator, which changes the MSG-1 "no authority" stance for that
-   slug. *Recommend accepting it* (uniform rule beats a slug exception,
-   and a reserved-slug exception list is consensus-adjacent); alternative
-   is an explicit `UNMODERATED_TOPICS` constant.
-3. **Hide/pin on action-kind rows.** *Recommend not allowed* — `target`
-   must resolve to `post`/`reply`; hides of grants/votes are indexed as
-   no-ops (authority derivation ignores display state anyway).
-4. **Sybil-weighted reputation** (voter age or own rep as weight).
-   *Recommend not in MSG-2* — recursive/height-dependent weighting adds a
-   second derivation order problem; flat ±1 with `VOTE_CAP` is provable
-   now and upgradeable later without invalidating history.
-5. **`include_hidden` showing `body: null` vs full body.** *Recommend
-   withholding* — the flag exists for audit/visibility of moderation
-   state, not to bypass it; raw-tx access remains for anyone who needs
-   the bytes.
-6. **`lock` on `target` = subtree vs topic-only.** *Recommend supporting
-   both* (subtree lock covers the "one bad thread" case cheaply — the
-   descendant test is a `parent` chain walk, bounded by thread depth);
-   alternatively restrict v1 to topic locks only.
+1. **Founding moderator revocable?** — "yes, with one rule: a
+   `mod_revoke` that would leave the moderator set empty is ineffective.
+   A topic can never become permanently unmoderated by a revoke,
+   including self-revoke. To abandon a topic, grant to someone first."
+   (Incorporated in §2.)
+2. **`broadcast` moderation.** — "accept the uniform rule, no slug
+   exception. Before activation, Phase 1 must include a read-only report
+   of every live topic and its would-be founder, taken from
+   `/rpc/messaging/topics`. Existing topics get moderators retroactively,
+   so we need to see who." (Incorporated in §2.)
+3. **Hide/pin targets.** — agreed: must resolve to `post`/`reply`.
+4. **Reputation weighting.** — agreed: flat ±1 with `VOTE_CAP`, no sybil
+   weighting; "reputation gates nothing in v1. It is display only, and
+   must never feed authority." (Incorporated in §5.)
+5. **`include_hidden`.** — agreed: withholds the body.
+6. **Lock forms.** — agreed: both forms supported; depth/bound and
+   beyond-bound behaviour stated in §3.
+
+Plus three amendments applied throughout: authority scan is a fixpoint
+over moderator-signed rows, never truncated (§2); vote/score aggregates
+are exact SQL, or carry an explicit `truncated` flag (§4); pinned
+messages move to a separate `pinned` response list so cursors stay
+monotone (§3); locks never block moderation actions and apply at the
+lock's sealed position (§3); the tx-hash tiebreak's same-block
+grindability is stated plainly and accepted (§2).
 
 ## What MSG-1 must provide (all verified present)
 
