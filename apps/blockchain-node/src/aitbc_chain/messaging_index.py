@@ -47,6 +47,7 @@ still never *surface* as a listed message.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from sqlalchemy import LargeBinary, and_, cast, func, not_, or_
@@ -153,15 +154,29 @@ def admission_error(payload: Any, sender: str) -> str | None:
         return f"invalid aitbc_msg envelope ({type(e).__name__})"
 
 
-def parse_cursor(cursor: str | None) -> tuple[int, int] | None:
-    """Parse a ``<block_height>:<row_id>`` keyset cursor, or ``None``."""
+_CURSOR_HASH_RE = re.compile(r"[0-9a-fA-F]{64}")
+
+
+def parse_cursor(cursor: str | None) -> tuple[int, str] | None:
+    """Parse a ``<block_height>:<tx_hash>`` keyset cursor, or ``None``.
+
+    The tx_hash half is the deterministic in-block tiebreaker (F3):
+    ``Transaction.id`` was a node-local autoincrement, so cursors and
+    same-block ordering differed between nodes. Stored tx_hash values are
+    lowercase hex (``_validate_hex``); a cursor echoes one back and is
+    normalised the same way for the comparison.
+    """
     if not cursor:
         return None
     try:
-        height_s, row_s = cursor.split(":", 1)
-        return int(height_s), int(row_s)
+        height_s, hash_s = cursor.split(":", 1)
+        height = int(height_s)
     except (ValueError, AttributeError):
-        raise ValueError("invalid cursor (want '<block_height>:<row_id>' from a previous next_cursor)") from None
+        height = -1
+        hash_s = ""
+    if height < 0 or not _CURSOR_HASH_RE.fullmatch(hash_s or ""):
+        raise ValueError("invalid cursor (want '<block_height>:<tx_hash>' from a previous next_cursor)")
+    return height, hash_s.lower()
 
 
 def _like_escape(text: str) -> str:
@@ -213,7 +228,6 @@ def _candidate_where(chain_id: str):
 def _candidate_columns():
     """Columns every message read needs — never the payload blob itself."""
     return [
-        col(Transaction.id),
         col(Transaction.tx_hash),
         col(Transaction.block_height),
         col(Transaction.sender),
@@ -239,7 +253,7 @@ def _candidate_select(
     stmt = (
         select(*_candidate_columns())
         .where(*_candidate_where(chain_id))
-        .order_by(col(Transaction.block_height).desc(), col(Transaction.id).desc())
+        .order_by(col(Transaction.block_height).desc(), col(Transaction.tx_hash).desc())
     )
     if topic is not None:
         stmt = stmt.where(_env_json("topic") == topic)
@@ -252,15 +266,15 @@ def _candidate_select(
     return stmt
 
 
-def _apply_cursor(stmt, cursor: tuple[int, int] | None):
-    """Keyset filter for DESC (block_height, id) ordering."""
+def _apply_cursor(stmt, cursor: tuple[int, str] | None):
+    """Keyset filter for DESC (block_height, tx_hash) ordering."""
     if cursor is None:
         return stmt
-    height, row_id = cursor
+    height, tx_hash = cursor
     return stmt.where(
         or_(
             col(Transaction.block_height) < height,
-            and_(col(Transaction.block_height) == height, col(Transaction.id) < row_id),
+            and_(col(Transaction.block_height) == height, col(Transaction.tx_hash) < tx_hash),
         )
     )
 
@@ -269,7 +283,7 @@ def _scan_valid(
     session,
     stmt,
     *,
-    cursor: tuple[int, int] | None,
+    cursor: tuple[int, str] | None,
     limit: int,
     scan_bound: int,
 ) -> tuple[list[Any], str | None, bool]:
@@ -292,10 +306,10 @@ def _scan_valid(
             continue
         out.append(row)
         if len(out) >= limit:
-            return out, f"{row.block_height}:{row.id}", False
+            return out, f"{row.block_height}:{row.tx_hash}", False
     # Page not full. More candidates may exist iff the bound+1 fetch overshot.
     if len(rows) > scan_bound and last_scanned is not None:
-        return out, f"{last_scanned.block_height}:{last_scanned.id}", True
+        return out, f"{last_scanned.block_height}:{last_scanned.tx_hash}", True
     return out, None, False
 
 
