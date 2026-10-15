@@ -132,10 +132,10 @@ function renderEvents(body) {
             : '<p class="loading">No alert events recorded.</p>';
         return;
     }
-    box.innerHTML = `<table class="alerts-table">
+    box.innerHTML = `<div class="table-wrap" role="region" tabindex="0" aria-label="Alert event history"><table class="alerts-table">
         <thead><tr><th>When</th><th>Event</th><th>Alert</th><th>Node</th><th>Via</th><th>Detail</th></tr></thead>
         <tbody>${events.slice(0, 20).map(eventRow).join('')}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 const JOURNAL_UNITS = new Set();
@@ -189,7 +189,7 @@ function renderJournal(body) {
             : '<p class="loading">No warning-or-worse journal entries from aitbc units in the window.</p>';
         return;
     }
-    box.innerHTML = `<table class="alerts-table">
+    box.innerHTML = `<div class="table-wrap" role="region" tabindex="0" aria-label="Journal entries"><table class="alerts-table">
         <thead><tr><th>When</th><th>Level</th><th>Unit</th><th>Message</th></tr></thead>
         <tbody>${entries.map(e => `<tr>
             <td class="evt-time">${escapeHtml(e.timestamp_unix ? relTime(e.timestamp_unix) : '')}</td>
@@ -197,7 +197,7 @@ function renderJournal(body) {
             <td class="evt-name">${escapeHtml(e.unit)}</td>
             <td class="evt-detail">${escapeHtml(e.message)}</td>
         </tr>`).join('')}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 async function loadJournal() {
