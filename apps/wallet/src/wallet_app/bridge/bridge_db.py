@@ -1776,6 +1776,35 @@ def get_exchange_pending_eth_reserve() -> Decimal:
     return total
 
 
+def list_exchange_settlements(
+    status: str | None = None,
+    kind: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """Exchange-settlement rows for the /v1/bridge/settlements read route
+    (CLI-1) — newest first, optionally filtered by kind and status."""
+    clauses = []
+    params: list[Any] = []
+    if kind is not None:
+        clauses.append("kind = ?")
+        params.append(kind)
+    if status is not None:
+        clauses.append("status = ?")
+        params.append(status)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements{where}"  # nosec B608 - column list/keywords are literals; every value is bound
+        " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+        (*params, limit, offset),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [s for r in rows if (s := _row_to_settlement(r, _SETTLEMENT_SELECT_COLS)) is not None]
+
+
 def update_exchange_settlement(
     settlement_id: str,
     status: str,

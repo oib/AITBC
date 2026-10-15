@@ -4,8 +4,11 @@ Command tree:
 
     aitbc exchange order place  --side BUY|SELL --amount AIT --price ETH/AIT
     aitbc exchange order cancel <order_id>
+    aitbc exchange order fund   <order_id> [--print]
     aitbc exchange order my     [--address 0x… | --wallet name]
     aitbc exchange node register [--label NAME]
+    aitbc exchange node set-payout --eth-address 0x…
+    aitbc exchange node list
 
 Wallet sovereignty (design sovereignty check, decided 14 Oct): every command
 that produces a signature calls ``load_wallet_for_payment`` — the node's own
@@ -31,12 +34,15 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, http_error_detai
 from ...utils.chain_id import resolve_chain_id
 from ...utils.island_credentials import get_rpc_endpoint
 from ...utils.wallet_loader import load_wallet_for_payment
-from ...utils.wallet_secret import wallet_password_options
+from ...utils.wallet_paths import wallet_dir
+from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
+from ..transactions import _send_transaction_impl
 
 TICKS_PER_UNIT = 100_000_000  # 8 decimal places — mirrors db.py
 PAIR = "AIT/ETH"
 _ORDER_ACTION = "exchange_cancel"
 _REGISTER_ACTION = "exchange_register"
+_PAYOUT_ACTION = "exchange_set_payout"
 DEFAULT_EXPIRES_IN = 1440  # blocks (~4 h at 10 s/block)
 
 
@@ -153,7 +159,8 @@ def _load_signer(ctx, wallet, password, password_file, password_stdin) -> tuple[
 
 @click.group(name="order")
 def order():
-    """Signed AIT/ETH orders on the hub exchange (unfunded, settlement-free)."""
+    """Signed AIT/ETH orders on the hub exchange — funded under
+    EXCHANGE_SETTLEMENT_ENABLED (flag-off: unfunded, settlement-free)."""
 
 
 @click.group(name="node")
@@ -307,6 +314,94 @@ def order_my(ctx, wallet, address_opt, exchange_url):
     )
 
 
+@order.command(
+    "fund",
+    epilog="""Examples:
+
+  aitbc exchange order fund 42 --wallet node2 --password-stdin
+  aitbc exchange order fund 42 --wallet node2 --print""",
+)
+@click.argument("order_id", type=int)
+@click.option("--fee", type=DECIMAL, default=Decimal("0.001"), show_default=True, help="AIT chain fee for the lock transfer")
+@click.option("--print", "print_only", is_flag=True, help="Emit the equivalent 'transactions send' line; broadcast nothing")
+@click.option("--wallet", default=None, help="Wallet name (not a file path) — must be the order owner's")
+@wallet_password_options
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL for the lock transfer")
+@click.option("--exchange-url", default=None, help="Override exchange service base URL")
+@click.pass_context
+def order_fund(ctx, order_id, fee, print_only, wallet, password, password_file, password_stdin, rpc_url, exchange_url):
+    """Fund an unfunded SELL order with its AIT escrow lock.
+
+    Reads the funding instruction from my-orders (escrow address, required
+    AIT, sell_quote payload) and sends the lock TRANSFER from this node's
+    own wallet — the sender must be the order owner (stranger locks are
+    refunded, never credited). --print emits the equivalent
+    'transactions send' line without broadcasting anything.
+
+    Operator note (CLI-1): this command was implemented and exercised
+    against mocks only — no live exchange, wallet, or chain run has been
+    performed. A real transfer is an AIT move the operator names
+    explicitly.
+    """
+    address, _pk, wallet_id = load_wallet_for_payment(ctx, wallet_name=wallet, require_private_key=False)
+    client = _exchange_client(ctx, exchange_url)
+    _nonce, doc = _node_state(client, ctx, address)
+    row = next((o for o in (doc.get("orders") or []) if o.get("id") == order_id), None)
+    if row is None:
+        abort(ctx, f"Order {order_id} is not among {address}'s orders")
+        return
+    if row.get("order_type") != "SELL":
+        abort(
+            ctx, f"Order {order_id} is a BUY — fund it with an ETH prepay tagged EXCHANGE_DEPOSIT:{address}, not an AIT lock"
+        )
+        return
+    funding = row.get("funding")
+    if row.get("status") != "open" or row.get("funded_state") != "unfunded" or not isinstance(funding, dict):
+        abort(
+            ctx,
+            f"Order {order_id} is not awaiting a lock (status={row.get('status')}, funded_state={row.get('funded_state')})",
+        )
+        return
+    if funding.get("type") != "ait_lock":
+        abort(ctx, f"Order {order_id} expects {funding.get('type')} funding, not an AIT lock")
+        return
+    escrow = funding.get("escrow") or ""
+    if not escrow:
+        abort(ctx, "Funding block carries no escrow address — AIT_SELL_ESCROW unset on the exchange")
+        return
+    try:
+        required = Decimal(str(funding.get("required_ait") or "0"))
+    except InvalidOperation as e:
+        abort(ctx, f"Unparseable required_ait in funding block: {funding.get('required_ait')!r}", from_exception=e)
+        return
+    if required <= 0:
+        abort(ctx, f"Unparseable required_ait in funding block: {funding.get('required_ait')!r}")
+        return
+    send_line = (
+        f"aitbc transactions send --from {wallet_id} --to {escrow} "
+        f"--amount {required} --fee {fee} --payload '{{\"sell_quote\": {order_id}}}'"
+    )
+    if print_only:
+        info("Not broadcasting — equivalent raw command:")
+        click.echo(send_line)
+        return
+    pw = resolve_wallet_password(
+        wallet_id,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_dir() / f"{wallet_id}.json",
+    )
+    tx_hash = _send_transaction_impl(wallet_id, escrow, required, fee, pw, rpc_url=rpc_url, payload={"sell_quote": order_id})
+    if tx_hash:
+        success(f"Lock sent for order {order_id}: {tx_hash} — the settlement monitor funds it once it lands")
+        output(
+            {"order_id": order_id, "ait_tx_hash": tx_hash, "escrow": escrow, "required_ait": str(required)},
+            resolve_output_format(ctx),
+        )
+
+
 @node.command(
     "register",
     epilog="""Example:
@@ -346,3 +441,60 @@ def node_register(ctx, wallet, label, password, password_file, password_stdin, c
     result = _post_signed(client, ctx, "/api/exchange/nodes/register", envelope, signature, address)
     success(f"Registered on the hub exchange as '{result.get('label')}'")
     output(result, resolve_output_format(ctx))
+
+
+@node.command(
+    "set-payout",
+    epilog="""Example:
+
+  aitbc exchange node set-payout --eth-address 0xAbc… --wallet node2 --password-stdin
+
+The address is normalized to EIP-55 checksum form before signing; the
+exchange refuses anything else. Applies to orders placed after the claim.""",
+)
+@click.option(
+    "--eth-address", "eth_address", required=True, help="Sepolia ETH payout address (any case — checksummed before signing)"
+)
+@click.option("--wallet", default=None, help="Wallet name or file path — the node's registered AIT wallet")
+@wallet_password_options
+@click.option("--chain-id", default=None, help="Envelope chain_id (default: island credentials)")
+@click.option("--exchange-url", default=None, help="Override exchange service base URL")
+@click.pass_context
+def node_set_payout(ctx, eth_address, wallet, password, password_file, password_stdin, chain_id, exchange_url):
+    """Claim this node's ETH payout address with a signed envelope
+    (dark while EXCHANGE_SETTLEMENT_ENABLED is off — a flag-off exchange
+    answers 404, which is surfaced as-is)."""
+    from eth_utils import to_checksum_address
+
+    try:
+        checksummed = to_checksum_address(eth_address)
+    except (ValueError, TypeError) as e:
+        abort(ctx, f"Invalid --eth-address: {eth_address!r}", from_exception=e)
+        return
+    address, private_key, _wallet_id = _load_signer(ctx, wallet, password, password_file, password_stdin)
+    client = _exchange_client(ctx, exchange_url)
+    nonce, _info_doc = _node_state(client, ctx, address)
+    envelope = {
+        "action": _PAYOUT_ACTION,
+        "eth_address": checksummed,
+        "account_nonce": nonce,
+        "chain_id": _envelope_chain_id(ctx, chain_id),
+    }
+    signature = _sign_envelope(envelope, private_key)
+    result = _post_signed(client, ctx, "/api/exchange/nodes/payout", envelope, signature, address)
+    success(f"Payout address set: {result.get('eth_address')} (previous: {result.get('previous_eth_address') or 'unset'})")
+    output(result, resolve_output_format(ctx))
+
+
+@node.command("list")
+@click.option("--exchange-url", default=None, help="Override exchange service base URL")
+@click.pass_context
+def node_list(ctx, exchange_url):
+    """List exchange nodes — the participants board (read-only, no wallet)."""
+    client = _exchange_client(ctx, exchange_url)
+    try:
+        doc = client.get("/api/exchange/nodes")
+    except NetworkError as e:
+        abort(ctx, f"Cannot reach exchange: {http_error_detail(e) or e}", from_exception=e)
+        return
+    output({"nodes": doc.get("nodes") or []}, resolve_output_format(ctx), title="Exchange nodes")
