@@ -18,17 +18,15 @@ reported and the operator decides.
 
 from __future__ import annotations
 
-import asyncio
-import os
 from decimal import Decimal
 from typing import Any
 
 import click
 
-from ...utils import DECIMAL, info, output, resolve_output_format, success
+from ...utils import DECIMAL, evm_rpc, info, output, resolve_output_format, success
 from ...utils.address import to_canonical
 from ...utils.error_handling import abort
-from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
+from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options  # noqa: F401  (patch surface for tests)
 from .hub_orders import _exchange_client, _fund_wallet_address
 
 SEPOLIA_CHAIN_ID = 11155111
@@ -98,50 +96,18 @@ def _node_row(ctx, client, address: str) -> dict[str, Any] | None:
 
 
 def _rpc_call(ctx, rpc_url: str, method: str, params: list[Any]) -> Any:
-    """One synchronous JSON-RPC call — wrapped so tests substitute a fake."""
-    import httpx
-
-    try:
-        resp = httpx.post(
-            rpc_url,
-            json={"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
-            timeout=15.0,
-        )
-        resp.raise_for_status()
-        body = resp.json()
-    except Exception as e:
-        abort(ctx, f"Sepolia RPC {method} failed at {rpc_url}: {e}", from_exception=e)
-        raise AssertionError("unreachable: abort always raises") from e
-    if "error" in body:
-        abort(ctx, f"Sepolia RPC {method} refused: {body['error']}")
-    return body.get("result")
+    """One synchronous JSON-RPC call — shared EVM helper (tests patch this name)."""
+    return evm_rpc.rpc_call(ctx, rpc_url, method, params)
 
 
 def _rpc_try(ctx, rpc_url: str, method: str, params: list[Any]) -> Any:
     """Best-effort variant of ``_rpc_call`` for --print display fields —
     returns None instead of aborting so an unsigned preview still prints."""
-    import httpx
-
-    try:
-        resp = httpx.post(
-            rpc_url,
-            json={"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
-            timeout=15.0,
-        )
-        resp.raise_for_status()
-        body = resp.json()
-    except Exception:
-        return None
-    return body.get("result")
+    return evm_rpc.rpc_try(ctx, rpc_url, method, params)
 
 
 def _eth_rpc(ctx, override: str | None) -> str:
-    from ...config import get_config
-
-    rpc = override or os.getenv("ETH_RPC_URL") or getattr(get_config(), "eth_rpc_url", None)
-    if not rpc:
-        abort(ctx, "Sepolia RPC unresolved — pass --eth-rpc-url or set ETH_RPC_URL")
-    return str(rpc)
+    return evm_rpc.resolve_rpc_url(ctx, override)
 
 
 def _registry_check(ctx, client, address: str) -> tuple[bool, str]:
@@ -291,49 +257,15 @@ def deposit(ctx, amount_eth, wallet, password, password_file, password_stdin, se
 
 def _load_signing_key(ctx, wallet_id: str, wallet_path, password, password_file, password_stdin) -> str:
     """Decrypt the wallet file through the standard resolver and hand back the
-    private key — the same path ``wallet bridge deposit`` uses."""
-    if wallet_path is None:
-        abort(ctx, f"Wallet '{wallet_id}' resolved via the daemon, not a wallet file — cannot sign with it here")
-    pw = resolve_wallet_password(
-        wallet_id,
-        password=password,
-        password_file=password_file,
-        password_stdin=password_stdin,
-        allow_unencrypted=True,
-        wallet_path=wallet_path,
-        ctx=ctx,
-    )
-    from ..wallet import _load_wallet
+    private key — the shared loader ``wallet bridge deposit``/``eth-send`` use."""
+    from ..wallet import _load_signing_key as _shared_load_signing_key
 
-    private_key = _load_wallet(wallet_path, wallet_id, password=pw).get("private_key")
-    if not private_key:
-        abort(ctx, "Wallet does not contain a private key")
-    assert isinstance(private_key, str)
-    return private_key
+    return _shared_load_signing_key(ctx, wallet_id, wallet_path, password, password_file, password_stdin)
 
 
 def _broadcast_raw(ctx, rpc_url: str, raw: str) -> str:
     """One eth_sendRawTransaction — a failure is reported, never retried."""
-
-    async def _post() -> str:
-        import httpx
-
-        async with httpx.AsyncClient(timeout=15.0) as http:
-            resp = await http.post(
-                rpc_url,
-                json={"jsonrpc": "2.0", "method": "eth_sendRawTransaction", "params": [raw], "id": 1},
-            )
-            resp.raise_for_status()
-            body = resp.json()
-        if "error" in body:
-            raise RuntimeError(body["error"])
-        return str(body["result"])
-
-    try:
-        return asyncio.run(_post())
-    except Exception as e:
-        abort(ctx, f"ETH deposit broadcast failed (not retried): {e}", from_exception=e)
-        raise AssertionError("unreachable: abort always raises") from e
+    return evm_rpc.broadcast_raw(ctx, rpc_url, raw, label="ETH deposit")
 
 
 def _send_deposit(
