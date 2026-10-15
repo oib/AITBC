@@ -31,6 +31,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (blocks.length > 0) {
                 const html = blocks.map(renderBlockCard).join('');
                 if (reset) {
+                    const feedStatus = document.getElementById('sr-announcer');
+                    const topHash = blocks[0] && blocks[0].hash;
+                    if (feedStatus && topHash && topHash !== window.__lastAnnouncedBlock) {
+                        window.__lastAnnouncedBlock = topHash;
+                        feedStatus.textContent = `Blocks updated — latest height ${blocks[0].height}`;
+                    }
                     container.innerHTML = html;
                 } else {
                     container.insertAdjacentHTML('beforeend', html);

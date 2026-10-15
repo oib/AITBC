@@ -20,7 +20,6 @@
     <!-- aitbc-skip:start -->
     <a href="#main" class="skip-link">Skip to content</a>
     <!-- aitbc-skip:end -->
-    <div class="ob-banner">Sepolia testnet. Test ETH and test AIT have no real-world value.</div>
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/llms.txt">llms.txt</a> &middot; <a href="/openapi.json">Coordinator API</a> &middot; <a href="/explorer-api/openapi.json">Explorer API</a>.</p></noscript>
         <header>
@@ -43,6 +42,7 @@
         <!-- aitbc-status:end -->
 
         <main id="main" tabindex="-1">
+            <div class="ob-banner">Sepolia testnet. Test ETH and test AIT have no real-world value.</div>
 
         <!-- ═══ Value Proposition ═══ -->
         <div class="card value-hero">
@@ -75,17 +75,17 @@
             </div>
             <div id="ob-ladder" class="ob-ladder" style="display:none;">
                 <div class="ob-scroll" role="region" tabindex="0" aria-label="Sell orders (asks)">
-                    <table class="ob-table">
+                    <table class="ob-table" aria-label="Sell orders (asks)">
                         <thead><tr>
-                            <th>price (ETH per AIT)</th><th>size (AIT)</th>
-                            <th>depth (AIT)</th><th>maker</th><th></th>
+                            <th scope="col">price (ETH per AIT)</th><th scope="col">size (AIT)</th>
+                            <th scope="col">depth (AIT)</th><th scope="col">maker</th><th scope="col"><span class="visually-hidden">actions</span></th>
                         </tr></thead>
                         <tbody id="ob-asks-body"></tbody>
                     </table>
                 </div>
                 <div class="ob-spread-row">asks ↑ · bids ↓</div>
                 <div class="ob-scroll" role="region" tabindex="0" aria-label="Buy orders (bids)">
-                    <table class="ob-table">
+                    <table class="ob-table" aria-label="Buy orders (bids)">
                         <tbody id="ob-bids-body"></tbody>
                     </table>
                 </div>
@@ -94,8 +94,8 @@
                 <summary><span id="ob-inactive-label">Inactive test data</span>
                     — earlier entries, units are not ETH per AIT</summary>
                 <div class="ob-scroll" role="region" tabindex="0" aria-label="Inactive test orders">
-                    <table class="ob-table">
-                        <thead><tr><th>side</th><th>price</th><th>size</th><th>maker</th><th>date</th></tr></thead>
+                    <table class="ob-table" aria-label="Inactive test orders">
+                        <thead><tr><th scope="col">side</th><th scope="col">price</th><th scope="col">size</th><th scope="col">maker</th><th scope="col">date</th></tr></thead>
                         <tbody id="ob-inactive-body"></tbody>
                     </table>
                 </div>
@@ -110,8 +110,8 @@
                 No live trades yet. Earlier entries are inactive test data.
             </div>
             <div class="ob-scroll" role="region" tabindex="0" aria-label="Recent trades">
-                <table class="ob-table" id="ob-tape-table" style="display:none;">
-                    <thead><tr><th>price (ETH per AIT)</th><th>size (AIT)</th><th>buyer ← seller</th><th>time (UTC)</th></tr></thead>
+                <table class="ob-table" id="ob-tape-table" aria-label="Recent trades" style="display:none;">
+                    <thead><tr><th scope="col">price (ETH per AIT)</th><th scope="col">size (AIT)</th><th scope="col">buyer ← seller</th><th scope="col">time (UTC)</th></tr></thead>
                     <tbody id="ob-tape-body"></tbody>
                 </table>
             </div>
@@ -119,8 +119,8 @@
                 <summary><span id="ob-tape-inactive-label">Inactive test data</span>
                     — earlier entries, units are not ETH per AIT</summary>
                 <div class="ob-scroll" role="region" tabindex="0" aria-label="Inactive test trades">
-                    <table class="ob-table">
-                        <thead><tr><th>price</th><th>size</th><th>time (UTC)</th></tr></thead>
+                    <table class="ob-table" aria-label="Inactive test trades">
+                        <thead><tr><th scope="col">price</th><th scope="col">size</th><th scope="col">time (UTC)</th></tr></thead>
                         <tbody id="ob-tape-inactive-body"></tbody>
                     </table>
                 </div>
@@ -188,13 +188,13 @@
                     <span id="deposit-address">Loading...</span>
                     <span class="copy-hint">press Enter or click to copy</span>
                 </div>
-                <p id="copy-feedback" class="copy-feedback">Copied!</p>
+                <p id="copy-feedback" class="copy-feedback" role="status" aria-live="polite">Copied!</p>
                 <p><strong>2.</strong> Paste this hex value into your wallet's "hex data" / "advanced" field:</p>
                 <div id="tx-data-hex-box" class="deposit-address" role="button" tabindex="0">
                     <span id="tx-data-hex">-</span>
                     <span class="copy-hint">press Enter or click to copy</span>
                 </div>
-                <p id="copy-feedback-hex" class="copy-feedback">Copied!</p>
+                <p id="copy-feedback-hex" class="copy-feedback" role="status" aria-live="polite">Copied!</p>
                 <p><strong>3.</strong> AIT will be sent automatically to your wallet</p>
                 <p class="muted-text">Minimum deposit: <span id="min-deposit">-</span> ETH &middot; Network: Sepolia testnet</p>
             </div>
@@ -210,7 +210,7 @@
             <p class="muted-text">Enter your ETH transaction hash or AIT address to check bridge status.</p>
             <div class="bridge-form">
                 <div class="form-row">
-                    <input type="text" id="track-input" placeholder="0x... ETH tx hash  or  0x... AIT address" class="endpoint">
+                    <input type="text" id="track-input" aria-label="Track deposit: ETH transaction hash or AIT address" placeholder="0x... ETH tx hash  or  0x... AIT address" class="endpoint">
                 </div>
                 <button id="track-deposit-btn" class="btn-primary" style="width:100%;">Check Status</button>
             </div>
@@ -251,7 +251,7 @@
             <h2>How the Reference Is Calculated</h2>
             <p class="muted-text">1 AIT is priced as one compute-hour on the island's reference rig: hardware wear amortized over a 3-year fully-booked lifetime, plus the node's whole electricity draw at the wall.</p>
             <div class="table-wrap" role="region" tabindex="0" aria-label="Reference price breakdown">
-            <table class="info-table" id="reference-table"><tbody>
+            <table class="info-table" id="reference-table" aria-label="Reference price breakdown"><tbody>
                 <tr><td colspan="2" class="muted-text">Loading reference breakdown&hellip; (machine-readable: <a href="/reference.json">reference.json</a>)</td></tr>
             </tbody></table>
             </div>
