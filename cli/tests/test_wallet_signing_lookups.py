@@ -138,6 +138,66 @@ def test_send_uses_looked_up_chain_and_nonce(runner, tmp_path, monkeypatch):
             obj={},
         )
     assert result.exit_code == 0, result.output
+
+
+def test_send_reports_submitted_not_confirmed(runner, tmp_path, monkeypatch):
+    """A mempool hash is a submission receipt — the output must say so (15 Oct
+    incident: an unsealed tx was indistinguishable from a landed one)."""
+    wallet_path = _write_wallet(tmp_path)
+    fake_client = _fake_http_client(get_data={"nonce": 7}, post_data={"transaction_hash": "0xbeef"})
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    with (
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_serving_chain_lookup("ait-testnet")),
+        patch("aitbc_cli.commands.wallet.basic.AITBCHTTPClient", fake_client),
+    ):
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", str(wallet_path), *SEND_ARGS, "--rpc-url", "http://10.0.0.9:8202"],
+            obj={},
+        )
+    assert result.exit_code == 0, result.output
+    assert "submitted, not confirmed" in result.output
+
+
+def test_send_wait_confirms_sealed_tx(runner, tmp_path, monkeypatch):
+    """--wait polls for the seal and reports the confirming block."""
+    wallet_path = _write_wallet(tmp_path)
+    fake_client = _fake_http_client(get_data={"nonce": 7}, post_data={"transaction_hash": "0xbeef"})
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    with (
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_serving_chain_lookup("ait-testnet")),
+        patch("aitbc_cli.commands.wallet.basic.AITBCHTTPClient", fake_client),
+        patch("aitbc_cli.utils.gpu_onchain.wait_for_tx", return_value={"block_height": 42}) as wait,
+    ):
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", str(wallet_path), *SEND_ARGS, "--rpc-url", "http://10.0.0.9:8202", "--wait"],
+            obj={},
+        )
+    assert result.exit_code == 0, result.output
+    wait.assert_called_once_with("http://10.0.0.9:8202", "0xbeef", timeout=120.0)
+    assert "confirmed" in result.output
+
+
+def test_send_wait_unsealed_aborts(runner, tmp_path, monkeypatch):
+    """A --wait that never sees the seal exits nonzero naming the hash — the
+    caller must check the tx before any retry reuses the nonce."""
+    wallet_path = _write_wallet(tmp_path)
+    fake_client = _fake_http_client(get_data={"nonce": 7}, post_data={"transaction_hash": "0xbeef"})
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    with (
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_serving_chain_lookup("ait-testnet")),
+        patch("aitbc_cli.commands.wallet.basic.AITBCHTTPClient", fake_client),
+        patch("aitbc_cli.utils.gpu_onchain.wait_for_tx", return_value=None),
+    ):
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", str(wallet_path), *SEND_ARGS, "--rpc-url", "http://10.0.0.9:8202", "--wait"],
+            obj={},
+        )
+    assert result.exit_code != 0
+    assert "not confirmed" in result.output
+    assert "0xbeef" in result.output
     submitted = [body for c in fake_client.instances for ep, body in c.posts if ep == "/rpc/transaction"]
     assert submitted, result.output
     tx = submitted[-1]
