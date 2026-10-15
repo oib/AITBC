@@ -327,6 +327,26 @@ class TestHelpers:
 
         assert esm._MIRROR_FORWARD == _TRADE_STATE_FORWARD
 
+    def test_norm_tx_hash(self):
+        """Gap 4: hash equality is spelling-insensitive — case and the 0x
+        prefix never change which chain artifact is meant."""
+        assert esm._norm_tx_hash("0xDeAdBeEf") == "deadbeef"
+        assert esm._norm_tx_hash("deadbeef") == "deadbeef"
+        assert esm._norm_tx_hash("0XAB12") == "ab12"
+        assert esm._norm_tx_hash(None) == "" and esm._norm_tx_hash("") == ""
+
+    def test_lock_refund_ref_id_range(self):
+        """Squat fix: the fallback ref_id is deterministic per lock, bounded
+        below −2**59, and disjoint from every ±order_id / trade id — no
+        reader can mistake it for an order id."""
+        for h in ("0xdeadbeef", "0x" + "0" * 14 + "1", "0x" + "f" * 15, "0x1234", "0x" + "a" * 64):
+            rid = esm._lock_refund_ref_id(h)
+            assert -(1 << 60) <= rid <= -(1 << 59), (h, rid)
+        # Case/prefix respellings of one lock derive the same id (dedup-safe).
+        assert esm._lock_refund_ref_id("0xDeAdBeEf") == esm._lock_refund_ref_id("deadbeef")
+        # Far below any plausible order id — never confusable with ±order_id.
+        assert esm._lock_refund_ref_id("0x1234") < -(1 << 59) < -(2**31)
+
 
 # ---------------------------------------------------------------------------
 # Lane 1 — escrow lock scan
@@ -436,6 +456,69 @@ class TestLockScan:
         assert monitor_mark(f"lock:0xgone{status_code}")["outcome"] == "refunding"
         row = get_exchange_settlement("order_refund", -oid)
         assert row is not None and row["seller_address"] == SELLER_AIT
+
+    @pytest.mark.asyncio
+    async def test_recorded_reobserve_normalizes_hash_spelling(self, exchange_env):
+        """Gap 4: the funded lock re-observed on later polls matches
+        backing_tx_hash independent of case/prefix — a spelling change must
+        not drop it into the refund lane and sweep the order's backing."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(
+            exchange_env,
+            order_type="SELL",
+            status="open",
+            funded_state="funded",
+            backing_tx_hash="0xDeAdBeEf",
+            locked_ticks=1_000_000_000,
+        )
+        lock = _lock_tx(oid, "0xdeadbeef", SELLER_AIT, 36_000_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 0
+        assert monitor_mark("lock:0xdeadbeef")["outcome"] == "recorded"
+        assert get_exchange_settlement("order_refund", -oid) is None
+
+    @pytest.mark.asyncio
+    async def test_owner_under_cover_refund_survives_stranger_squat(self, exchange_env):
+        """Squat residual: a stranger's dust lock holds −order_id, then the
+        owner's own under-cover lock still gets its refund — keyed on a
+        lock-hash ref_id below −2**59. A second stranger lock afterwards
+        stays 'duplicate' (the one-per-order bound for non-owners)."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        for tx_hash, sender in (("0x0bb1", stranger), ("0x0aa1", SELLER_AIT)):
+            lock = _lock_tx(oid, tx_hash, sender, 36_000_000)
+            lock["recipient"] = exchange_env["escrow"]
+            exchange_env["transfers"].append(lock)
+        exchange_env["post_responses"]["order_funded"] = (409, {"error": "lock under cover"})
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 2
+        # −oid still belongs to the stranger's dust refund.
+        stray_row = get_exchange_settlement("order_refund", -oid)
+        assert stray_row is not None and stray_row["seller_address"] == stranger
+        # The owner's refund landed on the deterministic lock-keyed ref_id.
+        lock_ref = esm._lock_refund_ref_id("0x0aa1")
+        assert lock_ref < -(1 << 59)
+        owner_row = get_exchange_settlement("order_refund", lock_ref)
+        assert owner_row is not None and owner_row["seller_address"] == SELLER_AIT
+        assert monitor_mark("lock:0x0aa1")["outcome"] == "refunding"
+        # A second stranger lock stays a logged duplicate — bound unchanged.
+        extra = _lock_tx(oid, "0x0cc1", stranger, 36_000_000)
+        extra["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(extra)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 0
+        assert monitor_mark("lock:0x0cc1")["outcome"] == "duplicate"
+        # Re-polling creates no new rows — marks dedupe every lock.
+        conn = bridge_db._connect_db()
+        n_rows = conn.execute("SELECT COUNT(*) FROM exchange_settlements").fetchone()[0]
+        conn.close()
+        await esm._scan_order_locks(cfg, head=1000)
+        conn = bridge_db._connect_db()
+        assert conn.execute("SELECT COUNT(*) FROM exchange_settlements").fetchone()[0] == n_rows
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +735,35 @@ class TestBackingScan:
         assert get_exchange_settlement("order_refund", -oid) is not None
         assert get_exchange_settlement("order_refund", oid) is None
 
+    @pytest.mark.asyncio
+    async def test_lock_sender_normalizes_hash_spelling(self, exchange_env):
+        """Gap 4: _lock_sender must find the recorded lock when the RPC
+        respells its hash — otherwise the remainder refund falls back to
+        the order owner and pays the wrong account."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(
+            exchange_env,
+            status="cancelled",
+            funded_state="funded",
+            backing_tx_hash="0xABCDEF00",  # order row respelled vs the chain row
+            locked_ticks=1_000_000_000,
+        )
+        exchange_env["transfers"].append(
+            {
+                "tx_hash": "0xabcdef00",
+                "sender": stranger,
+                "recipient": exchange_env["escrow"],
+                "value": 360_000_000,
+                "block_height": 500,
+                "payload": {"sell_quote": oid},
+            }
+        )
+        stats = await esm._scan_backing(cfg, head=1000)
+        assert stats["refunds"] == 1
+        row = get_exchange_settlement("order_refund", oid)
+        assert row is not None and row["seller_address"] == stranger  # not the order owner
+
 
 # ---------------------------------------------------------------------------
 # Trade-row ensure + mirror
@@ -679,6 +791,57 @@ class TestTradeRows:
         cfg = _cfg(exchange_env)
         _insert_trade(exchange_env, settlement_state="settled", buy_order_id=1, sell_order_id=2)
         assert esm._ensure_trade_rows(cfg)["created"] == 0
+
+    def test_unlinked_trade_marks_terminal_once(self, exchange_env, caplog):
+        """Gap 6: a trade with NULL order links gets one ERROR and a terminal
+        monitor mark — no settlement row, no ERROR on later polls."""
+        cfg = _cfg(exchange_env)
+        tid = _insert_trade(exchange_env, buy_order_id=None, sell_order_id=None)
+        with caplog.at_level(logging.ERROR):
+            stats = esm._ensure_trade_rows(cfg)
+            stats2 = esm._ensure_trade_rows(cfg)
+        assert stats["created"] == 0 and stats2["created"] == 0
+        errs = [r for r in caplog.records if r.levelno >= logging.ERROR and str(tid) in r.getMessage()]
+        assert len(errs) == 1
+        mark = monitor_mark(f"unlinked-trade:{tid}")
+        assert mark is not None and mark["outcome"] == "no_order_links"
+        assert get_exchange_settlement("trade", tid) is None
+
+    def test_no_payout_trade_skips_counts_and_self_heals(self, exchange_env, caplog):
+        """Gap 5: no resolvable payout address skips the row without a mark —
+        counted in the stats, ERROR rate-limited to once per hour, and the
+        trade settles on its own once a payout address appears."""
+        cfg = _cfg(exchange_env)
+        buy_id = _insert_order(exchange_env, order_type="BUY", user_address=BUYER_AIT)
+        sell_id = _insert_order(exchange_env, seller_eth_address=None)
+        tid = _insert_trade(exchange_env, buy_order_id=buy_id, sell_order_id=sell_id)
+        esm._no_payout_last_log.clear()
+        with caplog.at_level(logging.DEBUG):
+            stats = esm._ensure_trade_rows(cfg)
+            stats2 = esm._ensure_trade_rows(cfg)
+        assert stats["created"] == 0 and stats["no_payout_skipped"] == 1
+        assert stats2["created"] == 0 and stats2["no_payout_skipped"] == 1
+        assert get_exchange_settlement("trade", tid) is None
+        errs = [r for r in caplog.records if r.levelno >= logging.ERROR]
+        assert len(errs) == 1  # only the first poll logs ERROR
+        assert any(r.levelno == logging.DEBUG for r in caplog.records)
+        # A payout address appearing later heals it — next poll creates the row.
+        conn = _exdb(exchange_env)
+        conn.execute("UPDATE orders SET seller_eth_address = ? WHERE id = ?", (SELLER_ETH, sell_id))
+        conn.commit()
+        conn.close()
+        stats3 = esm._ensure_trade_rows(cfg)
+        assert stats3["created"] == 1 and stats3["no_payout_skipped"] == 0
+        assert get_exchange_settlement("trade", tid)["seller_eth_address"] == SELLER_ETH
+
+    @pytest.mark.asyncio
+    async def test_poll_summary_counts_no_payout_skips(self, exchange_env):
+        buy_id = _insert_order(exchange_env, order_type="BUY", user_address=BUYER_AIT)
+        sell_id = _insert_order(exchange_env, seller_eth_address=None)
+        _insert_trade(exchange_env, buy_order_id=buy_id, sell_order_id=sell_id)
+        summary = await esm.poll_exchange_settlements_once()
+        assert summary["no_payout_skipped"] == 1
+        assert summary["new_rows"] == {"created": 0}
 
     @pytest.mark.asyncio
     async def test_mirror_replays_missed_states_after_restart(self, exchange_env):

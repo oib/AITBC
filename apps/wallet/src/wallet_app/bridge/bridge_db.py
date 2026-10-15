@@ -213,7 +213,10 @@ def init_db() -> None:
     # 'order_refund' rows by the order id whose escrow lock is being returned —
     # +order_id is the order's own lock-remainder refund, −order_id a refund
     # of an inbound lock the order could not take, so a stray lock can never
-    # block the owner's remainder refund.
+    # block the owner's remainder refund. Owner-sender inbound refunds whose
+    # −order_id slot is already held fall back to a lock-hash-derived ref_id
+    # below −2**59 (ETH-JOIN-2): deterministic per lock, disjoint from every
+    # order/trade id, and read as an order id by nothing.
     # escrow_out_nonce/escrow_out_tx persist the sweep intent before broadcast
     # (ETH-9 discipline); a broadcast hash is never terminal proof.
     cursor.execute("""
