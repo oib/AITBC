@@ -223,9 +223,30 @@ class TestBridgeStoreErrors:
 
     @pytest.fixture(autouse=True)
     def _bridge_monitor_importable(self):
+        """``import bridge_monitor`` must land in THIS checkout.
+
+        The venv's ``aitbc-root.pth`` puts ``/opt/aitbc`` on ``sys.path`` for
+        every run, so a ``bridge_monitor`` module object that was cached in
+        ``sys.modules`` from the live checkout (by an earlier import in the
+        same pytest process, or a stale PYTHONPATH) would silently win over
+        the ``sys.path`` insert — and monkeypatching it would pin nothing:
+        the deposit_address skew returns even though this tree carries the
+        fix. Evict any module that resolved outside the checkout and fail
+        loudly if the re-import still lands elsewhere.
+        """
         src = str(Path(_REPO_ROOT) / "apps" / "bridge-monitor" / "src")
         if src not in sys.path:
             sys.path.insert(0, src)
+        for name, module in list(sys.modules.items()):
+            if name != "bridge_monitor" and not name.startswith("bridge_monitor."):
+                continue
+            module_file = getattr(module, "__file__", None) or ""
+            if not str(Path(module_file).resolve()).startswith(_REPO_ROOT):
+                sys.modules.pop(name)
+        import bridge_monitor
+
+        resolved = str(Path(bridge_monitor.__file__ or "").resolve())
+        assert resolved.startswith(_REPO_ROOT), f"bridge_monitor resolved outside the checkout: {resolved}"
 
     def test_detail_404_when_store_never_initialized(self, server, monkeypatch):
         import bridge_monitor.storage as storage
