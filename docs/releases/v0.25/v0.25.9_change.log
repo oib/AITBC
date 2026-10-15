@@ -1882,6 +1882,7 @@ narrative; this list cites each remaining commit by hash so
 - `8a0218e8d1` feat(cli): REPO-1 — file-info denylist extension, env-names case, verify DB containment, OPS-4 nginx example
 - `bfaa13b440` fix(cli): CLI-3a — order fund --fee defaults to DEFAULT_TX_FEE_AIT (0.01)
 - `8159a73a40` fix(cli): CLI-3a — wallet send reports submitted-not-confirmed; --wait seals
+- `5f6178d52c` feat(cli): WAL-2 — wallet create/restore resolve passwords via the WAL-1 sources
 - `f8933199e2` fix(cli): CLI-4 — order fund forwards wallet password options, real encrypted-wallet tests
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
@@ -2277,3 +2278,45 @@ unencrypted wallet file.
 
 Commits: `f8933199e2` (password forwarding + plaintext address read +
 real encrypted-wallet tests).
+
+### WAL-2: wallet create/restore under the WAL-1 secret standard (2026-10-15)
+
+`wallet create` was the last place a human had to type a wallet secret
+twice on a TTY — a headless agent could only create unencrypted
+(`--no-encrypt`) wallets or pre-seed the keyring. A separate
+`resolve_new_wallet_password()` in `utils/wallet_secret.py` reuses the
+WAL-1 sources, precedence and password-file checks (0600, ownership,
+size), but creation semantics differ from signing: every
+non-interactive source is self-confirming and returned once, only the
+TTY fallback runs the two-prompt confirm loop — and only that path
+writes the keyring, so a file/stdin/env password is never copied into
+another store. Empty values that signing tolerates (`--password ""`,
+empty env var) are refused for a new wallet. `--no-encrypt` is
+unchanged (skips resolution entirely) and now explicitly refuses a
+combined `--password*` flag instead of silently ignoring it.
+
+`wallet restore` previously copied the backup JSON verbatim and
+resolved no password at all (the WAL-2 design note's claim that it
+called `_get_wallet_password` was stale — corrected in the note). It
+now gains `--password-file`/`--password-stdin` — deliberately no
+`--password` argv option: a plaintext backup is then re-encrypted under
+the resolved password after the blob is proven to round-trip to the
+backup's stored `address`, written atomically at mode 0600 with no
+plaintext intermediate. A password flag on an already-encrypted backup
+aborts before any write ("`--password*` applies only to plaintext
+backups"); with no flags both encryption states remain verbatim copies.
+
+Audit note: `genesis init --password` still forwards the secret onto
+the `unified_genesis.py` subprocess argv (deliberately left in WAL-1),
+`genesis reset --password` exposes it on the CLI's own argv (lands in
+env files, not subprocess argv), and `_get_wallet_password`'s private
+getpass survives in `wallet/staking.py`'s re-encrypt fallbacks (dead in
+practice — encrypted wallets always arrive with a resolved password).
+
+Tests: `cli/tests/test_wal2_create_restore_password.py` — 31 cases over
+file/stdin/env/keyring/TTY sources, per-source precedence and leak
+checks, create's flag matrix, and all four restore branches; the
+existing wallet + wallet_secret suites, ruff, mypy ratchet,
+check-cli-docs, check-mcp-cli-drift and check-c901-ratchet all pass.
+
+Commits: `5f6178d52` (resolver + create/restore + tests + MCP regen).
