@@ -1158,7 +1158,7 @@ a.btn-secondary {
     white-space: nowrap;
 }
 .live-feed-hash {
-    font-family: var(--font-mono);
+    font-family: 'Courier New', monospace;
     font-size: 0.8rem;
     flex: 1;
     overflow: hidden;
@@ -1196,7 +1196,7 @@ a.btn-secondary {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    font-family: var(--font-mono);
+    font-family: 'Courier New', monospace;
     font-size: 0.65rem;
     padding: 0.12rem 0.45rem;
     border: 1px solid;
@@ -1234,7 +1234,7 @@ a.btn-secondary {
 .top-addresses-table td {
     padding: 0.6rem 0.5rem;
     border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono);
+    font-family: 'Courier New', monospace;
 }
 .top-addresses-table tr:hover td {
     background: rgba(255,255,255,0.03);
@@ -1322,7 +1322,7 @@ a.btn-secondary {
     white-space: nowrap;
 }
 .block-list-table td:last-child {
-    font-family: var(--font-mono);
+    font-family: 'Courier New', monospace;
     word-break: break-all;
 }
 
@@ -1988,7 +1988,7 @@ a.btn-secondary {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem 1.4rem;
-    font-family: var(--font-mono);
+    font-family: 'Courier New', monospace;
     font-size: 0.85rem;
     color: var(--text-muted);
     margin: 0.5rem 0;
@@ -2012,7 +2012,7 @@ a.btn-secondary {
 .ob-table {
     width: 100%;
     border-collapse: collapse;
-    font-family: var(--font-mono);
+    font-family: 'Courier New', monospace;
     font-size: 0.82rem;
 }
 .ob-table th {
@@ -2062,7 +2062,7 @@ a.btn-secondary {
     text-align: center;
     color: var(--text-muted);
     font-size: 0.72rem;
-    font-family: var(--font-mono);
+    font-family: 'Courier New', monospace;
     padding: 0.3rem 0;
     border-top: 1px dashed var(--border);
     border-bottom: 1px dashed var(--border);
@@ -2101,6 +2101,84 @@ a.btn-secondary {
    Applies on touch devices and narrow viewports only; desktop is
    unchanged. 44px is the WCAG 2.5.8 / Apple HIG minimum target size; the
    16px form font prevents iOS's zoom-on-focus. */
+/* ── On-chain messages (MSG-4) ─────────────────────────────────── */
+.msg-unmoderated-note {
+    border: 1px solid var(--border);
+    border-left: 3px solid #b26a00;
+    background: rgba(178, 106, 0, 0.08);
+    padding: 0.6rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.msg-topics .filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.msg-item {
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.msg-item:last-child {
+    border-bottom: none;
+}
+.msg-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.msg-topic-chip {
+    font-family: 'Courier New', monospace;
+    color: var(--primary);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+}
+.msg-topic-chip:hover {
+    text-decoration: underline;
+}
+.msg-kind {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+.msg-author {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    word-break: break-all;
+}
+.msg-time {
+    margin-left: auto;
+}
+.msg-body {
+    margin-top: 0.4rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.92rem;
+}
+.msg-hash {
+    margin-top: 0.35rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+.msg-parent {
+    font-style: italic;
+}
+.error-text {
+    color: #e05c5c;
+    font-size: 0.85rem;
+}
 @media (pointer: coarse), (max-width: 640px) {
     .status-strip a.status-part {
         display: inline-flex;
