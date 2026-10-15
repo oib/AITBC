@@ -11,6 +11,7 @@ import click
 import httpx
 
 from ..utils import error, genesis_reset, output, success
+from ..utils.wallet_secret import resolve_new_wallet_password, wallet_password_options
 
 
 @click.group(
@@ -34,23 +35,30 @@ def genesis():
 )
 @click.option("--chain-id", default=None, help="Chain ID for genesis (auto-detected from config if not provided)")
 @click.option("--create-wallet", is_flag=True, help="Create genesis wallet with secure random key")
-@click.option("--password", help="Wallet password (auto-generated if not provided)")
 @click.option("--proposer", help="Proposer address (defaults to genesis wallet)")
 @click.option("--force", is_flag=True, help="Force overwrite existing genesis")
 @click.option("--register-service", is_flag=True, help="Register genesis wallet with wallet service")
 @click.option("--service-url", default="http://localhost:8108", help="Wallet service URL")
+@wallet_password_options
 @click.pass_context
 def init(
     ctx,
     chain_id: str,
     create_wallet: bool,
-    password: str | None,
     proposer: str | None,
     force: bool,
     register_service: bool,
     service_url: str,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
 ):
-    """Initialize the genesis configuration and files for the local chain."""
+    """Initialize the genesis configuration and files for the local chain.
+
+    The genesis wallet password is auto-generated when no ``--password*``
+    flag is given; a supplied value reaches the generator through the
+    ``AITBC_GENESIS_PASSWORD`` child-process environment — never argv.
+    """
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
@@ -73,9 +81,6 @@ def init(
     if create_wallet:
         cmd.append("--create-wallet")
 
-    if password:
-        cmd.extend(["--password", password])
-
     if proposer:
         cmd.extend(["--proposer", proposer])
 
@@ -86,9 +91,23 @@ def init(
         cmd.append("--register-service")
         cmd.extend(["--service-url", service_url])
 
+    child_env = dict(os.environ)
+    if not create_wallet and (password is not None or password_file or password_stdin):
+        error("--password* applies only with --create-wallet")
+        return
+    if create_wallet and (password is not None or password_file or password_stdin):
+        child_env["AITBC_GENESIS_PASSWORD"] = resolve_new_wallet_password(
+            None,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            interactive_ok=False,
+            ctx=ctx,
+        )
+
     try:
         success(f"Running genesis generation for {chain_id}...")
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, env=child_env)
         output(result.stdout, ctx.obj.get("output_format", "table"))
         success("Genesis generation completed successfully")
     except subprocess.CalledProcessError as e:
@@ -386,21 +405,23 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
 )
 @click.option("--chain-id", default=None, help="Chain ID (defaults to CHAIN_ID env or config)")
 @click.option("--new-wallet", is_flag=True, help="Generate a new genesis wallet and update env files")
-@click.option("--password", help="Wallet import password (auto-generated if not provided)")
 @click.option("--yes", is_flag=True, help="Skip confirmation prompt")
 @click.option("--data-dir", type=click.Path(), help="Override chain data directory")
 @click.option("--etc-dir", type=click.Path(), help="Override env directory")
 @click.option("--wallet-dir", type=click.Path(), help="Override wallet directory")
+@wallet_password_options
 @click.pass_context
 def reset(
     ctx,
     chain_id: str,
     new_wallet: bool,
-    password: str | None,
     yes: bool,
     data_dir: str,
     etc_dir: str,
     wallet_dir: str,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
 ):
     """Reset the local chain: back up old data, generate a new genesis block, and restart services.
 
@@ -426,6 +447,17 @@ def reset(
             abort=True,
         )
 
+    resolved_password = None
+    if password is not None or password_file or password_stdin:
+        resolved_password = resolve_new_wallet_password(
+            None,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            interactive_ok=False,
+            ctx=ctx,
+        )
+
     kwargs: dict[str, Any] = {"output_format": ctx.obj.get("output_format", "table")}
     if data_dir:
         kwargs["data_dir"] = Path(data_dir)
@@ -437,7 +469,7 @@ def reset(
     result = genesis_reset.reset_genesis(
         chain_id=chain_id,
         new_wallet=new_wallet,
-        password=password,
+        password=resolved_password,
         yes=yes,
         **kwargs,
     )
