@@ -43,6 +43,15 @@ class FastAPIRequestAdapter(ExchangeAPIHandler):
         # Do not call BaseHTTPRequestHandler.__init__ — we do not need a server socket.
         self.request = request
         self.command = method
+        # ETH-19B: the socket peer, for handlers that gate on client_address
+        # (the internal settlement endpoint refused every caller while this
+        # stayed unset — getattr returned None, _raw_peer_ip gave "", and the
+        # loopback check failed closed). server.py runs uvicorn with
+        # proxy_headers=False so scope["client"] is the wire peer, never an
+        # X-Forwarded-For rewrite; a missing client stays ("", 0) so the gate
+        # still fails closed.
+        client = request.client
+        self.client_address = (client.host, client.port) if client else ("", 0)
         # raw_path is the request target before Starlette collapses '//'.
         query = request.url.query
         self.path = raw_path + (f"?{query}" if query else "")
