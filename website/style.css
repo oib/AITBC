@@ -28,16 +28,25 @@ header {
     margin-bottom: 2rem;
     position: relative;
 }
-.header-nav {
+.header-nav,
+.dashboard-nav {
     display: flex;
     gap: 0.75rem;
     justify-content: flex-end;
+    flex-wrap: wrap;
     margin-bottom: 1rem;
+}
+.dashboard-nav {
+    justify-content: flex-start;
 }
 .header-nav a,
 .header-nav a:link,
 .header-nav a:visited,
-.header-nav a:active {
+.header-nav a:active,
+.dashboard-nav a,
+.dashboard-nav a:link,
+.dashboard-nav a:visited,
+.dashboard-nav a:active {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
@@ -52,8 +61,14 @@ header {
     align-items: center;
     gap: 0.5rem;
 }
-.header-nav a:hover {
+.header-nav a:hover,
+.dashboard-nav a:hover {
     background: var(--code);
+}
+.header-nav a.is-current,
+.dashboard-nav a.is-current {
+    border-color: var(--primary);
+    color: var(--primary);
 }
 h1 {
     font-size: 1.8rem;

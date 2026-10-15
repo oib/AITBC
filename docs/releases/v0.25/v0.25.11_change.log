@@ -90,3 +90,32 @@ broadcasting exactly once with the tag inside the signed blob, and
 insufficient-balance refusal. `tests/cli/test_exchange_command_names.py`
 adds the exchange-group name-collision guard (AST scan plus runtime
 resolution of `prepay deposit`) mirroring the market-group test.
+
+### Website: one canonical main menu on every page (WEB-1)
+
+Each `website/*.html` used to hand-write its own `header-nav` block and
+omit the link to itself, so the menu's items and order differed page to
+page (Exchange missing on explorer sub-pages, Bridges only on exchange,
+dashboards carrying a different set entirely).
+
+- Canonical menu, identical markup on every page that has one:
+  Home, Exchange, Explorer, Marketplace, Bridges, Alerts. The page's own
+  item stays in place and is marked `class="is-current"
+  aria-current="page"` — membership and order never change between pages.
+- `customer-dashboard.html` / `shop-dashboard.html` keep the same
+  6-item main menu and gain a secondary `dashboard-nav` row
+  (Customer Dashboard ↔ Shop Dashboard, own page marked current).
+- `follower-api-key-announcement.html` intentionally stays menu-less.
+- `website/style.css`: `is-current` is a color-only state (border/text
+  `var(--primary)`) — no padding, weight, or width change, so items never
+  reflow. `flex-wrap: wrap` keeps the row tidy at phone width.
+- `scripts/ops/sync-website-menu.py` stamps the menu between
+  `<!-- aitbc-menu:start/end -->` markers (dashboards have their own
+  `aitbc-dashboard-menu` pair), is idempotent, and has a `--check` mode
+  that fails on drift. To change the menu, edit the `MENU` list in the
+  script and re-run it.
+- Guard test `tests/unit/test_website_menu_consistency.py` parses every
+  page: same items in the same order, exactly one `aria-current="page"`
+  pointing at the page's own path (dashboards: in the secondary row;
+  pages outside the menu carry none), the allowlist is the only
+  menu-less page, and `--check` must be clean.
