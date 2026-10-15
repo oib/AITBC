@@ -1019,6 +1019,36 @@ class ExchangeMixin:
             "funded_state": "unfunded",
         }
 
+    @staticmethod
+    def _funding_block(cursor, order: dict, address: str) -> dict:
+        """The funding instruction for an unfunded order — the read-side twin
+        of the blocks ``_fund_order_in_txn`` attaches at placement (used by
+        my-orders so a node can re-read its instruction later). Read-only: no
+        payout snapshot, no prepaid debit. ``required_ait`` covers
+        remaining + fee, the bound ``order_funded`` enforces at lock time.
+        """
+        if order["order_type"] == "SELL":
+            remaining = _to_decimal(order["remaining"])
+            required = remaining + _apply_exchange_fee(remaining)[0]
+            return {
+                "type": "ait_lock",
+                "state": "unfunded",
+                "escrow": os.getenv("AIT_SELL_ESCROW", ""),
+                "payload": f"sell_quote={order['id']}",
+                "required_ait": str(required),
+            }
+        cost = _to_decimal(order["total"])
+        spendable = _prepaid_spendable(cursor, address)
+        # needed_eth is a display hint: deposits since placement may cover the
+        # shortfall — clamp at 0 rather than claim a negative top-up.
+        return {
+            "type": "eth_prepay",
+            "state": "unfunded",
+            "needed_eth": str(max(Decimal("0"), cost - spendable)),
+            "tag": f"EXCHANGE_DEPOSIT:{address}",
+            "bridge_eth_address": os.getenv("BRIDGE_ETH_ADDRESS", ""),
+        }
+
     def _fund_order_in_txn(self, cursor, order: dict, envelope: dict, address: str) -> None:
         """ETH-8 phase 3 (dark): attach backing to a fresh signed order
         inside the placement transaction. Only runs under
@@ -1036,15 +1066,7 @@ class ExchangeMixin:
             eth_row = cursor.execute("SELECT eth_address FROM node_registry WHERE address = ?", (address,)).fetchone()
             seller_eth = eth_row[0] if eth_row else None
             cursor.execute("UPDATE orders SET seller_eth_address = ? WHERE id = ?", (seller_eth, order["id"]))
-            amount = _to_decimal(order["amount"])
-            required = amount + _apply_exchange_fee(amount)[0]
-            order["funding"] = {
-                "type": "ait_lock",
-                "state": "unfunded",
-                "escrow": os.getenv("AIT_SELL_ESCROW", ""),
-                "payload": f"sell_quote={order['id']}",
-                "required_ait": str(required),
-            }
+            order["funding"] = self._funding_block(cursor, order, address)
             return
         # BUY: cost is the full notional (remaining fills draw from the same
         # debit as trades commit).
@@ -1062,13 +1084,7 @@ class ExchangeMixin:
             order["funded_state"] = "funded"
             order["funding"] = {"type": "eth_prepaid", "state": "funded", "debited_eth": str(cost)}
         else:
-            order["funding"] = {
-                "type": "eth_prepay",
-                "state": "unfunded",
-                "needed_eth": str(cost - spendable),
-                "tag": f"EXCHANGE_DEPOSIT:{address}",
-                "bridge_eth_address": os.getenv("BRIDGE_ETH_ADDRESS", ""),
-            }
+            order["funding"] = self._funding_block(cursor, order, address)
 
     def _order_by_envelope(self, cursor, address, env_hash):
         """Fetch the recorded order for a byte-identical resubmit."""
@@ -1772,8 +1788,16 @@ class ExchangeMixin:
         try:
             cursor = conn.cursor()
             registry = cursor.execute("SELECT label, status FROM node_registry WHERE address = ?", (address,)).fetchone()
-            orders = [
-                {
+            # total rides along unexposed — the BUY funding block needs it.
+            settlement = _settlement_enabled()
+            orders = []
+            for row in cursor.execute(
+                "SELECT id, order_type, amount, price, filled, remaining, status, created_at,"
+                " expiry_height, funded_state, total FROM orders WHERE user_address = ?"
+                " ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, id DESC LIMIT 100",
+                (address,),
+            ).fetchall():
+                order = {
                     "id": row[0],
                     "order_type": row[1],
                     "amount": row[2],
@@ -1785,13 +1809,12 @@ class ExchangeMixin:
                     "expiry_height": row[8],
                     "funded_state": row[9],
                 }
-                for row in cursor.execute(
-                    "SELECT id, order_type, amount, price, filled, remaining, status, created_at,"
-                    " expiry_height, funded_state FROM orders WHERE user_address = ?"
-                    " ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, id DESC LIMIT 100",
-                    (address,),
-                ).fetchall()
-            ]
+                # CLI-1: under settlement an open unfunded row carries its
+                # funding instruction so 'order fund' can re-read it; flag-off
+                # responses stay byte-identical (no 'funding' key at all).
+                if settlement and order["status"] == "open" and order["funded_state"] == "unfunded":
+                    order["funding"] = self._funding_block(cursor, {**order, "total": row[10]}, address)
+                orders.append(order)
             next_nonce = self._expected_nonce(cursor, address)
         finally:
             conn.close()
