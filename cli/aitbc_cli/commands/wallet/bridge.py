@@ -9,19 +9,50 @@ from decimal import Decimal
 
 import click
 
+from pathlib import Path
+
 from ...config import get_config
-from ...utils import DECIMAL, error, output, success
+from ...utils import DECIMAL, error, info, output, success, warning
 from ...utils.address import to_eip55
 from ...utils.chain_id import resolve_chain_id
+from ...utils.wallet_paths import (
+    ambiguous_wallet_note,
+    find_wallet_file_report,
+    service_dir_wallet_note,
+    wallet_not_found_message,
+)
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient
-from . import _load_wallet, get_wallet_client, wallet
+from . import _emit_wallet_path_note, _load_wallet, get_wallet_client, wallet
 
 
 @wallet.group(invoke_without_command=False)
 def bridge():
     """ETH <-> AITBC bridge commands."""
     pass
+
+
+def _resolve_wallet_path(ctx, wallet_name: str) -> Path:
+    """Resolve a wallet name to a readable file via the shared search order.
+
+    The group-set ``ctx.obj['wallet_path']`` wins for the active wallet (it is
+    already search-resolved and honours an explicit --wallet-path); any other
+    name goes through the configured dir then the service wallet dir.
+    """
+    if wallet_name == ctx.obj.get("wallet_name") and ctx.obj.get("wallet_path"):
+        _emit_wallet_path_note(ctx)
+        return Path(ctx.obj["wallet_path"])
+    report = find_wallet_file_report(wallet_name)
+    if report.path is not None:
+        note = ambiguous_wallet_note(report)
+        if note:
+            warning(note)
+        service_note = service_dir_wallet_note(report)
+        if service_note:
+            info(service_note)
+        return report.path
+    error(wallet_not_found_message(report))
+    raise click.Abort()
 
 
 @bridge.command(
@@ -47,14 +78,10 @@ def deposit(
 ):
     """Deposit ETH to the bridge and receive AITBC on the hub."""
     wallet_name = wallet_name or ctx.obj["wallet_name"]
-    wallet_dir = ctx.obj["wallet_dir"]
-    if wallet_name != ctx.obj.get("wallet_name"):
-        wallet_path = wallet_dir / f"{wallet_name}.json"
-    else:
-        wallet_path = ctx.obj.get("wallet_path") or wallet_dir / f"{wallet_name}.json"
+    wallet_path = _resolve_wallet_path(ctx, wallet_name)
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         raise click.Abort()
 
     password = resolve_wallet_password(
@@ -216,14 +243,10 @@ def withdraw(
 ):
     """Burn AITBC on the hub to receive ETH at the given Ethereum address."""
     wallet_name = wallet_name or ctx.obj["wallet_name"]
-    wallet_dir = ctx.obj["wallet_dir"]
-    if wallet_name != ctx.obj.get("wallet_name"):
-        wallet_path = wallet_dir / f"{wallet_name}.json"
-    else:
-        wallet_path = ctx.obj.get("wallet_path") or wallet_dir / f"{wallet_name}.json"
+    wallet_path = _resolve_wallet_path(ctx, wallet_name)
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         raise click.Abort()
 
     password = resolve_wallet_password(
@@ -450,13 +473,9 @@ def _resolve_wallet(
 ):
     """Load the active wallet file on this node — the key never leaves it."""
     wallet_name = wallet_name or ctx.obj["wallet_name"]
-    wallet_dir = ctx.obj["wallet_dir"]
-    if wallet_name != ctx.obj.get("wallet_name"):
-        wallet_path = wallet_dir / f"{wallet_name}.json"
-    else:
-        wallet_path = ctx.obj.get("wallet_path") or wallet_dir / f"{wallet_name}.json"
+    wallet_path = _resolve_wallet_path(ctx, wallet_name)
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         raise click.Abort()
     return _load_wallet(
         wallet_path, wallet_name, password=password, password_file=password_file, password_stdin=password_stdin

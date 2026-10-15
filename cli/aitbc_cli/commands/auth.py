@@ -11,12 +11,12 @@ from eth_account.messages import encode_defunct
 
 from ..auth import AuthManager
 from ..config import get_config
-from ..utils import error, output, success, warning
+from ..utils import error, info, output, success, warning
 from ..utils.error_handling import abort
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_paths import find_wallet_file
+from ..utils.wallet_paths import find_wallet_file, is_service_wallet_path
 
 
 @click.group(
@@ -56,6 +56,8 @@ def _resolve_private_key(
         wallet_path = find_wallet_file(wallet_name)
         if wallet_path is None:
             raise ValueError(f"Wallet not found: {wallet_name}")
+        if is_service_wallet_path(wallet_path):
+            info(f"Using wallet file: {wallet_path}")
         wallet_data = json.loads(wallet_path.read_text())
         private_key_field = wallet_data.get("private_key")
         if isinstance(private_key_field, str):

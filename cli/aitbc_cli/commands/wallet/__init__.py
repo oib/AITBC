@@ -9,11 +9,16 @@ import click
 import yaml
 
 from ...config import get_config
-from ...utils import error, output, success
+from ...utils import error, info, output, success, warning
 
 # Import shared modules
 from ...utils.http_client import AITBCHTTPClient, get_logger
-from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
+from ...utils.wallet_paths import (
+    ambiguous_wallet_note,
+    find_wallet_file_report,
+    is_service_wallet_path,
+    wallet_dir as resolve_wallet_dir,
+)
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -76,6 +81,24 @@ def _resave_wallet(ctx: click.Context, wallet_path: Path, wallet_data: dict[str,
         error("Wallet is encrypted but no password is resolved — refusing to re-save it as plaintext")
         ctx.exit(1)
     _save_wallet(wallet_path, wallet_data, resolved_password if wallet_data.get("encrypted") else None)
+
+
+def _emit_wallet_path_note(ctx: click.Context) -> None:
+    """Print which file the wallet name resolved to when the shared search
+    picked it — a multi-directory match warns which entry won, a
+    service-dir hit names the path before the key is loaded for signing so a
+    bare ``--wallet-name`` cannot silently select a root-only service file.
+    An explicit ``--wallet-path`` never prints."""
+    if ctx.obj.get("wallet_path_explicit"):
+        return
+    report = ctx.obj.get("wallet_path_report")
+    if report is not None:
+        note = ambiguous_wallet_note(report)
+        if note:
+            warning(note)
+    path = ctx.obj.get("wallet_path")
+    if path and is_service_wallet_path(Path(path)):
+        info(f"Using wallet file: {path}")
 
 
 def _load_wallet(
@@ -141,7 +164,12 @@ def _load_wallet(
 )
 @click.option("--wallet-name", help="Name of the wallet to use")
 @click.option("--wallet-path", help="Direct path to wallet file (overrides --wallet-name)")
-@click.option("--use-daemon", is_flag=True, default=True, help="Use wallet daemon for operations")
+@click.option(
+    "--use-daemon",
+    is_flag=True,
+    default=True,
+    help="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet",
+)
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
 def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bool, chain_id: str | None):
@@ -182,6 +210,7 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
         ctx.obj["wallet_name"] = wp.stem
         ctx.obj["wallet_dir"] = wp.parent
         ctx.obj["wallet_path"] = wp
+        ctx.obj["wallet_path_explicit"] = True
         return
 
     # Set wallet directory
@@ -206,7 +235,14 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
 
     ctx.obj["wallet_name"] = wallet_name
     ctx.obj["wallet_dir"] = wallet_dir
-    ctx.obj["wallet_path"] = wallet_dir / f"{wallet_name}.json"
+    # Resolve through the shared search order: the configured wallet dir first,
+    # then the service wallet dir — a wallet that only exists under
+    # /var/lib/aitbc/wallets is still found by name. Falls back to the
+    # configured-dir path for commands that create the file.
+    wallet_report = find_wallet_file_report(wallet_name)
+    ctx.obj["wallet_path"] = wallet_report.path or wallet_dir / f"{wallet_name}.json"
+    ctx.obj["wallet_path_report"] = wallet_report
+    ctx.obj["wallet_path_explicit"] = False
 
 
 # Register all subcommands
