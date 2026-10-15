@@ -324,7 +324,7 @@ def order_my(ctx, wallet, address_opt, exchange_url):
     if address_opt:
         address = address_opt
     elif wallet:
-        address, _pk, _wid = load_wallet_for_payment(ctx, wallet_name=wallet, require_private_key=False)
+        address, _wid, _wpath = _fund_wallet_address(ctx, wallet)
     else:
         abort(ctx, "Provide --wallet or --address")
         return
