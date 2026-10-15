@@ -237,6 +237,60 @@ class TestHostGates:
         assert "ledger" in capsys.readouterr().out
 
 
+class TestStatus:
+    """CLI-5: `status` prints sell_config_status + non-secret config — the
+    sell lane's state readable without journald (env-only verb)."""
+
+    def test_disabled_state(self, admin_env, capsys):
+        rc = _run(admin_env, ["status"])
+        assert rc == 0
+        doc = json.loads(capsys.readouterr().out)
+        assert doc["enabled"] is False
+        assert doc["reason"] == "sell escrow disabled"
+        assert doc["flags"]["sell_escrow_enabled"] is False
+        # Config parses independently of the feature flag — addresses and
+        # limits still show so the operator can see what enabling would use.
+        assert doc["config"]["escrow_address"]
+        assert doc["config"]["chain_id"] == "ait-testnet"
+        assert doc["config"]["escrow_wallet_configured"] is True
+        # No key-slot path or credential name leaks into the doc.
+        assert str(admin_env["db_path"]) not in json.dumps(doc)
+        for secret_key in ("escrow_wallet_path", "escrow_credential_file", "escrow_credential_name", "private_key"):
+            assert secret_key not in doc["config"]
+
+    def test_enabled_state(self, admin_env, capsys, monkeypatch):
+        monkeypatch.setenv("SELL_ESCROW_ENABLED", "true")
+        monkeypatch.setenv("BRIDGE_ENABLED", "true")
+        rc = _run(admin_env, ["status"])
+        assert rc == 0
+        doc = json.loads(capsys.readouterr().out)
+        assert doc["enabled"] is True
+        assert doc["reason"] == ""
+        assert doc["feature_enabled"] is True
+
+    def test_bridge_off_reports_reason(self, admin_env, capsys, monkeypatch):
+        monkeypatch.setenv("SELL_ESCROW_ENABLED", "true")
+        rc = _run(admin_env, ["status"])
+        assert rc == 0
+        doc = json.loads(capsys.readouterr().out)
+        assert doc["enabled"] is False
+        assert doc["reason"] == "bridge disabled"
+
+    def test_status_runs_without_ledger(self, admin_env, capsys, tmp_path, monkeypatch):
+        """The env-only verb bypasses the ledger gate — status must still
+        answer when the DB does not exist."""
+        missing = tmp_path / "no-such-dir" / "bridge.db"
+        rc = admin.main(["--env-file", str(admin_env["env_file"]), "--db", str(missing), "status"])
+        assert rc == 0
+        assert "enabled" in capsys.readouterr().out
+
+    def test_status_still_gated(self, admin_env, capsys, monkeypatch):
+        monkeypatch.setattr(os, "geteuid", lambda: 1000)
+        rc = _run(admin_env, ["status"])
+        assert rc == 2
+        assert "root" in capsys.readouterr().out
+
+
 class TestList:
     def test_lists_open_rows(self, admin_env):
         _seed_lock("locked", tx=LOCK_HASH)

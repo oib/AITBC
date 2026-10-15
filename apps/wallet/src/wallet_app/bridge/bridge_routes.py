@@ -1091,6 +1091,21 @@ async def bridge_float(
     }
 
 
+@bridge_router.get("/sell/config-status")
+async def bridge_sell_config_status(
+    _admin: Annotated[None, Depends(require_admin_api_key)] = None,
+) -> dict[str, Any]:
+    """Sell-lane enablement + non-secret config (CLI-5).
+
+    The sell lane's enabled/disabled state readable without journald —
+    sell_status_document() carries the fail-closed (enabled, reason) pair
+    and redacts key slots to configured booleans. Admin-keyed: config
+    internals are operator information, not a participants board."""
+    from .sell_escrow_monitor import sell_status_document
+
+    return sell_status_document()
+
+
 # Root router that combines exchange + bridge + price endpoints
 from fastapi import APIRouter as _APIRouter
 
