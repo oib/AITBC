@@ -60,12 +60,6 @@
         return s;
     }
 
-    function shortAddr(v) {
-        const s = String(v || '');
-        if (s.length <= 12) return s || '-';
-        return `${s.slice(0, 6)}…${s.slice(-4)}`;
-    }
-
     function orderMaker(o) {
         return o.user_address || o.maker || o.owner || '';
     }
@@ -111,7 +105,7 @@
         tr.appendChild(el('td', 'ob-num', fmtNum(level.size, 8)));
         tr.appendChild(el('td', 'ob-num', fmtNum(level.depth, 8)));
         const seen = [...new Set(level.makers.filter(Boolean))];
-        tr.appendChild(el('td', 'ob-maker', seen.length ? seen.map(shortAddr).join(', ') : '-'));
+        tr.appendChild(el('td', 'ob-maker', seen.length ? seen.join(', ') : '-'));
         const flags = el('td', 'ob-flags');
         flags.appendChild(el('span', 'ob-unfunded', 'unfunded'));
         tr.appendChild(flags);
@@ -181,7 +175,7 @@
                     tr.appendChild(el('td', '', o.order_type === 'BUY' ? 'bid' : 'ask'));
                     tr.appendChild(el('td', 'ob-num', fmtNum(o.price, 8)));
                     tr.appendChild(el('td', 'ob-num', fmtNum(o.remaining ?? o.amount, 8)));
-                    tr.appendChild(el('td', 'ob-maker', shortAddr(orderMaker(o))));
+                    tr.appendChild(el('td', 'ob-maker', orderMaker(o) || '-'));
                     tr.appendChild(el('td', '', fmtTime(o.created_at)));
                     detBody.appendChild(tr);
                 }
