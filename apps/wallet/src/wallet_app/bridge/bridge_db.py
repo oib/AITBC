@@ -946,6 +946,42 @@ def update_withdrawal_status(
     return rows_affected > 0
 
 
+# Withdrawal statuses where the ETH release happened or may have happened —
+# the committed-since semantics mirror _SELL_ETH_COMMITTED_STATUSES: the cap
+# measures ETH that left the wallet, so ambiguous rows count conservatively.
+# `pending`/`insufficient_reserve` sent nothing; `failed`/`refunded` proved
+# no completed send (only gas at worst) and are excluded.
+_WITHDRAWAL_ETH_COMMITTED_STATUSES = (
+    "releasing",
+    "releasing_retry",
+    "released",
+    "needs_review",
+    "needs_review_release",
+    "completed",
+)
+
+
+def get_withdrawal_eth_committed_since(since_iso: str) -> Decimal:
+    """Sum of ETH released (or possibly released) by withdrawals since a
+    timestamp — the withdrawal lane's contribution to the release windows
+    surfaced by GET /v1/bridge/float (CLI-5)."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    placeholders = ", ".join("?" for _ in _WITHDRAWAL_ETH_COMMITTED_STATUSES)
+    cursor.execute(
+        f"""SELECT amount_eth FROM eth_withdrawals
+            WHERE status IN ({placeholders})
+              AND released_at >= ?""",  # nosec B608 - placeholders are literal '?' generated from _WITHDRAWAL_ETH_COMMITTED_STATUSES; all values bound
+        (*_WITHDRAWAL_ETH_COMMITTED_STATUSES, since_iso),
+    )
+    total = Decimal(0)
+    for (amount,) in cursor.fetchall():
+        if amount is not None:
+            total += amount if isinstance(amount, Decimal) else Decimal(str(amount))
+    conn.close()
+    return total
+
+
 # ---------------------------------------------------------------------------
 # ETH-14 — operator release-retry attempts
 # ---------------------------------------------------------------------------
@@ -1773,6 +1809,43 @@ def get_exchange_pending_eth_reserve() -> Decimal:
     cursor.execute(
         f"SELECT eth_amount FROM exchange_settlements WHERE status IN ({placeholders})",  # nosec B608 - same literal-placeholder pattern
         _EXCHANGE_SETTLEMENT_RESERVE_STATUSES,
+    )
+    total = Decimal(0)
+    for (amount,) in cursor.fetchall():
+        if amount is not None:
+            total += amount if isinstance(amount, Decimal) else Decimal(str(amount))
+    conn.close()
+    return total
+
+
+# Settlement statuses where the ETH release happened or may have happened —
+# mirrors _SELL_ETH_COMMITTED_STATUSES with the settlement-only
+# `needs_review_release` added. `refund_pending`/`queued_fee_refund` proved
+# no ETH left; `refunded`/`failed` are terminal-unpaid.
+_EXCHANGE_ETH_COMMITTED_STATUSES = (
+    "releasing",
+    "released",
+    "settling",
+    "settled",
+    "needs_review",
+    "needs_review_release",
+    "needs_review_sweep",
+    "queued_fee_settle",
+)
+
+
+def get_exchange_eth_committed_since(since_iso: str) -> Decimal:
+    """Sum of ETH released (or possibly released) by exchange settlements
+    since a timestamp — the settlement lane's contribution to the release
+    windows surfaced by GET /v1/bridge/float (CLI-5)."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    placeholders = ", ".join("?" for _ in _EXCHANGE_ETH_COMMITTED_STATUSES)
+    cursor.execute(
+        f"""SELECT eth_amount FROM exchange_settlements
+            WHERE status IN ({placeholders})
+              AND released_at >= ?""",  # nosec B608 - same literal-placeholder pattern
+        (*_EXCHANGE_ETH_COMMITTED_STATUSES, since_iso),
     )
     total = Decimal(0)
     for (amount,) in cursor.fetchall():
