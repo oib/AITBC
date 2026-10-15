@@ -235,8 +235,8 @@ def _send_transaction_impl(
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=transaction)
         tx_hash = result.get("transaction_hash")
-        success(f"Transaction submitted: {tx_hash}")
-        logger.info("Transaction submitted: %s from %s to %s", tx_hash, from_wallet, to_address)
+        success(f"Transaction submitted, not confirmed: {tx_hash}")
+        logger.info("Transaction submitted (unconfirmed): %s from %s to %s", tx_hash, from_wallet, to_address)
         return tx_hash
     except NetworkError as e:
         logger.error("Network error submitting transaction: %s", e)
