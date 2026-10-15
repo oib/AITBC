@@ -186,13 +186,28 @@ def _check_debit_rows(orders: dict, debits: dict, add) -> None:
             )
 
 
-def _check_trade_row(t: sqlite3.Row, orders: dict, filled_by_order: dict, add) -> None:
+def _check_trade_row(t: sqlite3.Row, orders: dict, filled_by_order: dict, add, settles: dict | None) -> None:
     for col in ("buy_order_id", "sell_order_id"):
         oid = t[col]
         if oid is not None and oid not in orders:
             add(FAIL, "db", f"trade {t['id']}: {col}={oid} references a missing order")
-    if t["settlement_state"] == "settled" and (not t["settlement_eth_tx_hash"] or not t["settlement_ait_tx_hash"]):
-        add(FAIL, "db", f"trade {t['id']}: settled but missing settlement tx hash")
+    if t["settlement_state"] == "settled":
+        if not t["settlement_eth_tx_hash"]:
+            add(FAIL, "db", f"trade {t['id']}: settled but missing settlement tx hash")
+        if not t["settlement_ait_tx_hash"]:
+            # The monitor's mirror posted only the fields present on the
+            # pre-update row, so a hash persisted with the settled status
+            # (leg seals) can be missing on the tape while living on the
+            # exchange_settlements row — VERIFY-2 reads the ledger for it.
+            if settles is None:
+                add(
+                    INFO,
+                    "db",
+                    f"trade {t['id']}: settled without settlement_ait_tx_hash — "
+                    "settlement hash link unchecked (no --bridge-db)",
+                )
+            elif not settles.get(int(t["id"])):
+                add(FAIL, "db", f"trade {t['id']}: settled but missing settlement tx hash")
     amt_ticks = _dec(t["amount"])
     if t["sell_order_id"] is not None and amt_ticks is not None:
         filled_by_order[t["sell_order_id"]] = filled_by_order.get(t["sell_order_id"], Decimal(0)) + amt_ticks
@@ -200,10 +215,10 @@ def _check_trade_row(t: sqlite3.Row, orders: dict, filled_by_order: dict, add) -
         filled_by_order[t["buy_order_id"]] = filled_by_order.get(t["buy_order_id"], Decimal(0)) + amt_ticks
 
 
-def _check_trade_rows(orders: dict, trades: list, add) -> None:
+def _check_trade_rows(orders: dict, trades: list, add, settles: dict | None) -> None:
     filled_by_order: dict[int, Decimal] = {}
     for t in trades:
-        _check_trade_row(t, orders, filled_by_order, add)
+        _check_trade_row(t, orders, filled_by_order, add, settles)
     for order_id, filled_ait in filled_by_order.items():
         recorded = _dec(orders[order_id]["filled_ticks"] or 0)
         if recorded is not None and abs(Decimal(int(recorded)) / TICKS_PER_UNIT - filled_ait) > Decimal("1e-8"):
@@ -236,10 +251,37 @@ def _refund_ref_statuses(bridge_db_path: str | None) -> dict | None:
         bconn.close()
 
 
+def _settle_trade_ait_hashes(bridge_db_path: str | None) -> dict | None:
+    """trade_id -> settle_ait_tx_hash from settled trade-kind rows in the
+    monitor DB, or None when the monitor DB cannot be read (caller then
+    reports INFO, not FAIL)."""
+    if not bridge_db_path:
+        return None
+    try:
+        bconn = _db(bridge_db_path)
+    except sqlite3.Error:
+        return None
+    try:
+        if not _has_table(bconn, "exchange_settlements"):
+            return None
+        return {
+            int(r["ref_id"]): str(r["settle_ait_tx_hash"])
+            for r in bconn.execute(
+                "SELECT ref_id, settle_ait_tx_hash FROM exchange_settlements WHERE kind = 'trade' AND status = 'settled'"
+            )
+            if r["settle_ait_tx_hash"]
+        }
+    except sqlite3.Error:
+        return None
+    finally:
+        bconn.close()
+
+
 def check_db_internal(
     conn: sqlite3.Connection, add, *, settlement_enabled: bool = False, bridge_db_path: str | None = None
 ) -> None:
     refunds = _refund_ref_statuses(bridge_db_path)
+    settles = _settle_trade_ait_hashes(bridge_db_path)
     try:
         orders = {
             r["id"]: r
@@ -267,7 +309,7 @@ def check_db_internal(
     _check_order_rows(orders, debits, add, refunds)
     _check_nonce_uniqueness(orders, add)
     _check_debit_rows(orders, debits, add)
-    _check_trade_rows(orders, trades, add)
+    _check_trade_rows(orders, trades, add, settles)
 
     if _has_table(conn, "node_registry"):
         # REPO-2: registered-without-eth_address is flag-conditional. The

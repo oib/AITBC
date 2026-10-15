@@ -85,7 +85,7 @@ def _exchange_db(path: Path, *, orders=(), debits=(), deposits=(), trades=(), re
 
 def _bridge_db(path: Path, *, prepay_rows=(), marks=(), settlements=()) -> Path:
     """prepay_rows: (tx_hash, recipient_tag, amount_eth); marks: (mark, outcome);
-    settlements: (id, kind, ref_id, status)."""
+    settlements: (id, kind, ref_id, status[, settle_ait_tx_hash])."""
     conn = sqlite3.connect(path)
     conn.executescript(
         """
@@ -94,7 +94,9 @@ def _bridge_db(path: Path, *, prepay_rows=(), marks=(), settlements=()) -> Path:
             amount_eth TEXT, amount_ait TEXT, status TEXT
         );
         CREATE TABLE exchange_monitor_marks (mark TEXT PRIMARY KEY, detail TEXT, outcome TEXT);
-        CREATE TABLE exchange_settlements (id TEXT PRIMARY KEY, kind TEXT, ref_id INTEGER, status TEXT);
+        CREATE TABLE exchange_settlements (
+            id TEXT PRIMARY KEY, kind TEXT, ref_id INTEGER, status TEXT, settle_ait_tx_hash TEXT
+        );
         """
     )
     for i, (txh, tag, amt) in enumerate(prepay_rows):
@@ -105,7 +107,7 @@ def _bridge_db(path: Path, *, prepay_rows=(), marks=(), settlements=()) -> Path:
     for m in marks:
         conn.execute("INSERT INTO exchange_monitor_marks (mark, detail, outcome) VALUES (?,?,?)", (m[0], "", m[1]))
     for s in settlements:
-        conn.execute("INSERT INTO exchange_settlements VALUES (?,?,?,?)", s)
+        conn.execute("INSERT INTO exchange_settlements VALUES (?,?,?,?,?)", tuple(s) + (None,) * (5 - len(s)))
     conn.commit()
     conn.close()
     return path
@@ -234,6 +236,72 @@ def test_backing_expired_no_bridge_db_is_info(tool, tmp_path):
     found = _findings(tool, db)
     assert "FAIL" not in _severities(found), found
     assert any(s == "INFO" and "refund link unchecked" in m for s, _c, m in found), found
+
+
+def _settled_trade_fixture(tmp_path, *, eth_hash="0xeth", ait_hash=None):
+    """Orders 24 (SELL) / 25 (BUY) filled at 1 AIT; trade 7 settled — the D2
+    shape. trades.settlement_ait_tx_hash stays NULL like the live row."""
+    return _exchange_db(
+        tmp_path / "ex.db",
+        orders=[
+            (24, "SELL", "filled", "funded", "0xlock", 360_000_000, SELLER, 1, 100_000_000, SELLER_ETH),
+            (25, "BUY", "filled", "funded", None, None, BUYER, 2, 100_000_000, None),
+        ],
+        debits=[(BUYER, 25, "0.00011493", "0", "open")],
+        trades=[(7, "1", "0.00011493", "0.00011493", BUYER, SELLER, 25, 24, "settled", eth_hash, ait_hash, None, "0")],
+    )
+
+
+def test_settled_trade_hash_in_ledger_row_ok(tool, tmp_path):
+    """D2 trade 7: the tape's settlement_ait_tx_hash is NULL but the settled
+    ledger row carries it — the hash link is explained, no FAIL."""
+    db = _settled_trade_fixture(tmp_path)
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "trade", 7, "settled", "0xait1")])
+    found = _findings(tool, db, bridge_db=bdb)
+    assert "FAIL" not in _severities(found), found
+
+
+def test_settled_trade_hash_no_ledger_row_fails(tool, tmp_path):
+    """bridge-db readable but no settled row for the trade — the hash is
+    genuinely absent, still a FAIL."""
+    db = _settled_trade_fixture(tmp_path)
+    bdb = _bridge_db(tmp_path / "br.db")
+    found = _findings(tool, db, bridge_db=bdb)
+    assert any(s == "FAIL" and "missing settlement tx hash" in m for s, _c, m in found), found
+
+
+def test_settled_trade_hash_empty_in_ledger_row_fails(tool, tmp_path):
+    """A settled row without settle_ait_tx_hash does not qualify — the hash
+    never reached any store."""
+    db = _settled_trade_fixture(tmp_path)
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "trade", 7, "settled")])
+    found = _findings(tool, db, bridge_db=bdb)
+    assert any(s == "FAIL" and "missing settlement tx hash" in m for s, _c, m in found), found
+
+
+def test_settled_trade_hash_no_bridge_db_is_info(tool, tmp_path):
+    """Without --bridge-db the settlement-hash link cannot be checked —
+    INFO, never a guess-FAIL."""
+    db = _settled_trade_fixture(tmp_path)
+    found = _findings(tool, db)
+    assert "FAIL" not in _severities(found), found
+    assert any(s == "INFO" and "hash link unchecked" in m for s, _c, m in found), found
+
+
+def test_settled_trade_missing_eth_hash_still_fails(tool, tmp_path):
+    """The ledger fallback covers only the AIT leg — a missing ETH hash is
+    still a FAIL even when the AIT hash is explained."""
+    db = _settled_trade_fixture(tmp_path, eth_hash=None)
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "trade", 7, "settled", "0xait1")])
+    found = _findings(tool, db, bridge_db=bdb)
+    assert any(s == "FAIL" and "missing settlement tx hash" in m for s, _c, m in found), found
+
+
+def test_settled_trade_with_both_hashes_unaffected(tool, tmp_path):
+    """A fully-mirrored settled trade needs no ledger lookup at all."""
+    db = _settled_trade_fixture(tmp_path, ait_hash="0xait1")
+    found = _findings(tool, db)
+    assert "FAIL" not in _severities(found), found
 
 
 def test_over_committed_debit_fails(tool, tmp_path):
