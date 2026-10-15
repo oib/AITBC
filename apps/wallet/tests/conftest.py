@@ -2,11 +2,110 @@
 
 from __future__ import annotations
 
+import atexit
+import gc
 import os
+import shutil
+import sys
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
+# Everything below runs at conftest import — before any test module in this
+# directory is collected and before the first wallet_app/aitbc import, which is
+# the only ordering that matters: aitbc.constants freezes DATA_DIR/CONFIG_DIR/
+# LOG_DIR at import, wallet_app.settings instantiates Settings() at import, and
+# ApiKeyStorage.__init__ creates its filelock wherever API_KEY_STORAGE_PATH
+# points. A session fixture would be far too late for any of that.
+
+_TEST_ROOT = Path(tempfile.mkdtemp(prefix="aitbc-wallet-tests-"))
+atexit.register(shutil.rmtree, _TEST_ROOT, True)
+
+
+def _is_test_scratch(path: object) -> bool:
+    """True for paths under <tmp>/aitbc-* — this suite's root or the repo
+    conftest's aitbc-tests-data- dir."""
+    try:
+        resolved = str(Path(str(path)).resolve())
+    except (TypeError, ValueError):
+        return False
+    return resolved.startswith(str(Path(tempfile.gettempdir()).resolve()) + os.sep + "aitbc-")
+
+
+def _assert_no_early_bindings() -> None:
+    """In a combined multi-suite run, another conftest or an earlier-collected
+    suite may have imported the path-binding modules before this file ran.
+    A collection error here beats tests silently pointing at live data."""
+    problems: list[str] = []
+    constants = sys.modules.get("aitbc.constants")
+    if constants is not None:
+        for name in ("DATA_DIR", "CONFIG_DIR", "LOG_DIR"):
+            bound = getattr(constants, name, None)
+            if bound is not None and not _is_test_scratch(bound):
+                problems.append(f"aitbc.constants.{name} = {bound}")
+    if "wallet_app.settings" in sys.modules:
+        problems.append("wallet_app.settings already imported — its Settings() read the ambient env")
+    api_key_mod = sys.modules.get("aitbc.auth.api_key")
+    if api_key_mod is not None:
+        storage_cls = getattr(api_key_mod, "ApiKeyStorage", ())
+        for obj in gc.get_objects():
+            if isinstance(obj, storage_cls) and not _is_test_scratch(getattr(obj, "storage_path", "")):
+                problems.append(f"ApiKeyStorage already bound to {obj.storage_path}")
+    if problems:
+        raise RuntimeError(
+            "wallet tests cannot isolate the environment — bindings were made before this conftest ran: " + "; ".join(problems)
+        )
+
+
+_assert_no_early_bindings()
+
+# Scrub ambient values Settings()/ServiceSettings()/DatabaseConfig() parse from
+# the environment at import — a dev box's DEBUG=release or a node env's PORT
+# either breaks validation at collection or quietly steers tests at live state.
+for _env_name in (
+    "APP_NAME",
+    "APP_ENV",
+    "APP_HOST",
+    "APP_PORT",
+    "ENVIRONMENT",
+    "NODE_ENV",
+    "DEBUG",
+    "SERVICE_NAME",
+    "LOG_LEVEL",
+    "LOG_DIR",
+    "API_PREFIX",
+    "ENABLE_METRICS",
+    "ENABLE_HEALTH_CHECK",
+    "HOST",
+    "PORT",
+    "REST_PREFIX",
+    "WALLET_API_KEY",
+    "WALLET_AUTH_ENABLED",
+    "COORDINATOR_BASE_URL",
+    "BLOCKCHAIN_RPC_URL",
+    "DATABASE",
+    "DATABASE_URL",
+    "DATABASE_ADAPTER",
+    "ADAPTER",
+    "URL",
+    "DB_FILENAME",
+    "POOL_SIZE",
+    "MAX_OVERFLOW",
+    "POOL_PRE_PING",
+    "AITBC_HOME",  # would re-point every constants default at the checkout
+):
+    os.environ.pop(_env_name, None)
+
+# Isolating vars are force-assigned, not setdefault — an ambient path is the
+# leak being removed, so it never gets to win.
+os.environ["AITBC_DATA_DIR"] = str(_TEST_ROOT / "data")
+os.environ["AITBC_CONFIG_DIR"] = str(_TEST_ROOT / "config")
+os.environ["AITBC_LOG_DIR"] = str(_TEST_ROOT / "logs")
+os.environ["API_KEY_STORAGE_PATH"] = str(_TEST_ROOT / "api_keys.json")
+for _dir in ("data", "config", "logs"):
+    (_TEST_ROOT / _dir).mkdir(parents=True, exist_ok=True)
 
 # wallet_app.settings instantiates Settings() at import time and COORDINATOR_API_KEY is
 # required with no default, so it has to be present before the first wallet_app import.
