@@ -765,11 +765,17 @@ def address(ctx, name: str | None, password: str | None, password_file: str | No
 @wallet.command(
     epilog="""Examples:
 
-  aitbc wallet send --to-address 0xAbc... --amount 1.5 --fee 0.001"""
+  aitbc wallet send --to-address 0xAbc... --amount 1.5 --fee 0.01"""
 )
 @click.option("--to-address", "to_address", required=True, help="Destination address.")
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
+@click.option(
+    "--wait",
+    "wait_seal",
+    is_flag=True,
+    help="Wait for the transaction to seal into a block; without it the hash is only a submission receipt",
+)
 @wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
@@ -778,6 +784,7 @@ def send(
     to_address: str,
     amount: Decimal,
     fee: Decimal,
+    wait_seal: bool,
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
@@ -912,7 +919,25 @@ def send(
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=transaction)
         tx_hash = result.get("transaction_hash")
-        success(f"Transaction submitted: {tx_hash}")
+    except Exception as e:
+        error(f"Error submitting transaction: {e}")
+        raise click.Abort() from e
+
+    receipt = None
+    if wait_seal and tx_hash:
+        from ...utils.gpu_onchain import wait_for_tx
+
+        click.echo("Waiting for the transaction to seal (up to 120s)…")
+        receipt = wait_for_tx(rpc_url, tx_hash, timeout=120.0)
+        if receipt is None:
+            error(
+                f"Transaction submitted, not confirmed: {tx_hash} did not seal within 120s — "
+                f"check with 'aitbc transactions status {tx_hash}' before retrying (a retry reuses the nonce)"
+            )
+            raise click.Abort()
+
+    if receipt is not None:
+        success(f"Transaction confirmed in block {receipt.get('block_height')}: {tx_hash}")
         output(
             {
                 "transaction_hash": tx_hash,
@@ -921,13 +946,29 @@ def send(
                 "amount": f"{amount} AIT",
                 "fee": f"{fee} AIT",
                 "chain_id": chain_id,
+                "status": "confirmed",
+                "block_height": receipt.get("block_height"),
             },
             ctx.obj.get("output_format", "table"),
         )
-        return 0
-    except Exception as e:
-        error(f"Error submitting transaction: {e}")
-        raise click.Abort() from e
+    else:
+        # A mempool hash is not confirmation: a submitted tx can still drop
+        # (nonce collision, fee below a peer's floor) and nothing here proves
+        # otherwise — say so rather than let the hash read as success.
+        success(f"Transaction submitted, not confirmed: {tx_hash}")
+        output(
+            {
+                "transaction_hash": tx_hash,
+                "from": sender_address,
+                "to": to_address,
+                "amount": f"{amount} AIT",
+                "fee": f"{fee} AIT",
+                "chain_id": chain_id,
+                "status": "submitted",
+            },
+            ctx.obj.get("output_format", "table"),
+        )
+    return 0
 
 
 @wallet.command(
