@@ -1889,8 +1889,11 @@ narrative; this list cites each remaining commit by hash so
 - `33dad768d8` docs(release): WAL-2 changelog + commit index
 - `a0b3dd3c14` fix(cli): REPO-2 — send/subscribe/batch --fee defaults track DEFAULT_TX_FEE_AIT
 - `87b830895b` fix(ops): REPO-2 — exchange_verify eth_address severity is settlement-conditional
+- `031b3afdde` docs(release): REPO-2 changelog + commit index
 - `8f9ac9f06a` fix(bridge): ETH-JOIN-2 — settlement join-review gaps 4-6 and order_refund squat residual
 - `88f0b3812d` docs(exchange): ETH-JOIN-2 gap 7 — hash-column naming convention note
+- `cee0b4ff4c` docs(release): ETH-JOIN-2 — settlement join-review gap closures
+- `106987e87a` fix(exchange): ETH-19B — internal settlement peer gate gets the real socket peer
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2425,3 +2428,45 @@ ratchet and check-c901-ratchet pass.
 
 Commits: `8f9ac9f06` (monitor + schema comment + tests),
 `88f0b3812` (exchange hash-convention comment).
+
+### ETH-19B: the internal settlement endpoint accepts its loopback caller (2026-10-15)
+
+`FastAPIRequestAdapter.__init__` never called
+`BaseHTTPRequestHandler.__init__` and never set `self.client_address`, so
+`_raw_peer_ip()` read a missing attribute, returned `""`, and
+`_peer_is_loopback()` failed closed — `POST
+/api/internal/exchange-settlement` answered 403 to every caller,
+including the wallet settlement monitor's `order_funded` post for the
+sealed D1 lock (found live on hub 15 Oct; the monitor correctly left the
+row unmarked and retried each poll). The existing tests missed it
+because they assign `client_address` on a fake handler.
+
+The adapter now sets `client_address` from the ASGI request's client
+(`("", 0)` when absent so the gate still fails closed), and `server.py`
+runs uvicorn with `proxy_headers=False`. Evidence for that choice:
+uvicorn 0.49.0's `ProxyHeadersMiddleware` rewrites `scope["client"]`
+from `X-Forwarded-For` whenever the immediate peer is trusted (default
+`127.0.0.1`, widenable via `FORWARDED_ALLOW_IPS`) — a spoofable value
+for a wire-peer gate; and an in-app ASGI wrapper cannot recover the
+pre-middleware peer because uvicorn applies its middleware outside the
+loaded app. The endpoint's second gate (refuse any request carrying
+`X-Forwarded-For`/`X-Real-IP`) already made the composition safe, but
+the raw peer removes the dependency entirely. The app's only other
+`request.client` consumer is the `_client_ip` rate limiter, which
+prefers nginx's `X-Real-IP` under its own `EXCHANGE_TRUSTED_PROXIES`
+list — identical results with the rewrite off, verified by audit.
+
+New tests in `test_internal_settlement.py` drive the real
+`_dispatch`/adapter path through `TestClient(client=(host, port))`:
+loopback + key + valid `prepaid_credit` → 200 with the deposit row
+applied; loopback without key → 401; `10.1.2.3` → 403;
+`::ffff:127.0.0.1` → 200 (IPv4-mapped loopback); loopback carrying
+`X-Forwarded-For` or `X-Real-IP` → 403; a scope with no client → 403;
+flag off → 503; and TestClient's `("testclient", 50000)` default is
+documented as refused. A per-test fixture refreshes
+`main._HANDLER_POOL` — `test_http_contract`'s real-uvicorn fixture shuts
+it down on teardown, so the new tests are suite-order-proof.
+
+Commits: `106987e87` (adapter client_address + proxy_headers=False +
+real-adapter gate tests). Deploy/restart of the hub exchange is a
+separate gated step — until then the running service still 403s.
