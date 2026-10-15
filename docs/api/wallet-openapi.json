@@ -2017,6 +2017,30 @@
         }
       }
     },
+    "/v1/bridge/float": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Float",
+        "description": "Bridge ETH float: wallet balance, pending reserve, and release\nwindows (CLI-5). Read-only \u2014 the balance is an eth_getBalance call on\nthe configured RPC; ledger figures come from the same reserve/committed\nhelpers the monitors use.\n\nAdmin-keyed like /settlements: reserve and committed totals reveal the\nbridge's in-flight payment book. ``windows.today`` starts at service\nmidnight (UTC on deployed hosts); ``windows.last_24h`` is the rolling\n24h window the sell day-cap itself uses.",
+        "operationId": "bridge_float_v1_bridge_float_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Float V1 Bridge Float Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/exchange/price.json": {
       "get": {
         "tags": [

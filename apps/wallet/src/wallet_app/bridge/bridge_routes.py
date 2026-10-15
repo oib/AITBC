@@ -1018,6 +1018,79 @@ async def bridge_settlements(
     }
 
 
+def _release_window(since: datetime) -> dict[str, Any]:
+    """Per-lane ETH released (or possibly released) since ``since`` —
+    the committed-status semantics of get_*_eth_committed_since."""
+    from .bridge_db import (
+        get_exchange_eth_committed_since,
+        get_sell_eth_committed_since,
+        get_withdrawal_eth_committed_since,
+    )
+
+    since_iso = since.isoformat()
+    withdrawals = get_withdrawal_eth_committed_since(since_iso)
+    sell = get_sell_eth_committed_since(since_iso)
+    exchange = get_exchange_eth_committed_since(since_iso)
+    return {
+        "since": since_iso,
+        "withdrawals_eth": _money_str(withdrawals),
+        "sell_eth": _money_str(sell),
+        "exchange_eth": _money_str(exchange),
+        "total_eth": _money_str(withdrawals + sell + exchange),
+    }
+
+
+@bridge_router.get("/float")
+async def bridge_float(
+    _admin: Annotated[None, Depends(require_admin_api_key)] = None,
+) -> dict[str, Any]:
+    """Bridge ETH float: wallet balance, pending reserve, and release
+    windows (CLI-5). Read-only — the balance is an eth_getBalance call on
+    the configured RPC; ledger figures come from the same reserve/committed
+    helpers the monitors use.
+
+    Admin-keyed like /settlements: reserve and committed totals reveal the
+    bridge's in-flight payment book. ``windows.today`` starts at service
+    midnight (UTC on deployed hosts); ``windows.last_24h`` is the rolling
+    24h window the sell day-cap itself uses."""
+    from .bridge_withdraw_monitor import _eth_balance, _pending_eth_reserve
+
+    address = os.getenv("ETH_WALLET_ADDRESS", "")
+    balance: Decimal | None = None
+    balance_error: str | None = None
+    if address:
+        try:
+            balance = await _eth_balance(address)
+        except Exception as e:
+            # A provider hiccup must not blank the whole float view — the
+            # ledger-side numbers below stay authoritative either way.
+            balance_error = redact_text(str(e))
+    reserve = _pending_eth_reserve()
+    available = balance - reserve if balance is not None else None
+
+    now = datetime.now()
+    windows = {
+        "today": _release_window(now.replace(hour=0, minute=0, second=0, microsecond=0)),
+        "last_24h": _release_window(now - timedelta(hours=24)),
+    }
+    cap = Decimal(os.getenv("SELL_MAX_ETH_PER_DAY", "0.03"))
+    sell_committed = Decimal(windows["last_24h"]["sell_eth"])
+    return {
+        "eth_address": address,
+        "balance_eth": _money_str(balance) if balance is not None else None,
+        "balance_error": balance_error,
+        "pending_reserve_eth": _money_str(reserve),
+        "available_eth": _money_str(available) if available is not None else None,
+        "windows": windows,
+        "sell_daily_cap": {
+            "max_eth_per_day": _money_str(cap),
+            "committed_24h": _money_str(sell_committed),
+            "remaining": _money_str(max(cap - sell_committed, Decimal(0))),
+            "window": "rolling 24h",
+        },
+    }
+
+
 # Root router that combines exchange + bridge + price endpoints
 from fastapi import APIRouter as _APIRouter
 
