@@ -155,6 +155,19 @@ class TestCopyControlStatic(unittest.TestCase):
         self.assertIn("Copied to clipboard", src)
         self.assertIn("Copy failed", src)
 
+    def test_capture_phase_listener(self) -> None:
+        """Copy buttons live inside rows with inline onclick navigation — a
+        bubble-phase document handler runs AFTER the row's handler, so the
+        stop must happen on capture, plus preventDefault for <a> ancestors."""
+        src = _site_src("copy.js")
+        self.assertRegex(
+            src,
+            r"addEventListener\(\s*'click'[\s\S]*?,\s*true\s*\)",
+            "delegated click handler must be capture-phase",
+        )
+        self.assertIn("preventDefault", src)
+        self.assertIn("stopPropagation", src)
+
     def test_fallback_path(self) -> None:
         src = _site_src("copy.js")
         self.assertIn("execCommand('copy')", src)
@@ -230,6 +243,20 @@ _FIXTURES = {
             }
         ]
     },
+    # search.html — real .block-item rows carrying inline onclick navigation
+    # with a copy button inside (the WEB-FIX-2b defect class).
+    "/api/transactions/search": {"transactions": []},
+    "/api/blocks/by-address/": {
+        "blocks": [
+            {
+                "height": 48691,
+                "hash": "0x" + _HEX,
+                "proposer": "0x" + "ef" * 20,
+                "txCount": 2,
+                "timestamp": "2026-10-15T21:00:00Z",
+            }
+        ]
+    },
 }
 
 _STUB_JS = f"""
@@ -273,6 +300,30 @@ new Promise(resolve => {
   setTimeout(() => resolve(JSON.stringify({
     label: btn.getAttribute('aria-label'),
     copied: window.__copied,
+    btnText: btn.textContent,
+    ann: (document.getElementById('sr-announcer') || {}).textContent || ''
+  })), 300);
+})
+"""
+
+# WEB-FIX-2b: the real defect site — a .copy-btn inside a row whose inline
+# onclick navigates (search.html block/tx result rows). The row's own
+# handler is instrumented to count rather than navigate; on the unfixed
+# bubble-phase handler the row fires first (nav=1), on the fix the capture
+# listener stops the event before it reaches the row (nav stays 0).
+_CLICK_IN_ROW_JS = """
+new Promise(resolve => {
+  const rows = document.querySelectorAll('.block-item[onclick]');
+  const btn = document.querySelector('.block-item button.copy-btn');
+  if (!rows.length || !btn) {
+    resolve(JSON.stringify({err: 'no clickable row with copy button'}));
+    return;
+  }
+  rows.forEach(el => el.setAttribute('onclick', 'window.__nav=(window.__nav||0)+1'));
+  btn.click();
+  setTimeout(() => resolve(JSON.stringify({
+    copied: window.__copied,
+    nav: window.__nav || 0,
     btnText: btn.textContent,
     ann: (document.getElementById('sr-announcer') || {}).textContent || ''
   })), 300);
@@ -356,7 +407,7 @@ class TestCopyControlBrowser(unittest.TestCase):
             s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
 
-    def _click_and_read(self, spy_js: str) -> dict:
+    def _click_and_read(self, spy_js: str, page: str = "bridges.html", expr: str = _CLICK_JS) -> dict:
         import asyncio
         import websockets
 
@@ -378,11 +429,11 @@ class TestCopyControlBrowser(unittest.TestCase):
                 await send("Page.enable")
                 await send("Page.addScriptToEvaluateOnNewDocument", {"source": _STUB_JS})
                 await send("Page.addScriptToEvaluateOnNewDocument", {"source": spy_js})
-                await send("Page.navigate", {"url": f"http://127.0.0.1:{self.port}/bridges.html"})
+                await send("Page.navigate", {"url": f"http://127.0.0.1:{self.port}/{page}"})
                 await asyncio.sleep(2.5)
                 res = await send(
                     "Runtime.evaluate",
-                    {"expression": _CLICK_JS, "returnByValue": True, "awaitPromise": True},
+                    {"expression": expr, "returnByValue": True, "awaitPromise": True},
                 )
                 val = res.get("result", {}).get("result", {}).get("value")
                 self.assertIsNotNone(val, "click evaluation produced no result")
@@ -404,6 +455,15 @@ class TestCopyControlBrowser(unittest.TestCase):
         self.assertNotIn("err", r, r.get("err"))
         self.assertIn("Ctrl+C", r["btnText"], "total failure must point at manual copy")
         self.assertIn("Copy failed", r["ann"])
+
+    def test_click_inside_nav_row_does_not_navigate(self) -> None:
+        """Real .block-item onclick row (search.html results): the copy click
+        must copy the full value and must NOT reach the row's navigation."""
+        r = self._click_and_read(_SPY_OK_JS, "search.html?query=0x" + "cd" * 20, _CLICK_IN_ROW_JS)
+        self.assertNotIn("err", r, r.get("err"))
+        self.assertEqual(["0x" + _HEX], r["copied"], "must copy the FULL block hash")
+        self.assertEqual(0, r["nav"], "row navigation handler must not fire on a copy click")
+        self.assertEqual("Copied to clipboard", r["ann"])
 
 
 if __name__ == "__main__":
