@@ -161,6 +161,32 @@ def _load_wallet(
     return wallet_data
 
 
+def _load_signing_key(ctx, wallet_name: str | None, wallet_path: Path | None, password, password_file, password_stdin) -> str:
+    """Decrypt the wallet file through the standard resolver and return the
+    private key — the shared leg every EVM-signing command runs
+    (``wallet bridge deposit``, ``exchange prepay deposit``, ``eth-send``)."""
+    from ...utils.error_handling import abort
+    from ...utils.wallet_secret import resolve_wallet_password
+
+    if wallet_path is None:
+        abort(ctx, f"Wallet '{wallet_name}' resolved via the daemon, not a wallet file — cannot sign with it here")
+        raise AssertionError("unreachable: abort always raises")
+    pw = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=wallet_path,
+        ctx=ctx,
+    )
+    private_key = _load_wallet(wallet_path, wallet_name or wallet_path.stem, password=pw).get("private_key")
+    if not isinstance(private_key, str) or not private_key:
+        abort(ctx, "Wallet does not contain a private key")
+    assert isinstance(private_key, str)
+    return private_key
+
+
 @click.group(
     epilog="""Examples:
 
@@ -255,4 +281,4 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
 
 
 # Register all subcommands
-from . import basic, bridge, misc, multisig, staking  # noqa: E402
+from . import basic, bridge, eth_send, misc, multisig, staking  # noqa: E402
