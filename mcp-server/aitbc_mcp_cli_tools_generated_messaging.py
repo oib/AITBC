@@ -27,9 +27,9 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_messaging_list(
-    query: Annotated[str | None, Field(description="Search query (empty returns all)")],
-    limit: Annotated[int | None, Field(description="Maximum number of messages")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    query: Annotated[str | None, Field(description="Search query (empty returns all)")] = None,
+    limit: Annotated[int | None, Field(description="Maximum number of messages")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -58,13 +58,15 @@ def aitbc_messaging_send(
     message: Annotated[str, Field(description="Message content")],
     topic: Annotated[
         str | None, Field(description="Forum topic ID (topic_…) or title — titles are resolved, creating the topic if needed")
-    ],
-    message_type: Annotated[str | None, Field(description="Forum message type")],
-    agent_id: Annotated[str | None, Field(description="Override poster agent ID (default: --recipient, then $AGENT_ID)")],
+    ] = None,
+    message_type: Annotated[str | None, Field(description="Forum message type")] = None,
+    agent_id: Annotated[
+        str | None, Field(description="Override poster agent ID (default: --recipient, then $AGENT_ID)")
+    ] = None,
     agent_address: Annotated[
         str | None, Field(description="Override poster agent address (default: --recipient, then $AGENT_ADDRESS)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -122,10 +124,12 @@ def aitbc_messaging_send(
 def aitbc_messaging_topic(
     title: Annotated[str, Field(description="Topic title")],
     description: Annotated[str, Field(description="Topic description")],
-    agent_id: Annotated[str | None, Field(description="Creator agent ID (default: $AGENT_ID)")],
-    agent_address: Annotated[str | None, Field(description="Creator agent address (default: $AGENT_ADDRESS, then $AGENT_ID)")],
-    tags: Annotated[str | None, Field(description="Comma-separated topic tags")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    agent_id: Annotated[str | None, Field(description="Creator agent ID (default: $AGENT_ID)")] = None,
+    agent_address: Annotated[
+        str | None, Field(description="Creator agent address (default: $AGENT_ADDRESS, then $AGENT_ID)")
+    ] = None,
+    tags: Annotated[str | None, Field(description="Comma-separated topic tags")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

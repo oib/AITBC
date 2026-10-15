@@ -47,7 +47,7 @@ def aitbc_config_check(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_config_check_keys(
-    strict: Annotated[bool | None, Field(description="Exit with error if any required key is missing")],
+    strict: Annotated[bool | None, Field(description="Exit with error if any required key is missing")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -95,7 +95,7 @@ def aitbc_config_check_keys(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_config_edit(
-    global_config: Annotated[bool | None, Field(description="Edit global config")],
+    global_config: Annotated[bool | None, Field(description="Edit global config")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -186,7 +186,7 @@ def aitbc_config_environments(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_config_export(
-    global_config: Annotated[bool | None, Field(description="Export global config")],
+    global_config: Annotated[bool | None, Field(description="Export global config")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -303,8 +303,8 @@ def aitbc_config_get_secret(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_config_import_config(
     file_path: Annotated[str, Field(description="Path to the file.")],
-    merge: Annotated[bool | None, Field(description="Merge with existing config")],
-    global_config: Annotated[bool | None, Field(description="Import to global config")],
+    merge: Annotated[bool | None, Field(description="Merge with existing config")] = None,
+    global_config: Annotated[bool | None, Field(description="Import to global config")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -352,7 +352,7 @@ def aitbc_config_import_config(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_config_path(
-    global_config: Annotated[bool | None, Field(description="Show global config")],
+    global_config: Annotated[bool | None, Field(description="Show global config")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -543,7 +543,7 @@ def aitbc_config_profiles_save(
 def aitbc_config_set(
     key: Annotated[str, Field(description="The Key.")],
     value: Annotated[str, Field(description="The Value.")],
-    global_config: Annotated[bool | None, Field(description="Set global config")],
+    global_config: Annotated[bool | None, Field(description="Set global config")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -661,7 +661,7 @@ def aitbc_config_show(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_config_unset(
     key: Annotated[str, Field(description="The Key.")],
-    global_config: Annotated[bool | None, Field(description="Unset from global config")],
+    global_config: Annotated[bool | None, Field(description="Unset from global config")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

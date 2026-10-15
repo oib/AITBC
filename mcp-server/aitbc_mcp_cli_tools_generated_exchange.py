@@ -29,8 +29,8 @@ from aitbc_mcp_server import (
 def aitbc_exchange_add_liquidity(
     pair: Annotated[str, Field(description="Trading pair symbol (e.g., AITBC/ETH)")],
     amount: Annotated[str, Field(description="Liquidity amount")],
-    side: Annotated[Literal["buy", "sell"] | None, Field(description="Side to provide liquidity")],
-    exchange: Annotated[str | None, Field(description="Exchange name")],
+    side: Annotated[Literal["buy", "sell"] | None, Field(description="Side to provide liquidity")] = None,
+    exchange: Annotated[str | None, Field(description="Exchange name")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -81,9 +81,9 @@ def aitbc_exchange_create_pair(
     base_asset: Annotated[str, Field(description="Base asset symbol (e.g., AITBC)")],
     quote_asset: Annotated[str, Field(description="Quote asset symbol (e.g., ETH)")],
     exchange: Annotated[str, Field(description="Exchange name")],
-    min_order_size: Annotated[float | None, Field(description="Minimum order size")],
-    price_precision: Annotated[int | None, Field(description="Price precision")],
-    quantity_precision: Annotated[int | None, Field(description="Quantity precision")],
+    min_order_size: Annotated[float | None, Field(description="Minimum order size")] = None,
+    price_precision: Annotated[int | None, Field(description="Price precision")] = None,
+    quantity_precision: Annotated[int | None, Field(description="Quantity precision")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -158,10 +158,10 @@ def aitbc_exchange_list(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_exchange_monitor(
-    pair: Annotated[str | None, Field(description="Trading pair symbol (e.g., AITBC/ETH)")],
-    exchange: Annotated[str | None, Field(description="Exchange name")],
-    real_time: Annotated[bool | None, Field(description="Enable real-time monitoring")],
-    interval: Annotated[int | None, Field(description="Update interval in seconds")],
+    pair: Annotated[str | None, Field(description="Trading pair symbol (e.g., AITBC/ETH)")] = None,
+    exchange: Annotated[str | None, Field(description="Exchange name")] = None,
+    real_time: Annotated[bool | None, Field(description="Enable real-time monitoring")] = None,
+    interval: Annotated[int | None, Field(description="Update interval in seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -186,7 +186,7 @@ def aitbc_exchange_monitor(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_exchange_node_list(
-    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")],
+    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -211,13 +211,15 @@ def aitbc_exchange_node_list(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_node_register(
-    wallet: Annotated[str | None, Field(description="Wallet name or file path — the node's registered AIT wallet")],
-    label: Annotated[str | None, Field(description="Registry label (must equal the seeded label; default: use seeded)")],
+    wallet: Annotated[str | None, Field(description="Wallet name or file path — the node's registered AIT wallet")] = None,
+    label: Annotated[
+        str | None, Field(description="Registry label (must equal the seeded label; default: use seeded)")
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")],
-    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")],
+    ] = None,
+    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")] = None,
+    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -272,12 +274,12 @@ def aitbc_exchange_node_register(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_node_set_payout(
     eth_address: Annotated[str, Field(description="Sepolia ETH payout address (any case — checksummed before signing)")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path — the node's registered AIT wallet")],
+    wallet: Annotated[str | None, Field(description="Wallet name or file path — the node's registered AIT wallet")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")],
-    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")],
+    ] = None,
+    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")] = None,
+    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -332,13 +334,13 @@ def aitbc_exchange_node_set_payout(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_order_cancel(
     order_id: Annotated[str, Field(description="Positional argument: order_id")],
-    expires_in: Annotated[int | None, Field(description="Blocks until the cancel envelope expires")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path — must be the order owner's")],
+    expires_in: Annotated[int | None, Field(description="Blocks until the cancel envelope expires")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name or file path — must be the order owner's")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")],
-    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")],
+    ] = None,
+    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")] = None,
+    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -393,14 +395,16 @@ def aitbc_exchange_order_cancel(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_order_fund(
     order_id: Annotated[str, Field(description="Positional argument: order_id")],
-    fee: Annotated[str | None, Field(description="AIT chain fee for the lock transfer")],
-    print_only: Annotated[bool | None, Field(description="Emit the equivalent 'transactions send' line; broadcast nothing")],
-    wallet: Annotated[str | None, Field(description="Wallet name (not a file path) — must be the order owner's")],
+    fee: Annotated[str | None, Field(description="AIT chain fee for the lock transfer")] = None,
+    print_only: Annotated[
+        bool | None, Field(description="Emit the equivalent 'transactions send' line; broadcast nothing")
+    ] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name (not a file path) — must be the order owner's")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL for the lock transfer")],
-    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL for the lock transfer")] = None,
+    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -454,9 +458,9 @@ def aitbc_exchange_order_fund(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_order_my(
-    wallet: Annotated[str | None, Field(description="Wallet name (address only — no signing)")],
-    address_opt: Annotated[str | None, Field(description="Plain 0x address (no wallet needed)")],
-    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")],
+    wallet: Annotated[str | None, Field(description="Wallet name (address only — no signing)")] = None,
+    address_opt: Annotated[str | None, Field(description="Plain 0x address (no wallet needed)")] = None,
+    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -507,13 +511,13 @@ def aitbc_exchange_order_place(
     side: Annotated[Literal["BUY", "SELL"], Field(description="Order side")],
     amount: Annotated[str, Field(description="AIT amount (8-decimal exact)")],
     price: Annotated[str, Field(description="ETH price per AIT (within the oracle band)")],
-    expires_in: Annotated[int | None, Field(description="Blocks until the order envelope expires")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path (this node's own wallet)")],
+    expires_in: Annotated[int | None, Field(description="Blocks until the order envelope expires")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name or file path (this node's own wallet)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")],
-    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")],
+    ] = None,
+    chain_id: Annotated[str | None, Field(description="Envelope chain_id (default: island credentials)")] = None,
+    exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -572,9 +576,9 @@ def aitbc_exchange_order_place(
 def aitbc_exchange_register(
     name: Annotated[str, Field(description="Exchange name (e.g., Binance, Coinbase, Kraken)")],
     api_key: Annotated[str, Field(description="Exchange API key")],
-    secret_key: Annotated[str | None, Field(description="Exchange API secret key")],
-    sandbox: Annotated[bool | None, Field(description="Use sandbox/testnet environment")],
-    description: Annotated[str | None, Field(description="Exchange description")],
+    secret_key: Annotated[str | None, Field(description="Exchange API secret key")] = None,
+    sandbox: Annotated[bool | None, Field(description="Use sandbox/testnet environment")] = None,
+    description: Annotated[str | None, Field(description="Exchange description")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -623,10 +627,10 @@ def aitbc_exchange_register(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_start_trading(
     pair: Annotated[str, Field(description="Trading pair symbol (e.g., AITBC/ETH)")],
-    price: Annotated[str | None, Field(description="Initial price for the pair")],
-    base_liquidity: Annotated[float | None, Field(description="Base asset liquidity amount")],
-    quote_liquidity: Annotated[float | None, Field(description="Quote asset liquidity amount")],
-    exchange: Annotated[str | None, Field(description="Exchange name (if not specified, uses first available)")],
+    price: Annotated[str | None, Field(description="Initial price for the pair")] = None,
+    base_liquidity: Annotated[float | None, Field(description="Base asset liquidity amount")] = None,
+    quote_liquidity: Annotated[float | None, Field(description="Quote asset liquidity amount")] = None,
+    exchange: Annotated[str | None, Field(description="Exchange name (if not specified, uses first available)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_msg_peers(
-    coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")],
+    coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -52,24 +52,24 @@ def aitbc_agent_msg_peers(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_msg_ping(
-    agent: Annotated[str | None, Field(description="Recipient agent ID to ping")],
-    sender: Annotated[str | None, Field(description="Sender agent ID (your agent ID for the WebSocket connection)")],
+    agent: Annotated[str | None, Field(description="Recipient agent ID to ping")] = None,
+    sender: Annotated[str | None, Field(description="Sender agent ID (your agent ID for the WebSocket connection)")] = None,
     coordinator_url: Annotated[
         str | None,
         Field(
             description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)"
         ),
-    ],
-    timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a PONG reply")],
+    ] = None,
+    timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a PONG reply")] = None,
     wallet: Annotated[
         str | None,
         Field(
             description="Wallet to authenticate the stream with (mints an agent JWT via the coordinator login endpoint when --sender is bound to it)"
         ),
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -124,17 +124,17 @@ def aitbc_agent_msg_ping(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_msg_receive(
-    from_agent: Annotated[str | None, Field(description="Agent ID whose inbox to read (default: $AGENT_ID)")],
-    limit: Annotated[int | None, Field(description="Number of messages to return")],
-    unread_only: Annotated[bool | None, Field(description="Only return unread messages")],
+    from_agent: Annotated[str | None, Field(description="Agent ID whose inbox to read (default: $AGENT_ID)")] = None,
+    limit: Annotated[int | None, Field(description="Number of messages to return")] = None,
+    unread_only: Annotated[bool | None, Field(description="Only return unread messages")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    sign: Annotated[bool | None, Field(description="Sign the request when a wallet is configured")],
-    coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")],
+    ] = None,
+    sign: Annotated[bool | None, Field(description="Sign the request when a wallet is configured")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -190,22 +190,22 @@ def aitbc_agent_msg_receive(
 def aitbc_agent_msg_request_coins(
     wallet: Annotated[
         str | None, Field(description="Wallet name to send coins to (default: auto-detect first available wallet)")
-    ],
+    ] = None,
     amount: Annotated[
         int | None,
         Field(description="Amount of AIT to request (first request auto-grants 3; subsequent require manual approval)"),
-    ],
-    sender: Annotated[str | None, Field(description="Sender agent ID (your agent ID for the WebSocket connection)")],
+    ] = None,
+    sender: Annotated[str | None, Field(description="Sender agent ID (your agent ID for the WebSocket connection)")] = None,
     coordinator_url: Annotated[
         str | None,
         Field(
             description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)"
         ),
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a response")],
+    ] = None,
+    timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a response")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -262,23 +262,23 @@ def aitbc_agent_msg_request_coins(
 def aitbc_agent_msg_send(
     message: Annotated[str, Field(description="Positional argument: message")],
     to_agent: Annotated[str, Field(description="Target agent ID")],
-    from_agent: Annotated[str | None, Field(description="Sender agent ID (default: $AGENT_ID)")],
-    priority: Annotated[str | None, Field(description="Message priority")],
-    message_id: Annotated[str | None, Field(description="Client-provided message ID for idempotent sends")],
-    message_type: Annotated[str | None, Field(description="Message type")],
-    ttl: Annotated[int | None, Field(description="Time to live in seconds")],
-    encrypt: Annotated[bool | None, Field(description="Encrypt the message")],
+    from_agent: Annotated[str | None, Field(description="Sender agent ID (default: $AGENT_ID)")] = None,
+    priority: Annotated[str | None, Field(description="Message priority")] = None,
+    message_id: Annotated[str | None, Field(description="Client-provided message ID for idempotent sends")] = None,
+    message_type: Annotated[str | None, Field(description="Message type")] = None,
+    ttl: Annotated[int | None, Field(description="Time to live in seconds")] = None,
+    encrypt: Annotated[bool | None, Field(description="Encrypt the message")] = None,
     wallet_name: Annotated[
         str | None,
         Field(
             description="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity"
         ),
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    sign: Annotated[bool | None, Field(description="Sign the envelope when a wallet is configured")],
-    coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")],
+    ] = None,
+    sign: Annotated[bool | None, Field(description="Sign the envelope when a wallet is configured")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

@@ -26,8 +26,8 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bootstrap_bootstrap_env(
-    output_path: Annotated[str | None, Field(description="Output .env file path")],
-    overwrite: Annotated[bool | None, Field(description="Overwrite existing .env")],
+    output_path: Annotated[str | None, Field(description="Output .env file path")] = None,
+    overwrite: Annotated[bool | None, Field(description="Overwrite existing .env")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

@@ -27,18 +27,20 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_auth_login(
-    wallet: Annotated[str | None, Field(description="Wallet name in AITBC_WALLET_DIR or ~/.aitbc/wallets/")],
+    wallet: Annotated[str | None, Field(description="Wallet name in AITBC_WALLET_DIR or ~/.aitbc/wallets/")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    private_key: Annotated[str | None, Field(description="Raw hex private key (use only in CI/scripts)")],
-    private_key_file: Annotated[str | None, Field(description="File containing a raw hex private key")],
-    wallet_address: Annotated[str | None, Field(description="Wallet address (defaults to address derived from private key)")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator API URL")],
-    environment: Annotated[str | None, Field(description="Credential environment name")],
+    ] = None,
+    private_key: Annotated[str | None, Field(description="Raw hex private key (use only in CI/scripts)")] = None,
+    private_key_file: Annotated[str | None, Field(description="File containing a raw hex private key")] = None,
+    wallet_address: Annotated[
+        str | None, Field(description="Wallet address (defaults to address derived from private key)")
+    ] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator API URL")] = None,
+    environment: Annotated[str | None, Field(description="Credential environment name")] = None,
     credential_name: Annotated[
         str | None, Field(description="Name the credential is stored under (e.g. 'admin' for aitbc monitor sweepers)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -95,8 +97,8 @@ def aitbc_auth_login(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_auth_logout(
-    environment: Annotated[str | None, Field(description="Credential environment name")],
-    credential_name: Annotated[str | None, Field(description="Credential name to delete")],
+    environment: Annotated[str | None, Field(description="Credential environment name")] = None,
+    credential_name: Annotated[str | None, Field(description="Credential name to delete")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -144,7 +146,7 @@ def aitbc_auth_logout(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_auth_status(
-    environment: Annotated[str | None, Field(description="Credential environment name")],
+    environment: Annotated[str | None, Field(description="Credential environment name")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

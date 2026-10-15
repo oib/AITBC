@@ -193,7 +193,7 @@ def aitbc_edge_database_init_db(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_edge_database_list_dbs(
-    island_id: Annotated[str | None, Field(description="Filter by island ID")],
+    island_id: Annotated[str | None, Field(description="Filter by island ID")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -338,7 +338,7 @@ def aitbc_edge_gpu_get_gpu(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_edge_gpu_gpu_metrics(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
-    limit: Annotated[int | None, Field(description="Number of metrics to return")],
+    limit: Annotated[int | None, Field(description="Number of metrics to return")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -386,9 +386,9 @@ def aitbc_edge_gpu_gpu_metrics(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_edge_gpu_list_gpus(
-    architecture: Annotated[str | None, Field(description="Filter by GPU architecture")],
-    edge_optimized: Annotated[bool | None, Field(description="Filter edge-optimized GPUs")],
-    min_memory_gb: Annotated[int | None, Field(description="Minimum memory in GB")],
+    architecture: Annotated[str | None, Field(description="Filter by GPU architecture")] = None,
+    edge_optimized: Annotated[bool | None, Field(description="Filter edge-optimized GPUs")] = None,
+    min_memory_gb: Annotated[int | None, Field(description="Minimum memory in GB")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -608,8 +608,8 @@ def aitbc_edge_island_join(
     island_id: Annotated[str, Field(description="The Island id.")],
     island_name: Annotated[str, Field(description="The Island name.")],
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    role_opt: Annotated[str | None, Field(description="Island role")],
-    is_hub: Annotated[bool | None, Field(description="Mark as hub node")],
+    role_opt: Annotated[str | None, Field(description="Island role")] = None,
+    is_hub: Annotated[bool | None, Field(description="Mark as hub node")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -821,8 +821,8 @@ def aitbc_edge_metrics_get_metric(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_edge_metrics_list_metrics(
-    gpu_id: Annotated[str | None, Field(description="Filter by GPU ID")],
-    limit: Annotated[int | None, Field(description="Number of metrics to return")],
+    gpu_id: Annotated[str | None, Field(description="Filter by GPU ID")] = None,
+    limit: Annotated[int | None, Field(description="Number of metrics to return")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1063,8 +1063,8 @@ def aitbc_edge_serve_get_result(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_edge_serve_list_requests(
-    gpu_id: Annotated[str | None, Field(description="Filter by GPU ID")],
-    status: Annotated[str | None, Field(description="Filter by status")],
+    gpu_id: Annotated[str | None, Field(description="Filter by GPU ID")] = None,
+    status: Annotated[str | None, Field(description="Filter by status")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1115,9 +1115,9 @@ def aitbc_edge_serve_submit_request(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
     model_name: Annotated[str, Field(description="The Model name.")],
     input_data: Annotated[str, Field(description="The Input data.")],
-    priority: Annotated[str | None, Field(description="Request priority")],
-    job_id: Annotated[str | None, Field(description="Job ID for edge servers that verify escrow")],
-    escrow_id: Annotated[str | None, Field(description="Legacy escrow ID for payment verification")],
+    priority: Annotated[str | None, Field(description="Request priority")] = None,
+    job_id: Annotated[str | None, Field(description="Job ID for edge servers that verify escrow")] = None,
+    escrow_id: Annotated[str | None, Field(description="Legacy escrow ID for payment verification")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1194,7 +1194,7 @@ def aitbc_edge_status(
 def aitbc_edge_transfer(
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
-    note: Annotated[str | None, Field(description="Transfer note")],
+    note: Annotated[str | None, Field(description="Transfer note")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

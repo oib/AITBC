@@ -76,9 +76,9 @@ def aitbc_trade_create(
     sender: Annotated[str, Field(description="Sender address (source chain)")],
     recipient: Annotated[str, Field(description="Recipient address (dest chain)")],
     amount: Annotated[int, Field(description="Amount to trade")],
-    offer_id: Annotated[str | None, Field(description="Associated offer ID")],
-    price: Annotated[Decimal | None, Field(description="Trade price")],
-    quantity: Annotated[int | None, Field(description="Trade quantity")],
+    offer_id: Annotated[str | None, Field(description="Associated offer ID")] = None,
+    price: Annotated[Decimal | None, Field(description="Trade price")] = None,
+    quantity: Annotated[int | None, Field(description="Trade quantity")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -135,14 +135,14 @@ def aitbc_trade_create(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_discover(
-    source_chain: Annotated[str | None, Field(description="Filter by source chain")],
-    dest_chain: Annotated[str | None, Field(description="Filter by destination chain")],
-    service_type: Annotated[str | None, Field(description="Filter by service type (e.g. gpu_market)")],
-    min_price: Annotated[Decimal | None, Field(description="Minimum price filter")],
-    max_price: Annotated[Decimal | None, Field(description="Maximum price filter")],
-    region: Annotated[str | None, Field(description="Filter by region")],
-    gpu_model: Annotated[str | None, Field(description="Filter by GPU model")],
-    limit: Annotated[int | None, Field(description="Max results")],
+    source_chain: Annotated[str | None, Field(description="Filter by source chain")] = None,
+    dest_chain: Annotated[str | None, Field(description="Filter by destination chain")] = None,
+    service_type: Annotated[str | None, Field(description="Filter by service type (e.g. gpu_market)")] = None,
+    min_price: Annotated[Decimal | None, Field(description="Minimum price filter")] = None,
+    max_price: Annotated[Decimal | None, Field(description="Maximum price filter")] = None,
+    region: Annotated[str | None, Field(description="Filter by region")] = None,
+    gpu_model: Annotated[str | None, Field(description="Filter by GPU model")] = None,
+    limit: Annotated[int | None, Field(description="Max results")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -291,9 +291,9 @@ def aitbc_trade_health(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_history(
-    source_chain: Annotated[str | None, Field(description="Filter by source chain")],
-    dest_chain: Annotated[str | None, Field(description="Filter by destination chain")],
-    limit: Annotated[int | None, Field(description="Max results")],
+    source_chain: Annotated[str | None, Field(description="Filter by source chain")] = None,
+    dest_chain: Annotated[str | None, Field(description="Filter by destination chain")] = None,
+    limit: Annotated[int | None, Field(description="Max results")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -341,10 +341,10 @@ def aitbc_trade_history(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_list(
-    status: Annotated[str | None, Field(description="Filter by status (pending, matched, completed, etc.)")],
-    source_chain: Annotated[str | None, Field(description="Filter by source chain")],
-    dest_chain: Annotated[str | None, Field(description="Filter by destination chain")],
-    limit: Annotated[int | None, Field(description="Max results")],
+    status: Annotated[str | None, Field(description="Filter by status (pending, matched, completed, etc.)")] = None,
+    source_chain: Annotated[str | None, Field(description="Filter by source chain")] = None,
+    dest_chain: Annotated[str | None, Field(description="Filter by destination chain")] = None,
+    limit: Annotated[int | None, Field(description="Max results")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -393,9 +393,11 @@ def aitbc_trade_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_lock_escrow(
     trade_id: Annotated[str, Field(description="Trade ID to lock escrow for")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
-    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
-    timeout_opt: Annotated[int | None, Field(description="Escrow timeout in seconds")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    api_key: Annotated[
+        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
+    ] = None,
+    timeout_opt: Annotated[int | None, Field(description="Escrow timeout in seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -531,8 +533,10 @@ def aitbc_trade_match_all(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_refund(
     trade_id: Annotated[str, Field(description="Trade ID to refund")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
-    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    api_key: Annotated[
+        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -629,12 +633,12 @@ def aitbc_trade_register_chain(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_search(
-    query: Annotated[str | None, Field(description="Search query text")],
-    chain_id: Annotated[str | None, Field(description="Filter by chain ID")],
-    service_type: Annotated[str | None, Field(description="Filter by service type")],
-    min_price: Annotated[Decimal | None, Field(description="Minimum price filter")],
-    max_price: Annotated[Decimal | None, Field(description="Maximum price filter")],
-    limit: Annotated[int | None, Field(description="Max results")],
+    query: Annotated[str | None, Field(description="Search query text")] = None,
+    chain_id: Annotated[str | None, Field(description="Filter by chain ID")] = None,
+    service_type: Annotated[str | None, Field(description="Filter by service type")] = None,
+    min_price: Annotated[Decimal | None, Field(description="Minimum price filter")] = None,
+    max_price: Annotated[Decimal | None, Field(description="Maximum price filter")] = None,
+    limit: Annotated[int | None, Field(description="Max results")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -691,8 +695,10 @@ def aitbc_trade_search(
 def aitbc_trade_settle(
     trade_id: Annotated[str, Field(description="Trade ID to settle")],
     secret: Annotated[str, Field(description="HTLC secret to reveal")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
-    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    api_key: Annotated[
+        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -741,8 +747,10 @@ def aitbc_trade_settle(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_settlement_status(
     trade_id: Annotated[str, Field(description="Trade ID to check")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
-    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    api_key: Annotated[
+        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -881,9 +889,9 @@ def aitbc_trade_subscription_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_sync(
-    chain_id: Annotated[str | None, Field(description="Sync specific chain (default: all chains)")],
-    service_type: Annotated[str | None, Field(description="Sync specific service type")],
-    force: Annotated[bool | None, Field(description="Force sync even if offers are fresh")],
+    chain_id: Annotated[str | None, Field(description="Sync specific chain (default: all chains)")] = None,
+    service_type: Annotated[str | None, Field(description="Sync specific service type")] = None,
+    force: Annotated[bool | None, Field(description="Force sync even if offers are fresh")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -974,12 +982,12 @@ def aitbc_trade_sync_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_watch(
-    chain_id: Annotated[str | None, Field(description="Filter by chain ID")],
-    service_type: Annotated[str | None, Field(description="Filter by service type")],
-    min_price: Annotated[Decimal | None, Field(description="Minimum price filter")],
-    max_price: Annotated[Decimal | None, Field(description="Maximum price filter")],
-    region: Annotated[str | None, Field(description="Filter by region")],
-    gpu_model: Annotated[str | None, Field(description="Filter by GPU model")],
+    chain_id: Annotated[str | None, Field(description="Filter by chain ID")] = None,
+    service_type: Annotated[str | None, Field(description="Filter by service type")] = None,
+    min_price: Annotated[Decimal | None, Field(description="Minimum price filter")] = None,
+    max_price: Annotated[Decimal | None, Field(description="Maximum price filter")] = None,
+    region: Annotated[str | None, Field(description="Filter by region")] = None,
+    gpu_model: Annotated[str | None, Field(description="Filter by GPU model")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

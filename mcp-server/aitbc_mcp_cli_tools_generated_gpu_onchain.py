@@ -34,8 +34,8 @@ def aitbc_gpu_onchain_allocate(
     wallet: Annotated[str, Field(description="Wallet name for signing")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
+    ] = None,
+    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -142,8 +142,8 @@ def aitbc_gpu_onchain_deregister(
     wallet: Annotated[str, Field(description="Wallet name for signing (must be the GPU's registrant)")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
+    ] = None,
+    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -191,7 +191,7 @@ def aitbc_gpu_onchain_deregister(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_gpu_onchain_list(
-    status: Annotated[str | None, Field(description="Filter by status (active, deactivated)")],
+    status: Annotated[str | None, Field(description="Filter by status (active, deactivated)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -270,13 +270,13 @@ def aitbc_gpu_onchain_register(
     memory_gb: Annotated[int, Field(description="GPU memory in GB")],
     price_per_hour: Annotated[str, Field(description="Price per hour in AIT")],
     wallet: Annotated[str, Field(description="Wallet name for signing")],
-    cuda_version: Annotated[str | None, Field(description="CUDA version")],
-    region: Annotated[str | None, Field(description="Geographic region")],
-    capabilities: Annotated[list[str] | None, Field(description="GPU capabilities (can specify multiple)")],
+    cuda_version: Annotated[str | None, Field(description="CUDA version")] = None,
+    region: Annotated[str | None, Field(description="Geographic region")] = None,
+    capabilities: Annotated[list[str] | None, Field(description="GPU capabilities (can specify multiple)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
+    ] = None,
+    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

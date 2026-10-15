@@ -26,11 +26,15 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_service_harden(
-    service_name: Annotated[str | None, Field(description="Single systemd service unit to harden.")],
-    all_services: Annotated[bool | None, Field(description="Harden all aitbc-*.service units except shell-script helpers.")],
-    read_write_paths: Annotated[str | None, Field(description="ReadWritePaths value for units that do not already have one.")],
-    no_restart: Annotated[bool | None, Field(description="Do not reload systemd or restart affected services.")],
-    dry_run_opt: Annotated[bool | None, Field(description="Show what would change without writing files.")],
+    service_name: Annotated[str | None, Field(description="Single systemd service unit to harden.")] = None,
+    all_services: Annotated[
+        bool | None, Field(description="Harden all aitbc-*.service units except shell-script helpers.")
+    ] = None,
+    read_write_paths: Annotated[
+        str | None, Field(description="ReadWritePaths value for units that do not already have one.")
+    ] = None,
+    no_restart: Annotated[bool | None, Field(description="Do not reload systemd or restart affected services.")] = None,
+    dry_run_opt: Annotated[bool | None, Field(description="Show what would change without writing files.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

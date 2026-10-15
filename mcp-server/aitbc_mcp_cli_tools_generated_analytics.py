@@ -27,8 +27,8 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_analytics_alerts(
-    severity: Annotated[Literal["all", "critical", "warning"] | None, Field(description="Alert severity filter")],
-    hours: Annotated[int | None, Field(description="Time range in hours")],
+    severity: Annotated[Literal["all", "critical", "warning"] | None, Field(description="Alert severity filter")] = None,
+    hours: Annotated[int | None, Field(description="Time range in hours")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -53,9 +53,9 @@ def aitbc_analytics_alerts(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_analytics_monitor(
-    realtime: Annotated[bool | None, Field(description="Real-time monitoring")],
-    interval: Annotated[int | None, Field(description="Update interval in seconds")],
-    chain_id: Annotated[str | None, Field(description="Monitor specific chain")],
+    realtime: Annotated[bool | None, Field(description="Real-time monitoring")] = None,
+    interval: Annotated[int | None, Field(description="Update interval in seconds")] = None,
+    chain_id: Annotated[str | None, Field(description="Monitor specific chain")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -80,7 +80,7 @@ def aitbc_analytics_monitor(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_analytics_optimize(
-    chain_id: Annotated[str | None, Field(description="Specific chain ID for recommendations")],
+    chain_id: Annotated[str | None, Field(description="Specific chain ID for recommendations")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -128,8 +128,8 @@ def aitbc_analytics_optimize(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_analytics_predict(
-    chain_id: Annotated[str | None, Field(description="Specific chain ID for predictions")],
-    hours: Annotated[int | None, Field(description="Prediction time horizon in hours")],
+    chain_id: Annotated[str | None, Field(description="Specific chain ID for predictions")] = None,
+    hours: Annotated[int | None, Field(description="Prediction time horizon in hours")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

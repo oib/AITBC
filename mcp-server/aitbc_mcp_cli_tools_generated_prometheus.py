@@ -27,19 +27,19 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_prometheus_alert_history(
-    log_path: Annotated[str | None, Field(description="Watcher alert log to read (default: the service's own log)")],
+    log_path: Annotated[str | None, Field(description="Watcher alert log to read (default: the service's own log)")] = None,
     since: Annotated[
         str | None, Field(description="Only events newer than this: a duration like 30m/24h/7d or an ISO timestamp")
-    ],
-    alertname: Annotated[str | None, Field(description="Substring match on the alert name")],
+    ] = None,
+    alertname: Annotated[str | None, Field(description="Substring match on the alert name")] = None,
     state_filter: Annotated[
         Literal["firing", "resolved", "silenced"] | None,
         Field(description="Only events in this state; 'silenced' selects events recorded under a silence"),
-    ],
+    ] = None,
     node_filter: Annotated[
         str | None, Field(description="Only events whose labels.node (or labels.instance) matches this string")
-    ],
-    last_n: Annotated[int | None, Field(description="Keep only the newest N matching events")],
+    ] = None,
+    last_n: Annotated[int | None, Field(description="Keep only the newest N matching events")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -94,54 +94,54 @@ def aitbc_prometheus_alert_history(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_alerts(
-    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")],
-    watch: Annotated[bool | None, Field(description="Poll continuously and emit firing and resolved alerts")],
-    interval: Annotated[int | None, Field(description="Poll interval in seconds (watch mode)")],
+    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
+    watch: Annotated[bool | None, Field(description="Poll continuously and emit firing and resolved alerts")] = None,
+    interval: Annotated[int | None, Field(description="Poll interval in seconds (watch mode)")] = None,
     emit: Annotated[
         bool | None,
         Field(description="Emit one structured log line per alert state change to stdout and the service log (watch mode)"),
-    ],
+    ] = None,
     alert_log_path: Annotated[
         str | None,
         Field(
             description="Also append every alert state change (firing, resolved) as one JSON line to this file, rotated at 5 MiB (watch mode)"
         ),
-    ],
+    ] = None,
     notify_urls: Annotated[
         list[str] | None,
         Field(
             description="POST every alert event as a JSON body to this webhook URL; repeatable (env: space-separated) (watch mode)"
         ),
-    ],
+    ] = None,
     notify_format: Annotated[
         Literal["json", "ntfy"] | None,
         Field(
             description="Webhook body shape: 'json' posts the full event record (unchanged default); 'ntfy' posts an ntfy publish body built only from alert name, fleet host, severity, state and the click link (watch mode)"
         ),
-    ],
+    ] = None,
     notify_topic: Annotated[
         str | None,
         Field(description="ntfy topic for --notify-format=ntfy; travels inside the JSON body, never in the URL (watch mode)"),
-    ],
-    notify_click: Annotated[str | None, Field(description="Public link attached to ntfy notifications (watch mode)")],
+    ] = None,
+    notify_click: Annotated[str | None, Field(description="Public link attached to ntfy notifications (watch mode)")] = None,
     notify_min_severity: Annotated[
         Literal["info", "warning", "critical"] | None,
         Field(
             description="Push only alerts at or above this severity; lower-severity alerts are still recorded to the alert log but not pushed. Non-alert lifecycle events (e.g. watch started) always notify (watch mode)"
         ),
-    ],
+    ] = None,
     silence_file: Annotated[
         str | None,
         Field(
             description='JSON silence list reloaded each poll, e.g. [{"match": {"alertname": "ServiceDown", "labels": {"instance": "x:9100"}}, "until": "2026-10-05T00:00:00Z", "reason": "maintenance"}]; silenced events are recorded but not notified (watch mode)'
         ),
-    ],
+    ] = None,
     remind_interval: Annotated[
         int | None, Field(description="Re-emit and re-notify a still-firing alert every N seconds; 0 disables (watch mode)")
-    ],
+    ] = None,
     metrics_file: Annotated[
         str | None, Field(description="Write node-exporter textfile heartbeat metrics to this path every poll (watch mode)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -178,8 +178,8 @@ def aitbc_prometheus_alerts(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_check(
-    config_path: Annotated[str | None, Field(description="Prometheus config file")],
-    rules_path: Annotated[str | None, Field(description="Prometheus rules file")],
+    config_path: Annotated[str | None, Field(description="Prometheus config file")] = None,
+    rules_path: Annotated[str | None, Field(description="Prometheus rules file")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -205,9 +205,9 @@ def aitbc_prometheus_check(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_prometheus_query(
     expr: Annotated[str, Field(description="The Expr.")],
-    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")],
-    time: Annotated[str | None, Field(description="Evaluation timestamp (RFC3339 or Unix)")],
-    timeout_opt: Annotated[int | None, Field(description="Query timeout in seconds")],
+    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
+    time: Annotated[str | None, Field(description="Evaluation timestamp (RFC3339 or Unix)")] = None,
+    timeout_opt: Annotated[int | None, Field(description="Query timeout in seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -255,7 +255,7 @@ def aitbc_prometheus_query(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_prometheus_rules(
-    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")],
+    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -303,7 +303,7 @@ def aitbc_prometheus_rules(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_prometheus_series(
-    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")],
+    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -351,7 +351,7 @@ def aitbc_prometheus_series(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_prometheus_targets(
-    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")],
+    prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

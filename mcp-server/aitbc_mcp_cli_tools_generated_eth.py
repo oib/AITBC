@@ -21,14 +21,14 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_eth_transfers(
-    addresses: Annotated[list[str] | None, Field(description="Positional argument: addresses")],
-    address: Annotated[list[str] | None, Field(description="Address or wallet label (repeatable)")],
-    since: Annotated[str | None, Field(description="Only rows at/after this block number or UTC date (YYYY-MM-DD)")],
-    as_json: Annotated[bool | None, Field(description="Emit the new rows as JSON")],
-    log_path: Annotated[str | None, Field(description="JSONL transfer log")],
-    no_log: Annotated[bool | None, Field(description="Print only; do not read or write the log")],
-    rpc_url: Annotated[str | None, Field(description="Sepolia JSON-RPC endpoint")],
-    explorer_url: Annotated[str | None, Field(description="Blockscout-compatible explorer base URL")],
+    addresses: Annotated[list[str] | None, Field(description="Positional argument: addresses")] = None,
+    address: Annotated[list[str] | None, Field(description="Address or wallet label (repeatable)")] = None,
+    since: Annotated[str | None, Field(description="Only rows at/after this block number or UTC date (YYYY-MM-DD)")] = None,
+    as_json: Annotated[bool | None, Field(description="Emit the new rows as JSON")] = None,
+    log_path: Annotated[str | None, Field(description="JSONL transfer log")] = None,
+    no_log: Annotated[bool | None, Field(description="Print only; do not read or write the log")] = None,
+    rpc_url: Annotated[str | None, Field(description="Sepolia JSON-RPC endpoint")] = None,
+    explorer_url: Annotated[str | None, Field(description="Blockscout-compatible explorer base URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
