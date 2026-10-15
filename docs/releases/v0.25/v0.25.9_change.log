@@ -2628,3 +2628,31 @@ a real linked worktree and a dangling venv symlink.
 Commits: `af1b2adaa` (resolver + 8 hook scripts + generator format +
 resolver tests), `d75f144d4` (wallet conftest isolation), `6d0d57b8e`
 (exchange contract/pin tests).
+
+### test(website): WEB-6 — accessibility + phone-width pass
+
+- Layout/phone: .table-wrap scroll regions (focusable, named) around all
+  wide data tables; .endpoint gains overflow-x:auto; 44px minimum tap
+  targets for .btn-primary, .copy-btn, .toggle-switch and form controls.
+- Focus/keyboard: global :focus-visible outline (--primary, 5.37:1);
+  .form-row controls keep a real outline instead of outline:none;
+  .toggle-switch input stays keyboard-focusable (clip, not display:none)
+  with a focus ring on the slider; click-only cards/rows gain role=link +
+  tabindex + Enter activation; deposit/hex copy boxes are role=button with
+  Enter/Space handlers.
+- Names/labels: aria-label on the previously-unlabeled selects and
+  placeholder-only inputs; marketplace toggle labelled; decorative svg
+  aria-hidden; ob-banner moved inside <main>; every <table> gets an
+  aria-label and every <th> a scope; kv row labels become th[scope=row];
+  truncated hashes expose the full value via aria-label/visually-hidden;
+  copy actions announce via a polite live region; live feeds announce
+  changes (throttled, summary only).
+- Contrast/motion (tonal only, same hues): --text-muted #71717a->#83838c
+  (4.09/3.86/3.67 -> 5.26/4.96/4.72 on bg/surface/code), --secondary
+  #8b5cf6->#a27cf8 (4.40 -> 6.01 on surface); form-control and
+  toggle-slider borders move --border -> --text-muted (>=4.7:1);
+  .status-sep uses muted; new prefers-reduced-motion block.
+- Guard: tests/unit/test_website_a11y.py covers labels, names, headings,
+  table semantics, scroll containment, click-handler operability,
+  outline rules and reduced-motion (67 violations on the pre-change
+  tree, 0 after). sha: <pending>
