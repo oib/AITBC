@@ -1064,6 +1064,48 @@ class TestTradeRows:
         assert post["state"] == "settled"
         assert post["eth_tx_hash"] == "0xeth" and post["ait_tx_hash"] == "0xait" and post["fee_tx_hash"] == "0xfee"
 
+    @pytest.mark.asyncio
+    async def test_set_status_mirror_posts_ait_hash_from_field(self, exchange_env):
+        """The leg-1 seal site passes settle_ait_tx_hash as a field — the
+        mirror must post the merged row, not the stale pre-update one (the
+        D2 trade-7 gap)."""
+        cfg = _cfg(exchange_env)
+        tid = _insert_trade(exchange_env, settlement_state="settling")
+        row = _trade_row(tid, status="settling")
+        await esm._set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash="0xait1")
+        post = [p for p in exchange_env["posts"] if p["event"] == "trade_state"][-1]
+        assert post["state"] == "settled"
+        assert post["ait_tx_hash"] == "0xait1"
+
+    @pytest.mark.asyncio
+    async def test_set_status_mirror_posts_fee_hash_from_field(self, exchange_env):
+        """Leg-2 seal passes settle_fee_tx_hash as a field; the merged row
+        also carries the already-persisted leg-1 hash."""
+        cfg = _cfg(exchange_env)
+        tid = _insert_trade(exchange_env, settlement_state="settling")
+        row = _trade_row(tid, status="settling", settle_ait_tx_hash="0xait1")
+        await esm._set_status_and_mirror(cfg, row, "settled", settle_fee_tx_hash="0xfee2")
+        post = [p for p in exchange_env["posts"] if p["event"] == "trade_state"][-1]
+        assert post["state"] == "settled"
+        assert post["ait_tx_hash"] == "0xait1"
+        assert post["fee_tx_hash"] == "0xfee2"
+
+    @pytest.mark.asyncio
+    async def test_set_status_mirror_failure_still_persists(self, exchange_env):
+        """A mirror post that raises is logged, never raised — the ledger
+        transition persists (best-effort mirror)."""
+        cfg = _cfg(exchange_env)
+        tid = _insert_trade(exchange_env, settlement_state="settling")
+        row = _trade_row(tid, status="settling")
+
+        async def _boom(_cfg, _payload):
+            raise ConnectionError("exchange down")
+
+        with patch("wallet_app.bridge.exchange_settlement_monitor._post_event", _boom):
+            await esm._set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash="0xait1")
+        fresh = get_exchange_settlement("trade", tid)
+        assert fresh["status"] == "settled" and fresh["settle_ait_tx_hash"] == "0xait1"
+
 
 # ---------------------------------------------------------------------------
 # Trade driver — status handlers
