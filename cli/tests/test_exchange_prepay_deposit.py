@@ -406,6 +406,28 @@ class TestSend:
         # The broadcast carries the tag inside the signed blob.
         assert b"EXCHANGE_DEPOSIT".hex() in sink.calls[0]
 
+    def test_send_refuses_without_gas_price(self, ctx_fakes, rpc_fn):
+        rpc_fn({**BASE_RPC, "eth_gasPrice": None})
+        result = CliRunner().invoke(
+            deposit,
+            [
+                "--amount-eth",
+                "0.0002",
+                "--wallet",
+                "test",
+                "--send",
+                "--password",
+                "x",
+                "--exchange-url",
+                "http://exchange.test",
+                "--eth-rpc-url",
+                "http://rpc.test",
+            ],
+            obj={},
+        )
+        assert result.exit_code != 0
+        assert "gas price" in result.output
+
     def test_send_refuses_without_verified_chain(self, ctx_fakes, rpc_fn):
         rpc_fn(dict.fromkeys(BASE_RPC))  # all RPCs silently empty
         result = CliRunner().invoke(

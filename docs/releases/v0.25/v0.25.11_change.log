@@ -73,8 +73,11 @@ key workarounds:
 - Refusals: non-Sepolia chain id (must be 11155111), wallet not a
   `registered` node, missing or mismatched registry `eth_address`,
   `--amount-eth` above the per-call cap (default 0.01 ETH, raised only by
-  an explicit `--max-eth`), and amount+gas over the wallet's Sepolia
-  balance. Over-cap refusals name the flag.
+  an explicit `--max-eth`), amount+gas over the wallet's Sepolia balance,
+  and — amended on review — a missing or unparseable `eth_gasPrice`:
+  `--send` refuses rather than signing a zero-price transaction the
+  network would reject, and the balance check can no longer pass on an
+  assumed-zero gas cost. Over-cap refusals name the flag.
 - The generated MCP tool `aitbc_exchange_prepay_deposit` lands in the
   `deposit` destructive class: `dry_run`/`confirm`-gated with
   `destructive_hint`, same as the other send paths.
