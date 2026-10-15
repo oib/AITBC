@@ -23,6 +23,7 @@ from eth_keys.datatypes import PrivateKey
 from eth_utils import keccak
 
 from aitbc.crypto.crypto import sign_transaction_hash
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..config import _resolve_api_key, get_config
 from ..utils import DECIMAL, error, success, warning
@@ -546,7 +547,9 @@ def island(ctx):
 @click.option("--duration", type=int, default=1000, help="Subscription duration in blocks (default 1000)")
 @click.option("--quota", type=int, default=1073741824, help="Quota in bytes (default 1 GiB)")
 @click.option("--amount", type=DECIMAL, required=True, help="Payment amount in AIT")
-@click.option("--fee", type=DECIMAL, default="0.001", help="Transaction fee in AIT")
+@click.option(
+    "--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee in AIT (standard chain fee)"
+)
 @wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
