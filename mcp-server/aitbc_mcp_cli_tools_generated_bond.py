@@ -28,9 +28,9 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_appeal(
     bond_id: Annotated[str, Field(description="Bond ID.")],
-    reason: Annotated[str | None, Field(description="Reason for the appeal")],
-    evidence: Annotated[str | None, Field(description="Evidence URL or CID")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    reason: Annotated[str | None, Field(description="Reason for the appeal")] = None,
+    evidence: Annotated[str | None, Field(description="Evidence URL or CID")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -79,10 +79,10 @@ def aitbc_bond_appeal(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_create(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    amount: Annotated[str | None, Field(description="Amount to lock as a performance bond")],
-    required_amount: Annotated[str | None, Field(description="Required bond amount for this provider")],
-    bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    amount: Annotated[str | None, Field(description="Amount to lock as a performance bond")] = None,
+    required_amount: Annotated[str | None, Field(description="Required bond amount for this provider")] = None,
+    bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -137,7 +137,7 @@ def aitbc_bond_create(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_lock(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -186,7 +186,7 @@ def aitbc_bond_lock(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_release(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -235,8 +235,8 @@ def aitbc_bond_release(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_slash(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    reason: Annotated[str | None, Field(description="Reason for the slash")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    reason: Annotated[str | None, Field(description="Reason for the slash")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -285,7 +285,7 @@ def aitbc_bond_slash(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_bond_status(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -311,9 +311,9 @@ def aitbc_bond_status(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_top_up(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    amount: Annotated[str | None, Field(description="Amount to add to the bond")],
-    bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    amount: Annotated[str | None, Field(description="Amount to add to the bond")] = None,
+    bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

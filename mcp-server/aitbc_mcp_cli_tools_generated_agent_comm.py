@@ -29,7 +29,7 @@ from aitbc_mcp_server import (
 def aitbc_agent_comm_collaborate(
     agent_ids: Annotated[list[str], Field(description="The Agent ids.")],
     collaboration_type: Annotated[str, Field(description="The Collaboration type.")],
-    governance: Annotated[str | None, Field(description="Governance rules (JSON string)")],
+    governance: Annotated[str | None, Field(description="Governance rules (JSON string)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -78,7 +78,7 @@ def aitbc_agent_comm_collaborate(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_comm_discover(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    capabilities: Annotated[str | None, Field(description="Required capabilities (comma-separated)")],
+    capabilities: Annotated[str | None, Field(description="Required capabilities (comma-separated)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -103,9 +103,9 @@ def aitbc_agent_comm_discover(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_comm_list(
-    chain_id: Annotated[str | None, Field(description="Filter by chain ID")],
-    status: Annotated[Literal["active", "inactive", "busy", "offline"] | None, Field(description="Filter by status")],
-    capabilities: Annotated[str | None, Field(description="Filter by capabilities (comma-separated)")],
+    chain_id: Annotated[str | None, Field(description="Filter by chain ID")] = None,
+    status: Annotated[Literal["active", "inactive", "busy", "offline"] | None, Field(description="Filter by status")] = None,
+    capabilities: Annotated[str | None, Field(description="Filter by capabilities (comma-separated)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -130,8 +130,8 @@ def aitbc_agent_comm_list(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_comm_monitor(
-    realtime: Annotated[bool | None, Field(description="Real-time monitoring")],
-    interval: Annotated[int | None, Field(description="Update interval in seconds")],
+    realtime: Annotated[bool | None, Field(description="Real-time monitoring")] = None,
+    interval: Annotated[int | None, Field(description="Update interval in seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -177,13 +177,13 @@ def aitbc_agent_comm_network(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_comm_receive(
     receiver_id: Annotated[str, Field(description="The Receiver id.")],
-    limit: Annotated[int | None, Field(description="Maximum number of messages to return")],
+    limit: Annotated[int | None, Field(description="Maximum number of messages to return")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -235,19 +235,19 @@ def aitbc_agent_comm_register(
     name: Annotated[str, Field(description="Wallet name.")],
     chain_id: Annotated[str, Field(description="The Chain id.")],
     endpoint: Annotated[str, Field(description="The Endpoint.")],
-    capabilities: Annotated[str | None, Field(description="Comma-separated list of capabilities")],
-    reputation: Annotated[float | None, Field(description="Initial reputation score")],
-    version: Annotated[str | None, Field(description="Agent version")],
-    agent_type: Annotated[str | None, Field(description="Agent type (worker, specialist, etc.)")],
+    capabilities: Annotated[str | None, Field(description="Comma-separated list of capabilities")] = None,
+    reputation: Annotated[float | None, Field(description="Initial reputation score")] = None,
+    version: Annotated[str | None, Field(description="Agent version")] = None,
+    agent_type: Annotated[str | None, Field(description="Agent type (worker, specialist, etc.)")] = None,
     wallet_name: Annotated[
         str | None,
         Field(
             description="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); signs the registration claim"
         ),
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -308,7 +308,7 @@ def aitbc_agent_comm_register(
 def aitbc_agent_comm_reputation(
     agent_id: Annotated[str, Field(description="The Agent id.")],
     interaction_result: Annotated[Literal["success", "failure"], Field(description="The Interaction result.")],
-    feedback: Annotated[float | None, Field(description="Feedback score (0.0-1.0)")],
+    feedback: Annotated[float | None, Field(description="Feedback score (0.0-1.0)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -360,19 +360,19 @@ def aitbc_agent_comm_send(
     receiver_id: Annotated[str, Field(description="The Receiver id.")],
     message_type: Annotated[str, Field(description="The Message type.")],
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    payload: Annotated[str | None, Field(description="JSON payload string")],
-    target_chain: Annotated[str | None, Field(description="Target chain for cross-chain messages")],
-    priority: Annotated[int | None, Field(description="Message priority (1-10)")],
-    ttl: Annotated[int | None, Field(description="Time to live in seconds")],
+    payload: Annotated[str | None, Field(description="JSON payload string")] = None,
+    target_chain: Annotated[str | None, Field(description="Target chain for cross-chain messages")] = None,
+    priority: Annotated[int | None, Field(description="Message priority (1-10)")] = None,
+    ttl: Annotated[int | None, Field(description="Time to live in seconds")] = None,
     wallet_name: Annotated[
         str | None,
         Field(
             description="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity"
         ),
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

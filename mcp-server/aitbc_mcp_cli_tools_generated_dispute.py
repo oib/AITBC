@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_dispute_active(
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -76,11 +76,11 @@ def aitbc_dispute_active(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_dispute_arbitrator_authorize(
     arbitrator_address: Annotated[str, Field(description="Positional argument: arbitrator_address")],
-    revoke: Annotated[bool | None, Field(description="Revoke authorization instead of granting it.")],
+    revoke: Annotated[bool | None, Field(description="Revoke authorization instead of granting it.")] = None,
     owner_signature: Annotated[
         str | None, Field(description="Owner signature authorising the change; required by nodes that enforce it.")
-    ],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    ] = None,
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -128,7 +128,7 @@ def aitbc_dispute_arbitrator_authorize(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_dispute_arbitrator_list(
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -154,7 +154,7 @@ def aitbc_dispute_arbitrator_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_dispute_arbitrator_queue(
     arbitrator_address: Annotated[str, Field(description="Positional argument: arbitrator_address")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -202,8 +202,8 @@ def aitbc_dispute_arbitrator_queue(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_dispute_auto_adjudicate(
-    assume_yes: Annotated[bool | None, Field(description="Skip the confirmation prompt.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    assume_yes: Annotated[bool | None, Field(description="Skip the confirmation prompt.")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -255,7 +255,7 @@ def aitbc_dispute_evidence_add(
     evidence_hash: Annotated[str, Field(description="Content hash of the evidence.")],
     evidence_type: Annotated[str, Field(description="Evidence category, e.g. transcript or receipt.")],
     description: Annotated[str, Field(description="What the evidence shows.")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -310,7 +310,7 @@ def aitbc_dispute_evidence_add(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_dispute_evidence_list(
     dispute_id: Annotated[str, Field(description="Positional argument: dispute_id")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -337,8 +337,8 @@ def aitbc_dispute_evidence_list(
 def aitbc_dispute_evidence_verify(
     dispute_id: Annotated[int, Field(description="Dispute the evidence belongs to.")],
     evidence_id: Annotated[int, Field(description="Evidence entry to rule on.")],
-    reject: Annotated[bool | None, Field(description="Mark the evidence as not verified instead of verified.")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    reject: Annotated[bool | None, Field(description="Mark the evidence as not verified instead of verified.")] = None,
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -391,7 +391,7 @@ def aitbc_dispute_file(
     dispute_type: Annotated[str, Field(description="Dispute category, e.g. non_delivery or quality.")],
     reason: Annotated[str, Field(description="Why the dispute is being filed.")],
     evidence_hash: Annotated[str, Field(description="Hash of the supporting evidence.")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -424,7 +424,7 @@ def aitbc_dispute_file(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_dispute_get(
     dispute_id: Annotated[str, Field(description="Positional argument: dispute_id")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -455,8 +455,8 @@ def aitbc_dispute_resolve(
         Field(description="Whether the escrow returns to the buyer (refund) or pays the provider (release)."),
     ],
     reason: Annotated[str, Field(description="The ruling, recorded on the settlement (1-500 characters).")],
-    assume_yes: Annotated[bool | None, Field(description="Skip the confirmation prompt.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    assume_yes: Annotated[bool | None, Field(description="Skip the confirmation prompt.")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -505,7 +505,7 @@ def aitbc_dispute_resolve(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_dispute_user(
     user_address: Annotated[str, Field(description="Positional argument: user_address")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -556,7 +556,7 @@ def aitbc_dispute_vote(
     dispute_id: Annotated[int, Field(description="Dispute being voted on.")],
     vote: Annotated[Literal["plaintiff", "defendant"], Field(description="Which side the vote favours.")],
     reasoning: Annotated[str, Field(description="Why the arbitrator ruled this way; recorded with the vote.")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -605,7 +605,7 @@ def aitbc_dispute_vote(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_dispute_votes(
     dispute_id: Annotated[str, Field(description="Positional argument: dispute_id")],
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

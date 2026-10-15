@@ -28,8 +28,8 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_plugin_create(
     name: Annotated[str, Field(description="Plugin name")],
-    plugin_type: Annotated[str | None, Field(description="Plugin type (metadata only)")],
-    output_dir: Annotated[str | None, Field(description="Output directory")],
+    plugin_type: Annotated[str | None, Field(description="Plugin type (metadata only)")] = None,
+    output_dir: Annotated[str | None, Field(description="Output directory")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -77,7 +77,7 @@ def aitbc_plugin_create(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_plugin_list(
-    plugins_dir: Annotated[str | None, Field(description="Directory containing .py brand plugins")],
+    plugins_dir: Annotated[str | None, Field(description="Directory containing .py brand plugins")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -103,7 +103,7 @@ def aitbc_plugin_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_plugin_load(
     name: Annotated[str, Field(description="Wallet name.")],
-    plugins_dir: Annotated[str | None, Field(description="Directory containing .py brand plugins")],
+    plugins_dir: Annotated[str | None, Field(description="Directory containing .py brand plugins")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

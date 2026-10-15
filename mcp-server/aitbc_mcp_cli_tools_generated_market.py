@@ -28,7 +28,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_cancel(
     job_id: Annotated[str, Field(description="Market job ID to cancel")],
-    reason: Annotated[str | None, Field(description="Reason for cancellation")],
+    reason: Annotated[str | None, Field(description="Reason for cancellation")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -76,12 +76,12 @@ def aitbc_market_cancel(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_download(
-    rental_id: Annotated[str | None, Field(description="Market job ID for a paid rental")],
-    access_key: Annotated[str | None, Field(description="Rental access key")],
-    access_secret: Annotated[str | None, Field(description="Rental access secret")],
-    cid: Annotated[str | None, Field(description="Free CID retrieval (bypasses access token)")],
-    output_path: Annotated[str | None, Field(description="Write retrieved content to this path")],
-    wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")],
+    rental_id: Annotated[str | None, Field(description="Market job ID for a paid rental")] = None,
+    access_key: Annotated[str | None, Field(description="Rental access key")] = None,
+    access_secret: Annotated[str | None, Field(description="Rental access secret")] = None,
+    cid: Annotated[str | None, Field(description="Free CID retrieval (bypasses access token)")] = None,
+    output_path: Annotated[str | None, Field(description="Write retrieved content to this path")] = None,
+    wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -138,11 +138,11 @@ def aitbc_market_escrow_create(
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
     buyer: Annotated[str, Field(description="The Buyer.")],
     provider: Annotated[str, Field(description="The Provider.")],
-    amount: Annotated[str | None, Field(description="Amount of AIT.")],
-    wallet_name: Annotated[str | None, Field(description="Wallet name to sign the escrow lock")],
+    amount: Annotated[str | None, Field(description="Amount of AIT.")] = None,
+    wallet_name: Annotated[str | None, Field(description="Wallet name to sign the escrow lock")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -198,7 +198,7 @@ def aitbc_market_escrow_create(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_escrow_refund(
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
-    reason: Annotated[str | None, Field(description="Reason for refund")],
+    reason: Annotated[str | None, Field(description="Reason for refund")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -345,11 +345,11 @@ def aitbc_market_exchange_deposit_eth(
     amount: Annotated[str, Field(description="Amount of AIT.")],
     ait_address: Annotated[
         str | None, Field(description="AIT address that will receive minted AIT (defaults to the sending wallet address)")
-    ],
+    ] = None,
     bridge_address: Annotated[
         str | None, Field(description="Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var)")
-    ],
-    gas_limit: Annotated[int | None, Field(description="Gas limit for the deposit transaction")],
+    ] = None,
+    gas_limit: Annotated[int | None, Field(description="Gas limit for the deposit transaction")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -397,8 +397,8 @@ def aitbc_market_exchange_deposit_eth(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_exchange_list_deposits(
-    status: Annotated[str | None, Field(description="Filter by status (pending, verified, completed, rejected)")],
-    limit: Annotated[int | None, Field(description="Maximum number of results")],
+    status: Annotated[str | None, Field(description="Filter by status (pending, verified, completed, rejected)")] = None,
+    limit: Annotated[int | None, Field(description="Maximum number of results")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -612,16 +612,16 @@ def aitbc_market_gpu_buy(
     ],
     job_id: Annotated[str, Field(description="Job ID from the quote response")],
     duration_hours: Annotated[float, Field(description="Rental duration in hours")],
-    settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")],
-    wallet: Annotated[str | None, Field(description="Wallet name for signing")],
-    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
+    settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name for signing")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    energy_quote: Annotated[str | None, Field(description="JSON file containing the energy quote")],
-    max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")],
-    yes: Annotated[bool | None, Field(description="Skip confirmation prompt")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    ] = None,
+    energy_quote: Annotated[str | None, Field(description="JSON file containing the energy quote")] = None,
+    max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")] = None,
+    yes: Annotated[bool | None, Field(description="Skip confirmation prompt")] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -682,11 +682,11 @@ def aitbc_market_gpu_buy(
 def aitbc_market_gpu_quote(
     gpu_id: Annotated[str, Field(description="GPU registry ID")],
     buyer_id: Annotated[str, Field(description="Buyer client ID (native rail: the funding wallet address 0x...)")],
-    duration_hours: Annotated[float | None, Field(description="Rental duration in hours")],
-    gpu_count: Annotated[int | None, Field(description="Number of GPUs")],
-    max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")],
-    settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    duration_hours: Annotated[float | None, Field(description="Rental duration in hours")] = None,
+    gpu_count: Annotated[int | None, Field(description="Number of GPUs")] = None,
+    max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")] = None,
+    settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -742,14 +742,14 @@ def aitbc_market_gpu_quote(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_gpu_refund(
     job_id: Annotated[str, Field(description="Job ID")],
-    wallet: Annotated[str | None, Field(description="Wallet name for signing")],
-    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
+    wallet: Annotated[str | None, Field(description="Wallet name for signing")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    reason: Annotated[str | None, Field(description="Refund reason")],
-    yes: Annotated[bool | None, Field(description="Skip confirmation prompt")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    ] = None,
+    reason: Annotated[str | None, Field(description="Refund reason")] = None,
+    yes: Annotated[bool | None, Field(description="Skip confirmation prompt")] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -804,8 +804,8 @@ def aitbc_market_gpu_refund(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_gpu_release(
     job_id: Annotated[str, Field(description="Job ID")],
-    yes: Annotated[bool | None, Field(description="Skip confirmation prompt")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    yes: Annotated[bool | None, Field(description="Skip confirmation prompt")] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -854,7 +854,7 @@ def aitbc_market_gpu_release(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_gpu_status(
     job_id: Annotated[str, Field(description="Job ID")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -904,9 +904,11 @@ def aitbc_market_gpu_status(
 def aitbc_market_hermes(
     offer_id_or_plugin_id: Annotated[str, Field(description="The Offer id or plugin id.")],
     prompt: Annotated[str, Field(description="The prompt to send to Hermes Agent.")],
-    max_time: Annotated[int | None, Field(description="Maximum wall-clock execution time in seconds (default 300).")],
-    track: Annotated[bool | None, Field(description="Create a coordinator job record after a successful run")],
-    proposer_id: Annotated[str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")],
+    max_time: Annotated[int | None, Field(description="Maximum wall-clock execution time in seconds (default 300).")] = None,
+    track: Annotated[bool | None, Field(description="Create a coordinator job record after a successful run")] = None,
+    proposer_id: Annotated[
+        str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -961,9 +963,9 @@ def aitbc_market_hermes(
 def aitbc_market_host(
     offer_id_or_plugin_id: Annotated[str, Field(description="The Offer id or plugin id.")],
     cid_or_file: Annotated[str, Field(description="The Cid or local file path.")],
-    days: Annotated[int | None, Field(description="Rental duration in days")],
-    pin: Annotated[bool | None, Field(description="Pin the CID after paying the rental")],
-    proposer_id: Annotated[str | None, Field(description="Override hub proposer address for escrow")],
+    days: Annotated[int | None, Field(description="Rental duration in days")] = None,
+    pin: Annotated[bool | None, Field(description="Pin the CID after paying the rental")] = None,
+    proposer_id: Annotated[str | None, Field(description="Override hub proposer address for escrow")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1016,11 +1018,11 @@ def aitbc_market_host(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_jobs(
-    service_type: Annotated[str | None, Field(description="Filter by service type (e.g. ipfs)")],
-    state: Annotated[str | None, Field(description="Filter by job state")],
-    buyer_address: Annotated[str | None, Field(description="Filter by buyer address")],
-    offer_id: Annotated[str | None, Field(description="Filter by offer ID")],
-    limit: Annotated[int | None, Field(description="Maximum jobs to return")],
+    service_type: Annotated[str | None, Field(description="Filter by service type (e.g. ipfs)")] = None,
+    state: Annotated[str | None, Field(description="Filter by job state")] = None,
+    buyer_address: Annotated[str | None, Field(description="Filter by buyer address")] = None,
+    offer_id: Annotated[str | None, Field(description="Filter by offer ID")] = None,
+    limit: Annotated[int | None, Field(description="Maximum jobs to return")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1051,16 +1053,16 @@ def aitbc_market_jobs(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_list(
-    provider: Annotated[str | None, Field(description="Filter by provider address")],
-    status: Annotated[str | None, Field(description="Filter by status (active, inactive)")],
-    service_type: Annotated[str | None, Field(description="Filter by service type (ollama, whisper, ffmpeg)")],
+    provider: Annotated[str | None, Field(description="Filter by provider address")] = None,
+    status: Annotated[str | None, Field(description="Filter by status (active, inactive)")] = None,
+    service_type: Annotated[str | None, Field(description="Filter by service type (ollama, whisper, ffmpeg)")] = None,
     sort: Annotated[
         Literal["reputation", "price", "availability", "default"] | None,
         Field(
             description="Sort order: reputation (rating desc, then price), price (asc), availability (active first, capacity), default (reputation, price, availability)"
         ),
-    ],
-    mine: Annotated[bool | None, Field(description="Show only offers published by the local wallet/node")],
+    ] = None,
+    mine: Annotated[bool | None, Field(description="Show only offers published by the local wallet/node")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1111,15 +1113,15 @@ def aitbc_market_offer(
     unit: Annotated[
         Literal["per_1k_tokens", "per_audio_min", "per_gb", "per_processing_hour", "per_minute", "per_day"] | None,
         Field(description="Pricing unit"),
-    ],
-    description: Annotated[str | None, Field(description="Description of the service")],
-    context_window: Annotated[int | None, Field(description="Context window size (ollama)")],
-    gpu_name: Annotated[str | None, Field(description="GPU name from nvidia-smi (auto-detected if omitted)")],
-    gpu_device: Annotated[str | None, Field(description="GPU device ID (0, 1, 2, etc.) for multi-GPU servers")],
-    gpu_offer_id: Annotated[str | None, Field(description="GPU market offer ID for cross-reference")],
+    ] = None,
+    description: Annotated[str | None, Field(description="Description of the service")] = None,
+    context_window: Annotated[int | None, Field(description="Context window size (ollama)")] = None,
+    gpu_name: Annotated[str | None, Field(description="GPU name from nvidia-smi (auto-detected if omitted)")] = None,
+    gpu_device: Annotated[str | None, Field(description="GPU device ID (0, 1, 2, etc.) for multi-GPU servers")] = None,
+    gpu_offer_id: Annotated[str | None, Field(description="GPU market offer ID for cross-reference")] = None,
     disk_quota_mb: Annotated[
         int | None, Field(description="Per-customer disk quota in MB (default 100 for IPFS, unset for GPU services)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1279,8 +1281,8 @@ def aitbc_market_offer_disable(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_offer_list(
-    service_type: Annotated[str | None, Field(description="Filter by service type")],
-    status: Annotated[str | None, Field(description="Filter by status (active/inactive)")],
+    service_type: Annotated[str | None, Field(description="Filter by service type")] = None,
+    status: Annotated[str | None, Field(description="Filter by status (active/inactive)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1330,10 +1332,10 @@ def aitbc_market_offer_list(
 def aitbc_market_process(
     offer_id_or_plugin_id: Annotated[str, Field(description="The Offer id or plugin id.")],
     input_file: Annotated[str, Field(description="The Input file.")],
-    output_container: Annotated[str | None, Field(description="Output container format (e.g. mp4, webm)")],
-    codec: Annotated[str | None, Field(description="Target codec (e.g. h264, vp9, av1)")],
-    resolution: Annotated[str | None, Field(description="Target resolution (e.g. 1080p, 720p, 480p)")],
-    bitrate: Annotated[str | None, Field(description="Target bitrate (e.g. 5M, 10M)")],
+    output_container: Annotated[str | None, Field(description="Output container format (e.g. mp4, webm)")] = None,
+    codec: Annotated[str | None, Field(description="Target codec (e.g. h264, vp9, av1)")] = None,
+    resolution: Annotated[str | None, Field(description="Target resolution (e.g. 1080p, 720p, 480p)")] = None,
+    bitrate: Annotated[str | None, Field(description="Target bitrate (e.g. 5M, 10M)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1410,9 +1412,9 @@ def aitbc_market_providers(
 def aitbc_market_rate(
     service_id: Annotated[str, Field(description="The Service id.")],
     rating: Annotated[float, Field(description="The Rating.")],
-    comment: Annotated[str | None, Field(description="Optional comment/review text")],
-    reviewer_id: Annotated[str | None, Field(description="Reviewer ID (defaults to wallet address)")],
-    market_url: Annotated[str | None, Field(description="Override the market service URL")],
+    comment: Annotated[str | None, Field(description="Optional comment/review text")] = None,
+    reviewer_id: Annotated[str | None, Field(description="Reviewer ID (defaults to wallet address)")] = None,
+    market_url: Annotated[str | None, Field(description="Override the market service URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1467,9 +1469,9 @@ def aitbc_market_rate(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_ratings(
     service_id: Annotated[str, Field(description="The Service id.")],
-    limit: Annotated[int | None, Field(description="Number of ratings to return")],
-    offset: Annotated[int | None, Field(description="Offset for pagination")],
-    market_url: Annotated[str | None, Field(description="Override the market service URL")],
+    limit: Annotated[int | None, Field(description="Number of ratings to return")] = None,
+    offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
+    market_url: Annotated[str | None, Field(description="Override the market service URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1496,20 +1498,22 @@ def aitbc_market_ratings(
 def aitbc_market_run(
     offer_id_or_plugin_id: Annotated[str, Field(description="The Offer id or plugin id.")],
     prompt: Annotated[str, Field(description="The Prompt.")],
-    max_tokens: Annotated[int | None, Field(description="Max tokens to generate (Ollama)")],
-    stream: Annotated[bool | None, Field(description="Stream the response (Ollama)")],
-    language: Annotated[str | None, Field(description="Language code for Whisper (e.g. en, de)")],
-    task: Annotated[Literal["transcribe", "translate"] | None, Field(description="Whisper task")],
-    fmt: Annotated[Literal["text", "srt", "json"] | None, Field(description="Whisper output format")],
-    media_format: Annotated[str | None, Field(description="FFmpeg output container (e.g. mp4, webm)")],
-    codec: Annotated[str | None, Field(description="FFmpeg target codec (e.g. h264, vp9)")],
-    resolution: Annotated[str | None, Field(description="FFmpeg target resolution (e.g. 1080p, 720p)")],
-    bitrate: Annotated[str | None, Field(description="FFmpeg target bitrate (e.g. 5M, 10M)")],
-    max_time: Annotated[int | None, Field(description="Maximum wall-clock execution time in seconds for Hermes jobs")],
-    days: Annotated[int | None, Field(description="Rental duration in days for IPFS hosting")],
-    pin: Annotated[bool | None, Field(description="Pin the CID for IPFS hosting (default: pin)")],
-    track: Annotated[bool | None, Field(description="Create a coordinator job record after a successful run")],
-    proposer_id: Annotated[str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")],
+    max_tokens: Annotated[int | None, Field(description="Max tokens to generate (Ollama)")] = None,
+    stream: Annotated[bool | None, Field(description="Stream the response (Ollama)")] = None,
+    language: Annotated[str | None, Field(description="Language code for Whisper (e.g. en, de)")] = None,
+    task: Annotated[Literal["transcribe", "translate"] | None, Field(description="Whisper task")] = None,
+    fmt: Annotated[Literal["text", "srt", "json"] | None, Field(description="Whisper output format")] = None,
+    media_format: Annotated[str | None, Field(description="FFmpeg output container (e.g. mp4, webm)")] = None,
+    codec: Annotated[str | None, Field(description="FFmpeg target codec (e.g. h264, vp9)")] = None,
+    resolution: Annotated[str | None, Field(description="FFmpeg target resolution (e.g. 1080p, 720p)")] = None,
+    bitrate: Annotated[str | None, Field(description="FFmpeg target bitrate (e.g. 5M, 10M)")] = None,
+    max_time: Annotated[int | None, Field(description="Maximum wall-clock execution time in seconds for Hermes jobs")] = None,
+    days: Annotated[int | None, Field(description="Rental duration in days for IPFS hosting")] = None,
+    pin: Annotated[bool | None, Field(description="Pin the CID for IPFS hosting (default: pin)")] = None,
+    track: Annotated[bool | None, Field(description="Create a coordinator job record after a successful run")] = None,
+    proposer_id: Annotated[
+        str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1597,7 +1601,7 @@ def aitbc_market_status(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_sync_ratings(
     remote_url: Annotated[str, Field(description="Remote market service URL (default: $AITBC_MARKET_URL)")],
-    limit: Annotated[int | None, Field(description="Number of ratings to sync")],
+    limit: Annotated[int | None, Field(description="Number of ratings to sync")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1647,9 +1651,9 @@ def aitbc_market_sync_ratings(
 def aitbc_market_transcribe(
     offer_id_or_plugin_id: Annotated[str, Field(description="The Offer id or plugin id.")],
     audio_file: Annotated[str, Field(description="The Audio file.")],
-    language: Annotated[str | None, Field(description="Language code (e.g. en, de, fr). Auto-detect if omitted.")],
-    task: Annotated[Literal["transcribe", "translate"] | None, Field(description="transcribe or translate to English")],
-    fmt: Annotated[Literal["text", "srt", "json"] | None, Field(description="Output format")],
+    language: Annotated[str | None, Field(description="Language code (e.g. en, de, fr). Auto-detect if omitted.")] = None,
+    task: Annotated[Literal["transcribe", "translate"] | None, Field(description="transcribe or translate to English")] = None,
+    fmt: Annotated[Literal["text", "srt", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

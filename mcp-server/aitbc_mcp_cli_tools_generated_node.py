@@ -29,9 +29,9 @@ from aitbc_mcp_server import (
 def aitbc_node_add(
     node_id: Annotated[str, Field(description="The Node id.")],
     endpoint: Annotated[str, Field(description="The Endpoint.")],
-    timeout_opt: Annotated[int | None, Field(description="Request timeout in seconds")],
-    max_connections: Annotated[int | None, Field(description="Maximum concurrent connections")],
-    retry_count: Annotated[int | None, Field(description="Number of retry attempts")],
+    timeout_opt: Annotated[int | None, Field(description="Request timeout in seconds")] = None,
+    max_connections: Annotated[int | None, Field(description="Maximum concurrent connections")] = None,
+    retry_count: Annotated[int | None, Field(description="Number of retry attempts")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -178,7 +178,7 @@ def aitbc_node_bridge_list_bridges(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_bridge_reject(
     request_id: Annotated[str, Field(description="The Request id.")],
-    reason: Annotated[str | None, Field(description="Rejection reason")],
+    reason: Annotated[str | None, Field(description="Rejection reason")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -318,7 +318,7 @@ def aitbc_node_chain_list_chains(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_chain_start(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    chain_type: Annotated[Literal["bilateral", "micro"] | None, Field(description="Chain type")],
+    chain_type: Annotated[Literal["bilateral", "micro"] | None, Field(description="Chain type")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -414,8 +414,8 @@ def aitbc_node_chain_stop(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_chains(
-    show_private: Annotated[bool | None, Field(description="Show private chains")],
-    node_id: Annotated[str | None, Field(description="Specific node ID to query")],
+    show_private: Annotated[bool | None, Field(description="Show private chains")] = None,
+    node_id: Annotated[str | None, Field(description="Specific node ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -463,7 +463,7 @@ def aitbc_node_chains(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_hub_list_hubs(
-    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")],
+    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -511,10 +511,10 @@ def aitbc_node_hub_list_hubs(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_hub_register(
-    public_address: Annotated[str | None, Field(description="Public IP address")],
-    public_port: Annotated[int | None, Field(description="Public port")],
-    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")],
-    hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")],
+    public_address: Annotated[str | None, Field(description="Public IP address")] = None,
+    public_port: Annotated[int | None, Field(description="Public port")] = None,
+    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")] = None,
+    hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -567,8 +567,8 @@ def aitbc_node_hub_register(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_hub_unregister(
-    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")],
-    hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")],
+    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")] = None,
+    hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -641,9 +641,9 @@ def aitbc_node_info(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_island_create(
-    island_id: Annotated[str | None, Field(description="Island ID (UUID), generates new if not provided")],
-    island_name: Annotated[str | None, Field(description="Human-readable island name")],
-    chain_id: Annotated[str | None, Field(description="Chain ID for this island")],
+    island_id: Annotated[str | None, Field(description="Island ID (UUID), generates new if not provided")] = None,
+    island_name: Annotated[str | None, Field(description="Human-readable island name")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID for this island")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -691,8 +691,8 @@ def aitbc_node_island_create(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_node_island_health(
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
-    show_all: Annotated[bool | None, Field(description="Show all islands including default")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
+    show_all: Annotated[bool | None, Field(description="Show all islands including default")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -718,7 +718,7 @@ def aitbc_node_island_health(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_island_island_info(
     island_id: Annotated[str, Field(description="The Island id.")],
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -769,11 +769,11 @@ def aitbc_node_island_join(
     island_id: Annotated[str, Field(description="The Island id.")],
     island_name: Annotated[str, Field(description="The Island name.")],
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    hub: Annotated[str | None, Field(description="Hub domain name to connect to")],
-    is_hub: Annotated[bool | None, Field(description="Register this node as a hub for the island")],
+    hub: Annotated[str | None, Field(description="Hub domain name to connect to")] = None,
+    is_hub: Annotated[bool | None, Field(description="Register this node as a hub for the island")] = None,
     rpc_url: Annotated[
         str | None, Field(description="RPC base URL for the join request (defaults to config.blockchain_rpc_url)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -875,7 +875,7 @@ def aitbc_node_island_leave(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_node_island_list(
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -900,7 +900,7 @@ def aitbc_node_island_list(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_island_list_islands(
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1017,7 +1017,7 @@ def aitbc_node_node_info(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_remove(
     node_id: Annotated[str, Field(description="The Node id.")],
-    force: Annotated[bool | None, Field(description="Force removal without confirmation")],
+    force: Annotated[bool | None, Field(description="Force removal without confirmation")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

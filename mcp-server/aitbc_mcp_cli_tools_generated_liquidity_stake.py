@@ -27,12 +27,12 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_liquidity_stake(
     amount: Annotated[str, Field(description="Amount of AIT.")],
-    wallet_name: Annotated[str | None, Field(description="Name of the wallet to stake from")],
-    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")],
-    pool: Annotated[str | None, Field(description="Liquidity pool name")],
-    lock_days: Annotated[int | None, Field(description="Lock period in days (higher APY)")],
-    fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to stake from")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")] = None,
+    pool: Annotated[str | None, Field(description="Liquidity pool name")] = None,
+    lock_days: Annotated[int | None, Field(description="Lock period in days (higher APY)")] = None,
+    fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

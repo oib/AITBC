@@ -26,10 +26,10 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_sync_bulk(
-    source: Annotated[str | None, Field(description="Source RPC URL (leader node)")],
-    import_url: Annotated[str | None, Field(description="Local RPC URL for import")],
-    batch_size: Annotated[int | None, Field(description="Blocks per batch (default: 100)")],
-    poll_interval: Annotated[float | None, Field(description="Seconds between batches (default: 0.2)")],
+    source: Annotated[str | None, Field(description="Source RPC URL (leader node)")] = None,
+    import_url: Annotated[str | None, Field(description="Local RPC URL for import")] = None,
+    batch_size: Annotated[int | None, Field(description="Blocks per batch (default: 100)")] = None,
+    poll_interval: Annotated[float | None, Field(description="Seconds between batches (default: 0.2)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -77,11 +77,13 @@ def aitbc_sync_bulk(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_sync_status(
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to check (defaults to node's configured chain)")],
-    hub_url: Annotated[str | None, Field(description="Hub RPC URL to compare against (defaults to HUB_RPC_URL or node-url)")],
-    gap_threshold: Annotated[int | None, Field(description="Height gap considered a divergence (default: 5)")],
-    alert: Annotated[bool | None, Field(description="Exit non-zero on divergence or unreachable hub")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to check (defaults to node's configured chain)")] = None,
+    hub_url: Annotated[
+        str | None, Field(description="Hub RPC URL to compare against (defaults to HUB_RPC_URL or node-url)")
+    ] = None,
+    gap_threshold: Annotated[int | None, Field(description="Height gap considered a divergence (default: 5)")] = None,
+    alert: Annotated[bool | None, Field(description="Exit non-zero on divergence or unreachable hub")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

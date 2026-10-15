@@ -27,8 +27,8 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_mining_list(
-    wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -54,8 +54,8 @@ def aitbc_mining_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_mining_start(
     wallet_name: Annotated[str, Field(description="The Wallet name.")],
-    threads: Annotated[int | None, Field(description="Number of mining threads")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    threads: Annotated[int | None, Field(description="Number of mining threads")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -103,8 +103,8 @@ def aitbc_mining_start(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_mining_status(
-    wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -129,8 +129,8 @@ def aitbc_mining_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_mining_stop(
-    wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

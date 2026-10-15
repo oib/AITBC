@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_zk_circuits(
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -75,7 +75,7 @@ def aitbc_zk_circuits(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_zk_health(
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -100,11 +100,11 @@ def aitbc_zk_health(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_zk_verify(
-    job_id: Annotated[str | None, Field(description="Job ID whose receipt proof should be re-verified")],
-    proof: Annotated[str | None, Field(description="Proof JSON, @file, or base64 string")],
-    public_signals: Annotated[str | None, Field(description="Public signals JSON, @file, or base64 string")],
-    circuit: Annotated[str | None, Field(description="Circuit name to verify against")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    job_id: Annotated[str | None, Field(description="Job ID whose receipt proof should be re-verified")] = None,
+    proof: Annotated[str | None, Field(description="Proof JSON, @file, or base64 string")] = None,
+    public_signals: Annotated[str | None, Field(description="Public signals JSON, @file, or base64 string")] = None,
+    circuit: Annotated[str | None, Field(description="Circuit name to verify against")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
