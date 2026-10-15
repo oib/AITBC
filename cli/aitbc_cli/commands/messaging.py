@@ -14,6 +14,8 @@ read-side filter. Agent-to-agent realtime messaging stays with
 import json
 import time
 from decimal import Decimal
+from pathlib import Path
+from typing import cast
 
 import click
 
@@ -23,7 +25,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from ..utils import DECIMAL, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
-from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_paths import find_wallet_file_report, wallet_not_found_message
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from .transactions import _resolve_transaction_rpc_url, _send_transaction_impl
 
@@ -44,9 +46,10 @@ def _rpc_client(rpc_url: str) -> AITBCHTTPClient:
 
 def _wallet_address(ctx, wallet_name: str) -> str:
     """Sender address from wallet file metadata — no password needed."""
-    path = wallet_dir() / f"{wallet_name}.json"
-    if not path.exists():
-        abort(ctx, f"Wallet '{wallet_name}' not found at {path}")
+    report = find_wallet_file_report(wallet_name)
+    if report.path is None:
+        abort(ctx, wallet_not_found_message(report))
+    path = cast(Path, report.path)
     try:
         address = json.loads(path.read_text()).get("address")
     except Exception as e:

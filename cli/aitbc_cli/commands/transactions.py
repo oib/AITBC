@@ -18,11 +18,17 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT, DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
-from ..utils import DECIMAL, error, success
+from ..utils import DECIMAL, error, info, success, warning
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_paths import (
+    WalletSearchResult,
+    ambiguous_wallet_note,
+    find_wallet_file_report,
+    service_dir_wallet_note,
+    wallet_not_found_message,
+)
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 
 logger = get_logger(__name__)
@@ -139,7 +145,6 @@ def _send_transaction_impl(
     nonce_offset: int = 0,
 ) -> str | None:
     """Send a secp256k1-signed transaction from one wallet to another."""
-    keystore_dir = keystore_dir or wallet_dir()
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
 
     # Validate recipient address
@@ -164,10 +169,28 @@ def _send_transaction_impl(
         error("Amount must be positive")
         return None
 
-    # Get sender wallet info
-    sender_keystore = keystore_dir / f"{from_wallet}.json"
-    if not sender_keystore.exists():
-        error(f"Wallet '{from_wallet}' not found")
+    # Get sender wallet info. An explicit keystore_dir wins outright; otherwise
+    # the shared search order applies (configured wallet dir, then the service
+    # wallet dir — a wallet that only exists under /var/lib/aitbc/wallets is
+    # still found by name).
+    report: WalletSearchResult | None = None
+    sender_keystore: Path | None
+    if keystore_dir is not None:
+        sender_keystore = keystore_dir / f"{from_wallet}.json"
+    else:
+        report = find_wallet_file_report(from_wallet)
+        sender_keystore = report.path
+        note = ambiguous_wallet_note(report)
+        if note:
+            warning(note)
+        service_note = service_dir_wallet_note(report)
+        if service_note:
+            info(service_note)
+    if sender_keystore is None or not sender_keystore.exists():
+        if report is not None:
+            error(wallet_not_found_message(report))
+        else:
+            error(f"Wallet '{from_wallet}' not found at {sender_keystore}")
         return None
 
     with open(sender_keystore) as f:
@@ -301,7 +324,6 @@ def send(
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
-        wallet_path=wallet_dir() / f"{from_wallet}.json",
     )
 
     if not rpc_url:
@@ -441,7 +463,6 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
-        wallet_path=wallet_dir() / f"{first_wallet}.json" if first_wallet else None,
     )
 
     if not rpc_url:

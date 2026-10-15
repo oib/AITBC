@@ -22,7 +22,7 @@ import httpx
 
 from aitbc.bridge import BridgeClient, BridgeConfig
 
-from ..utils import output
+from ..utils import info, output
 from ..utils.error_handling import abort
 
 
@@ -153,11 +153,13 @@ def bridge():
 
 def _load_private_key(wallet_name: str, password: str = "") -> str:
     """Load a wallet's private key (plaintext or encrypted)."""
-    from ..utils.wallet_paths import find_wallet_file
+    from ..utils.wallet_paths import find_wallet_file, is_service_wallet_path
 
     wallet_path = find_wallet_file(wallet_name)
     if wallet_path is None:
         raise click.ClickException(f"Wallet not found: {wallet_name}")
+    if is_service_wallet_path(wallet_path):
+        info(f"Using wallet file: {wallet_path}")
     with open(wallet_path) as f:
         wallet = json.load(f)
     private_key = wallet.get("private_key")

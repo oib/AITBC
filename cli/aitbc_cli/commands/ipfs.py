@@ -26,11 +26,16 @@ from aitbc.crypto.crypto import sign_transaction_hash
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..config import _resolve_api_key, get_config
-from ..utils import DECIMAL, error, success, warning
+from ..utils import DECIMAL, error, info, success, warning
 from ..utils.chain_id import get_chain_id
 from ..utils.http_client import AITBCHTTPClient, get_logger
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_paths import (
+    ambiguous_wallet_note,
+    find_wallet_file_report,
+    service_dir_wallet_note,
+    wallet_not_found_message,
+)
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from .transactions import _send_transaction_impl
 
@@ -488,9 +493,16 @@ if __name__ == "__main__":
 
 def _load_wallet_key(wallet_name: str, password: str) -> tuple[str, PrivateKey]:
     """Load a file wallet and return (address, private_key)."""
-    keystore = wallet_dir() / f"{wallet_name}.json"
-    if not keystore.exists():
-        raise click.BadParameter(f"Wallet '{wallet_name}' not found at {keystore}")
+    report = find_wallet_file_report(wallet_name)
+    keystore = report.path
+    if keystore is None:
+        raise click.BadParameter(wallet_not_found_message(report))
+    note = ambiguous_wallet_note(report)
+    if note:
+        warning(note)
+    service_note = service_dir_wallet_note(report)
+    if service_note:
+        info(service_note)
 
     data = json.loads(keystore.read_text())
     address = data.get("address")
@@ -579,7 +591,6 @@ def subscribe(
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
-        wallet_path=wallet_dir() / f"{wallet_name}.json",
     )
     resolved_rpc_url = _default_rpc_url(rpc_url)
     payload = {
@@ -655,7 +666,6 @@ def swarm_key(
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
-        wallet_path=wallet_dir() / f"{wallet_name}.json",
     )
     member_address, private_key = _load_wallet_key(wallet_name, resolved_password)
 
