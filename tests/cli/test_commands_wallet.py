@@ -133,7 +133,7 @@ class TestWalletCommands:
 
         assert result.exit_code == 0, result.output
 
-    @patch("aitbc_cli.commands.wallet.basic._get_wallet_password", return_value="testpass")
+    @patch("aitbc_cli.commands.wallet.basic.resolve_new_wallet_password", return_value="testpass")
     @patch("aitbc_cli.utils.dual_mode_wallet_adapter.DualModeWalletAdapter")
     @patch("aitbc_cli.utils.chain_id.get_chain_id", return_value="test-chain")
     @patch("aitbc_cli.commands.wallet.get_config")
