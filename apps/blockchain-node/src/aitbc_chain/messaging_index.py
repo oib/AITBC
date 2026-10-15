@@ -212,6 +212,13 @@ def _candidate_where(chain_id: str):
         # and last, no "--" run (normalize_topic collapses doubles). This
         # is `topic == normalize_topic(topic)` expressed in SQL.
         func.length(_env_json("topic")).between(1, MAX_TOPIC_CHARS),
+        # length(), GLOB, substr and instr all stop reading at an embedded
+        # NUL: "a\x00<junk>" would pass every check below while the Python
+        # canonicality predicate rejects it — and pure-SQL aggregates fetch
+        # no rows, so the junk would be minted as a topic name. Byte length
+        # equals char length exactly when the text is NUL-free ASCII; any
+        # non-ASCII char is rejected by the charset glob anyway.
+        func.length(_env_json("topic")) == func.length(_env_text("topic")),
         not_(_env_json("topic").op("GLOB")("*[^a-z0-9._-]*")),
         func.substr(_env_json("topic"), 1, 1).op("GLOB")("[a-z0-9]"),
         func.substr(_env_json("topic"), -1, 1).op("GLOB")("[a-z0-9]"),
