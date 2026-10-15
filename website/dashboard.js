@@ -138,7 +138,7 @@ function formatDate(ts) {
     return new Date(ts).toISOString().slice(0, 19).replace('T', ' ');
 }
 
-function renderTable(containerId, rows, columns, failed) {
+function renderTable(containerId, rows, columns, failed, label) {
     const container = document.getElementById(containerId);
     if (!rows || rows.length === 0) {
         container.innerHTML = failed
@@ -146,8 +146,9 @@ function renderTable(containerId, rows, columns, failed) {
             : '<p class="endpoint-note">No data.</p>';
         return;
     }
-    let html = '<table class="block-list-table">';
-    html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:0.5rem;border-bottom:1px solid var(--border);">${escapeHtml(c.label)}</th>`).join('') + '</tr>';
+    const ariaLabel = label || 'data table';
+    let html = `<div class="table-wrap" role="region" tabindex="0" aria-label="${escapeHtml(ariaLabel)}"><table class="block-list-table" aria-label="${escapeHtml(ariaLabel)}">`;
+    html += '<tr>' + columns.map(c => `<th scope="col" style="text-align:left;padding:0.5rem;border-bottom:1px solid var(--border);">${escapeHtml(c.label)}</th>`).join('') + '</tr>';
     rows.forEach(row => {
         html += '<tr>' + columns.map(c => {
             const v = row[c.key];
@@ -155,7 +156,7 @@ function renderTable(containerId, rows, columns, failed) {
             return `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${v != null ? escapeHtml(v) : 'N/A'}</td>`;
         }).join('') + '</tr>';
     });
-    html += '</table>';
+    html += '</table></div>';
     container.innerHTML = html;
 }
 
@@ -288,7 +289,7 @@ async function loadCustomerDashboard() {
     setText('cust-payment-statuses', Object.entries(payments).map(([k, v]) => `${k}: ${v}`).join(', ') || '—');
     setText('cust-jobs-scope', scopedView ? 'your account' : 'market-wide');
 
-    renderTable('cust-jobs-table', rows, JOB_COLUMNS, jobsFailed);
+    renderTable('cust-jobs-table', rows, JOB_COLUMNS, jobsFailed, 'Jobs');
 
     // Payments are reflected in the job payment_status column. The wallet
     // daemon's routes are admin-gated and loopback-only on the public vhost,
@@ -300,7 +301,7 @@ async function loadCustomerDashboard() {
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
         { label: 'Transactions', key: 'txs' },
-    ], walletRows === null);
+    ], walletRows === null, 'Wallets');
     refreshCredentialStatus();
 }
 
@@ -343,7 +344,7 @@ async function loadShopDashboard() {
         const assignedJobs = Array.isArray(jobsResp) ? jobsResp : ((jobsResp || {}).jobs || (jobsResp || {}).items || []);
         const jobRows = assignedJobs.map(jobRow);
         setText('shop-jobs-scope', `${jobRows.length} jobs — ${minerId}`);
-        renderTable('shop-jobs-table', jobRows, JOB_COLUMNS, jobsResp === null);
+        renderTable('shop-jobs-table', jobRows, JOB_COLUMNS, jobsResp === null, 'Jobs');
 
         const earnings = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/earnings`, {}, { auth: true });
         setText('shop-earnings-total', earnings && earnings.total_earnings != null ? earnings.total_earnings : 'N/A');
@@ -411,7 +412,7 @@ async function loadShopDashboard() {
         { label: 'Device', key: 'device' },
         { label: 'Memory', key: 'memory' },
         { label: 'Status', key: 'status' },
-    ], gpuData === null);
+    ], gpuData === null, 'GPUs');
 
     const offersData = await apiGet('/v1/market/offer?limit=20');
     const allOffers = Array.isArray(offersData) ? offersData : ((offersData || {}).offers || []);
@@ -432,7 +433,7 @@ async function loadShopDashboard() {
         { label: 'Price', key: 'price' },
         { label: 'Status', key: 'status' },
         { label: 'Rating', key: 'rating' },
-    ], offersData === null);
+    ], offersData === null, 'Offers');
 
     const walletRows = await loadAddressRows(5);
     setDot('shop-dot-wallets', walletRows === null ? 'down' : 'up');
@@ -441,6 +442,6 @@ async function loadShopDashboard() {
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
         { label: 'Transactions', key: 'txs' },
-    ], walletRows === null);
+    ], walletRows === null, 'Wallets');
     refreshCredentialStatus();
 }
