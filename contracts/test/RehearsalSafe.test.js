@@ -173,4 +173,97 @@ describe("RehearsalSafe (BR-9 phase A, hardhat)", function () {
     expect(() => assertSignerOwners([s1.address, s2.address, funder.address], signers)).to.throw();
     expect(() => assertSignerOwners(signers, signers)).to.not.throw();
   });
+
+  /** Wrap an EIP-1193 provider so one nonce() eth_call answers a stale value
+   *  once `armed` is set — the lagging-replica shape that caused the ETH-3
+   *  GS026. Only Safe.nonce() (selector 0xaffed0e0) is intercepted. */
+  function staleNonceOnce(inner, safeAddr, staleValue) {
+    const wrapped = {
+      armed: false,
+      request: async (args) => {
+        const p0 = args?.params?.[0];
+        if (
+          wrapped.armed
+          && args?.method === "eth_call"
+          && typeof p0?.to === "string"
+          && p0.to.toLowerCase() === safeAddr.toLowerCase()
+          && typeof p0?.data === "string"
+          && p0.data.startsWith("0xaffed0e0")
+        ) {
+          wrapped.armed = false;
+          return `0x${BigInt(staleValue).toString(16).padStart(64, "0")}`;
+        }
+        return inner.request(args);
+      },
+      on: (...a) => inner.on?.(...a),
+      once: (...a) => inner.once?.(...a),
+      emit: (...a) => inner.emit?.(...a),
+      removeListener: (...a) => inner.removeListener?.(...a),
+    };
+    return wrapped;
+  }
+
+  it("recovers a once-stale Safe nonce read (ETH-3 GS026 regression)", async function () {
+    const owners = [s1.address, s2.address, s3.address];
+    const { safeAddress } = await deploySafe({
+      provider,
+      deployerKey: s1.privateKey,
+      owners,
+      threshold: 2,
+      contractNetworks,
+      saltNonce: "7708",
+    });
+    const BridgeFactory = await ethers.getContractFactory("CrossChainBridge", funder);
+    const bridge = await BridgeFactory.deploy(s1.address);
+    await bridge.waitForDeployment();
+    const bridgeAddress = await bridge.getAddress();
+    await (await bridge.pause()).wait();
+    await (await bridge.transferOwnership(safeAddress)).wait();
+
+    const txSpec = [{ to: bridgeAddress, value: "0", data: bridge.interface.encodeFunctionData("setFeeRecipient", [s2.address]) }];
+
+    // kit2's provider is wrapped — the nonce guard polls kits[0].getNonce().
+    const laggy = staleNonceOnce(provider, safeAddress, 0);
+    const kit2 = await initKit({ provider: laggy, signerKey: s2.privateKey, safeAddress, contractNetworks });
+    const kit3 = await initKit({ provider, signerKey: s3.privateKey, safeAddress, contractNetworks });
+    const kitExec = await initKit({ provider, signerKey: s1.privateKey, safeAddress, contractNetworks });
+    const chainNonce = async () => {
+      const c = new ethers.Contract(safeAddress, ["function nonce() view returns (uint256)"], ethers.provider);
+      return Number(await c.nonce());
+    };
+
+    // Exec #1 pinned at nonce 0 — lands, Safe nonce is now 1.
+    const r1 = await signAndExecute([kit2, kit3], txSpec, { executor: kitExec, expectedNonce: 0 });
+    await publicClient(provider).waitForTransactionReceipt({ hash: r1.hash ?? r1.transactionResponse?.hash });
+    expect(await chainNonce()).to.equal(1);
+
+    // Exec #2: the first nonce read through kit2's provider lies — returns 0
+    // while the chain is at 1. The guard polls past it and signs nonce 1.
+    laggy.armed = true;
+    const r2 = await signAndExecute([kit2, kit3], txSpec, { executor: kitExec, expectedNonce: 1, noncePollIntervalMs: 50 });
+    await publicClient(provider).waitForTransactionReceipt({ hash: r2.hash ?? r2.transactionResponse?.hash });
+    expect(await chainNonce()).to.equal(2);
+  });
+
+  it("refuses to sign when the Safe nonce never reaches the expected value", async function () {
+    const owners = [s1.address, s2.address, s3.address];
+    const { safeAddress } = await deploySafe({
+      provider,
+      deployerKey: s1.privateKey,
+      owners,
+      threshold: 2,
+      contractNetworks,
+      saltNonce: "7709",
+    });
+    const kit2 = await initKit({ provider, signerKey: s2.privateKey, safeAddress, contractNetworks });
+    const kit3 = await initKit({ provider, signerKey: s3.privateKey, safeAddress, contractNetworks });
+    let threw = false;
+    try {
+      await signAndExecute([kit2, kit3], [{ to: s1.address, value: "0", data: "0x" }], { expectedNonce: 7, noncePollAttempts: 3, noncePollIntervalMs: 10 });
+    } catch (e) {
+      expect(`${e.message}`).to.match(/safe nonce reads .* expected 7/);
+      threw = true;
+    }
+    expect(threw).to.equal(true);
+  });
 });
