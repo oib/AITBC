@@ -99,7 +99,9 @@ async def _import_file_wallets() -> None:
     wallet_dir = Path(os.getenv("WALLET_DIR") or os.getenv("AITBC_WALLET_DIR") or "/var/lib/aitbc/wallets")
     if not wallet_dir.exists():
         return
-    wallet_files = list(wallet_dir.glob("*.json"))
+    sell_escrow_wallet = os.getenv("SELL_ESCROW_WALLET_PATH", "/var/lib/aitbc/wallets/ait-sell-escrow.json")
+    non_import_paths = {Path(sell_escrow_wallet).expanduser().resolve()} if sell_escrow_wallet else set()
+    wallet_files = [path for path in wallet_dir.glob("*.json") if path.resolve() not in non_import_paths]
     if not wallet_files:
         return
     daemon_url = "http://localhost:8108"
