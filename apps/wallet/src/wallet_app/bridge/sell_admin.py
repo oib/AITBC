@@ -9,6 +9,9 @@ aitbc-wallet unit loads::
         venv/bin/python -m wallet_app.bridge.sell_admin <command> [args]
 
 Commands:
+    status                                sell lane enablement + non-secret config
+                                          (sell_config_status + flags + limits;
+                                          env-only — runs before the ledger gate)
     list [--status S]...                  sell-lock rows (default: every open status)
     inspect <ait_tx_hash>                 full row + quote + persisted sweep intent
                                           (never the signed blob) + escrow account view
@@ -487,6 +490,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--db", default=None, help="bridge sqlite path (default: the service's DB_PATH)")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser("status", help="sell lane enablement + non-secret config (read-only)")
+
     p_list = sub.add_parser("list", help="list sell locks (default: all open statuses)")
     p_list.add_argument("--status", action="append", default=None, help="status filter (repeatable)")
 
@@ -534,6 +539,12 @@ def main(argv: list[str] | None = None) -> int:
     from . import sell_escrow_monitor as sellmon
 
     _sync_wdm_env(wdm)
+    if args.command == "status":
+        # Env-only: the sell lane's config is readable even where no ledger
+        # exists yet — exactly the state this verb exists to show.
+        print(json.dumps(sellmon.sell_status_document(), indent=2, default=str))
+        return 0
+
     db_target = args.db or db.DB_PATH
     if not os.path.exists(db_target):
         print(f"refusing: no bridge ledger at {db_target} — the command runs where the ledger exists")
@@ -542,19 +553,18 @@ def main(argv: list[str] | None = None) -> int:
         db.DB_PATH = args.db
     db.init_db()
 
-    if args.command == "list":
-        return asyncio.run(_cmd_list(db, args))
-    if args.command == "inspect":
-        return asyncio.run(_cmd_inspect(db, sellmon, args.ait_tx_hash))
-    if args.command == "confirm-swept":
-        return asyncio.run(_cmd_confirm_swept(db, sellmon, args))
-    if args.command == "requeue":
-        return asyncio.run(_cmd_requeue(db, sellmon, args))
-    if args.command == "write-off":
-        return asyncio.run(_cmd_write_off(db, args))
-    if args.command == "sweep-now":
-        return asyncio.run(_cmd_sweep_now(db, sellmon, args))
-    return 2
+    handlers = {
+        "list": lambda: _cmd_list(db, args),
+        "inspect": lambda: _cmd_inspect(db, sellmon, args.ait_tx_hash),
+        "confirm-swept": lambda: _cmd_confirm_swept(db, sellmon, args),
+        "requeue": lambda: _cmd_requeue(db, sellmon, args),
+        "write-off": lambda: _cmd_write_off(db, args),
+        "sweep-now": lambda: _cmd_sweep_now(db, sellmon, args),
+    }
+    handler = handlers.get(args.command)
+    if handler is None:
+        return 2
+    return asyncio.run(handler())
 
 
 if __name__ == "__main__":
