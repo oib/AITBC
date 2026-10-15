@@ -621,7 +621,11 @@ def _existing_plain_file(value: str, flag: str) -> Path:
 
 def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json, settlement) -> list[str]:
     """Build the verifier argv — only the script's documented flags."""
-    argv = [sys.executable, str(_verify_script_path()), "--db", str(_existing_plain_file(db, "--db"))]
+    argv = [sys.executable, str(_verify_script_path())]
+    if db is not None:
+        argv += ["--db", str(_existing_plain_file(db, "--db"))]
+    # --db omitted on purpose: the script then resolves the service default
+    # (EXCHANGE_DATABASE_URL / AITBC_DATA_DIR exchange.db) read-only itself.
     if bridge_db is not None:
         argv += ["--bridge-db", str(_existing_plain_file(bridge_db, "--bridge-db"))]
     for flag, value in (
@@ -652,7 +656,10 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
   aitbc exchange verify --db ... --rpc-url https://sepolia.example --json""",
 )
 @click.option(
-    "--db", required=True, help="Exchange SQLite DB path under /var/lib/aitbc/ (absolute, existing regular file, no symlinks)"
+    "--db",
+    default=None,
+    help="Exchange SQLite DB path under /var/lib/aitbc/ (absolute, existing regular file, no symlinks). "
+    "Default: the service path the script resolves (EXCHANGE_DATABASE_URL / AITBC_DATA_DIR exchange.db)",
 )
 @click.option(
     "--bridge-db", default=None, help="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check"
