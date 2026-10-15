@@ -17,6 +17,7 @@ from .hub_orders import node as hub_node
 from .hub_orders import order as hub_order
 from .hub_orders import verify as hub_verify
 from .prepay import prepay as hub_prepay
+from .sell_admin import sell_admin as hub_sell_admin
 
 logger = get_logger(__name__)
 
@@ -396,3 +397,4 @@ exchange.add_command(hub_order)
 exchange.add_command(hub_node)
 exchange.add_command(hub_verify)
 exchange.add_command(hub_prepay)
+exchange.add_command(hub_sell_admin)

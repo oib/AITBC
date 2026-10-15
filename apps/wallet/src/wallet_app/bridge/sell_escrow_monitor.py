@@ -208,6 +208,47 @@ def sell_config_status() -> tuple[bool, str]:
     return (True, "")
 
 
+def sell_status_document() -> dict[str, Any]:
+    """Non-secret sell-lane status document (CLI-5).
+
+    One shape for the admin route and the sell_admin status verb: the
+    fail-closed (enabled, reason) pair, the feature flags, and the parsed
+    config minus every secret-bearing field — key-slot paths and credential
+    names appear only as configured booleans, never their contents.
+    """
+    enabled, reason = sell_config_status()
+    doc: dict[str, Any] = {
+        "enabled": enabled,
+        "reason": reason,
+        "feature_enabled": sell_feature_enabled(),
+        "flags": {
+            "bridge_enabled": bool(wdm.BRIDGE_ENABLED),
+            "sell_escrow_enabled": os.getenv("SELL_ESCROW_ENABLED", "false").lower() == "true",
+        },
+        "config": None,
+    }
+    try:
+        cfg = _sell_config()
+    except ValueError:
+        return doc
+    doc["config"] = {
+        "chain_id": cfg.chain_id,
+        "escrow_address": cfg.escrow_address,
+        "treasury_address": cfg.treasury_address,
+        "max_eth_per_tx": str(cfg.max_eth_per_tx),
+        "max_eth_per_day": str(cfg.max_eth_per_day),
+        "min_reserve_eth": str(cfg.min_reserve_eth),
+        "max_payout_fraction": str(cfg.max_payout_fraction),
+        "release_deadline_seconds": cfg.release_deadline_seconds,
+        "orphan_blocks": cfg.orphan_blocks,
+        "quote_expiry_seconds": cfg.quote_expiry_seconds,
+        "poll_interval": cfg.poll_interval,
+        "escrow_wallet_configured": bool(cfg.escrow_wallet_path),
+        "escrow_credential_configured": bool(cfg.escrow_credential_file and cfg.escrow_credential_name),
+    }
+    return doc
+
+
 # ---------------------------------------------------------------------------
 # Escrow key slot — the ops-signer custody mechanism
 #
