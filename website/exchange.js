@@ -438,9 +438,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const depositBox = document.getElementById('deposit-address-box');
     if (depositBox) depositBox.addEventListener('click', copyAddress);
+    if (depositBox) depositBox.addEventListener('keydown', function(e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === this) { e.preventDefault(); copyAddress(); }
+    });
 
     const hexBox = document.getElementById('tx-data-hex-box');
     if (hexBox) hexBox.addEventListener('click', copyTxDataHex);
+    if (hexBox) hexBox.addEventListener('keydown', function(e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === this) { e.preventDefault(); copyTxDataHex(); }
+    });
 
     const trackBtn = document.getElementById('track-deposit-btn');
     if (trackBtn) trackBtn.addEventListener('click', trackDeposit);

@@ -121,7 +121,7 @@ function renderBlockCard(block) {
         ? `<tr><td>Content</td><td class="tx-comp-cell">${blockContentHtml(block.transactions)}</td></tr>`
         : '';
     return `
-        <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
+        <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
             <table class="block-list-table">
                 <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
                 <tr><td>Hash</td><td>${escapeHtml(blockHash)} ${copyBtn(blockHash)}</td></tr>
@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = liveFeedItems.map(item => {
             const timeStr = item.time ? new Date(item.time).toLocaleTimeString() : '';
             return `
-                <div class="live-feed-item" onclick="location.href='${escapeHtml(item.url)}'">
+                <div class="live-feed-item" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='${escapeHtml(item.url)}'">
                     <span class="live-feed-type">${escapeHtml(item.type)}</span>
                     <span class="live-feed-hash">${escapeHtml(item.label)}</span>
                     ${item.comp ? `<span class="live-feed-comp">${item.comp}</span>` : ''}
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <thead><tr><th>#</th><th>Address</th><th>TXs</th><th>Volume (AIT)</th></tr></thead>
                     <tbody>
                         ${addresses.map((a, i) => `
-                            <tr onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
+                            <tr tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
                                 <td>${i + 1}</td>
                                 <td>${escapeHtml(a.address)}</td>
                                 <td>${escapeHtml(a.transaction_count)}</td>
@@ -633,7 +633,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 : `/tx.html?hash=${encodeURIComponent(item.tx_hash || item.hash || '')}`;
             const isBlock = type === 'block';
             return `
-            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${escapeHtml(clickTarget)}'">
+            <div class="endpoint fade-in block-item" style="cursor:pointer;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='${escapeHtml(clickTarget)}'">
                 <div class="block-header">
                     <div class="flex-center">
                         <span class="badge badge-primary">${isBlock ? 'BLOCK' : escapeHtml(item.type || 'TX')}</span>
@@ -845,7 +845,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 : `/tx.html?hash=${encodeURIComponent(item.tx_hash || item.hash || '')}`;
             const isBlock = type === 'block';
             return `
-            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${escapeHtml(clickTarget)}'">
+            <div class="endpoint fade-in block-item" style="cursor:pointer;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='${escapeHtml(clickTarget)}'">
                 <div class="block-header">
                     <div class="flex-center">
                         <span class="badge badge-primary">${isBlock ? 'BLOCK' : escapeHtml(item.type || 'TX')}</span>

@@ -174,7 +174,7 @@
                 if (blocks.length > 0) {
                     document.getElementById('blocks-section').style.display = 'block';
                     document.getElementById('blocks-list').innerHTML = blocks.map(b => `
-                        <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${encodeURIComponent(b.height)}'">
+                        <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(b.height)}'">
                             <table class="block-list-table">
                                 <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(b.height)}</td></tr>
                                 <tr><td>Hash</td><td>${escapeHtml(b.hash || 'N/A')} ${copyBtn(b.hash || '')}</td></tr>
@@ -191,7 +191,7 @@
                     document.getElementById('txs-list').innerHTML = txs.map(tx => {
                         const dBadge = dirBadge(tx, query);
                         return `
-                        <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
+                        <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
                             <table class="block-list-table">
                                 <tr><td>Type</td><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span> ${dBadge}</td></tr>
                                 <tr><td>Hash</td><td>${escapeHtml(tx.tx_hash || 'N/A')} ${copyBtn(tx.tx_hash || '')}</td></tr>
