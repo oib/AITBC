@@ -1896,6 +1896,7 @@ narrative; this list cites each remaining commit by hash so
 - `106987e87a` fix(exchange): ETH-19B — internal settlement peer gate gets the real socket peer
 - `3df71df89e` docs(release): ETH-19B changelog + commit index
 - `2d265c090` feat(cli): WAL-3 — sell trio, staking resolver, genesis env hand-off
+- `a713c3f8c0` docs(release): WAL-3 changelog + commit index
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2431,7 +2432,6 @@ ratchet and check-c901-ratchet pass.
 Commits: `8f9ac9f06` (monitor + schema comment + tests),
 `88f0b3812` (exchange hash-convention comment).
 
-
 ### ETH-19B: the internal settlement endpoint accepts its loopback caller (2026-10-15)
 
 `FastAPIRequestAdapter.__init__` never called
@@ -2519,3 +2519,49 @@ script-side `AITBC_GENESIS_PASSWORD` consumption with argv precedence.
 
 Commits: `2d265c090` (sell trio + staking resolver + genesis env
 hand-off + MCP regen + tests).
+
+### ETH-JOIN-3: order_refund dust-lock bound + ref_id guard (2026-10-15)
+
+Closes the two residuals ETH-JOIN-2's report named against the
+owner-lock refund fallback — both are monitor-side in
+`exchange_settlement_monitor.py`, no schema change, and neither alters
+the ETH-JOIN/ETH-JOIN-2 semantics (http_* refusals stay unmarked,
+sign-split + lock-keyed ref_ids, flag-off 503, the one-inbound-refund
+bound per stranger per order).
+
+- **Sub-fee inbound locks create no row.** `_lock_refund` — the single
+  funnel for `remainder=False` refunds — now skips when
+  `lock_ait <= _sweep_fee_ait()`, the same caller-side bound
+  `_refund_stranded_locks` applies to the lock remainder. A lock worth
+  less than its refund sweep stays in escrow instead of draining the
+  shared float one sweep fee at a time. The check precedes both inserts
+  in `_ensure_order_refund`, so a sub-fee owner lock gets neither the
+  `−order_id` row nor the lock-keyed fallback. Outcome `below_fee`
+  returns to `_scan_order_locks`, which deliberately writes no
+  `lock:<hash>` mark — the lock is re-evaluated each poll so a fee
+  change picks it back up, and the notice is rate-limited to INFO once
+  per lock per hour (DEBUG between) behind a bounded, attacker-keyed
+  map. Order 23's 1 AIT lock is far above the bound; its funded-path
+  behaviour is unchanged.
+- **`bad_tx_hash` guard on the fallback.** An empty or non-hex lock hash
+  on the owner-fallback attempt no longer raises out of
+  `_lock_refund_ref_id` — `_ensure_order_refund` returns `bad_tx_hash`,
+  which the scan marks exactly like `duplicate` (terminal, no retry).
+  The ERROR line names the hash problem and never claims a ref_id
+  collision. The normal `−order_id` insert path does not read the hash
+  and needs no guard.
+
+Residual left open (stated, not implemented): an owner can still send
+many *above-fee* locks against their own order — each fallback refund
+costs the shared float one sweep fee at cost parity with the owner's
+lock fee. Bounding that fully takes either the `lock_tx_hash` column
+proposal (one refund row per lock, schema change) or a per-order cap on
+fallback rows; `lock_tx_hash` is the cleaner cut.
+
+Tests: 10 new items in `test_exchange_settlement_monitor.py` — sub-fee
+stranger/owner locks write no row and no mark, just-above-fee refunds
+for both sender classes, the bound following a monkeypatched
+`_sweep_fee_ait`, empty/non-hex/None hash → `bad_tx_hash` through the
+direct path and the scanner mark, and the hourly log rate limit. The
+below-fee and bad-hash cases failed on the pre-change source; the full
+75-test file passes.
