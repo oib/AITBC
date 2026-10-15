@@ -1,144 +1,178 @@
-"""Messaging commands for AITBC CLI
+"""On-chain forum messaging commands for AITBC CLI (MSG-1).
 
-These commands talk to the on-chain Agent Messaging forum contract. Agent-to-agent
-real-time messaging is handled by `aitbc agent-msg` (Agent Coordinator)."""
+Forum messages are signed ``MESSAGE`` transactions carrying an
+``aitbc_msg`` envelope (see ``aitbc.messaging`` for the wire contract).
+There is no RPC post endpoint: this command builds, signs and submits the
+transaction itself — the signature is what makes the author real.
 
-import os
+WARNING printed on every post: content is public, replicated on every node
+and cannot be edited or deleted — moderation (MSG-2) can only ever be a
+read-side filter. Agent-to-agent realtime messaging stays with
+``aitbc agent-msg``.
+"""
+
+import json
+import time
+from decimal import Decimal
 
 import click
 
-from ..utils import output
-from ..utils.error_handling import CLIError, abort
+from aitbc.messaging import BROADCAST_TOPIC, MAX_MESSAGE_BODY_BYTES, MIN_SEARCH_CHARS, build_envelope, normalize_topic
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT
+
+from ..utils import DECIMAL, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
-from ..utils.simulation import simulated_id, simulated_timestamp
+from ..utils.wallet_paths import wallet_dir
+from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
+from .transactions import _resolve_transaction_rpc_url, _send_transaction_impl
+
+_PERMANENCE_WARNING = (
+    "This posts a public, permanent chain transaction: the content is "
+    "replicated to every node and cannot be edited or deleted."
+)
+
+_WAIT_POLL_SECONDS = 2.0
 
 
 def _rpc_client(rpc_url: str) -> AITBCHTTPClient:
-    """Blockchain-RPC client carrying the configured X-API-Key when present.
-
-    The contracts/messaging mutation routes require the RPC API key; reads
-    work without it, so the key is attached opportunistically.
-    """
+    """Blockchain-RPC client carrying the configured X-API-Key when present."""
     from ..config import get_config
 
     return AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=get_config().blockchain_rpc_api_key)
 
 
-def _resolve_poster(ctx_param: str | None, env_name: str, fallback: str | None = None) -> str | None:
-    """Resolve a poster identifier from CLI option, env var, or fallback."""
-    value = ctx_param or os.getenv(env_name) or fallback
-    return value
+def _wallet_address(ctx, wallet_name: str) -> str:
+    """Sender address from wallet file metadata — no password needed."""
+    path = wallet_dir() / f"{wallet_name}.json"
+    if not path.exists():
+        abort(ctx, f"Wallet '{wallet_name}' not found at {path}")
+    try:
+        address = json.loads(path.read_text()).get("address")
+    except Exception as e:
+        abort(ctx, f"Wallet '{wallet_name}' unreadable: {e}", from_exception=e)
+    if not address:
+        abort(ctx, f"Wallet '{wallet_name}' carries no address field")
+    return str(address)
 
 
-def _resolve_topic_id(http_client: AITBCHTTPClient, topic: str, poster_id: str, poster_address: str) -> str:
-    """Resolve a ``--topic`` argument to an on-chain ``topic_id``.
-
-    ``topic_*`` values pass through unchanged (already an id). Anything else
-    is treated as a title: existing topics are searched for a case-insensitive
-    title match, and a new topic is created when none matches — the contract
-    generates the id, so posting with a title string always TOPIC_NOT_FOUNDs.
-    """
-    if topic.startswith("topic_"):
-        return topic
-
-    topics_resp = http_client.get("/rpc/contracts/messaging/topics", params={"limit": 200})
-    for t in (topics_resp or {}).get("topics", []):
-        if str(t.get("title", "")).casefold() == topic.casefold():
-            return str(t["topic_id"])
-
-    create_resp = http_client.post(
-        "/rpc/contracts/messaging/topics/create",
-        json={
-            "agent_id": poster_id,
-            "agent_address": poster_address,
-            "title": topic,
-            "description": topic,
-            "tags": [],
-        },
-    )
-    new_id = (create_resp or {}).get("topic_id")
-    if not new_id:
-        raise CLIError(f"Could not create topic '{topic}': {create_resp}")
-    return str(new_id)
+def _wait_for_seal(ctx, http_client: AITBCHTTPClient, tx_hash: str, timeout: float) -> None:
+    """Poll the transaction until it is sealed into a block or ``timeout`` passes."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            result = http_client.get(f"/rpc/transaction/{tx_hash}")
+        except Exception:
+            time.sleep(_WAIT_POLL_SECONDS)
+            continue
+        if result.get("block_height") is not None:
+            success(f"Sealed at block {result['block_height']} (status {result.get('status')})")
+            return
+        time.sleep(_WAIT_POLL_SECONDS)
+    abort(ctx, f"Transaction {tx_hash} not sealed within {timeout:.0f}s — check `aitbc transactions status`")
 
 
 @click.group(
     epilog="""Examples:
 
-  aitbc messaging list
+  aitbc messaging list --topic broadcast
 
-  aitbc messaging send --recipient agent-1 --message 'hello'"""
+  aitbc messaging send --wallet my-wallet --message 'hello' --topic broadcast"""
 )
 def messaging():
-    """Post messages, list forum messages, and create on-chain forum topics."""
+    """Read and post genuinely on-chain forum messages (signed MESSAGE transactions)."""
     pass
 
 
 @messaging.command(
     epilog="""Examples:
 
-  aitbc messaging send --recipient agent-1 --message 'hello'
+  aitbc messaging send --wallet my-wallet --message 'hello'
 
-  aitbc messaging send --recipient agent-1 --message 'hello' --topic general"""
+  aitbc messaging send --wallet my-wallet --message 'see the announcement' --topic broadcast \\
+      --reply-to 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"""
 )
-@click.option("--recipient", required=True, help="Agent address that posts the message (used as agent_id and agent_address)")
-@click.option("--message", required=True, help="Message content")
-@click.option(
-    "--topic", default="general", help="Forum topic ID (topic_…) or title — titles are resolved, creating the topic if needed"
-)
-@click.option("--message-type", default="post", help="Forum message type")
-@click.option("--agent-id", help="Override poster agent ID (default: --recipient, then $AGENT_ID)")
-@click.option("--agent-address", help="Override poster agent address (default: --recipient, then $AGENT_ADDRESS)")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--wallet", "wallet_name", required=True, help="Wallet name that signs the post (the message author)")
+@click.option("--message", required=True, help="Message body (public and permanent)")
+@click.option("--topic", default=BROADCAST_TOPIC, show_default=True, help="Topic slug (lowercased, whitespace → '-')")
+@click.option("--reply-to", default=None, help="Parent message tx_hash — makes the post a reply")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
+@click.option("--wait/--no-wait", default=True, help="Poll until the transaction is sealed (default: wait)")
+@click.option("--wait-timeout", type=float, default=180.0, show_default=True, help="Seconds --wait polls for")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@wallet_password_options
 @click.pass_context
 def send(
     ctx,
-    recipient: str,
+    wallet_name: str,
     message: str,
     topic: str,
-    message_type: str,
-    agent_id: str | None,
-    agent_address: str | None,
-    rpc_url: str,
+    reply_to: str | None,
+    fee: Decimal,
+    wait: bool,
+    wait_timeout: float,
+    rpc_url: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
 ):
-    """Post a message to the on-chain forum, creating the topic if needed."""
-    poster_id = _resolve_poster(agent_id, "AGENT_ID", recipient)
-    poster_address = _resolve_poster(agent_address, "AGENT_ADDRESS", recipient)
-    if not poster_id or not poster_address:
-        abort(ctx, "--agent-id or AGENT_ID, or --recipient, is required")
-    assert poster_id is not None and poster_address is not None  # abort() raises; narrow for mypy
+    """Post a forum message as a signed MESSAGE transaction."""
+    if not message or not message.strip():
+        abort(ctx, "Empty message refused — a post must carry a body")
+    if len(message.encode("utf-8")) > MAX_MESSAGE_BODY_BYTES:
+        abort(ctx, f"Message is {len(message.encode('utf-8'))} bytes; maximum is {MAX_MESSAGE_BODY_BYTES}")
+
+    canonical_topic = normalize_topic(topic)
+    if canonical_topic is None:
+        abort(ctx, f"Topic '{topic}' cannot become a slug (1–64 chars of a-z 0-9 . _ -)")
+    assert canonical_topic is not None  # abort() raises; narrow for mypy
+    if canonical_topic != topic:
+        click.echo(f"topic normalized to '{canonical_topic}'", err=True)
+
+    sender_address = _wallet_address(ctx, wallet_name)
+    resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
 
     try:
-        http_client = _rpc_client(rpc_url)
-        topic_id = _resolve_topic_id(http_client, topic, poster_id, poster_address)
-        post_payload = {
-            "agent_id": poster_id,
-            "agent_address": poster_address,
-            "topic_id": topic_id,
-            "content": message,
-            "message_type": message_type,
-        }
-        result = http_client.post("/rpc/contracts/messaging/messages/post", json=post_payload)
+        envelope = build_envelope(
+            kind="reply" if reply_to else "post",
+            topic=canonical_topic,
+            body=message,
+            agent_address=sender_address,
+            parent=reply_to,
+        )
+    except ValueError as e:
+        abort(ctx, f"Invalid message envelope: {e}", from_exception=e)
 
-        if not result.get("success") and result.get("error_code") == "TOPIC_NOT_FOUND":
-            # An explicit topic_* id that no longer exists — surface it rather
-            # than creating a topic titled "topic_…".
-            abort(ctx, f"Topic '{topic}' not found on-chain")
+    resolved_password = resolve_wallet_password(
+        wallet_name=wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        ctx=ctx,
+    )
 
-        output(result, ctx.obj.get("output_format", "table"), title="Message Posted")
-    except NetworkError:
-        # Fallback to simulated data if RPC endpoint not available
-        result = {
-            "status": "simulated",
-            "recipient": recipient,
-            "topic": topic,
-            "message": message,
-            "message_id": simulated_id("msg", recipient, message),
-            "timestamp": simulated_timestamp(),
-        }
-        output(result, ctx.obj.get("output_format", "table"), title="Message Posted (Simulated)")
-    except Exception as e:
-        abort(ctx, f"Error sending message: {e}", from_exception=e)
+    click.echo(_PERMANENCE_WARNING, err=True)
+    tx_hash = _send_transaction_impl(
+        wallet_name,
+        sender_address,
+        Decimal(0),
+        fee,
+        resolved_password,
+        rpc_url=resolved_rpc,
+        tx_type="MESSAGE",
+        payload={"aitbc_msg": envelope},
+    )
+    if not tx_hash:
+        raise SystemExit(1)
+
+    output(
+        {"tx_hash": tx_hash, "topic": canonical_topic, "kind": envelope["kind"], "author": sender_address},
+        (ctx.obj or {}).get("output_format", "table"),
+        title="Message submitted",
+    )
+    if wait:
+        _wait_for_seal(ctx, _rpc_client(resolved_rpc), tx_hash, wait_timeout)
 
 
 @messaging.command(
@@ -146,68 +180,120 @@ def send(
 
   aitbc messaging list
 
-  aitbc messaging list --query hello --limit 20"""
+  aitbc messaging list --topic broadcast --limit 20 --cursor 42100:17"""
 )
-@click.option("--query", default="", help="Search query (empty returns all)")
-@click.option("--limit", type=int, default=50, help="Maximum number of messages")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--topic", default=None, help="Only this topic slug")
+@click.option("--author", default=None, help="Only this author address")
+@click.option("--query", default=None, help="Substring search over bodies (min 3 chars)")
+@click.option("--limit", type=int, default=50, help="Max messages (server caps at 100)")
+@click.option("--offset", type=int, default=0, help="Skip the first N results (bounded)")
+@click.option("--cursor", default=None, help="Resume from a previous next_cursor")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @click.pass_context
-def list(ctx, query: str, limit: int, rpc_url: str):
-    """List messages from the on-chain forum with optional query and limit."""
+def list(ctx, topic, author, query, limit, offset, cursor, rpc_url):
+    """List forum messages, newest first."""
+    if query is not None and len(query.strip()) < MIN_SEARCH_CHARS:
+        abort(ctx, f"--query must be at least {MIN_SEARCH_CHARS} characters")
+    rpc = _resolve_transaction_rpc_url(rpc_url)
     try:
-        http_client = _rpc_client(rpc_url)
-        messages = http_client.get(
-            "/rpc/contracts/messaging/messages/search",
-            params={"query": query, "limit": limit},
-        )
-        output(messages, ctx.obj.get("output_format", "table"), title="Messages")
-    except NetworkError:
-        # Fallback to simulated data if RPC endpoint not available
-        messages = {"status": "simulated", "messages": [], "message": "RPC endpoint not available - showing simulated list"}
-        output(messages, ctx.obj.get("output_format", "table"), title="Messages (Simulated)")
+        http_client = _rpc_client(rpc)
+        if query:
+            result = http_client.get(
+                "/rpc/messaging/messages/search",
+                params={"query": query, "limit": limit, "offset": offset, "cursor": cursor},
+            )
+        else:
+            result = http_client.get(
+                "/rpc/messaging/messages",
+                params={
+                    "topic": topic,
+                    "author": author,
+                    "limit": limit,
+                    "offset": offset,
+                    "cursor": cursor,
+                },
+            )
+        output(result, (ctx.obj or {}).get("output_format", "table"), title="Messages")
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error listing messages: {e}", from_exception=e)
 
 
 @messaging.command(
-    epilog="""Examples:
+    epilog="""Example:
 
-  aitbc messaging topic --title 'Announcements' --description 'Project updates'
-
-  aitbc messaging topic --title 'Announcements' --description 'Project updates' --tags news,updates"""
+  aitbc messaging topics --limit 20"""
 )
-@click.option("--title", required=True, help="Topic title")
-@click.option("--description", required=True, help="Topic description")
-@click.option("--agent-id", help="Creator agent ID (default: $AGENT_ID)")
-@click.option("--agent-address", help="Creator agent address (default: $AGENT_ADDRESS, then $AGENT_ID)")
-@click.option("--tags", default="", help="Comma-separated topic tags")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--limit", type=int, default=50, help="Max topics (server caps at 100)")
+@click.option("--offset", type=int, default=0, help="Skip the first N topics (bounded)")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @click.pass_context
-def topic(ctx, title, description, agent_id, agent_address, tags, rpc_url):
-    """Create a new on-chain forum topic with title, description, and tags."""
-    creator_id = _resolve_poster(agent_id, "AGENT_ID")
-    creator_address = _resolve_poster(agent_address, "AGENT_ADDRESS") or creator_id
-    if not creator_id or not creator_address:
-        abort(ctx, "--agent-id or AGENT_ID, and --agent-address or AGENT_ADDRESS, are required")
-
-    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-
+def topics(ctx, limit, offset, rpc_url):
+    """List forum topics ranked by last activity."""
+    rpc = _resolve_transaction_rpc_url(rpc_url)
     try:
-        http_client = _rpc_client(rpc_url)
-        result = http_client.post(
-            "/rpc/contracts/messaging/topics/create",
-            json={
-                "agent_id": creator_id,
-                "agent_address": creator_address,
-                "title": title,
-                "description": description,
-                "tags": tag_list,
-            },
-        )
-        output(result, ctx.obj.get("output_format", "table"), title="Topic Created")
+        http_client = _rpc_client(rpc)
+        result = http_client.get("/rpc/messaging/topics", params={"limit": limit, "offset": offset})
+        output(result, (ctx.obj or {}).get("output_format", "table"), title="Topics")
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
-        if isinstance(e, CLIError):
-            raise
-        abort(ctx, f"Error creating topic: {e}", from_exception=e)
+        abort(ctx, f"Error listing topics: {e}", from_exception=e)
+
+
+@messaging.command(
+    "topic",
+    epilog="""Example:
+
+  aitbc messaging topic""",
+    deprecated=True,
+)
+@click.option("--limit", type=int, default=50, help="Max topics (server caps at 100)")
+@click.option("--offset", type=int, default=0, help="Skip the first N topics (bounded)")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def topic_alias(ctx, limit, offset, rpc_url):
+    """Alias of ``messaging topics`` — implicit topics have no create call."""
+    ctx.invoke(topics, limit=limit, offset=offset, rpc_url=rpc_url)
+
+
+@messaging.command(
+    epilog="""Example:
+
+  aitbc messaging show 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"""
+)
+@click.argument("tx_hash")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def show(ctx, tx_hash, rpc_url):
+    """Show one forum message by its transaction hash."""
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        http_client = _rpc_client(rpc)
+        result = http_client.get(f"/rpc/messaging/messages/{tx_hash}")
+        output(result, (ctx.obj or {}).get("output_format", "table"), title="Message")
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error fetching message: {e}", from_exception=e)
+
+
+@messaging.command(
+    epilog="""Example:
+
+  aitbc messaging state"""
+)
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def state(ctx, rpc_url):
+    """Show forum index totals and the index height."""
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        http_client = _rpc_client(rpc)
+        result = http_client.get("/rpc/messaging/state")
+        output(result, (ctx.obj or {}).get("output_format", "table"), title="Messaging state")
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error fetching state: {e}", from_exception=e)
