@@ -50,6 +50,7 @@ MENU = [
     ("/marketplace.html", "Marketplace"),
     ("/bridges.html", "Bridges"),
     ("/alerts.html", "Alerts"),
+    ("/messages.html", "Messages"),
 ]
 DASHBOARD_MENU = [
     ("/customer-dashboard.html", "Customer Dashboard"),
