@@ -304,3 +304,24 @@ win; unset vars get scratch as before.
   `aitbc.constants` dirs.
 - `89d9d591b` — `tests/unit/test_env_protection.py` (3 subprocess
   tests) is collected by both the unit and critical groups.
+
+
+### Verifier + monitor: settled-trade hash mirrored and cross-read (VERIFY-2)
+
+`_set_status_and_mirror` persisted status+fields, then mirrored the stale
+pre-update row, so the leg-seal sites passing `settle_ait_tx_hash`,
+`settle_fee_tx_hash`, or `refund_tx_hash` as fields never reached the
+`trade_state` post — settled trades kept NULL
+`trades.settlement_ait_tx_hash` (D2 trade 7), which
+`exchange_verify.py --settlement` then reported as a FAIL.
+
+- `a23abb6a9` — the mirror now posts `{**row, **fields}`: payload keys
+  `eth_tx_hash`, `ait_tx_hash` (leg-1 settle or refund), and
+  `fee_tx_hash`. `order_refund` rows still never mirror and the mirror
+  stays best-effort.
+- `a23abb6a9` — `exchange_verify.py` with `--bridge-db` reads the
+  settled trade-kind ledger row's `settle_ait_tx_hash`: a settled trade
+  missing the column on the tape passes when the ledger carries it;
+  no/unreadable monitor DB reports INFO 'settlement hash link unchecked'
+  instead of a guess-FAIL. A missing `settlement_eth_tx_hash` stays a
+  FAIL; no live DB was backfilled.
