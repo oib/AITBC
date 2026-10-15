@@ -3,35 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIT Exchange — Compute-Backed Currency</title>
+    <title>Exchange — AITBC</title>
     <meta name="description" content="AIT is backed by AI compute, not speculation. Exchange ETH for AIT or claim 100 free AIT.">
+    <link rel="canonical" href="https://hub.aitbc.bubuit.net/exchange.html">
     <meta name="robots" content="index, follow">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
     <!-- Stylesheet -->
     <link rel="stylesheet" href="/style.css?v=13">
-    <script src="config.js"></script>
-    <script src="exchange.js?v=13"></script>
-    <script src="exchange-book.js?v=1"></script>
+    <script src="config.js" defer></script>
+    <script src="exchange.js?v=13" defer></script>
+    <script src="exchange-book.js?v=1" defer></script>
 </head>
 <body>
+    <!-- aitbc-skip:start -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <!-- aitbc-skip:end -->
     <div class="ob-banner">Sepolia testnet. Test ETH and test AIT have no real-world value.</div>
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/llms.txt">llms.txt</a> &middot; <a href="/openapi.json">Coordinator API</a> &middot; <a href="/explorer-api/openapi.json">Explorer API</a>.</p></noscript>
         <header>
             <!-- aitbc-menu:start -->
-            <div class="header-nav">
+            <nav class="header-nav" aria-label="Main">
                 <a href="/">Home</a>
                 <a href="/exchange.html" class="is-current" aria-current="page">Exchange</a>
                 <a href="/explorer.html">Explorer</a>
                 <a href="/marketplace.html">Marketplace</a>
                 <a href="/bridges.html">Bridges</a>
                 <a href="/alerts.html">Alerts</a>
-            </div>
+            </nav>
             <!-- aitbc-menu:end -->
             <h1>AIT Exchange</h1>
             <p class="subtitle">Human AI Compute Backed Currency</p>
         </header>
+
+        <main id="main" tabindex="-1">
 
         <!-- ═══ Value Proposition ═══ -->
         <div class="card value-hero">
@@ -261,6 +267,7 @@
             </a>
             <p class="endpoint-note">Historical data and averages</p>
         </div>
+        </main>
     </div>
 </body>
 </html>

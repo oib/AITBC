@@ -2,34 +2,40 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport=device-width, initial-scale=1.0">
-    <title>Bridge Transfers — AITBC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridges — AITBC</title>
     <meta name="description" content="Cross-chain bridge transfer history on the AITBC network.">
+    <link rel="canonical" href="https://hub.aitbc.bubuit.net/bridges.html">
     <meta name="robots" content="index, follow">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
     <!-- Stylesheet -->
     <link rel="stylesheet" href="/style.css?v=11">
-    <script src="config.js"></script>
-    <script src="bridges.js?v=2"></script>
+    <script src="config.js" defer></script>
+    <script src="bridges.js?v=2" defer></script>
 </head>
 <body>
+    <!-- aitbc-skip:start -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <!-- aitbc-skip:end -->
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/llms.txt">llms.txt</a> &middot; <a href="/openapi.json">Coordinator API</a> &middot; <a href="/explorer-api/openapi.json">Explorer API</a>.</p></noscript>
         <header>
             <!-- aitbc-menu:start -->
-            <div class="header-nav">
+            <nav class="header-nav" aria-label="Main">
                 <a href="/">Home</a>
                 <a href="/exchange.html">Exchange</a>
                 <a href="/explorer.html">Explorer</a>
                 <a href="/marketplace.html">Marketplace</a>
                 <a href="/bridges.html" class="is-current" aria-current="page">Bridges</a>
                 <a href="/alerts.html">Alerts</a>
-            </div>
+            </nav>
             <!-- aitbc-menu:end -->
             <h1>Bridge Transfers</h1>
             <p class="subtitle">Cross-chain transfer history recorded on this chain</p>
         </header>
+
+        <main id="main" tabindex="-1">
 
         <div class="card">
             <h2>Recent Bridge Transfers</h2>
@@ -37,6 +43,7 @@
             <div id="recent-bridges-empty" style="display:none;" class="muted-text">No bridges yet — <a href="/exchange.html">be the first</a>.</div>
             <div id="recent-bridges-container"></div>
         </div>
+        </main>
     </div>
 </body>
 </html>

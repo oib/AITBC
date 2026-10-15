@@ -3,36 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AITBC Shop Dashboard</title>
+    <title>Shop Dashboard — AITBC</title>
     <meta name="description" content="AITBC shop dashboard: GPUs, offers, jobs, and earnings">
+    <link rel="canonical" href="https://hub.aitbc.bubuit.net/shop-dashboard.html">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="/style.css">
-    <script src="config.js"></script>
-    <script src="dashboard.js"></script>
+    <script src="config.js" defer></script>
+    <script src="dashboard.js" defer></script>
 </head>
 <body>
+    <!-- aitbc-skip:start -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <!-- aitbc-skip:end -->
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/llms.txt">llms.txt</a> &middot; <a href="/openapi.json">Coordinator API</a> &middot; <a href="/explorer-api/openapi.json">Explorer API</a>.</p></noscript>
         <header>
             <!-- aitbc-menu:start -->
-            <div class="header-nav">
+            <nav class="header-nav" aria-label="Main">
                 <a href="/">Home</a>
                 <a href="/exchange.html">Exchange</a>
                 <a href="/explorer.html">Explorer</a>
                 <a href="/marketplace.html">Marketplace</a>
                 <a href="/bridges.html">Bridges</a>
                 <a href="/alerts.html">Alerts</a>
-            </div>
+            </nav>
             <!-- aitbc-menu:end -->
             <!-- aitbc-dashboard-menu:start -->
-            <div class="dashboard-nav" aria-label="Dashboards">
+            <nav class="dashboard-nav" aria-label="Dashboards">
                 <a href="/customer-dashboard.html">Customer Dashboard</a>
                 <a href="/shop-dashboard.html" class="is-current" aria-current="page">Shop Dashboard</a>
-            </div>
+            </nav>
             <!-- aitbc-dashboard-menu:end -->
             <h1>Shop Dashboard</h1>
             <p class="subtitle">Miner: <code id="shop-miner-id">--</code></p>
         </header>
+
+        <main id="main" tabindex="-1">
 
         <div class="card">
             <h2>Operator Credential</h2>
@@ -151,6 +157,7 @@
             </a>
             <p class="endpoint-note">Miner SLA metrics (uptime) — public</p>
         </div>
+        </main>
     </div>
 
     <script>
