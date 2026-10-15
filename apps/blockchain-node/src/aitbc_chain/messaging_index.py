@@ -40,6 +40,17 @@ SCAN_BOUND = 8192
 _HEX64 = set("0123456789abcdef")
 
 
+def _row_error(row: Transaction) -> str | None:
+    """Predicate call with a last-resort guard: a row whose payload makes the
+    predicate *raise* is invalid, never an exception. One hostile sealed row
+    must not be able to break a read for everyone (a lone-surrogate body is
+    the known case — JSON stores it, ``str.encode`` then refuses it)."""
+    try:
+        return envelope_error(extract_envelope(row.payload), sender=row.sender or "")
+    except Exception as e:
+        return f"invalid aitbc_msg envelope ({type(e).__name__})"
+
+
 def admission_error(payload: Any, sender: str) -> str | None:
     """Admission-time check: a payload *claiming* ``aitbc_msg`` must be valid.
 
@@ -52,7 +63,10 @@ def admission_error(payload: Any, sender: str) -> str | None:
 
     if not claims_envelope(payload):
         return None
-    return envelope_error(extract_envelope(payload), sender=sender)
+    try:
+        return envelope_error(extract_envelope(payload), sender=sender or "")
+    except Exception as e:
+        return f"invalid aitbc_msg envelope ({type(e).__name__})"
 
 
 def parse_cursor(cursor: str | None) -> tuple[int, int] | None:
@@ -146,7 +160,7 @@ def _scan_valid(
     last_scanned: Transaction | None = None
     for row in rows[:scan_bound]:
         last_scanned = row
-        if envelope_error(extract_envelope(row.payload), sender=row.sender) is not None:
+        if _row_error(row) is not None:
             continue
         out.append(row)
         if len(out) >= limit:
@@ -175,7 +189,7 @@ def _resolve_parents(session, chain_id: str, items: list[dict[str, Any]]) -> Non
             col(Transaction.block_height).is_not(None),
         )
     ).all():
-        if envelope_error(extract_envelope(row.payload), sender=row.sender) is None:
+        if _row_error(row) is None:
             resolved.add(row.tx_hash)
     for m in items:
         if m.get("parent"):
@@ -241,7 +255,7 @@ def get_message(session, chain_id: str, tx_hash: str) -> dict[str, Any] | None:
             col(Transaction.block_height).is_not(None),
         )
     ).first()
-    if tx is None or envelope_error(extract_envelope(tx.payload), sender=tx.sender) is not None:
+    if tx is None or _row_error(tx) is not None:
         return None
     view = _view(tx)
     _resolve_parents(session, chain_id, [view])
@@ -270,7 +284,7 @@ def list_topics(
     bounded = len(rows) > SCAN_BOUND
     for row in rows[:SCAN_BOUND]:
         env = extract_envelope(row.payload)
-        if env is None or envelope_error(env, sender=row.sender) is not None:
+        if env is None or _row_error(row) is not None:
             continue
         topic = env["topic"]
         entry = topics.get(topic)
@@ -305,7 +319,7 @@ def state(session, chain_id: str) -> dict[str, Any]:
     messages = 0
     for row in rows[:SCAN_BOUND]:
         env = extract_envelope(row.payload)
-        if env is None or envelope_error(env, sender=row.sender) is not None:
+        if env is None or _row_error(row) is not None:
             continue
         messages += 1
         topics.add(env["topic"])
