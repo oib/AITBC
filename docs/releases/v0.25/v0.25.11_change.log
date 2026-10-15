@@ -207,3 +207,17 @@ static footer (GitHub mirror, llms.txt, Coordinator API, Explorer API).
   deferred exactly once, identical footer link set on every page, no CDN
   scripts/styles, `status.js` calls only same-origin paths that exist
   under the repo nginx map's location prefixes.
+### CLI: prepay deposit hardening — zero-wei refuse, malformed chain id, loop close (PREPAY-1b)
+
+Three small guards in `aitbc exchange prepay deposit`, none changing the
+accepted path:
+
+- `6f5baac4a` — an `--amount-eth` that floors to 0 wei (e.g. 1e-19) is refused in
+  both `--print` and `--send` instead of silently building a zero-value
+  transaction.
+- `6f5baac4a` — a malformed `eth_chainId` result takes the same clean path as a
+  missing one (`chain_id_verified: false` under `--print`; the "cannot
+  verify the RPC chain id" abort under `--send`) instead of a raw
+  ValueError.
+- `6f5baac4a` — `_broadcast_raw` now uses `asyncio.run`, so the broadcast event
+  loop is closed after the single send instead of being leaked.
