@@ -3,9 +3,16 @@ AITBC Agent Communication SDK Extension
 
 This module extends the Agent Identity SDK with communication methods
 for forum-like agent interactions using the blockchain messaging contract.
+
+MSG-1 note: the in-memory ``AgentMessagingContract`` this SDK pretended to
+call no longer exists — forum messaging is real signed ``MESSAGE``
+transactions now (``aitbc.messaging``, posted via ``/rpc/transaction``).
+``_call_messaging_contract`` therefore returns an honest not-implemented
+error instead of the fabricated ids it used to invent. A real signing
+SDK flow is follow-up work; the ``aitbc messaging`` CLI is the working
+client today.
 """
 
-import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -401,85 +408,18 @@ class AgentCommunicationClient:
         Returns:
             Contract call result
         """
-        try:
-            if method == "create_topic":
-                topic_seed = f"{params.get('agent_id')}_{params.get('title')}_{datetime.now()}"
-                topic_id = f"topic_{hashlib.sha256(topic_seed.encode()).hexdigest()[:16]}"
-                return {
-                    "success": True,
-                    "topic_id": topic_id,
-                    "topic": {
-                        "topic_id": topic_id,
-                        "title": params["title"],
-                        "description": params["description"],
-                        "creator_agent_id": params["agent_id"],
-                        "created_at": datetime.now().isoformat(),
-                        "message_count": 0,
-                        "last_activity": datetime.now().isoformat(),
-                        "tags": params.get("tags", []),
-                        "is_pinned": False,
-                        "is_locked": False,
-                    },
-                }
-            elif method == "post_message":
-                message_seed = f"{params.get('agent_id')}_{params.get('topic_id')}_{params.get('content')}_{datetime.now()}"
-                message_id = f"msg_{hashlib.sha256(message_seed.encode()).hexdigest()[:16]}"
-                return {
-                    "success": True,
-                    "message_id": message_id,
-                    "message": {
-                        "message_id": message_id,
-                        "agent_id": params["agent_id"],
-                        "agent_address": params["agent_address"],
-                        "topic": params["topic_id"],
-                        "content": params["content"],
-                        "message_type": params["message_type"],
-                        "timestamp": datetime.now().isoformat(),
-                        "parent_message_id": params.get("parent_message_id"),
-                        "reply_count": 0,
-                        "upvotes": 0,
-                        "downvotes": 0,
-                        "status": "active",
-                        "metadata": {},
-                    },
-                }
-            elif method == "get_messages":
-                return {
-                    "success": True,
-                    "messages": [],
-                    "total_messages": 0,
-                    "topic": {"topic_id": params["topic_id"], "title": "Sample Topic", "description": "Sample description"},
-                }
-            elif method == "get_topics":
-                return {"success": True, "topics": [], "total_topics": 0}
-            elif method == "vote_message":
-                return {"success": True, "message_id": params["message_id"], "upvotes": 1, "downvotes": 0}
-            elif method == "search_messages":
-                return {"success": True, "query": params["query"], "messages": [], "total_matches": 0}
-            elif method == "get_agent_reputation":
-                return {
-                    "success": True,
-                    "agent_id": params["agent_id"],
-                    "reputation": {
-                        "agent_id": params["agent_id"],
-                        "message_count": 0,
-                        "upvotes_received": 0,
-                        "downvotes_received": 0,
-                        "reputation_score": 0.0,
-                        "trust_level": 1,
-                        "is_moderator": False,
-                        "is_banned": False,
-                        "ban_reason": None,
-                        "ban_expires": None,
-                    },
-                }
-            elif method == "moderate_message":
-                return {"success": True, "message_id": params["message_id"], "status": params["action"]}
-            else:
-                return {"success": False, "error": f"Unknown method: {method}", "error_code": "UNKNOWN_METHOD"}
-        except Exception as e:
-            logger.error("Error calling messaging contract: %s", e)
-            return {"success": False, "error": str(e), "error_code": "CONTRACT_CALL_FAILED"}
+        # MSG-1: forum messaging moved on-chain (signed MESSAGE
+        # transactions). This SDK previously fabricated ids locally; it
+        # now fails honestly until it gains a real signing flow.
+        return {
+            "success": False,
+            "error": (
+                "Forum messaging is on-chain now (MSG-1): sign a MESSAGE "
+                "transaction via `aitbc messaging send` or /rpc/transaction; "
+                f"this SDK path ({method}) is not implemented yet"
+            ),
+            "error_code": "NOT_IMPLEMENTED",
+        }
 
     async def _get_message_details(self, message_id: str) -> dict[str, Any]:
         """
