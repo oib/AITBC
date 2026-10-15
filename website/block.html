@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AITBC Block Detail</title>
+    <title>Block Detail — AITBC</title>
+    <meta name="robots" content="noindex">
+    <meta name="description" content="Block detail for the AITBC explorer: height, hash, timestamp, and transactions of a single chain block.">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="/style.css">
     <style>
@@ -28,21 +30,26 @@
     </style>
 </head>
 <body>
+    <!-- aitbc-skip:start -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <!-- aitbc-skip:end -->
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/llms.txt">llms.txt</a> &middot; <a href="/openapi.json">Coordinator API</a> &middot; <a href="/explorer-api/openapi.json">Explorer API</a>.</p></noscript>
         <header>
             <!-- aitbc-menu:start -->
-            <div class="header-nav">
+            <nav class="header-nav" aria-label="Main">
                 <a href="/">Home</a>
                 <a href="/exchange.html">Exchange</a>
                 <a href="/explorer.html">Explorer</a>
                 <a href="/marketplace.html">Marketplace</a>
                 <a href="/bridges.html">Bridges</a>
                 <a href="/alerts.html">Alerts</a>
-            </div>
+            </nav>
             <!-- aitbc-menu:end -->
             <h1>Block Detail</h1>
         </header>
+
+        <main id="main" tabindex="-1">
 
         <div id="loading" class="loading">Loading block...</div>
         <div id="content" style="display:none;">
@@ -61,6 +68,7 @@
         </div>
 
         <div id="error" class="loading" style="display:none; color:#ef4444;"></div>
+        </main>
     </div>
 
     <script>
