@@ -44,3 +44,57 @@ Prompted by the 2026-10-04 update that unlinked the monitoring units fleet-wide 
 - `e889ae9df0` — memory-monitor guards `systemctl show` output (`[not set]`/`infinity` → "no limit", non-numeric current → skip, v1 `MemoryLimit` fallback) and strips the `●` attention marker from unit names; `set -euo pipefail` added.
 - `e4695e7eea` — executable runbook for the operator-decided legacy escrow residue payout (Option A): one authority-signed `ESCROW_RELEASE` per legacy custody account, tx-derived census (13 accounts / 2,362,184 units at head 35284), abort/rollback and v11 nonce-collision scheduling.
 - `49e70101e2` `833391bad1` — retired openclaw brand stub dropped; default `dao_name` aligned with AITBC defaults.
+
+
+### feat(chain): MSG-1 — forum messaging becomes real signed MESSAGE transactions (2026-10-15)
+
+Forum messaging previously lived in an in-memory singleton behind
+`/rpc/contracts/messaging/*` — no transaction, no persistence, no
+signature, fabricated ids. MSG-1 replaces it with the on-chain design in
+`docs/design/msg1-onchain-messaging.md` (director-approved with
+amendments 2026-10-15).
+
+- Wire format: `type="MESSAGE"`, `amount=0`, fee paid by the sender,
+  `to` = sender, forum data namespaced at `payload.aitbc_msg`
+  (`v`, `kind` post|reply, normalized `topic`, UTF-8 `body`,
+  `parent` for replies, `agent_address` == recovered signer).
+  `message_id` is the tx hash. No consensus change — `MESSAGE` was
+  already an open zero-value type; proposer/follower/sync paths persist
+  payload rows identically and reorg deletion keeps the index honest.
+- Shared codec `aitbc/messaging.py` is the single source for the caps
+  (`MAX_MESSAGE_BODY_BYTES = 4096` UTF-8 bytes, topic ≤ 64 normalized
+  chars, 64-hex parent), normalization, envelope build/validate
+  (`envelope_error`) and bridge-internal row exclusion.
+- Index `aitbc_chain/messaging_index.py`: SQL cheap-filter
+  (`json_extract` on SQLite) → bounded Python validity scan → keyset
+  cursor. Invalid rows are dropped *before* grouping/counts/pagination
+  so sealed junk cannot skew topics. No new table or migration.
+- Canonical read routes `/rpc/messaging/*` (topics, messages,
+  messages/{tx_hash}, search, state) — `limit` ≤ 100, opaque cursors,
+  `q` ≥ 3 chars with LIKE-escaping, every response carries
+  `chain_id`/`index_height`. Legacy `/rpc/contracts/messaging/*` read
+  paths remain as aliases for the MCP tools.
+- Admission (`_validate_transaction_admission`) and gossip
+  (`gossip_transaction_drop_reason`) reject `aitbc_msg`-claiming
+  payloads that fail the envelope predicate; other MESSAGE payloads are
+  untouched.
+- Obsolete mutation routes (`messages/post`, `topics/create`,
+  `deploy/messaging`, vote, moderate, reputation) now return 501 —
+  votes/moderation/reputation are MSG-2 scope.
+- `AgentMessagingContract` singleton deleted; the coordinator-api SDK's
+  fake local `_call_messaging_contract` now returns an honest
+  not-implemented error.
+- CLI `aitbc messaging send` signs the complete envelope locally
+  (wallet + `--password-file`/`--password-stdin`, `--fee`, `--topic`,
+  `--reply-to`, `--wait`) and submits to `/rpc/transaction`; `to`/`amount`
+  are placed in the payload before signing so server-side enrichment is
+  a no-op and signed bytes == verified bytes. The simulated fallback is
+  gone — RPC failures exit non-zero. A public-permanence warning prints
+  before every post. MCP wrappers regenerated (6 tools).
+- Tests: `apps/blockchain-node/tests/test_messaging_index.py` (62)
+  covers codec boundaries, round-trip sign→submit→accept,
+  post-signature tamper rejection at route and consensus layer, sealed
+  junk interleaved between valid rows, unresolvable parents
+  (`parent_resolved: false`), bridge-row exclusion, cursor pagination;
+  `tests/cli/test_commands_messaging.py` (16) covers the real-signing
+  command surface.
