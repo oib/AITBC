@@ -607,3 +607,73 @@ def test_db_never_written(tool, tmp_path):
     db.chmod(0o444)
     found = _findings(tool, db)
     assert "FAIL" not in _severities(found)
+
+
+# --- --db default resolution (CLI-5) -----------------------------------------
+
+
+def test_service_db_path_default(tool, monkeypatch):
+    monkeypatch.delenv("EXCHANGE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AITBC_DATA_DIR", raising=False)
+    assert tool._service_db_path() == "/var/lib/aitbc/data/exchange/exchange.db"
+
+
+def test_service_db_path_aitbc_data_dir(tool, monkeypatch):
+    monkeypatch.delenv("EXCHANGE_DATABASE_URL", raising=False)
+    monkeypatch.setenv("AITBC_DATA_DIR", "/scratch/aitbc")
+    assert tool._service_db_path() == "/scratch/aitbc/data/exchange/exchange.db"
+
+
+def test_service_db_path_exchange_database_url(tool, monkeypatch):
+    monkeypatch.setenv("EXCHANGE_DATABASE_URL", "sqlite:////srv/exchange/ex.db")
+    assert tool._service_db_path() == "/srv/exchange/ex.db"
+
+
+def test_resolve_db_explicit_wins(tool, tmp_path, monkeypatch):
+    monkeypatch.setenv("EXCHANGE_DATABASE_URL", "sqlite:////nonexistent/x.db")
+    db = tmp_path / "ex.db"
+    db.write_bytes(b"x")
+    assert tool._resolve_db(str(db)) == str(db)
+
+
+def test_resolve_db_uses_readable_default(tool, tmp_path, monkeypatch):
+    db = tmp_path / "data" / "exchange" / "exchange.db"
+    db.parent.mkdir(parents=True)
+    db.write_bytes(b"x")
+    monkeypatch.delenv("EXCHANGE_DATABASE_URL", raising=False)
+    monkeypatch.setenv("AITBC_DATA_DIR", str(tmp_path))
+    assert tool._resolve_db(None) == str(db)
+
+
+def test_resolve_db_missing_default_errors(tool, tmp_path, monkeypatch):
+    monkeypatch.delenv("EXCHANGE_DATABASE_URL", raising=False)
+    monkeypatch.setenv("AITBC_DATA_DIR", str(tmp_path))
+    with pytest.raises(SystemExit) as e:
+        tool._resolve_db(None)
+    assert "--db is required" in str(e.value)
+
+
+def test_ait_skip_hint_names_enabling_flags(tool, tmp_path, monkeypatch, capsys):
+    """main() without --ait-rpc prints a one-line hint explaining how to
+    enable the AIT checks (not just 'skipped')."""
+    db = _exchange_db(tmp_path / "ex.db")
+    monkeypatch.setattr(tool, "check_eth_chain", lambda *a, **k: None)
+    monkeypatch.setattr(sys, "argv", ["exchange_verify.py", "--db", str(db)])
+    rc = tool.main()
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "AIT chain checks skipped" in out
+    assert "--ait-rpc" in out and "--escrow-address" in out
+
+
+def test_main_default_db_roundtrip(tool, tmp_path, monkeypatch, capsys):
+    """main() with no --db picks up the service default end-to-end."""
+    (tmp_path / "data" / "exchange").mkdir(parents=True)
+    _exchange_db(tmp_path / "data" / "exchange" / "exchange.db")
+    monkeypatch.delenv("EXCHANGE_DATABASE_URL", raising=False)
+    monkeypatch.setenv("AITBC_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(sys, "argv", ["exchange_verify.py", "--no-chain"])
+    rc = tool.main()
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "OK" in out
