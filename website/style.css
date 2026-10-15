@@ -104,6 +104,62 @@ header {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
+/* Network status strip: height is reserved before data arrives so its
+   appearance never shifts layout; stays visually hidden until populated. */
+.status-strip {
+    min-height: 1.5rem;
+    margin: 0.25rem 0 1rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+    align-items: baseline;
+    visibility: hidden;
+}
+.status-strip.status-on {
+    visibility: visible;
+}
+.status-strip.status-unavailable {
+    font-style: italic;
+}
+.status-strip .status-part {
+    color: var(--text-muted);
+}
+.status-strip a.status-part {
+    color: var(--primary);
+    text-decoration: none;
+}
+.status-strip a.status-part:hover {
+    text-decoration: underline;
+}
+.status-strip .status-part.status-unavailable,
+.status-strip a.status-part.status-unavailable {
+    color: var(--text-muted);
+}
+.status-strip .status-sep {
+    color: var(--border);
+}
+/* Site footer: static links, identical on every page. */
+.site-footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    font-size: 0.8rem;
+}
+.site-footer a,
+.site-footer a:link,
+.site-footer a:visited {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+.site-footer a:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
 h1 {
     font-size: 1.8rem;
     color: var(--primary);

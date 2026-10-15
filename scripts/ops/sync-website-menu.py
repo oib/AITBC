@@ -61,6 +61,15 @@ NO_MENU_PAGES = {"follower-api-key-announcement.html"}
 MENU_MARK = "aitbc-menu"
 DASH_MARK = "aitbc-dashboard-menu"
 SKIP_MARK = "aitbc-skip"
+STATUS_MARK = "aitbc-status"
+FOOTER_MARK = "aitbc-footer"
+
+FOOTER_LINKS = [
+    ("https://github.com/oib/AITBC", "GitHub"),
+    ("/llms.txt", "llms.txt"),
+    ("/openapi.json", "Coordinator API"),
+    ("/explorer-api/openapi.json", "Explorer API"),
+]
 
 LEGACY_NAV_RE = re.compile(
     r'^(?P<i>[ \t]*)<div class="header-nav">\s*\n(?P<body>.*?)^(?P=i)</div>[ \t]*\n?',
@@ -95,6 +104,22 @@ def skip_block(indent: str) -> str:
         f'{indent}<a href="#main" class="skip-link">Skip to content</a>\n'
         f"{indent}<!-- {SKIP_MARK}:end -->\n"
     )
+
+
+def status_block(indent: str) -> str:
+    return (
+        f"{indent}<!-- {STATUS_MARK}:start -->\n"
+        f'{indent}<div class="status-strip" role="status" aria-live="polite"></div>\n'
+        f"{indent}<!-- {STATUS_MARK}:end -->\n"
+    )
+
+
+def footer_block(indent: str) -> str:
+    lines = [f"{indent}<!-- {FOOTER_MARK}:start -->", f'{indent}<footer class="site-footer">']
+    for href, label in FOOTER_LINKS:
+        lines.append(f'{indent}    <a href="{href}">{label}</a>')
+    lines += [f"{indent}</footer>", f"{indent}<!-- {FOOTER_MARK}:end -->"]
+    return "\n".join(lines) + "\n"
 
 
 def marked_region(mark: str, indent: str = INDENT) -> re.Pattern[str]:
@@ -139,14 +164,39 @@ def stamp_skip_link(text: str, name: str) -> str:
     return text[:line_end] + skip_block(body.group("next")) + text[line_end:]
 
 
+def stamp_status_strip(text: str, name: str) -> str:
+    if marked_region(STATUS_MARK, "[ \t]*").search(text):
+        m = re.search(r"(?P<i>[ \t]*)<!-- " + STATUS_MARK + ":start -->", text)
+        region = marked_region(STATUS_MARK, re.escape(m.group("i")))
+        return region.sub(status_block(m.group("i")), text, count=1)
+    if name in NO_MENU_PAGES:
+        return text
+    m = re.search(r"(?P<i>[ \t]*)<main id=\"main\"", text)
+    if not m:
+        raise ValueError(f'{name}: page with a menu needs <main id="main"> before the status strip')
+    return text[: m.start()] + status_block(m.group("i")) + "\n" + text[m.start() :]
+
+
+def stamp_footer(text: str, name: str) -> str:
+    m = re.search(r"(?P<i>[ \t]*)<!-- " + FOOTER_MARK + r":start -->", text)
+    if m:
+        region = marked_region(FOOTER_MARK, re.escape(m.group("i")))
+        return region.sub(footer_block(m.group("i")), text, count=1)
+    main_close = re.search(r"(?P<i>[ \t]*)</main>\n", text)
+    if not main_close:
+        raise ValueError(f"{name}: no </main> to hang the footer on")
+    indent = main_close.group("i")
+    return text[: main_close.end()] + footer_block(indent) + text[main_close.end() :]
+
+
 def expected_content(path: Path) -> str:
     name = path.name
     text = stamp_skip_link(path.read_text(encoding="utf-8"), name)
     if name in NO_MENU_PAGES:
-        return text
+        return stamp_footer(text, name)
     if "header-nav" not in text and f"<!-- {MENU_MARK}:start -->" not in text:
         raise ValueError(f"{name}: no menu and not in NO_MENU_PAGES")
-    return stamp_dashboard_row(stamp_main_menu(text, name), name)
+    return stamp_footer(stamp_status_strip(stamp_dashboard_row(stamp_main_menu(text, name), name), name), name)
 
 
 def main() -> int:
