@@ -60,6 +60,10 @@ DEFAULT_DATA_DIR = "/var/lib/aitbc"
 WEI_PER_ETH = Decimal(10) ** 18
 UNITS_PER_AIT = Decimal(36_000_000)  # chain units per AIT
 TICKS_PER_UNIT = Decimal(100_000_000)  # exchange ticks per AIT
+# Mirrors the settlement monitor's _sweep_fee_ait() (aitbc.utils.units
+# DEFAULT_TX_FEE_AIT): a lock remainder at or below this never earns an
+# order_refund row — sweeping it would cost more than it returns.
+SWEEP_FEE_AIT = Decimal("0.01")
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 INFO, WARN, FAIL = "INFO", "WARN", "FAIL"
@@ -149,7 +153,51 @@ def _has_table(conn: sqlite3.Connection, name: str) -> bool:
     return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
 
 
-def _check_order_rows(orders: dict, debits: dict, add, refunds: dict | None) -> None:
+def _lock_remainder_ait(order: dict, trades: list) -> Decimal | None:
+    """Mirror of the monitor's remainder math: locked AIT minus every
+    trade's amount+fee draw (each trade consumes its draw regardless of
+    outcome). ``None`` when the order carries no locked_ticks."""
+    locked_ticks = order["locked_ticks"]
+    if locked_ticks is None:
+        return None
+    draw = Decimal(0)
+    for t in trades:
+        if t["sell_order_id"] == order["id"]:
+            draw += Decimal(str(t["amount"])) + Decimal(str(t["fee_ait"] or "0"))
+    return Decimal(int(locked_ticks)) / TICKS_PER_UNIT - draw
+
+
+def _check_refund_row(order: dict, trades: list, add, refunds: dict) -> None:
+    """The order_refund-ledger check for one backing_expired order. A
+    remainder at/below the sweep fee deliberately earns no row — the
+    monitor leaves it in escrow (dust), so that is INFO, not stranded."""
+    status = refunds.get(order["id"])
+    if status == "failed":
+        add(
+            FAIL,
+            "db",
+            f"order {order['id']}: backing_expired but backing_tx_hash set — order_refund row failed (stranded lock)",
+        )
+        return
+    if status is not None:
+        return
+    remaining = _lock_remainder_ait(order, trades)
+    if remaining is not None and remaining <= SWEEP_FEE_AIT:
+        add(
+            INFO,
+            "db",
+            f"order {order['id']}: backing_expired, lock remainder {remaining} AIT at/below the "
+            f"{SWEEP_FEE_AIT} AIT sweep fee — no order_refund row needed (dust)",
+        )
+    else:
+        add(
+            FAIL,
+            "db",
+            f"order {order['id']}: backing_expired but backing_tx_hash set — no order_refund row (stranded lock)",
+        )
+
+
+def _check_order_rows(orders: dict, debits: dict, trades: list, add, refunds: dict | None) -> None:
     """Funded-state invariants per order row.
 
     A non-funded order may keep backing_tx_hash when the lock it points to is
@@ -174,19 +222,7 @@ def _check_order_rows(orders: dict, debits: dict, add, refunds: dict | None) -> 
                     f"order {order['id']}: backing_expired with backing_tx_hash — refund link unchecked (no --bridge-db)",
                 )
             else:
-                status = refunds.get(order["id"])
-                if status is None:
-                    add(
-                        FAIL,
-                        "db",
-                        f"order {order['id']}: backing_expired but backing_tx_hash set — no order_refund row (stranded lock)",
-                    )
-                elif status == "failed":
-                    add(
-                        FAIL,
-                        "db",
-                        f"order {order['id']}: backing_expired but backing_tx_hash set — order_refund row failed (stranded lock)",
-                    )
+                _check_refund_row(order, trades, add, refunds)
 
 
 def _check_nonce_uniqueness(orders: dict, add) -> None:
@@ -335,11 +371,11 @@ def check_db_internal(
         else {}
     )
     trades = conn.execute(
-        "SELECT id, amount, total, buyer_address, seller_address, buy_order_id, sell_order_id, "
+        "SELECT id, amount, fee_ait, total, buyer_address, seller_address, buy_order_id, sell_order_id, "
         "settlement_state, settlement_eth_tx_hash, settlement_ait_tx_hash FROM trades"
     ).fetchall()
 
-    _check_order_rows(orders, debits, add, refunds)
+    _check_order_rows(orders, debits, trades, add, refunds)
     _check_nonce_uniqueness(orders, add)
     _check_debit_rows(orders, debits, add)
     _check_trade_rows(orders, trades, add, settles)

@@ -27,6 +27,17 @@ sqlite3.register_converter("NUMERIC", lambda b: Decimal(b.decode()))
 sqlite3.register_converter("TIMESTAMP", lambda b: b.decode())
 
 
+def _money_str(value: Decimal | float | str | None) -> str:
+    """Return a fixed-point, no-exponent decimal string for money amounts."""
+    if value is None:
+        return ""
+    d = Decimal(str(value))
+    s = format(d, "f")
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s or "0"
+
+
 def _connect_db(path: str | None = None) -> sqlite3.Connection:
     """Open a bridge DB connection with Decimal conversion enabled."""
     return sqlite3.connect(
@@ -160,7 +171,7 @@ def init_db() -> None:
             rate_eth_usd TEXT NOT NULL,
             ait_usd TEXT NOT NULL,
             fee_ait NUMERIC NOT NULL,
-            eth_amount NUMERIC NOT NULL,
+            eth_amount TEXT NOT NULL,
             feed_age_seconds NUMERIC,
             status TEXT NOT NULL DEFAULT 'quoted',
             expires_at TIMESTAMP NOT NULL,
@@ -176,7 +187,7 @@ def init_db() -> None:
             shop_ait_address TEXT NOT NULL,
             shop_eth_address TEXT,
             amount_ait NUMERIC NOT NULL,
-            eth_amount NUMERIC,
+            eth_amount TEXT,
             requoted INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'locked',
             eth_tx_hash TEXT,
@@ -1195,7 +1206,7 @@ def insert_sell_quote(
             str(rate_eth_usd),
             str(ait_usd),
             fee_ait,
-            eth_amount,
+            _money_str(eth_amount),
             feed_age_seconds,
             expires_at,
             datetime.now().isoformat(),
@@ -1308,7 +1319,7 @@ def insert_sell_lock(
             shop_ait_address,
             shop_eth_address,
             amount_ait,
-            eth_amount,
+            None if eth_amount is None else _money_str(eth_amount),
             status,
             locked_height,
             datetime.now().isoformat(),
@@ -1497,7 +1508,7 @@ def update_sell_lock_status(
             datetime.now().isoformat(),
             quote_id,
             shop_eth_address,
-            eth_amount,
+            None if eth_amount is None else _money_str(eth_amount),
             requoted,
             eth_tx_hash,
             release_nonce,
@@ -1535,7 +1546,7 @@ def update_sell_lock_status(
             status,
             quote_id,
             shop_eth_address,
-            eth_amount,
+            None if eth_amount is None else _money_str(eth_amount),
             requoted,
             eth_tx_hash,
             release_nonce,
