@@ -252,7 +252,7 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
     ``order_refund`` rows for locks an order cannot take. Every processed
     lock tx is marked so re-scanning the full history is cheap."""
     txs = await sellmon._fetch_transfers(cfg.escrow.escrow_address, limit=0)
-    stats = {"scanned": 0, "funded": 0, "refunds": 0}
+    stats = {"scanned": 0, "funded": 0, "refunds": 0, "http_refused": 0}
     for tx in txs:
         recipient = tx.get("recipient") or tx.get("to") or ""
         if recipient.lower() != cfg.escrow.escrow_address.lower():
@@ -280,6 +280,8 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
         except Exception as e:
             logger.error("order-lock handling failed for %s on order %s: %s", tx_hash, order_id, e)
             continue  # unmarked — retried next poll
+        if outcome is None:
+            continue  # refused — warned in _order_lock_outcome, retried next poll
         insert_monitor_mark(f"lock:{tx_hash}", detail=sender, outcome=outcome)
     return stats
 
@@ -288,7 +290,7 @@ async def _lock_refund(
     cfg: ExchangeCfg, order_id: int, sender: str, lock_ait: Decimal, tx_hash: str, stats: dict[str, int]
 ) -> str:
     """order_refund for a lock the order can't take; counts the row."""
-    outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash)
+    outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash, remainder=False)
     if outcome == "refunding":
         stats["refunds"] += 1
     return outcome
@@ -303,8 +305,9 @@ async def _order_lock_outcome(
     tx_hash: str,
     head: int | None,
     stats: dict[str, int],
-) -> str:
-    """The monitor-mark outcome for one escrow-bound lock tx."""
+) -> str | None:
+    """The monitor-mark outcome for one escrow-bound lock tx — None when the
+    endpoint refused non-terminally and the lock must stay unmarked."""
     lock_ait = units_to_ait(int(tx.get("value", 0) or 0))
     if order is None:
         return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
@@ -326,7 +329,19 @@ async def _order_lock_outcome(
         if status_code in (404, 409):
             # Order gone or lock can't cover it — the AIT goes back.
             return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
-        return f"http_{status_code}"
+        # Any other refusal (5xx, 401/403, the flag-off 503) is transient or a
+        # misconfiguration — marking it would drop the lock from the scan
+        # forever and strand escrowed AIT with no refund row. Warn once per
+        # poll and count it so a persistent refusal stays visible.
+        stats["http_refused"] += 1
+        logger.warning(
+            "order_funded for lock %s on order %s refused with %s — left unmarked, retried next poll: %s",
+            tx_hash,
+            order_id,
+            status_code,
+            body,
+        )
+        return None
     return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
 
 
@@ -339,17 +354,23 @@ def _sender_owns_order(sender: str, user_address: Any) -> bool:
         return False
 
 
-async def _ensure_order_refund(cfg: ExchangeCfg, order_id: int, sender: str, amount_ait: Decimal, tx_hash: str) -> str:
+async def _ensure_order_refund(
+    cfg: ExchangeCfg, order_id: int, sender: str, amount_ait: Decimal, tx_hash: str, *, remainder: bool
+) -> str:
     """Create the order_refund row returning this lock to its sender.
 
-    One row per order (UNIQUE kind,ref_id): a second stray lock on the same
-    order can't create another and is logged for the operator instead."""
+    ref_id convention under UNIQUE(kind,ref_id): ``remainder=True`` — the
+    order's own lock-remainder refund — keys on ``+order_id`` (one per order);
+    ``remainder=False`` — a refund for an *inbound* lock the order could not
+    take — keys on ``-order_id``, so a stranger's dust lock can never squat
+    the row the owner's remainder refund needs. One row per class per order:
+    a second inbound refund on the same order is still a logged duplicate."""
     if not sender:
         logger.error("Lock %s on order %s has no sender — cannot refund", tx_hash, order_id)
         return "no_sender"
     row_id = insert_exchange_settlement(
         "order_refund",
-        order_id,
+        order_id if remainder else -order_id,
         seller_address=canonical_address(sender),
         amount_ait=amount_ait,
         fee_ait=Decimal(0),
@@ -548,7 +569,7 @@ async def _refund_stranded_locks(cfg: ExchangeCfg, stats: dict[str, int]) -> Non
             continue
         sender = await _lock_sender(cfg, str(row["backing_tx_hash"]))
         outcome = await _ensure_order_refund(
-            cfg, order_id, sender or str(row["user_address"]), remaining_ait, str(row["backing_tx_hash"])
+            cfg, order_id, sender or str(row["user_address"]), remaining_ait, str(row["backing_tx_hash"]), remainder=True
         )
         if outcome == "refunding":
             stats["refunds"] += 1
@@ -666,9 +687,12 @@ async def _update_with_retry(row_id: str, status: str, **fields: Any) -> bool:
 async def _set_status_and_mirror(cfg: ExchangeCfg, row: dict[str, Any], status: str, **fields: Any) -> None:
     """Ledger transition + best-effort mirror — the ledger is truth and the
     mirror only ever follows it, so a mirror failure is logged, never
-    raised."""
+    raised. order_refund rows have no tape row (ref_id shares the
+    order/trade int space) — mirroring one could post trade_state onto an
+    unrelated trade, so they never mirror."""
     await _update_with_retry(str(row["id"]), status, **fields)
-    await _mirror_trade_state(cfg, str(row["ref_id"]), status, row)
+    if str(row.get("kind")) == "trade":
+        await _mirror_trade_state(cfg, str(row["ref_id"]), status, row)
 
 
 # Canonical replay lanes — the happy-path states the ledger actually walks.
