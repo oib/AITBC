@@ -196,9 +196,22 @@ a `settlement_envs` failure while either env is missing. `/readyz` also
 verifies the bridge monitor's `eth_deposits` table under `bridge_storage`
 when bridge deposits/withdrawals are enabled.
 
-**Rollout order.** `EXCHANGE_SETTLEMENT_ENABLED` is read independently by the
-exchange service and by the wallet's settlement monitor — enable it on the
-**exchange first**, then the wallet. The pairing is fail-safe either way: a
+**Rollout order.** `EXCHANGE_SETTLEMENT_ENABLED` is read independently by
+**three** units — set it in all three env files:
+
+- the **exchange** (`aitbc-exchange.env`) — placement refusal and the
+  `funding` instructions,
+- the **bridge-monitor service** (`aitbc-bridge-monitor.env`) — routes
+  `EXCHANGE_DEPOSIT:`-tagged inflow to the `exchange_prepay` lane
+  (`bridge_monitor/main.py`); flag-off takes the normal deposit lane where
+  the tag fails recipient parsing, and a below-floor amount dies on
+  `MIN_ETH_DEPOSIT` — this omission is what broke D2,
+- the **wallet** (`aitbc-wallet.env`) — the settlement monitor plus the
+  wallet-side bridge watcher and sell-escrow monitor, which run the same
+  tag routing and gates.
+
+Enable it on the **exchange first**, then the wallet and bridge-monitor. The
+pairing is fail-safe either way: a
 wallet monitor posting to a flag-off exchange gets 503
 (`{"error": "exchange settlement disabled"}`) and retries the lock next poll
 (it never reads it as "order gone" and never refunds on it), while an enabled
@@ -207,6 +220,14 @@ consumes until the monitor comes up. Before this pairing shipped, a flag-off
 exchange answered 404 — indistinguishable from a missing order — and the
 monitor refunded live locks; keep that ordering rule (exchange first) as the
 documented procedure regardless.
+
+Verify all three units see the name before enabling:
+
+```bash
+for u in aitbc-exchange aitbc-bridge-monitor aitbc-wallet; do
+    aitbc system env-names --service "$u" | grep EXCHANGE_SETTLEMENT_ENABLED
+done
+```
 
 **Post-incident audit.** Before reopening the book after a crash or restore:
 
