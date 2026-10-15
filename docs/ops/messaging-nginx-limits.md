@@ -56,6 +56,10 @@ The durable fixes, in preference order:
    below on the public path **and** treat the in-app limiter as best-effort
    there.
 
+Companion document: [messaging-explorer-nginx.md](messaging-explorer-nginx.md)
+proposes the same zone applied to the MSG-4 explorer proxies
+(`/explorer-api/api/messages*`).
+
 ## Proposed nginx limit (operator action — not yet applied)
 
 Two zones keyed on `$binary_remote_addr`, applied to the messaging read
