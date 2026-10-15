@@ -147,6 +147,48 @@ DERIVED_TOKENS = frozenset(
     }
 )
 
+# Bookkeeping quantities that sit next to money but are never money themselves:
+# deadlines, timestamps, retry counters and durations. ``payout_deadlines:
+# dict[int, float]`` holds ``time.monotonic()`` deadlines keyed by id, and
+# ``fee_attempt`` is a counter — both fail the money test.
+#
+# Membership is argued exactly as DERIVED_TOKENS is: the token must denote a
+# quantity that cannot be an amount. Two near-misses are kept out on purpose:
+#
+# * ``at`` — ``balance_at`` and ``amount_at`` are amount snapshots taken at a
+#   height, i.e. money. ``seen``/``ts``/``timestamp`` cover the same intent
+#   without that reading.
+# * ``last`` — ``last_payment`` is the most recent payment amount, not a time.
+#
+# A name that still trips the guard for a genuinely non-money reason uses
+# ``# not-money:`` at the declaration, not a new token here.
+TIME_TOKENS = frozenset(
+    {
+        "deadline",
+        "deadlines",
+        "until",
+        "seen",
+        "ts",
+        "timestamp",
+        "timestamps",
+        "backoff",
+        "cooldown",
+        "throttle",
+        "delay",
+        "delays",
+        "interval",
+        "intervals",
+        "retry",
+        "retries",
+        "attempt",
+        "attempts",
+        "epoch",
+        "epochs",
+        "height",
+        "heights",
+    }
+)
+
 SKIP_PARTS = (
     ".venv",
     "venv",
@@ -197,11 +239,11 @@ def _tokenize(name: str) -> set[str]:
 
 
 def _is_money_name(name: str) -> bool:
-    """True when ``name`` denotes an amount of money rather than something derived from one."""
+    """True when ``name`` denotes an amount of money rather than something derived from one or a time."""
     tokens = _tokenize(name)
     if not tokens & MONEY_TOKENS:
         return False
-    return not (tokens & DERIVED_TOKENS)
+    return not (tokens & (DERIVED_TOKENS | TIME_TOKENS))
 
 
 def _tracked_python_files() -> list[Path]:
