@@ -389,3 +389,7 @@ ledger row) were never verified on chain — the live run counted 0 legs.
 - `cb6dd5ee2` — `GET /v1/bridge/float` (admin-keyed) reports the bridge wallet ETH balance, pending reserve across all three release lanes, and today/rolling-24h release aggregates from new committed-since ledger helpers; CLI gains `aitbc wallet bridge float` and `aitbc wallet bridge status --today/--24h` over the same route, with `--ait-tx-hash` kept as the single-withdrawal lookup.
 - `86f52fb03` — sell lane readable without journald: `sell_status_document()` publishes enabled/reason plus non-secret config (key slots as configured booleans) behind `GET /v1/bridge/sell/config-status` (admin-keyed), the `sell_admin status` verb (env-only, runs before the ledger gate), and `aitbc exchange sell_admin status` over the same route.
 - item 8 (`exchange order my --wallet` password-free resolution) was already fixed at `983fd1c3c` (CLEAN-1) and is dropped from this batch.
+
+### CLI-5 follow-up: wallet inspect refuses container-valued fields
+
+- `wallet inspect` printed whatever value a public-allowlisted field held — in keystore formats where `encrypted` carries the whole crypto object, `--field encrypted` would dump the ciphertext. `--field` now refuses dict/list values and the full view prints `<redacted: structured value>` in their place — scalars only. `cli/tests/test_wallet_inspect.py` gains a keystore fixture with object-valued `encrypted` plus a list-valued public field.
