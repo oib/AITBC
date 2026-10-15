@@ -19,6 +19,7 @@ import atexit
 import importlib.util
 import os
 import shutil
+import sys
 import tempfile
 
 
@@ -69,7 +70,58 @@ os.environ.setdefault("AITBC_SKIP_ENV_FILES", "1")
 _TEST_DATA_DIR = tempfile.mkdtemp(prefix="aitbc-tests-data-")
 atexit.register(shutil.rmtree, _TEST_DATA_DIR, True)
 os.makedirs(os.path.join(_TEST_DATA_DIR, "data"), exist_ok=True)
-os.environ.setdefault("AITBC_DATA_DIR", _TEST_DATA_DIR)
+
+
+# The deployed-path set, shared by the env rewrite below and the session-finish
+# guard. These are the roots aitbc/constants.py falls back to when its own env
+# vars are unset, plus the variants an exported AITBC_HOME would derive
+# (<home>/data|config|logs — mirrors constants.py). A value counts as deployed
+# when its realpath IS one of these or sits INSIDE one — realpath resolves
+# symlinks and strips trailing slashes.
+#
+# AITBC_TEST_DEPLOYED_DIRS extends — never replaces — the set, os.pathsep-
+# separated, so tests can declare fake deployed roots under /tmp without the
+# suite ever touching real /etc or /var. It can only widen what counts as
+# deployed, so it cannot weaken the check.
+def _deployed_paths() -> tuple[str, ...]:
+    roots = ["/var/lib/aitbc", "/etc/aitbc", "/var/log/aitbc"]
+    home = os.environ.get("AITBC_HOME")
+    if home:
+        roots += [os.path.join(home, sub) for sub in ("data", "config", "logs")]
+    roots += [p for p in os.environ.get("AITBC_TEST_DEPLOYED_DIRS", "").split(os.pathsep) if p]
+    return tuple(os.path.realpath(p) for p in roots)
+
+
+_DEPLOYED_PATHS = _deployed_paths()
+
+
+def _is_deployed_path(value: str) -> bool:
+    real = os.path.realpath(value)
+    return any(real == root or real.startswith(root + os.sep) for root in _DEPLOYED_PATHS)
+
+
+# Values _redirect_env replaces below, printed by pytest_report_header so the
+# rewrite is visible in every run's header rather than silent.
+_AMBIENT_REPLACED: list[str] = []
+
+
+def _redirect_env(var: str, scratch: str) -> None:
+    """Point `var` at `scratch` unless a deliberate non-deployed value is set.
+
+    Unset gets the scratch default. An ambient value resolving to a deployed
+    path — a leaked service env on a live node — is replaced and recorded for
+    the header. Anything else is a deliberate override and keeps winning,
+    which is the reason this isn't a plain assignment.
+    """
+    current = os.environ.get(var)
+    if current is None:
+        os.environ[var] = scratch
+    elif _is_deployed_path(current):
+        _AMBIENT_REPLACED.append(f"{var}={current}")
+        os.environ[var] = scratch
+
+
+_redirect_env("AITBC_DATA_DIR", _TEST_DATA_DIR)
 
 # CONFIG_DIR and LOG_DIR freeze from the env at the same import (aitbc.constants); a suite
 # that binds them to /etc/aitbc or /var/log/aitbc first would trip the wallet conftest's
@@ -77,29 +129,18 @@ os.environ.setdefault("AITBC_DATA_DIR", _TEST_DATA_DIR)
 # bind scratch paths, whichever suite's import lands first.
 for _sub, _env in (("config", "AITBC_CONFIG_DIR"), ("logs", "AITBC_LOG_DIR")):
     os.makedirs(os.path.join(_TEST_DATA_DIR, _sub), exist_ok=True)
-    os.environ.setdefault(_env, os.path.join(_TEST_DATA_DIR, _sub))
-
-# What the guard below is guarding against: the path `DATA_DIR` would have resolved to without
-# the line above. Spelled out here rather than read from `aitbc.constants`, because importing
-# that module is what freezes `DATA_DIR` — and by the time the guard runs, it holds the
-# override. Mirrors the default in aitbc/constants.py.
-_DEPLOYED_DATA_DIR = os.path.join(os.environ["AITBC_HOME"], "data") if os.environ.get("AITBC_HOME") else "/var/lib/aitbc"
+    _redirect_env(_env, os.path.join(_TEST_DATA_DIR, _sub))
 
 
-def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
-    """Fail the run if anything in it bound an engine to a deployed database.
+def pytest_report_header(config):  # noqa: ANN001, ANN201, ARG001
+    """Surface ambient deployed paths the env rewrite replaced."""
+    if not _AMBIENT_REPLACED:
+        return None
+    return "aitbc-tests: ambient env pointing at deployed paths replaced with scratch: " + "; ".join(_AMBIENT_REPLACED)
 
-    The default above is a safety net, not a guarantee: a service can reach a deployed path
-    without going through `DATABASE_URL` at all — its own variable, a settings object, a
-    hard-coded string. Rather than enumerate the ways, this looks at what the session actually
-    built. Every SQLAlchemy engine alive at the end of the run is checked, so a new service, or
-    an old one that changes how it resolves its URL, is covered without anyone remembering to
-    add it here.
 
-    Checked at session finish rather than as a test, because a test would have to import the
-    storage modules to inspect them, and importing them early is what binds the engine in the
-    first place — the guard would decide the answer it was meant to measure.
-    """
+def _deployed_engine_urls() -> set[str]:
+    """URLs of every SQLAlchemy engine bound to a deployed path right now."""
     import gc
 
     try:
@@ -107,9 +148,8 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
         from sqlalchemy.ext.asyncio import AsyncEngine
     except ImportError:
         # No SQLAlchemy means no engines were ever built -- nothing to check.
-        return
+        return set()
 
-    deployed = os.path.realpath(_DEPLOYED_DATA_DIR)
     found: set[str] = set()
     for obj in gc.get_objects():
         if not isinstance(obj, Engine | AsyncEngine):
@@ -124,14 +164,51 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
             # taking down the session teardown to say so is strictly worse than skipping it.
             continue
         database = url.database
-        if database and os.path.realpath(database).startswith(deployed):
+        if database and _is_deployed_path(database):
             found.add(str(url))
+    return found
+
+
+def _deployed_constants_bindings() -> set[str]:
+    """aitbc.constants paths bound to a deployed location.
+
+    constants freezes DATA_DIR/CONFIG_DIR/LOG_DIR at first import — if that happened
+    before this conftest ran (an unusual plugin or -p load order), the env rewrite
+    above was already too late. Reads sys.modules only; does not import the module
+    to ask.
+    """
+    constants = sys.modules.get("aitbc.constants")
+    if constants is None:
+        return set()
+    found: set[str] = set()
+    for name in ("DATA_DIR", "CONFIG_DIR", "LOG_DIR"):
+        bound = getattr(constants, name, None)
+        if bound is not None and _is_deployed_path(str(bound)):
+            found.add(f"aitbc.constants.{name} = {bound}")
+    return found
+
+
+def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
+    """Fail the run if anything in it bound an engine or a constants path to a deployed location.
+
+    The default above is a safety net, not a guarantee: a service can reach a deployed path
+    without going through `DATABASE_URL` at all — its own variable, a settings object, a
+    hard-coded string. Rather than enumerate the ways, this looks at what the session actually
+    built. Every SQLAlchemy engine alive at the end of the run is checked, so a new service, or
+    an old one that changes how it resolves its URL, is covered without anyone remembering to
+    add it here.
+
+    Checked at session finish rather than as a test, because a test would have to import the
+    storage modules to inspect them, and importing them early is what binds the engine in the
+    first place — the guard would decide the answer it was meant to measure.
+    """
+    found = _deployed_engine_urls() | _deployed_constants_bindings()
 
     if found:
         session.exitstatus = 1
         writer = session.config.get_terminal_writer()
         writer.line("")
-        writer.line("Test run bound engines to deployed databases:", red=True, bold=True)
+        writer.line("Test run bound engines or constants paths to deployed locations:", red=True, bold=True)
         for url in sorted(found):
             writer.line(f"    {url}", red=True)
         writer.line(
