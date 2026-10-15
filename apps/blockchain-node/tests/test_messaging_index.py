@@ -368,6 +368,146 @@ class TestAdmission:
 # ------------------------------------------------------------------- index
 
 
+class _ReplayResult:
+    """Minimal ScalarResult stand-in so a spied session.exec can replay rows."""
+
+    def __init__(self, rows):
+        self._rows = list(rows)
+
+    def all(self):
+        return self._rows
+
+    def first(self):
+        return self._rows[0] if self._rows else None
+
+    def __iter__(self):
+        return iter(self._rows)
+
+
+class _ExecSpy:
+    """Wrap Session.exec: capture every materialized row and field size."""
+
+    def __init__(self, session):
+        self.row_count = 0
+        self.field_bytes = 0
+        self.max_field = 0
+        orig = session.exec
+
+        def wrapped(stmt, *a, **k):
+            data = orig(stmt, *a, **k).all()
+            self.row_count += len(data)
+            for r in data:
+                flat = r if isinstance(r, (tuple, list)) else (r,)
+                if not isinstance(r, (tuple, list)) and hasattr(r, "__iter__") and not isinstance(r, (str, bytes)):
+                    try:
+                        flat = tuple(r)
+                    except TypeError:
+                        flat = (r,)
+                for v in flat:
+                    if isinstance(v, (str, bytes, dict, list)):
+                        size = len(v) if isinstance(v, bytes) else len(str(v))
+                        self.field_bytes += size
+                        self.max_field = max(self.max_field, size)
+            return _ReplayResult(data)
+
+        session.exec = wrapped  # type: ignore[method-assign]
+
+
+class TestReadAmplification:
+    """F1: a paid junk payload must never leave the database. The mempool cap
+    is 128 KiB; 50 padded rows used to drag ~6.5 MB of payload text into
+    Python on every public read. With column selects + the SQL prefilter,
+    none of that text is ever fetched."""
+
+    PAD = "x" * 131072  # 128 KiB sibling key — payload cap filler
+
+    def _seed_padded(self, session, valid: int, junk: int) -> None:
+        _block(session, 1)
+        rows = [
+            # valid envelope beside a 128 KiB sibling: a real message whose
+            # payload must still be counted without ever being fetched
+            _tx_row(1, 1000 + i, payload={"aitbc_msg": _env(body=f"msg{i}"), "pad": self.PAD})
+            for i in range(valid)
+        ] + [
+            # broken envelope + pad: SQL narrowing filters it before fetch
+            _tx_row(1, 2000 + i, payload={"aitbc_msg": {"v": 2, "junk": True}, "pad": self.PAD})
+            for i in range(junk)
+        ]
+        session.add_all(rows)
+        session.commit()
+
+    def test_topics_and_state_fetch_no_payload_bytes(self, session):
+        self._seed_padded(session, valid=50, junk=50)
+        spy = _ExecSpy(session)
+        topics = list_topics(session, CHAIN)
+        st = state(session, CHAIN)
+        assert topics["total_topics"] == 1 and topics["topics"][0]["message_count"] == 50
+        assert st["contract_state"]["total_messages"] == 50
+        # No row ever carried the pad out of SQLite: the largest fetched
+        # field stays message-sized (body/envelope fields, not 128 KiB).
+        assert spy.max_field < 65536, f"fetched a {spy.max_field}-byte field"
+        assert spy.field_bytes < 1_000_000  # ~50 small column rows, not ~6.5 MB
+
+    def test_message_read_fetches_no_payload_bytes(self, session):
+        self._seed_padded(session, valid=30, junk=20)
+        spy = _ExecSpy(session)
+        out = list_messages(session, CHAIN, limit=10)
+        assert out["count"] == 10
+        get_message(session, CHAIN, f"{1000:064x}")
+        assert spy.max_field < 65536
+        assert spy.field_bytes < 1_000_000
+
+    def test_junk_rows_filtered_in_sql(self, session):
+        """Broken envelopes never reach Python: zero text leaves SQLite."""
+        self._seed_padded(session, valid=0, junk=50)
+        spy = _ExecSpy(session)
+        out = list_messages(session, CHAIN)
+        assert out["count"] == 0
+        assert spy.field_bytes == 0  # only the scalar index_height row ran
+        assert spy.row_count <= 1
+
+    def test_surrogate_body_row_still_skipped(self, session):
+        """The BLOB-select path defers the verdict to the predicate: a
+        lone-surrogate body row is fetched as bytes and skipped — the query
+        must not raise (the json_extract-as-text form would)."""
+        _block(session, 1)
+        session.add(_tx_row(1, 1, payload={"aitbc_msg": _env(body="a\ud800")}))
+        session.add(_tx_row(1, 2, payload={"aitbc_msg": _env(body="ok")}))
+        session.commit()
+        out = list_messages(session, CHAIN)
+        assert [m["body"] for m in out["messages"]] == ["ok"]
+
+
+class TestAuthorCasing:
+    """F1 caveat: sender is stored verbatim; the lenient canonical_address
+    accepts checksum and lowercase forms of the same account. A SQL string
+    compare would silently tighten that — the author check stays Python-side
+    and both spellings must still resolve."""
+
+    def test_lowercase_sender_checksum_agent(self, session):
+        _block(session, 1)
+        session.add(_tx_row(1, 1, sender=ALICE.lower(), payload={"aitbc_msg": _env(body="lc", agent_address=ALICE)}))
+        session.commit()
+        out = list_messages(session, CHAIN)
+        assert [m["body"] for m in out["messages"]] == ["lc"]
+        # the author filter (lowercase-insensitive) finds it too
+        assert list_messages(session, CHAIN, author=ALICE)["count"] == 1
+        assert list_messages(session, CHAIN, author=ALICE.lower())["count"] == 1
+
+    def test_checksum_sender_lowercase_agent(self, session):
+        _block(session, 1)
+        session.add(_tx_row(1, 1, sender=ALICE, payload={"aitbc_msg": _env(body="ck", agent_address=ALICE.lower())}))
+        session.commit()
+        out = list_messages(session, CHAIN)
+        assert [m["body"] for m in out["messages"]] == ["ck"]
+
+    def test_mismatched_agent_still_hidden(self, session):
+        _block(session, 1)
+        session.add(_tx_row(1, 1, sender=ALICE, payload={"aitbc_msg": _env(body="no", agent_address=BOB)}))
+        session.commit()
+        assert list_messages(session, CHAIN)["count"] == 0
+
+
 class TestIndex:
     """Seed sealed rows: valid posts/replies interleaved with junk. Only valid
     rows may surface — before paging, grouping and counting."""

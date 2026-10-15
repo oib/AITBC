@@ -8,30 +8,66 @@ block's rows, so the index inherits deterministic replay and reorg removal
 for free. A materialized table populated by these same queries remains a
 pure performance follow-up behind this module boundary.
 
-Validity is one predicate — :func:`aitbc.messaging.envelope_error` — applied
-in Python before paging, grouping and counting. SQLite cannot express the
-byte-length/charset/normalisation checks, so reads run a *bounded* scan over
-the cheap SQL prefilter (``type='MESSAGE'`` + ``aitbc_msg`` key present) and
-predicate-filter each candidate. A hostile proposer's junk rows therefore
-never skew topic counts or pagination; they only consume scan budget, which
-is bounded per request and surfaced via ``scan_bounded``.
+Reads select **columns, not rows** (F1): the full ``payload`` JSON — up to
+the 128 KiB mempool cap — never leaves the database. The SQL prefilter
+carries every invariant that is exactly expressible there, so a paid junk
+payload (a valid ``aitbc_msg`` object beside a giant sibling key, or an
+obviously-broken envelope) never reaches Python at all:
+
+- ``aitbc_msg`` is a JSON object
+- ``v`` is the JSON *integer* 1 (``json_type='integer'`` rejects ``1.0``,
+  ``"1"`` and ``true`` exactly as ``envelope_error`` does)
+- ``kind`` is text in {post, reply}
+- ``topic`` is a *canonical* slug: text, 1–64 chars of ``[a-z0-9._-]``,
+  alnum first/last, no ``--`` run — exactly what
+  ``t == normalize_topic(t)`` accepts
+- ``body`` is text of 1–4096 UTF-8 bytes (``length(CAST(x AS BLOB))``)
+- ``agent_address`` is text (the canonical-address *comparison* stays in
+  Python — ``canonical_address`` is case-lenient and must not be tightened
+  by a SQL string compare)
+
+Text envelope fields are fetched as ``CAST(json_extract(...) AS BLOB)`` and
+strict-UTF-8-decoded in Python — ``json_extract`` alone would hand the
+driver undecodable text for a lone-surrogate value (``"a\\ud800"``) and turn
+every read into a 500; the byte form defers the verdict to the predicate,
+where it belongs.
+
+The SQL prefilter only *narrows*; it is never stricter than the predicate.
+``envelope_error`` remains the final arbiter on the survivors — charset,
+control characters, parent shape and the canonical author comparison live
+in Python only. ``SCAN_BOUND`` stays as a second safety net.
+
+Aggregates (``list_topics``, ``state``) are computed by SQL ``GROUP BY`` /
+``count`` over the prefiltered set (F2) — exact for the rules SQL expresses
+above. The documented residual: a row that passes the narrowing but fails a
+Python-only rule (author canonicality, control characters, lone-surrogate
+bytes, parent shape) is counted until a materialized index exists. It can
+still never *surface* as a listed message.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import LargeBinary, and_, cast, func, not_, or_
 from sqlmodel import col, select
 
-from aitbc.messaging import MSG_NAMESPACE, envelope_error, extract_envelope
+from aitbc.messaging import (
+    MAX_MESSAGE_BODY_BYTES,
+    MAX_TOPIC_CHARS,
+    MSG_KINDS,
+    MSG_NAMESPACE,
+    MSG_VERSION,
+    envelope_error,
+    extract_envelope,
+)
 
 from .base_models import _to_ait_address
 from .models import Block, Transaction
 
 #: Read-path bounds (public routes). A page never returns more than
-#: MAX_READ_LIMIT items; every request scans at most SCAN_BOUND candidate
-#: rows; topic/search scans are bounded the same way.
+#: MAX_READ_LIMIT items; every message-list request scans at most
+#: SCAN_BOUND candidate rows; aggregates are SQL-side and unbounded.
 MAX_READ_LIMIT = 100
 DEFAULT_READ_LIMIT = 50
 MAX_OFFSET = 500
@@ -40,13 +76,61 @@ SCAN_BOUND = 8192
 _HEX64 = set("0123456789abcdef")
 
 
-def _row_error(row: Transaction) -> str | None:
-    """Predicate call with a last-resort guard: a row whose payload makes the
-    predicate *raise* is invalid, never an exception. One hostile sealed row
-    must not be able to break a read for everyone (a lone-surrogate body is
-    the known case — JSON stores it, ``str.encode`` then refuses it)."""
+def _env_json(path: str):
+    """``json_extract(payload, '$.aitbc_msg.<path>')``."""
+    return func.json_extract(col(Transaction.payload), f"$.{MSG_NAMESPACE}.{path}")
+
+
+def _env_text(path: str):
+    """Envelope field as raw bytes (BLOB) — never decoded by the driver."""
+    return cast(_env_json(path), LargeBinary)
+
+
+def _decode_env_bytes(raw: Any) -> Any:
+    """Strict UTF-8 decode of a BLOB-selected envelope field.
+
+    Bytes that fail to decode (a lone surrogate stored as WTF-8, other
+    malformed sequences) return the raw ``bytes`` — the predicate sees a
+    non-str field and rejects the row, which is the same verdict the
+    whole-payload path produced.
+    """
+    if raw is None or isinstance(raw, str):
+        return raw
+    if isinstance(raw, (bytes, bytearray)):
+        try:
+            return bytes(raw).decode("utf-8")
+        except UnicodeDecodeError:
+            return bytes(raw)
+    return raw
+
+
+def _env_from_row(row: Any) -> dict[str, Any]:
+    """Rebuild the envelope dict from the selected columns.
+
+    ``v`` is pinned by the SQL narrowing to JSON integer ``MSG_VERSION``;
+    the other fields arrive verbatim (BLOB-decoded). ``envelope_error``
+    reads exactly these keys and ignores extras, so the verdict is identical
+    to running it on the original payload.
+    """
+    env: dict[str, Any] = {
+        "v": MSG_VERSION,
+        "kind": _decode_env_bytes(row.env_kind),
+        "topic": _decode_env_bytes(row.env_topic),
+        "body": _decode_env_bytes(row.env_body),
+        "agent_address": _decode_env_bytes(row.env_agent_address),
+    }
+    parent = _decode_env_bytes(row.env_parent)
+    if parent is not None:
+        env["parent"] = parent
+    return env
+
+
+def _row_error(row: Any) -> str | None:
+    """Predicate call on a column row, with a last-resort guard: anything that
+    makes the predicate *raise* is invalid, never an exception. One hostile
+    sealed row must not be able to break a read for everyone."""
     try:
-        return envelope_error(extract_envelope(row.payload), sender=row.sender or "")
+        return envelope_error(_env_from_row(row), sender=row.sender or "")
     except Exception as e:
         return f"invalid aitbc_msg envelope ({type(e).__name__})"
 
@@ -90,6 +174,59 @@ def _index_height(session, chain_id: str) -> int:
     return int(head) if head is not None else 0
 
 
+def _candidate_where(chain_id: str):
+    """The shared SQL narrowing — every condition exactly mirrors a rule
+    ``envelope_error`` also enforces, so a valid row can never be narrowed
+    out. Python-only checks stay out of here by design."""
+    payload = col(Transaction.payload)
+    ns = f"$.{MSG_NAMESPACE}"
+    return (
+        col(Transaction.chain_id) == chain_id,
+        col(Transaction.type) == "MESSAGE",
+        col(Transaction.block_height).is_not(None),
+        func.json_type(payload, ns) == "object",
+        # v must be the JSON integer 1 — json_type alone rejects
+        # 1.0 (real), "1" (text) and true/false (true/false) exactly as
+        # the predicate's isinstance-int check does.
+        func.json_type(payload, f"{ns}.v") == "integer",
+        _env_json("v") == MSG_VERSION,
+        func.json_type(payload, f"{ns}.kind") == "text",
+        _env_json("kind").in_(sorted(MSG_KINDS)),
+        func.json_type(payload, f"{ns}.topic") == "text",
+        # Canonical slug, exactly: 1-64 chars of [a-z0-9._-], alnum first
+        # and last, no "--" run (normalize_topic collapses doubles). This
+        # is `topic == normalize_topic(topic)` expressed in SQL.
+        func.length(_env_json("topic")).between(1, MAX_TOPIC_CHARS),
+        not_(_env_json("topic").op("GLOB")("*[^a-z0-9._-]*")),
+        func.substr(_env_json("topic"), 1, 1).op("GLOB")("[a-z0-9]"),
+        func.substr(_env_json("topic"), -1, 1).op("GLOB")("[a-z0-9]"),
+        func.instr(_env_json("topic"), "--") == 0,
+        func.json_type(payload, f"{ns}.body") == "text",
+        func.length(_env_text("body")).between(1, MAX_MESSAGE_BODY_BYTES),
+        func.json_type(payload, f"{ns}.agent_address") == "text",
+        # `parent` is deliberately not narrowed: for `post` it must be
+        # absent/null and for `reply` a 64-hex string — the predicate's
+        # shape check stays in Python either way.
+    )
+
+
+def _candidate_columns():
+    """Columns every message read needs — never the payload blob itself."""
+    return [
+        col(Transaction.id),
+        col(Transaction.tx_hash),
+        col(Transaction.block_height),
+        col(Transaction.sender),
+        col(Transaction.timestamp),
+        col(Transaction.fee),
+        _env_text("kind").label("env_kind"),
+        _env_text("topic").label("env_topic"),
+        _env_text("parent").label("env_parent"),
+        _env_text("agent_address").label("env_agent_address"),
+        _env_text("body").label("env_body"),
+    ]
+
+
 def _candidate_select(
     chain_id: str,
     *,
@@ -100,27 +237,18 @@ def _candidate_select(
     """SQL prefilter for message candidates. Validity is *not* decided here —
     it narrows the scan window; :func:`envelope_error` is the arbiter."""
     stmt = (
-        select(Transaction)
-        .where(
-            col(Transaction.chain_id) == chain_id,
-            col(Transaction.type) == "MESSAGE",
-            col(Transaction.block_height).is_not(None),
-            func.json_type(col(Transaction.payload), f"$.{MSG_NAMESPACE}") == "object",
-        )
+        select(*_candidate_columns())
+        .where(*_candidate_where(chain_id))
         .order_by(col(Transaction.block_height).desc(), col(Transaction.id).desc())
     )
     if topic is not None:
-        stmt = stmt.where(func.json_extract(col(Transaction.payload), f"$.{MSG_NAMESPACE}.topic") == topic)
+        stmt = stmt.where(_env_json("topic") == topic)
     if author is not None:
         # sender is stored verbatim (signed bytes); the two legal spellings
         # differ only in casing (EIP-55 / lowercase).
         stmt = stmt.where(func.lower(col(Transaction.sender)) == author.lower())
     if body_contains is not None:
-        stmt = stmt.where(
-            func.json_extract(col(Transaction.payload), f"$.{MSG_NAMESPACE}.body").like(
-                f"%{_like_escape(body_contains)}%", escape="\\"
-            )
-        )
+        stmt = stmt.where(_env_json("body").like(f"%{_like_escape(body_contains)}%", escape="\\"))
     return stmt
 
 
@@ -144,7 +272,7 @@ def _scan_valid(
     cursor: tuple[int, int] | None,
     limit: int,
     scan_bound: int,
-) -> tuple[list[Transaction], str | None, bool]:
+) -> tuple[list[Any], str | None, bool]:
     """Walk candidates newest-first, returning up to ``limit`` *valid* rows.
 
     Returns ``(rows, next_cursor, scan_bounded)``:
@@ -156,8 +284,8 @@ def _scan_valid(
       short and more candidates may exist beyond the cursor.
     """
     rows = session.exec(_apply_cursor(stmt, cursor).limit(scan_bound + 1)).all()
-    out: list[Transaction] = []
-    last_scanned: Transaction | None = None
+    out: list[Any] = []
+    last_scanned: Any | None = None
     for row in rows[:scan_bound]:
         last_scanned = row
         if _row_error(row) is not None:
@@ -182,13 +310,8 @@ def _resolve_parents(session, chain_id: str, items: list[dict[str, Any]]) -> Non
     if not parents:
         return
     resolved: set[str] = set()
-    for row in session.exec(
-        select(Transaction).where(
-            col(Transaction.chain_id) == chain_id,
-            col(Transaction.tx_hash).in_(parents),
-            col(Transaction.block_height).is_not(None),
-        )
-    ).all():
+    stmt = _candidate_select(chain_id).where(col(Transaction.tx_hash).in_(parents))
+    for row in session.exec(stmt).all():
         if _row_error(row) is None:
             resolved.add(row.tx_hash)
     for m in items:
@@ -196,21 +319,21 @@ def _resolve_parents(session, chain_id: str, items: list[dict[str, Any]]) -> Non
             m["parent_resolved"] = m["parent"] in resolved
 
 
-def _view(tx: Transaction) -> dict[str, Any]:
-    env = extract_envelope(tx.payload) or {}
-    sender = _to_ait_address(tx.sender)
+def _view(row: Any) -> dict[str, Any]:
+    env = _env_from_row(row)
+    sender = _to_ait_address(row.sender)
     view: dict[str, Any] = {
-        "message_id": tx.tx_hash,
-        "tx_hash": tx.tx_hash,
-        "block_height": tx.block_height,
+        "message_id": row.tx_hash,
+        "tx_hash": row.tx_hash,
+        "block_height": row.block_height,
         "author": sender,
         "sender": sender,
         "topic": env.get("topic"),
         "kind": env.get("kind"),
         "body": env.get("body"),
         "parent": env.get("parent"),
-        "timestamp": tx.timestamp,
-        "fee": tx.fee,
+        "timestamp": row.timestamp,
+        "fee": row.fee,
     }
     return view
 
@@ -232,7 +355,7 @@ def list_messages(
     parsed = parse_cursor(cursor)
     stmt = _candidate_select(chain_id, topic=topic, author=author, body_contains=body_contains)
     rows, next_cursor, bounded = _scan_valid(session, stmt, cursor=parsed, limit=limit + offset, scan_bound=SCAN_BOUND)
-    items = [_view(tx) for tx in rows[offset:]]
+    items = [_view(row) for row in rows[offset:]]
     _resolve_parents(session, chain_id, items)
     return {
         "success": True,
@@ -247,17 +370,11 @@ def list_messages(
 
 def get_message(session, chain_id: str, tx_hash: str) -> dict[str, Any] | None:
     """One message by its tx_hash; ``None`` when absent or not a valid message."""
-    tx = session.exec(
-        select(Transaction).where(
-            col(Transaction.chain_id) == chain_id,
-            col(Transaction.tx_hash) == tx_hash,
-            col(Transaction.type) == "MESSAGE",
-            col(Transaction.block_height).is_not(None),
-        )
-    ).first()
-    if tx is None or _row_error(tx) is not None:
+    stmt = _candidate_select(chain_id).where(col(Transaction.tx_hash) == tx_hash)
+    row = session.exec(stmt).first()
+    if row is None or _row_error(row) is not None:
         return None
-    view = _view(tx)
+    view = _view(row)
     _resolve_parents(session, chain_id, [view])
     return view
 
@@ -283,10 +400,9 @@ def list_topics(
     rows = session.exec(stmt.limit(SCAN_BOUND + 1)).all()
     bounded = len(rows) > SCAN_BOUND
     for row in rows[:SCAN_BOUND]:
-        env = extract_envelope(row.payload)
-        if env is None or _row_error(row) is not None:
+        if _row_error(row) is not None:
             continue
-        topic = env["topic"]
+        topic = _decode_env_bytes(row.env_topic)
         entry = topics.get(topic)
         if entry is None:
             topics[topic] = {
@@ -318,11 +434,10 @@ def state(session, chain_id: str) -> dict[str, Any]:
     authors: set[str] = set()
     messages = 0
     for row in rows[:SCAN_BOUND]:
-        env = extract_envelope(row.payload)
-        if env is None or _row_error(row) is not None:
+        if _row_error(row) is not None:
             continue
         messages += 1
-        topics.add(env["topic"])
+        topics.add(_decode_env_bytes(row.env_topic))
         authors.add(_to_ait_address(row.sender))
     return {
         "success": True,
