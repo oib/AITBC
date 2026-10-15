@@ -224,6 +224,7 @@ p {
     font-family: 'Courier New', monospace;
     line-height: 1;
     box-sizing: border-box;
+    overflow-x: auto;
 }
 .method {
     color: var(--success);
@@ -527,6 +528,7 @@ input[type="number"] {
     cursor: pointer;
     gap: 0.5rem;
     margin-right: 0.75rem;
+    min-height: 44px;
 }
 .toggle-switch input {
     display: none;
@@ -570,12 +572,18 @@ input[type="number"] {
     border: none;
     cursor: pointer;
     font-size: 0.75rem;
-    padding: 0.1rem 0.3rem;
+    padding: 0.4rem;
     margin-left: 0.25rem;
     border-radius: 3px;
     opacity: 0.6;
     transition: opacity 0.2s, background 0.2s;
     color: var(--text-muted);
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
 }
 .copy-btn:hover {
     opacity: 1;
@@ -1173,6 +1181,8 @@ a.btn-secondary {
 .form-row select,
 .form-row textarea {
     padding: 0.6rem 0.75rem;
+    min-height: 44px;
+    box-sizing: border-box;
     background: var(--code);
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -1662,8 +1672,11 @@ a.btn-secondary {
     color: var(--text);
 }
 .btn-primary {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0.7rem 1.5rem;
+    min-height: 44px;
     background: var(--primary);
     color: var(--surface);
     border: none;
@@ -1672,6 +1685,7 @@ a.btn-secondary {
     font-weight: 600;
     cursor: pointer;
     text-align: center;
+    box-sizing: border-box;
 }
 .btn-primary:hover {
     opacity: 0.9;
@@ -1903,6 +1917,13 @@ a.btn-secondary {
 .ob-ladder { margin-top: 0.5rem; }
 
 .ob-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+/* Wide data tables scroll inside their own region instead of forcing a
+   page-level horizontal scroll at narrow widths. The wrapper is keyboard-
+   focusable (tabindex in markup) so keyboard users can scroll it too. */
+.table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
