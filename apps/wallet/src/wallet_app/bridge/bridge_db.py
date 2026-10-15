@@ -210,7 +210,10 @@ def init_db() -> None:
     # machine for exchange trades — the exchange service only ever *mirrors*
     # the outcome onto its trades row through the internal endpoint. One row
     # per (kind, ref_id): 'trade' rows are keyed by the exchange.db trade id,
-    # 'order_refund' rows by the order id whose escrow lock is being returned.
+    # 'order_refund' rows by the order id whose escrow lock is being returned —
+    # +order_id is the order's own lock-remainder refund, −order_id a refund
+    # of an inbound lock the order could not take, so a stray lock can never
+    # block the owner's remainder refund.
     # escrow_out_nonce/escrow_out_tx persist the sweep intent before broadcast
     # (ETH-9 discipline); a broadcast hash is never terminal proof.
     cursor.execute("""
