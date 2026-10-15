@@ -98,6 +98,10 @@ Operator procedures for the live fleet:
   [key escrow threshold](security/KEY-ESCROW-THRESHOLD.md),
   [remediation plan](security/remediation-plan.md) and its
   [testing procedures](security/testing-procedures.md).
+- [Website CSP proposal](ops/website-csp-proposal.md) — a docs-only
+  Content-Security-Policy draft for the hub website: report-only first,
+  with the inventory of inline scripts/handlers/styles that block a
+  strict policy (not applied; needs an operator-gated nginx change).
 - Audits: [security audit summary](security/security_audit_summary.md),
   [CLI audit findings](security/aitbc-audit-4-cli-findings.md),
   [audit framework](security/4_security-audit-framework.md),
