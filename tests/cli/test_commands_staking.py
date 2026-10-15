@@ -16,11 +16,13 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
+import click
 import pytest
 import requests
 from aitbc.exceptions import NetworkError
 from aitbc.utils import ait_to_units
 from aitbc_cli.commands.staking import liquidity_stake, stake, unstake
+from aitbc_cli.commands.wallet.staking import _resave_wallet
 
 
 def extract_json_from_output(output):
@@ -128,6 +130,37 @@ def mock_rpc():
         patch("aitbc_cli.utils.dual_mode_wallet_adapter.DualModeWalletAdapter", MagicMock()),
     ):
         yield SimpleNamespace(client=mock_client, http_class=mock_http_class, state=state)
+
+
+class TestResaveWalletGuard:
+    """CLEAN-1: a previously-encrypted wallet must never be re-saved
+    without its password — that write would dump the plaintext key."""
+
+    def _ctx(self):
+        return click.Context(click.Command("test"), obj={})
+
+    def test_encrypted_wallet_without_password_aborts_no_write(self, tmp_path):
+        path = tmp_path / "w.json"
+        path.write_text(json.dumps({"encrypted": True, "private_key": "ciphertext", "address": "0x0"}))
+        before = path.read_text()
+        with pytest.raises(click.exceptions.Exit) as exc:
+            _resave_wallet(self._ctx(), path, {"encrypted": True, "private_key": "plaintext"}, None)
+        assert exc.value.exit_code == 1
+        assert path.read_text() == before
+
+    def test_encrypted_wallet_with_password_resaves_encrypted(self, tmp_path):
+        path = tmp_path / "w.json"
+        data = {"encrypted": True, "private_key": "deadbeef" * 8, "address": "0x0"}
+        _resave_wallet(self._ctx(), path, dict(data), "long-enough-password")
+        saved = json.loads(path.read_text())
+        assert saved["encrypted"] is True
+        assert saved["private_key"] != data["private_key"]
+
+    def test_unencrypted_wallet_resaves_plaintext(self, tmp_path):
+        path = tmp_path / "w.json"
+        data = {"private_key": "deadbeef" * 8, "address": "0x0"}
+        _resave_wallet(self._ctx(), path, dict(data), None)
+        assert json.loads(path.read_text())["private_key"] == data["private_key"]
 
 
 class TestTopLevelStakingCommands:

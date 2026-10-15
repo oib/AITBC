@@ -155,6 +155,20 @@ def _http_error_detail(exc: BaseException) -> str | None:
     return http_error_detail(exc)
 
 
+def _resave_wallet(ctx: click.Context, wallet_path: Path, wallet_data: dict[str, Any], resolved_password: str | None) -> None:
+    """Re-save a wallet after a liquidity mutation, preserving its on-disk
+    encryption state. A wallet that was encrypted can never be written back
+    without the password that decrypts it: ``_save_wallet`` with a None
+    password would dump the in-memory plaintext private key under the
+    ``encrypted`` flag. The loader may resolve a password internally that
+    the caller never sees, so a missing ``resolved_password`` here is an
+    abort, not a plaintext write."""
+    if wallet_data.get("encrypted") and not resolved_password:
+        error("Wallet is encrypted but no password is resolved — refusing to re-save it as plaintext")
+        ctx.exit(1)
+    _save_wallet(wallet_path, wallet_data, resolved_password if wallet_data.get("encrypted") else None)
+
+
 def _stake_release_preflight(
     http_client: AITBCHTTPClient, address: str, chain_id: str, stake_id: int
 ) -> tuple[str | None, str | None]:
@@ -554,8 +568,7 @@ def liquidity_stake(
         "status": "active",
     }
     wallet_data.setdefault("liquidity", []).append(liq_record)
-    password = resolved_password if wallet_data.get("encrypted") else None
-    _save_wallet(Path(wallet_path), wallet_data, password if password else None)
+    _resave_wallet(ctx, Path(wallet_path), wallet_data, resolved_password)
 
     success(f"Submitted liquidity deposit of {amount} AIT to pool '{pool}' (tx={tx_hash})")
     output(
@@ -700,8 +713,7 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal, password: str | None, pa
     for rec in wallet_data.get("liquidity", []):
         if rec.get("stake_id") == stake_id and rec.get("status") == "active":
             rec["status"] = "completed"
-    password = resolved_password if wallet_data.get("encrypted") else None
-    _save_wallet(Path(wallet_path), wallet_data, password if password else None)
+    _resave_wallet(ctx, Path(wallet_path), wallet_data, resolved_password)
 
     success(f"Submitted liquidity unstake for stake {stake_id} (tx={tx_hash})")
     output(
