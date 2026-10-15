@@ -713,6 +713,25 @@ class TestOrderFund:
         assert kwargs["payload"] == {"sell_quote": 42}
         pw.assert_called_once()
 
+    def test_default_fee_is_chain_standard(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        """CLI-3 item 6: the fee default is DEFAULT_TX_FEE_AIT, not a literal."""
+        from aitbc.utils.units import DEFAULT_TX_FEE_AIT
+
+        send, _pw, calls = mock_send
+        mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
+        result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        args, _kwargs = calls[0]
+        assert args[3] == DEFAULT_TX_FEE_AIT == Decimal("0.01")
+
+    def test_explicit_fee_wins(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+        send, _pw, calls = mock_send
+        mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
+        result = runner.invoke(order, _fund_args(extra=["--fee", "0.5"]), obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        args, _kwargs = calls[0]
+        assert args[3] == Decimal("0.5")
+
     def test_print_emits_raw_command_without_broadcast(
         self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key
     ):
