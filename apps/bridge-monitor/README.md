@@ -10,7 +10,9 @@ configured depth.
 
 ## Ledger lifecycle
 
-Each inflow lands a row in `eth_deposits` (`DATA_DIR/bridge_deposits.db`):
+Each inflow lands a row in `eth_deposits` (`DATA_DIR/bridge_deposits.db`;
+the dir resolves `AITBC_DATA_DIR` first, then `DATA_DIR`, then
+`/var/lib/aitbc`):
 
 | Status | Meaning |
 |--------|---------|
