@@ -1869,6 +1869,8 @@ narrative; this list cites each remaining commit by hash so
 - `3aab495b1` docs(release): commit index catches up post-queue — cite CFG-1/SEC-19/TEST-2/ETH-13/ETH-18/ETH-15/BR-6/ETH-11 tail + ETH-8 phase 3 stack
 - `0d77eec16d` fix(bridge): ETH-JOIN — order_funded refusals stay unmarked; order_refund ref_id split
 - `6ff2adfac9` fix(exchange): ETH-JOIN — flag-off internal settlement endpoint answers 503, not 404
+- `11135740c4` feat(exchange): CLI-1 — my-orders carries funding block on unfunded rows
+- `8605f6b215` feat(cli): CLI-1 — node list/set-payout/order fund/wallet bridge settlements
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2028,3 +2030,51 @@ tape mirror for `kind='order_refund'` — refund rows have no trade row and
 Commits: `0d77eec16` (wallet monitor + schema comment + tests),
 `6ff2adfac` (exchange endpoint + flag-off test). `exchange.md` rollout
 ordering lands in the accompanying docs commit.
+
+
+### CLI-1: exchange-settlement CLI gaps — node list/set-payout, order fund, settlements view (2026-10-15)
+
+The trading CLI covered orders and bridge basics but none of the
+settlement surfaces that `EXCHANGE_SETTLEMENT_ENABLED` (still dark on
+every host) introduces. Five additive pieces close the gap; flag-off
+behaviour is byte-identical everywhere.
+
+- `aitbc exchange node list` — the existing `GET /api/exchange/nodes`
+  had no CLI counterpart. Read-only, no wallet or signature.
+- `aitbc exchange node set-payout --eth-address` — signs the
+  `exchange_set_payout` envelope against `POST /api/exchange/nodes/payout`,
+  mirroring `node register` (account nonce from `my-orders`, island
+  chain_id). The address is EIP-55-checksummed before signing because
+  the exchange refuses anything else.
+- `GET /api/exchange/my-orders` now attaches the `funding` block
+  (escrow, `required_ait`, `payload`) to rows that are `open` AND
+  `funded_state='unfunded'` — only while the settlement flag is on.
+  The block previously existed only in the place-order response, so a
+  node that lost it had no way to re-read the lock target. Shapes are
+  extracted into a shared read-only `_funding_block` used by both the
+  place path and my-orders; no schema change.
+- `aitbc exchange order fund <id> [--print]` — resolves the order's
+  funding block and sends the escrow-lock TRANSFER with payload
+  `{"sell_quote": <id>}` through the normal transaction-signing path.
+  `--print` emits the equivalent `aitbc transactions send` line and
+  broadcasts nothing. Refuses BUY orders (ETH prepay is out of scope),
+  funded/expired/cancelled rows, and flag-off exchanges. Implemented
+  and tested against mocks only — the help text says so; a real AIT
+  transfer is an operator-named move.
+- `GET /v1/bridge/settlements` + `aitbc wallet bridge settlements` —
+  the `exchange_settlements` ledger (trade / `order_refund` rows,
+  `needs_review`, error text) had no HTTP surface; state/kind filters
+  and bounded limit/offset pagination. The route is **admin-keyed**
+  (`require_admin_api_key`, same stance as `sell/quote`): hub nginx
+  exposes the whole `/v1/bridge` mount publicly and the rows carry
+  diagnostic error text plus release nonces/hashes.
+
+Also fixed: the `order` group help still claimed "unfunded,
+settlement-free". MCP tool modules regenerated — `order fund` and
+`node set-payout` land under `dry_run`+`confirm` guards, `node list`
+is read-only. `docs/api/wallet-openapi.json` regenerated for the new
+route. Out of scope: hub default exchange URL/nginx routing (separate
+operator decision), BUY-side funding, ETH-JOIN review items 4-7.
+
+Commits: `11135740c` (exchange my-orders funding block + tests),
+`8605f6b21` (CLI commands, wallet route/db/tests, MCP regen, openapi).
