@@ -315,11 +315,11 @@ pre-update row, so the leg-seal sites passing `settle_ait_tx_hash`,
 `trades.settlement_ait_tx_hash` (D2 trade 7), which
 `exchange_verify.py --settlement` then reported as a FAIL.
 
-- `a23abb6a9` — the mirror now posts `{**row, **fields}`: payload keys
+- `1cf09e4b1` — the mirror now posts `{**row, **fields}`: payload keys
   `eth_tx_hash`, `ait_tx_hash` (leg-1 settle or refund), and
   `fee_tx_hash`. `order_refund` rows still never mirror and the mirror
   stays best-effort.
-- `a23abb6a9` — `exchange_verify.py` with `--bridge-db` reads the
+- `1cf09e4b1` — `exchange_verify.py` with `--bridge-db` reads the
   settled trade-kind ledger row's `settle_ait_tx_hash`: a settled trade
   missing the column on the tape passes when the ledger carries it;
   no/unreadable monitor DB reports INFO 'settlement hash link unchecked'
