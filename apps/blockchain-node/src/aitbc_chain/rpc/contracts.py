@@ -17,9 +17,9 @@ from sqlmodel import select
 from aitbc.rate_limiting import rate_limit
 
 from ..base_models import SmartContract
-from ..contracts.agent_messaging_contract import messaging_contract
 from ..database import session_scope
 from ..logger import get_logger
+from . import messaging as messaging_reads
 from .contract_service import contract_service
 
 _logger = get_logger(__name__)
@@ -36,9 +36,8 @@ def _derive_contract_address(deployer: str, name: str, timestamp: int) -> str:
 
 @rate_limit(rate=50, per=60)
 async def deploy_messaging_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, Any]:
-    """Deploy the agent messaging contract to the blockchain"""
-    contract_address = "0xagent_messaging_001"
-    return {"success": True, "contract_address": contract_address, "status": "deployed"}
+    """Retired: there is no messaging contract — forum messages are MESSAGE transactions."""
+    raise messaging_reads.messaging_not_on_chain("deploy/messaging")
 
 
 @rate_limit(rate=200, per=60)
@@ -205,98 +204,71 @@ async def verify_contract(request: Request, verify_data: dict[str, Any]) -> dict
         }
 
 
+# -- Forum messaging (MSG-1) -------------------------------------------------
+# Reads are repointed to the chain-derived index (rpc/messaging.py). Writes
+# that mutated a process-local singleton now answer 501: posting is a signed
+# MESSAGE transaction, and votes/moderation/reputation are MSG-2 scope.
+
+
 @rate_limit(rate=200, per=60)
-async def get_messaging_contract_state(request: Request) -> dict[str, Any]:
-    """Get the current state of the messaging contract"""
-    state = {
-        "total_topics": len(messaging_contract.topics),
-        "total_messages": len(messaging_contract.messages),
-        "total_agents": len(messaging_contract.agent_reputations),
-    }
-    return {"success": True, "contract_state": state}
+async def get_messaging_contract_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Forum totals derived from sealed MESSAGE transactions."""
+    result: dict[str, Any] = await messaging_reads.messaging_state(request, chain_id=chain_id)
+    return result
 
 
 @rate_limit(rate=200, per=60)
 async def get_forum_topics(
     request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"
 ) -> dict[str, Any]:
-    """Get list of forum topics"""
-    return messaging_contract.get_topics(limit, offset, sort_by)
+    """List forum topics (chain-derived; implicit topics, no creation call)."""
+    topics: dict[str, Any] = await messaging_reads.forum_topics(request, limit=limit, offset=offset, sort_by=sort_by)
+    return topics
 
 
 @rate_limit(rate=50, per=60)
 async def create_forum_topic(request: Request, topic_data: dict[str, Any]) -> dict[str, Any]:
-    """Create a new forum topic"""
-    agent_id = topic_data.get("agent_id")
-    agent_address = topic_data.get("agent_address")
-    title = topic_data.get("title")
-    description = topic_data.get("description")
-    tags = topic_data.get("tags", [])
-
-    if not agent_id or not agent_address or not title or not description:
-        return {"success": False, "error": "Missing required fields"}
-
-    return messaging_contract.create_topic(agent_id, agent_address, title, description, tags)
+    """Retired: topics are implicit — the first signed post creates them."""
+    raise messaging_reads.messaging_not_on_chain("topics/create")
 
 
 @rate_limit(rate=200, per=60)
 async def get_topic_messages(
     request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"
 ) -> dict[str, Any]:
-    """Get messages from a forum topic"""
-    return messaging_contract.get_messages(topic_id, limit, offset, sort_by)
+    """Get messages for a topic slug (chain-derived)."""
+    messages: dict[str, Any] = await messaging_reads.forum_topic_messages(
+        request, topic_id, limit=limit, offset=offset, sort_by=sort_by
+    )
+    return messages
 
 
 @rate_limit(rate=50, per=60)
 async def post_message(request: Request, message_data: dict[str, Any]) -> dict[str, Any]:
-    """Post a message to a forum topic"""
-    agent_id = message_data.get("agent_id")
-    agent_address = message_data.get("agent_address")
-    topic_id = message_data.get("topic_id")
-    content = message_data.get("content")
-    message_type = message_data.get("message_type", "post")
-    parent_message_id = message_data.get("parent_message_id")
-
-    if not agent_id or not agent_address or not topic_id or not content:
-        return {"success": False, "error": "Missing required fields"}
-
-    return messaging_contract.post_message(agent_id, agent_address, topic_id, content, message_type, parent_message_id)
+    """Retired: post by signing a MESSAGE transaction, not via RPC mutation."""
+    raise messaging_reads.messaging_not_on_chain("messages/post")
 
 
 @rate_limit(rate=50, per=60)
 async def vote_message(request: Request, message_id: str, vote_data: dict[str, Any]) -> dict[str, Any]:
-    """Vote on a message (upvote/downvote)"""
-    agent_id = vote_data.get("agent_id")
-    agent_address = vote_data.get("agent_address")
-    vote_type = vote_data.get("vote_type")
-
-    if not agent_id or not agent_address or not vote_type:
-        return {"success": False, "error": "Missing required fields"}
-
-    return messaging_contract.vote_message(agent_id, agent_address, message_id, vote_type)
+    """Not implemented: on-chain votes are MSG-2 scope."""
+    raise messaging_reads.messaging_not_on_chain("votes (MSG-2 scope)")
 
 
 @rate_limit(rate=200, per=60)
 async def search_messages(request: Request, query: str, limit: int = 50) -> dict[str, Any]:
-    """Search messages by content"""
-    return messaging_contract.search_messages(query, limit)
+    """Search forum message bodies (chain-derived, bounded)."""
+    found: dict[str, Any] = await messaging_reads.forum_search(request, query=query, limit=limit)
+    return found
 
 
 @rate_limit(rate=200, per=60)
 async def get_agent_reputation(request: Request, agent_id: str) -> dict[str, Any]:
-    """Get agent reputation information"""
-    return messaging_contract.get_agent_reputation(agent_id)
+    """Not implemented: reputation is MSG-2 scope; agent_id was dropped entirely."""
+    raise messaging_reads.messaging_not_on_chain("reputation (MSG-2 scope)")
 
 
 @rate_limit(rate=50, per=60)
 async def moderate_message(request: Request, message_id: str, moderation_data: dict[str, Any]) -> dict[str, Any]:
-    """Moderate a message (moderator only)"""
-    moderator_agent_id = moderation_data.get("moderator_agent_id")
-    moderator_address = moderation_data.get("moderator_address")
-    action = moderation_data.get("action")
-    reason = moderation_data.get("reason", "")
-
-    if not moderator_agent_id or not moderator_address or not action:
-        return {"success": False, "error": "Missing required fields"}
-
-    return messaging_contract.moderate_message(moderator_agent_id, moderator_address, message_id, action, reason)
+    """Not implemented: on-chain moderation is MSG-2 scope."""
+    raise messaging_reads.messaging_not_on_chain("moderation (MSG-2 scope)")

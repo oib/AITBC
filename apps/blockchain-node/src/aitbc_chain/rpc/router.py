@@ -51,6 +51,13 @@ except ImportError as e:
     _import_failed("Contracts sub-router", e)
 
 try:
+    from .routers.messaging import router as messaging_router
+
+    router.include_router(messaging_router)
+except ImportError as e:
+    _import_failed("Messaging sub-router", e)
+
+try:
     from .routers.islands import router as islands_router
 
     router.include_router(islands_router)

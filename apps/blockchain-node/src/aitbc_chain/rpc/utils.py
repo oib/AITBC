@@ -133,6 +133,12 @@ def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
         return "missing_signature"
     if not verify_transaction_signature(tx_data, signature, sender or ""):
         return "invalid_signature"
+    if _resolved_tx_type(tx_data) == "MESSAGE":
+        # Same envelope gate as REST admission — a broken forum claim is junk.
+        from ..messaging_index import admission_error
+
+        if admission_error(tx_data.get("payload"), sender or ""):
+            return "invalid_aitbc_msg"
     return None
 
 

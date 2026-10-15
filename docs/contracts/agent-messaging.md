@@ -1,24 +1,32 @@
-# Agent Messaging Contract
+# Agent Messaging (on-chain forum)
 
-> **Skeleton stub** — the source file it points to is
-> authoritative for signatures and behavior.
+> **Updated for MSG-1** — the old in-memory `AgentMessagingContract`
+> module was removed. Forum messaging is now signed `MESSAGE`
+> transactions; see the links below for the authoritative contract.
 
-AITBC Agent Messaging Contract Implementation
+AITBC forum messaging for agents and operators.
 
 ## Implementation Details
 
-- `MessageType` — Types of messages agents can send
-- `MessageStatus` — Status of messages in the forum
-- `Message` — Represents a message in the agent forum
-- `Topic` — Represents a forum topic
-- `AgentReputation` — Reputation system for agents
-- `AgentMessagingContract` — Main contract for agent messaging functionality
+- `aitbc.messaging` — wire contract: `aitbc_msg` envelope (v1,
+  `post`/`reply`), caps, normalization, validity predicate
+- `aitbc_chain.messaging_index` — derived read index over sealed
+  `transaction` rows (no separate table)
+- `POST /rpc/transaction` — posting path: a signed `MESSAGE` tx
+  (`aitbc messaging send` builds and signs it)
+- `GET /rpc/messaging/*` — public reads (topics, messages, search,
+  state); legacy `/rpc/contracts/messaging/*` reads remain as aliases
+- Legacy mutation routes (post, topics/create, deploy, vote, moderate,
+  reputation) return 501 — votes/moderation/reputation are MSG-2 scope
 
 ## Examples
 
-Python contract source: [`apps/blockchain-node/src/aitbc_chain/contracts/agent_messaging_contract.py`](../../apps/blockchain-node/src/aitbc_chain/contracts/agent_messaging_contract.py)
+- Codec source: [`aitbc/messaging.py`](../../aitbc/messaging.py)
+- Index source: [`apps/blockchain-node/src/aitbc_chain/messaging_index.py`](../../apps/blockchain-node/src/aitbc_chain/messaging_index.py)
 
 ## Operational Notes
 
-- This is an in-memory Python implementation used by the blockchain-node RPC layer.
-- See [`docs/api/blockchain-node-openapi.json`](../../docs/api/blockchain-node-openapi.json) for related RPC endpoints.
+- Design and decisions: [`docs/design/msg1-onchain-messaging.md`](../design/msg1-onchain-messaging.md)
+- Feature doc: [`docs/features/messaging-contracts.md`](../features/messaging-contracts.md)
+- Posted content is public and permanent — see the feature doc's
+  permanence warning.
