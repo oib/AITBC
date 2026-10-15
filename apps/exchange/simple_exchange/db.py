@@ -144,6 +144,12 @@ _TRADES_SCHEMA = f"""
 
 # Phase-2 order state (ETH-8 design): 'expired' joins the CHECK via a table
 # rebuild migration below — a CHECK constraint cannot be ALTERed in place.
+# Naming convention on the hash columns below: ``tx_hash`` and
+# ``backing_tx_hash`` are chain transaction hashes (0x-prefixed, as the RPC
+# spells them); ``envelope_hash`` is the keccak of the signed order envelope
+# (0x-less hex, keccak().hex()). The two share the word "hash" but are
+# different domains — they are stored, looked up, and logged independently
+# and are never compared to each other.
 _ORDERS_SCHEMA = """
     CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
