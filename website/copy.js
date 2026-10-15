@@ -98,11 +98,16 @@
         return (text || '').trim();
     }
 
+    // Capture phase: the listener must run BEFORE the event descends to
+    // the button, because copy buttons sit inside rows/links whose inline
+    // onclick handlers fire as the event bubbles up — a bubble-phase
+    // document handler would run too late. stopPropagation keeps the click
+    // off those ancestor handlers; preventDefault covers a button nested
+    // inside an <a href> (stopPropagation does not cancel default nav).
     document.addEventListener('click', function (ev) {
         var btn = ev.target && ev.target.closest ? ev.target.closest('button.copy-btn') : null;
         if (!btn) return;
-        // Copy buttons sit inside clickable rows/links — do not let the
-        // click reach the row's own handler.
+        ev.preventDefault();
         ev.stopPropagation();
         var text = resolveValue(btn);
         if (!text || /^(loading\.{3}|-|n\/a)$/i.test(text)) {
@@ -110,7 +115,7 @@
             return;
         }
         copyText(text, btn);
-    });
+    }, true);
 
     // Markup builder for JS emitters. `what` names the value so the
     // accessible name contains the visible word ("copy") plus what is
