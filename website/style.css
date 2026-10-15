@@ -730,12 +730,14 @@ input[type="number"] {
 }
 .search-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1rem;
 }
 .search-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.75rem;
 }
 .results-header {
@@ -746,6 +748,7 @@ input[type="number"] {
 }
 .blocks-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 1rem;
@@ -819,6 +822,7 @@ input[type="number"] {
 }
 .flex-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
 }
 .result-count {
@@ -967,6 +971,7 @@ a.btn-secondary {
 
 .status-filter {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
     margin-top: 0.5rem;
@@ -1705,6 +1710,7 @@ a.btn-secondary {
 }
 .wallet-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 1rem;
     margin-bottom: 1rem;
