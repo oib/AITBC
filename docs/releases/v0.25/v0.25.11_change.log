@@ -434,3 +434,11 @@ Tests: 4 new prepay env-resolution cases (env-file only, flag precedence, proces
 - `c03066a79` — all five sell-lane HTTP error paths (quote POST, lock's quote fetch + nonce fetch, lock submit, status GET) now report `http_error_detail(e)`, so a non-2xx JSON `detail` reaches the error line instead of the bare exception text (row 64).
 - `c03066a79` — `aitbc system file-info --help` epilog is generated from the `_FIELD_DENY_*` constants, so the documented refused names cannot drift from the code (row 37).
 - `c03066a79` — MCP `get_service_logs` narrows its `since`/`grep` rejection to newline/CR/NUL plus the 200-char limit, mirroring the CLI's own logs validation — `a|b` alternation now reaches `journalctl --grep` (every value is `shlex.quote`d into `--opt=<v>`, so shell metacharacters are inert). The `service` name keeps its strict blocklist since it feeds `journalctl -u` (row 20).
+
+### MSG-FIX-1
+
+- `f5fbf3b64` (F1) messaging read index: column-select queries and exact SQL narrowing (`v`, kind, topic charset/shape, body byte cap via `CAST AS BLOB`, parent shape) replace full-ORM fetches; text fields transfer as blobs and strict-decode so a lone-surrogate payload cannot turn a read into a 500. Junk rows no longer leave the database.
+- `fb3308af9` (F3) deterministic ordering: pages and keyset cursors order by `(block_height DESC, tx_hash DESC)`; cursor format is `<height>:<tx_hash>` — `Transaction.id` is no longer part of ordering or cursors, so two nodes return identical pages and interchangeable cursors.
+- `a919a5520` (F2) topics/state totals are SQL aggregates over the prefiltered set — no `SCAN_BOUND` cap on counting; the residual (Python-only rules like canonical author matching) is documented and narrowed by SQL-expressible parent-shape checks.
+- `131157bcb` (F6/F5) every mempool-reaching call site is enumerated and pinned by a structural test; the orphan re-admission path is behaviorally tested against `admission_error`. Views now emit the sealing block's `Block.timestamp` instead of the nullable submitter-set `Transaction.timestamp`.
+- `c40b905de` (F4) `docs/ops/messaging-nginx-limits.md` records the rate-limit key verification (X-Real-IP → rightmost XFF → peer), the direct-port spoofing caveat on `0.0.0.0` RPC binds, and a proposed `limit_req_zone` for the messaging prefixes (operator-gated, not applied).
