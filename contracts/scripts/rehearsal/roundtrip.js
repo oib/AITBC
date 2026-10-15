@@ -47,7 +47,8 @@ import {
 } from "./lib.js";
 
 const LIVE = process.argv.includes("--live");
-const tokenIdx = process.argv.indexOf("--token");
+// --token / --resume-token reuse an already-deployed MockToken (resume path).
+const tokenIdx = Math.max(process.argv.indexOf("--token"), process.argv.indexOf("--resume-token"));
 const REUSE_TOKEN = tokenIdx > -1 ? getAddress(process.argv[tokenIdx + 1]) : null;
 
 const CAP = 1000n * 10n ** 18n;        // lock cap — the value we stay under
@@ -78,6 +79,8 @@ const BRIDGE_ABI = [
   "function emergencyWithdraw(address,uint256)",
   "function initiateBridge(address,address,uint256,uint256,address) returns (uint256)",
   "function confirmBridge(uint256,bytes32,bytes)",
+  "event BridgeInitiated(uint256 indexed requestId, address indexed sender, address indexed recipient, address sourceToken, uint256 amount, uint256 sourceChainId, uint256 targetChainId)",
+  "event BridgeConfirmed(uint256 indexed requestId, address indexed validator, bytes32 lockTxHash)",
 ];
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -152,6 +155,20 @@ if (LIVE && (Number(ethers.formatEther(balances[0])) < 0.05
 
 note(`plan: cap=${CAP} deposit=${DEPOSIT} targetChainId=${TARGET_CHAIN_ID}`);
 if (!LIVE) {
+  // Resume preview — the same per-step checks the live path applies, read-only.
+  const preview = [];
+  preview.push(`unpause: ${paused0 ? "RUN" : "SKIP"}`);
+  const cfg = REUSE_TOKEN ? await ro.supportedTokens(REUSE_TOKEN) : null;
+  preview.push(`addSupportedToken: ${cfg?.isActive && cfg.bridgeLimit === CAP ? "SKIP" : "RUN"}`);
+  for (let i = 0; i < 3; i++) {
+    const v = await ro.validators(signerAddresses[i]);
+    preview.push(`addValidator signer${i + 1}: ${v.isActive ? "SKIP" : "RUN"}`);
+  }
+  preview.push(`deposit: ${Number(requestCounter0) === 0 ? "RUN" : `SKIP (adopt request ${requestCounter0})`}`);
+  preview.push("confirms: depend on request state");
+  preview.push(`withdraw/repatriate: depend on balances`);
+  preview.push(`pause: ${paused0 ? "SKIP" : "RUN"}`);
+  note(`resume preview — ${preview.join(" | ")}`);
   note("dry run complete — rerun with --live to execute (operator authorization required)");
   assertReportClean();
   process.exit(0);
@@ -165,12 +182,16 @@ async function waitOk(hash, label, signerAddr) {
   if (signerAddr) await recordNonce(hash, signerAddr);
   return receipt;
 }
+// The nonce every Safe exec must sign next — seeded from the preflight read
+// and stepped only after a sealed exec, so a lagging RPC replica can never
+// smuggle an old nonce into the signed hash (ETH-3 GS026).
+let nextSafeNonce = Number(safeNonce);
 async function safeExec(to, data, label) {
-  const nonce = await safeContract.nonce();
-  note(`safe-exec ${label}: nonce=${nonce} to=${to} data=${data}`);
-  const res = await signAndExecute([kit2, kit3], [{ to, value: "0", data }], { executor: kit1 });
+  note(`safe-exec ${label}: nonce=${nextSafeNonce} to=${to} data=${data}`);
+  const res = await signAndExecute([kit2, kit3], [{ to, value: "0", data }], { executor: kit1, expectedNonce: nextSafeNonce });
   const hash = res.hash ?? res.transactionResponse?.hash;
   await waitOk(hash, `safe-exec ${label}`, signerAddresses[0]); // kit1 (signer1) submits
+  nextSafeNonce += 1;
 }
 
 // signer2+3 approve, signer1 pays gas — same pattern as safe-exec.js
@@ -212,39 +233,84 @@ if (!tokenAddress) {
 note(`token: ${tokenAddress}`);
 const token = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
 
-// 2 — unpause
-await safeExec(bridgeAddress, iface.encodeFunctionData("unpause"), "unpause");
-if (await ro.paused()) throw new Error("bridge still paused after unpause exec");
-note("read-back: paused=false");
+// 2 — unpause (resume: skip when already unpaused)
+if (await ro.paused()) {
+  await safeExec(bridgeAddress, iface.encodeFunctionData("unpause"), "unpause");
+  if (await ro.paused()) throw new Error("bridge still paused after unpause exec");
+  note("read-back: paused=false");
+} else {
+  note("skip: already unpaused");
+}
 
-// 3 — token config under the cap
-await safeExec(bridgeAddress, iface.encodeFunctionData("addSupportedToken", [tokenAddress, CAP, 0n, false]), "addSupportedToken cap=1000 MTK");
+// 3 — token config under the cap (resume: skip when already supported at cap)
+{
+  const cfg = await ro.supportedTokens(tokenAddress);
+  if (cfg.isActive && cfg.bridgeLimit === CAP) {
+    note("skip: token already supported at cap");
+  } else {
+    await safeExec(bridgeAddress, iface.encodeFunctionData("addSupportedToken", [tokenAddress, CAP, 0n, false]), "addSupportedToken cap=1000 MTK");
+  }
+}
 const tcfg = await ro.supportedTokens(tokenAddress);
 if (!tcfg.isActive || tcfg.bridgeLimit !== CAP) throw new Error(`token config wrong: ${tcfg}`);
 note(`read-back: token active, bridgeLimit=${tcfg.bridgeLimit}`);
 
-// 4 — three validators (the rehearsal signers)
+// 4 — three validators (the rehearsal signers; resume: skip the ones already active)
 for (let i = 0; i < 3; i++) {
+  const v = await ro.validators(signerAddresses[i]);
+  if (v.isActive) {
+    note(`skip: addValidator signer${i + 1} already active`);
+    continue;
+  }
   await safeExec(bridgeAddress, iface.encodeFunctionData("addValidator", [signerAddresses[i], VALIDATOR_WEIGHT]), `addValidator signer${i + 1}`);
 }
 note(`read-back: activeValidators[0..2] = ${await ro.activeValidators(0)}, ${await ro.activeValidators(1)}, ${await ro.activeValidators(2)}`);
 
-// 5 — deposit under the cap
-const tw = new ethers.Contract(tokenAddress, ERC20_ABI, w1);
-await waitOk((await tw.approve(bridgeAddress, DEPOSIT,
-  { nonce: await nextNonce(signerAddresses[0]) })).hash, "approve", signerAddresses[0]);
-const bw = new ethers.Contract(bridgeAddress, BRIDGE_ABI, w1);
-const initTx = await bw.initiateBridge(tokenAddress, tokenAddress, DEPOSIT, TARGET_CHAIN_ID, signerAddresses[0],
-  { nonce: await nextNonce(signerAddresses[0]) });
-const initReceipt = await waitOk(initTx.hash, "initiateBridge deposit", signerAddresses[0]);
-const requestId = Number(await ro.requestCounter());
-const lockTxHash = initReceipt.transactionHash;
-note(`requestId=${requestId} lockTxHash=${lockTxHash}`);
+// 5 — deposit under the cap (resume: adopt the existing request; the lock tx
+// hash is recovered from the BridgeInitiated log — it is not in any view)
+let requestId, lockTxHash;
+const existingCounter = Number(await ro.requestCounter());
+if (existingCounter === 0) {
+  const tw = new ethers.Contract(tokenAddress, ERC20_ABI, w1);
+  await waitOk((await tw.approve(bridgeAddress, DEPOSIT,
+    { nonce: await nextNonce(signerAddresses[0]) })).hash, "approve", signerAddresses[0]);
+  const bw = new ethers.Contract(bridgeAddress, BRIDGE_ABI, w1);
+  const initTx = await bw.initiateBridge(tokenAddress, tokenAddress, DEPOSIT, TARGET_CHAIN_ID, signerAddresses[0],
+    { nonce: await nextNonce(signerAddresses[0]) });
+  const initReceipt = await waitOk(initTx.hash, "initiateBridge deposit", signerAddresses[0]);
+  requestId = Number(await ro.requestCounter());
+  lockTxHash = initReceipt.transactionHash;
+  note(`requestId=${requestId} lockTxHash=${lockTxHash}`);
+} else {
+  requestId = existingCounter;
+  const req0 = await ro.getBridgeRequest(requestId);
+  if (Number(req0.status) > 1) {
+    throw new Error(`existing request ${requestId} has terminal status ${req0.status} — refusing to resume`);
+  }
+  if (req0.sourceToken.toLowerCase() !== tokenAddress.toLowerCase()
+    || req0.amount !== DEPOSIT
+    || req0.recipient.toLowerCase() !== signerAddresses[0].toLowerCase()
+    || req0.targetChainId !== TARGET_CHAIN_ID) {
+    throw new Error(`existing request ${requestId} does not match this rehearsal's deposit — refusing`);
+  }
+  const initLogs = await ro.queryFilter(ro.filters.BridgeInitiated(requestId));
+  if (initLogs.length !== 1) {
+    throw new Error(`expected one BridgeInitiated log for request ${requestId}, found ${initLogs.length}`);
+  }
+  lockTxHash = initLogs[0].transactionHash;
+  note(`resume: request ${requestId} exists (status ${req0.status}) — recovered lockTxHash=${lockTxHash}`);
+}
 
-// 6 — validator confirmations, each sent by its own EOA
+// 6 — validator confirmations, each sent by its own EOA (resume: skip
+// validators whose BridgeConfirmed log already exists for this request)
 const messageHash = ethers.keccak256(ethers.solidityPacked(
   ["uint256", "bytes32", "uint256"], [requestId, lockTxHash, 11155111]));
 for (const [i, wallet] of [[1, w1], [2, w2], [3, w3]]) {
+  const confirms = await ro.queryFilter(ro.filters.BridgeConfirmed(requestId, signerAddresses[i - 1]));
+  if (confirms.length > 0) {
+    note(`skip: confirmBridge signer${i} already confirmed`);
+    continue;
+  }
   const sig = await wallet.signMessage(ethers.getBytes(messageHash));
   await waitOk((await new ethers.Contract(bridgeAddress, BRIDGE_ABI, wallet)
     .confirmBridge(requestId, lockTxHash, sig,
@@ -254,12 +320,25 @@ const req = await ro.getBridgeRequest(requestId);
 if (Number(req.status) !== 1) throw new Error(`request status ${req.status}, want CONFIRMED(1)`);
 note(`read-back: request ${requestId} status CONFIRMED`);
 
-// 7-9 — withdraw via owner emergency path, repatriate, re-pause
+// 7-9 — withdraw via owner emergency path, repatriate, re-pause (each resume-aware)
 const held = await token.balanceOf(bridgeAddress);
-await safeExec(bridgeAddress, iface.encodeFunctionData("emergencyWithdraw", [tokenAddress, held]), `emergencyWithdraw ${held}`);
-if (await token.balanceOf(bridgeAddress) !== 0n) throw new Error("bridge still holds tokens");
-await safeExec(tokenAddress, iface.encodeFunctionData("transfer", [signerAddresses[0], held]), "token.transfer -> signer1");
-await safeExec(bridgeAddress, iface.encodeFunctionData("pause"), "pause");
+if (held === 0n) {
+  note("skip: bridge holds no tokens — nothing to withdraw");
+} else {
+  await safeExec(bridgeAddress, iface.encodeFunctionData("emergencyWithdraw", [tokenAddress, held]), `emergencyWithdraw ${held}`);
+  if (await token.balanceOf(bridgeAddress) !== 0n) throw new Error("bridge still holds tokens");
+}
+const safeHeld = await token.balanceOf(safeAddress);
+if (safeHeld === 0n) {
+  note("skip: Safe holds no tokens — nothing to repatriate");
+} else {
+  await safeExec(tokenAddress, iface.encodeFunctionData("transfer", [signerAddresses[0], safeHeld]), "token.transfer -> signer1");
+}
+if (await ro.paused()) {
+  note("skip: already paused");
+} else {
+  await safeExec(bridgeAddress, iface.encodeFunctionData("pause"), "pause");
+}
 const [pausedEnd, ownerEnd] = await Promise.all([ro.paused(), ro.owner()]);
 if (!pausedEnd || ownerEnd.toLowerCase() !== safeAddress.toLowerCase()) {
   throw new Error(`final state wrong: paused=${pausedEnd} owner=${ownerEnd}`);
