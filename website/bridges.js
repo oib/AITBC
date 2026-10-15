@@ -52,7 +52,7 @@ async function loadRecentBridges() {
             const time = d.confirm_time || d.lock_time;
             const when = time ? new Date(time).toLocaleString() : '-';
             const tx = d.transfer_id
-                ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener" aria-label="Transaction ${escapeHtml(d.transfer_id)}">${escapeHtml(d.transfer_id.slice(0, 18))}...</a>`
+                ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener noreferrer" aria-label="Transaction ${escapeHtml(d.transfer_id)}">${escapeHtml(d.transfer_id.slice(0, 18))}...</a>`
                 : '—';
             const amount = fmtAit(d.release_amount !== null && d.release_amount !== undefined ? d.release_amount : d.amount);
             return `

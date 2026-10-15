@@ -98,7 +98,7 @@ function createOfferCard(offer) {
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Height:</span>
                 <span class="blockchain-value">${offer.block_height != null
-                    ? `<a href="/block.html?height=${encodeURIComponent(offer.block_height)}" target="_blank" rel="noopener">#${escapeHtml(offer.block_height)}</a>`
+                    ? `<a href="/block.html?height=${encodeURIComponent(offer.block_height)}" target="_blank" rel="noopener noreferrer">#${escapeHtml(offer.block_height)}</a>`
                     : 'N/A'}</span>
             </div>
             <div class="blockchain-detail">
@@ -207,12 +207,12 @@ function formatHash(hash) {
 
 function formatTxHash(hash) {
     if (!hash) return 'N/A';
-    return `<a href="/tx.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener">${escapeHtml(hash.slice(0, 18))}...</a>`;
+    return `<a href="/tx.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">${escapeHtml(hash.slice(0, 18))}...</a>`;
 }
 
 function formatBlockHash(hash) {
     if (!hash) return 'N/A';
-    return `<a href="/block.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener">${escapeHtml(hash.slice(0, 18))}...</a>`;
+    return `<a href="/block.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">${escapeHtml(hash.slice(0, 18))}...</a>`;
 }
 
 function formatPrice(price) {
