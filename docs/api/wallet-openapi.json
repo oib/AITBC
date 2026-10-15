@@ -2041,6 +2041,30 @@
         }
       }
     },
+    "/v1/bridge/sell/config-status": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Sell Config Status",
+        "description": "Sell-lane enablement + non-secret config (CLI-5).\n\nThe sell lane's enabled/disabled state readable without journald \u2014\nsell_status_document() carries the fail-closed (enabled, reason) pair\nand redacts key slots to configured booleans. Admin-keyed: config\ninternals are operator information, not a participants board.",
+        "operationId": "bridge_sell_config_status_v1_bridge_sell_config_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Sell Config Status V1 Bridge Sell Config Status Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/exchange/price.json": {
       "get": {
         "tags": [

@@ -122,3 +122,44 @@ class TestStatusWindows:
             result = runner.invoke(status, obj={"output_format": "json"}, args=["--ait-tx-hash", "0xabc"])
         assert result.exit_code == 0, result.output
         client.get.assert_called_once_with("/v1/bridge/withdraw/0xabc")
+
+
+_SELL_DOC = {
+    "enabled": False,
+    "reason": "sell escrow disabled",
+    "feature_enabled": False,
+    "flags": {"bridge_enabled": True, "sell_escrow_enabled": False},
+    "config": {
+        "chain_id": "ait-testnet",
+        "escrow_address": "0x" + "11" * 20,
+        "treasury_address": "0x" + "22" * 20,
+        "max_eth_per_day": "0.03",
+        "escrow_wallet_configured": True,
+        "escrow_credential_configured": True,
+    },
+}
+
+
+class TestSellAdminStatus:
+    def test_status_calls_route_and_prints(self, runner):
+        from aitbc_cli.commands.exchange.sell_admin import status as sa_status
+
+        client = _fake_client(_SELL_DOC)
+        with mock.patch("aitbc_cli.commands.exchange.sell_admin._hub_bridge_client", return_value=client):
+            result = runner.invoke(sa_status, obj={"output_format": "json"}, args=[])
+        assert result.exit_code == 0, result.output
+        client.get.assert_called_once_with("/v1/bridge/sell/config-status")
+        body = json.loads(result.output)
+        assert body["enabled"] is False
+        assert body["reason"] == "sell escrow disabled"
+        assert body["config"]["max_eth_per_day"] == "0.03"
+
+    def test_status_http_error_aborts(self, runner):
+        from aitbc_cli.commands.exchange.sell_admin import status as sa_status
+
+        client = mock.Mock()
+        client.get.side_effect = RuntimeError("connection refused")
+        with mock.patch("aitbc_cli.commands.exchange.sell_admin._hub_bridge_client", return_value=client):
+            result = runner.invoke(sa_status, obj={"output_format": "table"}, args=[])
+        assert result.exit_code != 0
+        assert "Failed to read sell config status" in result.output
