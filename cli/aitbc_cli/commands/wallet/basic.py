@@ -19,7 +19,7 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from aitbc.utils import ait_to_units, format_ait
-from . import _load_wallet, _save_wallet, get_wallet_client, wallet
+from . import _load_wallet, _resave_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
 
 logger = get_logger(__name__)
@@ -732,9 +732,7 @@ def earn(
     wallet_data["balance"] = str(_wallet_amount(wallet_data.get("balance", 0)) + amount)
 
     # Save wallet with encryption
-    if not wallet_data.get("encrypted"):
-        password = None
-    _save_wallet(wallet_path, wallet_data, password if password else None)
+    _resave_wallet(ctx, Path(wallet_path), wallet_data, password)
 
     success(f"Earnings added: {amount} AITBC")
     output(
@@ -795,9 +793,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
     wallet_data["balance"] = str(balance - amount)
 
     # Save wallet with encryption
-    if not wallet_data.get("encrypted"):
-        password = None
-    _save_wallet(wallet_path, wallet_data, password if password else None)
+    _resave_wallet(ctx, Path(wallet_path), wallet_data, password)
 
     success(f"Spent: {amount} AITBC")
     output(

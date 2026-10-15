@@ -22,7 +22,7 @@ import requests
 from aitbc.exceptions import NetworkError
 from aitbc.utils import ait_to_units
 from aitbc_cli.commands.staking import liquidity_stake, stake, unstake
-from aitbc_cli.commands.wallet.staking import _resave_wallet
+from aitbc_cli.commands.wallet import _resave_wallet
 
 
 def extract_json_from_output(output):
@@ -161,6 +161,78 @@ class TestResaveWalletGuard:
         data = {"private_key": "deadbeef" * 8, "address": "0x0"}
         _resave_wallet(self._ctx(), path, dict(data), None)
         assert json.loads(path.read_text())["private_key"] == data["private_key"]
+
+
+class TestBasicResaveGuard:
+    """CLEAN-2: ``earn``/``spend`` in wallet/basic.py re-save through the shared
+    ``_resave_wallet`` guard. The defect shape is an on-disk-encrypted wallet
+    whose loader decrypted the key with an internally-resolved password: the
+    caller's ``password`` is None while ``wallet_data`` carries
+    ``encrypted: True`` plus the plaintext key. Re-saving must abort, not write.
+    """
+
+    @staticmethod
+    def _encrypted_file(tmp_path):
+        path = tmp_path / "w.json"
+        path.write_text(
+            json.dumps(
+                {"encrypted": True, "private_key": {"ciphertext": "x"}, "address": "0x0", "balance": "100", "transactions": []}
+            )
+        )
+        return path
+
+    @staticmethod
+    def _loaded_encrypted():
+        """What ``_load_wallet`` returns after decrypting: flag still set, key in plaintext."""
+        return {"encrypted": True, "private_key": "ab" * 32, "address": "0x0", "balance": "100", "transactions": []}
+
+    def _patch_loader(self, monkeypatch, loaded):
+        monkeypatch.setattr("aitbc_cli.commands.wallet.basic.resolve_wallet_password", lambda *a, **kw: None)
+        monkeypatch.setattr("aitbc_cli.commands.wallet.basic._load_wallet", lambda *a, **kw: dict(loaded))
+
+    def test_earn_encrypted_without_resolved_password_aborts_no_write(self, runner, tmp_path, monkeypatch):
+        from aitbc_cli.commands.wallet import wallet
+
+        path = self._encrypted_file(tmp_path)
+        before = path.read_text()
+        self._patch_loader(monkeypatch, self._loaded_encrypted())
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", str(path), "--chain-id", "test", "earn", "--amount", "1", "--job-id", "j1"],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code == 1, result.output
+        assert path.read_text() == before
+
+    def test_spend_encrypted_without_resolved_password_aborts_no_write(self, runner, tmp_path, monkeypatch):
+        from aitbc_cli.commands.wallet import wallet
+
+        path = self._encrypted_file(tmp_path)
+        before = path.read_text()
+        self._patch_loader(monkeypatch, self._loaded_encrypted())
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", str(path), "--chain-id", "test", "spend", "--amount", "1", "--description", "d"],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code == 1, result.output
+        assert path.read_text() == before
+
+    def test_earn_encrypted_with_password_resaves_encrypted(self, runner, tmp_path, monkeypatch):
+        from aitbc_cli.commands.wallet import wallet
+
+        path = self._encrypted_file(tmp_path)
+        monkeypatch.setattr("aitbc_cli.commands.wallet.basic.resolve_wallet_password", lambda *a, **kw: "pw-long-enough")
+        monkeypatch.setattr("aitbc_cli.commands.wallet.basic._load_wallet", lambda *a, **kw: self._loaded_encrypted())
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", str(path), "--chain-id", "test", "earn", "--amount", "1", "--job-id", "j1"],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code == 0, result.output
+        saved = json.loads(path.read_text())
+        assert saved["encrypted"] is True
+        assert isinstance(saved["private_key"], dict)  # re-encrypted blob, not the plaintext
 
 
 class TestTopLevelStakingCommands:
