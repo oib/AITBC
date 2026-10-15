@@ -487,3 +487,8 @@ Tests: 4 new prepay env-resolution cases (env-file only, flag precedence, proces
 - `09bd58d10` — `system logs --grep`: journalctl rc=1 with "-- No entries --" is success (the line is printed); every other non-zero exit stays an error. Closes row 21.
 - `09bd58d10` — `monitor campaigns` (and `campaign_stats`) compute expired/ended status in memory: listing no longer creates or rewrites `~/.aitbc/campaigns/campaigns.json`, so the MCP read-only annotation is now true. Closes row 33.
 - `09bd58d10` — `generate_mcp_cli_tools.py`: `("dispute","file")` added to `FORCE_DESTRUCTIVE_PATHS` — its leaf token `file` landed in the safe-token set and the generated `aitbc_dispute_file` was emitted read-only while filing disputes; regenerated modules gate it behind dry_run+confirm. Row 23 re-run: connected MCP server still predates the `= None` optional-param fix (`4b214fdb2`) — 12 "Field required" errors; row stays open.
+
+### WEB-FIX-2b — copy click must not trigger ancestor navigation
+
+- The delegated click listener in `website/copy.js` now runs on the **capture** phase (`addEventListener('click', …, true)`) plus `preventDefault()`: a bubble-phase document handler fired after ancestor inline `onclick` handlers, so a copy click inside a `.block-item` row (search results, explorer block cards) also navigated to the row target. Operator-reported (minimal repro showed nav=1 per click); verified by a real-row browser regression test that fails with nav=1 pre-fix.
+- No markup or CSS changes; `copy.js` restamped.
