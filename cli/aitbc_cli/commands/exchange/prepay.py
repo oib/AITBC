@@ -356,8 +356,15 @@ def _send_deposit(
         abort(ctx, "cannot verify the RPC chain id — refusing to sign for an unverified chain")
         return
 
+    try:
+        gas_price_wei = int(gas_price, 16) if isinstance(gas_price, str) else None
+    except ValueError:
+        gas_price_wei = None
+    if gas_price_wei is None:
+        abort(ctx, "no usable gas price from the Sepolia RPC — refusing to sign a zero-price transaction")
+        return
+
     balance = _rpc_call(ctx, rpc_url, "eth_getBalance", [address, "latest"])
-    gas_price_wei = int(gas_price, 16) if isinstance(gas_price, str) else 0
     gas_cost_wei = gas_limit * gas_price_wei
     if balance is not None and int(balance, 16) < value_wei + gas_cost_wei:
         abort(
