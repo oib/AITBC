@@ -983,3 +983,23 @@ class TestHostileSealedRows:
     def test_surrogate_body_admission_reason(self):
         reason = admission_error({"aitbc_msg": _env(body=_SURROGATE)}, ALICE)
         assert reason is not None and "UTF-8" in reason
+
+    def test_embedded_nul_topic_rejected_in_sql(self, session):
+        """Every SQL text function (length/GLOB/substr/instr) stops at an
+        embedded NUL byte, so "a\\x00<junk>" used to pass the whole topic
+        narrowing: Python row reads still rejected it, but the pure-SQL
+        aggregates fetched no rows and minted the junk string as a topic
+        name in `topics`/`state`. The `length(json) == length(blob)` gate
+        removes it before any read path sees it."""
+        _block(session, 1)
+        nul_topic = "a\x00" + "x" * 100 + "\n<b>"
+        session.add(_tx_row(1, 1, payload={"aitbc_msg": _env(topic=nul_topic)}))
+        session.add(_tx_row(1, 2, payload={"aitbc_msg": _env(body="ok")}))
+        session.commit()
+        out = list_messages(session, CHAIN)
+        assert [m["body"] for m in out["messages"]] == ["ok"]
+        topics = list_topics(session, CHAIN)
+        assert [t["topic"] for t in topics["topics"]] == ["dev"]
+        assert topics["topics"][0]["message_count"] == 1
+        assert state(session, CHAIN)["contract_state"]["total_messages"] == 1
+        assert get_message(session, CHAIN, f"{1:064x}") is None
