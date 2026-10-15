@@ -19,11 +19,16 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
 
 from ..config import get_config
-from ..utils import DECIMAL, error, output, success
+from ..utils import DECIMAL, error, info, output, success
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_paths import find_wallet_file, wallet_dir
+from ..utils.wallet_paths import (
+    find_wallet_file,
+    find_wallet_file_report,
+    service_dir_wallet_note,
+    wallet_not_found_message,
+)
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 
 logger = get_logger(__name__)
@@ -317,19 +322,27 @@ def message(
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
 
+    report = find_wallet_file_report(wallet)
+    keystore_path = report.path
+    if keystore_path is None:
+        error(wallet_not_found_message(report))
+        return
+    service_note = service_dir_wallet_note(report)
+    if service_note:
+        info(service_note)
+
     password = resolve_wallet_password(
         wallet,
         password=password,
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
-        wallet_path=wallet_dir() / f"{wallet}.json",
+        wallet_path=keystore_path,
         ctx=ctx,
     )
 
     try:
         # Decrypt wallet
-        keystore_path = wallet_dir() / f"{wallet}.json"
         private_key_hex = decrypt_private_key(keystore_path, password)
         private_key_bytes = bytes.fromhex(private_key_hex)
 

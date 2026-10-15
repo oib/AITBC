@@ -20,7 +20,8 @@ from ...utils.wallet_secret import resolve_wallet_password, wallet_password_opti
 from ...utils import DECIMAL, error, output, success
 from ...utils.http_client import AITBCHTTPClient, http_error_detail, retired_surface_message
 from ...utils.money import wallet_amount as _wallet_amount
-from . import _load_wallet, _resave_wallet, wallet
+from ...utils.wallet_paths import find_wallet_file_report, wallet_not_found_message
+from . import _emit_wallet_path_note, _load_wallet, _resave_wallet, wallet
 
 
 LIQUIDITY_FEE_DEFAULT_AIT = DEFAULT_TX_FEE_AIT
@@ -213,7 +214,7 @@ def stake(ctx, amount: Decimal, duration: int, password: str | None, password_fi
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     resolved_password = resolve_wallet_password(
@@ -225,6 +226,7 @@ def stake(ctx, amount: Decimal, duration: int, password: str | None, password_fi
         wallet_path=Path(wallet_path) if str(wallet_path) else None,
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=resolved_password)
     sender_address = wallet_data["address"]
 
@@ -312,7 +314,7 @@ def unstake(ctx, stake_id: str, password: str | None, password_file: str | None,
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     resolved_password = resolve_wallet_password(
@@ -324,6 +326,7 @@ def unstake(ctx, stake_id: str, password: str | None, password_file: str | None,
         wallet_path=Path(wallet_path) if str(wallet_path) else None,
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=resolved_password)
     sender_address = wallet_data["address"]
 
@@ -421,7 +424,7 @@ def staking_info(ctx, address_override: str | None, password: str | None, passwo
         wallet_name = "(by address)"
     else:
         if not wallet_path.exists():
-            error(f"Wallet '{wallet_name}' not found")
+            error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
             return
 
         resolved_password = resolve_wallet_password(
@@ -433,6 +436,7 @@ def staking_info(ctx, address_override: str | None, password: str | None, passwo
             wallet_path=Path(wallet_path) if str(wallet_path) else None,
             ctx=ctx,
         )
+        _emit_wallet_path_note(ctx)
         wallet_data = _load_wallet(wallet_path, wallet_name, password=resolved_password)
         sender_address = wallet_data["address"]
 
@@ -492,7 +496,7 @@ def liquidity_stake(
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
-        error("Wallet not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         ctx.exit(1)
         return
 
@@ -505,6 +509,7 @@ def liquidity_stake(
         wallet_path=Path(wallet_path) if str(wallet_path) else None,
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(Path(wallet_path), wallet_name, password=resolved_password)
     balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount + fee:
@@ -584,7 +589,7 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal, password: str | None, pass
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
-        error("Wallet not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         ctx.exit(1)
         return
 
@@ -597,6 +602,7 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal, password: str | None, pass
         wallet_path=Path(wallet_path) if str(wallet_path) else None,
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(Path(wallet_path), wallet_name, password=resolved_password)
     hex_address = canonical_address(wallet_data["address"])
     fee_seconds = int(ait_to_units(fee))
@@ -651,7 +657,7 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal, password: str | None, pa
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
-        error("Wallet not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         ctx.exit(1)
         return
 
@@ -664,6 +670,7 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal, password: str | None, pa
         wallet_path=Path(wallet_path) if str(wallet_path) else None,
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(Path(wallet_path), wallet_name, password=resolved_password)
     hex_address = canonical_address(wallet_data["address"])
     fee_seconds = int(ait_to_units(fee))

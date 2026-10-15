@@ -12,15 +12,22 @@ import click
 
 from ...config import get_config
 from ...utils import DECIMAL, error, output, resolve_output_format, success
+from ...utils.output import info as _info
 from ...utils.address import to_eip55
 from ...utils.error_handling import abort
 from ...utils.wallet_secret import resolve_new_wallet_password, resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
-from ...utils.wallet_paths import find_wallet_file, wallet_search_dirs
+from ...utils.wallet_paths import (
+    find_wallet_file,
+    find_wallet_file_report,
+    service_dir_wallet_note,
+    wallet_not_found_message,
+    wallet_search_dirs,
+)
 from aitbc.utils import ait_to_units, format_ait
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
-from . import _load_wallet, _resave_wallet, _save_wallet, get_wallet_client, wallet
+from . import _emit_wallet_path_note, _load_wallet, _resave_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
 
 logger = get_logger(__name__)
@@ -174,11 +181,15 @@ def list(ctx):
 def switch(ctx, name: str, password: str | None, password_file: str | None, password_stdin: bool):
     """Switch the active wallet context to a different locally stored wallet."""
     wallet_dir = ctx.obj["wallet_dir"]
-    wallet_path = wallet_dir / f"{name}.json"
+    report = find_wallet_file_report(name)
+    wallet_path = report.path or wallet_dir / f"{name}.json"
 
     if not wallet_path.exists():
         error(f"Wallet '{name}' does not exist")
         return
+    service_note = service_dir_wallet_note(report)
+    if service_note:
+        _info(service_note)
 
     # Update config
     config_file = Path.home() / ".aitbc" / "config.yaml"
@@ -227,7 +238,7 @@ def delete(ctx, name: str, confirm: bool):
     wallet_path = wallet_dir / f"{name}.json"
 
     if not wallet_path.exists():
-        error(f"Wallet '{name}' does not exist")
+        error(f"Wallet '{name}' does not exist in {wallet_dir}")
         return
 
     if not confirm:
@@ -262,10 +273,13 @@ def delete(ctx, name: str, confirm: bool):
 def backup(ctx, name: str, destination: str | None):
     """Export a wallet to a password-encrypted backup file at the given path."""
     wallet_dir = ctx.obj["wallet_dir"]
+    # Export is deliberately narrow (CLI-6 ASK): backup/restore/import/delete
+    # resolve only in the configured wallet dir — the shared search is for
+    # load/sign/read paths.
     wallet_path = wallet_dir / f"{name}.json"
 
     if not wallet_path.exists():
-        error(f"Wallet '{name}' does not exist")
+        error(f"Wallet '{name}' does not exist in {wallet_dir}")
         return
 
     if not destination:
@@ -468,6 +482,7 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     # Get active wallet from config
@@ -704,7 +719,7 @@ def earn(
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -716,6 +731,7 @@ def earn(
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     # Add transaction
@@ -762,7 +778,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -774,6 +790,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     balance = _wallet_amount(wallet_data.get("balance", 0))
@@ -826,10 +843,10 @@ def address(ctx, name: str | None, password: str | None, password_file: str | No
         return
 
     wallet_dir = ctx.obj["wallet_dir"]
-    wallet_path = wallet_dir / f"{wallet_name}.json"
+    wallet_path = find_wallet_file(wallet_name) or wallet_dir / f"{wallet_name}.json"
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -841,6 +858,7 @@ def address(ctx, name: str | None, password: str | None, password_file: str | No
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     output(
@@ -882,7 +900,7 @@ def send(
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         raise click.Abort()
 
     password = resolve_wallet_password(
@@ -894,6 +912,7 @@ def send(
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
     sender_address = to_eip55(wallet_data["address"])
 
@@ -1082,7 +1101,7 @@ def request_payment(
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -1094,6 +1113,7 @@ def request_payment(
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     # Create payment request
@@ -1128,7 +1148,7 @@ def stats(ctx, password: str | None, password_file: str | None, password_stdin: 
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -1140,6 +1160,7 @@ def stats(ctx, password: str | None, password_file: str | None, password_stdin: 
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
+    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     transactions = wallet_data.get("transactions", [])
