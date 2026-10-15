@@ -23,8 +23,11 @@ verifies ``keccak256(canonical JSON)`` over the pinned field set.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from pathlib import Path
+from typing import Any, NoReturn
 
 import click
 
@@ -498,3 +501,92 @@ def node_list(ctx, exchange_url):
         abort(ctx, f"Cannot reach exchange: {http_error_detail(e) or e}", from_exception=e)
         return
     output({"nodes": doc.get("nodes") or []}, resolve_output_format(ctx), title="Exchange nodes")
+
+
+def _abort_verify(message: str) -> NoReturn:
+    raise click.ClickException(message)
+
+
+def _verify_script_path() -> Path:
+    """Locate scripts/ops/exchange_verify.py relative to this CLI's repo checkout."""
+    repo_root = next((p for p in Path(__file__).resolve().parents if (p / "scripts/ops/exchange_verify.py").is_file()), None)
+    if repo_root is None:
+        _abort_verify("exchange_verify.py not found relative to this CLI's repo checkout")
+    return repo_root / "scripts" / "ops" / "exchange_verify.py"
+
+
+def _existing_plain_file(value: str, flag: str) -> Path:
+    """Validate a verifier DB path: absolute, existing regular file, no '..' or symlinks."""
+    p = Path(value)
+    if not p.is_absolute():
+        _abort_verify(f"{flag} must be an absolute path: {value}")
+    if ".." in p.parts:
+        _abort_verify(f"{flag} must not contain '..': {value}")
+    try:
+        resolved = p.resolve(strict=True)
+    except OSError as e:
+        _abort_verify(f"{flag}: cannot read {value}: {e}")
+    if resolved != p:
+        _abort_verify(f"{flag} must not be a symlink: {value}")
+    if not p.is_file():
+        _abort_verify(f"{flag} is not a regular file: {value}")
+    return p
+
+
+def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json) -> list[str]:
+    """Build the verifier argv — only the script's documented flags."""
+    argv = [sys.executable, str(_verify_script_path()), "--db", str(_existing_plain_file(db, "--db"))]
+    if bridge_db is not None:
+        argv += ["--bridge-db", str(_existing_plain_file(bridge_db, "--bridge-db"))]
+    for flag, value in (
+        ("--rpc-url", rpc_url),
+        ("--ait-rpc", ait_rpc),
+        ("--escrow-address", escrow_address),
+        ("--bridge-address", bridge_address),
+    ):
+        if value is not None:
+            argv += [flag, value]
+    if as_json:
+        argv.append("--json")
+    if rpc_url is None and ait_rpc is None:
+        argv.append("--no-chain")
+    return argv
+
+
+@click.command(
+    name="verify",
+    epilog="""Examples:
+
+  aitbc exchange verify --db /var/lib/aitbc/exchange.db
+
+  aitbc exchange verify --db /var/lib/aitbc/exchange.db --bridge-db /var/lib/aitbc/bridge_deposits.db
+
+  aitbc exchange verify --db ... --rpc-url https://sepolia.example --json""",
+)
+@click.option("--db", required=True, help="Exchange SQLite DB path (absolute, existing regular file, no symlinks)")
+@click.option("--bridge-db", default=None, help="bridge_deposits.db path — enables the prepay cross-check")
+@click.option("--rpc-url", default=None, help="Sepolia JSON-RPC endpoint — enables eth-chain checks")
+@click.option("--ait-rpc", default=None, help="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
+@click.option("--escrow-address", default=None, help="Sell-escrow account address for AIT checks")
+@click.option("--bridge-address", default=None, help="Expected deposit destination (enforces `to` on prepays)")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+@click.pass_context
+def verify(ctx, db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json):
+    """Read-only exchange-book verifier (scripts/ops/exchange_verify.py).
+
+    Re-derives the exchange DB's funding and settlement claims. Read-only by
+    construction: DBs open ``mode=ro`` and ``--no-chain`` is passed unless an
+    RPC endpoint is given explicitly. The script's output and exit code pass
+    through unchanged (exit 1 when any check FAILs).
+    """
+    argv = _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json)
+
+    try:
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        _abort_verify("exchange_verify timed out after 600s")
+    if result.stdout:
+        click.echo(result.stdout, nl=False)
+    if result.stderr:
+        click.echo(result.stderr, nl=False, err=True)
+    ctx.exit(result.returncode)
