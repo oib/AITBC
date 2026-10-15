@@ -2138,6 +2138,19 @@ a.btn-secondary {
         min-height: 44px;
         box-sizing: border-box;
     }
+    /* Explorer live-feed rows and the top-addresses table rows are
+       themselves the tap target (role=link), so the row box must reach
+       44px — no inner element to pad out instead. */
+    .live-feed-item {
+        min-height: 44px;
+    }
+    tbody tr[role="link"] {
+        height: 44px;
+    }
+    /* Marketplace status filter — same 44px floor as .journal-controls. */
+    select.endpoint {
+        min-height: 44px;
+    }
     /* Shared copy control: same padding-plus-compensating-margin trick —
        a >=44px hit area without growing the row. */
     .copy-btn {
