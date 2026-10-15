@@ -23,6 +23,7 @@ Failure messages print the page name and a unified diff of the link lists.
 from __future__ import annotations
 
 import difflib
+import re
 import subprocess
 import sys
 import unittest
@@ -226,6 +227,16 @@ TITLE_EXCEPTIONS = {"index.html"}
 DESCRIPTION_ALLOWLIST: set[str] = set()
 
 
+NGINX_CONF = REPO / "examples" / "nginx" / "nginx-aitbc.conf.example"
+STATUS_JS = WEBSITE / "status.js"
+EXPECTED_FOOTER = [
+    ("https://github.com/oib/AITBC", "GitHub"),
+    ("/llms.txt", "llms.txt"),
+    ("/openapi.json", "Coordinator API"),
+    ("/explorer-api/openapi.json", "Explorer API"),
+]
+
+
 class _HygieneParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -241,6 +252,14 @@ class _HygieneParser(HTMLParser):
         self.main_navs = 0
         self.first_link: dict | None = None
         self.skip_links = 0
+        self.status_strips: list[dict] = []
+        self.footer_links: list[tuple[str, str]] = []
+        self.footer_count = 0
+        self._in_footer = False
+        self._footer_link: str | None = None
+        self._footer_text: list[str] = []
+        self.scripts: list[dict] = []
+        self.cdn_refs: list[str] = []
 
     def _meta(self, attr: dict) -> None:
         if attr.get("charset") is not None:
@@ -252,40 +271,80 @@ class _HygieneParser(HTMLParser):
         if attr.get("name") == "robots" and "noindex" in (attr.get("content") or ""):
             self.noindex = True
 
-    def _link(self, attr: dict) -> None:
-        if attr.get("rel") == "canonical":
-            self.canonicals.append(attr.get("href") or "")
-
     def _anchor(self, attr: dict) -> None:
         if "skip-link" in (attr.get("class") or "").split():
             self.skip_links += 1
+        if self._in_footer:
+            self._footer_link = attr.get("href") or ""
+            self._footer_text = []
         if self.first_link is None and attr.get("href"):
             self.first_link = attr
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attr = dict(attrs)
-        if tag == "html":
-            self.lang = attr.get("lang", "")
-        elif tag == "meta":
-            self._meta(attr)
-        elif tag == "title":
-            self._in_title = True
-        elif tag == "link":
-            self._link(attr)
-        elif tag == "main":
-            self.mains.append(attr)
-        elif tag == "nav" and attr.get("aria-label") == "Main":
+    def _script(self, attr: dict) -> None:
+        src = attr.get("src") or ""
+        self.scripts.append({"src": src, "defer": "defer" in attr})
+        if src.startswith(("http://", "https://", "//")):
+            self.cdn_refs.append(src)
+
+    def _link(self, attr: dict) -> None:
+        if attr.get("rel") == "canonical":
+            self.canonicals.append(attr.get("href") or "")
+        href = attr.get("href") or ""
+        if attr.get("rel") in ("stylesheet", "preconnect", "preload") and href.startswith(("http://", "https://", "//")):
+            self.cdn_refs.append(href)
+
+    def _tag_html(self, attr: dict) -> None:
+        self.lang = attr.get("lang", "")
+
+    def _tag_meta(self, attr: dict) -> None:
+        self._meta(attr)
+
+    def _tag_title(self, attr: dict) -> None:
+        self._in_title = True
+
+    def _tag_link(self, attr: dict) -> None:
+        self._link(attr)
+
+    def _tag_main(self, attr: dict) -> None:
+        self.mains.append(attr)
+
+    def _tag_nav(self, attr: dict) -> None:
+        if attr.get("aria-label") == "Main":
             self.main_navs += 1
-        elif tag == "a":
-            self._anchor(attr)
+
+    def _tag_a(self, attr: dict) -> None:
+        self._anchor(attr)
+
+    def _tag_div(self, attr: dict) -> None:
+        if "status-strip" in (attr.get("class") or "").split():
+            self.status_strips.append(attr)
+
+    def _tag_footer(self, attr: dict) -> None:
+        self.footer_count += 1
+        self._in_footer = True
+
+    def _tag_script(self, attr: dict) -> None:
+        self._script(attr)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        handler = getattr(self, f"_tag_{tag}", None)
+        if handler is not None:
+            handler(dict(attrs))
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "title":
             self._in_title = False
+        elif tag == "footer":
+            self._in_footer = False
+        elif tag == "a" and self._footer_link is not None:
+            self.footer_links.append((self._footer_link, "".join(self._footer_text).strip()))
+            self._footer_link = None
 
     def handle_data(self, data: str) -> None:
         if self._in_title:
             self.title += data
+        if self._in_footer and self._footer_link is not None:
+            self._footer_text.append(data)
 
 
 class TestWebsiteHygiene(unittest.TestCase):
@@ -366,6 +425,74 @@ class TestWebsiteHygiene(unittest.TestCase):
                 self.assertTrue(p.noindex, f'{name}: dynamic page missing <meta name="robots" content="noindex">')
             else:
                 self.assertFalse(p.noindex, f"{name}: unexpected noindex")
+
+
+class TestStatusStripAndFooter(unittest.TestCase):
+    """WEB-3: status strip + footer invariants across every website page."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.parsed: dict[str, _HygieneParser] = {}
+        for path in sorted(WEBSITE.glob("*.html")):
+            parser = _HygieneParser()
+            parser.feed(path.read_text(encoding="utf-8"))
+            cls.parsed[path.name] = parser
+
+    def test_status_strip_on_menu_pages(self) -> None:
+        for name, p in self.parsed.items():
+            if name in NO_MENU_PAGES:
+                self.assertEqual(0, len(p.status_strips), f"{name}: menu-less page must not carry the strip")
+                continue
+            self.assertEqual(1, len(p.status_strips), f"{name}: expected one .status-strip, found {len(p.status_strips)}")
+            strip = p.status_strips[0]
+            self.assertEqual("status", strip.get("role"), f'{name}: strip lacks role="status"')
+            self.assertEqual("polite", strip.get("aria-live"), f'{name}: strip lacks aria-live="polite"')
+
+    def test_status_js_deferred_on_menu_pages(self) -> None:
+        for name, p in self.parsed.items():
+            status = [s for s in p.scripts if s["src"].endswith("status.js")]
+            if name in NO_MENU_PAGES:
+                self.assertEqual([], status, f"{name}: menu-less page must not load status.js")
+                continue
+            self.assertEqual(1, len(status), f"{name}: expected status.js once, found {len(status)}")
+            self.assertTrue(status[0]["defer"], f"{name}: status.js must load with defer")
+
+    def test_no_cdn_resources(self) -> None:
+        for name, p in self.parsed.items():
+            self.assertEqual([], p.cdn_refs, f"{name}: external script/stylesheet refs found: {p.cdn_refs}")
+
+    def test_identical_footer(self) -> None:
+        for name, p in self.parsed.items():
+            self.assertEqual(1, p.footer_count, f"{name}: expected exactly one <footer>, found {p.footer_count}")
+            self.assertEqual(
+                EXPECTED_FOOTER,
+                p.footer_links,
+                f"{name}: footer links differ\n{_diff(EXPECTED_FOOTER, p.footer_links)}",
+            )
+
+    def test_status_js_same_origin_and_paths(self) -> None:
+        src = STATUS_JS.read_text(encoding="utf-8")
+        self.assertIsNone(
+            re.search(r"https?://|\b\d{1,3}(?:\.\d{1,3}){3}\b", src),
+            "status.js must not hard-code hosts or IPs",
+        )
+        paths = re.findall(r"""getJSON\(\s*['"]([^'"]+)['"]""", src)
+        self.assertTrue(paths, "status.js: no getJSON call sites found")
+        for pth in paths:
+            self.assertTrue(
+                pth.startswith("/") and not pth.startswith("//"),
+                f"status.js path not same-origin-relative: {pth}",
+            )
+
+    def test_status_js_endpoints_exist_in_nginx_map(self) -> None:
+        conf = NGINX_CONF.read_text(encoding="utf-8")
+        prefixes = re.findall(r"location\s+(?:~\s+\S+\s+|=?\s*)(/\S*)", conf)
+        src = STATUS_JS.read_text(encoding="utf-8")
+        for pth in re.findall(r"""getJSON\(\s*['"]([^'"]+)['"]""", src):
+            self.assertTrue(
+                any(pth.startswith(prefix) for prefix in prefixes),
+                f"status.js calls {pth} — no matching location prefix in {NGINX_CONF.name}: {prefixes}",
+            )
 
 
 if __name__ == "__main__":

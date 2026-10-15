@@ -172,3 +172,38 @@ handlers") missed the inline listeners.
   contexts replaying parse→defer→DOMContentLoaded order): fixed pages
   init exactly once with no console errors; `7e59f6c13` pages throw
   ReferenceError and never init.
+
+
+### Website: status strip + site footer (WEB-3)
+
+Every menu page now carries a compact status strip under the header
+(static markup, `role="status"`, populated by deferred `status.js`) and
+every page including the menu-less announcement page carries an identical
+static footer (GitHub mirror, llms.txt, Coordinator API, Explorer API).
+
+- `<pending>` — new `website/status.js` (no CDN, no vendor): exactly two
+  same-origin requests per cycle (`/explorer-api/api/chain/head` +
+  `/explorer-api/api/alerts`), jittered >=30s polling, paused while the
+  tab is hidden, capped error backoff that stops after repeated failures
+  until reload. Head timestamp parsed as UTC (endpoint returns naive
+  timestamps); negative age clamped to zero; >60s negative clock skew
+  shows height without age; `STALE_AFTER_MS = 300000` switches the label
+  `live`/`stale`. Alerts show muted "alerts unknown" when
+  `prometheus_ok` is false, `watcher.present` is false, or
+  `watcher.stale` is true; the firing count links to `/alerts.html`.
+  Fetch failure renders "network status unavailable" — never throws,
+  never blocks rendering.
+- `<pending>` — generator `sync-website-menu.py` extended with
+  `aitbc-status` / `aitbc-footer` marker regions; still idempotent and
+  `--check`-verified. Status strip is stamped as a sibling before
+  `<main>` on the 12 menu pages; footer after the container on all 13.
+- `<pending>` — no build line: no public endpoint reports a commit
+  (`/explorer-api/health`'s `version: "2.0.0"` is a static app version,
+  deliberately not shown). `docs/ops/website-version-json.md` proposes a
+  gitignored `website/version.json` written by an operator-installed
+  post-merge hook — proposal only, hook install is its own gated task.
+- `<pending>` — `tests/unit/test_website_menu_consistency.py` extended:
+  one status strip with `role="status"` on menu pages, `status.js`
+  deferred exactly once, identical footer link set on every page, no CDN
+  scripts/styles, `status.js` calls only same-origin paths that exist
+  under the repo nginx map's location prefixes.
