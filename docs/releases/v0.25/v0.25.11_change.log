@@ -221,3 +221,30 @@ accepted path:
   ValueError.
 - `6f5baac4a` — `_broadcast_raw` now uses `asyncio.run`, so the broadcast event
   loop is closed after the single send instead of being leaked.
+
+
+### Website: API path contract test (WEB-4)
+
+New `tests/unit/test_website_api_contract.py` fails loudly when a website
+script calls a path that the hub nginx reference config does not expose,
+that a location denies (404), or that the proxied app does not implement.
+
+- `<pending>` — extractor scans website/*.js + inline <script> blocks:
+  fetch/EventSource/WebSocket/XHR plus request helpers (apiGet/apiPost/
+  apiPostOrGet/fetchJson/getJSON), resolving constants through
+  config.js (EXPLORER_API_URL, explorerBase, svc.url object props).
+- `<pending>` — nginx model implements real matching order (exact,
+  longest ^~, first regex, longest prefix) over
+  examples/nginx/nginx-aitbc.conf.example; AITBC_NGINX_CONF env var
+  overrides the config path for live-config drift checks.
+- `<pending>` — app side discovers FastAPI decorators + include_router
+  prefixes for coordinator/explorer/rpc/wallet/market/pool-hub/agent-
+  coordinator/api-gateway, and parses the exchange's hand-dispatched
+  path==/startswith/endswith table. Unmappable upstreams are
+  unchecked-app and fail unless allowlisted (allowlist file beside the
+  test; stale entries fail too).
+- Result on the real tree: 47 path patterns extracted, all ok —
+  zero not-exposed / denied / not-implemented / unchecked findings.
+  Live-vs-reference location diff (read-only nginx -T): the reference
+  is a subset of live; live extras are monitoring/internal (awstats,
+  /prom-write, /v1/metrics, plain /agent/).
