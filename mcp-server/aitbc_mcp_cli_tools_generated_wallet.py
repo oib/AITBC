@@ -213,7 +213,7 @@ def aitbc_wallet_bridge_float(
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
-def aitbc_wallet_bridge_sell_sell_lock(
+def aitbc_wallet_bridge_sell_lock(
     quote_id: Annotated[str, Field(description="Sell quote id from `sell quote`.")],
     wallet_name: Annotated[str | None, Field(description="Shop wallet name (signs the lock).")] = None,
     hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for status lookup.")] = None,
@@ -236,7 +236,7 @@ def aitbc_wallet_bridge_sell_sell_lock(
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "wallet",
-        subcommand=["bridge", "sell", "sell-lock"],
+        subcommand=["bridge", "sell", "lock"],
         args=args,
         options=options,
         output_format="json",
@@ -256,7 +256,7 @@ def aitbc_wallet_bridge_sell_sell_lock(
         _run_aitbc_cli(
             target,
             "wallet",
-            subcommand=["bridge", "sell", "sell-lock"],
+            subcommand=["bridge", "sell", "lock"],
             args=args,
             options=options,
             output_format="json",
@@ -266,7 +266,7 @@ def aitbc_wallet_bridge_sell_sell_lock(
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
-def aitbc_wallet_bridge_sell_sell_quote(
+def aitbc_wallet_bridge_sell_quote(
     amount: Annotated[str, Field(description="AIT amount to sell.")],
     eth_address: Annotated[str, Field(description="Ethereum address to receive ETH.")],
     wallet_name: Annotated[str | None, Field(description="Shop wallet name (AIT source).")] = None,
@@ -296,7 +296,7 @@ def aitbc_wallet_bridge_sell_sell_quote(
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "wallet",
-        subcommand=["bridge", "sell", "sell-quote"],
+        subcommand=["bridge", "sell", "quote"],
         args=args,
         options=options,
         output_format="json",
@@ -316,7 +316,7 @@ def aitbc_wallet_bridge_sell_sell_quote(
         _run_aitbc_cli(
             target,
             "wallet",
-            subcommand=["bridge", "sell", "sell-quote"],
+            subcommand=["bridge", "sell", "quote"],
             args=args,
             options=options,
             output_format="json",
@@ -326,7 +326,7 @@ def aitbc_wallet_bridge_sell_sell_quote(
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
-def aitbc_wallet_bridge_sell_sell_status(
+def aitbc_wallet_bridge_sell_status(
     identifier: Annotated[str, Field(description="Quote id, lock id, or lock transaction hash.")],
     hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -345,7 +345,7 @@ def aitbc_wallet_bridge_sell_sell_status(
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
         "wallet",
-        subcommand=["bridge", "sell", "sell-status"],
+        subcommand=["bridge", "sell", "status"],
         args=args,
         options=options,
         output_format="json",
@@ -365,7 +365,7 @@ def aitbc_wallet_bridge_sell_sell_status(
         _run_aitbc_cli(
             target,
             "wallet",
-            subcommand=["bridge", "sell", "sell-status"],
+            subcommand=["bridge", "sell", "status"],
             args=args,
             options=options,
             output_format="json",

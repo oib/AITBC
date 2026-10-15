@@ -20,8 +20,10 @@ Throwaway in-process keys and passwords per the WAL-3 prompt.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from click.testing import CliRunner
@@ -97,8 +99,8 @@ class _FakeClient:
     ``sell_lock`` are this class; ``instances`` tells them apart."""
 
     instances: list = []
-    get_responses: dict = {}
-    post_response: dict = {}
+    get_responses: dict[str, Any] = {}
+    post_response: Any = {}
 
     def __init__(self, base_url=None, timeout=None, **kw):
         self.base_url = base_url
@@ -110,11 +112,15 @@ class _FakeClient:
         self.gets.append(path)
         for key, resp in _FakeClient.get_responses.items():
             if key in path:
+                if isinstance(resp, BaseException):
+                    raise resp
                 return resp
         return {}
 
     def post(self, path, json=None, **kw):
         self.posts.append({"path": path, "json": json})
+        if isinstance(_FakeClient.post_response, BaseException):
+            raise _FakeClient.post_response
         return _FakeClient.post_response
 
 
@@ -472,3 +478,94 @@ class TestUnifiedGenesisEnv:
         with pytest.raises(_Sentinel):
             ug.main()
         assert got["password"] == "argv-pass"
+
+
+# ---------------------------------------------------------------------------
+# CLI-7: sell subcommand names + http_error_detail on non-2xx responses
+# ---------------------------------------------------------------------------
+
+
+class _FakeHTTPError(Exception):
+    """HTTP-looking error: ``.response.json()`` returns the FastAPI body."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__("500 Server Error")
+        self.response = _FakeHTTPError._Resp(detail)
+
+    class _Resp:
+        def __init__(self, detail: str) -> None:
+            self._detail = detail
+
+        def json(self):
+            return {"detail": self._detail}
+
+
+def _http_err(detail: str) -> _FakeHTTPError:
+    return _FakeHTTPError(detail)
+
+
+class TestSellCommandNames:
+    """Click derived ``sell-quote``/``sell-lock``/``sell-status`` from the
+    function names while every epilog and printed ``next`` hint said
+    ``sell quote`` — the registered names are pinned to the short forms."""
+
+    def test_sell_group_lists_short_names(self, runner):
+        result = runner.invoke(bridge_module.sell, ["--help"])
+        assert result.exit_code == 0, result.output
+        for name in ("quote", "lock", "status"):
+            assert re.search(rf"(?m)^\s+{name}\b", result.output), result.output
+        for bad in ("sell-quote", "sell-lock", "sell-status"):
+            assert bad not in result.output
+
+    def test_next_hints_use_short_names(self, runner, enc_wallet, pw_file, fake_http):
+        """The printed 'next' hint must name a command that actually exists."""
+        _FakeClient.post_response = {
+            "quote_id": "sellq_9",
+            "rate": "0.001",
+            "eth_amount": "0.01",
+            "expires_at": "2026-10-15T16:00:00",
+            "escrow_address": ESCROW,
+        }
+        result = runner.invoke(
+            bridge_module.sell_quote,
+            ["--amount", "10", "--eth-address", ESCROW, "--password-file", str(pw_file)],
+            obj=_wallet_obj(enc_wallet),
+        )
+        assert result.exit_code == 0, result.output
+        assert "sell lock --quote-id" in result.output
+        assert "sell-lock" not in result.output
+
+
+class TestSellErrorDetail:
+    """Row 64: a non-2xx sell response must surface the JSON ``detail``,
+    not collapse to the bare exception text."""
+
+    def test_quote_error_keeps_detail(self, runner, enc_wallet, pw_file, fake_http):
+        _FakeClient.post_response = _http_err("escrow at capacity")
+        result = runner.invoke(
+            bridge_module.sell_quote,
+            ["--amount", "10", "--eth-address", ESCROW, "--password-file", str(pw_file)],
+            obj=_wallet_obj(enc_wallet),
+        )
+        assert result.exit_code != 0
+        assert "escrow at capacity" in result.output
+        assert "500 Server Error" not in result.output
+
+    def test_lock_fetch_quote_error_keeps_detail(self, runner, enc_wallet, pw_file, fake_http):
+        _FakeClient.get_responses["/v1/bridge/sell/status/"] = _http_err("sell quote expired")
+        result = runner.invoke(
+            bridge_module.sell_lock,
+            ["--quote-id", "sellq_1", "--password-file", str(pw_file)],
+            obj=_wallet_obj(enc_wallet),
+        )
+        assert result.exit_code != 0
+        assert "sell quote expired" in result.output
+        assert "500 Server Error" not in result.output
+        assert not _broadcasts()
+
+    def test_status_error_keeps_detail(self, runner, fake_http):
+        _FakeClient.get_responses["/v1/bridge/sell/status/"] = _http_err("unknown sell id")
+        result = runner.invoke(bridge_module.sell_status, ["--id", "sellq_1"], obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert "unknown sell id" in result.output
+        assert "500 Server Error" not in result.output
