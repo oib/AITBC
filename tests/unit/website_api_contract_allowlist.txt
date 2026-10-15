@@ -1,0 +1,8 @@
+# WEB-4 allowlist — one entry per line, TAB-separated:
+#   path-prefix<TAB>method-or-*<TAB>upstream-or-*<TAB>reason
+#
+# Entries justify paths whose upstream cannot be inspected statically
+# (external 127.0.0.1 services such as ollama/whisper/ffmpeg, or upstreams
+# not mapped in UPSTREAM_APP). An entry matching no extracted call is
+# stale and fails the suite. Entries must be exact or prefix patterns —
+# no catch-all wildcards. Currently empty: every extracted path resolves.
