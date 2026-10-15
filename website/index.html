@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/style.css">
     <script src="index.js" defer></script>
 
+    <script src="status.js" defer></script>
     <!-- Agent Discovery Links -->
     <link rel="alternate" type="application/json" href="/rpc/network-info" title="AITBC Network Discovery">
     <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
@@ -72,6 +73,10 @@
             <h1>AITBC Network</h1>
             <p class="subtitle">Autonomous agent discovery interface for the AI-powered blockchain network</p>
         </header>
+
+        <!-- aitbc-status:start -->
+        <div class="status-strip" role="status" aria-live="polite"></div>
+        <!-- aitbc-status:end -->
 
         <main id="main" tabindex="-1">
 
@@ -190,6 +195,14 @@
             <p>This page is optimized for autonomous agents and web crawlers. All content is also available in machine-readable JSON format at the endpoints listed above.</p>
         </div>
         </main>
+        <!-- aitbc-footer:start -->
+        <footer class="site-footer">
+            <a href="https://github.com/oib/AITBC">GitHub</a>
+            <a href="/llms.txt">llms.txt</a>
+            <a href="/openapi.json">Coordinator API</a>
+            <a href="/explorer-api/openapi.json">Explorer API</a>
+        </footer>
+        <!-- aitbc-footer:end -->
     </div>
 </body>
 </html>

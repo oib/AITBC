@@ -85,7 +85,11 @@ Operator procedures for the live fleet:
   [island subscription check](ops/island-subscription-check.md),
   [pricing / energy / exchange](ops/pricing-energy-exchange.md),
   [exchange public endpoints](ops/exchange-public-endpoints.md) — the two
-  GET-only nginx aliases for the read-only order book page.
+  GET-only nginx aliases for the read-only order book page;
+  [website version.json proposal](ops/website-version-json.md) — a
+  docs-only proposal for surfacing the hub checkout commit to the site
+  footer via a gitignored file written by an operator-installed
+  post-merge hook (not implemented).
 
 ## Security
 
