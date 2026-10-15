@@ -1919,6 +1919,104 @@
         }
       }
     },
+    "/v1/bridge/settlements": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Settlements",
+        "description": "List exchange-settlement ledger rows (CLI-1).\n\nAdmin-keyed like sell/quote: the /v1/bridge mount is publicly exposed on\nhub and settlement rows carry diagnostic error text plus release\nnonces/hashes \u2014 not a participants board. Flag-off the table is empty and\nthe route returns [].",
+        "operationId": "bridge_settlements_v1_bridge_settlements_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge Settlements V1 Bridge Settlements Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "kind must be 'trade' or 'order_refund'",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/exchange/price.json": {
       "get": {
         "tags": [
