@@ -92,7 +92,7 @@ def aitbc_system_cat(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_system_check(
-    service: Annotated[str | None, Field(description="Check a specific systemd service")],
+    service: Annotated[str | None, Field(description="Check a specific systemd service")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -118,9 +118,11 @@ def aitbc_system_check(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_system_env_set(
     service: Annotated[str, Field(description="Positional argument: service")],
-    assignments: Annotated[list[str] | None, Field(description="Positional argument: assignments")],
-    env_file_override: Annotated[str | None, Field(description="Env file to edit (default: the unit's EnvironmentFile)")],
-    no_restart: Annotated[bool | None, Field(description="Write the env file without restarting the service")],
+    assignments: Annotated[list[str] | None, Field(description="Positional argument: assignments")] = None,
+    env_file_override: Annotated[
+        str | None, Field(description="Env file to edit (default: the unit's EnvironmentFile)")
+    ] = None,
+    no_restart: Annotated[bool | None, Field(description="Write the env file without restarting the service")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -265,7 +267,7 @@ def aitbc_system_run_script(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_system_show(
     service: Annotated[str, Field(description="Service to show properties for")],
-    properties: Annotated[str | None, Field(description="Comma-separated list of systemd properties")],
+    properties: Annotated[str | None, Field(description="Comma-separated list of systemd properties")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

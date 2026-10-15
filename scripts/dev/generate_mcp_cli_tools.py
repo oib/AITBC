@@ -621,9 +621,11 @@ def _render_signature(spec: dict[str, Any], func_name: str, read_only: bool) -> 
     lines: list[str] = [f"def {func_name}("]
     for param in all_params:
         ptype = param["type"]
+        default = ""
         if not param["required"]:
             ptype = f"{ptype} | None"
-        lines.append(f"    {param['py_name']}: Annotated[{ptype}, {render_field(param)}],")
+            default = " = None"
+        lines.append(f"    {param['py_name']}: Annotated[{ptype}, {render_field(param)}]{default},")
     lines.append('    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,')
     lines.append('    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,')
     lines.append('    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,')

@@ -28,7 +28,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_coin_requests_approve(
     request_id: Annotated[str, Field(description="The Request id.")],
-    reason: Annotated[str | None, Field(description="Reason for approval")],
+    reason: Annotated[str | None, Field(description="Reason for approval")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -124,8 +124,8 @@ def aitbc_coin_requests_execute(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_coin_requests_list(
-    status: Annotated[str | None, Field(description="Filter by status (pending, approved, rejected, expired)")],
-    sender: Annotated[str | None, Field(description="Filter by sender")],
+    status: Annotated[str | None, Field(description="Filter by status (pending, approved, rejected, expired)")] = None,
+    sender: Annotated[str | None, Field(description="Filter by sender")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -150,9 +150,13 @@ def aitbc_coin_requests_list(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_coin_requests_reconcile(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")],
-    annotate: Annotated[bool | None, Field(description="Record the discrepancy in each affected request's audit log")],
-    chain_id: Annotated[str | None, Field(description="Island to query; omit to let the node answer for its own chain")],
+    rpc_url: Annotated[
+        str | None, Field(description="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
+    ] = None,
+    annotate: Annotated[bool | None, Field(description="Record the discrepancy in each affected request's audit log")] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Island to query; omit to let the node answer for its own chain")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -250,9 +254,13 @@ def aitbc_coin_requests_reject(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_coin_requests_reopen(
     request_id: Annotated[str, Field(description="The Request id.")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")],
-    force: Annotated[bool | None, Field(description="Reopen even though the chain still has the transaction")],
-    chain_id: Annotated[str | None, Field(description="Island to query; omit to let the node answer for its own chain")],
+    rpc_url: Annotated[
+        str | None, Field(description="Blockchain RPC to check against (defaults to BLOCKCHAIN_RPC_URL)")
+    ] = None,
+    force: Annotated[bool | None, Field(description="Reopen even though the chain still has the transaction")] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Island to query; omit to let the node answer for its own chain")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -300,11 +308,11 @@ def aitbc_coin_requests_reopen(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_coin_requests_request(
-    wallet: Annotated[str | None, Field(description="Wallet name to receive the coins.")],
-    amount: Annotated[int | None, Field(description="Amount in AIT.")],
-    sender: Annotated[str | None, Field(description="Sender id (defaults to hostname-wallet-suffix).")],
-    recipient: Annotated[str | None, Field(description="Recipient agent id.")],
-    request_id: Annotated[str | None, Field(description="Request id (defaults to a unique value).")],
+    wallet: Annotated[str | None, Field(description="Wallet name to receive the coins.")] = None,
+    amount: Annotated[int | None, Field(description="Amount in AIT.")] = None,
+    sender: Annotated[str | None, Field(description="Sender id (defaults to hostname-wallet-suffix).")] = None,
+    recipient: Annotated[str | None, Field(description="Recipient agent id.")] = None,
+    request_id: Annotated[str | None, Field(description="Request id (defaults to a unique value).")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

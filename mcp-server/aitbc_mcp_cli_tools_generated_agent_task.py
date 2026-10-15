@@ -31,19 +31,19 @@ def aitbc_agent_task_hire(
     service_type: Annotated[str, Field(description="Service to run (whisper, ffmpeg, ollama, ipfs)")],
     payload: Annotated[str, Field(description="Task input: IPFS CID or local file path")],
     max_price: Annotated[str, Field(description="Maximum price in AIT")],
-    model: Annotated[str | None, Field(description="Model/variant (e.g. base, llama3.2:3b)")],
-    wallet_name: Annotated[str | None, Field(description="Buyer wallet name (signs the escrow lock)")],
+    model: Annotated[str | None, Field(description="Model/variant (e.g. base, llama3.2:3b)")] = None,
+    wallet_name: Annotated[str | None, Field(description="Buyer wallet name (signs the escrow lock)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    from_agent: Annotated[str | None, Field(description="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")],
-    timeout_seconds: Annotated[float | None, Field(description="Escrow timeout in seconds")],
-    wait: Annotated[bool | None, Field(description="Wait for the task result")],
-    wait_seconds: Annotated[float | None, Field(description="Max time to wait for a result")],
-    sign: Annotated[bool | None, Field(description="Sign negotiation envelopes and inbox polls with the buyer wallet")],
+    ] = None,
+    from_agent: Annotated[str | None, Field(description="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")] = None,
+    timeout_seconds: Annotated[float | None, Field(description="Escrow timeout in seconds")] = None,
+    wait: Annotated[bool | None, Field(description="Wait for the task result")] = None,
+    wait_seconds: Annotated[float | None, Field(description="Max time to wait for a result")] = None,
+    sign: Annotated[bool | None, Field(description="Sign negotiation envelopes and inbox polls with the buyer wallet")] = None,
     coordinator_url: Annotated[
         str | None, Field(description="Agent coordinator URL (default: $AGENT_COORDINATOR_URL or hub)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -104,14 +104,16 @@ def aitbc_agent_task_hire(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_task_result(
     task_id: Annotated[str, Field(description="Task identifier")],
-    out_path: Annotated[str | None, Field(description="Output file path (default: print to stdout)")],
-    from_agent: Annotated[str | None, Field(description="Buyer agent ID")],
-    wallet_name: Annotated[str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")],
+    out_path: Annotated[str | None, Field(description="Output file path (default: print to stdout)")] = None,
+    from_agent: Annotated[str | None, Field(description="Buyer agent ID")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
+    ] = None,
+    sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -167,13 +169,15 @@ def aitbc_agent_task_result(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_task_status(
     task_id: Annotated[str, Field(description="Task identifier")],
-    from_agent: Annotated[str | None, Field(description="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")],
-    wallet_name: Annotated[str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")],
+    from_agent: Annotated[str | None, Field(description="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
+    ] = None,
+    sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

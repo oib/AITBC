@@ -30,8 +30,8 @@ def aitbc_energy_floor(
     resource_id: Annotated[str, Field(description="Canonical resource ID")],
     gpu_count: Annotated[int, Field(description="Number of GPUs")],
     duration_seconds: Annotated[int, Field(description="Rental duration in seconds")],
-    settlement_unit_scale: Annotated[int | None, Field(description="Settlement unit scale")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    settlement_unit_scale: Annotated[int | None, Field(description="Settlement unit scale")] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -105,7 +105,7 @@ def aitbc_energy_operator_info(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_energy_operator_verify(
     quote_file: Annotated[str, Field(description="JSON file containing an energy quote")],
-    check_oracle: Annotated[bool | None, Field(description="Also verify against the on-chain IEnergyPricing oracle")],
+    check_oracle: Annotated[bool | None, Field(description="Also verify against the on-chain IEnergyPricing oracle")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -154,7 +154,7 @@ def aitbc_energy_operator_verify(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_energy_provider_profile(
     resource_id: Annotated[str, Field(description="Canonical resource ID")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -179,16 +179,16 @@ def aitbc_energy_provider_profile(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_energy_provider_rate(
-    publish: Annotated[bool | None, Field(description="Publish a new rate (requires wallet)")],
-    ait_per_eur: Annotated[float | None, Field(description="AIT per EUR rate to publish")],
-    observed_at: Annotated[int | None, Field(description="Unix timestamp when the rate was observed")],
-    source_kind: Annotated[str | None, Field(description="Rate source kind")],
-    wallet: Annotated[str | None, Field(description="Wallet name for signing")],
-    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
+    publish: Annotated[bool | None, Field(description="Publish a new rate (requires wallet)")] = None,
+    ait_per_eur: Annotated[float | None, Field(description="AIT per EUR rate to publish")] = None,
+    observed_at: Annotated[int | None, Field(description="Unix timestamp when the rate was observed")] = None,
+    source_kind: Annotated[str | None, Field(description="Rate source kind")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name for signing")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    ] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -248,12 +248,12 @@ def aitbc_energy_provider_register(
     model_id: Annotated[str, Field(description="GPU model ID")],
     tbp_watts: Annotated[int, Field(description="GPU TBP (total board power) in watts")],
     eur_per_kwh: Annotated[float, Field(description="EUR per kWh tariff")],
-    wallet: Annotated[str | None, Field(description="Wallet name for signing")],
-    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
+    wallet: Annotated[str | None, Field(description="Wallet name for signing")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    ] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -310,32 +310,38 @@ def aitbc_energy_provider_register(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_energy_suggest(
-    gpu_model: Annotated[str | None, Field(description="GPU model override (skips nvidia-smi detection)")],
-    tbp_watts: Annotated[int | None, Field(description="Explicit per-GPU board watts (highest precedence)")],
-    gpu_count: Annotated[int | None, Field(description="GPUs covered by one registered resource")],
-    node_gpu_count: Annotated[int | None, Field(description="Total GPUs in this node (platform draw is shared across them)")],
-    cpu_watts: Annotated[int | None, Field(description="CPU sustained watts override")],
-    platform_watts: Annotated[int | None, Field(description="Board/RAM/fans/storage overhead override in watts")],
-    region: Annotated[str | None, Field(description="Region code for the tariff table (or SHOP_REGION env)")],
-    eur_per_kwh: Annotated[float | None, Field(description="Electricity tariff in EUR/kWh (or ENERGY_EUR_PER_KWH env)")],
-    ait_per_eur: Annotated[float | None, Field(description="AIT/EUR rate override (default: on-chain rate, else 4.0)")],
+    gpu_model: Annotated[str | None, Field(description="GPU model override (skips nvidia-smi detection)")] = None,
+    tbp_watts: Annotated[int | None, Field(description="Explicit per-GPU board watts (highest precedence)")] = None,
+    gpu_count: Annotated[int | None, Field(description="GPUs covered by one registered resource")] = None,
+    node_gpu_count: Annotated[
+        int | None, Field(description="Total GPUs in this node (platform draw is shared across them)")
+    ] = None,
+    cpu_watts: Annotated[int | None, Field(description="CPU sustained watts override")] = None,
+    platform_watts: Annotated[int | None, Field(description="Board/RAM/fans/storage overhead override in watts")] = None,
+    region: Annotated[str | None, Field(description="Region code for the tariff table (or SHOP_REGION env)")] = None,
+    eur_per_kwh: Annotated[
+        float | None, Field(description="Electricity tariff in EUR/kWh (or ENERGY_EUR_PER_KWH env)")
+    ] = None,
+    ait_per_eur: Annotated[float | None, Field(description="AIT/EUR rate override (default: on-chain rate, else 4.0)")] = None,
     margin_pct: Annotated[
         float | None,
         Field(
             description="Cost-plus anchor: energy floor plus this margin % (the cost-way price; the multiplier is the value-way one)"
         ),
-    ],
-    duration_seconds: Annotated[int | None, Field(description="Floor horizon in seconds (default 1h)")],
-    resource_id: Annotated[str | None, Field(description="Resource ID used in the printed registration command / --register")],
-    provider_address: Annotated[str | None, Field(description="Provider wallet address (required for --register)")],
-    model_id: Annotated[str | None, Field(description="Model ID for registration (default: detected model)")],
-    wallet: Annotated[str | None, Field(description="Wallet name for signing (with --register)")],
-    wallet_path: Annotated[str | None, Field(description="Direct wallet file path (with --register)")],
+    ] = None,
+    duration_seconds: Annotated[int | None, Field(description="Floor horizon in seconds (default 1h)")] = None,
+    resource_id: Annotated[
+        str | None, Field(description="Resource ID used in the printed registration command / --register")
+    ] = None,
+    provider_address: Annotated[str | None, Field(description="Provider wallet address (required for --register)")] = None,
+    model_id: Annotated[str | None, Field(description="Model ID for registration (default: detected model)")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name for signing (with --register)")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct wallet file path (with --register)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    register: Annotated[bool | None, Field(description="Submit the on-chain energy profile registration")],
-    json_output: Annotated[bool | None, Field(description="Output raw JSON")],
+    ] = None,
+    register: Annotated[bool | None, Field(description="Submit the on-chain energy profile registration")] = None,
+    json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

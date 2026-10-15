@@ -31,14 +31,16 @@ def aitbc_crosschain_bridge(
     target_chain: Annotated[str, Field(description="Target chain ID")],
     token: Annotated[str, Field(description="Token to bridge")],
     amount: Annotated[str, Field(description="Amount to bridge (AIT)")],
-    recipient: Annotated[str | None, Field(description="Recipient address on the target chain (defaults to the sender)")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
+    recipient: Annotated[
+        str | None, Field(description="Recipient address on the target chain (defaults to the sender)")
+    ] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (source-chain producer)")],
-    wait: Annotated[bool | None, Field(description="Poll status until the transfer reaches a terminal state")],
-    timeout_opt: Annotated[int | None, Field(description="Seconds to wait with --wait (default 300)")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (source-chain producer)")] = None,
+    wait: Annotated[bool | None, Field(description="Poll status until the transfer reaches a terminal state")] = None,
+    timeout_opt: Annotated[int | None, Field(description="Seconds to wait with --wait (default 300)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -97,9 +99,9 @@ def aitbc_crosschain_bridge(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_crosschain_bridge_status(
     bridge_id: Annotated[str, Field(description="The bridge/transfer ID.")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
-    wait: Annotated[bool | None, Field(description="Poll status until a terminal state")],
-    timeout_opt: Annotated[int | None, Field(description="Seconds to wait with --wait")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    wait: Annotated[bool | None, Field(description="Poll status until a terminal state")] = None,
+    timeout_opt: Annotated[int | None, Field(description="Seconds to wait with --wait")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -148,12 +150,12 @@ def aitbc_crosschain_bridge_status(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_crosschain_confirm(
     transfer_id: Annotated[str, Field(description="The bridge transfer ID")],
-    source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to the node's chain)")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing the confirm")],
+    source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to the node's chain)")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing the confirm")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -207,7 +209,7 @@ def aitbc_crosschain_confirm(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_crosschain_stats(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -237,16 +239,18 @@ def aitbc_crosschain_swap(
     from_token: Annotated[str, Field(description="Source token symbol")],
     to_token: Annotated[str, Field(description="Target token symbol")],
     amount: Annotated[str, Field(description="Amount to swap (AIT)")],
-    min_amount: Annotated[str | None, Field(description="Minimum amount to receive on target chain (AIT)")],
-    slippage: Annotated[float | None, Field(description="Slippage tolerance (0-0.1)")],
-    recipient: Annotated[str | None, Field(description="Recipient address on the target chain (defaults to the sender)")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
+    min_amount: Annotated[str | None, Field(description="Minimum amount to receive on target chain (AIT)")] = None,
+    slippage: Annotated[float | None, Field(description="Slippage tolerance (0-0.1)")] = None,
+    recipient: Annotated[
+        str | None, Field(description="Recipient address on the target chain (defaults to the sender)")
+    ] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (source-chain producer)")],
-    wait: Annotated[bool | None, Field(description="Poll status until the transfer reaches a terminal state")],
-    timeout_opt: Annotated[int | None, Field(description="Seconds to wait with --wait (default 300)")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (source-chain producer)")] = None,
+    wait: Annotated[bool | None, Field(description="Poll status until the transfer reaches a terminal state")] = None,
+    timeout_opt: Annotated[int | None, Field(description="Seconds to wait with --wait (default 300)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

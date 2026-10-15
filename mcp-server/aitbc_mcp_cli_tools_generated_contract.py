@@ -28,8 +28,8 @@ from aitbc_mcp_server import (
 def aitbc_contract_call(
     contract_address: Annotated[str, Field(description="Contract address")],
     method: Annotated[str, Field(description="Method to call")],
-    args: Annotated[str | None, Field(description="Method arguments (JSON array)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    args: Annotated[str | None, Field(description="Method arguments (JSON array)")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -78,7 +78,7 @@ def aitbc_contract_call(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_contract_deploy(
     contract_name: Annotated[str, Field(description="Contract name")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

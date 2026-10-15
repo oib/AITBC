@@ -27,10 +27,10 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_address(
-    name: Annotated[str | None, Field(description="Wallet name.")],
+    name: Annotated[str | None, Field(description="Wallet name.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -56,7 +56,7 @@ def aitbc_wallet_address(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_backup(
     name: Annotated[str, Field(description="Wallet name.")],
-    destination: Annotated[str | None, Field(description="Destination path for backup file")],
+    destination: Annotated[str | None, Field(description="Destination path for backup file")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -104,7 +104,7 @@ def aitbc_wallet_backup(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_balance(
-    name: Annotated[str | None, Field(description="Wallet name.")],
+    name: Annotated[str | None, Field(description="Wallet name.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -130,11 +130,11 @@ def aitbc_wallet_balance(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_bridge_deposit(
     amount: Annotated[str, Field(description="ETH amount to deposit.")],
-    wallet_name: Annotated[str | None, Field(description="Source wallet name for ETH signing.")],
-    eth_rpc_url: Annotated[str | None, Field(description="Ethereum RPC URL.")],
+    wallet_name: Annotated[str | None, Field(description="Source wallet name for ETH signing.")] = None,
+    eth_rpc_url: Annotated[str | None, Field(description="Ethereum RPC URL.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -188,8 +188,8 @@ def aitbc_wallet_bridge_deposit(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_bridge_sell_sell_lock(
     quote_id: Annotated[str, Field(description="Sell quote id from `sell quote`.")],
-    wallet_name: Annotated[str | None, Field(description="Shop wallet name (signs the lock).")],
-    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for status lookup.")],
+    wallet_name: Annotated[str | None, Field(description="Shop wallet name (signs the lock).")] = None,
+    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for status lookup.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -239,8 +239,8 @@ def aitbc_wallet_bridge_sell_sell_lock(
 def aitbc_wallet_bridge_sell_sell_quote(
     amount: Annotated[str, Field(description="AIT amount to sell.")],
     eth_address: Annotated[str, Field(description="Ethereum address to receive ETH.")],
-    wallet_name: Annotated[str | None, Field(description="Shop wallet name (AIT source).")],
-    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for the quote routes.")],
+    wallet_name: Annotated[str | None, Field(description="Shop wallet name (AIT source).")] = None,
+    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for the quote routes.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -289,7 +289,7 @@ def aitbc_wallet_bridge_sell_sell_quote(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_bridge_sell_sell_status(
     identifier: Annotated[str, Field(description="Quote id, lock id, or lock transaction hash.")],
-    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL.")],
+    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -337,10 +337,14 @@ def aitbc_wallet_bridge_sell_sell_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_bridge_settlements(
-    state: Annotated[str | None, Field(description="Filter by settlement status (needs_review, settled, refunded, ...)")],
-    kind: Annotated[Literal["trade", "order_refund"] | None, Field(description="Filter by settlement kind")],
-    limit: Annotated[int | None, Field(description="Max rows (server caps at 500)")],
-    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")],
+    state: Annotated[
+        str | None, Field(description="Filter by settlement status (needs_review, settled, refunded, ...)")
+    ] = None,
+    kind: Annotated[Literal["trade", "order_refund"] | None, Field(description="Filter by settlement kind")] = None,
+    limit: Annotated[int | None, Field(description="Max rows (server caps at 500)")] = None,
+    hub_url: Annotated[
+        str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -415,10 +419,10 @@ def aitbc_wallet_bridge_status(
 def aitbc_wallet_bridge_withdraw(
     amount: Annotated[str, Field(description="AIT amount to withdraw.")],
     eth_address: Annotated[str, Field(description="Destination Ethereum address.")],
-    wallet_name: Annotated[str | None, Field(description="Source wallet name for AIT signing.")],
+    wallet_name: Annotated[str | None, Field(description="Source wallet name for AIT signing.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -472,8 +476,8 @@ def aitbc_wallet_bridge_withdraw(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_create(
     name: Annotated[str, Field(description="Wallet name.")],
-    wallet_type: Annotated[str | None, Field(description="Wallet type (hd, simple)")],
-    no_encrypt: Annotated[bool | None, Field(description="Skip wallet encryption (not recommended)")],
+    wallet_type: Annotated[str | None, Field(description="Wallet type (hd, simple)")] = None,
+    no_encrypt: Annotated[bool | None, Field(description="Skip wallet encryption (not recommended)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -523,10 +527,10 @@ def aitbc_wallet_create(
 def aitbc_wallet_earn(
     amount: Annotated[str, Field(description="Amount of AIT.")],
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
-    desc: Annotated[str | None, Field(description="Description of the work")],
+    desc: Annotated[str | None, Field(description="Description of the work")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -574,7 +578,7 @@ def aitbc_wallet_earn(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_export(
-    destination: Annotated[str | None, Field(description="Destination file path (default: wallet_name_export.json)")],
+    destination: Annotated[str | None, Field(description="Destination file path (default: wallet_name_export.json)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -622,10 +626,10 @@ def aitbc_wallet_export(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_info(
-    name: Annotated[str | None, Field(description="Wallet name (defaults to the active wallet)")],
+    name: Annotated[str | None, Field(description="Wallet name (defaults to the active wallet)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -651,10 +655,10 @@ def aitbc_wallet_info(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_liquidity_claim(
     stake_id: Annotated[str, Field(description="Stake ID.")],
-    fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
+    fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -703,12 +707,12 @@ def aitbc_wallet_liquidity_claim(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_liquidity_stake(
     amount: Annotated[str, Field(description="Amount of AIT.")],
-    pool: Annotated[str | None, Field(description="Liquidity pool name")],
-    lock_days: Annotated[int | None, Field(description="Lock period in days (higher APY)")],
-    fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
+    pool: Annotated[str | None, Field(description="Liquidity pool name")] = None,
+    lock_days: Annotated[int | None, Field(description="Lock period in days (higher APY)")] = None,
+    fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -757,10 +761,10 @@ def aitbc_wallet_liquidity_stake(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_liquidity_unstake(
     stake_id: Annotated[str, Field(description="Stake ID.")],
-    fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
+    fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -881,7 +885,7 @@ def aitbc_wallet_multisig_propose(
     wallet_name: Annotated[str, Field(description="Multisig wallet name")],
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
-    description: Annotated[str | None, Field(description="Transaction description")],
+    description: Annotated[str | None, Field(description="Transaction description")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -981,10 +985,10 @@ def aitbc_wallet_multisig_sign(
 def aitbc_wallet_request_payment(
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
-    description: Annotated[str | None, Field(description="Transaction description")],
+    description: Annotated[str | None, Field(description="Transaction description")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1039,7 +1043,7 @@ def aitbc_wallet_request_payment(
 def aitbc_wallet_restore(
     backup_path: Annotated[str, Field(description="Path to the backup file.")],
     name: Annotated[str, Field(description="Wallet name.")],
-    force: Annotated[bool | None, Field(description="Override existing wallet")],
+    force: Annotated[bool | None, Field(description="Override existing wallet")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1089,11 +1093,11 @@ def aitbc_wallet_restore(
 def aitbc_wallet_send(
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
-    fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
+    fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1151,7 +1155,7 @@ def aitbc_wallet_spend(
     description: Annotated[str, Field(description="Free-form description.")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1200,10 +1204,10 @@ def aitbc_wallet_spend(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_stake(
     amount: Annotated[str, Field(description="Amount of AIT.")],
-    duration: Annotated[int | None, Field(description="Staking duration in days")],
+    duration: Annotated[int | None, Field(description="Staking duration in days")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1253,7 +1257,7 @@ def aitbc_wallet_stake(
 def aitbc_wallet_stats(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1281,7 +1285,7 @@ def aitbc_wallet_switch(
     name: Annotated[str, Field(description="Wallet name.")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1329,8 +1333,8 @@ def aitbc_wallet_switch(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_transactions(
-    name: Annotated[str | None, Field(description="Wallet name.")],
-    limit: Annotated[int | None, Field(description="Number of transactions to show")],
+    name: Annotated[str | None, Field(description="Wallet name.")] = None,
+    limit: Annotated[int | None, Field(description="Number of transactions to show")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1358,7 +1362,7 @@ def aitbc_wallet_unstake(
     stake_id: Annotated[str, Field(description="Numeric stake ID returned by 'stake'.")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

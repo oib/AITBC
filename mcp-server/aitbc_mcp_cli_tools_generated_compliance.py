@@ -27,8 +27,8 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_compliance_check(
-    framework: Annotated[str | None, Field(description="Compliance framework to check against")],
-    classification: Annotated[str | None, Field(description="Data classification label")],
+    framework: Annotated[str | None, Field(description="Compliance framework to check against")] = None,
+    classification: Annotated[str | None, Field(description="Data classification label")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -101,7 +101,7 @@ def aitbc_compliance_classify(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_compliance_export_audit(
-    output_file: Annotated[str | None, Field(description="File to write exported audit records")],
+    output_file: Annotated[str | None, Field(description="File to write exported audit records")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

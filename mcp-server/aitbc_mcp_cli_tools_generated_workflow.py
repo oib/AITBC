@@ -48,8 +48,8 @@ def aitbc_workflow_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_workflow_run(
     workflow_name: Annotated[str, Field(description="The Workflow name.")],
-    config: Annotated[str | None, Field(description="Workflow configuration file")],
-    dry_run_opt: Annotated[bool | None, Field(description="Dry run without executing")],
+    config: Annotated[str | None, Field(description="Workflow configuration file")] = None,
+    dry_run_opt: Annotated[bool | None, Field(description="Dry run without executing")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

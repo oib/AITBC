@@ -75,7 +75,7 @@ def aitbc_operations_agent_deregister(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_operations_agent_list(
-    status: Annotated[str | None, Field(description="Filter by status")],
+    status: Annotated[str | None, Field(description="Filter by status")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -105,8 +105,8 @@ def aitbc_operations_agent_message(
     wallet: Annotated[str, Field(description="Wallet name for signing")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -161,7 +161,7 @@ def aitbc_operations_agent_message(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_operations_agent_register(
     agent_id: Annotated[str, Field(description="Agent ID")],
-    status: Annotated[Literal["active", "inactive", "busy", "offline"] | None, Field(description="Agent status")],
+    status: Annotated[Literal["active", "inactive", "busy", "offline"] | None, Field(description="Agent status")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -209,7 +209,7 @@ def aitbc_operations_agent_register(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_operations_ai_cancel(
-    job_id: Annotated[str | None, Field(description="Specific job ID")],
+    job_id: Annotated[str | None, Field(description="Specific job ID")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -257,7 +257,7 @@ def aitbc_operations_ai_cancel(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_operations_ai_status(
-    job_id: Annotated[str | None, Field(description="Specific job ID")],
+    job_id: Annotated[str | None, Field(description="Specific job ID")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -286,7 +286,7 @@ def aitbc_operations_ai_submit_job(
     job_type: Annotated[str, Field(description="Type of AI job")],
     prompt: Annotated[str, Field(description="AI prompt")],
     payment: Annotated[str, Field(description="Payment amount")],
-    model: Annotated[str | None, Field(description="AI model to use")],
+    model: Annotated[str | None, Field(description="AI model to use")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -490,17 +490,17 @@ def aitbc_operations_governance_proposal(
     title: Annotated[str, Field(description="Proposal title")],
     description: Annotated[str, Field(description="Proposal description")],
     wallet: Annotated[str, Field(description="Wallet name for signing")],
-    category: Annotated[str | None, Field(description="Proposal category")],
+    category: Annotated[str | None, Field(description="Proposal category")] = None,
     params: Annotated[
         str | None,
         Field(
             description='JSON execution payload, e.g. {"action":"parameter_change","parameter":"block_time_seconds","value":"10"}'
         ),
-    ],
-    voting_days: Annotated[int | None, Field(description="Voting period in days")],
+    ] = None,
+    voting_days: Annotated[int | None, Field(description="Voting period in days")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -559,7 +559,7 @@ def aitbc_operations_governance_proposal(
 def aitbc_operations_governance_stake(
     address: Annotated[str, Field(description="Staker address")],
     amount: Annotated[int, Field(description="Amount of tokens to stake")],
-    lock_days: Annotated[int | None, Field(description="Lock period in days (min 30)")],
+    lock_days: Annotated[int | None, Field(description="Lock period in days (min 30)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -610,11 +610,11 @@ def aitbc_operations_governance_vote(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
     vote: Annotated[Literal["for", "against", "abstain"], Field(description="Vote option")],
     wallet: Annotated[str, Field(description="Wallet name for signing")],
-    voting_power: Annotated[int | None, Field(description="Voting power to use")],
-    reason: Annotated[str | None, Field(description="Vote reason")],
+    voting_power: Annotated[int | None, Field(description="Voting power to use")] = None,
+    reason: Annotated[str | None, Field(description="Vote reason")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
