@@ -735,7 +735,8 @@ def env_names(ctx, service: str, names: tuple[str, ...]):
             f"{service_name} declares no EnvironmentFile and no /etc/aitbc/{service_name.removesuffix('.service')}.env exists"
         )
 
-    wanted = [n.upper() for n in names]
+    # Environment variable names are case-sensitive — report each exactly as given.
+    wanted = list(names)
     report: list[dict[str, Any]] = []
     present: set[str] = set()
     for path, optional in files:
@@ -760,12 +761,23 @@ def env_names(ctx, service: str, names: tuple[str, ...]):
 
 
 _FIELD_DENY_NAMES = frozenset({"private_key", "secret", "password", "token", "mnemonic", "seed", "key", "api_key"})
+# Exact match after stripping '-'/'_' and lowercasing — catches spellings the
+# '_' form misses (e.g. "privatekey", "api-key", "pass_phrase").
+_FIELD_DENY_NORMALIZED = frozenset({"privatekey", "apikey", "secretkey", "passphrase", "passwd", "credential", "credentials"})
+# A name ending in "key" is denied when its prefix is one of these —
+# "signingkey"/"auth_key"/"access-key" — while "pubkey"/"monkey" stay allowed.
+_FIELD_DENY_KEY_PREFIXES = ("private", "secret", "api", "auth", "signing", "access")
 _FIELD_MAX_VALUE = 200
 
 
 def _field_name_denied(name: str) -> bool:
     lowered = name.lower()
-    return lowered in _FIELD_DENY_NAMES or lowered.endswith("_key")
+    normalized = lowered.replace("-", "").replace("_", "")
+    if lowered in _FIELD_DENY_NAMES or lowered.endswith("_key"):
+        return True
+    if normalized in _FIELD_DENY_NORMALIZED:
+        return True
+    return normalized.endswith("key") and normalized[:-3] in _FIELD_DENY_KEY_PREFIXES
 
 
 def _subtree_has_denied(value: Any) -> bool:
@@ -796,9 +808,12 @@ def file_info(ctx, path: str, field_name: str | None):
 
     Reports size, mtime, owner, mode and type; for JSON files also the
     top-level key names. ``--field`` prints a single scalar field and
-    hard-refuses denied names (private_key, secret, password, token,
-    mnemonic, seed, key, api_key, anything ending in ``_key``, including
-    inside nested objects) and values over 200 characters.
+    hard-refuses denied names: private_key, secret, password, token,
+    mnemonic, seed, key, api_key and anything ending in ``_key``; the
+    separator-insensitive forms privatekey, apikey, secretkey, passphrase,
+    passwd, credential and credentials; any name ending in ``key`` whose
+    prefix is private/secret/api/auth/signing/access — including inside
+    nested objects — and values over 200 characters.
 
     Coverage is the ``system file`` allowlist: ``/var/lib/aitbc/wallets``
     and ``/etc/aitbc/credentials`` are inside it; ``/root/.aitbc/wallets``
