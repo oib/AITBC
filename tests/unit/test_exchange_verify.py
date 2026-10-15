@@ -240,6 +240,47 @@ def test_backing_expired_no_bridge_db_is_info(tool, tmp_path):
     assert any(s == "INFO" and "refund link unchecked" in m for s, _c, m in found), found
 
 
+def test_backing_expired_dust_lock_is_info(tool, tmp_path):
+    """A lock at or below the 0.01 AIT sweep fee deliberately earns no
+    order_refund row — sweeping would cost more than it returns (the
+    monitor's dust branch). INFO naming the order, never a stranded FAIL."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 500_000, SELLER, 1, 0, SELLER_ETH)],
+    )
+    bdb = _bridge_db(tmp_path / "br.db")
+    found = _findings(tool, db, bridge_db=bdb)
+    assert "FAIL" not in _severities(found), found
+    assert any(s == "INFO" and "sweep fee" in m and "order 2" in m for s, _c, m in found), found
+
+
+def test_backing_expired_dust_remainder_is_info(tool, tmp_path):
+    """Partial fills can draw a lock down to dust: locked 3.6 AIT, trades
+    drew 3.595+0, remainder 0.005 ≤ fee — still no refund row needed."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 360_000_000, SELLER, 1, 0, SELLER_ETH)],
+        trades=[(1, "3.595", "0.28", "1.0066", BUYER, SELLER, None, 2, "failed", None, None, None, "0")],
+    )
+    bdb = _bridge_db(tmp_path / "br.db")
+    found = _findings(tool, db, bridge_db=bdb)
+    assert "FAIL" not in _severities(found), found
+    assert any(s == "INFO" and "sweep fee" in m and "order 2" in m for s, _c, m in found), found
+
+
+def test_backing_expired_large_remainder_still_fails(tool, tmp_path):
+    """A remainder above the sweep fee with no order_refund row is a real
+    stranded lock — the dust exemption must not swallow it."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 360_000_000, SELLER, 1, 0, SELLER_ETH)],
+        trades=[(1, "0.1", "0.28", "0.028", BUYER, SELLER, None, 2, "failed", None, None, None, "0")],
+    )
+    bdb = _bridge_db(tmp_path / "br.db")
+    found = _findings(tool, db, bridge_db=bdb)
+    assert any(s == "FAIL" and "stranded lock" in m for s, _c, m in found), found
+
+
 def _settled_trade_fixture(tmp_path, *, eth_hash="0xeth", ait_hash=None):
     """Orders 24 (SELL) / 25 (BUY) filled at 1 AIT; trade 7 settled — the D2
     shape. trades.settlement_ait_tx_hash stays NULL like the live row."""

@@ -570,3 +570,43 @@ class TestHelpers:
     def test_eth_amount_to_wei_exact(self):
         # Decimal math, never float — the dust boundary is the point.
         assert Decimal("0.0002") * Decimal(10**18) == 200000000000000
+
+
+class TestEthRpcResolution:
+    """ETH-10c: _eth_rpc resolves ETH_RPC_URL from the node env files
+    (/etc/aitbc/*.env via _cli_env_files), not only the process env or the
+    --eth-rpc-url flag — nodes keep the value in exchange.env."""
+
+    def _isolate(self, tmp_path, monkeypatch, env_values: dict | None = None):
+        """Cut the config layer off the host: no real config file, and the
+        env-file list becomes a single tmp file we control."""
+        monkeypatch.delenv("ETH_RPC_URL", raising=False)
+        monkeypatch.setenv("AITBC_CONFIG_FILE", str(tmp_path / "absent.yaml"))
+        if env_values is None:
+            monkeypatch.setattr("aitbc_cli.config._cli_env_files", list)
+        else:
+            env_file = tmp_path / "exchange.env"
+            env_file.write_text("".join(f"{k}={v}\n" for k, v in env_values.items()))
+            monkeypatch.setattr("aitbc_cli.config._cli_env_files", lambda: [str(env_file)])
+
+    def test_env_file_value_resolves(self, tmp_path, monkeypatch):
+        self._isolate(tmp_path, monkeypatch, {"ETH_RPC_URL": "https://envfile.invalid/rpc"})
+        assert prepay_mod._eth_rpc(None, None) == "https://envfile.invalid/rpc"
+
+    def test_process_env_wins_over_env_file(self, tmp_path, monkeypatch):
+        self._isolate(tmp_path, monkeypatch, {"ETH_RPC_URL": "https://envfile.invalid/rpc"})
+        monkeypatch.setenv("ETH_RPC_URL", "https://processenv.invalid/")
+        assert prepay_mod._eth_rpc(None, None) == "https://processenv.invalid/"
+
+    def test_explicit_flag_wins(self, tmp_path, monkeypatch):
+        self._isolate(tmp_path, monkeypatch, {"ETH_RPC_URL": "https://envfile.invalid/rpc"})
+        monkeypatch.setenv("ETH_RPC_URL", "https://processenv.invalid/")
+        assert prepay_mod._eth_rpc(None, "https://flag.invalid/") == "https://flag.invalid/"
+
+    def test_absent_value_still_aborts(self, tmp_path, monkeypatch):
+        from aitbc_cli.utils.error_handling import CLIError
+
+        self._isolate(tmp_path, monkeypatch)
+        with pytest.raises(CLIError) as exc:
+            prepay_mod._eth_rpc(None, None)
+        assert "Sepolia RPC unresolved" in str(exc.value)

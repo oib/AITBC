@@ -257,6 +257,25 @@ nothing is stranded by a disabled monitor except time.
   failed lock scan aborts the poll, so an RPC outage can never drive a
   refund decision on stale data.
 
+## The orphan path — forced-failure test
+
+An orphan lock is the lane's no-quote fallback and is exercised
+deliberately by a **plain AIT transfer to the escrow with no `sell_quote`
+in the payload** (a bare `aitbc wallet send`; the verb cannot carry a
+quote id). The monitor records it `orphaned` with an empty `quote_id` and
+releases no ETH.
+
+Do not try to force an orphan with an **expired quote**: the monitor
+re-admits expired quotes and re-prices them at the live feed, so the
+lock sells and ETH is released — the refund path is never exercised.
+
+Expected outcome: the refund becomes eligible once the hub chain passes
+`locked_height + SELL_LOCK_ORPHAN_BLOCKS` (150). It lands as **exactly
+one** escrow→sender transfer carrying the sell-refund payload; the
+360,000-unit sweep fee is charged to the escrow fee float (not the
+sender's refund), the escrow's outbound nonce sequence stays gap-free,
+and no ETH leaves the bridge float.
+
 ## Operator command (ETH-13)
 
 `needs_review_sweep` rows and fee-parked sweeps are operated from hub as
