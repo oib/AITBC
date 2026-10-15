@@ -60,8 +60,9 @@
             var label = 'height ' + head.height;
             if (head.timestamp) {
                 var age = Date.now() - Date.parse(head.timestamp + 'Z');
-                if (age <= -SKEW_TOLERANCE_MS) {
-                    label += ' · live';  // viewer clock ahead of chain — no age claim
+                if (isNaN(age) || age <= -SKEW_TOLERANCE_MS) {
+                    // Unparseable timestamp or viewer clock ahead of chain — no age claim
+                    label += ' · live';
                 } else {
                     if (age < 0) { age = 0; }
                     label += ' · ' + (age <= STALE_AFTER_MS ? 'live' : 'stale') + ' ' + fmtAge(age);
