@@ -1897,6 +1897,9 @@ narrative; this list cites each remaining commit by hash so
 - `3df71df89e` docs(release): ETH-19B changelog + commit index
 - `2d265c090` feat(cli): WAL-3 — sell trio, staking resolver, genesis env hand-off
 - `a713c3f8c0` docs(release): WAL-3 changelog + commit index
+- `af1b2adaaa` fix(ci): TEST-1 — shared worktree-aware repo-python resolver for hooks
+- `d75f144d4f` test(wallet): TEST-1 — conftest env isolation + ambient scrub
+- `6d0d57b8eb` test(exchange): TEST-1 — adapter attribute contract + proxy_headers pin
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2565,3 +2568,63 @@ for both sender classes, the bound following a monkeypatched
 direct path and the scanner mark, and the hourly log rate limit. The
 below-fee and bad-hash cases failed on the pre-change source; the full
 75-test file passes.
+
+### TEST-1: hook interpreter resolution + test-env isolation (2026-10-15)
+
+Six 15-Oct gap-log rows, all repo tooling or test infrastructure — no
+service runtime behaviour changes.
+
+- **Shared repo-python resolver (gap rows 27/52).**
+  `scripts/ci/repo-python.sh` is the single resolver for hook/CI
+  scripts: `$PYTHON` env (validated — must exist and run a trivial
+  import — then trusted), `<checkout>/venv/bin/python`, then the main
+  checkout's venv located through `git rev-parse --git-common-dir`, so a
+  linked worktree still finds the reference venv. No `python3`
+  fallback: a dependency-poor interpreter turned "ran" into "checked
+  nothing" (`python3 -m ruff` absent → empty scan → green-looking skip).
+  `PYTHON=python3` stays the explicit opt-in. Failures exit 1 naming
+  `PYTHON=<interpreter>`. Wired into all eight scripts with the defect
+  class: check-mypy-changed.sh (was a hardcoded `venv/bin/python` —
+  reported bogus type errors on new files), check-c901-ratchet.sh,
+  check_deprecation_cleanup.sh, check-mcp-cli-drift.sh,
+  check-cli-docs.sh, check-except-ratchet.sh, check-openapi-drift.sh,
+  mypy-precommit.sh. Before/after in a venv-less worktree:
+  check-mypy-changed failed a clean new file with "Type errors"; after,
+  real mypy runs and passes it. Surfaced backlog, pre-existing and now
+  finally visible: check-except-ratchet defaulted to python3
+  *everywhere*, so its baseline drifted ~52 files while the gate ran an
+  empty scan — `make except-ratchet`/`make ci` report it now.
+- **MCP drift + generator format (row 36).** The drift check formats
+  via `"$PYTHON" -m ruff` — the pinned venv ruff — instead of a
+  version-skewed PATH ruff (0.16 vs 0.15 produced false 76-file drift);
+  `generate_mcp_cli_tools.py` ruff-formats its own output so a plain
+  regen is drift-clean in one step, and the printed `Run:` hint names
+  the resolved interpreter.
+- **Wallet suite env isolation (rows 54/55).**
+  `apps/wallet/tests/conftest.py` module-top: a guard raises at
+  collection if `aitbc.constants`/`wallet_app.settings`/`ApiKeyStorage`
+  were already bound outside a test scratch (combined runs fail loudly
+  instead of leaking — observed firing on a `tests/unit`-first run
+  where constants had bound `CONFIG_DIR=/etc/aitbc`,
+  `LOG_DIR=/var/log/aitbc`); ambient env Settings/DatabaseConfig parse
+  is popped (DEBUG, APP_*/ENVIRONMENT/NODE_ENV, HOST/PORT, DATABASE_URL
+  family, AITBC_HOME); AITBC_DATA_DIR/CONFIG_DIR/LOG_DIR and
+  API_KEY_STORAGE_PATH are force-assigned to a `tempfile.mkdtemp`
+  scratch cleaned at atexit. 303 wallet tests pass under `env -i` with
+  DEBUG=release, `/nonexistent` marker paths and a postgres
+  DATABASE_URL; nothing touches the markers.
+- **Adapter contract + uvicorn pin (row 56).**
+  `test_adapter_provides_handler_contract_attributes` asserts the real
+  FastAPIRequestAdapter exposes every attribute handlers read off self
+  (client_address, headers, path, command, request, rfile/wfile) —
+  mutation-verified, deleting the client_address line fails it.
+  `test_server_runs_uvicorn_without_proxy_headers` spies uvicorn.run in
+  server.main() and pins `proxy_headers=False`, which TestClient
+  bypasses.
+
+`tests/unit/test_repo_python.py` covers all resolver branches including
+a real linked worktree and a dangling venv symlink.
+
+Commits: `af1b2adaa` (resolver + 8 hook scripts + generator format +
+resolver tests), `d75f144d4` (wallet conftest isolation), `6d0d57b8e`
+(exchange contract/pin tests).
