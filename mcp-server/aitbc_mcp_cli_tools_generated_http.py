@@ -28,21 +28,23 @@ from aitbc_mcp_server import (
 def aitbc_http_call(
     service: Annotated[str, Field(description="Positional argument: service")],
     path: Annotated[str, Field(description="Positional argument: path")],
-    method: Annotated[str | None, Field(description="HTTP method (GET, POST, PUT, PATCH, DELETE)")],
-    params: Annotated[str | None, Field(description="JSON object of query parameters")],
-    body: Annotated[str | None, Field(description="JSON object request body")],
-    url: Annotated[str | None, Field(description="Override the service base URL")],
-    api_key: Annotated[str | None, Field(description="API key header (X-API-Key; X-Trading-Api-Key with --auth trading)")],
+    method: Annotated[str | None, Field(description="HTTP method (GET, POST, PUT, PATCH, DELETE)")] = None,
+    params: Annotated[str | None, Field(description="JSON object of query parameters")] = None,
+    body: Annotated[str | None, Field(description="JSON object request body")] = None,
+    url: Annotated[str | None, Field(description="Override the service base URL")] = None,
+    api_key: Annotated[
+        str | None, Field(description="API key header (X-API-Key; X-Trading-Api-Key with --auth trading)")
+    ] = None,
     auth_kind: Annotated[
         Literal["none", "miner", "rpc", "trading"] | None,
         Field(
             description="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key, 'trading' = trading service key)"
         ),
-    ],
-    timeout_opt: Annotated[int | None, Field(description="Request timeout in seconds")],
+    ] = None,
+    timeout_opt: Annotated[int | None, Field(description="Request timeout in seconds")] = None,
     idempotency_key: Annotated[
         str | None, Field(description="Idempotency-Key header for write requests; enables safe retry of ambiguous outcomes")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

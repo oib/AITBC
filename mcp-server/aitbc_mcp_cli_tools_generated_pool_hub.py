@@ -21,14 +21,14 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_pool_hub_sla(
-    miner_id: Annotated[str | None, Field(description="Show metric history for a specific miner")],
-    hours: Annotated[str | None, Field(description="Metric history window in hours")],
-    violations: Annotated[bool | None, Field(description="List SLA violations instead of the status summary")],
+    miner_id: Annotated[str | None, Field(description="Show metric history for a specific miner")] = None,
+    hours: Annotated[str | None, Field(description="Metric history window in hours")] = None,
+    violations: Annotated[bool | None, Field(description="List SLA violations instead of the status summary")] = None,
     resolved: Annotated[
         bool | None, Field(description="With --violations: list resolved violations (default lists open ones)")
-    ],
-    pool_id: Annotated[str | None, Field(description="Specific pool ID")],
-    pool_hub_url: Annotated[str | None, Field(description="Pool Hub service URL")],
+    ] = None,
+    pool_id: Annotated[str | None, Field(description="Specific pool ID")] = None,
+    pool_hub_url: Annotated[str | None, Field(description="Pool Hub service URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -53,7 +53,7 @@ def aitbc_pool_hub_sla(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_pool_hub_status(
-    pool_hub_url: Annotated[str | None, Field(description="Pool Hub service URL")],
+    pool_hub_url: Annotated[str | None, Field(description="Pool Hub service URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

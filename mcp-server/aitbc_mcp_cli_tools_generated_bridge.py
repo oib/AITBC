@@ -28,12 +28,14 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_attest(
     private_key: Annotated[str, Field(description="Validator private key hex to sign with")],
-    header_file: Annotated[str | None, Field(description="JSON file with a block header to attest")],
-    source_rpc: Annotated[str | None, Field(description="RPC URL to fetch the block from (alternative to --header-file)")],
-    height: Annotated[int | None, Field(description="Block height to fetch from source")],
-    chain_id: Annotated[str | None, Field(description="Chain ID for the block")],
-    proposer: Annotated[str | None, Field(description="Proposer/validator address (defaults to derived address)")],
-    target_rpc: Annotated[str | None, Field(description="RPC URL to store the attested header on")],
+    header_file: Annotated[str | None, Field(description="JSON file with a block header to attest")] = None,
+    source_rpc: Annotated[
+        str | None, Field(description="RPC URL to fetch the block from (alternative to --header-file)")
+    ] = None,
+    height: Annotated[int | None, Field(description="Block height to fetch from source")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID for the block")] = None,
+    proposer: Annotated[str | None, Field(description="Proposer/validator address (defaults to derived address)")] = None,
+    target_rpc: Annotated[str | None, Field(description="RPC URL to store the attested header on")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -90,7 +92,7 @@ def aitbc_bridge_attest(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_bridge_balance(
     chain_id: Annotated[str, Field(description="Chain ID to query balance for")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -118,9 +120,9 @@ def aitbc_bridge_confirm(
     transfer_id: Annotated[str, Field(description="Transfer ID to confirm")],
     confirmer: Annotated[str, Field(description="Confirmer address")],
     proof_file: Annotated[str, Field(description="JSON file containing the lock proof")],
-    signature: Annotated[str | None, Field(description="Confirmer signature (hex)")],
-    confirmer_private_key: Annotated[str | None, Field(description="Private key to sign the confirm request")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    signature: Annotated[str | None, Field(description="Confirmer signature (hex)")] = None,
+    confirmer_private_key: Annotated[str | None, Field(description="Private key to sign the confirm request")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -175,7 +177,7 @@ def aitbc_bridge_confirm(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_bridge_health(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -200,15 +202,15 @@ def aitbc_bridge_health(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_ingest_header(
-    source_rpc: Annotated[str | None, Field(description="RPC URL of the source chain node")],
-    target_rpc: Annotated[str | None, Field(description="RPC URL to store the header on (defaults to localhost)")],
-    height: Annotated[int | None, Field(description="Block height to ingest (default: latest)")],
-    chain_id: Annotated[str | None, Field(description="Source chain ID (default: source node's default)")],
-    re_sign: Annotated[bool | None, Field(description="Replace the source signature with a local validator signature")],
-    private_key: Annotated[str | None, Field(description="Private key hex for re-signing (requires --re-sign)")],
+    source_rpc: Annotated[str | None, Field(description="RPC URL of the source chain node")] = None,
+    target_rpc: Annotated[str | None, Field(description="RPC URL to store the header on (defaults to localhost)")] = None,
+    height: Annotated[int | None, Field(description="Block height to ingest (default: latest)")] = None,
+    chain_id: Annotated[str | None, Field(description="Source chain ID (default: source node's default)")] = None,
+    re_sign: Annotated[bool | None, Field(description="Replace the source signature with a local validator signature")] = None,
+    private_key: Annotated[str | None, Field(description="Private key hex for re-signing (requires --re-sign)")] = None,
     proposer: Annotated[
         str | None, Field(description="Proposer address for the new signature (defaults to address of --private-key)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -267,12 +269,12 @@ def aitbc_bridge_lock(
     sender: Annotated[str, Field(description="Sender address (source chain)")],
     recipient: Annotated[str, Field(description="Recipient address (target chain)")],
     amount: Annotated[int, Field(description="Amount to bridge (in compute-units)")],
-    asset: Annotated[str | None, Field(description="Asset type (default: native)")],
-    source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to node's chain)")],
-    signature: Annotated[str | None, Field(description="Sender signature authorizing the lock (hex)")],
-    wallet_name: Annotated[str | None, Field(description="Wallet to sign the lock with")],
-    wallet_password: Annotated[str | None, Field(description="Password if the wallet is encrypted")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    asset: Annotated[str | None, Field(description="Asset type (default: native)")] = None,
+    source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to node's chain)")] = None,
+    signature: Annotated[str | None, Field(description="Sender signature authorizing the lock (hex)")] = None,
+    wallet_name: Annotated[str | None, Field(description="Wallet to sign the lock with")] = None,
+    wallet_password: Annotated[str | None, Field(description="Password if the wallet is encrypted")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -331,7 +333,7 @@ def aitbc_bridge_lock(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_oracle_status(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -379,8 +381,8 @@ def aitbc_bridge_oracle_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_pending(
-    chain_id: Annotated[str | None, Field(description="Filter by chain ID")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    chain_id: Annotated[str | None, Field(description="Filter by chain ID")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -429,10 +431,10 @@ def aitbc_bridge_pending(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_proof(
     transfer_id: Annotated[str, Field(description="Transfer ID.")],
-    source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to node's chain)")],
-    block_height: Annotated[int | None, Field(description="Block height to anchor the proof")],
-    block_hash: Annotated[str | None, Field(description="Block hash to anchor the proof")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to node's chain)")] = None,
+    block_height: Annotated[int | None, Field(description="Block height to anchor the proof")] = None,
+    block_hash: Annotated[str | None, Field(description="Block hash to anchor the proof")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -492,10 +494,12 @@ def aitbc_bridge_register_validator(
     private_key: Annotated[str, Field(description="Validator's private key hex (for signing the registration request)")],
     admin_private_key: Annotated[
         str | None, Field(description="Bridge admin private key hex (required when bridge_release_enabled=true)")
-    ],
-    admin_address: Annotated[str | None, Field(description="Bridge admin address (defaults to address of admin-private-key)")],
-    epoch: Annotated[int | None, Field(description="Validator set epoch number (default: 0)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    admin_address: Annotated[
+        str | None, Field(description="Bridge admin address (defaults to address of admin-private-key)")
+    ] = None,
+    epoch: Annotated[int | None, Field(description="Validator set epoch number (default: 0)")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -552,7 +556,7 @@ def aitbc_bridge_register_validator(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_security_status(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -695,8 +699,8 @@ def aitbc_bridge_start(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_bridge_status(
-    transfer_id: Annotated[str | None, Field(description="Transfer ID.")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    transfer_id: Annotated[str | None, Field(description="Transfer ID.")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -766,8 +770,8 @@ def aitbc_bridge_stop(
 def aitbc_bridge_store_header(
     proof_file: Annotated[str, Field(description="Signed proof JSON file")],
     admin_private_key: Annotated[str, Field(description="Private key of a configured bridge admin")],
-    admin_address: Annotated[str | None, Field(description="Admin address (defaults to address of admin-private-key)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL of the target node")],
+    admin_address: Annotated[str | None, Field(description="Admin address (defaults to address of admin-private-key)")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL of the target node")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -823,7 +827,7 @@ def aitbc_bridge_unlock(
     transfer_id: Annotated[str, Field(description="Transfer ID to refund")],
     sender: Annotated[str, Field(description="Original sender address")],
     signature: Annotated[str, Field(description="Sender signature authorizing the unlock")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

@@ -29,11 +29,11 @@ from aitbc_mcp_server import (
 def aitbc_genesis_info(
     chain_id: Annotated[
         str | None, Field(description="Chain ID to show info for (auto-detected from blockchain node if not provided)")
-    ],
-    data_dir: Annotated[str | None, Field(description="Data directory path (default: /var/lib/aitbc/data)")],
+    ] = None,
+    data_dir: Annotated[str | None, Field(description="Data directory path (default: /var/lib/aitbc/data)")] = None,
     rpc_url: Annotated[
         str | None, Field(description="Blockchain RPC URL for chain ID auto-detection (default: http://localhost:8202)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -58,12 +58,14 @@ def aitbc_genesis_info(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_genesis_init(
-    chain_id: Annotated[str | None, Field(description="Chain ID for genesis (auto-detected from config if not provided)")],
-    create_wallet: Annotated[bool | None, Field(description="Create genesis wallet with secure random key")],
-    proposer: Annotated[str | None, Field(description="Proposer address (defaults to genesis wallet)")],
-    force: Annotated[bool | None, Field(description="Force overwrite existing genesis")],
-    register_service: Annotated[bool | None, Field(description="Register genesis wallet with wallet service")],
-    service_url: Annotated[str | None, Field(description="Wallet service URL")],
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for genesis (auto-detected from config if not provided)")
+    ] = None,
+    create_wallet: Annotated[bool | None, Field(description="Create genesis wallet with secure random key")] = None,
+    proposer: Annotated[str | None, Field(description="Proposer address (defaults to genesis wallet)")] = None,
+    force: Annotated[bool | None, Field(description="Force overwrite existing genesis")] = None,
+    register_service: Annotated[bool | None, Field(description="Register genesis wallet with wallet service")] = None,
+    service_url: Annotated[str | None, Field(description="Wallet service URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -113,10 +115,10 @@ def aitbc_genesis_init(
 def aitbc_genesis_sync_from_hub(
     chain_id: Annotated[
         str | None, Field(description="Chain ID to sync genesis for (auto-detected from config if not provided)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Hub RPC URL to fetch genesis from (default: from config)")],
-    data_dir: Annotated[str | None, Field(description="Data directory path (default: /var/lib/aitbc/data)")],
-    force: Annotated[bool | None, Field(description="Force overwrite existing genesis.json")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Hub RPC URL to fetch genesis from (default: from config)")] = None,
+    data_dir: Annotated[str | None, Field(description="Data directory path (default: /var/lib/aitbc/data)")] = None,
+    force: Annotated[bool | None, Field(description="Force overwrite existing genesis.json")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -164,7 +166,9 @@ def aitbc_genesis_sync_from_hub(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_genesis_verify(
-    chain_id: Annotated[str | None, Field(description="Chain ID to verify (auto-detected from config if not provided)")],
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID to verify (auto-detected from config if not provided)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

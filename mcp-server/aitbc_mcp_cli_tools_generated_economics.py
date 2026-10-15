@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_economics_distributed(
-    cost_optimize: Annotated[bool | None, Field(description="Enable cost optimization")],
+    cost_optimize: Annotated[bool | None, Field(description="Enable cost optimization")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -118,7 +118,7 @@ def aitbc_economics_market(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_economics_model(
-    type: Annotated[str | None, Field(description="Model type")],
+    type: Annotated[str | None, Field(description="Model type")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -146,8 +146,8 @@ def aitbc_economics_propose(
     parameter: Annotated[str, Field(description="Economic parameter name")],
     current: Annotated[str, Field(description="Current parameter value")],
     proposed: Annotated[str, Field(description="Proposed parameter value")],
-    unit: Annotated[str | None, Field(description="Parameter unit")],
-    proposer_id: Annotated[str | None, Field(description="Proposer identifier")],
+    unit: Annotated[str | None, Field(description="Parameter unit")] = None,
+    proposer_id: Annotated[str | None, Field(description="Proposer identifier")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -228,7 +228,7 @@ def aitbc_economics_status(
 def aitbc_economics_vote(
     proposal_id: Annotated[str, Field(description="The Proposal-id.")],
     vote: Annotated[Literal["for", "against", "abstain"], Field(description="Vote choice")],
-    voting_power: Annotated[float | None, Field(description="Voting power to apply")],
+    voting_power: Annotated[float | None, Field(description="Voting power to apply")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

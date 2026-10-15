@@ -30,8 +30,8 @@ def aitbc_transactions_batch(
     transactions_file: Annotated[str, Field(description="JSON file with batch transactions")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -82,7 +82,7 @@ def aitbc_transactions_estimate_fee(
     from_wallet: Annotated[str, Field(description="From wallet name")],
     to_address: Annotated[str, Field(description="To address")],
     amount: Annotated[str, Field(description="Amount to send")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -130,7 +130,7 @@ def aitbc_transactions_estimate_fee(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_transactions_pending(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -179,8 +179,8 @@ def aitbc_transactions_pending(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_transactions_search(
     address: Annotated[str, Field(description="Blockchain address to fund.")],
-    limit: Annotated[int | None, Field(description="Number of transactions to return")],
-    use_explorer: Annotated[bool | None, Field(description="Use Explorer API instead of RPC")],
+    limit: Annotated[int | None, Field(description="Number of transactions to return")] = None,
+    use_explorer: Annotated[bool | None, Field(description="Use Explorer API instead of RPC")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -208,14 +208,14 @@ def aitbc_transactions_send(
     from_wallet: Annotated[str, Field(description="From wallet name")],
     to_address: Annotated[str, Field(description="To address")],
     amount: Annotated[str, Field(description="Amount to send")],
-    fee: Annotated[str | None, Field(description="Transaction fee")],
+    fee: Annotated[str | None, Field(description="Transaction fee")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
-    tx_type: Annotated[str | None, Field(description="Transaction type (default TRANSFER)")],
-    payload: Annotated[str | None, Field(description="JSON payload for non-standard transaction types")],
-    use_explorer: Annotated[bool | None, Field(description="Use Explorer API for status checks")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    tx_type: Annotated[str | None, Field(description="Transaction type (default TRANSFER)")] = None,
+    payload: Annotated[str | None, Field(description="JSON payload for non-standard transaction types")] = None,
+    use_explorer: Annotated[bool | None, Field(description="Use Explorer API for status checks")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -273,8 +273,8 @@ def aitbc_transactions_send(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_transactions_status(
     tx_hash: Annotated[str, Field(description="The Tx hash.")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
-    use_explorer: Annotated[bool | None, Field(description="Use Explorer API instead of RPC")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    use_explorer: Annotated[bool | None, Field(description="Use Explorer API instead of RPC")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

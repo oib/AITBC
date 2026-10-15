@@ -22,8 +22,8 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_account_get(
     address: Annotated[str, Field(description="Account address (0x, 42 hex chars)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
-    chain_id: Annotated[str | None, Field(description="Chain ID for multichain operations")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID for multichain operations")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -48,8 +48,8 @@ def aitbc_account_get(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_account_list(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
-    chain_id: Annotated[str | None, Field(description="Chain ID for multichain operations")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID for multichain operations")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

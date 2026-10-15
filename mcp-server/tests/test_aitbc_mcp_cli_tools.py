@@ -427,6 +427,29 @@ def test_aitbc_update_no_deploy_flag():
     assert "--check" not in cmd
 
 
+def test_omitted_optional_params_never_reach_command():
+    """Generated tools default every optional parameter to None and skip unset
+    options when building the command — an omitted optional must never reach
+    the command line, and must never be serialised as the string "None"."""
+    import inspect
+
+    import aitbc_mcp_cli_tools_generated_prometheus as generated
+
+    # Optional parameters carry a None default, so the call needs no nulls.
+    sig = inspect.signature(generated.aitbc_prometheus_alerts)
+    for name in ("prometheus_url", "watch", "interval", "emit"):
+        assert sig.parameters[name].default is None, f"{name} has no None default"
+
+    _clear()
+    result = json.loads(generated.aitbc_prometheus_alerts(role="hub"))
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "alerts" in cmd
+    for flag in ("--prometheus-url", "--watch", "--interval", "--emit"):
+        assert flag not in cmd, f"{flag} reached the command line despite being unset"
+    assert "None" not in cmd
+
+
 def test_no_generated_tool_exposes_password_or_password_stdin():
     """WAL-1 F1: a secret must never appear in MCP call arguments (it lands in
     transcripts), and a generated tool must never offer --password-stdin (the
@@ -464,6 +487,7 @@ if __name__ == "__main__":
     test_dry_run_gating()
     test_run_market_offer()
     test_send_aitbc_from_wallet()
+    test_omitted_optional_params_never_reach_command()
     test_no_generated_tool_exposes_password_or_password_stdin()
     test_nested_market_escrow_create()
     test_set_aitbc_config()

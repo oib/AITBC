@@ -120,7 +120,7 @@ def aitbc_agent_config_export(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_config_get(
     name: Annotated[str, Field(description="Agent name.")],
-    key: Annotated[str | None, Field(description="Specific configuration key to retrieve")],
+    key: Annotated[str | None, Field(description="Specific configuration key to retrieve")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -169,7 +169,7 @@ def aitbc_agent_config_get(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_config_import(
     file_path: Annotated[str, Field(description="Path to the file.")],
-    name: Annotated[str | None, Field(description="Override agent name")],
+    name: Annotated[str | None, Field(description="Override agent name")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -316,15 +316,17 @@ def aitbc_agent_config_validate(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_create(
     name: Annotated[str, Field(description="Agent name.")],
-    agent_type: Annotated[Literal["provider", "consumer", "general"] | None, Field(description="Agent type")],
-    compute_type: Annotated[str | None, Field(description="Compute type (inference, training, processing)")],
-    gpu_memory: Annotated[int | None, Field(description="GPU memory in GB")],
-    models: Annotated[str | None, Field(description="Comma-separated list of supported models")],
-    performance: Annotated[float | None, Field(description="Performance score (0.0-1.0)")],
-    max_jobs: Annotated[int | None, Field(description="Maximum concurrent jobs")],
-    specialization: Annotated[str | None, Field(description="Agent specialization")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")],
-    auto_detect: Annotated[bool | None, Field(description="Auto-detect capabilities")],
+    agent_type: Annotated[Literal["provider", "consumer", "general"] | None, Field(description="Agent type")] = None,
+    compute_type: Annotated[str | None, Field(description="Compute type (inference, training, processing)")] = None,
+    gpu_memory: Annotated[int | None, Field(description="GPU memory in GB")] = None,
+    models: Annotated[str | None, Field(description="Comma-separated list of supported models")] = None,
+    performance: Annotated[float | None, Field(description="Performance score (0.0-1.0)")] = None,
+    max_jobs: Annotated[int | None, Field(description="Maximum concurrent jobs")] = None,
+    specialization: Annotated[str | None, Field(description="Agent specialization")] = None,
+    coordinator_url: Annotated[
+        str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
+    auto_detect: Annotated[bool | None, Field(description="Auto-detect capabilities")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -382,11 +384,13 @@ def aitbc_agent_create(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_discover_agents(
-    capability: Annotated[str | None, Field(description="Filter by capability")],
-    agent_type: Annotated[str | None, Field(description="Filter by agent type")],
-    min_health: Annotated[float | None, Field(description="Minimum health score")],
-    limit: Annotated[int | None, Field(description="Maximum results")],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
+    capability: Annotated[str | None, Field(description="Filter by capability")] = None,
+    agent_type: Annotated[str | None, Field(description="Filter by agent type")] = None,
+    min_health: Annotated[float | None, Field(description="Minimum health score")] = None,
+    limit: Annotated[int | None, Field(description="Maximum results")] = None,
+    coordinator_url: Annotated[
+        str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -488,16 +492,18 @@ def aitbc_agent_get_identity(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_inbox(
-    agent_id: Annotated[str | None, Field(description="Agent ID")],
-    limit: Annotated[int | None, Field(description="Maximum messages")],
-    unread_only: Annotated[bool | None, Field(description="Only unread messages")],
+    agent_id: Annotated[str | None, Field(description="Agent ID")] = None,
+    limit: Annotated[int | None, Field(description="Maximum messages")] = None,
+    unread_only: Annotated[bool | None, Field(description="Only unread messages")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
+    ] = None,
+    coordinator_url: Annotated[
+        str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -528,7 +534,7 @@ def aitbc_agent_inbox(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_list(
-    agent_dir: Annotated[str | None, Field(description="Agent directory path")],
+    agent_dir: Annotated[str | None, Field(description="Agent directory path")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -554,14 +560,16 @@ def aitbc_agent_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_register(
     agent_id: Annotated[str, Field(description="The Agent id.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")],
+    coordinator_url: Annotated[
+        str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     wallet_name: Annotated[
         str | None,
         Field(description="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); required in enforce mode"),
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -616,8 +624,8 @@ def aitbc_agent_register(
 def aitbc_agent_register_identity(
     agent_id: Annotated[str, Field(description="The Agent id.")],
     agent_address: Annotated[str, Field(description="The Agent address.")],
-    display_name: Annotated[str | None, Field(description="Agent display name")],
-    agent_type: Annotated[str | None, Field(description="Agent type (general, provider, consumer)")],
+    display_name: Annotated[str | None, Field(description="Agent display name")] = None,
+    agent_type: Annotated[str | None, Field(description="Agent type (general, provider, consumer)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -670,8 +678,10 @@ def aitbc_agent_register_identity(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_status(
-    agent_id: Annotated[str | None, Field(description="The Agent id.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")],
+    agent_id: Annotated[str | None, Field(description="The Agent id.")] = None,
+    coordinator_url: Annotated[
+        str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -698,14 +708,16 @@ def aitbc_agent_status(
 def aitbc_agent_subscribe(
     agent_id: Annotated[str, Field(description="Agent ID")],
     topic: Annotated[str, Field(description="Topic to subscribe to")],
-    filter: Annotated[str | None, Field(description="Filter criteria (JSON string)")],
+    filter: Annotated[str | None, Field(description="Filter criteria (JSON string)")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the subscribe request headers (default: $AITBC_DEFAULT_WALLET)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
+    ] = None,
+    coordinator_url: Annotated[
+        str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -811,8 +823,10 @@ def aitbc_agent_verify_identity(
 def aitbc_agent_workflow_create_workflow(
     name: Annotated[str, Field(description="Workflow name")],
     steps_file: Annotated[str, Field(description="JSON file with workflow steps")],
-    description: Annotated[str | None, Field(description="Workflow description")],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
+    description: Annotated[str | None, Field(description="Workflow description")] = None,
+    coordinator_url: Annotated[
+        str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -866,8 +880,10 @@ def aitbc_agent_workflow_create_workflow(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_workflow_execute(
     workflow_id: Annotated[str, Field(description="Workflow ID")],
-    input_file: Annotated[str | None, Field(description="JSON file with input parameters")],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
+    input_file: Annotated[str | None, Field(description="JSON file with input parameters")] = None,
+    coordinator_url: Annotated[
+        str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -915,7 +931,9 @@ def aitbc_agent_workflow_execute(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_workflow_list_workflows(
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
+    coordinator_url: Annotated[
+        str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -964,7 +982,9 @@ def aitbc_agent_workflow_list_workflows(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_workflow_workflow_status(
     workflow_id: Annotated[str, Field(description="Workflow ID")],
-    coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")],
+    coordinator_url: Annotated[
+        str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

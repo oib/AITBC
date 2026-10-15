@@ -29,11 +29,11 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_simulate_ai_jobs(
-    jobs: Annotated[int | None, Field(description="Number of AI jobs to simulate")],
-    models: Annotated[str | None, Field(description="Available models (comma-separated)")],
-    duration_range: Annotated[str | None, Field(description="Job duration range in seconds (min-max)")],
-    delay: Annotated[float | None, Field(description="Delay between job status checks (seconds)")],
-    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")],
+    jobs: Annotated[int | None, Field(description="Number of AI jobs to simulate")] = None,
+    models: Annotated[str | None, Field(description="Available models (comma-separated)")] = None,
+    duration_range: Annotated[str | None, Field(description="Job duration range in seconds (min-max)")] = None,
+    delay: Annotated[float | None, Field(description="Delay between job status checks (seconds)")] = None,
+    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -81,10 +81,10 @@ def aitbc_simulate_ai_jobs(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_simulate_blockchain(
-    blocks: Annotated[int | None, Field(description="Number of blocks to simulate")],
-    transactions: Annotated[int | None, Field(description="Number of transactions per block")],
-    delay: Annotated[float | None, Field(description="Delay between blocks (seconds)")],
-    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")],
+    blocks: Annotated[int | None, Field(description="Number of blocks to simulate")] = None,
+    transactions: Annotated[int | None, Field(description="Number of transactions per block")] = None,
+    delay: Annotated[float | None, Field(description="Delay between blocks (seconds)")] = None,
+    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -132,10 +132,10 @@ def aitbc_simulate_blockchain(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_simulate_network(
-    nodes: Annotated[int | None, Field(description="Number of nodes to simulate")],
-    network_delay: Annotated[float | None, Field(description="Network delay in seconds")],
-    failure_rate: Annotated[float | None, Field(description="Node failure rate (0.0-1.0)")],
-    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")],
+    nodes: Annotated[int | None, Field(description="Number of nodes to simulate")] = None,
+    network_delay: Annotated[float | None, Field(description="Network delay in seconds")] = None,
+    failure_rate: Annotated[float | None, Field(description="Node failure rate (0.0-1.0)")] = None,
+    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -160,11 +160,11 @@ def aitbc_simulate_network(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_simulate_price(
-    price: Annotated[Decimal | None, Field(description="Starting AIT price")],
-    volatility: Annotated[float | None, Field(description="Price volatility (0.0-1.0)")],
-    timesteps: Annotated[int | None, Field(description="Number of timesteps to simulate")],
-    delay: Annotated[float | None, Field(description="Delay between timesteps (seconds)")],
-    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")],
+    price: Annotated[Decimal | None, Field(description="Starting AIT price")] = None,
+    volatility: Annotated[float | None, Field(description="Price volatility (0.0-1.0)")] = None,
+    timesteps: Annotated[int | None, Field(description="Number of timesteps to simulate")] = None,
+    delay: Annotated[float | None, Field(description="Delay between timesteps (seconds)")] = None,
+    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -261,8 +261,8 @@ def aitbc_simulate_result(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_simulate_run(
     scenario: Annotated[str, Field(description="The Scenario.")],
-    params: Annotated[str | None, Field(description="Simulation parameters (JSON string)")],
-    async_run: Annotated[bool | None, Field(description="Run simulation asynchronously")],
+    params: Annotated[str | None, Field(description="Simulation parameters (JSON string)")] = None,
+    async_run: Annotated[bool | None, Field(description="Run simulation asynchronously")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -335,11 +335,11 @@ def aitbc_simulate_status(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_simulate_wallets(
-    wallets: Annotated[int | None, Field(description="Number of wallets to simulate")],
-    balance: Annotated[Decimal | None, Field(description="Initial balance for each wallet")],
-    transactions: Annotated[int | None, Field(description="Number of transactions to simulate")],
-    amount_range: Annotated[str | None, Field(description="Transaction amount range (min-max)")],
-    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")],
+    wallets: Annotated[int | None, Field(description="Number of wallets to simulate")] = None,
+    balance: Annotated[Decimal | None, Field(description="Initial balance for each wallet")] = None,
+    transactions: Annotated[int | None, Field(description="Number of transactions to simulate")] = None,
+    amount_range: Annotated[str | None, Field(description="Transaction amount range (min-max)")] = None,
+    seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

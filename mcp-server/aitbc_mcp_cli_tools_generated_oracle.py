@@ -71,7 +71,7 @@ def aitbc_oracle_listings(
 def aitbc_oracle_store(
     cid: Annotated[str, Field(description="Content identifier to announce")],
     price: Annotated[str, Field(description="Price for the data set (in AIT)")],
-    description: Annotated[str | None, Field(description="Description of the data")],
+    description: Annotated[str | None, Field(description="Description of the data")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

@@ -27,9 +27,9 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_unstake(
     stake_id: Annotated[str, Field(description="Numeric stake ID returned by 'stake'.")],
-    wallet_name: Annotated[str | None, Field(description="Name of the wallet to unstake into")],
-    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")],
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to unstake into")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

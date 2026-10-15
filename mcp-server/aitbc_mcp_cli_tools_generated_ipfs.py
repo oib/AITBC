@@ -27,12 +27,12 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ipfs_download(
-    cid: Annotated[str | None, Field(description="The Cid.")],
-    output_path: Annotated[str | None, Field(description="Write retrieved content to this path")],
-    wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")],
-    access_key: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")],
-    access_secret: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")],
-    rental_id: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")],
+    cid: Annotated[str | None, Field(description="The Cid.")] = None,
+    output_path: Annotated[str | None, Field(description="Write retrieved content to this path")] = None,
+    wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")] = None,
+    access_key: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")] = None,
+    access_secret: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")] = None,
+    rental_id: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -90,13 +90,13 @@ def aitbc_ipfs_island_subscribe(
     to_address: Annotated[str, Field(description="Island treasury / recipient address")],
     island_id: Annotated[str, Field(description="Island identifier (e.g. ait-localnet-island)")],
     amount: Annotated[str, Field(description="Payment amount in AIT")],
-    duration: Annotated[int | None, Field(description="Subscription duration in blocks (default 1000)")],
-    quota: Annotated[int | None, Field(description="Quota in bytes (default 1 GiB)")],
-    fee: Annotated[str | None, Field(description="Transaction fee in AIT")],
+    duration: Annotated[int | None, Field(description="Subscription duration in blocks (default 1000)")] = None,
+    quota: Annotated[int | None, Field(description="Quota in bytes (default 1 GiB)")] = None,
+    fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -156,17 +156,17 @@ def aitbc_ipfs_island_subscribe(
 def aitbc_ipfs_island_swarm_key(
     wallet_name: Annotated[str, Field(description="Wallet name whose address is subscribed")],
     island_id: Annotated[str, Field(description="Island identifier")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator API base URL")],
-    chain_id: Annotated[str | None, Field(description="Blockchain chain ID (auto-detected from RPC if omitted)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL for chain ID auto-detection")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator API base URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Blockchain chain ID (auto-detected from RPC if omitted)")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL for chain ID auto-detection")] = None,
     api_key: Annotated[
         str | None, Field(description="Coordinator API key (default from config / AITBC_API_KEY / MINER_API_KEYS)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    output_path: Annotated[str | None, Field(description="Optional path to write the swarm.key")],
-    bootstrap: Annotated[bool | None, Field(description="Also print a bootstrap multiaddr for the hub island daemon")],
+    ] = None,
+    output_path: Annotated[str | None, Field(description="Optional path to write the swarm.key")] = None,
+    bootstrap: Annotated[bool | None, Field(description="Also print a bootstrap multiaddr for the hub island daemon")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -340,8 +340,8 @@ def aitbc_ipfs_unpin(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ipfs_upload(
     file: Annotated[str, Field(description="File to upload")],
-    pin: Annotated[bool | None, Field(description="Pin uploaded content")],
-    name: Annotated[str | None, Field(description="Human-readable name for the upload")],
+    pin: Annotated[bool | None, Field(description="Pin uploaded content")] = None,
+    name: Annotated[str | None, Field(description="Human-readable name for the upload")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

@@ -30,8 +30,8 @@ def aitbc_grant_create(
     developer_id: Annotated[str, Field(description="Developer ID")],
     title: Annotated[str, Field(description="Grant title")],
     requested_amount: Annotated[str, Field(description="Requested amount as decimal string")],
-    description: Annotated[str | None, Field(description="Grant description")],
-    voting_days: Annotated[int | None, Field(description="Voting period in days")],
+    description: Annotated[str | None, Field(description="Grant description")] = None,
+    voting_days: Annotated[int | None, Field(description="Voting period in days")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -86,8 +86,8 @@ def aitbc_grant_create(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_grant_disburse(
     grant_id: Annotated[str, Field(description="The Grant id.")],
-    milestone_id: Annotated[str | None, Field(description="Milestone to disburse")],
-    amount: Annotated[str | None, Field(description="Amount to disburse (decimal string)")],
+    milestone_id: Annotated[str | None, Field(description="Milestone to disburse")] = None,
+    amount: Annotated[str | None, Field(description="Amount to disburse (decimal string)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -135,10 +135,10 @@ def aitbc_grant_disburse(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_grant_list(
-    status: Annotated[str | None, Field(description="Filter by status")],
-    developer_id: Annotated[str | None, Field(description="Filter by developer ID")],
-    limit: Annotated[int | None, Field(description="Maximum number of grants")],
-    offset: Annotated[int | None, Field(description="Offset for pagination")],
+    status: Annotated[str | None, Field(description="Filter by status")] = None,
+    developer_id: Annotated[str | None, Field(description="Filter by developer ID")] = None,
+    limit: Annotated[int | None, Field(description="Maximum number of grants")] = None,
+    offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -165,7 +165,7 @@ def aitbc_grant_list(
 def aitbc_grant_vote(
     grant_id: Annotated[str, Field(description="The Grant id.")],
     vote: Annotated[Literal["for", "against", "abstain"], Field(description="Vote choice")],
-    voting_power: Annotated[float | None, Field(description="Voting power")],
+    voting_power: Annotated[float | None, Field(description="Voting power")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

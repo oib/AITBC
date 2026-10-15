@@ -53,8 +53,8 @@ def aitbc_agent_wallet_balance(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_wallet_rebalance(
     agent_id: Annotated[str, Field(description="Agent ID.")],
-    earnings: Annotated[str | None, Field(description="Earnings to reinvest")],
-    reinvest_pct: Annotated[str | None, Field(description="Percentage of earnings to reinvest")],
+    earnings: Annotated[str | None, Field(description="Earnings to reinvest")] = None,
+    reinvest_pct: Annotated[str | None, Field(description="Percentage of earnings to reinvest")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -103,8 +103,8 @@ def aitbc_agent_wallet_rebalance(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_wallet_stake(
     agent_id: Annotated[str, Field(description="Agent ID.")],
-    amount: Annotated[str | None, Field(description="Amount to stake")],
-    contract: Annotated[str | None, Field(description="Staking contract address")],
+    amount: Annotated[str | None, Field(description="Amount to stake")] = None,
+    contract: Annotated[str | None, Field(description="Staking contract address")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

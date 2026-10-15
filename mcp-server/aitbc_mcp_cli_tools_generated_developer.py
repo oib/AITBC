@@ -27,9 +27,9 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_developer_list(
-    active_only: Annotated[bool | None, Field(description="List only active developers")],
-    limit: Annotated[int | None, Field(description="Maximum number of developers")],
-    offset: Annotated[int | None, Field(description="Offset for pagination")],
+    active_only: Annotated[bool | None, Field(description="List only active developers")] = None,
+    limit: Annotated[int | None, Field(description="Maximum number of developers")] = None,
+    offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -55,9 +55,9 @@ def aitbc_developer_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_developer_register(
     wallet_address: Annotated[str, Field(description="Developer wallet address")],
-    name: Annotated[str | None, Field(description="Developer name")],
-    email: Annotated[str | None, Field(description="Developer email")],
-    github_handle: Annotated[str | None, Field(description="GitHub handle")],
+    name: Annotated[str | None, Field(description="Developer name")] = None,
+    email: Annotated[str | None, Field(description="Developer email")] = None,
+    github_handle: Annotated[str | None, Field(description="GitHub handle")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

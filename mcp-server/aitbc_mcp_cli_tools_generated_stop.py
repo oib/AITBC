@@ -26,11 +26,13 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_stop(
-    dry_run_opt: Annotated[bool | None, Field(description="Show which systemctl commands would run without running them")],
+    dry_run_opt: Annotated[
+        bool | None, Field(description="Show which systemctl commands would run without running them")
+    ] = None,
     role_opt: Annotated[
         Literal["hub", "shop", "follower", "customer"] | None,
         Field(description="Override the node role (default: auto-detect from /etc/aitbc)"),
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

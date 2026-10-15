@@ -29,11 +29,11 @@ from aitbc_mcp_server import (
 def aitbc_exchange_island_buy(
     ait_amount: Annotated[str, Field(description="The Ait amount.")],
     quote_currency: Annotated[Literal["ETH"], Field(description="The Quote currency.")],
-    max_price: Annotated[str | None, Field(description="Maximum price to pay per AIT")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
+    max_price: Annotated[str | None, Field(description="Maximum price to pay per AIT")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -88,10 +88,10 @@ def aitbc_exchange_island_buy(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_island_cancel(
     order_id: Annotated[str, Field(description="The Order id.")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
+    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -140,7 +140,7 @@ def aitbc_exchange_island_cancel(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_island_orderbook(
     pair: Annotated[Literal["AIT/ETH"], Field(description="The Pair.")],
-    limit: Annotated[int | None, Field(description="Order book depth")],
+    limit: Annotated[int | None, Field(description="Order book depth")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -188,9 +188,9 @@ def aitbc_exchange_island_orderbook(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_island_orders(
-    user: Annotated[str | None, Field(description="Filter by user ID")],
-    status: Annotated[str | None, Field(description="Filter by status (open, filled, partially_filled, cancelled)")],
-    pair: Annotated[Literal["AIT/ETH"] | None, Field(description="Filter by trading pair")],
+    user: Annotated[str | None, Field(description="Filter by user ID")] = None,
+    status: Annotated[str | None, Field(description="Filter by status (open, filled, partially_filled, cancelled)")] = None,
+    pair: Annotated[Literal["AIT/ETH"] | None, Field(description="Filter by trading pair")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -260,11 +260,11 @@ def aitbc_exchange_island_rates(
 def aitbc_exchange_island_sell(
     ait_amount: Annotated[str, Field(description="The Ait amount.")],
     quote_currency: Annotated[Literal["ETH"], Field(description="The Quote currency.")],
-    min_price: Annotated[str | None, Field(description="Minimum price to accept per AIT")],
-    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
+    min_price: Annotated[str | None, Field(description="Minimum price to accept per AIT")] = None,
+    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
