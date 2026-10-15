@@ -22,7 +22,7 @@ from ...utils.wallet_paths import (
     wallet_not_found_message,
 )
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
-from ...utils.http_client import AITBCHTTPClient
+from ...utils.http_client import AITBCHTTPClient, http_error_detail
 from . import _emit_wallet_path_note, _load_wallet, get_wallet_client, wallet
 
 
@@ -483,11 +483,12 @@ def _resolve_wallet(
 
 
 @sell.command(
+    name="quote",
     epilog="""Examples:
 
   aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc... --hub-url https://hub.example/wallet
 
-  aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc...   # on the hub itself"""
+  aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc...   # on the hub itself""",
 )
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="AIT amount to sell.")
 @click.option("--eth-address", "eth_address", required=True, help="Ethereum address to receive ETH.")
@@ -518,7 +519,7 @@ def sell_quote(
             json={"ait_amount": str(amount), "eth_address": eth_address, "ait_address": ait_address},
         )
     except Exception as e:
-        error(f"Failed to get sell quote: {e}")
+        error(f"Failed to get sell quote: {http_error_detail(e) or e}")
         raise click.Abort() from e
 
     if quote.get("detail") or quote.get("error"):
@@ -541,9 +542,10 @@ def sell_quote(
 
 
 @sell.command(
+    name="lock",
     epilog="""Examples:
 
-  aitbc wallet bridge sell lock --quote-id sellq_ab12... --wallet-name sepolia"""
+  aitbc wallet bridge sell lock --quote-id sellq_ab12... --wallet-name sepolia""",
 )
 @click.option("--quote-id", "quote_id", required=True, help="Sell quote id from `sell quote`.")
 @click.option("--wallet-name", "wallet_name", required=False, help="Shop wallet name (signs the lock).")
@@ -577,7 +579,7 @@ def sell_lock(
     try:
         quote = client.get(f"/v1/bridge/sell/status/{quote_id}")
     except Exception as e:
-        error(f"Failed to fetch quote: {e}")
+        error(f"Failed to fetch quote: {http_error_detail(e) or e}")
         raise click.Abort() from e
 
     escrow_address = quote.get("escrow_address")
@@ -602,7 +604,7 @@ def sell_lock(
         account = http_client.get(f"/rpc/account/{from_address}")
         nonce = account.get("nonce", 0)
     except Exception as e:
-        error(f"Failed to fetch account nonce: {e}")
+        error(f"Failed to fetch account nonce: {http_error_detail(e) or e}")
         raise click.Abort() from e
 
     amount_units = ait_to_units(Decimal(str(ait_amount_raw)))
@@ -647,14 +649,15 @@ def sell_lock(
             ctx.obj.get("output_format", "table"),
         )
     except Exception as e:
-        error(f"Failed to submit sell lock: {e}")
+        error(f"Failed to submit sell lock: {http_error_detail(e) or e}")
         raise click.Abort() from e
 
 
 @sell.command(
+    name="status",
     epilog="""Examples:
 
-  aitbc wallet bridge sell status --id sellq_ab12..."""
+  aitbc wallet bridge sell status --id sellq_ab12...""",
 )
 @click.option("--id", "identifier", required=True, help="Quote id, lock id, or lock transaction hash.")
 @click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL.")
@@ -665,7 +668,7 @@ def sell_status(ctx, identifier: str, hub_url: str | None):
     try:
         info = client.get(f"/v1/bridge/sell/status/{identifier}")
     except Exception as e:
-        error(f"Failed to get sell status: {e}")
+        error(f"Failed to get sell status: {http_error_detail(e) or e}")
         raise click.Abort() from e
 
     output(info, ctx.obj.get("output_format", "table"))
