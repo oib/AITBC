@@ -67,12 +67,18 @@ hub and custodies it as its own ops-signer-style entry — an encrypted
 wallet JSON file plus a `systemd-creds`-sealed password file, exactly like
 `aitbc-ops-signer`'s wallet (`OPS_WALLET_PATH` + `ops-wallet-pass`). The
 monitor loads the slot inside the signing call only: password from
-`$CREDENTIALS_DIRECTORY/<name>` when systemd provides it, else
-`systemd-creds decrypt --name=<name> <credential-file>` (the LXC
-fallback), then `decrypt_value` on the wallet's `private_key`. The key is
-never in env, argv, logs, or the bridge DB; the derived address is checked
-against `AIT_SELL_ESCROW` on every load, and there is **no fallback** to
-any other key.
+`$CREDENTIALS_DIRECTORY/<name>` when systemd provides it, then
+`decrypt_value` on the wallet's `private_key`. The key is never in env,
+argv, logs, or the bridge DB; the derived address is checked against
+`AIT_SELL_ESCROW` on every load, and there is **no fallback** to any other
+key.
+
+On LXC/systemd hosts, a `User=aitbc` service cannot necessarily unseal a
+host-key credential: hub's `systemd-creds decrypt` fails for `aitbc`
+because `/var/lib/systemd/credential.secret` is root-only. Do not solve
+that by printing the password or by running a decrypt whose output reaches
+a terminal, pipe, `-`, or a log. Deliver the decrypted password to the
+service through a runtime credential directory instead.
 
 Operator steps (runbook `ops-signer-runbook.md` machinery, escrow slot):
 
@@ -103,6 +109,52 @@ chmod 600 /etc/aitbc/credentials/sell-escrow-pass
 
 Record `AIT_SELL_ESCROW` in `exchange.env`; the printed address is the
 only output — the key material stays sealed.
+
+### LXC credential delivery — wallet-unit runtime directory
+
+On hub's LXC host, install a wallet-unit drop-in so a root `ExecStartPre`
+unseals the credential into a private runtime directory before
+`aitbc-wallet` starts. The example below is the sell-escrow slot; when
+adapting it, replace `sell-escrow-pass` with the `<credential-name>` and
+`/etc/aitbc/credentials/sell-escrow-pass` with the `<sealed-file>`:
+
+```bash
+install -d -m 0755 -o root -g root /etc/systemd/system/aitbc-wallet.service.d
+cat > /etc/systemd/system/aitbc-wallet.service.d/20-sell-escrow-credential.conf <<'EOF'
+[Service]
+RuntimeDirectory=aitbc-wallet-cred
+RuntimeDirectoryMode=0700
+Environment=CREDENTIALS_DIRECTORY=/run/aitbc-wallet-cred
+ExecStartPre=+/bin/sh -c 'umask 077; systemd-creds decrypt --name=sell-escrow-pass /etc/aitbc/credentials/sell-escrow-pass /run/aitbc-wallet-cred/sell-escrow-pass && chown aitbc:aitbc /run/aitbc-wallet-cred/sell-escrow-pass && chmod 0400 /run/aitbc-wallet-cred/sell-escrow-pass'
+EOF
+chown root:root /etc/systemd/system/aitbc-wallet.service.d/20-sell-escrow-credential.conf
+chmod 0644 /etc/systemd/system/aitbc-wallet.service.d/20-sell-escrow-credential.conf
+systemd-analyze verify aitbc-wallet.service
+systemctl daemon-reload
+```
+
+Restart `aitbc-wallet` only when the operator names that restart. Verify
+metadata only — never read the runtime password file:
+
+```bash
+stat -c '%n %U:%G %a %s' \
+  /run/aitbc-wallet-cred \
+  /run/aitbc-wallet-cred/sell-escrow-pass
+# expected: directory aitbc:aitbc 0700; file aitbc:aitbc 0400, non-empty
+```
+
+With `EXCHANGE_SETTLEMENT_ENABLED=true`, the wallet journal should contain
+`Starting exchange settlement monitor (escrow 0x…, endpoint
+http://127.0.0.1:8106)` and then 30-second poll lines. With the sell
+feature itself enabled, the corresponding line is `Starting AIT->ETH sell
+escrow monitor`. A `disabled` line or `escrow key slot` error means the
+credential path is still wrong; stop and fix the drop-in rather than
+retrying blind.
+
+Rollback for this credential delivery step is exactly: remove the drop-in,
+run `systemctl daemon-reload`, and restart `aitbc-wallet` once. The Phase-C
+settlement env names are unrelated to the drop-in and stay unchanged unless
+the operator orders a separate env rollback.
 
 ## The escrow fee float — the escrow account needs seed AIT
 
@@ -138,7 +190,8 @@ the wrong outcome. Seed once, a few AIT is plenty (0.01 AIT per sweep).
 
 1. ETH-2 (first live withdrawal) has run and the ETH-9/9b monitor is live
    on the hub.
-2. The escrow key slot exists (above) and `AIT_SELL_ESCROW` is set.
+2. The escrow key slot exists (above), `AIT_SELL_ESCROW` is set, and on
+   LXC hosts the wallet-unit credential drop-in is installed.
 3. The bridge ETH float is topped up (~0.10 ETH via a
    `BRIDGE_FUNDING_SOURCES` send — operator action) **and the escrow
    AIT fee float is seeded** (e.g. 5 AIT from a
