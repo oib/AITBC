@@ -211,6 +211,96 @@ export async function signAndExecute(kits, transactions, options = {}) {
   return (executor ?? kits[0]).executeTransaction(safeTx, execOptions);
 }
 
+export const LOG_CHUNK = 40000;
+
+/** Range-cap rejections: publicnode -32701 "exceed maximum block range",
+ *  other nodes phrase it differently. */
+export function isLogRangeError(err) {
+  const code = err?.code ?? err?.error?.code;
+  if (code === -32701 || code === -32005 || code === -32000 || code === -32602) {
+    if (/range|limit|exceed/i.test(String(err?.error?.message ?? err?.message ?? err))) return true;
+  }
+  return /exceed.*block range|block range.*exceed|range.*too (large|wide|big)|log query.*(range|limit)/i
+    .test(String(err?.error?.message ?? err?.message ?? err));
+}
+
+/** Pruned-history rejections (publicnode code 4444, "pruned history
+ *  unavailable") — the node cannot serve that block's logs at all. */
+export function isLogPruneError(err) {
+  const code = err?.code ?? err?.error?.code;
+  return code === 4444 || /pruned/i.test(String(err?.error?.message ?? err?.message ?? err));
+}
+
+/**
+ * Public RPCs cap eth_getLogs ranges (publicnode: -32701 above 50,000
+ * blocks) and prune old logs entirely (4444), so a from-0 queryFilter is
+ * unusable on a long-lived chain. Walk backward from `toBlock` to
+ * `fromBlock` in windows of at most `chunkSize` blocks; a window that hits a
+ * range cap or straddles the prune boundary is split in half recursively
+ * until it fits. A single-block window that is pruned is skipped with a
+ * warning line — those logs are genuinely unavailable; any other failure
+ * propagates. With `firstOnly`, stop at the first non-empty window — scans
+ * run newest-first, so it holds the most recent matching logs, which is what
+ * a resume wants. Returned logs are sorted in ascending chain order. `log`
+ * receives one line per window attempted. `maxWindows` bounds total RPC
+ * calls (512 default) — a scan that grinds past it fails loudly instead of
+ * crawling a pruned chain for hours.
+ */
+export async function queryFilterChunked(contract, filter, { fromBlock, toBlock, chunkSize = LOG_CHUNK, firstOnly = false, maxWindows = 512, log } = {}) {
+  const lo0 = Math.max(0, Number(fromBlock));
+  let windows = 0;
+  const rangeLogs = async (lo, hi) => {
+    if (++windows > maxWindows) {
+      throw new Error(`log scan exceeded ${maxWindows} windows — narrow --from-block or pass --lock-tx`);
+    }
+    log?.(`log-scan window ${lo}..${hi}`);
+    try {
+      return await contract.queryFilter(filter, lo, hi);
+    } catch (err) {
+      if (lo === hi) {
+        if (isLogPruneError(err)) {
+          log?.(`log-scan window ${lo}..${hi}: pruned on this node — skipped`);
+          return [];
+        }
+        throw err;
+      }
+      if (!isLogRangeError(err) && !isLogPruneError(err)) throw err;
+      const mid = lo + ((hi - lo) >> 1);
+      const high = await rangeLogs(mid + 1, hi);
+      if (firstOnly && high.length) return high;
+      return (await rangeLogs(lo, mid)).concat(high);
+    }
+  };
+  const found = [];
+  for (let hi = Number(toBlock); hi >= lo0;) {
+    const lo = Math.max(lo0, hi - chunkSize + 1);
+    const logs = await rangeLogs(lo, hi);
+    found.push(...logs);
+    if (firstOnly && logs.length) break;
+    hi = lo - 1;
+  }
+  found.sort((a, b) => Number(a.blockNumber - b.blockNumber) || a.index - b.index);
+  return found;
+}
+
+/**
+ * Binary-search the first block where `address` has code — a readable
+ * deployment block for bounding log scans. Returns null when the node cannot
+ * serve historical eth_getCode (caller falls back to a fixed window).
+ */
+export async function findDeploymentBlock(provider, address, latest) {
+  const end = await provider.getCode(address, latest);
+  if (!end || end === "0x") return null;
+  let lo = 0, hi = Number(latest);
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const code = await provider.getCode(address, mid).catch(() => null);
+    if (code === null) return null;
+    if (code === "0x") lo = mid + 1; else hi = mid;
+  }
+  return lo;
+}
+
 /**
  * A Safe transaction signed below threshold must not execute. Only errors
  * that specifically mean "not enough signatures" count as a pass — anything
