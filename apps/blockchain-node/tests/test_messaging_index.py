@@ -26,6 +26,7 @@ from aitbc.messaging import (
 )
 from aitbc_chain.messaging_index import (
     MAX_READ_LIMIT,
+    SCAN_BOUND,
     admission_error,
     get_message,
     list_messages,
@@ -636,16 +637,41 @@ class TestIndex:
         out = list_topics(seeded, CHAIN)
         assert out["total_topics"] == 1
         assert out["topics"][0]["topic"] == "dev"
-        assert out["topics"][0]["message_count"] == 4
+        # F2: SQL aggregates over the prefiltered set — the seeded
+        # agent_address-mismatch row passes every SQL-expressible rule and
+        # fails only the Python author comparison, so it is counted (the
+        # documented residual). It still never lists as a message.
+        assert out["topics"][0]["message_count"] == 5
         assert out["topics"][0]["last_block_height"] == 11
 
     def test_state_totals(self, seeded):
         out = state(seeded, CHAIN)
         cs = out["contract_state"]
-        assert cs["total_messages"] == 4
+        # 4 fully valid + 1 residual (author-mismatch row, see above)
+        assert cs["total_messages"] == 5
         assert cs["total_topics"] == 1
         assert cs["total_agents"] == 2
         assert out["index_height"] == 11
+        assert out["scan_bounded"] is False
+
+    def test_counts_exact_beyond_scan_bound(self, session):
+        """F2: more than SCAN_BOUND valid messages still count exactly — the
+        Python loop that under-counted past the bound is gone."""
+        _block(session, 1)
+        _block(session, 2)
+        rows = [_tx_row(1, 1000 + i, payload={"aitbc_msg": _env(body=f"m{i}", topic="dev")}) for i in range(SCAN_BOUND + 3)]
+        rows += [
+            _tx_row(2, SCAN_BOUND + 10000 + i, payload={"aitbc_msg": _env(body=f"o{i}", topic="other")}) for i in range(7)
+        ]
+        session.add_all(rows)
+        session.commit()
+        out = state(session, CHAIN)
+        assert out["contract_state"]["total_messages"] == SCAN_BOUND + 10
+        assert out["contract_state"]["total_topics"] == 2
+        topics = list_topics(session, CHAIN)
+        counts = {t["topic"]: t["message_count"] for t in topics["topics"]}
+        assert counts == {"other": 7, "dev": SCAN_BOUND + 3}
+        assert topics["topics"][0]["topic"] == "other"  # higher last activity
 
     def test_search_escapes_like_metachars(self, session):
         _block(session, 5)
@@ -789,14 +815,20 @@ class TestHostileSealedRows:
         session.add(_tx_row(2, 2, payload={"to": ALICE, "amount": 0, "aitbc_msg": _env(body="ok")}))
         session.commit()
 
-    @pytest.mark.parametrize("field", ["topic", "body", "parent", "agent_address"])
-    def test_surrogate_field_row_skipped(self, session, field):
+    # F2 residual, field by field: `topic` surrogates are removed by the SQL
+    # charset narrowing and `parent` by the reply shape rule, so they never
+    # even reach the aggregates. `body` and `agent_address` surrogates pass
+    # every SQL-expressible rule (they are text of legal byte length) and are
+    # only rejected by Python-only checks — they are *counted* but can never
+    # surface as listed messages.
+    @pytest.mark.parametrize("field,counted", [("topic", 1), ("body", 2), ("parent", 1), ("agent_address", 2)])
+    def test_surrogate_field_row_skipped(self, session, field, counted):
         self._seed(session, field)
         out = list_messages(session, CHAIN)
         assert [m["body"] for m in out["messages"]] == ["ok"]  # bad row skipped, no raise
         topics = list_topics(session, CHAIN)
-        assert [t["topic"] for t in topics["topics"]] == ["dev"] and topics["topics"][0]["message_count"] == 1
-        assert state(session, CHAIN)["contract_state"]["total_messages"] == 1
+        assert [t["topic"] for t in topics["topics"]] == ["dev"] and topics["topics"][0]["message_count"] == counted
+        assert state(session, CHAIN)["contract_state"]["total_messages"] == counted
         assert get_message(session, CHAIN, f"{1:064x}") is None  # bad row 404s, no raise
         assert get_message(session, CHAIN, f"{2:064x}")["body"] == "ok"
         # search path (LIKE over body) unaffected
