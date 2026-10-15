@@ -6,8 +6,8 @@
     <title>Block Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Block detail for the AITBC explorer: height, hash, timestamp, and transactions of a single chain block.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=a324edd785f944ca">
-    <link rel="stylesheet" href="/style.css?v=a324edd785f944ca">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2fb63fe11666d199">
+    <link rel="stylesheet" href="/style.css?v=2fb63fe11666d199">
     <style>
         .detail-header {
             display: flex;
@@ -34,7 +34,8 @@
             text-decoration: underline;
         }
     </style>
-<script src="status.js?v=a324edd785f944ca" defer></script>
+<script src="copy.js?v=2fb63fe11666d199" defer></script>
+<script src="status.js?v=2fb63fe11666d199" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -104,16 +105,6 @@
         }
 
 
-    function copyValue(t) {
-        if (!t || t === 'N/A') return;
-        navigator.clipboard.writeText(t);
-        var s = document.getElementById('sr-announcer');
-        if (s) { s.textContent = ''; setTimeout(function(){ s.textContent = 'Copied to clipboard'; }, 50); }
-    }
-        function copyBtn(text) {
-            return `<button type="button" class="copy-btn" aria-label="Copy value" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();copyValue(this.dataset.copy)" title="Copy">⧉</button>`;
-        }
-
         async function loadBlock() {
             const height = getParam('height');
             const hash = getParam('hash');
@@ -156,11 +147,11 @@
                     <div class="endpoint fade-in block-item" style="padding:0;">
                         <table class="block-list-table" aria-label="Block details">
                             <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(data.height)}</td></tr>
-                            <tr><th scope="row">Hash</th><td>${plainHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
-                            <tr><th scope="row">Proposer</th><td>${addrLink(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
+                            <tr><th scope="row">Hash</th><td>${plainHash(data.hash)} ${aitbcCopyBtn(data.hash || '', 'block hash')}</td></tr>
+                            <tr><th scope="row">Proposer</th><td>${addrLink(data.proposer)} ${aitbcCopyBtn(data.proposer || '', 'proposer address')}</td></tr>
                             <tr><th scope="row">Timestamp</th><td>${escapeHtml(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A')}</td></tr>
                             <tr><th scope="row">Transactions</th><td>${escapeHtml(data.txCount ?? data.transactions?.length ?? 0)}</td></tr>
-                            <tr><th scope="row">State Root</th><td>${plainHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>
+                            <tr><th scope="row">State Root</th><td>${plainHash(data.stateRoot)} ${aitbcCopyBtn(data.stateRoot || '', 'state root')}</td></tr>
                         </table>
                     </div>
                 `;
@@ -173,7 +164,7 @@
                     <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
                         <table class="block-list-table" aria-label="Block details">
                             <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span></td></tr>
-                            <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash)} ${copyBtn(tx.tx_hash)}</td></tr>
+                            <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash)} ${aitbcCopyBtn(tx.tx_hash, 'transaction hash')}</td></tr>
                             <tr><th scope="row">From</th><td>${addrLink(tx.sender)}</td></tr>
                             <tr><th scope="row">To</th><td>${addrLink(tx.recipient)}</td></tr>
                             <tr><th scope="row">Amount</th><td><strong>${escapeHtml(amount)}</strong> AIT</td></tr>

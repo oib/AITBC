@@ -7,37 +7,7 @@ function formatHash(hash) {
     return escapeHtml(hash);
 }
 
-function announceCopy() {
-    const s = document.getElementById('sr-announcer');
-    if (!s) return;
-    s.textContent = '';
-    setTimeout(() => { s.textContent = 'Copied to clipboard'; }, 50);
-}
 
-function copyToClipboard(text, btnEl) {
-    if (!text || text === 'N/A') return;
-    navigator.clipboard.writeText(text).then(() => {
-        announceCopy();
-        const original = btnEl.innerHTML;
-        btnEl.innerHTML = '<span style="color:var(--success)">Copied!</span>';
-        setTimeout(() => { btnEl.innerHTML = original; }, 1200);
-    }).catch(() => {
-        // Fallback for older browsers or permissions issues
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        const original = btnEl.innerHTML;
-        btnEl.innerHTML = '<span style="color:var(--success)">Copied!</span>';
-        setTimeout(() => { btnEl.innerHTML = original; }, 1200);
-    });
-}
-
-function copyBtn(text) {
-    return `<button type="button" class="copy-btn" aria-label="Copy value" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation(); copyToClipboard(this.dataset.copy, this)" title="Copy to clipboard">📋</button>`;
-}
 
 // Transaction-type palette — kept in sync with the activity timeline's
 // type_colors map in apps/blockchain-explorer/routers/analytics.py so a
@@ -132,7 +102,7 @@ function renderBlockCard(block) {
         <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
             <table class="block-list-table" aria-label="Block summary">
                 <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
-                <tr><th scope="row">Hash</th><td>${escapeHtml(blockHash)} ${copyBtn(blockHash)}</td></tr>
+                <tr><th scope="row">Hash</th><td>${escapeHtml(blockHash)} ${aitbcCopyBtn(blockHash, 'block hash')}</td></tr>
                 <tr><th scope="row">Proposer</th><td>${escapeHtml(proposer)}</td></tr>
                 <tr><th scope="row">Transactions</th><td>${escapeHtml(txCount)}</td></tr>
                 ${contentRow}
@@ -517,7 +487,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (type === 'block') {
                 details = `
                     <div class="result-hash">
-                        Hash: ${escapeHtml(item.hash || 'N/A')} ${copyBtn(item.hash || '')}
+                        Hash: ${escapeHtml(item.hash || 'N/A')} ${aitbcCopyBtn(item.hash || '', 'block hash')}
                     </div>
                     <div class="result-detail">
                         Proposer: ${escapeHtml(item.proposer || 'N/A')}
@@ -536,8 +506,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 let displayValue = value;
                                 if (typeof value === 'object') displayValue = JSON.stringify(value);
                                 if (String(displayValue).length > 60) {
-                            displayValue = `<span aria-hidden="true">${escapeHtml(String(displayValue).substring(0, 57))}...</span><span class="visually-hidden">${escapeHtml(String(displayValue))}</span>`;
-                            return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                            const fullValue = String(displayValue);
+                            displayValue = `<span aria-hidden="true">${escapeHtml(fullValue.substring(0, 57))}...</span><span class="visually-hidden">${escapeHtml(fullValue)}</span>`;
+                            return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${displayValue} ${aitbcCopyBtn(fullValue, key)}</span></div>`;
                         }
                                 return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                             }).join('');
@@ -555,7 +526,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const toAddr = item.to || item.recipient || 'N/A';
                 details = `
                     <div class="result-hash">
-                        Hash: ${escapeHtml(txHashVal)} ${copyBtn(txHashVal)}
+                        Hash: ${escapeHtml(txHashVal)} ${aitbcCopyBtn(txHashVal, 'transaction hash')}
                     </div>
                     <div class="result-detail">
                         Type: ${escapeHtml(item.type || 'Unknown')}
@@ -564,10 +535,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         Block: ${escapeHtml(item.block_height || 'N/A')}
                     </div>
                     <div class="result-detail">
-                        From: ${escapeHtml(fromAddr)} ${copyBtn(fromAddr)}
+                        From: ${escapeHtml(fromAddr)} ${aitbcCopyBtn(fromAddr, 'address')}
                     </div>
                     <div class="result-detail">
-                        To: ${escapeHtml(toAddr)} ${copyBtn(toAddr)}
+                        To: ${escapeHtml(toAddr)} ${aitbcCopyBtn(toAddr, 'address')}
                     </div>
                     ${payloadDetails}
                 `;
@@ -683,7 +654,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                                     displayValue = JSON.stringify(value);
                                                 }
                                                 if (String(displayValue).length > 60) {
-                                                    displayValue = String(displayValue).substring(0, 57) + '...';
+                                                    const fullValue = String(displayValue);
+                                                    return `
+                                                    <div class="tx-detail-item">
+                                                        <span class="tx-detail-label">${escapeHtml(key)}:</span>
+                                                        <span class="tx-detail-value">${escapeHtml(fullValue.substring(0, 57))}... ${aitbcCopyBtn(fullValue, key)}</span>
+                                                    </div>
+                                                `;
                                                 }
                                                 return `
                                                     <div class="tx-detail-item">
@@ -707,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <div class="transaction-item">
                                         <div class="tx-header">
                                             <span class="tx-type">${escapeHtml(tx.type || 'Unknown')}</span>
-                                            <span class="tx-hash">${formatHash(innerTxHash)} ${copyBtn(innerTxHash)}</span>
+                                            <span class="tx-hash">${formatHash(innerTxHash)} ${aitbcCopyBtn(innerTxHash, 'transaction hash')}</span>
                                         </div>
                                         <div class="tx-status ${tx.status === 'confirmed' ? 'confirmed' : 'pending'}">
                                             ${escapeHtml(tx.status || 'Unknown')}
@@ -730,7 +707,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const blockHashVal = item.hash || 'N/A';
                 details = `
                     <div class="result-hash">
-                        Hash: ${blockHashVal} ${copyBtn(blockHashVal)}
+                        Hash: ${blockHashVal} ${aitbcCopyBtn(blockHashVal, 'block hash')}
                     </div>
                     <div class="result-detail">
                         Validator: ${escapeHtml(item.proposer || item.validator || 'unknown')}
@@ -752,8 +729,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 let displayValue = value;
                                 if (typeof value === 'object') displayValue = JSON.stringify(value);
                                 if (String(displayValue).length > 60) {
-                            displayValue = `<span aria-hidden="true">${escapeHtml(String(displayValue).substring(0, 57))}...</span><span class="visually-hidden">${escapeHtml(String(displayValue))}</span>`;
-                            return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                            const fullValue = String(displayValue);
+                            displayValue = `<span aria-hidden="true">${escapeHtml(fullValue.substring(0, 57))}...</span><span class="visually-hidden">${escapeHtml(fullValue)}</span>`;
+                            return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${displayValue} ${aitbcCopyBtn(fullValue, key)}</span></div>`;
                         }
                                 return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                             }).join('');
@@ -770,7 +748,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const toAddr = item.to || item.recipient || 'N/A';
                 details = `
                     <div class="result-hash">
-                        Hash: ${escapeHtml(txHashVal)} ${copyBtn(txHashVal)}
+                        Hash: ${escapeHtml(txHashVal)} ${aitbcCopyBtn(txHashVal, 'transaction hash')}
                     </div>
                     <div class="result-detail">
                         Type: ${escapeHtml(item.type || 'Unknown')}
@@ -779,10 +757,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         Block: ${escapeHtml(item.block_height || 'N/A')}
                     </div>
                     <div class="result-detail">
-                        From: ${escapeHtml(fromAddr)} ${copyBtn(fromAddr)}
+                        From: ${escapeHtml(fromAddr)} ${aitbcCopyBtn(fromAddr, 'address')}
                     </div>
                     <div class="result-detail">
-                        To: ${escapeHtml(toAddr)} ${copyBtn(toAddr)}
+                        To: ${escapeHtml(toAddr)} ${aitbcCopyBtn(toAddr, 'address')}
                     </div>
                     ${payloadDetails}
                 `;

@@ -219,7 +219,7 @@ function shortHex(v, keep) {
 function txLink(hash) {
     if (!hash || typeof hash !== 'string') return null;
     const esc = escapeHtml(hash);
-    return `<a href="/tx.html?hash=${encodeURIComponent(esc)}" aria-label="Transaction ${esc}">${escapeHtml(shortHex(hash))}</a>`;
+    return `<a href="/tx.html?hash=${encodeURIComponent(esc)}" aria-label="Transaction ${esc}">${escapeHtml(shortHex(hash))}</a> ${aitbcCopyBtn(hash, 'transaction hash')}`;
 }
 
 const JOB_COLUMNS = [
@@ -242,7 +242,7 @@ function jobRow(job) {
         payment: job.payment_status || 'N/A',
         model: model,
         escrow: job.escrow_contract_id
-            ? `<span aria-hidden="true">${escapeHtml(shortHex(job.escrow_contract_id))}</span><span class="visually-hidden">${escapeHtml(job.escrow_contract_id)}</span>`
+            ? `<span aria-hidden="true">${escapeHtml(shortHex(job.escrow_contract_id))}</span><span class="visually-hidden">${escapeHtml(job.escrow_contract_id)}</span> ${aitbcCopyBtn(job.escrow_contract_id, 'escrow contract id')}`
             : '—',
         tx: txLink(job.tx_hash || job.refund_tx_hash) || '—',
         created: formatDate(job.requested_at || job.created_at),
