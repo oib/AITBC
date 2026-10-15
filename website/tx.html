@@ -66,6 +66,7 @@
         <!-- aitbc-status:end -->
 
         <main id="main" tabindex="-1">
+            <span id="sr-announcer" class="visually-hidden" role="status" aria-live="polite"></span>
 
         <div id="loading" class="loading">Loading transaction...</div>
         <div id="content" style="display:none;">
@@ -106,8 +107,15 @@
             return url.searchParams.get(name);
         }
 
+
+    function copyValue(t) {
+        if (!t || t === 'N/A') return;
+        navigator.clipboard.writeText(t);
+        var s = document.getElementById('sr-announcer');
+        if (s) { s.textContent = ''; setTimeout(function(){ s.textContent = 'Copied to clipboard'; }, 50); }
+    }
         function copyBtn(text) {
-            return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();navigator.clipboard.writeText(this.dataset.copy)" title="Copy">⧉</button>`;
+            return `<button type="button" class="copy-btn" aria-label="Copy value" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();copyValue(this.dataset.copy)" title="Copy">⧉</button>`;
         }
 
         function plainHash(hash) {
@@ -164,8 +172,8 @@
 
                 document.getElementById('tx-details').innerHTML = `
                     <div class="endpoint fade-in block-item" style="padding:0;">
-                        <table class="block-list-table">
-                            ${details.map(d => `<tr><td>${d.label}</td><td>${d.value}</td></tr>`).join('')}
+                        <table class="block-list-table" aria-label="Transaction details">
+                            ${details.map(d => `<tr><th scope="row">${d.label}</th><td>${d.value}</td></tr>`).join('')}
                         </table>
                     </div>
                 `;

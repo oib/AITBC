@@ -45,6 +45,7 @@
         <!-- aitbc-status:end -->
 
         <main id="main" tabindex="-1">
+            <span id="sr-announcer" class="visually-hidden" role="status" aria-live="polite"></span>
 
     <div class="container explorer-container">
         <!-- Chain Stats -->
@@ -92,6 +93,7 @@
                 </div>
             </div>
             <div id="live-feed-container">
+                <div id="live-feed-status" class="visually-hidden" role="status" aria-live="polite"></div>
                 <div class="live-feed-list" id="live-feed-list"></div>
             </div>
         </div>
@@ -117,7 +119,7 @@
             </div>
 
             <div class="search-row">
-                <input type="text" id="search-input" placeholder="Search by block height, hash, or transaction hash"
+                <input type="text" id="search-input" aria-label="Search by block height, hash, or transaction hash" placeholder="Search by block height, hash, or transaction hash"
                        class="endpoint flex-1">
             </div>
         </div>

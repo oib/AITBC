@@ -18,7 +18,8 @@ function statusBadge(status) {
 function shortAddr(a) {
     if (!a) return '-';
     const e = escapeHtml(a);
-    return a.length > 14 ? `${e.slice(0, 8)}...${e.slice(-6)}` : e;
+    if (a.length <= 14) return e;
+    return `<span aria-hidden="true">${escapeHtml(a.slice(0, 8))}...${escapeHtml(a.slice(-6))}</span><span class="visually-hidden">${e}</span>`;
 }
 
 function fmtAit(units) {
@@ -51,20 +52,20 @@ async function loadRecentBridges() {
             const time = d.confirm_time || d.lock_time;
             const when = time ? new Date(time).toLocaleString() : '-';
             const tx = d.transfer_id
-                ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener">${escapeHtml(d.transfer_id.slice(0, 18))}...</a>`
+                ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener" aria-label="Transaction ${escapeHtml(d.transfer_id)}">${escapeHtml(d.transfer_id.slice(0, 18))}...</a>`
                 : '—';
             const amount = fmtAit(d.release_amount !== null && d.release_amount !== undefined ? d.release_amount : d.amount);
             return `
                 <div class="endpoint fade-in" style="padding:0;margin-bottom:0.75rem;">
-                    <table class="block-list-table">
-                        <tr><td>Time</td><td>${escapeHtml(when)}</td></tr>
-                        <tr><td>Route</td><td>${escapeHtml(d.source_chain || '-')} &rarr; ${escapeHtml(d.target_chain || '-')}</td></tr>
-                        <tr><td>Sender</td><td>${shortAddr(d.sender)}</td></tr>
-                        <tr><td>Recipient</td><td>${shortAddr(d.recipient)}</td></tr>
-                        <tr><td>Amount</td><td>${escapeHtml(amount)} AIT</td></tr>
-                        <tr><td>Asset</td><td>${escapeHtml(d.asset || 'native')}</td></tr>
-                        <tr><td>Tx</td><td>${tx}</td></tr>
-                        <tr><td>Status</td><td>${statusBadge(d.status)}</td></tr>
+                    <table class="block-list-table" aria-label="Bridge transfer details">
+                        <tr><th scope="row">Time</th><td>${escapeHtml(when)}</td></tr>
+                        <tr><th scope="row">Route</th><td>${escapeHtml(d.source_chain || '-')} &rarr; ${escapeHtml(d.target_chain || '-')}</td></tr>
+                        <tr><th scope="row">Sender</th><td>${shortAddr(d.sender)}</td></tr>
+                        <tr><th scope="row">Recipient</th><td>${shortAddr(d.recipient)}</td></tr>
+                        <tr><th scope="row">Amount</th><td>${escapeHtml(amount)} AIT</td></tr>
+                        <tr><th scope="row">Asset</th><td>${escapeHtml(d.asset || 'native')}</td></tr>
+                        <tr><th scope="row">Tx</th><td>${tx}</td></tr>
+                        <tr><th scope="row">Status</th><td>${statusBadge(d.status)}</td></tr>
                     </table>
                 </div>
             `;

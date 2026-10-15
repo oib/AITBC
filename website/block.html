@@ -55,6 +55,7 @@
         <!-- aitbc-status:end -->
 
         <main id="main" tabindex="-1">
+            <span id="sr-announcer" class="visually-hidden" role="status" aria-live="polite"></span>
 
         <div id="loading" class="loading">Loading block...</div>
         <div id="content" style="display:none;">
@@ -96,8 +97,15 @@
             return url.searchParams.get(name);
         }
 
+
+    function copyValue(t) {
+        if (!t || t === 'N/A') return;
+        navigator.clipboard.writeText(t);
+        var s = document.getElementById('sr-announcer');
+        if (s) { s.textContent = ''; setTimeout(function(){ s.textContent = 'Copied to clipboard'; }, 50); }
+    }
         function copyBtn(text) {
-            return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();navigator.clipboard.writeText(this.dataset.copy)" title="Copy">⧉</button>`;
+            return `<button type="button" class="copy-btn" aria-label="Copy value" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();copyValue(this.dataset.copy)" title="Copy">⧉</button>`;
         }
 
         async function loadBlock() {
@@ -140,13 +148,13 @@
 
                 document.getElementById('block-details').innerHTML = `
                     <div class="endpoint fade-in block-item" style="padding:0;">
-                        <table class="block-list-table">
-                            <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(data.height)}</td></tr>
-                            <tr><td>Hash</td><td>${plainHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
-                            <tr><td>Proposer</td><td>${addrLink(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
-                            <tr><td>Timestamp</td><td>${escapeHtml(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A')}</td></tr>
-                            <tr><td>Transactions</td><td>${escapeHtml(data.txCount ?? data.transactions?.length ?? 0)}</td></tr>
-                            <tr><td>State Root</td><td>${plainHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>
+                        <table class="block-list-table" aria-label="Block details">
+                            <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(data.height)}</td></tr>
+                            <tr><th scope="row">Hash</th><td>${plainHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
+                            <tr><th scope="row">Proposer</th><td>${addrLink(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
+                            <tr><th scope="row">Timestamp</th><td>${escapeHtml(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A')}</td></tr>
+                            <tr><th scope="row">Transactions</th><td>${escapeHtml(data.txCount ?? data.transactions?.length ?? 0)}</td></tr>
+                            <tr><th scope="row">State Root</th><td>${plainHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>
                         </table>
                     </div>
                 `;
@@ -157,16 +165,16 @@
                     const amount = tx.amount != null ? tx.amount : (tx.payload ? (JSON.parse(tx.payload).amount || 'N/A') : 'N/A');
                     return `
                     <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
-                        <table class="block-list-table">
-                            <tr><td>Type</td><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span></td></tr>
-                            <tr><td>Hash</td><td>${escapeHtml(tx.tx_hash)} ${copyBtn(tx.tx_hash)}</td></tr>
-                            <tr><td>From</td><td>${addrLink(tx.sender)}</td></tr>
-                            <tr><td>To</td><td>${addrLink(tx.recipient)}</td></tr>
-                            <tr><td>Amount</td><td><strong>${escapeHtml(amount)}</strong> AIT</td></tr>
-                            <tr><td>Fee</td><td>${escapeHtml(tx.fee != null ? tx.fee : 'N/A')}</td></tr>
-                            <tr><td>Nonce</td><td>${escapeHtml(tx.nonce != null ? tx.nonce : 'N/A')}</td></tr>
-                            <tr><td>Status</td><td>${escapeHtml(tx.status || 'N/A')}</td></tr>
-                            <tr><td>Time</td><td>${escapeHtml(tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A')}</td></tr>
+                        <table class="block-list-table" aria-label="Block details">
+                            <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span></td></tr>
+                            <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash)} ${copyBtn(tx.tx_hash)}</td></tr>
+                            <tr><th scope="row">From</th><td>${addrLink(tx.sender)}</td></tr>
+                            <tr><th scope="row">To</th><td>${addrLink(tx.recipient)}</td></tr>
+                            <tr><th scope="row">Amount</th><td><strong>${escapeHtml(amount)}</strong> AIT</td></tr>
+                            <tr><th scope="row">Fee</th><td>${escapeHtml(tx.fee != null ? tx.fee : 'N/A')}</td></tr>
+                            <tr><th scope="row">Nonce</th><td>${escapeHtml(tx.nonce != null ? tx.nonce : 'N/A')}</td></tr>
+                            <tr><th scope="row">Status</th><td>${escapeHtml(tx.status || 'N/A')}</td></tr>
+                            <tr><th scope="row">Time</th><td>${escapeHtml(tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A')}</td></tr>
                         </table>
                     </div>
                     `;

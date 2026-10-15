@@ -91,6 +91,12 @@ function renderFiring(data) {
         box.innerHTML = '<p class="alerts-clear">No alerts firing.</p>';
     } else {
         box.innerHTML = firing.map(a => alertCard(a)).join('');
+        const aStatus = document.getElementById('sr-announcer');
+        const sig = firing.map(a => a.name + '@' + (a.instance || '')).join('|');
+        if (aStatus && sig !== window.__lastAlertSig) {
+            window.__lastAlertSig = sig;
+            aStatus.textContent = firing.length ? `${firing.length} alert${firing.length === 1 ? '' : 's'} firing` : 'No alerts firing';
+        }
     }
     const pending = data.pending || [];
     const pbox = document.getElementById('pending-container');
@@ -132,8 +138,8 @@ function renderEvents(body) {
             : '<p class="loading">No alert events recorded.</p>';
         return;
     }
-    box.innerHTML = `<div class="table-wrap" role="region" tabindex="0" aria-label="Alert event history"><table class="alerts-table">
-        <thead><tr><th>When</th><th>Event</th><th>Alert</th><th>Node</th><th>Via</th><th>Detail</th></tr></thead>
+    box.innerHTML = `<div class="table-wrap" role="region" tabindex="0" aria-label="Alert event history"><table class="alerts-table" aria-label="Alert event history">
+        <thead><tr><th scope="col">When</th><th scope="col">Event</th><th scope="col">Alert</th><th scope="col">Node</th><th scope="col">Via</th><th scope="col">Detail</th></tr></thead>
         <tbody>${events.slice(0, 20).map(eventRow).join('')}</tbody>
     </table></div>`;
 }
@@ -189,8 +195,8 @@ function renderJournal(body) {
             : '<p class="loading">No warning-or-worse journal entries from aitbc units in the window.</p>';
         return;
     }
-    box.innerHTML = `<div class="table-wrap" role="region" tabindex="0" aria-label="Journal entries"><table class="alerts-table">
-        <thead><tr><th>When</th><th>Level</th><th>Unit</th><th>Message</th></tr></thead>
+    box.innerHTML = `<div class="table-wrap" role="region" tabindex="0" aria-label="Journal entries"><table class="alerts-table" aria-label="Journal entries">
+        <thead><tr><th scope="col">When</th><th scope="col">Level</th><th scope="col">Unit</th><th scope="col">Message</th></tr></thead>
         <tbody>${entries.map(e => `<tr>
             <td class="evt-time">${escapeHtml(e.timestamp_unix ? relTime(e.timestamp_unix) : '')}</td>
             <td>${priBadge(e.priority, e.priority_name)}</td>
