@@ -520,6 +520,187 @@ class TestLockScan:
         assert conn.execute("SELECT COUNT(*) FROM exchange_settlements").fetchone()[0] == n_rows
         conn.close()
 
+    @pytest.mark.asyncio
+    async def test_below_fee_stranger_lock_creates_no_row(self, exchange_env):
+        """ETH-JOIN-3: a stranger's lock at/below the sweep fee is worth
+        less than its refund — no order_refund row, no mark; the re-scan
+        just re-evaluates it."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(
+            exchange_env,
+            funded_state="funded",
+            backing_tx_hash="0xfirst",
+            locked_ticks=1_000_000_000,
+        )
+        dust = _lock_tx(oid, "0xdust1", stranger, 36_000)  # 0.001 AIT < 0.01 fee
+        dust["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(dust)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 0
+        assert get_exchange_settlement("order_refund", -oid) is None
+        assert monitor_mark("lock:0xdust1") is None
+
+    @pytest.mark.asyncio
+    async def test_below_fee_owner_lock_no_row_on_either_insert(self, exchange_env):
+        """A sub-fee owner lock must not get the -order_id row OR the
+        lock-keyed fallback — the check precedes both inserts even when
+        the -order_id slot is already held."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        # Hold the -order_id slot so a missing bound would try the fallback.
+        insert_exchange_settlement(
+            "order_refund",
+            -oid,
+            seller_address="0x6666666666666666666666666666666666666666",
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal(0),
+        )
+        dust = _lock_tx(oid, "0xdust2", SELLER_AIT, 36_000)
+        dust["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(dust)
+        exchange_env["post_responses"]["order_funded"] = (409, {"error": "lock under cover"})
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 0
+        conn = bridge_db._connect_db()
+        assert conn.execute("SELECT COUNT(*) FROM exchange_settlements").fetchone()[0] == 1
+        conn.close()
+        assert monitor_mark("lock:0xdust2") is None
+
+    @pytest.mark.asyncio
+    async def test_just_above_fee_owner_lock_still_uses_fallback(self, exchange_env):
+        """The bound is at the fee, not above it: an owner lock barely over
+        the sweep fee whose -order_id slot is held still refunds via the
+        lock-keyed fallback."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        insert_exchange_settlement(
+            "order_refund",
+            -oid,
+            seller_address="0x6666666666666666666666666666666666666666",
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal(0),
+        )
+        lock = _lock_tx(oid, "0x0aa2", SELLER_AIT, 720_000)  # 0.02 AIT > 0.01 fee
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        exchange_env["post_responses"]["order_funded"] = (409, {"error": "lock under cover"})
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 1
+        owner_row = get_exchange_settlement("order_refund", esm._lock_refund_ref_id("0x0aa2"))
+        assert owner_row is not None and owner_row["seller_address"] == SELLER_AIT
+        assert monitor_mark("lock:0x0aa2")["outcome"] == "refunding"
+
+    @pytest.mark.asyncio
+    async def test_just_above_fee_stranger_lock_gets_row(self, exchange_env):
+        """A stranger above the fee still gets the -order_id refund row —
+        the bound only removes sub-fee refunds, not the refund itself."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(
+            exchange_env,
+            funded_state="funded",
+            backing_tx_hash="0xfirst",
+            locked_ticks=1_000_000_000,
+        )
+        lock = _lock_tx(oid, "0xstray9", stranger, 720_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 1
+        row = get_exchange_settlement("order_refund", -oid)
+        assert row is not None and row["seller_address"] == stranger
+        assert monitor_mark("lock:0xstray9")["outcome"] == "refunding"
+
+    @pytest.mark.asyncio
+    async def test_below_fee_follows_sweep_fee_accessor(self, exchange_env, monkeypatch):
+        """The inbound skip reads _sweep_fee_ait() — the same accessor as
+        the remainder skip — so both bounds move together if the fee
+        source ever changes."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(
+            exchange_env,
+            funded_state="funded",
+            backing_tx_hash="0xfirst",
+            locked_ticks=1_000_000_000,
+        )
+        lock = _lock_tx(oid, "0xdust3", stranger, 72_000_000)  # 2 AIT
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        monkeypatch.setattr(esm, "_sweep_fee_ait", lambda: Decimal("5"))
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 0
+        assert monitor_mark("lock:0xdust3") is None
+        monkeypatch.setattr(esm, "_sweep_fee_ait", lambda: Decimal("0.01"))
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 1
+        assert get_exchange_settlement("order_refund", -oid) is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("bad_hash", ["", "0xZZZZ", None])
+    async def test_bad_tx_hash_fallback_returns_bad_tx_hash(self, exchange_env, bad_hash, caplog):
+        """Empty/non-hex/None input on the owner-fallback attempt returns
+        bad_tx_hash, writes no row, and logs ERROR naming the hash
+        problem — never a ref_id collision."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        insert_exchange_settlement(
+            "order_refund",
+            -oid,
+            seller_address="0x6666666666666666666666666666666666666666",
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal(0),
+        )
+        with caplog.at_level(logging.ERROR):
+            outcome = await esm._ensure_order_refund(
+                cfg, oid, SELLER_AIT, Decimal("1"), bad_hash, remainder=False, owner_lock=True
+            )
+        assert outcome == "bad_tx_hash"
+        assert any("empty or not hex" in r.getMessage() for r in caplog.records)
+        conn = bridge_db._connect_db()
+        assert conn.execute("SELECT COUNT(*) FROM exchange_settlements").fetchone()[0] == 1
+        conn.close()
+
+    @pytest.mark.asyncio
+    async def test_bad_tx_hash_marks_like_duplicate(self, exchange_env):
+        """Through the scan, bad_tx_hash marks the lock exactly like a
+        duplicate — terminal, no retry, no row."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        insert_exchange_settlement(
+            "order_refund",
+            -oid,
+            seller_address="0x6666666666666666666666666666666666666666",
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal(0),
+        )
+        lock = _lock_tx(oid, "0xzzzz", SELLER_AIT, 72_000_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        exchange_env["post_responses"]["order_funded"] = (409, {"error": "lock under cover"})
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 0
+        assert monitor_mark("lock:0xzzzz")["outcome"] == "bad_tx_hash"
+
+    def test_below_fee_log_rate_limited_per_lock(self, caplog):
+        """INFO once per lock per hour, DEBUG between — a permanent dust
+        lock re-evaluated every poll must not spam the journal."""
+        esm._below_fee_last_log.clear()
+        h = "0x" + "ab" * 32
+        with caplog.at_level(logging.DEBUG):
+            esm._log_below_fee(7, h, Decimal("0.001"))
+            esm._log_below_fee(7, h, Decimal("0.001"))
+        infos = [r for r in caplog.records if r.levelno == logging.INFO]
+        debugs = [r for r in caplog.records if r.levelno == logging.DEBUG]
+        assert len(infos) == 1 and "lock value cannot cover the refund sweep fee — no row" in infos[0].getMessage()
+        assert len(debugs) == 1
+        esm._below_fee_last_log[h] -= esm._BELOW_FEE_LOG_SECONDS + 1
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            esm._log_below_fee(7, h, Decimal("0.001"))
+        assert any(r.levelno == logging.INFO for r in caplog.records)
+
 
 # ---------------------------------------------------------------------------
 # Lane 2 — prepay deposit scan
