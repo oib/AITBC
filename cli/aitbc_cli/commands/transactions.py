@@ -14,7 +14,7 @@ from eth_utils import keccak
 
 from aitbc import ValidationError
 from aitbc.utils import ait_to_units, format_ait
-from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT, DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
@@ -268,12 +268,14 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
 
   aitbc transactions send --from wallet-1 --to 0x... --amount 10
 
-  aitbc transactions send --from wallet-1 --to 0x... --amount 10 --fee 0.001"""
+  aitbc transactions send --from wallet-1 --to 0x... --amount 10 --fee 0.01"""
 )
 @click.option("--from", "from_wallet", required=True, help="From wallet name")
 @click.option("--to", "to_address", required=True, help="To address")
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
-@click.option("--fee", type=DECIMAL, default="0.001", help="Transaction fee")
+@click.option(
+    "--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (standard chain fee)"
+)
 @wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.option("--type", "tx_type", default="TRANSFER", help="Transaction type (default TRANSFER)")
@@ -356,8 +358,8 @@ def _process_batch_entry(
     try:
         # amounts come out of a JSON batch file as numbers; convert at the boundary
         amount = Decimal(str(tx["amount"]))
-        # default fee matches `send --fee` (0.001 AIT), not the old 10 AIT
-        fee = Decimal(str(tx.get("fee", "0.001")))
+        # default fee matches `send --fee` (standard chain fee), not the old 10 AIT
+        fee = Decimal(str(tx.get("fee", DEFAULT_TX_FEE_AIT)))
         entry_key = (tx["from_wallet"], str(tx["to_address"]).lower(), amount, fee)
         if entry_key in seen_entries:
             results.append({"transaction": tx, "hash": None, "success": False, "error": "duplicate batch entry"})
@@ -418,7 +420,7 @@ def _process_batch_entry(
     from_wallet  — sender wallet name (required)
     to_address   — recipient 0x address (required)
     amount       — AIT amount to send (required)
-    fee          — AIT fee (optional, defaults to 0.001 like `send --fee`)"""
+    fee          — AIT fee (optional, defaults to the standard chain fee like `send --fee`)"""
 )
 @click.option("--transactions-file", required=True, help="JSON file with batch transactions")
 @wallet_password_options
