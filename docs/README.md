@@ -102,6 +102,11 @@ Operator procedures for the live fleet:
   Content-Security-Policy draft for the hub website: report-only first,
   with the inventory of inline scripts/handlers/styles that block a
   strict policy (not applied; needs an operator-gated nginx change).
+- [Messaging RPC nginx limits](ops/messaging-nginx-limits.md) — the
+  per-IP limiting layers on the messaging read endpoints (in-app
+  `rate_limit` keying, trusted-proxy inputs, the direct-port spoofing
+  caveat on `0.0.0.0` binds) and a proposed `limit_req_zone` (not applied;
+  needs an operator-gated nginx change).
 - Audits: [security audit summary](security/security_audit_summary.md),
   [CLI audit findings](security/aitbc-audit-4-cli-findings.md),
   [audit framework](security/4_security-audit-framework.md),
