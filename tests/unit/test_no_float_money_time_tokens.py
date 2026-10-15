@@ -63,6 +63,35 @@ class TestTimeTokenExemption:
     def test_plain_money_annotation_still_flags(self, tmp_path):
         assert _violations_for(tmp_path, "payout_amount: float = 0.0\n") == ["annotation:payout_amount"]
 
+    @pytest.mark.parametrize(
+        "name",
+        [
+            # A time token must not exempt a money head noun — CLEAN-2:
+            # membership-based exemption let "epoch" hide the money in
+            # "epoch_reward". These names stay flagged.
+            "epoch_reward",
+            "height_fee",
+            "retry_payment",
+            "attempt_fee",
+            "seen_amount",
+        ],
+    )
+    def test_time_token_under_money_head_still_flags(self, tmp_path, name):
+        assert _violations_for(tmp_path, f"{name}: float = 0.0\n") == [f"annotation:{name}"]
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            # The boundary the exemption exists for: the head noun is the
+            # bookkeeping quantity, the money token only says what it is about.
+            "fee_retry_attempt",
+            "payout_seen_height",
+            "reward_epoch_deadline",
+        ],
+    )
+    def test_time_head_noun_still_exempt(self, tmp_path, name):
+        assert _violations_for(tmp_path, f"{name}: dict[int, float] = {{}}\n") == []
+
     def test_snapshot_name_is_still_money(self, tmp_path):
         """``at``/``last`` stay money: they name amount snapshots, not times."""
         assert _violations_for(tmp_path, "balance_at: float = 0.0\n") == ["annotation:balance_at"]

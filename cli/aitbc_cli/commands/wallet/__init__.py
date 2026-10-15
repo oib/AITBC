@@ -64,6 +64,20 @@ def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str |
         json.dump(wallet_data, f, indent=2)
 
 
+def _resave_wallet(ctx: click.Context, wallet_path: Path, wallet_data: dict[str, Any], resolved_password: str | None) -> None:
+    """Re-save a wallet after a liquidity mutation, preserving its on-disk
+    encryption state. A wallet that was encrypted can never be written back
+    without the password that decrypts it: ``_save_wallet`` with a None
+    password would dump the in-memory plaintext private key under the
+    ``encrypted`` flag. The loader may resolve a password internally that
+    the caller never sees, so a missing ``resolved_password`` here is an
+    abort, not a plaintext write."""
+    if wallet_data.get("encrypted") and not resolved_password:
+        error("Wallet is encrypted but no password is resolved — refusing to re-save it as plaintext")
+        ctx.exit(1)
+    _save_wallet(wallet_path, wallet_data, resolved_password if wallet_data.get("encrypted") else None)
+
+
 def _load_wallet(
     wallet_path: Path,
     wallet_name: str,

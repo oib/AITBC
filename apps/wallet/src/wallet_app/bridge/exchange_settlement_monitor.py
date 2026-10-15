@@ -277,9 +277,10 @@ def _units_to_ticks(units: int) -> int:
 async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
     """Post ``order_funded`` for fresh escrow locks bound to orders; create
     ``order_refund`` rows for locks an order cannot take. Every processed
-    lock tx is marked so re-scanning the full history is cheap — except a
-    lock at/below the refund sweep fee (``below_fee``): it stays unmarked
-    so a fee change can pick it back up, and its log line is rate-limited."""
+    lock tx is marked so re-scanning the full history is cheap — including a
+    lock at/below the refund sweep fee (``below_fee``): the mark is terminal,
+    logged once at WARNING and left for operator review rather than re-evaluated
+    every poll."""
     txs = await sellmon._fetch_transfers(cfg.escrow.escrow_address, limit=0)
     stats = {"scanned": 0, "funded": 0, "refunds": 0, "http_refused": 0}
     for tx in txs:
