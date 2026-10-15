@@ -3,7 +3,12 @@
 # This implements the gradual type checking approach for the codebase
 # NEW files must pass type checking, EXISTING files generate warnings only
 
-set -e
+set -euo pipefail
+
+# Resolve the repo python — $PYTHON env wins, then the checkout venv, then the
+# main checkout's venv so this hook works inside a linked worktree. A bare
+# `venv/bin/python` here silently "checked" nothing on worktrees without venv/.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
 
 echo "🔍 Checking type annotations on changed Python files..."
 
@@ -36,7 +41,7 @@ for file in $ALL_FILES; do
         if ! git rev-parse HEAD:"$file" >/dev/null 2>&1; then
             echo "🆕 NEW FILE - strict type checking required"
             # Use --follow-imports=skip to avoid checking dependencies (which have errors)
-            if ! venv/bin/python -m mypy "$file" --follow-imports=skip --ignore-missing-imports 2>&1; then
+            if ! "$PYTHON" -m mypy "$file" --follow-imports=skip --ignore-missing-imports 2>&1; then
                 echo "❌ Type errors in NEW file: $file"
                 echo "   New files must have proper type annotations"
                 FAILED=1
@@ -46,7 +51,7 @@ for file in $ALL_FILES; do
         else
             echo "📝 EXISTING FILE - warning mode (gradual typing)"
             # For existing files, just warn about type errors
-            if ! venv/bin/python -m mypy "$file" --follow-imports=skip --ignore-missing-imports 2>&1; then
+            if ! "$PYTHON" -m mypy "$file" --follow-imports=skip --ignore-missing-imports 2>&1; then
                 echo "⚠️  Type errors in existing file: $file"
                 echo "   Consider adding type annotations when you modify this file"
                 WARNINGS=1

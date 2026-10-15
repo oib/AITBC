@@ -97,15 +97,10 @@ APPS=(
   aitbc
 )
 
-# Prefer the repo venv, but allow PYTHON to be set by CI (e.g. a venv built elsewhere).
-PYTHON="${PYTHON:-}"
-if [ -z "$PYTHON" ]; then
-  if [ -x ./venv/bin/python ]; then
-    PYTHON=./venv/bin/python
-  else
-    PYTHON=python3
-  fi
-fi
+# Shared resolution: $PYTHON env (validated then trusted — CI sets it), then the
+# checkout venv, then the main checkout's venv so a worktree without venv/ still
+# finds a runnable interpreter instead of a dependency-poor python3.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
 
 # Preflight: prove the interpreter actually has mypy before trusting any exit code
 # below. `python -m mypy` with mypy absent exits 1, which is indistinguishable from
