@@ -521,3 +521,7 @@ recovering and a never-converging nonce refusing. Chain state untouched.
 - `fa606bf5e` — `wallet eth-send` probes `--to` with `eth_getCode`: `--confirm` refuses a bytecode-bearing recipient unless `--allow-contract` (confirm-only flag, same rule as `--wait`); the dry run shows the `eth_getCode` result and `to_is_contract` either way.
 - `fa606bf5e` — `docs/ops/messaging-nginx-limits.md` drops the follower LAN prefixes; `test_no_fleet_details_are_published` was failing on the unpinned addresses and `make test-critical` goes green again.
 - Tests: `cli/tests/test_evm_rpc_masking.py` (new, 9) — path-key, query-key, userinfo, RPC-error-body and async-broadcast scrubbing; `test_wallet_eth_send.py` `TestContractRecipient` (+5). `aitbc_wallet_eth_send` regenerated with `allow_contract`.
+### WEB-FIX-4
+- Raise the remaining live-data tap targets to 44px at phone sizes: explorer live-feed rows (37px) and top-addresses table rows (33px) get min-height/height under (pointer: coarse),(max-width: 640px); marketplace status select (38px) gets min-height.
+- 375px guard now renders these elements: blocks/latest fixture returns blocks[] (feed rows), top-addresses rows and select.endpoint added to the TAP selector list. The fixture gap is why the live measurement caught what the test could not.
+- Desktop layout unchanged; no page overflows at 375px or 1280px.
