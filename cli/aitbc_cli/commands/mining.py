@@ -7,14 +7,16 @@ from typing import Any, cast
 import click
 
 from ..utils import error, success
-from ..utils.http_client import AITBCHTTPClient, NetworkError
-from ..utils.wallet_paths import wallet_dir
+from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
+from ..utils.wallet_paths import wallet_search_dirs
 
 DEFAULT_RPC_URL = "http://localhost:8202"
 
 
 def _keystore_dirs() -> list[Path]:
-    return [wallet_dir(), Path("/var/lib/aitbc/keystore")]
+    # Shared wallet search order (configured dir, then service wallet dir),
+    # plus the legacy daemon keystore which only this command still reads.
+    return [*wallet_search_dirs(), Path(KEYSTORE_DIR)]
 
 
 def _find_wallet_path(wallet_name: str) -> Path | None:
@@ -30,7 +32,8 @@ def _load_wallet_address(wallet_name: str) -> str:
     """Load the address from a named wallet file."""
     keystore_path = _find_wallet_path(wallet_name)
     if not keystore_path:
-        raise FileNotFoundError(f"Wallet '{wallet_name}' not found")
+        searched = ", ".join(str(d) for d in _keystore_dirs())
+        raise FileNotFoundError(f"Wallet '{wallet_name}' not found (searched: {searched})")
 
     with open(keystore_path) as f:
         wallet_data = json.load(f)
