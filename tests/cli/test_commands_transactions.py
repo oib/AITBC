@@ -257,8 +257,9 @@ class TestTransactionsCommands:
 
     @patch("aitbc_cli.commands.transactions._send_transaction_impl")
     def test_batch_default_fee_matches_send(self, mock_send, runner, tmp_path):
-        """An omitted ``fee`` defaults to 0.001 AIT (like ``send --fee``), not 10 AIT."""
-        from decimal import Decimal
+        """An omitted ``fee`` defaults to ``DEFAULT_TX_FEE_AIT`` (like
+        ``send --fee``), not the old 10 AIT."""
+        from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
         from aitbc_cli.commands.transactions import transactions
 
@@ -269,7 +270,7 @@ class TestTransactionsCommands:
         result = runner.invoke(transactions, ["batch", "--transactions-file", batch_file, "--password", "pw"])
 
         assert result.exit_code == 0, result.output
-        assert mock_send.call_args[0][3] == Decimal("0.001")
+        assert mock_send.call_args[0][3] == DEFAULT_TX_FEE_AIT
 
 
 if __name__ == "__main__":
