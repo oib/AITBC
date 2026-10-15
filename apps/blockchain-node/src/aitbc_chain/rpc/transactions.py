@@ -233,6 +233,18 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 if deactivated_error:
                     raise ValueError(deactivated_error)
 
+        # MSG-1: a payload claiming the forum namespace must be a valid
+        # envelope — refuse it at the door so the signer hears why before
+        # paying the fee. Opaque MESSAGE payloads (bridge internals, other
+        # uses) are untouched. Index-time filtering enforces the same
+        # predicate on anything a proposer seals anyway.
+        if tx_type == "MESSAGE":
+            from ..messaging_index import admission_error
+
+            message_error = admission_error(tx_data.get("payload"), tx_data["from"])
+            if message_error:
+                raise ValueError(message_error)
+
         # Last, like the authority gate: every earlier rejection keeps its message. Off unless GPU_RETIRED_IDS is set.
         _refuse_retired_gpu(tx_type, tx_data.get("payload"))
 
