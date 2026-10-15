@@ -23,6 +23,9 @@
     .skip-link:focus { position: absolute; top: .5rem; left: .5rem; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; z-index: 1000; background: #fff; border: 2px solid #b26a00; color: #111; padding: .8rem 1rem; border-radius: 4px; font-weight: 600; outline: 2px solid #0645ad; outline-offset: 2px; }
     .site-footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ccc; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; font-size: .8rem; }
     .site-footer a { color: #555; text-decoration: none; }
+    @media (pointer: coarse), (max-width: 640px) {
+      .site-footer a { display: inline-flex; align-items: center; min-height: 44px; }
+    }
     .site-footer a:hover { color: #0645ad; text-decoration: underline; }
   </style>
 </head>
