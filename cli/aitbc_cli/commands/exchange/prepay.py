@@ -224,7 +224,10 @@ def deposit(ctx, amount_eth, wallet, password, password_file, password_stdin, se
 
     rpc_url = _eth_rpc(ctx, eth_rpc_url)
     chain_id = _rpc_try(ctx, rpc_url, "eth_chainId", [])
-    chain_id_int = int(chain_id, 16) if isinstance(chain_id, str) else None
+    try:
+        chain_id_int = int(chain_id, 16) if isinstance(chain_id, str) else None
+    except (TypeError, ValueError):
+        chain_id_int = None  # malformed result — same path as a missing one
     if chain_id_int is not None and chain_id_int != SEPOLIA_CHAIN_ID:
         abort(ctx, f"RPC chain id {chain_id_int} is not Sepolia ({SEPOLIA_CHAIN_ID}) — refusing")
         return
@@ -232,6 +235,9 @@ def deposit(ctx, amount_eth, wallet, password, password_file, password_stdin, se
     tag = _prepay_tag(address)
     data_hex = _prepay_data_hex(tag)
     value_wei = int(amount_eth * Decimal(10**18))
+    if value_wei <= 0:
+        abort(ctx, f"amount {amount_eth} ETH is below 1 wei — refusing a zero-value deposit")
+        return
     nonce = _rpc_try(ctx, rpc_url, "eth_getTransactionCount", [address, "pending"])
     gas_price = _rpc_try(ctx, rpc_url, "eth_gasPrice", [])
     gas_estimate = _rpc_try(
@@ -324,7 +330,7 @@ def _broadcast_raw(ctx, rpc_url: str, raw: str) -> str:
         return str(body["result"])
 
     try:
-        return asyncio.new_event_loop().run_until_complete(_post())
+        return asyncio.run(_post())
     except Exception as e:
         abort(ctx, f"ETH deposit broadcast failed (not retried): {e}", from_exception=e)
         raise AssertionError("unreachable: abort always raises") from e

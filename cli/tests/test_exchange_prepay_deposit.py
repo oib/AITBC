@@ -473,6 +473,94 @@ class TestSend:
         assert "insufficient Sepolia ETH" in result.output
 
 
+class TestGuards:
+    """PREPAY-1b: sub-wei amounts refuse, malformed chain id takes the
+    missing-result path, the broadcast loop is closed."""
+
+    def test_sub_wei_amount_refuses_print(self, ctx_fakes, rpc_fn):
+        rpc_fn(BASE_RPC)
+        result = CliRunner().invoke(
+            deposit,
+            [
+                "--amount-eth",
+                "0.0000000000000000001",  # 1e-19 ETH → 0 wei after the floor
+                "--wallet",
+                "test",
+                "--exchange-url",
+                "http://exchange.test",
+                "--eth-rpc-url",
+                "http://rpc.test",
+            ],
+            obj={},
+        )
+        assert result.exit_code != 0
+        assert "below 1 wei" in result.output
+
+    def test_sub_wei_amount_refuses_send(self, ctx_fakes, rpc_fn):
+        rpc_fn(BASE_RPC)
+        result = CliRunner().invoke(
+            deposit,
+            [
+                "--amount-eth",
+                "0.0000000000000000001",
+                "--wallet",
+                "test",
+                "--exchange-url",
+                "http://exchange.test",
+                "--eth-rpc-url",
+                "http://rpc.test",
+                "--send",
+                "--password",
+                "x",
+            ],
+            obj={},
+        )
+        assert result.exit_code != 0
+        assert "below 1 wei" in result.output
+
+    def test_malformed_chain_id_print_reports_unverified(self, ctx_fakes, rpc_fn):
+        rpc_fn({**BASE_RPC, "eth_chainId": "0xNOT-A-CHAIN"})
+        result = CliRunner().invoke(
+            deposit,
+            [
+                "--amount-eth",
+                "0.0002",
+                "--wallet",
+                "test",
+                "--exchange-url",
+                "http://exchange.test",
+                "--eth-rpc-url",
+                "http://rpc.test",
+            ],
+            obj={},
+        )
+        assert result.exit_code == 0, result.output
+        assert "chain_id_verified" in result.output
+        assert "False" in result.output
+
+    def test_malformed_chain_id_send_refuses(self, ctx_fakes, rpc_fn):
+        rpc_fn({**BASE_RPC, "eth_chainId": "0xNOT-A-CHAIN"})
+        result = CliRunner().invoke(
+            deposit,
+            [
+                "--amount-eth",
+                "0.0002",
+                "--wallet",
+                "test",
+                "--exchange-url",
+                "http://exchange.test",
+                "--eth-rpc-url",
+                "http://rpc.test",
+                "--send",
+                "--password",
+                "x",
+            ],
+            obj={},
+        )
+        assert result.exit_code != 0
+        assert "unverified chain" in result.output
+
+
 class TestHelpers:
     def test_short_matches_exchange_form(self):
         assert _short("0xF1C83cd90e4d33F35BE73Dd57CaBa21Ea52D4584") == "0xF1C8…4584"
