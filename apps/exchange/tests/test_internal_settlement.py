@@ -10,12 +10,14 @@ difference of cumulative fee so their sum can never exceed fee(amount).
 Throwaway keys + throwaway DBs only.
 """
 
+import asyncio
 import sqlite3
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
 from eth_account import Account
+from fastapi.testclient import TestClient
 
 from apps.exchange.simple_exchange.handlers.exchange import ExchangeMixin
 
@@ -562,3 +564,141 @@ def test_fill_fees_sum_within_lock_cover(exchange_db, settlement_on, monkeypatch
     assert sum(fees) <= fee_of_amount
     # Fully filled -> the cumulative difference sums to exactly fee(amount).
     assert sum(fees) == fee_of_amount
+
+
+# --- ETH-19B: the peer gate through the real FastAPI adapter -----------------
+# The mock-handler tests above assign client_address by hand — which is why
+# they could never see the adapter leaving it unset (every caller 403'd).
+# These go through TestClient so _dispatch + FastAPIRequestAdapter run for
+# real. TestClient's default client is ("testclient", 50000) — not loopback —
+# so every case passes client= explicitly; that default is itself covered.
+
+_SETTLE = "/api/internal/exchange-settlement"
+
+
+@pytest.fixture
+def _handler_pool(monkeypatch):
+    """test_http_contract's real-uvicorn fixture runs the app lifespan on
+    teardown, which shuts down ``main._HANDLER_POOL`` — a module global.
+    Refresh it so these tests work regardless of suite order."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    import apps.exchange.simple_exchange.main as main_mod
+
+    pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-exchange-handler")
+    monkeypatch.setattr(main_mod, "_HANDLER_POOL", pool)
+    yield pool
+    pool.shutdown(wait=True)
+
+
+def _tc(host: str, port: int = 43210) -> TestClient:
+    from apps.exchange.simple_exchange.main import app
+
+    return TestClient(app, client=(host, port))
+
+
+def _funding_node(db_path):
+    """A registered node for prepaid_credit to credit — the minimal event
+    that reaches the 200 path."""
+    node = Account.create()
+    _register(db_path, node.address, node.key.hex(), "n-peer")
+    return node.address
+
+
+def test_adapter_loopback_key_and_event_accepted(exchange_db, settlement_on, _handler_pool):
+    node = _funding_node(exchange_db)
+    resp = _tc("127.0.0.1").post(
+        _SETTLE,
+        json={"event": "prepaid_credit", "node_address": node, "amount_eth": "0.01", "eth_tx_hash": "0xpeerok"},
+        headers={"X-Api-Key": "test-key"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert _row(exchange_db, "SELECT amount_eth FROM prepaid_deposits WHERE node_address = ?", (node,)) == ("0.01",)
+
+
+def test_adapter_loopback_without_key_401(exchange_db, settlement_on, _handler_pool):
+    resp = _tc("127.0.0.1").post(_SETTLE, json={"event": "debit_refund", "order_id": 1})
+    assert resp.status_code == 401
+
+
+def test_adapter_non_loopback_403(exchange_db, settlement_on, _handler_pool):
+    resp = _tc("10.1.2.3").post(
+        _SETTLE,
+        json={"event": "debit_refund", "order_id": 1},
+        headers={"X-Api-Key": "test-key"},
+    )
+    assert resp.status_code == 403
+
+
+def test_adapter_v6_mapped_loopback_accepted(exchange_db, settlement_on, _handler_pool):
+    """::ffff:127.0.0.1 is IPv4-mapped loopback — the gate must treat a
+    dual-stack bind's loopback peer as loopback, not refuse it."""
+    node = _funding_node(exchange_db)
+    resp = _tc("::ffff:127.0.0.1").post(
+        _SETTLE,
+        json={"event": "prepaid_credit", "node_address": node, "amount_eth": "0.01", "eth_tx_hash": "0xpeerv6"},
+        headers={"X-Api-Key": "test-key"},
+    )
+    assert resp.status_code == 200, resp.text
+
+
+@pytest.mark.parametrize("stamp", ["X-Forwarded-For", "X-Real-IP"])
+def test_adapter_loopback_with_proxy_stamp_403(exchange_db, settlement_on, stamp, _handler_pool):
+    resp = _tc("127.0.0.1").post(
+        _SETTLE,
+        json={"event": "debit_refund", "order_id": 1},
+        headers={"X-Api-Key": "test-key", stamp: "127.0.0.1"},
+    )
+    assert resp.status_code == 403
+
+
+def test_adapter_missing_client_403(exchange_db, settlement_on, _handler_pool):
+    """A scope with no client key must fail the loopback gate closed — the
+    adapter sets ("", 0), never a guessed peer."""
+    from apps.exchange.simple_exchange.main import _dispatch
+    from starlette.requests import Request
+
+    body = b'{"event":"debit_refund","order_id":1}'
+    messages = [{"type": "http.request", "body": body, "more_body": False}]
+
+    async def receive():
+        return messages.pop(0) if messages else {"type": "http.disconnect"}
+
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "asgi": {"version": "3.0"},
+        "method": "POST",
+        "scheme": "http",
+        "path": _SETTLE,
+        "raw_path": _SETTLE.encode(),
+        "query_string": b"",
+        "headers": [(b"x-api-key", b"test-key"), (b"content-type", b"application/json")],
+        "server": ("testserver", 80),
+        # no "client" — a peer the server never told us about
+    }
+    resp = asyncio.run(_dispatch(Request(scope, receive), "POST"))
+    assert resp.status_code == 403
+
+
+def test_adapter_default_testclient_peer_403(exchange_db, settlement_on, _handler_pool):
+    """Documents the harness gotcha: TestClient's default client is
+    ("testclient", 50000) — not an IP, so it is refused like any other
+    non-loopback peer. Peer tests must always pass client= explicitly."""
+    from apps.exchange.simple_exchange.main import app
+
+    resp = TestClient(app).post(
+        _SETTLE,
+        json={"event": "debit_refund", "order_id": 1},
+        headers={"X-Api-Key": "test-key"},
+    )
+    assert resp.status_code == 403
+
+
+def test_adapter_flag_off_503(exchange_db, _handler_pool):
+    resp = _tc("127.0.0.1").post(
+        _SETTLE,
+        json={"event": "debit_refund", "order_id": 1},
+        headers={"X-Api-Key": "test-key"},
+    )
+    assert resp.status_code == 503
