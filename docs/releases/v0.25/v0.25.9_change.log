@@ -1879,6 +1879,7 @@ narrative; this list cites each remaining commit by hash so
 - `f0bc462820` fix(wallet): skip sell escrow slot in file import
 - `e64b0b1230` fix(cli): CLI-3 — envelope chain-id resolves on /rpc-suffixed bases + island creds fallback
 - `9e7daa8730` feat(cli): CLI-3 — aitbc config get <key> prints a stored value
+- `8a0218e8d1` feat(cli): REPO-1 — file-info denylist extension, env-names case, verify DB containment, OPS-4 nginx example
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2188,3 +2189,42 @@ new signature.
 
 Commits: `e64b0b123` (probe normalization + creds fallback + tests),
 `9e7daa873` (config get + tests + MCP regen).
+
+### REPO-1: file-info denylist extension + env-names case + verify DB containment + OPS-4 nginx example (2026-10-15)
+
+`system file-info --field`'s denylist only caught the literal `*_key`
+spellings — `privatekey`, `api-key`, `pass_phrase` and friends all
+slipped through. The check now normalises each candidate (strips `-`
+and `_`, lowercases) and additionally refuses the exact names
+privatekey, apikey, secretkey, passphrase, passwd, credential and
+credentials, plus any name ending in `key` whose prefix is
+private/secret/api/auth/signing/access. `pubkey`, `monkey` and the
+rest of the `*key` tail stay allowed; a denied value still never
+reaches stdout or the log.
+
+`system env-names --names` uppercased each requested name before
+matching, so a lowercase query could never match its own variable —
+environment names are case-sensitive and are now reported exactly as
+given.
+
+`exchange verify`'s help examples pointed at
+`/var/lib/aitbc/exchange.db`; the real path is
+`/var/lib/aitbc/data/exchange/exchange.db`. `--db`/`--bridge-db` now
+must resolve under `/var/lib/aitbc/` on top of the existing
+absolute/no-`..`/no-symlink checks — the wrapper can no longer be
+aimed at arbitrary SQLite files elsewhere on the host.
+
+`examples/nginx/nginx-aitbc.conf.example` gains the OPS-4 signed-order
+block verbatim from the hub vhost: `/api/internal/` 404s, the six
+exact-match `/api/*` exchange locations are method-pinned via
+`limit_except`, rate-limited, capped at 16 kB bodies, and proxy with
+`X-API-Key`/`Authorization` stripped. The file's "every location
+exists in production" claim stays true.
+
+Tests: denylist accept/refuse parametrisation, env-names
+case-sensitivity, verify prefix accept/refuse/boundary cases — the
+system and exchange CLI suites, ruff, mypy ratchet, check-cli-docs,
+check-mcp-cli-drift and check-c901-ratchet all pass.
+
+Commits: `8a0218e8d` (denylist + env-names + verify containment +
+nginx block + tests + MCP regen).
