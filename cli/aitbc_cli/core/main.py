@@ -464,6 +464,12 @@ def main(argv=None):
         # Print friendly usage error (e.g. missing required option) and exit 2
         e.show()
         return e.exit_code
+    except click.ClickException as e:
+        # Ordinary CLI errors (HTTP non-2xx, zero-match filters, etc.) raised
+        # across the command tree — show the message, never a traceback.
+        # Must come last: UsageError/NoArgsIsHelpError are ClickExceptions too.
+        e.show()
+        return e.exit_code
 
 
 if __name__ == "__main__":

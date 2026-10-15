@@ -371,18 +371,39 @@ class TestGetServiceLogsFilters:
         assert "--grep" not in captured[0]
 
     def test_injection_rejected_before_any_command(self):
+        """Newline/CR/NUL and the 200-char limit are still refused."""
         for kwargs in (
-            {"since": "10m; rm -rf /"},
-            {"since": "10m$(whoami)"},
-            {"since": "10m`id`"},
             {"since": "10m\nreboot"},
-            {"grep": "a|cat /etc/passwd"},
+            {"since": "10m\rreboot"},
+            {"since": "10m\x00reboot"},
+            {"grep": "a\ncat /etc/passwd"},
+            {"grep": "a\x00cat /etc/passwd"},
             {"grep": "A" * 201},
             {"since": "x" * 201},
         ):
             result, captured = self._call(service="aitbc-market", host="node2", **kwargs)
             assert "error" in result, kwargs
             assert not captured
+
+    def test_service_name_keeps_strict_blocklist(self):
+        """The service feeds journalctl -u <unit> — metachars stay refused."""
+        result, captured = self._call(service="aitbc-market;id", host="node2")
+        assert "error" in result
+        assert not captured
+
+    def test_shell_metachars_reach_command_quoted(self):
+        """Metacharacters are inert once shlex-quoted — alternation and
+        friends now pass validation (gap-log row 20)."""
+        for kwargs, needle in (
+            ({"since": "10m; rm -rf /"}, "--since='10m; rm -rf /'"),
+            ({"since": "10m$(whoami)"}, "--since='10m$(whoami)'"),
+            ({"since": "10m`id`"}, "--since='10m`id`'"),
+            ({"grep": "a|cat /etc/passwd"}, "--grep='a|cat /etc/passwd'"),
+            ({"grep": "WARN|ERROR"}, "--grep='WARN|ERROR'"),
+        ):
+            result, captured = self._call(service="aitbc-market", host="node2", **kwargs)
+            assert result["returncode"] == 0, kwargs
+            assert needle in captured[0], (needle, captured[0])
 
     def test_priority_reaches_command(self):
         """CLI-5: priority maps to journalctl -p on the CLI side."""
