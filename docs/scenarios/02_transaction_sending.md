@@ -69,11 +69,11 @@ The `send` command signs a transfer transaction with the sender wallet's private
 
 ```bash
 # Send 10 AIT from my-agent-wallet to a recipient address
+# (--fee is optional; it defaults to the standard chain fee)
 aitbc transactions send \
   --from my-agent-wallet \
   --to 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8 \
-  --amount 10.0 \
-  --fee 0.001
+  --amount 10.0
 ```
 
 **Password resolution** (in priority order):
@@ -145,7 +145,7 @@ aitbc transactions status --tx-hash 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c
 
 ### Step 5: Send Batch Transactions
 
-Create a JSON file with multiple transactions and submit them all at once. Each entry requires `from_wallet`, `to_address`, and `amount`; `fee` is optional (defaults to 10.0).
+Create a JSON file with multiple transactions and submit them all at once. Each entry requires `from_wallet`, `to_address`, and `amount`; `fee` is optional (defaults to the standard chain fee, 0.01 AIT).
 
 ```bash
 cat > /tmp/batch_tx.json << 'EOF'
@@ -154,7 +154,7 @@ cat > /tmp/batch_tx.json << 'EOF'
     "from_wallet": "my-agent-wallet",
     "to_address": "0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8",
     "amount": 5.0,
-    "fee": 0.001
+    "fee": 0.01
   },
   {
     "from_wallet": "my-agent-wallet",

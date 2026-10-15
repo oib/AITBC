@@ -208,7 +208,7 @@ def aitbc_transactions_send(
     from_wallet: Annotated[str, Field(description="From wallet name")],
     to_address: Annotated[str, Field(description="To address")],
     amount: Annotated[str, Field(description="Amount to send")],
-    fee: Annotated[str | None, Field(description="Transaction fee")] = None,
+    fee: Annotated[str | None, Field(description="Transaction fee (standard chain fee)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
