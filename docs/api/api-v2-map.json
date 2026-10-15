@@ -6291,6 +6291,27 @@
           ]
         },
         {
+          "public": "/api/v2/explorer/api/messages",
+          "upstream": "/api/messages",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/messages/state",
+          "upstream": "/api/messages/state",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/messages/topics",
+          "upstream": "/api/messages/topics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/explorer/api/search/blocks",
           "upstream": "/api/search/blocks",
           "methods": [
