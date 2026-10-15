@@ -330,22 +330,23 @@ class TestDryRun:
         assert result.exit_code != 0
 
 
+@pytest.fixture()
+def broadcast_sink(monkeypatch):
+    calls = []
+
+    def _capture(ctx, url, raw, label="ETH transfer"):
+        calls.append(raw)
+        return "0x" + "ab" * 32
+
+    monkeypatch.setattr(eth_send_mod, "broadcast_raw", _capture)
+    monkeypatch.setattr(
+        "aitbc_cli.commands.wallet._load_wallet",
+        lambda *a, **k: {"address": SENDER.address, "private_key": SENDER.key.hex()},
+    )
+    return calls
+
+
 class TestConfirm:
-    @pytest.fixture()
-    def broadcast_sink(self, monkeypatch):
-        calls = []
-
-        def _capture(ctx, url, raw, label="ETH transfer"):
-            calls.append(raw)
-            return "0x" + "ab" * 32
-
-        monkeypatch.setattr(eth_send_mod, "broadcast_raw", _capture)
-        monkeypatch.setattr(
-            "aitbc_cli.commands.wallet._load_wallet",
-            lambda *a, **k: {"address": SENDER.address, "private_key": SENDER.key.hex()},
-        )
-        return calls
-
     def test_signs_and_broadcasts_once(self, wallet_file, rpc_fn, broadcast_sink):
         rpc_fn(BASE_RPC)
         result = CliRunner().invoke(eth_send, _argv(wallet_file, "--confirm", "--password", "x"), obj={})
@@ -405,3 +406,60 @@ class TestConfirm:
         assert result.exit_code == 0, result.output
         assert "12345" in result.output
         assert "0x1" in result.output
+
+
+class TestGasCeiling:
+    """CLI-8b: --confirm refuses to sign when eth_gasPrice exceeds
+    --max-gas-gwei (default 50); the key is never decrypted."""
+
+    def test_over_ceiling_refuses_before_key_load(self, wallet_file, rpc_fn, monkeypatch):
+        broadcasts = []
+        monkeypatch.setattr(eth_send_mod, "broadcast_raw", lambda *a, **k: broadcasts.append(a))
+        monkeypatch.setattr(
+            "aitbc_cli.commands.wallet._load_wallet",
+            lambda *a, **k: pytest.fail("wallet decrypted despite over-ceiling gas price"),
+        )
+        rpc_fn({**BASE_RPC, "eth_gasPrice": hex(100 * 10**9)})
+        result = CliRunner().invoke(eth_send, _argv(wallet_file, "--confirm", "--password", "x"), obj={})
+        assert result.exit_code != 0
+        assert "--max-gas-gwei" in result.output
+        assert "100" in result.output
+        assert broadcasts == []
+
+    def test_raised_ceiling_allows_send(self, wallet_file, rpc_fn, broadcast_sink):
+        rpc_fn({**BASE_RPC, "eth_gasPrice": hex(100 * 10**9)})
+        result = CliRunner().invoke(
+            eth_send,
+            _argv(wallet_file, "--confirm", "--password", "x", "--max-gas-gwei", "150"),
+            obj={},
+        )
+        assert result.exit_code == 0, result.output
+        assert len(broadcast_sink) == 1
+        fields = rlp.decode(bytes.fromhex(broadcast_sink[0][2:]))
+        assert int.from_bytes(fields[1], "big") == 100 * 10**9  # gasPrice signed as quoted
+
+    def test_boundary_price_sends(self, wallet_file, rpc_fn, broadcast_sink):
+        rpc_fn({**BASE_RPC, "eth_gasPrice": hex(50 * 10**9)})  # == default ceiling
+        result = CliRunner().invoke(eth_send, _argv(wallet_file, "--confirm", "--password", "x"), obj={})
+        assert result.exit_code == 0, result.output
+        assert len(broadcast_sink) == 1
+
+    def test_dry_run_marks_over_ceiling_but_prints(self, wallet_file, rpc_fn):
+        rpc_fn({**BASE_RPC, "eth_gasPrice": hex(100 * 10**9)})
+        result = CliRunner().invoke(eth_send, _argv(wallet_file), obj={})
+        assert result.exit_code == 0, result.output
+        assert "DRY RUN" in result.output
+        assert "over_gas_ceiling" in result.output
+
+    @pytest.mark.parametrize("bad", ["0", "-1"])
+    def test_nonpositive_ceiling_refuses(self, bad, wallet_file, rpc_fn):
+        rpc_fn(BASE_RPC)
+        result = CliRunner().invoke(eth_send, _argv(wallet_file, "--max-gas-gwei", bad), obj={})
+        assert result.exit_code != 0
+        assert "--max-gas-gwei must be positive" in result.output
+
+    def test_sub_wei_ceiling_refuses(self, wallet_file, rpc_fn):
+        rpc_fn(BASE_RPC)
+        result = CliRunner().invoke(eth_send, _argv(wallet_file, "--max-gas-gwei", "0.0000000001"), obj={})
+        assert result.exit_code != 0
+        assert "9 decimals" in result.output

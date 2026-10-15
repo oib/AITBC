@@ -8,6 +8,9 @@ the wallet's plaintext address — no password resolution, no key
 decryption, no signature, no broadcast. ``--confirm`` resolves the wallet
 password through the standard sources, signs once and broadcasts once;
 ``--wait`` then polls the receipt and prints status and block.
+``--max-gas-gwei`` caps the fee: when ``eth_gasPrice`` comes back above
+the ceiling the command refuses before any key is decrypted or signed —
+raise it explicitly to send into a gas spike.
 
 Testnet only until v1: ``--chain-id`` must be 11155111 — every other id,
 mainnet's 1 included, refuses before the wallet file is even opened, and
@@ -41,6 +44,9 @@ from .bridge import _resolve_wallet_path
 
 SEPOLIA_CHAIN_ID = 11155111
 DEFAULT_MAX_ETH = Decimal("0.1")
+# 50 gwei mirrors the "acceptable" bound in contracts/scripts/check-gas-price.js;
+# Sepolia's usual price is far below it, so the default only binds on a spike.
+DEFAULT_MAX_GAS_GWEI = Decimal("50")
 RECEIPT_POLL_SECONDS = 3.0
 RECEIPT_TIMEOUT_SECONDS = 120.0
 
@@ -86,6 +92,16 @@ def _validated_wei(ctx, amount_eth: Decimal, max_eth: Decimal) -> int:
     scaled = amount_eth * Decimal(10**18)
     if scaled != scaled.to_integral_value():
         abort(ctx, f"--amount-eth {amount_eth} has more than 18 decimals — not representable in wei")
+    return int(scaled)
+
+
+def _validated_gas_ceiling(ctx, max_gas_gwei: Decimal) -> int:
+    """Positive gwei ceiling, returned as wei for the exact integer compare."""
+    if max_gas_gwei <= 0:
+        abort(ctx, "--max-gas-gwei must be positive")
+    scaled = max_gas_gwei * Decimal(10**9)
+    if scaled != scaled.to_integral_value():
+        abort(ctx, f"--max-gas-gwei {max_gas_gwei} has more than 9 decimals — not representable in wei")
     return int(scaled)
 
 
@@ -157,6 +173,14 @@ def _wait_for_receipt(ctx, rpc_url: str, tx_hash: str) -> dict[str, Any]:
     show_default=True,
     help="Per-call send cap — raise explicitly for larger transfers",
 )
+@click.option(
+    "--max-gas-gwei",
+    "max_gas_gwei",
+    type=DECIMAL,
+    default=DEFAULT_MAX_GAS_GWEI,
+    show_default=True,
+    help="Gas-price ceiling in gwei — --confirm refuses to sign above it",
+)
 @click.option("--confirm", is_flag=True, help="Sign and broadcast once (default: dry run, prints the unsigned transfer)")
 @click.option("--wait", "wait_receipt", is_flag=True, help="With --confirm: poll the receipt and print status and block")
 @wallet_password_options
@@ -169,6 +193,7 @@ def eth_send(
     eth_rpc_url: str | None,
     wallet_name: str | None,
     max_eth: Decimal,
+    max_gas_gwei: Decimal,
     confirm: bool,
     wait_receipt: bool,
     password: str | None,
@@ -188,6 +213,7 @@ def eth_send(
         abort(ctx, "--wait only applies with --confirm — a dry run has no transaction to wait on")
         return
     value_wei = _validated_wei(ctx, amount_eth, max_eth)
+    gas_ceiling_wei = _validated_gas_ceiling(ctx, max_gas_gwei)
 
     wallet_name, wallet_path = _send_wallet(ctx, wallet_name)
     from_address = _wallet_address_only(ctx, wallet_path)
@@ -219,6 +245,9 @@ def eth_send(
         "nonce": nonce,
         "gas_limit": gas_limit,
         "gas_price_wei": gas_price_wei,
+        "gas_price_gwei": str(Decimal(gas_price_wei) / Decimal(10**9)),
+        "gas_ceiling_gwei": str(max_gas_gwei),
+        "over_gas_ceiling": gas_price_wei > gas_ceiling_wei,
         "fee_estimate_wei": fee_wei,
         "fee_estimate_eth": str(Decimal(fee_wei) / Decimal(10**18)),
         "balance_wei": balance_wei,
@@ -243,6 +272,7 @@ def eth_send(
         nonce=nonce,
         gas_price_wei=gas_price_wei,
         gas_limit=gas_limit,
+        gas_ceiling_wei=gas_ceiling_wei,
         balance_wei=balance_wei,
         fee_wei=fee_wei,
         password=password,
@@ -265,6 +295,7 @@ def _broadcast_transfer(
     nonce: int,
     gas_price_wei: int,
     gas_limit: int,
+    gas_ceiling_wei: int,
     balance_wei: int,
     fee_wei: int,
     password,
@@ -272,7 +303,14 @@ def _broadcast_transfer(
     password_stdin,
     wait_receipt: bool,
 ) -> None:
-    """The --confirm leg: balance gate, one signature, one broadcast."""
+    """The --confirm leg: gas-ceiling and balance gates, one signature, one broadcast."""
+    if gas_price_wei > gas_ceiling_wei:
+        abort(
+            ctx,
+            f"eth_gasPrice {Decimal(gas_price_wei) / Decimal(10**9)} gwei exceeds --max-gas-gwei "
+            f"{Decimal(gas_ceiling_wei) / Decimal(10**9)} — refusing to sign; raise the flag to send into a gas spike",
+        )
+        return
     if balance_wei < value_wei + fee_wei:
         abort(
             ctx,
