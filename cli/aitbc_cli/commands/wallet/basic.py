@@ -1,6 +1,7 @@
 """Basic wallet commands for AITBC CLI"""
 
 import json
+import os
 import shutil
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -12,12 +13,13 @@ import click
 from ...config import get_config
 from ...utils import DECIMAL, error, output, resolve_output_format, success
 from ...utils.address import to_eip55
-from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
+from ...utils.error_handling import abort
+from ...utils.wallet_secret import resolve_new_wallet_password, resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from aitbc.utils import ait_to_units, format_ait
-from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
+from . import _load_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
 
 logger = get_logger(__name__)
@@ -28,20 +30,36 @@ logger = get_logger(__name__)
 
   aitbc wallet create --name genesis
 
-  aitbc wallet create --name shop --type simple --no-encrypt"""
+  aitbc wallet create --name shop --type simple --no-encrypt
+
+  aitbc wallet create --name shop --password-file ~/.aitbc/wallets/.shop.pw"""
 )
 @click.option("--name", "name", required=True, help="Wallet name.")
 @click.option("--type", "wallet_type", default="hd", help="Wallet type (hd, simple)")
 @click.option("--no-encrypt", is_flag=True, help="Skip wallet encryption (not recommended)")
+@wallet_password_options
 @click.pass_context
-def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
-    """Create a new wallet with an optional type and password encryption."""
+def create(
+    ctx, name: str, wallet_type: str, no_encrypt: bool, password: str | None, password_file: str | None, password_stdin: bool
+):
+    """Create a new wallet with an optional type and password encryption.
+
+    The encryption password resolves through the WAL-1 standard sources:
+    ``--password-stdin``/``--password-file``/``--password`` (deprecated),
+    ``AITBC_WALLET_PASSWORD_FILE``, ``AITBC_WALLET_PASSWORD[_<NAME>]``, the
+    system keyring, or — on a TTY only — the two-prompt confirm loop, which
+    also stores it in the keyring. ``--no-encrypt`` skips resolution
+    entirely and cannot be combined with a password flag.
+    """
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
     if wallet_path.exists():
         error(f"Wallet '{name}' already exists")
         return
+
+    if no_encrypt and (password is not None or password_file or password_stdin):
+        abort(ctx, "--no-encrypt cannot be combined with a --password* option")
 
     # Generate new wallet
     if wallet_type == "hd":
@@ -75,13 +93,15 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     }
 
     # Get password for encryption unless skipped
-    password = None
+    resolved_password = None
     if not no_encrypt:
         success("Wallet encryption is enabled. Your private key will be encrypted at rest.")
-        password = _get_wallet_password(name)
+        resolved_password = resolve_new_wallet_password(
+            name, password=password, password_file=password_file, password_stdin=password_stdin, ctx=ctx
+        )
 
     # Save wallet
-    _save_wallet(wallet_path, wallet_data, password if password else None)
+    _save_wallet(wallet_path, wallet_data, resolved_password)
 
     success(f"Wallet '{name}' created successfully")
     output(
@@ -267,14 +287,35 @@ def backup(ctx, name: str, destination: str | None):
 @wallet.command(
     epilog="""Examples:
 
-  aitbc wallet restore --backup-path /var/lib/aitbc/wallets/genesis.bak --name genesis"""
+  aitbc wallet restore --backup-path /var/lib/aitbc/wallets/genesis.bak --name genesis
+
+  aitbc wallet restore --backup-path shop.bak --name shop --password-file ~/.aitbc/wallets/.shop.pw"""
 )
 @click.option("--backup-path", "backup_path", required=True, help="Path to the backup file.")
 @click.option("--name", "name", required=True, help="Wallet name.")
 @click.option("--force", is_flag=True, help="Override existing wallet")
+@click.option(
+    "--password-file",
+    type=click.Path(dir_okay=False),
+    help="Path to a file containing only the wallet password (mode 0600, owned by you) — encrypts a plaintext backup on restore",
+)
+@click.option(
+    "--password-stdin",
+    is_flag=True,
+    help="Read the wallet password from one line of standard input — encrypts a plaintext backup on restore",
+)
 @click.pass_context
-def restore(ctx, backup_path: str, name: str, force: bool):
-    """Restore a wallet from a backup file with an optional force override."""
+def restore(ctx, backup_path: str, name: str, force: bool, password_file: str | None, password_stdin: bool):
+    """Restore a wallet from a backup file with an optional force override.
+
+    Encryption state is preserved verbatim: an already-encrypted backup is
+    written back as-is (still under its original password). A plaintext
+    backup stays plaintext unless ``--password-file`` or ``--password-stdin``
+    is given — then the restored key is encrypted under it (PBKDF2 + Fernet,
+    atomic 0600 write). There is deliberately no ``--password`` argv option:
+    a password flag on an already-encrypted backup is an explicit error,
+    never a silent ignore; nothing is written in that case.
+    """
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -290,14 +331,41 @@ def restore(ctx, backup_path: str, name: str, force: bool):
     with open(backup_path) as f:
         wallet_data = json.load(f)
 
+    plaintext_key = wallet_data.get("private_key")
+    wants_encryption = password_file is not None or password_stdin
+    if wants_encryption and not isinstance(plaintext_key, str):
+        abort(
+            ctx,
+            "backup is already encrypted; --password* applies only to plaintext backups"
+            if isinstance(plaintext_key, dict)
+            else "backup has no plaintext private_key for --password* to encrypt",
+        )
+
     # Update wallet name if needed
     wallet_data["wallet_id"] = name
     wallet_data["restored_at"] = datetime.now(UTC).isoformat() + "Z"
 
-    # Save restored wallet (preserve encryption state)
-    # If wallet was encrypted, we save it as-is (still encrypted with original password)
-    with open(wallet_path, "w") as f:
-        json.dump(wallet_data, f, indent=2)
+    if wants_encryption:
+        from . import decrypt_value, encrypt_value
+
+        password = resolve_new_wallet_password(
+            name, password=None, password_file=password_file, password_stdin=password_stdin, ctx=ctx
+        )
+        encrypted_key = encrypt_value(plaintext_key, password)
+        # Before writing, prove the encrypted blob round-trips to the SAME
+        # address the backup stores — never print the key.
+        derived = _derive_wallet_address({"private_key": decrypt_value(encrypted_key, password)})
+        expected = wallet_data.get("address") or _derive_wallet_address(wallet_data)
+        if not expected or derived != expected:
+            abort(ctx, "refusing to restore: key under the new password does not derive the backup's address")
+        wallet_data["private_key"] = encrypted_key
+        wallet_data["encrypted"] = True
+        _write_wallet_atomic(wallet_path, wallet_data, mode=0o600)
+    else:
+        # Save restored wallet (preserve encryption state)
+        # If wallet was encrypted, we save it as-is (still encrypted with original password)
+        with open(wallet_path, "w") as f:
+            json.dump(wallet_data, f, indent=2)
 
     success(f"Wallet '{name}' restored from backup")
     output(
@@ -308,6 +376,28 @@ def restore(ctx, backup_path: str, name: str, force: bool):
         },
         resolve_output_format(ctx),
     )
+
+
+def _write_wallet_atomic(wallet_path: Path, wallet_data: dict[str, Any], mode: int = 0o600):
+    """Write a wallet file atomically: same-dir temp file, chmod, then rename.
+
+    No intermediate plaintext copy and no partially written wallet file —
+    the target is only ever replaced by the fully serialized JSON.
+    """
+    tmp_path = wallet_path.parent / f".{wallet_path.name}.tmp"
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump(wallet_data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp_path, mode)
+        os.replace(tmp_path, wallet_path)
+    except BaseException:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def _derive_wallet_address(wallet_data: dict[str, Any]) -> str | None:
