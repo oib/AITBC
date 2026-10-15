@@ -1875,6 +1875,10 @@ narrative; this list cites each remaining commit by hash so
 - `77ebd3aafc` feat(cli): CLI-2 — system file-info + env-names, the two safe reads
 - `facb65ebc3` feat(cli): CLI-2 — aitbc exchange verify, read-only book-checker wrapper
 - `b710f2574d` fix(cli): OPS-6 — exchange base default is the bare hub origin
+- `1c51df308c` docs(release): OPS-6 changelog + commit index
+- `f0bc462820` fix(wallet): skip sell escrow slot in file import
+- `e64b0b1230` fix(cli): CLI-3 — envelope chain-id resolves on /rpc-suffixed bases + island creds fallback
+- `9e7daa8730` feat(cli): CLI-3 — aitbc config get <key> prints a stored value
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2150,3 +2154,37 @@ Tests: bare-origin default, explicit-env precedence, and the updated
 process-env assertion all pass in `test_hub_url_from_env.py`.
 
 Commits: `b710f2574` (hub.py default + hub_origin + test + scenario doc).
+
+### CLI-3: signed exchange ops resolve the envelope chain-id — /rpc-suffix probe fix + island-creds fallback + `config get <key>` (2026-10-15)
+
+Every signed exchange op (`node register`, `node set-payout`,
+`order place`, `order fund`, `order cancel`) resolved its envelope
+chain_id by probing the node's RPC — `get_chain_id_from_health` tried
+`<base>/rpc/proposer` then `<base>/health` expecting a ROOT base, while
+`get_rpc_endpoint()` and node `blockchain_rpc_url` config hand it
+`/rpc`-suffixed bases (`https://<hub>/rpc`). The probes hit
+`/rpc/rpc/proposer` → 404 → `ChainIdLookupError` on every island host;
+node2's first `set-payout` needed `--chain-id ait-hub.aitbc.bubuit.net`
+to get through. The probe now strips one trailing `/rpc` before building
+its client, so bare and suffixed bases resolve identically — this also
+fixes the same latent failure in the `ai.py`, `agent_sdk.py`,
+`gpu_resources.py` and `market/gpu.py` signing paths that feed
+`resolve_chain_id` the same bases.
+
+`_envelope_chain_id` additionally falls back to the island credentials'
+`island_chain_id` (the required field written and validated at join)
+when no node answers the probe — covers hosts whose only RPC endpoint
+is unreachable. Explicit `--chain-id`/`CHAIN_ID` still win, the strict
+probe still runs for hosts without credentials, and the fail-closed
+abort is last — never a silent default.
+
+`aitbc config get <key>` is now a real subcommand (it was an alias for
+`config show` that ignored the key — OPS-5 had to read yaml via ssh
+grep): prints the stored value of one key, exits nonzero when absent or
+the file is missing, refuses the file-info denylist plus
+passphrase/credential, and keeps bare `config get` as the show alias.
+`--global` reads the global config file. MCP wrapper regenerated for the
+new signature.
+
+Commits: `e64b0b123` (probe normalization + creds fallback + tests),
+`9e7daa873` (config get + tests + MCP regen).
