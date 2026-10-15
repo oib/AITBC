@@ -1874,6 +1874,7 @@ narrative; this list cites each remaining commit by hash so
 - `4b214fdb29` fix(mcp): CLI-2 — optional generated-tool params get a None default
 - `77ebd3aafc` feat(cli): CLI-2 — system file-info + env-names, the two safe reads
 - `facb65ebc3` feat(cli): CLI-2 — aitbc exchange verify, read-only book-checker wrapper
+- `b710f2574d` fix(cli): OPS-6 — exchange base default is the bare hub origin
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2129,3 +2130,23 @@ with five amendments, all folded in).
 Commits: `4b214fdb2` (MCP schema fix + regen + None-skip test),
 `77ebd3aaf` (file-info + env-names + tests + docs), `facb65ebc`
 (exchange verify + tests + docs).
+
+
+### OPS-6: exchange base default is the bare hub origin (2026-10-15)
+
+`hub_exchange_url()` fell back to `hub_service_url("exchange")` —
+`https://<hub>/exchange` — but hub's `/exchange/` prefix is deliberately
+the wallet service's mount (exchange-deposit routes), so every node with
+no explicit `exchange_service_url`/`HUB_EXCHANGE_URL` resolved the
+signed-order surface to the wrong service and `aitbc exchange …` failed
+without `--exchange-url`. The fallback is now the bare hub origin via a
+new `hub_origin()` helper: the signed-order routes publish at their
+natural `/api/*` paths (OPS-4 mounts them there). Explicit
+`HUB_EXCHANGE_URL`/`EXCHANGE_SERVICE_URL`/config values still win —
+nodes carrying the stale explicit `…/exchange` value are fixed by
+OPS-5's per-node config step, not by this change.
+
+Tests: bare-origin default, explicit-env precedence, and the updated
+process-env assertion all pass in `test_hub_url_from_env.py`.
+
+Commits: `b710f2574` (hub.py default + hub_origin + test + scenario doc).
