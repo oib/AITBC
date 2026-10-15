@@ -43,9 +43,26 @@ Canonical routes (`/rpc/messaging/*`; public, rate-limited):
 | `GET /rpc/messaging/search?q=&limit=` | Body search (min 3 chars, bounded) |
 | `GET /rpc/messaging/state` | Totals + `index_height` |
 
-`limit` caps at 100; `cursor` is an opaque keyset token. Every response
-carries `chain_id` and `index_height` so a lagging node is
-distinguishable from an empty forum.
+`limit` caps at 100; `cursor` is an opaque keyset token
+(`<block_height>:<tx_hash>` — deterministic across nodes; the local row
+id is never used). Every response carries `chain_id` and `index_height`
+so a lagging node is distinguishable from an empty forum.
+
+`timestamp` in a message view is the **block time** of the sealing block
+(`Block.timestamp`), the only clock every node agrees on — the
+transaction row's own `timestamp` is nullable and submitter-set.
+`list_topics`' `last_timestamp` is the block time at the topic's latest
+height.
+
+`scan_bounded` is only meaningful on `messages`/`search` — those walks
+scan at most 8192 SQL-prefiltered candidate rows per request. `topics`
+and `state` aggregate in SQL over the whole prefiltered set (exact
+counts for every rule SQL expresses; `scan_bounded` is always `false`
+there). Residual: a row passing the SQL narrowing but failing a
+Python-only predicate rule (canonical author comparison, control
+characters in the body, malformed UTF-8) is still *counted* in topics/
+state aggregates until a materialized index exists — it can never appear
+as a listed message.
 
 The legacy `/rpc/contracts/messaging/*` read paths remain as aliases
 (MCP tool compatibility). The old mutation routes — `messages/post`,
@@ -76,11 +93,13 @@ error.
   envelope build/validate (`envelope_error` is the single validity
   predicate), bridge-row exclusion.
 - `apps/blockchain-node/src/aitbc_chain/messaging_index.py` — the
-  index: SQL cheap-filter (`type='MESSAGE'`, sealed rows only,
-  `aitbc_msg` present) → Python validity scan (bounded, before
-  counts/grouping/pagination) → keyset cursor. No new table or
-  migration: the `transaction` rows the proposer/follower paths already
-  write are the derived model, and reorg row-deletion keeps it correct.
+  index: an exact SQL narrowing (MESSAGE + sealed + `aitbc_msg` object,
+  `v` integer 1, `kind`, canonical topic slug, body bytes, `parent`
+  shape) over **selected columns** — the payload blob never leaves
+  SQLite — then the Python predicate as final arbiter for page reads;
+  aggregates are SQL-side. No new table or migration: the `transaction`
+  rows the proposer/follower paths already write are the derived model,
+  and reorg row-deletion keeps it correct.
 - `apps/blockchain-node/src/aitbc_chain/rpc/messaging.py` +
   `routers/messaging.py` — canonical routes; `rpc/contracts.py`
   delegates the legacy read aliases and returns 501 on old mutations.
