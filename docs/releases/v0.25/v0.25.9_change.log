@@ -1882,8 +1882,13 @@ narrative; this list cites each remaining commit by hash so
 - `8a0218e8d1` feat(cli): REPO-1 — file-info denylist extension, env-names case, verify DB containment, OPS-4 nginx example
 - `bfaa13b440` fix(cli): CLI-3a — order fund --fee defaults to DEFAULT_TX_FEE_AIT (0.01)
 - `8159a73a40` fix(cli): CLI-3a — wallet send reports submitted-not-confirmed; --wait seals
-- `5f6178d52c` feat(cli): WAL-2 — wallet create/restore resolve passwords via the WAL-1 sources
 - `f8933199e2` fix(cli): CLI-4 — order fund forwards wallet password options, real encrypted-wallet tests
+- `31d35e687b` docs(release): CLI-3b changelog section split
+- `11d50f02ec` docs(release): CLI-4 changelog + commit index
+- `5f6178d52c` feat(cli): WAL-2 — wallet create/restore resolve passwords via the WAL-1 sources
+- `33dad768d8` docs(release): WAL-2 changelog + commit index
+- `a0b3dd3c14` fix(cli): REPO-2 — send/subscribe/batch --fee defaults track DEFAULT_TX_FEE_AIT
+- `87b830895b` fix(ops): REPO-2 — exchange_verify eth_address severity is settlement-conditional
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2320,3 +2325,32 @@ existing wallet + wallet_secret suites, ruff, mypy ratchet,
 check-cli-docs, check-mcp-cli-drift and check-c901-ratchet all pass.
 
 Commits: `5f6178d52` (resolver + create/restore + tests + MCP regen).
+
+### REPO-2: fee defaults track DEFAULT_TX_FEE_AIT + verifier eth_address severity (2026-10-15)
+
+`transactions send` and `ipfs island subscribe` still defaulted `--fee`
+to the string `"0.001"`, and the `transactions batch` per-entry fallback
+did the same — a tenth of the chain standard fee. All three now import
+and use `DEFAULT_TX_FEE_AIT` (0.01); the options show the default, and
+the batch help/epilog plus the transaction-sending scenario doc stop
+naming the stale value (the doc also claimed batch fee "defaults to
+10.0"). `cli/tests/test_fee_defaults.py` proves default ==
+`DEFAULT_TX_FEE_AIT` and explicit `--fee`/per-entry `fee` wins for all
+three paths. The remaining `0.001` sites are non-signing (bridge
+estimate's fake display data, exchange `min-order-size`, doc examples)
+or explicit opt-in values (the MCP forwarding test); the staking and
+wallet `--fee` options already agree at literal `0.01`.
+
+`scripts/ops/exchange_verify.py` reported a registered `node_registry`
+row without `eth_address` as an unconditional FAIL — but that is an
+expected transitional state while `EXCHANGE_SETTLEMENT_ENABLED` is off
+(a node can register before setting its payout address; the 15 Oct run
+cost a director waiver). The flag lives in the exchange service env,
+unreachable by an offline verifier whose own contract is "no environment
+reads — all endpoints/addresses come from flags", so the script gains
+`--settlement`: passed means the flag is on and the check tightens to
+FAIL only when the node already has orders; unset (or the flag being
+off) means payout is not yet needed and it is a WARN — mirroring the
+service's own unset=off default. `aitbc exchange verify` forwards the
+flag. Fixture-DB tests cover all three cases plus the
+eth_address-present no-op; SQLite stays `mode=ro`.
