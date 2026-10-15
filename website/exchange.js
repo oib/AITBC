@@ -161,6 +161,8 @@ function showConnectedAccount(account) {
     if (span && account) {
         span.textContent = `${account.slice(0, 6)}...${account.slice(-4)}`;
         span.setAttribute('aria-label', account);
+        const copyAccountBtn = document.getElementById('copy-account-btn');
+        if (copyAccountBtn) copyAccountBtn.dataset.copy = account;
     }
     const buyBtn = document.getElementById('buy-with-eth-btn');
     if (buyBtn && lastEstimate) {
@@ -264,28 +266,6 @@ async function calculateDeposit() {
     }
 }
 
-function copyAddress() {
-    const addressElement = document.getElementById('deposit-address');
-    const address = addressElement ? addressElement.textContent : '';
-    if (!address || address === 'Loading...') return;
-    navigator.clipboard.writeText(address).then(() => {
-        const feedback = document.getElementById('copy-feedback');
-        feedback.style.display = 'block';
-        setTimeout(() => { feedback.style.display = 'none'; }, 2000);
-    }).catch(err => console.error('Failed to copy:', err));
-}
-
-function copyTxDataHex() {
-    const hexElement = document.getElementById('tx-data-hex');
-    const hex = hexElement ? hexElement.textContent : '';
-    if (!hex || hex === '-') return;
-    navigator.clipboard.writeText(hex).then(() => {
-        const feedback = document.getElementById('copy-feedback-hex');
-        feedback.style.display = 'block';
-        setTimeout(() => { feedback.style.display = 'none'; }, 2000);
-    }).catch(err => console.error('Failed to copy hex:', err));
-}
-
 // ─── Deposit status tracking ───
 let trackPollHandle = null;
 
@@ -300,13 +280,13 @@ function renderDeposit(deposit) {
     const resultEl = document.getElementById('track-result');
     if (!resultEl) return;
     const aitTxLink = deposit.ait_tx_hash
-        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener noreferrer" aria-label="AIT transaction ${escapeHtml(deposit.ait_tx_hash)}">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a>`
+        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener noreferrer" aria-label="AIT transaction ${escapeHtml(deposit.ait_tx_hash)}">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a> ${aitbcCopyBtn(deposit.ait_tx_hash, 'transaction hash')}`
         : '<span class="muted-text">pending</span>';
     const errLine = deposit.status === 'failed' && deposit.error_message
         ? `<p class="error-box" style="margin-top:0.5rem;">${escapeHtml(deposit.error_message)}</p>`
         : '';
     const fromShort = deposit.eth_from_address
-        ? `<span aria-hidden="true">${escapeHtml(deposit.eth_from_address.slice(0, 6))}...${escapeHtml(deposit.eth_from_address.slice(-4))}</span><span class="visually-hidden">${escapeHtml(deposit.eth_from_address)}</span>`
+        ? `<span aria-hidden="true">${escapeHtml(deposit.eth_from_address.slice(0, 6))}...${escapeHtml(deposit.eth_from_address.slice(-4))}</span><span class="visually-hidden">${escapeHtml(deposit.eth_from_address)}</span> ${aitbcCopyBtn(deposit.eth_from_address, 'sender address')}`
         : '-';
     resultEl.innerHTML = `
         <p><strong>Status:</strong> ${statusBadge(deposit.status)}</p>
@@ -437,17 +417,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const buyBtn = document.getElementById('buy-with-eth-btn');
     if (buyBtn) buyBtn.addEventListener('click', sendBridgeTransaction);
 
-    const depositBox = document.getElementById('deposit-address-box');
-    if (depositBox) depositBox.addEventListener('click', copyAddress);
-    if (depositBox) depositBox.addEventListener('keydown', function(e) {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target === this) { e.preventDefault(); copyAddress(); }
-    });
 
-    const hexBox = document.getElementById('tx-data-hex-box');
-    if (hexBox) hexBox.addEventListener('click', copyTxDataHex);
-    if (hexBox) hexBox.addEventListener('keydown', function(e) {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target === this) { e.preventDefault(); copyTxDataHex(); }
-    });
 
     const trackBtn = document.getElementById('track-deposit-btn');
     if (trackBtn) trackBtn.addEventListener('click', trackDeposit);

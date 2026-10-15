@@ -454,13 +454,6 @@ input[type="number"] {
     margin-top: 1rem;
 }
 .deposit-instructions.visible { display: block; }
-.copy-feedback {
-    color: var(--success);
-    font-size: 0.85rem;
-    margin-top: 0.5rem;
-    display: none;
-}
-.copy-feedback.visible { display: block; }
 .form-label {
     display: block;
     margin-bottom: 0.5rem;
@@ -617,32 +610,69 @@ input[type="number"] {
     user-select: none;
 }
 
-/* Copy button styles */
+/* Shared copy control (WEB-FIX-2): one compact button, used next to every
+   truncated hash/address. The >=44px hit area lives in the coarse/mobile
+   media block below, so desktop table rows stay compact. */
 .copy-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: 0.75rem;
-    padding: 0.4rem;
-    margin-left: 0.25rem;
-    border-radius: 3px;
-    opacity: 0.6;
-    transition: opacity 0.2s, background 0.2s;
-    color: var(--text-muted);
-    min-width: 44px;
-    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    padding: 0.15em 0.5em;
+    margin-left: 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    cursor: pointer;
     vertical-align: middle;
+    white-space: nowrap;
 }
 .copy-btn:hover {
-    opacity: 1;
-    background: var(--border);
+    color: var(--text);
+    border-color: var(--text-muted);
 }
-.result-hash .copy-btn,
-.tx-hash .copy-btn {
-    vertical-align: middle;
+.copy-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+.copy-btn.copy-ok {
+    color: var(--success);
+    border-color: var(--success);
+}
+.copy-btn.copy-fail {
+    color: var(--error, #ef4444);
+    border-color: var(--error, #ef4444);
+}
+/* Fallback textarea: parked offscreen so it can be selected for
+   execCommand('copy'); promoted to a visible box only when the copy fails,
+   so the user can press Ctrl+C on the pre-selected value. */
+.copy-fallback {
+    position: fixed;
+    top: 0;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+.copy-fallback.copy-fallback-visible {
+    left: 50%;
+    bottom: 1rem;
+    top: auto;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: 90vw;
+    height: auto;
+    opacity: 1;
+    z-index: 60;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85rem;
 }
 
 /* Block card expand/collapse */
@@ -1790,6 +1820,7 @@ a.btn-secondary {
 }
 .deposit-address {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1rem;
@@ -1799,19 +1830,7 @@ a.btn-secondary {
     font-family: monospace;
     font-size: 0.85rem;
     word-break: break-all;
-    cursor: pointer;
     margin: 0.5rem 0;
-}
-.copy-hint {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-    margin-left: 1rem;
-}
-.copy-feedback {
-    color: var(--success);
-    font-size: 0.85rem;
-    display: none;
 }
 .bridge-status-row {
     margin-top: 1.5rem;
@@ -2117,6 +2136,15 @@ a.btn-secondary {
         padding: 0.75rem 0.25rem;
         margin: -0.75rem -0.25rem;
         min-height: 44px;
+        box-sizing: border-box;
+    }
+    /* Shared copy control: same padding-plus-compensating-margin trick —
+       a >=44px hit area without growing the row. */
+    .copy-btn {
+        padding: 0.75rem 0.5rem;
+        margin: -0.75rem -0.25rem -0.75rem 0.35rem;
+        min-height: 44px;
+        min-width: 44px;
         box-sizing: border-box;
     }
     /* iOS zoom-on-focus guard: any focused form control under 16px makes

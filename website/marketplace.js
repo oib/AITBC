@@ -207,12 +207,12 @@ function formatHash(hash) {
 
 function formatTxHash(hash) {
     if (!hash) return 'N/A';
-    return `<a href="/tx.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">${escapeHtml(hash.slice(0, 18))}...</a>`;
+    return `<a href="/tx.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">${escapeHtml(hash.slice(0, 18))}...</a> ${aitbcCopyBtn(hash, 'transaction hash')}`;
 }
 
 function formatBlockHash(hash) {
     if (!hash) return 'N/A';
-    return `<a href="/block.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">${escapeHtml(hash.slice(0, 18))}...</a>`;
+    return `<a href="/block.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer">${escapeHtml(hash.slice(0, 18))}...</a> ${aitbcCopyBtn(hash, 'block hash')}`;
 }
 
 function formatPrice(price) {
