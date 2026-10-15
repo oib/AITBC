@@ -470,3 +470,12 @@ Tests: 4 new prepay env-resolution cases (env-file only, flag precedence, proces
 - Shared helpers factored out of `exchange/prepay.py` into `cli/aitbc_cli/utils/evm_rpc.py` (`rpc_call`, `rpc_try`, `broadcast_raw`, `resolve_rpc_url`, `hex_to_int`) and `commands/wallet/__init__.py` (`_load_signing_key`); prepay keeps its module-level names as delegates so behaviour and the test patch surface are unchanged.
 - MCP: `aitbc_wallet_eth_send` regenerated in the safeguarded set — `dry_run`/`confirm` gate plus the CLI's own `--confirm` reaching the tool as `confirm_opt` (a real send needs both true).
 - Tests: `cli/tests/test_wallet_eth_send.py`, 23 tests — ephemeral in-process key, fake RPC tables, no network, no real wallet.
+
+### WEB-FIX-2 — shared copy control for truncated hashes/addresses
+
+- New deferred `website/copy.js`: `aitbcCopyBtn(value, what)` emits a real `<button type="button">` carrying the full value in `data-copy` (or live-resolved via `data-copy-from="<id>"`); a delegated click handler copies via `navigator.clipboard.writeText`, falls back to a hidden `execCommand('copy')` textarea, and on total failure leaves the value selected with "press Ctrl+C" — failure is shown, never swallowed. Outcome announces in the shared `#sr-announcer` polite region and the visible label flips to 'copied' for ~1.5s.
+- Retires four divergent copy implementations (explorer's `copyToClipboard`, detail-page `copyValue`, exchange's role=button copy boxes, index's inline onclick). No inline handlers remain on copy affordances.
+- Every inventoried truncation site now carries the control: explorer hash/address rows and >60-char payload truncations, block/tx/search detail fields, bridges sender/recipient + transfer id, marketplace tx/block links, dashboard settlement-tx + escrow id, exchange deposit rows, account chip, eth-tx-hash, deposit-address and tx-data-hex panels, and the index peer key.
+- CSS: compact bordered `.copy-btn`; >=44px hit area under `(pointer:coarse)`/`(max-width:640px)` via padding + compensating margin so rows do not grow; `.deposit-address` gains `flex-wrap`; dead `.copy-hint`/`.copy-feedback` rules removed.
+- Guards: `tests/unit/test_website_copy.py` (8 static + 2 real-browser tests — a Chromium click proves the FULL value reaches the clipboard and the announce/failure paths work; env-detected skip on browserless hosts); `.copy-btn` joins the 375px tap-target list; `aitbcCopyBtn` registered as a proven-safe sink emitter (it escapes internally).
+- Website-only; no live pull/restart — deploy is a separate named step.
