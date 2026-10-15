@@ -6,8 +6,8 @@
     <title>Search Results — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="AITBC explorer search results for an address, transaction hash, or block height.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=a324edd785f944ca">
-    <link rel="stylesheet" href="/style.css?v=a324edd785f944ca">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2fb63fe11666d199">
+    <link rel="stylesheet" href="/style.css?v=2fb63fe11666d199">
     <style>
         .search-query {
             color: var(--text-muted);
@@ -33,7 +33,8 @@
         .dir-in { background: rgba(16, 185, 129, 0.15); color: #10b981; }
         .dir-self { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
     </style>
-<script src="status.js?v=a324edd785f944ca" defer></script>
+<script src="copy.js?v=2fb63fe11666d199" defer></script>
+<script src="status.js?v=2fb63fe11666d199" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -101,16 +102,6 @@
             return new URL(window.location.href).searchParams.get(name);
         }
 
-
-    function copyValue(t) {
-        if (!t || t === 'N/A') return;
-        navigator.clipboard.writeText(t);
-        var s = document.getElementById('sr-announcer');
-        if (s) { s.textContent = ''; setTimeout(function(){ s.textContent = 'Copied to clipboard'; }, 50); }
-    }
-        function copyBtn(text) {
-            return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();copyValue(this.dataset.copy)" title="Copy">&#x29c9;</button>`;
-        }
 
         function addrLink(addr) {
             if (!addr || addr === 'N/A') return 'N/A';
@@ -185,7 +176,7 @@
                         <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(b.height)}'">
                             <table class="block-list-table" aria-label="Result details">
                                 <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(b.height)}</td></tr>
-                                <tr><th scope="row">Hash</th><td>${escapeHtml(b.hash || 'N/A')} ${copyBtn(b.hash || '')}</td></tr>
+                                <tr><th scope="row">Hash</th><td>${escapeHtml(b.hash || 'N/A')} ${aitbcCopyBtn(b.hash || '', 'block hash')}</td></tr>
                                 <tr><th scope="row">Proposer</th><td>${addrLink(b.proposer)}</td></tr>
                                 <tr><th scope="row">Transactions</th><td>${escapeHtml(b.txCount || 0)}</td></tr>
                                 <tr><th scope="row">Timestamp</th><td>${escapeHtml(b.timestamp ? new Date(b.timestamp).toLocaleString() : 'N/A')}</td></tr>
@@ -202,7 +193,7 @@
                         <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
                             <table class="block-list-table" aria-label="Result details">
                                 <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span> ${dBadge}</td></tr>
-                                <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash || 'N/A')} ${copyBtn(tx.tx_hash || '')}</td></tr>
+                                <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash || 'N/A')} ${aitbcCopyBtn(tx.tx_hash || '', 'transaction hash')}</td></tr>
                                 <tr><th scope="row">From</th><td>${addrLink(tx.sender)}</td></tr>
                                 <tr><th scope="row">To</th><td>${addrLink(tx.recipient)}</td></tr>
                                 <tr><th scope="row">Block</th><td><a href="/block.html?height=${encodeURIComponent(tx.block_height)}">${escapeHtml(tx.block_height)}</a></td></tr>

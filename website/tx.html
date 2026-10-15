@@ -6,8 +6,8 @@
     <title>Transaction Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Transaction detail for the AITBC explorer: hash, sender, recipient, amount, and status of a single transaction.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=a324edd785f944ca">
-    <link rel="stylesheet" href="/style.css?v=a324edd785f944ca">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2fb63fe11666d199">
+    <link rel="stylesheet" href="/style.css?v=2fb63fe11666d199">
     <style>
         .detail-header {
             display: flex;
@@ -45,7 +45,8 @@
             text-decoration: underline;
         }
     </style>
-<script src="status.js?v=a324edd785f944ca" defer></script>
+<script src="copy.js?v=2fb63fe11666d199" defer></script>
+<script src="status.js?v=2fb63fe11666d199" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -114,16 +115,6 @@
         }
 
 
-    function copyValue(t) {
-        if (!t || t === 'N/A') return;
-        navigator.clipboard.writeText(t);
-        var s = document.getElementById('sr-announcer');
-        if (s) { s.textContent = ''; setTimeout(function(){ s.textContent = 'Copied to clipboard'; }, 50); }
-    }
-        function copyBtn(text) {
-            return `<button type="button" class="copy-btn" aria-label="Copy value" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();copyValue(this.dataset.copy)" title="Copy">⧉</button>`;
-        }
-
         function plainHash(hash) {
             if (!hash || hash === 'N/A') return 'N/A';
             return `<span style="font-family:var(--font-mono);">${escapeHtml(hash)}</span>`;
@@ -165,11 +156,11 @@
 
                 const details = [
                     { label: 'Type', value: `<span class="badge badge-primary">${escapeHtml(data.type || 'TX')}</span>` },
-                    { label: 'Hash', value: plainHash(data.hash) + ' ' + copyBtn(data.hash) },
+                    { label: 'Hash', value: plainHash(data.hash) + ' ' + aitbcCopyBtn(data.hash, 'transaction hash') },
                     { label: 'Status', value: escapeHtml(data.status || 'Unknown') },
                     { label: 'Block', value: `<a href="/block.html?height=${encodeURIComponent(data.block_height)}">#${escapeHtml(data.block_height)}</a>` },
-                    { label: 'From', value: addrLink(data.from || data.sender) + ' ' + copyBtn(data.from || data.sender || '') },
-                    { label: 'To', value: addrLink(data.to || data.recipient) + ' ' + copyBtn(data.to || data.recipient || '') },
+                    { label: 'From', value: addrLink(data.from || data.sender) + ' ' + aitbcCopyBtn(data.from || data.sender || '', 'sender address') },
+                    { label: 'To', value: addrLink(data.to || data.recipient) + ' ' + aitbcCopyBtn(data.to || data.recipient || '', 'recipient address') },
                     { label: 'Value', value: escapeHtml(data.value !== undefined ? data.value : 'N/A') },
                     { label: 'Fee', value: escapeHtml(data.fee !== undefined ? data.fee : 'N/A') },
                     { label: 'Nonce', value: escapeHtml(data.nonce !== undefined ? data.nonce : 'N/A') },

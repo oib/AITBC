@@ -13,14 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/exchange.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=a324edd785f944ca">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2fb63fe11666d199">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=a324edd785f944ca">
-    <script src="config.js?v=a324edd785f944ca" defer></script>
-    <script src="exchange.js?v=a324edd785f944ca" defer></script>
-    <script src="exchange-book.js?v=a324edd785f944ca" defer></script>
-    <script src="status.js?v=a324edd785f944ca" defer></script>
+    <link rel="stylesheet" href="/style.css?v=2fb63fe11666d199">
+    <script src="config.js?v=2fb63fe11666d199" defer></script>
+    <script src="copy.js?v=2fb63fe11666d199" defer></script>
+    <script src="exchange.js?v=2fb63fe11666d199" defer></script>
+    <script src="exchange-book.js?v=2fb63fe11666d199" defer></script>
+    <script src="status.js?v=2fb63fe11666d199" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -147,6 +148,7 @@
             <div id="wallet-connect-row" style="display:none;" class="wallet-row">
                 <button id="connect-wallet-btn" class="btn-secondary">Connect MetaMask</button>
                 <span id="connected-account" class="connected-account"></span>
+                <button type="button" class="copy-btn" id="copy-account-btn" aria-live="polite" data-copy="" aria-label="Copy wallet address" title="Copy wallet address">copy</button>
             </div>
 
             <div class="bridge-form" id="deposit-form">
@@ -182,7 +184,8 @@
             <!-- TX hash result (after wallet send) -->
             <div id="deposit-tx-result" style="display:none;" class="estimate-box">
                 <h3>ETH transaction sent</h3>
-                <p class="muted-text">Tx hash: <span id="eth-tx-hash" class="deposit-address"></span></p>
+                <p class="muted-text">Tx hash: <span id="eth-tx-hash" class="deposit-address"></span>
+                <button type="button" class="copy-btn" aria-live="polite" data-copy-from="eth-tx-hash" aria-label="Copy transaction hash" title="Copy transaction hash">copy</button></p>
                 <p class="muted-text">Wait for confirmation, then track your AIT delivery below.</p>
             </div>
 
@@ -190,17 +193,15 @@
             <div id="deposit-instructions" style="display:none;" class="instructions-box">
                 <h3>Send manually from your wallet</h3>
                 <p><strong>1.</strong> Send <span id="instruction-eth-amount">-</span> ETH to:</p>
-                <div id="deposit-address-box" class="deposit-address" role="button" tabindex="0">
+                <div id="deposit-address-box" class="deposit-address">
                     <span id="deposit-address">Loading...</span>
-                    <span class="copy-hint">press Enter or click to copy</span>
+                    <button type="button" class="copy-btn" aria-live="polite" data-copy-from="deposit-address" aria-label="Copy deposit address" title="Copy deposit address">copy</button>
                 </div>
-                <p id="copy-feedback" class="copy-feedback" role="status" aria-live="polite">Copied!</p>
                 <p><strong>2.</strong> Paste this hex value into your wallet's "hex data" / "advanced" field:</p>
-                <div id="tx-data-hex-box" class="deposit-address" role="button" tabindex="0">
+                <div id="tx-data-hex-box" class="deposit-address">
                     <span id="tx-data-hex">-</span>
-                    <span class="copy-hint">press Enter or click to copy</span>
+                    <button type="button" class="copy-btn" aria-live="polite" data-copy-from="tx-data-hex" aria-label="Copy transaction data" title="Copy transaction data">copy</button>
                 </div>
-                <p id="copy-feedback-hex" class="copy-feedback" role="status" aria-live="polite">Copied!</p>
                 <p><strong>3.</strong> AIT will be sent automatically to your wallet</p>
                 <p class="muted-text">Minimum deposit: <span id="min-deposit">-</span> ETH &middot; Network: Sepolia testnet</p>
             </div>
