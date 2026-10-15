@@ -1880,6 +1880,8 @@ narrative; this list cites each remaining commit by hash so
 - `e64b0b1230` fix(cli): CLI-3 — envelope chain-id resolves on /rpc-suffixed bases + island creds fallback
 - `9e7daa8730` feat(cli): CLI-3 — aitbc config get <key> prints a stored value
 - `8a0218e8d1` feat(cli): REPO-1 — file-info denylist extension, env-names case, verify DB containment, OPS-4 nginx example
+- `bfaa13b440` fix(cli): CLI-3a — order fund --fee defaults to DEFAULT_TX_FEE_AIT (0.01)
+- `8159a73a40` fix(cli): CLI-3a — wallet send reports submitted-not-confirmed; --wait seals
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2187,8 +2189,21 @@ passphrase/credential, and keeps bare `config get` as the show alias.
 `--global` reads the global config file. MCP wrapper regenerated for the
 new signature.
 
+Item 6 (operator addendum, 15 Oct): `exchange order fund --fee` defaulted
+to `Decimal("0.001")` — below the chain standard — and now takes
+`DEFAULT_TX_FEE_AIT` (`aitbc.utils.units`) like every other fee path; an
+explicit `--fee` still wins. `wallet send` no longer reads a returned
+mempool hash as a landed transfer: it prints "submitted, not confirmed"
+(the same wording lands in the shared `_send_transaction_impl` used by
+`transactions send`, `order fund`, and `batch`), and a new `--wait` flag
+polls `wait_for_tx` for the seal — a confirmed send reports the block,
+while a send still unsealed after 120s exits nonzero naming the hash and
+the status command, since a retry reuses the nonce.
+
 Commits: `e64b0b123` (probe normalization + creds fallback + tests),
-`9e7daa873` (config get + tests + MCP regen).
+`9e7daa873` (config get + tests + MCP regen), `bfaa13b44` (order fund
+fee default → DEFAULT_TX_FEE_AIT + tests), `8159a73a4` (wallet send
+submitted-not-confirmed + --wait + shared message).
 
 ### REPO-1: file-info denylist extension + env-names case + verify DB containment + OPS-4 nginx example (2026-10-15)
 
