@@ -50,3 +50,40 @@ A controlled rollout closed out the bridge hardening program on the live fleet. 
 ### Coordinator: dead SETTLEMENT_PRIVATE_KEY signer and startup gate removed
 
 `SETTLEMENT_PRIVATE_KEY` was a v0.25.8 leftover: `SettlementHook._sign_settlement_message` signed a `SettlementMessage` (`{"job_id","amount","target_address"}`, canonical-JSON + keccak256 + secp256k1) for the never-wired cross-chain bridge path — `SettlementHook` is never instantiated, the `/settlement/cross-chain*` endpoints return 501, `BridgeManager._create_adapter` refuses every adapter, and `_verify_signature` is a stub returning `True`, so nothing on or off chain ever consumed the signature. The on-chain settlement authority is the node's `ESCROW_RELEASE_PRIVATE_KEY` (`escrow_settlement_authority`, `0x11741E1A…` since KR-2); the coordinator only POSTs `/rpc/escrow/{job_id}/release` and the node signs. The variable's sole live effect was the production startup gate in `validate_critical_environment_variables` — kept plausible by a stale `config.py` comment claiming the deployed hub runs `ENVIRONMENT=development` (it runs `production` via `aitbc-coordinator-api-override.env`; verified against the live process environment). The gate, the dead signer, the `3_coordinator-api.md` env line, and the stale test docstrings are removed together. `SETTLEMENT_PRIVATE_KEY` may be dropped from coordinator env files once hosts run this commit — it signs nothing and holds no funds, so the ordering matters only for the startup gate.
+
+### CLI: `aitbc exchange prepay deposit` — node-tagged Sepolia ETH deposits for the prepaid-BUY lane (PREPAY-1)
+
+D2's end-to-end match needs a BUY backed by a prepaid ETH balance, and no
+safe CLI path existed to send the `EXCHANGE_DEPOSIT:<node address>` tagged
+Sepolia ETH deposit the exchange monitor credits — `wallet bridge deposit`
+writes the AIT bridge tag instead. The new command closes that gap without
+key workarounds:
+
+- `aitbc exchange prepay deposit --amount-eth X --wallet NAME` prints the
+  unsigned transaction (chain id, recipient, value, the tag text, gas
+  estimate, effective cap) and never touches a password or key — that is
+  the default. `--send` signs once with the wallet's own decrypted key and
+  broadcasts exactly once; a failed broadcast is reported, not retried.
+- The recipient is always the `deposit_address` advertised by the exchange's
+  own `/v1/bridge/status` — never typed by the operator.
+- The input-data tag is `EXCHANGE_DEPOSIT:<node address>` as UTF-8, exactly
+  what `wallet_app.bridge.bridge_monitor._parse_exchange_deposit_tag`
+  parses; the test suite round-trips the produced hex through the real
+  parser.
+- Refusals: non-Sepolia chain id (must be 11155111), wallet not a
+  `registered` node, missing or mismatched registry `eth_address`,
+  `--amount-eth` above the per-call cap (default 0.01 ETH, raised only by
+  an explicit `--max-eth`), and amount+gas over the wallet's Sepolia
+  balance. Over-cap refusals name the flag.
+- The generated MCP tool `aitbc_exchange_prepay_deposit` lands in the
+  `deposit` destructive class: `dry_run`/`confirm`-gated with
+  `destructive_hint`, same as the other send paths.
+
+Tests: 15 items in `cli/tests/test_exchange_prepay_deposit.py` — tag
+round-trip through the real monitor parser, `--print` reading no key
+material, wrong-chain/unregistered/eth_address-mismatch/empty-board
+refusals, cap refuse/pass with `--max-eth`, `--send` signing and
+broadcasting exactly once with the tag inside the signed blob, and
+insufficient-balance refusal. `tests/cli/test_exchange_command_names.py`
+adds the exchange-group name-collision guard (AST scan plus runtime
+resolution of `prepay deposit`) mirroring the market-group test.
