@@ -42,7 +42,7 @@ def test_process_env_wins(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -
 
     assert hub_discovery_host() == "hub.example.net"
     assert hub_agent_url() == "https://hub.example.net/agent"
-    assert hub_exchange_url() == "https://hub.example.net/exchange"
+    assert hub_exchange_url() == "https://hub.example.net"
 
 
 def test_blockchain_env_file_is_read(isolated_env: Path) -> None:
@@ -92,3 +92,18 @@ def test_explicit_coordinator_url_is_kept_as_a_base(isolated_env: Path, monkeypa
     monkeypatch.setenv("HUB_COORDINATOR_URL", "http://coordinator.internal:8203/v1/")
 
     assert hub_coordinator_url() == "http://coordinator.internal:8203/v1"
+
+
+def test_exchange_url_defaults_to_bare_hub_origin(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """OPS-6: /exchange/ is the wallet service's mount — the signed-order
+    routes publish at their natural /api/* paths on the hub host, so the
+    discovery-derived default is the bare origin."""
+    monkeypatch.setenv("HUB_DISCOVERY_URL", "hub.example.net")
+
+    assert hub_exchange_url() == "https://hub.example.net"
+
+
+def test_explicit_exchange_url_is_kept_as_a_base(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HUB_EXCHANGE_URL", "http://exchange.internal:8106/")
+
+    assert hub_exchange_url() == "http://exchange.internal:8106"
