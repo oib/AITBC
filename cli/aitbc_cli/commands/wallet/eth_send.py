@@ -10,7 +10,11 @@ password through the standard sources, signs once and broadcasts once;
 ``--wait`` then polls the receipt and prints status and block.
 ``--max-gas-gwei`` caps the fee: when ``eth_gasPrice`` comes back above
 the ceiling the command refuses before any key is decrypted or signed —
-raise it explicitly to send into a gas spike.
+raise it explicitly to send into a gas spike. ``--to`` is checked with
+``eth_getCode``: a recipient holding contract bytecode refuses under
+``--confirm`` unless ``--allow-contract`` is passed (a plain value
+transfer to a contract that does not expect it burns gas or locks the
+funds); the dry run shows the ``eth_getCode`` result either way.
 
 Testnet only until v1: ``--chain-id`` must be 11155111 — every other id,
 mainnet's 1 included, refuses before the wallet file is even opened, and
@@ -181,6 +185,11 @@ def _wait_for_receipt(ctx, rpc_url: str, tx_hash: str) -> dict[str, Any]:
     show_default=True,
     help="Gas-price ceiling in gwei — --confirm refuses to sign above it",
 )
+@click.option(
+    "--allow-contract",
+    is_flag=True,
+    help="With --confirm: allow --to to hold contract bytecode (default: refuse contracts)",
+)
 @click.option("--confirm", is_flag=True, help="Sign and broadcast once (default: dry run, prints the unsigned transfer)")
 @click.option("--wait", "wait_receipt", is_flag=True, help="With --confirm: poll the receipt and print status and block")
 @wallet_password_options
@@ -194,6 +203,7 @@ def eth_send(
     wallet_name: str | None,
     max_eth: Decimal,
     max_gas_gwei: Decimal,
+    allow_contract: bool,
     confirm: bool,
     wait_receipt: bool,
     password: str | None,
@@ -211,6 +221,9 @@ def eth_send(
         return
     if wait_receipt and not confirm:
         abort(ctx, "--wait only applies with --confirm — a dry run has no transaction to wait on")
+        return
+    if allow_contract and not confirm:
+        abort(ctx, "--allow-contract only applies with --confirm — a dry run signs nothing either way")
         return
     value_wei = _validated_wei(ctx, amount_eth, max_eth)
     gas_ceiling_wei = _validated_gas_ceiling(ctx, max_gas_gwei)
@@ -234,6 +247,8 @@ def eth_send(
         "gas estimate",
     )
     balance_wei = hex_to_int(ctx, rpc_call(ctx, rpc_url, "eth_getBalance", [from_address, "latest"]), "balance")
+    to_code = rpc_call(ctx, rpc_url, "eth_getCode", [to, "latest"])
+    to_is_contract = isinstance(to_code, str) and to_code not in ("0x", "0x0", "")
     fee_wei = gas_limit * gas_price_wei
 
     tx_view = {
@@ -252,6 +267,8 @@ def eth_send(
         "fee_estimate_eth": str(Decimal(fee_wei) / Decimal(10**18)),
         "balance_wei": balance_wei,
         "balance_eth": str(Decimal(balance_wei) / Decimal(10**18)),
+        "to_code": to_code,
+        "to_is_contract": to_is_contract,
         "per_call_cap_eth": str(max_eth),
     }
 
@@ -275,6 +292,8 @@ def eth_send(
         gas_ceiling_wei=gas_ceiling_wei,
         balance_wei=balance_wei,
         fee_wei=fee_wei,
+        to_is_contract=to_is_contract,
+        allow_contract=allow_contract,
         password=password,
         password_file=password_file,
         password_stdin=password_stdin,
@@ -298,12 +317,21 @@ def _broadcast_transfer(
     gas_ceiling_wei: int,
     balance_wei: int,
     fee_wei: int,
+    to_is_contract: bool,
+    allow_contract: bool,
     password,
     password_file,
     password_stdin,
     wait_receipt: bool,
 ) -> None:
-    """The --confirm leg: gas-ceiling and balance gates, one signature, one broadcast."""
+    """The --confirm leg: contract, gas-ceiling and balance gates, one signature, one broadcast."""
+    if to_is_contract and not allow_contract:
+        abort(
+            ctx,
+            "--to holds contract bytecode — a plain value transfer can burn gas or lock funds there; "
+            "pass --allow-contract if the recipient is a contract that accepts plain ETH",
+        )
+        return
     if gas_price_wei > gas_ceiling_wei:
         abort(
             ctx,
