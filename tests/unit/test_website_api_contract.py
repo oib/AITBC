@@ -724,6 +724,13 @@ class TestWebsiteApiContract(unittest.TestCase):
         bad = [r for r in self.rows if r.verdict == "unchecked-app"]
         self.assertEqual([], bad, f"upstream not statically inspectable, needs allowlist:{self._dump(bad)}")
 
+    def test_no_query_delimiter_missing_in_path(self) -> None:
+        # "&" inside a path segment means a template glued a query param to
+        # the path (missing "?") — the param silently becomes part of the
+        # route argument instead of a query string.
+        bad = [r for r in self.rows if "&" in r.call.pattern]
+        self.assertEqual([], bad, f"query glued into path (missing '?'):{self._dump(bad)}")
+
     def test_allowlist_entries_used_and_match_upstream(self) -> None:
         stale = []
         for e in self.allow:
