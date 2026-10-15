@@ -94,6 +94,7 @@ def init(
     child_env = dict(os.environ)
     if not create_wallet and (password is not None or password_file or password_stdin):
         error("--password* applies only with --create-wallet")
+        ctx.exit(1)
         return
     if create_wallet and (password is not None or password_file or password_stdin):
         child_env["AITBC_GENESIS_PASSWORD"] = resolve_new_wallet_password(

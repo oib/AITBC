@@ -45,6 +45,15 @@ class TestGenesisCommands:
 
         assert "info" in genesis.commands
 
+    def test_genesis_init_password_without_create_wallet_exits_nonzero(self, runner):
+        """CLEAN-1: --password* without --create-wallet is a usage error
+        that must exit non-zero (it used to only print and return 0)."""
+        from aitbc_cli.commands.genesis import genesis
+
+        for extra in (["--password", "secret"], ["--password-stdin"]):
+            result = runner.invoke(genesis, ["init", "--chain-id", "test-chain"] + extra)
+            assert result.exit_code != 0, extra
+
     @patch("aitbc_cli.commands.genesis.subprocess.run")
     def test_genesis_init_command(self, mock_run, runner):
         """``genesis init`` runs the genesis generation script via subprocess."""
