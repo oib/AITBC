@@ -2655,4 +2655,17 @@ resolver tests), `d75f144d4` (wallet conftest isolation), `6d0d57b8e`
 - Guard: tests/unit/test_website_a11y.py covers labels, names, headings,
   table semantics, scroll containment, click-handler operability,
   outline rules and reduced-motion (67 violations on the pre-change
-  tree, 0 after). sha: <pending>
+  tree, 0 after). Commits: `116a20352`, `c4e06bdb1`, `158b65eed`,
+  `1f21a9f4d`, `12cb5c7a5`.
+
+### fix(website): WEB-7 — search page by-address query delimiter (2026-10-15)
+
+- search.html called `/api/blocks/by-address/<addr>&limit=50` — missing
+  `?` glued `limit=50` into the address path segment; the explorer
+  LIKE-matched nothing, so the address-search blocks section was
+  silently always empty. Fixed to `?limit=50`. Live read-only proof:
+  buggy URL returns 0 blocks, fixed URL returns the real set.
+- Guard: test_website_api_contract.py gains
+  test_no_query_delimiter_missing_in_path — any `&` in an extracted
+  path pattern fails (red on the buggy tree, green after). No
+  assertion weakened; allowlist stays empty.
