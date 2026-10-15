@@ -116,7 +116,7 @@ def _findings(tool, db_path, **kwargs):
 
     conn = tool._db(str(db_path))
     try:
-        tool.check_db_internal(conn, add)
+        tool.check_db_internal(conn, add, settlement_enabled=kwargs.get("settlement", False))
         if "bridge_db" in kwargs:
             tool.check_bridge_db(conn, kwargs["bridge_db"], add)
         if kwargs.get("eth"):
@@ -192,10 +192,50 @@ def test_duplicate_account_nonce_fails(tool, tmp_path):
     assert any(s == "FAIL" and "account_nonce" in m for s, _c, m in found)
 
 
-def test_registered_node_without_eth_address_fails(tool, tmp_path):
-    db = _exchange_db(tmp_path / "ex.db", registry=[(SELLER, "n-s", "registered", None)])
+def test_registered_node_without_eth_address_flag_off_warns(tool, tmp_path):
+    """REPO-2: without --settlement the verifier treats the flag as off —
+    payout is not yet needed, so a bare registration is a WARN even when
+    the node already has orders (the 15 Oct waiver case)."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        registry=[(SELLER, "n-s", "registered", None)],
+        orders=[(1, "SELL", "open", "unfunded", None, 0, SELLER, 1, 0, None)],
+    )
     found = _findings(tool, db)
+    assert any(s == "WARN" and "eth_address" in m for s, _c, m in found)
+    assert not any(s == "FAIL" and "eth_address" in m for s, _c, m in found)
+
+
+def test_registered_node_without_eth_address_settlement_no_orders_warns(tool, tmp_path):
+    """REPO-2: --settlement on, node registered but no orders yet — payout
+    is still not needed → WARN, not FAIL."""
+    db = _exchange_db(tmp_path / "ex.db", registry=[(SELLER, "n-s", "registered", None)])
+    found = _findings(tool, db, settlement=True)
+    assert any(s == "WARN" and "eth_address" in m for s, _c, m in found)
+    assert not any(s == "FAIL" and "eth_address" in m for s, _c, m in found)
+
+
+def test_registered_node_without_eth_address_settlement_with_orders_fails(tool, tmp_path):
+    """REPO-2: --settlement on and the node has orders — a seller cannot be
+    paid → FAIL."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        registry=[(SELLER, "n-s", "registered", None)],
+        orders=[(1, "SELL", "open", "unfunded", None, 0, SELLER, 1, 0, None)],
+    )
+    found = _findings(tool, db, settlement=True)
     assert any(s == "FAIL" and "eth_address" in m for s, _c, m in found)
+
+
+def test_registered_node_with_eth_address_unaffected(tool, tmp_path):
+    """The new rule never fires on a node that did set its payout."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        registry=[(SELLER, "n-s", "registered", SELLER_ETH)],
+        orders=[(1, "SELL", "open", "unfunded", None, 0, SELLER, 1, 0, None)],
+    )
+    found = _findings(tool, db, settlement=True)
+    assert not any("eth_address" in m for _s, _c, m in found)
 
 
 def test_pre_phase3_schema_reported_not_crash(tool, tmp_path):
