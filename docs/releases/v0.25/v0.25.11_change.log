@@ -263,3 +263,44 @@ and keeps the hash on purpose — the monitor needs it non-NULL to build the
   Other funded-state rules unchanged. Docstring documents the hub AIT RPC
   port (`127.0.0.1:8202`, not the auth-gated 8201) and a `--settlement`
   example.
+
+
+### Tests: bridge deposits dir honours AITBC_DATA_DIR (TEST-3)
+
+Critical gate baseline is now zero: `make test-critical` ran 2028 tests
+with 0 failures / 0 errors at `49fa85d96`. The last standing failure was
+`test_http_contract` `/v1/bridge/deposit/<id>` returning 500 instead of
+404 — the exchange handler opened the live `bridge_deposits.db` because
+`bridge_monitor.storage` bound its dir from the bare `DATA_DIR` env var,
+and hosts with a pre-B13 schema (no `deposit_address`) turned an unknown
+id into an operational error.
+
+- `49fa85d96` — `storage.py` resolves `AITBC_DATA_DIR` first, then the
+  documented `DATA_DIR` operator override, then `/var/lib/aitbc`;
+  conftest scratch paths now isolate the route's DB. Precedence
+  documented in the app README (env-docs coverage test).
+- New `test_storage_dir_env_precedence` in `test_storage_crud.py`
+  reloads the module under controlled env and restores it.
+
+Ops note (report only): node2's live `eth_deposits` still lacks
+`deposit_address` — the ALTER lives in `init_db()`, which runs when
+`aitbc-bridge-monitor` starts; that unit is currently inactive. Also
+worth checking why the wallet-side `bridge_db.init_db` (identical ALTER)
+has not applied it. No live DB was written or service restarted.
+
+
+### Tests: ambient deployed AITBC_* dirs redirected to scratch (TEST-1d)
+
+Root conftest no longer lets an exported `AITBC_DATA_DIR` /
+`AITBC_CONFIG_DIR` / `AITBC_LOG_DIR` pointing at a deployed path
+(`/var/lib/aitbc`, `/etc/aitbc`, `/var/log/aitbc`, or `AITBC_HOME`
+variants) survive into a test run; it is replaced with the scratch dir
+and a `pytest_report_header` line says so. Non-deployed overrides still
+win; unset vars get scratch as before.
+
+- `89d9d591b` — shared deployed-path set (realpath compare,
+  inside-a-root counts, `AITBC_TEST_DEPLOYED_DIRS` test hook can only
+  widen), session-finish guard also checks late-bound
+  `aitbc.constants` dirs.
+- `89d9d591b` — `tests/unit/test_env_protection.py` (3 subprocess
+  tests) is collected by both the unit and critical groups.
