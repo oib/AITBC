@@ -519,16 +519,34 @@ class TestOrderMy:
         result = runner.invoke(order, ["my"], obj={"output_format": "json"})
         assert result.exit_code != 0
 
-    def test_wallet_path_no_signing(self, runner, mock_client, mock_wallet, mock_chain, wallet_key):
-        mock_client.get_responses = _registered_doc(wallet_key[0])
+    def test_wallet_path_encrypted_file_no_password(
+        self, runner, mock_client, mock_wallet, mock_chain, wallet_key, tmp_path, monkeypatch
+    ):
+        """CLEAN-1: ``order my --wallet`` reads the plaintext ``address`` field
+        of an encrypted wallet file — it must never touch key material, so no
+        password source is needed at all (the D4 live find: the command is
+        documented 'address only — no signing' yet demanded a password path
+        for encrypted wallets)."""
+        addr = wallet_key[0]
+        wallet_file = tmp_path / "testwallet.json"
+        wallet_file.write_text(json.dumps({"encrypted": True, "address": addr, "private_key": "ciphertext"}))
+        monkeypatch.setattr(
+            "aitbc_cli.commands.exchange.hub_orders.find_wallet_file",
+            lambda name: wallet_file if name == "testwallet" else None,
+        )
+        for var in ("AITBC_WALLET_PASSWORD", "AITBC_WALLET_PASSWORD_TESTWALLET"):
+            monkeypatch.delenv(var, raising=False)
+        mock_client.get_responses = _registered_doc(addr)
         result = runner.invoke(
             order,
             ["my", "--wallet", "testwallet", "--exchange-url", "http://e.invalid"],
             obj={"output_format": "json"},
         )
         assert result.exit_code == 0, result.output
-        # Address resolution must NOT request the private key.
-        assert mock_wallet[0]["require_private_key"] is False
+        assert json.loads(result.output)["address"] == addr
+        # No key-material loader was invoked at all — stronger than
+        # require_private_key=False, which still resolved a password.
+        assert mock_wallet == []
 
 
 # --- node register --------------------------------------------------------
