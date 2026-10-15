@@ -34,12 +34,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-# Same resolution as the Makefile: prefer the repo's venv, fall back to whatever is on PATH so
-# this still works from a git worktree, which has no venv/ of its own.
-PYTHON="${PYTHON:-}"
-if [ -z "$PYTHON" ]; then
-  if [ -x ./venv/bin/python ]; then PYTHON=./venv/bin/python; else PYTHON=python3; fi
-fi
+# Shared resolution: $PYTHON env, then the checkout venv, then the main
+# checkout's venv — the worktree case, where ./venv does not exist and a PATH
+# python3 lacks the app deps this generation needs.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
