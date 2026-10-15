@@ -1488,7 +1488,9 @@ class ExchangeMixin:
     def handle_internal_settlement(self) -> None:
         """POST /api/internal/exchange-settlement — typed settlement events."""
         if not _settlement_enabled():
-            self.send_error(404, "Not Found")  # type: ignore[attr-defined]
+            # 503, not 404: the wallet monitor maps a 404 to "order gone" and
+            # refunds the lock — a flag-off exchange must read as retryable.
+            self.send_json_response({"error": "exchange settlement disabled"}, status=503)  # type: ignore[attr-defined]
             return
         if not self._peer_is_loopback():
             self.send_error(403, "Forbidden")  # type: ignore[attr-defined]
