@@ -165,7 +165,7 @@
             try {
                 const [txResp, blockResp] = await Promise.all([
                     fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(query)}&limit=50`),
-                    fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}&limit=50`),
+                    fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}?limit=50`),
                 ]);
                 const txData = await txResp.json();
                 const blockData = await blockResp.json();
