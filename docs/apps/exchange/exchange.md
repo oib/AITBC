@@ -196,6 +196,18 @@ a `settlement_envs` failure while either env is missing. `/readyz` also
 verifies the bridge monitor's `eth_deposits` table under `bridge_storage`
 when bridge deposits/withdrawals are enabled.
 
+**Rollout order.** `EXCHANGE_SETTLEMENT_ENABLED` is read independently by the
+exchange service and by the wallet's settlement monitor — enable it on the
+**exchange first**, then the wallet. The pairing is fail-safe either way: a
+wallet monitor posting to a flag-off exchange gets 503
+(`{"error": "exchange settlement disabled"}`) and retries the lock next poll
+(it never reads it as "order gone" and never refunds on it), while an enabled
+exchange with a flag-off wallet simply emits `funding` instructions nobody
+consumes until the monitor comes up. Before this pairing shipped, a flag-off
+exchange answered 404 — indistinguishable from a missing order — and the
+monitor refunded live locks; keep that ordering rule (exchange first) as the
+documented procedure regardless.
+
 **Post-incident audit.** Before reopening the book after a crash or restore:
 
 ```bash

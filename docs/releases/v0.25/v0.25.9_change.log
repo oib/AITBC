@@ -1867,6 +1867,8 @@ narrative; this list cites each remaining commit by hash so
 - `60f864368` docs(exchange): ETH-19 C8 — phase-3 docs, CLI funding hints, scenario 59 E
 - `95eb8e948` refactor: split C901-complex functions in ETH-8 phase-3 paths
 - `3aab495b1` docs(release): commit index catches up post-queue — cite CFG-1/SEC-19/TEST-2/ETH-13/ETH-18/ETH-15/BR-6/ETH-11 tail + ETH-8 phase 3 stack
+- `0d77eec16d` fix(bridge): ETH-JOIN — order_funded refusals stay unmarked; order_refund ref_id split
+- `6ff2adfac9` fix(exchange): ETH-JOIN — flag-off internal settlement endpoint answers 503, not 404
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -1987,3 +1989,42 @@ split at WARNING (its unknown path does persist `needs_review`). Log level
 and log content only — no outcome, status, refund or parking decision
 moved. Watcher note: `AITBCJournalErrors` counts `[ERROR]` lines per unit,
 so routine young-release delays no longer feed it; real anomalies do.
+
+### ETH-JOIN: settlement join hardening — retryable order_funded refusals, order_refund ref_id split, flag-off 503 (2026-10-15)
+
+Pre-enable review of the ETH-19 sell-lock ⇄ settlement join (report-only
+pass, then this fix pass) found three places where a caller-visible or
+transient condition could strand escrowed AIT or corrupt an unrelated row.
+All three are fixed while the feature is still dark on every host.
+
+- A non-terminal `order_funded` refusal (5xx, 401/403, the flag-off 503)
+  no longer writes a `lock:<tx_hash>` monitor mark — the lock stays in the
+  escrow scan and retries next poll, counted under
+  `stats["http_refused"]` with a WARNING line per refusal. Previously the
+  mark was written unconditionally (`outcome="http_500"`), so one
+  transient refusal permanently skipped the lock: never funded, never
+  refunded — `orders.backing_tx_hash` stays NULL, so the remainder lane
+  never even sees it. 404/409 keep their terminal refund path; transport
+  errors were already unmarked.
+- `order_refund` `ref_id` convention: the order's own lock-remainder
+  refund keeps `+order_id`; a refund for an inbound lock the order could
+  not take keys on `−order_id`. A stranger's dust lock naming the order
+  can no longer squat the UNIQUE(kind,ref_id) row the owner's remainder
+  refund needs — the same collision also protected a second stray lock,
+  which is still a logged duplicate. No schema or live-data migration:
+  `ref_id` is a signed INTEGER and the CHECK on `kind` is untouched.
+- `POST /api/internal/exchange-settlement` answers 503
+  `{"error": "exchange settlement disabled"}` while the exchange-side flag
+  is off — 404 was indistinguishable from "order not found" and mapped to
+  a lock refund. The supported rollout order (exchange flag first, wallet
+  flag second) is now in `docs/apps/exchange/exchange.md`; with both
+  flags off nothing changes — the monitor does not post at all.
+
+Adjacent hardening in the same diff: `_set_status_and_mirror` skips the
+tape mirror for `kind='order_refund'` — refund rows have no trade row and
+`ref_id` shares the order/trade integer space, so mirroring one could post
+`trade_state` onto an unrelated trade (or 404-pointlessly every poll).
+
+Commits: `0d77eec16` (wallet monitor + schema comment + tests),
+`6ff2adfac` (exchange endpoint + flag-off test). `exchange.md` rollout
+ordering lands in the accompanying docs commit.
