@@ -838,12 +838,25 @@ server {
     location = /dashboard/ {
         try_files /customer-dashboard.html =404;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        # This location's own add_header shadows the whole server-level set —
+        # it must carry every security header itself (deployed on hub 15 Oct).
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
+        add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
     }
 
     location = /shop { return 301 /shop/; }
     location = /shop/ {
         try_files /shop-dashboard.html =404;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        # Same shadowing rule — self-contained security headers.
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
+        add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
     }
 
     location / {

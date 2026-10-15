@@ -23,10 +23,11 @@ location. The hub therefore has two distinct header layers:
   `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy:
   strict-origin-when-cross-origin`, `Content-Security-Policy-Report-Only`
   and `Permissions-Policy`. `location = /dashboard/` and `location = /shop/`
-  are a known exception: their `add_header Cache-Control` shadows **all**
-  server-level headers, so those two pages currently get no security
-  headers — a follow-up named edit should repeat the security set inside
-  those locations (or factor it into an included snippet).
+  carry their own `add_header Cache-Control`, which shadows **all**
+  server-level headers — so each block repeats the full security set
+  verbatim (deployed on hub 15 Oct; verified live — both dashboards serve
+  all five headers). If a new static location gains its own `add_header`,
+  it must repeat the set the same way.
 - **API locations** (`/v1/`, `/rpc/`, `/agent/api/`, …) define their own
   `add_header` CORS lines, which shadow the server-level set — so API
   responses get their security headers from the FastAPI middleware instead.

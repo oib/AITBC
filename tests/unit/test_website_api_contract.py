@@ -340,11 +340,12 @@ EXPECTED_SERVER_HEADERS = [
 # directive would silently drop the whole server-level security set.
 STATIC_LOCATIONS_NO_ADD_HEADER = ("/",)
 
-# Static-page locations known to shadow the server headers today
-# (`add_header Cache-Control`): those two pages get no security headers —
-# documented in docs/ops/website-csp-proposal.md. Pinned here so a config
-# change on either side of the list forces a deliberate fixture update.
-SHADOWED_STATIC_LOCATIONS = ("/dashboard/", "/shop/")
+# Static-page locations that carry their own add_header (Cache-Control for
+# the dashboards). nginx add_header inheritance is all-or-nothing, so each
+# must repeat the full security set verbatim — deployed on hub 15 Oct after
+# WEB-FIX-3 documented the gap; pinned here so config drift on either side
+# fails loudly.
+SELF_HEADERED_STATIC_LOCATIONS = ("/dashboard/", "/shop/")
 
 
 def nginx_match(path: str, locs: list[Location]) -> Location | None:
@@ -817,17 +818,24 @@ class TestNginxSecurityHeaders(unittest.TestCase):
             "static-page location defines its own add_header — nginx drops all server-level headers for it: " + ", ".join(bad),
         )
 
-    def test_shadowed_static_locations_are_pinned(self) -> None:
-        """The /dashboard/ and /shop/ shadow gap is a documented fixture: if
-        either loses its add_header (the follow-up named fix) or another
-        static location gains one, update the fixture list deliberately."""
+    def test_self_headered_locations_carry_full_set(self) -> None:
+        """add_header is not inherited — a location with its own add_header
+        must repeat every security header verbatim or silently drop the rest.
+        /dashboard/ and /shop/ were fixed on hub 15 Oct (WEB-FIX-3 follow-up);
+        the fixture is the tripwire for drift or a new partial set."""
+        full_set = EXPECTED_SERVER_HEADERS + [
+            'X-Frame-Options "SAMEORIGIN" always',
+            'X-Content-Type-Options "nosniff" always',
+        ]
         bad = []
-        for pattern in SHADOWED_STATIC_LOCATIONS:
+        for pattern in SELF_HEADERED_STATIC_LOCATIONS:
             loc = next((lc for lc in self.locs if lc.modifier == "=" and lc.pattern == pattern), None)
-            self.assertIsNotNone(loc, f"expected shadowed location not found: {pattern!r}")
-            if loc and not re.search(r"\badd_header\b", loc.body):
-                bad.append(f"{pattern} no longer shadows — remove it from SHADOWED_STATIC_LOCATIONS")
-        self.assertEqual([], bad, "shadowing fixture drifted:\n" + "\n".join(bad))
+            self.assertIsNotNone(loc, f"expected self-headered location not found: {pattern!r}")
+            if loc:
+                for h in full_set:
+                    if f"add_header {h};" not in loc.body:
+                        bad.append(f"{pattern} missing `add_header {h}`")
+        self.assertEqual([], bad, "self-headered location missing headers:\n" + "\n".join(bad))
 
 
 if __name__ == "__main__":
