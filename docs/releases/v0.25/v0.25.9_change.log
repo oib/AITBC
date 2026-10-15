@@ -1894,6 +1894,8 @@ narrative; this list cites each remaining commit by hash so
 - `88f0b3812d` docs(exchange): ETH-JOIN-2 gap 7 — hash-column naming convention note
 - `cee0b4ff4c` docs(release): ETH-JOIN-2 — settlement join-review gap closures
 - `106987e87a` fix(exchange): ETH-19B — internal settlement peer gate gets the real socket peer
+- `3df71df89e` docs(release): ETH-19B changelog + commit index
+- `2d265c090` feat(cli): WAL-3 — sell trio, staking resolver, genesis env hand-off
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2429,6 +2431,7 @@ ratchet and check-c901-ratchet pass.
 Commits: `8f9ac9f06` (monitor + schema comment + tests),
 `88f0b3812` (exchange hash-convention comment).
 
+
 ### ETH-19B: the internal settlement endpoint accepts its loopback caller (2026-10-15)
 
 `FastAPIRequestAdapter.__init__` never called
@@ -2470,3 +2473,49 @@ it down on teardown, so the new tests are suite-order-proof.
 Commits: `106987e87` (adapter client_address + proxy_headers=False +
 real-adapter gate tests). Deploy/restart of the hub exchange is a
 separate gated step — until then the running service still 403s.
+
+
+### WAL-3: the last three non-standard secret paths join WAL-1 (2026-10-15)
+
+Three leftovers closed out the shared wallet-secret standard.
+
+`wallet bridge sell quote` and `sell lock` load the node wallet through
+`_resolve_wallet` but could not take `--password-file`/`--password-stdin`,
+leaving headless agents with only env vars and the keyring. Both commands
+now carry `@wallet_password_options` and forward the trio into
+`_load_wallet`'s lazy resolver — the secret resolves exactly once and an
+unencrypted wallet still never asks. `sell status` never touches a wallet
+file and is unchanged.
+
+`wallet/staking.py`'s liquidity re-save paths still fell back to the
+pre-WAL-1 `_get_wallet_password` (keyring, env, a private two-prompt TTY
+loop) whenever the resolved password was falsy — dead code in practice,
+since an encrypted wallet already failed closed in the resolver. The
+fallback is gone and `_get_wallet_password` itself is deleted, removing
+the last private `getpass` in `commands/`.
+
+`genesis init --password` appended the secret to the
+`unified_genesis.py` subprocess argv (visible in `ps` and shell history)
+and `genesis reset` took `--password` as a bare option. Both commands now
+expose the standard trio — `--password` deprecated with the usual
+warning, plus `--password-file`/`--password-stdin` — and resolve through
+`resolve_new_wallet_password` with the TTY prompt off. `init` hands the
+value to the child by `AITBC_GENESIS_PASSWORD` in its environment
+(child-only, zero filesystem lifetime — the script already writes
+`.genesis_password` 0600, so env adds nothing weaker); the script reads
+the env var when no `--password` argv is given, keeping direct
+invocation working. `init` refuses a `--password*` flag without
+`--create-wallet` — an ignored credential flag is the wrong failure
+mode. `reset` keeps auto-generating when no flag is given.
+
+Tests: `cli/tests/test_wal3_secret_leftovers.py` — 18 cases over real
+encrypted wallets (`_save_wallet`, real resolvers): file/stdin flag
+signing and broadcast for `sell lock`, wrong-password and no-password
+fail-closed, stdin read exactly once, secret absence from output and
+logs, `sell quote` unlock/fail-closed, the staking re-save round-trip
+plus headless fail-closed before submit, genesis init's env-not-argv
+boundary on all three sources, reset's resolved/None hand-off, and the
+script-side `AITBC_GENESIS_PASSWORD` consumption with argv precedence.
+
+Commits: `2d265c090` (sell trio + staking resolver + genesis env
+hand-off + MCP regen + tests).
