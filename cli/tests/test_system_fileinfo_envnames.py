@@ -63,7 +63,36 @@ def test_file_info_field_prints_scalar(runner, allowed):
     assert "0xAbC123" in result.output
 
 
-@pytest.mark.parametrize("denied", ["private_key", "PRIVATE_KEY", "password", "api_key", "node_key", "seed"])
+@pytest.mark.parametrize(
+    "denied",
+    [
+        # original denylist
+        "private_key",
+        "PRIVATE_KEY",
+        "password",
+        "api_key",
+        "node_key",
+        "seed",
+        # separator-insensitive exact names (CLI-2 hardening)
+        "privatekey",
+        "private-key",
+        "apikey",
+        "api-key",
+        "secretkey",
+        "passphrase",
+        "pass_phrase",
+        "passwd",
+        "credential",
+        "credentials",
+        # "<prefix>key" names — private/secret/api/auth/signing/access
+        "authkey",
+        "auth-key",
+        "signingkey",
+        "signing_key",
+        "accesskey",
+        "access-key",
+    ],
+)
 def test_file_info_field_denied_names_refused(runner, allowed, capsys, caplog, denied):
     secret = "0xSECRETNEVERPRINTED123"
     f = _write_json(allowed / "node.json", {denied: secret, "address": "0xabc"})
@@ -73,6 +102,17 @@ def test_file_info_field_denied_names_refused(runner, allowed, capsys, caplog, d
     # the denied value must never reach stdout or the log
     assert secret not in capsys.readouterr().out
     assert secret not in caplog.text
+
+
+@pytest.mark.parametrize("allowed_name", ["address", "pubkey", "monkey", "keynote"])
+def test_file_info_field_allowed_names_unchanged(runner, allowed, allowed_name):
+    """Names merely *ending* in "key" stay allowed — only the listed prefixes deny."""
+    f = _write_json(allowed / "node.json", {allowed_name: "0xAbC123"})
+    result = runner.invoke(
+        system, obj={"output_format": "table"}, args=["file-info", "--path", str(f), "--field", allowed_name]
+    )
+    assert result.exit_code == 0, result.output
+    assert "0xAbC123" in result.output
 
 
 def test_file_info_field_denied_inside_nested_value(runner, allowed, capsys):
@@ -229,3 +269,23 @@ def test_env_names_conventional_fallback(runner, tmp_path):
         result = runner.invoke(system, obj={"output_format": "table"}, args=["env-names", "--service", "aitbc-svc"])
     assert result.exit_code == 0, result.output
     assert "FALLBACK_KEY" in result.output
+
+
+def test_env_names_names_are_case_sensitive(runner, tmp_path):
+    """--names must report each name exactly as given — never uppercased.
+
+    ``foo`` is set while ``FOO`` is not: an uppercasing implementation would
+    invert both answers.
+    """
+    env = tmp_path / "svc.env"
+    env.write_text("foo=1\n")
+    show = f"{env} (ignore_errors=no)\n"
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", return_value=_systemctl_result(show)):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "json"},
+            args=["env-names", "--service", "aitbc-svc", "--names", "foo", "--names", "FOO"],
+        )
+    assert result.exit_code == 0, result.output
+    reported = json.loads(result.output)
+    assert reported == {"FOO": False, "foo": True}

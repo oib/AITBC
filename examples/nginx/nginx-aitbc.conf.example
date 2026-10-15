@@ -659,6 +659,88 @@ server {
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
     }
 
+    # OPS-4 (ETH-19): signed-order surface — exact matches only, never a
+    # prefix mount (a /api/exchange/ prefix would auto-publish every future
+    # route incl. /api/internal/* and /api/wallet/*). proxy_pass carries NO
+    # URI part: request_uri reaches the exchange unchanged — its own paths
+    # are already /api/*. Client-supplied X-API-Key/Authorization stripped.
+    location ^~ /api/internal/ {
+        return 404;
+    }
+
+    location = /api/orders {
+        limit_except POST { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location ~ ^/api/orders/[^/]+/cancel$ {
+        limit_except POST { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location = /api/exchange/nodes/register {
+        limit_except POST { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location = /api/exchange/nodes/payout {
+        limit_except POST { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location = /api/exchange/nodes {
+        limit_except GET { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location = /api/exchange/my-orders {
+        limit_except GET { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+
     location /exchange/price.json {
         proxy_pass http://exchange_service/exchange/price.json;
         proxy_set_header Host $host;

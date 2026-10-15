@@ -709,8 +709,12 @@ def aitbc_exchange_status(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_exchange_verify(
-    db: Annotated[str, Field(description="Exchange SQLite DB path (absolute, existing regular file, no symlinks)")],
-    bridge_db: Annotated[str | None, Field(description="bridge_deposits.db path — enables the prepay cross-check")] = None,
+    db: Annotated[
+        str, Field(description="Exchange SQLite DB path under /var/lib/aitbc/ (absolute, existing regular file, no symlinks)")
+    ],
+    bridge_db: Annotated[
+        str | None, Field(description="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check")
+    ] = None,
     rpc_url: Annotated[str | None, Field(description="Sepolia JSON-RPC endpoint — enables eth-chain checks")] = None,
     ait_rpc: Annotated[
         str | None, Field(description="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
