@@ -550,3 +550,20 @@ receipt carries the log. Dry runs exercise the same bounded scans read-only
 and report the adopted request's lockTxHash plus per-signer confirm state.
 New hardhat test proves the chunked helper succeeds where one unbounded
 query fails under a simulated range cap.
+
+### ETH-3d — lagging-replica-safe read-backs in the rehearsal driver
+
+`contracts/scripts/rehearsal/lib.js` + `roundtrip.js`: `pollRead` re-runs a
+read until a predicate holds (20 tries, 1.5 s apart — same bounds as the
+Safe-nonce guard) and names the read plus last value if it never holds;
+read errors (e.g. a replica not yet knowing a pinned blockTag) are retried.
+Every post-transaction read that feeds a decision or assertion now goes
+through it with `blockTag` pinned at the last sealed receipt's block:
+paused after unpause/pause, supportedTokens after addSupportedToken,
+validator flags and the activeValidators listing, requestCounter after
+initiateBridge, request status CONFIRMED, bridge and Safe balances after
+emergencyWithdraw/transfer, and the final paused+owner check. Skip checks
+stay unpolled. Trigger: the continuation run died on a stale `balanceOf`
+that answered pre-withdraw state right after a sealed exec. New hardhat
+tests: a once-stale `paused()` read recovers; a never-converging read is
+reported, not ignored.

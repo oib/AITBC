@@ -16,6 +16,7 @@ import {
   deploySafe,
   initKit,
   isOnlyOwnerRevert,
+  pollRead,
   publicClient,
   queryFilterChunked,
   signAndExecute,
@@ -321,6 +322,82 @@ describe("RehearsalSafe (BR-9 phase A, hardhat)", function () {
     expect(logs[0].blockNumber).to.equal(deployBlock);
     expect(logs[0].args.newOwner).to.equal(funder.address);
     expect(windows.length).to.be.greaterThan(1); // actually chunked
+  });
+
+  /** Wrap an EIP-1193 provider so eth_call to `selector` at `to` returns
+   *  `staleHex` for the first `times` calls once armed — the lagging-replica
+   *  shape that killed the ETH-3 continuation run (balanceOf answered with
+   *  pre-withdraw state right after the sealed exec). */
+  function staleCallNTimes(inner, to, selector, staleHex, times) {
+    const wrapped = {
+      armed: false,
+      left: times,
+      request: async (args) => {
+        const p0 = args?.params?.[0];
+        if (
+          wrapped.armed && wrapped.left > 0
+          && args?.method === "eth_call"
+          && typeof p0?.to === "string"
+          && p0.to.toLowerCase() === to.toLowerCase()
+          && typeof p0?.data === "string"
+          && p0.data.startsWith(selector)
+        ) {
+          wrapped.left -= 1;
+          return staleHex;
+        }
+        return inner.request(args);
+      },
+      on: (...a) => inner.on?.(...a),
+      once: (...a) => inner.once?.(...a),
+      emit: (...a) => inner.emit?.(...a),
+      removeListener: (...a) => inner.removeListener?.(...a),
+    };
+    return wrapped;
+  }
+
+  it("pollRead recovers a once-stale post-tx read (ETH-3 balanceOf regression)", async function () {
+    // paused() on a freshly deployed bridge is false; the wrapper answers
+    // the first read with a stale "true".
+    const BridgeFactory = await ethers.getContractFactory("CrossChainBridge", funder);
+    const bridge = await BridgeFactory.deploy(s1.address);
+    await bridge.waitForDeployment();
+    const bridgeAddress = await bridge.getAddress();
+    const STALE_TRUE = `0x${"0".repeat(63)}1`;
+    const laggy = staleCallNTimes(provider, bridgeAddress, "0x5c975abb", STALE_TRUE, 1);
+    const laggyBridge = new ethers.Contract(
+      bridgeAddress, ["function paused() view returns (bool)"],
+      new ethers.BrowserProvider(laggy));
+    laggy.armed = true;
+
+    // One unpolled read sees the stale value — proves the wrapper bites.
+    expect(await laggyBridge.paused()).to.equal(true);
+    // pollRead polls past it.
+    const v = await pollRead(() => laggyBridge.paused(), (p) => !p, { label: "paused()", intervalMs: 10 });
+    expect(v).to.equal(false);
+  });
+
+  it("pollRead reports a read that never converges instead of ignoring it", async function () {
+    const BridgeFactory = await ethers.getContractFactory("CrossChainBridge", funder);
+    const bridge = await BridgeFactory.deploy(s1.address);
+    await bridge.waitForDeployment();
+    const bridgeAddress = await bridge.getAddress();
+    const STALE_TRUE = `0x${"0".repeat(63)}1`;
+    const laggy = staleCallNTimes(provider, bridgeAddress, "0x5c975abb", STALE_TRUE, 1);
+    laggy.left = Infinity; // every read is stale
+    const laggyBridge = new ethers.Contract(
+      bridgeAddress, ["function paused() view returns (bool)"],
+      new ethers.BrowserProvider(laggy));
+    laggy.armed = true;
+
+    let threw = false;
+    try {
+      await pollRead(() => laggyBridge.paused(), (p) => !p,
+        { label: "paused() probe", attempts: 3, intervalMs: 10 });
+    } catch (e) {
+      expect(`${e.message}`).to.match(/paused\(\) probe never satisfied after 3 reads/);
+      threw = true;
+    }
+    expect(threw).to.equal(true);
   });
 
   it("refuses to sign when the Safe nonce never reaches the expected value", async function () {

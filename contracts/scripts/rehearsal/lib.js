@@ -211,6 +211,34 @@ export async function signAndExecute(kits, transactions, options = {}) {
   return (executor ?? kits[0]).executeTransaction(safeTx, execOptions);
 }
 
+/**
+ * Bounded poll for post-transaction read-backs: re-run `read` until
+ * `predicate` holds, then return the value. Same shape as the nonce guard —
+ * a lagging RPC replica can serve pre-tx state (ETH-3 run: balanceOf still
+ * non-zero after a sealed emergencyWithdraw) or fail outright on a pinned
+ * blockTag it has not indexed yet; both are retried. After `attempts`
+ * failures the error names the read and the last value — a refusal, never a
+ * swallowed mismatch. Prefer a `blockTag` pinned at the receipt's block so
+ * the read cannot observe pre-tx state at all.
+ */
+export async function pollRead(read, predicate, { label = "read", attempts = 20, intervalMs = 1500 } = {}) {
+  let value, lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      value = await read();
+      lastErr = undefined;
+      if (predicate(value)) return value;
+    } catch (err) {
+      lastErr = err;
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  if (lastErr) {
+    throw new Error(`${label}: read errored ${attempts}x — last error: ${lastErr.shortMessage ?? lastErr.message}`);
+  }
+  throw new Error(`${label} never satisfied after ${attempts} reads — last value: ${value}`);
+}
+
 export const LOG_CHUNK = 40000;
 
 /** Range-cap rejections: publicnode -32701 "exceed maximum block range",
