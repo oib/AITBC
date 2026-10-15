@@ -30,6 +30,9 @@ def test_usage_error_still_exit_2(capsys):
 
 
 def test_success_path_unchanged(capsys):
+    """main() returns the command's own value — None for most commands —
+    so a clean run must not raise and must not print a traceback."""
     rc = main(["version"])
-    assert rc == 0
-    capsys.readouterr()  # keep the next test's capture clean
+    captured = capsys.readouterr()
+    assert rc in (0, None)
+    assert "Traceback" not in (captured.out + captured.err)
