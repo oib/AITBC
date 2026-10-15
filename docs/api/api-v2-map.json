@@ -1736,6 +1736,41 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/messaging/messages",
+          "upstream": "/rpc/messaging/messages",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/messaging/messages/search",
+          "upstream": "/rpc/messaging/messages/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/messaging/messages/{tx_hash}",
+          "upstream": "/rpc/messaging/messages/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/messaging/state",
+          "upstream": "/rpc/messaging/state",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/messaging/topics",
+          "upstream": "/rpc/messaging/topics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/mining/miners",
           "upstream": "/rpc/mining/miners",
           "methods": [
@@ -2852,6 +2887,41 @@
         {
           "public": "/api/v2/chain/v1/mempool",
           "upstream": "/v1/mempool",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/messages",
+          "upstream": "/v1/messaging/messages",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/messages/search",
+          "upstream": "/v1/messaging/messages/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/messages/{tx_hash}",
+          "upstream": "/v1/messaging/messages/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/state",
+          "upstream": "/v1/messaging/state",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/topics",
+          "upstream": "/v1/messaging/topics",
           "methods": [
             "GET"
           ]
