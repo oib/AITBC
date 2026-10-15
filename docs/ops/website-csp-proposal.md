@@ -1,13 +1,58 @@
 # Content-Security-Policy proposal for the hub website
 
-Status: **proposal only** — applying it requires an nginx change, which is a
-separate operator-gated task. No nginx config is modified here.
+Status: **report-only deployed on the hub** (15 Oct 2026, operator-named
+nginx edit, card-attested). The deployed policy is stricter than the draft
+below — it has `script-src 'self'` (no `unsafe-inline`), `base-uri 'none'`,
+`frame-ancestors 'self'`, and no `form-action` — so every inline script and
+`on*=` handler reports as a violation, which is the intended discovery mode.
+The exact deployed directives are mirrored in
+`examples/nginx/nginx-aitbc.conf.example` and guarded by
+`tests/unit/test_website_api_contract.py`.
 
-The site currently ships no CSP header (confirmed against
-`examples/nginx/nginx-aitbc.conf.example` — no `Content-Security-Policy`
-directive exists). All scripts and styles are same-origin or inline; there
-are no third-party includes, so a strict policy is achievable with modest
-markup work.
+All scripts and styles are same-origin or inline; there are no third-party
+includes, so a strict policy is achievable with modest markup work.
+
+## Two header layers (verified live, 15 Oct 2026)
+
+nginx `add_header` is **not inherited**: once a `location` block defines any
+`add_header` of its own, the server-level set does not apply to that
+location. The hub therefore has two distinct header layers:
+
+- **Static pages** (`location /` — the catch-all serving the HTML site)
+  define no `add_header`, so they inherit the server-level set:
+  `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, `Content-Security-Policy-Report-Only`
+  and `Permissions-Policy`. `location = /dashboard/` and `location = /shop/`
+  are a known exception: their `add_header Cache-Control` shadows **all**
+  server-level headers, so those two pages currently get no security
+  headers — a follow-up named edit should repeat the security set inside
+  those locations (or factor it into an included snippet).
+- **API locations** (`/v1/`, `/rpc/`, `/agent/api/`, …) define their own
+  `add_header` CORS lines, which shadow the server-level set — so API
+  responses get their security headers from the FastAPI middleware instead.
+  Verified by GET (not HEAD — the routes are GET-only and HEAD returns
+  405): `content-security-policy: default-src 'self'; script-src 'self'
+  'unsafe-inline'; style-src 'self' 'unsafe-inline'`,
+  `referrer-policy: strict-origin-when-cross-origin`,
+  `permissions-policy: geolocation=(), microphone=(), camera=()`.
+  That middleware set is weaker than the static-page set (allows inline
+  scripts, no `connect-src`/`object-src`/`frame-ancestors`); aligning it is
+  a separate app-side task.
+
+Any new `location` that should carry the security headers must either
+define no `add_header` at all or repeat the server-level set — there is no
+"add to inherited headers" in nginx.
+
+Report-only has no collection endpoint: violations are visible only in
+browser devtools. A `report-to` endpoint is a possible later step.
+
+## Roll-forward: enforcing the policy
+
+Flipping `Content-Security-Policy-Report-Only` to `Content-Security-Policy`
+is **blocked** on externalizing the inline `<script>` blocks, the ~100
+`on*=` handlers and the `style` attributes (inventoried below). Until then,
+an enforcing policy would break every page. That work is a separate WEB
+task, not started.
 
 ## Proposed policy (report-only first)
 
