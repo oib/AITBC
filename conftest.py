@@ -71,6 +71,14 @@ atexit.register(shutil.rmtree, _TEST_DATA_DIR, True)
 os.makedirs(os.path.join(_TEST_DATA_DIR, "data"), exist_ok=True)
 os.environ.setdefault("AITBC_DATA_DIR", _TEST_DATA_DIR)
 
+# CONFIG_DIR and LOG_DIR freeze from the env at the same import (aitbc.constants); a suite
+# that binds them to /etc/aitbc or /var/log/aitbc first would trip the wallet conftest's
+# early-binding guard in every combined run. Redirect them here so constants can only ever
+# bind scratch paths, whichever suite's import lands first.
+for _sub, _env in (("config", "AITBC_CONFIG_DIR"), ("logs", "AITBC_LOG_DIR")):
+    os.makedirs(os.path.join(_TEST_DATA_DIR, _sub), exist_ok=True)
+    os.environ.setdefault(_env, os.path.join(_TEST_DATA_DIR, _sub))
+
 # What the guard below is guarding against: the path `DATA_DIR` would have resolved to without
 # the line above. Spelled out here rather than read from `aitbc.constants`, because importing
 # that module is what freezes `DATA_DIR` — and by the time the guard runs, it holds the

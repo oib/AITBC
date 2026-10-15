@@ -99,8 +99,11 @@ for _env_name in (
     os.environ.pop(_env_name, None)
 
 # Isolating vars are force-assigned, not setdefault — an ambient path is the
-# leak being removed, so it never gets to win.
-os.environ["AITBC_DATA_DIR"] = str(_TEST_ROOT / "data")
+# leak being removed, so it never gets to win. AITBC_DATA_DIR is the data
+# ROOT: services append "data/" themselves (DATA_DIR/data/<svc>.db), so it
+# points at _TEST_ROOT — not _TEST_ROOT/data, which would produce the
+# never-created data/data/ level the combined critical gate hit.
+os.environ["AITBC_DATA_DIR"] = str(_TEST_ROOT)
 os.environ["AITBC_CONFIG_DIR"] = str(_TEST_ROOT / "config")
 os.environ["AITBC_LOG_DIR"] = str(_TEST_ROOT / "logs")
 os.environ["API_KEY_STORAGE_PATH"] = str(_TEST_ROOT / "api_keys.json")
