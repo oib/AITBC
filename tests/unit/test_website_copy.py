@@ -50,6 +50,7 @@ PAGES_WITH_COPY = [
     "exchange.html",
     "customer-dashboard.html",
     "shop-dashboard.html",
+    "messages.html",
 ]
 
 # Inventoried truncation sites — (source file, regex that must carry an
@@ -94,6 +95,9 @@ TRUNCATION_SITES = [
     ("exchange.html", r'data-copy-from="deposit-address"'),
     ("exchange.html", r'data-copy-from="tx-data-hex"'),
     ("exchange.html", r'data-copy-from="eth-tx-hash"'),
+    # messages — author address and tx hash per rendered post.
+    ("messages.js", r"aitbcCopyBtn\(author, 'author address'\)"),
+    ("messages.js", r"aitbcCopyBtn\(m\.tx_hash, 'transaction hash'\)"),
 ]
 
 # Legacy implementations the shared control retires — none may survive.
@@ -193,6 +197,7 @@ class TestCopyControlStatic(unittest.TestCase):
                 "exchange.html": "exchange.js",
                 "customer-dashboard.html": "dashboard.js",
                 "shop-dashboard.html": "dashboard.js",
+                "messages.html": "messages.js",
             }
             emitter = emitters[page]
             if emitter:

@@ -53,6 +53,7 @@ PAGES = {
     "block.html": "?height=48691",
     "tx.html": "?hash=0x" + "ab" * 32,
     "search.html": "?query=0x" + "cd" * 20,
+    "messages.html": "",
 }
 
 
@@ -329,6 +330,43 @@ _FIXTURES = {
     "/v1/bridge/status": {},
     "/v1/monitoring/metrics": {},
     "/pool-hub/v1/sla/metrics/": {},
+    # MSG-4 read surface — a couple of topics and messages so messages.html
+    # renders its rows in the fixture pass.
+    "/api/messages/topics": {
+        "success": True,
+        "chain_id": "aitbc-fixture",
+        "index_height": 48865,
+        "topics": [
+            {"topic": "msg-fix", "message_count": 2, "last_block_height": 48865, "last_timestamp": "2026-10-15T22:30:00Z"},
+            {"topic": "general", "message_count": 1, "last_block_height": 48860, "last_timestamp": "2026-10-15T22:00:00Z"},
+        ],
+        "count": 2,
+        "total_topics": 2,
+        "scan_bounded": False,
+    },
+    "/api/messages": {
+        "success": True,
+        "chain_id": "aitbc-fixture",
+        "index_height": 48865,
+        "messages": [
+            {
+                "message_id": "0x" + _HEX,
+                "tx_hash": "0x" + _HEX,
+                "block_height": 48865,
+                "author": "0x" + "cd" * 20,
+                "sender": "0x" + "cd" * 20,
+                "topic": "msg-fix",
+                "kind": "post",
+                "body": "fixture message body",
+                "parent": None,
+                "timestamp": "2026-10-15T22:30:00Z",
+                "fee": 360000,
+            }
+        ],
+        "count": 1,
+        "next_cursor": None,
+        "scan_bounded": False,
+    },
 }
 
 _STUB_JS = f"""
