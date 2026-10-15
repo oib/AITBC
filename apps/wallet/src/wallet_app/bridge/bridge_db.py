@@ -9,7 +9,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-DB_PATH = "/var/lib/aitbc/bridge_deposits.db"
+DB_PATH = os.path.join(
+    os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc")),
+    "bridge_deposits.db",
+)
 
 
 # Preserve exact Decimal values through SQLite NUMERIC columns.  SQLite itself

@@ -23,7 +23,7 @@ from aitbc.crypto import encrypt_private_key
 from aitbc_agent_core import get_active_brand
 
 # Add CLI utils to path
-sys.path.insert(0, "/opt/aitbc/cli")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "cli"))
 
 _brand = get_active_brand()
 
