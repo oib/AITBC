@@ -245,14 +245,20 @@ def _prepay(db_path, address, amount_eth):
 # --- access gates -----------------------------------------------------------
 
 
-def test_flag_off_404(exchange_db):
+def test_flag_off_503(exchange_db):
+    """Flag-off answers 503 'disabled', never 404 — the wallet monitor maps
+    404 to 'order gone' and refunds the lock; a flag mismatch must stay
+    retryable (ETH-JOIN gap 3)."""
     h = _handler()
     h.client_address = ("127.0.0.1", 43210)
     h.headers = {"X-Api-Key": "test-key"}
     h._read_json_body = MagicMock(return_value={"event": "debit_refund", "order_id": 1})
     with patch("apps.exchange.simple_exchange.handlers.exchange.get_db_path", return_value=exchange_db):
         h.handle_internal_settlement()
-    assert h.send_error.called and h.send_error.call_args[0][0] == 404
+    assert not h.send_error.called
+    args, kwargs = h.send_json_response.call_args
+    assert kwargs.get("status") == 503
+    assert "disabled" in str(args[0].get("error", ""))
 
 
 def test_non_loopback_refused(exchange_db, settlement_on):
