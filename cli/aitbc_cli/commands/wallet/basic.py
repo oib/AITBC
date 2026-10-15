@@ -24,6 +24,7 @@ from ...utils.wallet_paths import (
     service_dir_wallet_note,
     wallet_not_found_message,
     wallet_search_dirs,
+    wallet_write_restricted_message,
 )
 from aitbc.utils import ait_to_units, format_ait
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
@@ -466,7 +467,7 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
             # Cover service wallets outside the CLI wallet dir.
             wallet_path = find_wallet_file(name) or wallet_path
     else:
-        wallet_path = ctx.obj["wallet_path"]
+        wallet_path = ctx.obj["wallet_sign_path"]
     config_file = Path.home() / ".aitbc" / "config.yaml"
 
     if not wallet_path.exists():
@@ -536,7 +537,7 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
 def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
     """Return the on-chain address for a wallet, preferring the daemon list."""
     # If the context has a direct wallet path for this name, use it.
-    wallet_path = ctx.obj.get("wallet_path")
+    wallet_path = ctx.obj.get("wallet_sign_path")
     if wallet_path and wallet_path.exists() and wallet_path.stem == wallet_name:
         try:
             with open(wallet_path) as f:
@@ -716,10 +717,11 @@ def earn(
 ):
     """Record earnings received for a completed job against the wallet."""
     wallet_name = ctx.obj["wallet_name"]
+    # earn re-saves the wallet file — configured-dir resolution only (CLI-6c).
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
+        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -731,7 +733,6 @@ def earn(
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
-    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     # Add transaction
@@ -775,10 +776,11 @@ def earn(
 def spend(ctx, amount: Decimal, description: str, password: str | None, password_file: str | None, password_stdin: bool):
     """Record a manual spend transaction with an amount and description."""
     wallet_name = ctx.obj["wallet_name"]
+    # spend re-saves the wallet file — configured-dir resolution only (CLI-6c).
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
+        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -790,7 +792,6 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
         wallet_path=Path(wallet_path),
         ctx=ctx,
     )
-    _emit_wallet_path_note(ctx)
     wallet_data = _load_wallet(wallet_path, wallet_name, password=password)
 
     balance = _wallet_amount(wallet_data.get("balance", 0))
@@ -897,7 +898,7 @@ def send(
 ):
     """Send AITBC tokens from the active wallet to another address."""
     wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
+    wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
         error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
@@ -1098,7 +1099,7 @@ def request_payment(
 ):
     """Generate a payment request to another address for a specific amount."""
     wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
+    wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
         error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
@@ -1145,7 +1146,7 @@ def request_payment(
 def stats(ctx, password: str | None, password_file: str | None, password_stdin: bool):
     """Show aggregated statistics for the active wallet over all transactions."""
     wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
+    wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
         error(wallet_not_found_message(find_wallet_file_report(wallet_name)))

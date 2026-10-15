@@ -77,7 +77,7 @@ def test_batch_prints_partial_summary_when_entry_lookup_fails(runner, tmp_path, 
     with (
         patch.object(chain_id_mod, "get_chain_id", side_effect=_serving_chain_lookup("ait-test")),
         patch("aitbc_cli.commands.transactions.AITBCHTTPClient", _C),
-        patch("aitbc_cli.commands.transactions.wallet_dir", return_value=wallet_dir),
+        patch.dict("os.environ", {"AITBC_WALLET_DIR": str(wallet_dir)}),
     ):
         result = runner.invoke(
             tx_mod.transactions,

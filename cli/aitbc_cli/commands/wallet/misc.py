@@ -9,7 +9,11 @@ import click
 
 from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient
-from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
+from ...utils.wallet_paths import (
+    find_wallet_file_report,
+    wallet_dir as resolve_wallet_dir,
+    wallet_write_restricted_message,
+)
 from . import _load_wallet, wallet
 
 
@@ -117,7 +121,7 @@ def inspect(ctx, wallet_file: str, field: str | None):
 def rewards(ctx):
     """View all earned rewards from staking and on-chain liquidity positions."""
     wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj.get("wallet_path")
+    wallet_path = ctx.obj.get("wallet_sign_path")
     if not wallet_path or not Path(wallet_path).exists():
         error("Wallet not found")
         ctx.exit(1)
@@ -206,10 +210,11 @@ def rewards(ctx):
 def export(ctx, destination: str | None):
     """Export the active wallet to a JSON file at the given destination."""
     wallet_name = ctx.obj["wallet_name"]
+    # export writes a copy of the wallet file — configured-dir resolution only (CLI-6c).
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
         return
 
     try:

@@ -96,7 +96,7 @@ def _emit_wallet_path_note(ctx: click.Context) -> None:
         note = ambiguous_wallet_note(report)
         if note:
             warning(note)
-    path = ctx.obj.get("wallet_path")
+    path = ctx.obj.get("wallet_sign_path")
     if path and is_service_wallet_path(Path(path)):
         info(f"Using wallet file: {path}")
 
@@ -133,13 +133,19 @@ def _load_wallet(
                     wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
                 )
             wallet_data["private_key"] = encrypt_value(priv, password)
-            try:
-                with open(wallet_path, "w") as f:
-                    json.dump(wallet_data, f, indent=2)
-            except OSError as e:
-                error(f"Failed to re-save wallet with encryption: {e}")
-                raise click.Abort() from e
-            click.echo("Re-encrypted legacy wallet with PBKDF2+Fernet.")
+            if is_service_wallet_path(wallet_path):
+                # A service-managed wallet file must never receive a CLI
+                # write (CLI-6c ASK answer) — decrypt in memory, leave the
+                # on-disk legacy form untouched.
+                warning(f"Not re-encrypting service wallet file in place: {wallet_path}")
+            else:
+                try:
+                    with open(wallet_path, "w") as f:
+                        json.dump(wallet_data, f, indent=2)
+                except OSError as e:
+                    error(f"Failed to re-save wallet with encryption: {e}")
+                    raise click.Abort() from e
+                click.echo("Re-encrypted legacy wallet with PBKDF2+Fernet.")
             wallet_data["private_key"] = priv  # return plaintext for in-memory use
         else:
             if password is None:
@@ -210,6 +216,7 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
         ctx.obj["wallet_name"] = wp.stem
         ctx.obj["wallet_dir"] = wp.parent
         ctx.obj["wallet_path"] = wp
+        ctx.obj["wallet_sign_path"] = wp
         ctx.obj["wallet_path_explicit"] = True
         return
 
@@ -235,12 +242,14 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
 
     ctx.obj["wallet_name"] = wallet_name
     ctx.obj["wallet_dir"] = wallet_dir
-    # Resolve through the shared search order: the configured wallet dir first,
-    # then the service wallet dir — a wallet that only exists under
-    # /var/lib/aitbc/wallets is still found by name. Falls back to the
-    # configured-dir path for commands that create the file.
+    # Two views of the same name (CLI-6c ASK answer): ``wallet_path`` is the
+    # configured-dir file — the only file a command that writes the wallet
+    # (export, earn/spend/liquidity bookkeeping re-saves, delete/restore…)
+    # may touch. ``wallet_sign_path`` is the shared-search result for
+    # load/sign/read commands and may land in the service wallet dir.
     wallet_report = find_wallet_file_report(wallet_name)
-    ctx.obj["wallet_path"] = wallet_report.path or wallet_dir / f"{wallet_name}.json"
+    ctx.obj["wallet_path"] = wallet_dir / f"{wallet_name}.json"
+    ctx.obj["wallet_sign_path"] = wallet_report.path or ctx.obj["wallet_path"]
     ctx.obj["wallet_path_report"] = wallet_report
     ctx.obj["wallet_path_explicit"] = False
 
