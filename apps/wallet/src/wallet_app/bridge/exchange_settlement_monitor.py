@@ -242,6 +242,9 @@ def _exchange_order_id(payload_value: Any) -> int | None:
     return None
 
 
+_HEX_CHARS = frozenset("0123456789abcdef")
+
+
 def _norm_tx_hash(value: Any) -> str:
     """Lower-case, 0x-less chain hash for equality checks — the RPC spells
     one hash with either case or prefix across endpoints, so comparisons
@@ -260,6 +263,38 @@ def _lock_refund_ref_id(tx_hash: str) -> int:
     return -(int(_norm_tx_hash(tx_hash)[:15], 16) | (1 << 59))
 
 
+# The below-fee skip leaves the lock unmarked, so it is re-evaluated every
+# poll — rate-limit the notice to INFO once per lock per hour, DEBUG
+# between, or a permanent dust lock would spam the journal. The hash is
+# attacker-chosen, so the map is bounded: at the cap stale entries are
+# pruned and, if still full, it resets wholesale (a restart already
+# re-logs each live lock once, so a reset is no worse).
+_BELOW_FEE_LOG_SECONDS = 3600
+_BELOW_FEE_LOG_MAX = 8192
+_below_fee_last_log: dict[str, int] = {}
+
+
+def _log_below_fee(order_id: int, tx_hash: str, lock_ait: Decimal) -> None:
+    now = int(time.monotonic())
+    last = _below_fee_last_log.get(tx_hash)
+    if last is not None and now - last < _BELOW_FEE_LOG_SECONDS:
+        logger.debug("Order %s lock %s is still below the refund sweep fee — no row", order_id, tx_hash)
+        return
+    if len(_below_fee_last_log) >= _BELOW_FEE_LOG_MAX:
+        cutoff = now - _BELOW_FEE_LOG_SECONDS
+        for stale in [k for k, v in _below_fee_last_log.items() if v < cutoff]:
+            del _below_fee_last_log[stale]
+        if len(_below_fee_last_log) >= _BELOW_FEE_LOG_MAX:
+            _below_fee_last_log.clear()
+    _below_fee_last_log[tx_hash] = now
+    logger.info(
+        "Order %s lock %s of %s AIT: lock value cannot cover the refund sweep fee — no row",
+        order_id,
+        tx_hash,
+        lock_ait,
+    )
+
+
 def _units_to_ticks(units: int) -> int:
     """Chain units -> exchange ticks, floored — a lock's recorded cover can
     never exceed what was actually sent."""
@@ -269,7 +304,9 @@ def _units_to_ticks(units: int) -> int:
 async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int]:
     """Post ``order_funded`` for fresh escrow locks bound to orders; create
     ``order_refund`` rows for locks an order cannot take. Every processed
-    lock tx is marked so re-scanning the full history is cheap."""
+    lock tx is marked so re-scanning the full history is cheap — except a
+    lock at/below the refund sweep fee (``below_fee``): it stays unmarked
+    so a fee change can pick it back up, and its log line is rate-limited."""
     txs = await sellmon._fetch_transfers(cfg.escrow.escrow_address, limit=0)
     stats = {"scanned": 0, "funded": 0, "refunds": 0, "http_refused": 0}
     for tx in txs:
@@ -299,8 +336,11 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
         except Exception as e:
             logger.error("order-lock handling failed for %s on order %s: %s", tx_hash, order_id, e)
             continue  # unmarked — retried next poll
-        if outcome is None:
-            continue  # refused — warned in _order_lock_outcome, retried next poll
+        if outcome is None or outcome == "below_fee":
+            # Refused locks retry next poll; below-fee dust is deliberately
+            # unmarked too — re-evaluating it each poll is cheap and a fee
+            # change picks the lock back up.
+            continue
         insert_monitor_mark(f"lock:{tx_hash}", detail=sender, outcome=outcome)
     return stats
 
@@ -316,6 +356,14 @@ async def _lock_refund(
     owner_lock: bool = False,
 ) -> str:
     """order_refund for a lock the order can't take; counts the row."""
+    if lock_ait <= _sweep_fee_ait():
+        # Same caller-side bound _refund_stranded_locks applies to the lock
+        # remainder: a lock worth less than its refund sweep stays in escrow
+        # rather than draining the shared float each cycle. One check here
+        # covers both inserts in _ensure_order_refund (-order_id and the
+        # owner fallback), because it runs before either is attempted.
+        _log_below_fee(order_id, tx_hash, lock_ait)
+        return "below_fee"
     outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash, remainder=False, owner_lock=owner_lock)
     if outcome == "refunding":
         stats["refunds"] += 1
@@ -419,6 +467,14 @@ async def _ensure_order_refund(
     )
     lock_keyed = False
     if row_id is None and not remainder and owner_lock:
+        normalized = _norm_tx_hash(tx_hash)
+        if not normalized or any(c not in _HEX_CHARS for c in normalized):
+            logger.error(
+                "Order %s owner lock %r: tx hash is empty or not hex — cannot derive a lock-keyed refund ref_id; operator refund needed",
+                order_id,
+                tx_hash,
+            )
+            return "bad_tx_hash"
         ref_id = _lock_refund_ref_id(tx_hash)
         row_id = insert_exchange_settlement(
             "order_refund",
