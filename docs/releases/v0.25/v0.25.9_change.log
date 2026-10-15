@@ -1871,6 +1871,9 @@ narrative; this list cites each remaining commit by hash so
 - `6ff2adfac9` fix(exchange): ETH-JOIN — flag-off internal settlement endpoint answers 503, not 404
 - `11135740c4` feat(exchange): CLI-1 — my-orders carries funding block on unfunded rows
 - `8605f6b215` feat(cli): CLI-1 — node list/set-payout/order fund/wallet bridge settlements
+- `4b214fdb29` fix(mcp): CLI-2 — optional generated-tool params get a None default
+- `77ebd3aafc` feat(cli): CLI-2 — system file-info + env-names, the two safe reads
+- `facb65ebc3` feat(cli): CLI-2 — aitbc exchange verify, read-only book-checker wrapper
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2078,3 +2081,51 @@ operator decision), BUY-side funding, ETH-JOIN review items 4-7.
 
 Commits: `11135740c` (exchange my-orders funding block + tests),
 `8605f6b21` (CLI commands, wallet route/db/tests, MCP regen, openapi).
+
+
+### CLI-2: CLI/MCP tooling gaps — file-info, env-names, exchange verify, MCP optional-arg schema (2026-10-15)
+
+Four tooling gaps reported from the ops/MCP sweep (TOPOLOGY
+2026-10-15-cli-mcp-gaps.md): every one had been worked around with
+ssh+python because the CLI either dumped too much or required too much.
+All additions are read-only; the generic `run-script --interpreter/--arg`
+extension is deferred to the gap log as a separate reviewed item — it
+widens a remote-exec surface.
+
+- `aitbc system file-info --path <f> [--field <name>]` — the safe form
+  of `system file` (which dumps whole content, including a wallet
+  JSON's private_key). Reports size, mtime, owner, mode, type and the
+  JSON top-level key names; deliberately no sha256 — a hash of a short
+  secret file is brute-forceable offline. `--field` prints one scalar
+  top-level field under a hard, case-insensitive denylist (private_key,
+  secret, password, token, mnemonic, seed, key, api_key, `*_key`, and
+  the same names nested in the value); denied names and >200-char
+  values are explicit refusals. The allowlist now resolves the real
+  path — a symlink escaping the allowed prefixes is refused.
+  `/var/lib/aitbc/wallets` and `/etc/aitbc/credentials` are covered;
+  `/root/.aitbc/wallets` is not.
+- `aitbc system env-names --service <unit> [--names K...]` — variable
+  NAMES only from `systemctl show -p EnvironmentFiles` (drop-ins
+  included, `-` optional prefix handled, `/etc/aitbc/<unit>.env`
+  fallback kept); unparsed lines report file+line number, never text;
+  `--names` reports set/unset. `env-set` behaviour unchanged.
+- `aitbc exchange verify` — wraps `scripts/ops/exchange_verify.py`:
+  `sys.executable` argv exec (no shell), `--no-chain` default unless an
+  RPC is given, `--db`/`--bridge-db` must be absolute existing regular
+  files without `..` or symlinks, exit code and FAIL/WARN lines pass
+  through. The script is stdlib-only and opens sqlite `mode=ro`.
+- Generated MCP wrappers annotated every optional CLI option `T | None`
+  but emitted no `= None` default, so FastMCP marked them all required
+  (the sweep passed explicit nulls to work around it). The generator
+  now appends `= None`; all 76 groups regenerated. The three new
+  commands land as read-only MCP tools (`FORCE_READ_ONLY_PATHS`).
+
+Tests: a denied field is proven absent from stdout and logs; `system
+file` dump behaviour unchanged; an omitted MCP optional never reaches
+the command line nor the string "None"; verify argv/passthrough/path
+refusals covered. Spec: tasks/batch-05-build/CLI-2 (director-approved
+with five amendments, all folded in).
+
+Commits: `4b214fdb2` (MCP schema fix + regen + None-skip test),
+`77ebd3aaf` (file-info + env-names + tests + docs), `facb65ebc`
+(exchange verify + tests + docs).
