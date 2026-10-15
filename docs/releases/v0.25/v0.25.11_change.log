@@ -573,3 +573,9 @@ reported, not ignored.
 - `docs/design/msg2-votes-moderation.md` (new): eight additive `aitbc_msg` kinds under v1 (vote, hide/unhide, pin/unpin, lock/unlock, mod_grant/mod_revoke); per-kind envelope schemas; topic-moderator authority derived in canonical (height, tx_hash) order at the action's own height; hiding as a read-side filter with `include_hidden`/`hidden_by`; last-vote-wins with retract; provisional integer reputation (VOTE_CAP clamp, self-votes excluded) pending the authority decision; still no tables/hooks/migration — pure derived queries; determinism test plan incl. same-block reorder and reorg-removal; CLI/MCP surfaces and the 501-route fates; six open questions with recommendations. No consensus, state_root or tx-type change.
 
 - One-line pointer added to `msg1-onchain-messaging.md`.
+### MSG-4
+- Explorer-api gains read-only /api/messages/{topics,state,messages} proxies to /rpc/messaging/* with identical bounds (limit<=100, offset<=500, upstream detail forwarded, 503 on transport failure). OpenAPI spec regenerated.
+- website/messages.html: noindex read-only forum view — unmoderated-content banner, topic chips, cursor paging; all chain text via textContent with bidi/zero-width chars replaced by visible [U+XXXX] placeholders. tx.html shows a 'forum message' badge on aitbc_msg envelopes.
+- Menu gains Messages via sync-website-menu.py; page stays out of the sitemap per the noindex rule.
+- Tests: route bounds/cursor/error-shape tests, hostile-fixture browser tests (script/img/bidi/zero-width render inert), 375px guard covers the page, copy-control pins extended.
+- Proposals only (nothing applied): docs/ops/messaging-explorer-nginx.md (limit_req zone for the new surface); new-message event-bridge event sketched in tasks/progress/MSG-4.md.
