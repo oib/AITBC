@@ -1262,10 +1262,6 @@ a.btn-secondary {
     cursor: pointer;
     font-size: 0.9rem;
 }
-.btn-primary:hover {
-    background: var(--primary-dark);
-}
-
 .block-list-table {
     width: 100%;
     border-collapse: collapse;
@@ -2073,4 +2069,55 @@ a.btn-secondary {
     .ob-table th, .ob-table td { padding: 0.22rem 0.3rem; }
     .ob-unfunded { font-size: 0.58rem; }
     .ob-banner { font-size: 0.7rem; }
+}
+
+/* ── Phone tap targets & input font floor (WEB-FIX-1 W3/W4) ─────────────
+   Applies on touch devices and narrow viewports only; desktop is
+   unchanged. 44px is the WCAG 2.5.8 / Apple HIG minimum target size; the
+   16px form font prevents iOS's zoom-on-focus. */
+@media (pointer: coarse), (max-width: 640px) {
+    .status-strip a.status-part {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+    .site-footer a,
+    .site-footer a:link,
+    .site-footer a:visited {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+    .filter-btn {
+        min-height: 44px;
+    }
+    /* Explorer block rows (role=link divs): inline style sets padding:0,
+       so the hit area comes from min-height alone. */
+    .block-item {
+        min-height: 44px;
+    }
+    .journal-controls select {
+        min-height: 44px;
+        font-size: 16px;
+    }
+    /* In-table links (bridges tx, customer-dashboard addresses, explorer
+       results): the glyph stays the same size; padding grows the hit
+       area and the compensating negative margin keeps row heights. */
+    .block-list-table td a,
+    .alerts-table td a,
+    .top-addresses-table td a {
+        display: inline-block;
+        padding: 0.75rem 0.25rem;
+        margin: -0.75rem -0.25rem;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+    /* iOS zoom-on-focus guard: any focused form control under 16px makes
+       Safari zoom the viewport. Exclude checkboxes/radios — font size is
+       irrelevant to them and would only inflate the glyph box. */
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px;
+    }
 }
