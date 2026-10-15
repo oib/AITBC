@@ -25,6 +25,11 @@ Two explicit flag sources at once (e.g. ``--password`` together with
 ``--password-file``) are an error, never a guess. When nothing applies and
 no TTY exists, the failure message lists the supported ways.
 
+Wallet *creation* (``wallet create``, plaintext ``wallet restore``) uses
+:func:`resolve_new_wallet_password`: identical sources and precedence, but
+only the TTY fallback asks twice (confirm loop) and writes the keyring —
+non-interactive sources are self-confirming.
+
 The secret is never printed, logged, echoed, or embedded in an exception
 message — error text names paths and problems only.
 """
@@ -203,6 +208,44 @@ def _tty_password(wallet_name: str | None, ctx) -> str:
         raise  # unreachable
 
 
+def _tty_new_password(wallet_name: str | None, ctx) -> str:
+    """Two-prompt confirm loop for a *new* wallet password — the typo guard.
+
+    Only the interactive path asks twice; a file/stdin/env value is already
+    machine-provided, so confirming it buys nothing. The TTY path is also the
+    only one that writes the secret back to the system keyring — a password
+    supplied by file, stdin or env is never copied into another store.
+    """
+    import getpass
+
+    prompt = f"Enter password for wallet '{wallet_name}': " if wallet_name else _PROMPT
+    while True:
+        try:
+            first = getpass.getpass(prompt)
+        except Exception:
+            abort(ctx, "Password prompt failed")
+            raise  # unreachable
+        if not first:
+            click.echo("Password cannot be empty", err=True)
+            continue
+        try:
+            confirm = getpass.getpass("Confirm password: ")
+        except Exception:
+            abort(ctx, "Password prompt failed")
+            raise  # unreachable
+        if first != confirm:
+            click.echo("Passwords do not match", err=True)
+            continue
+        if wallet_name:
+            try:
+                import keyring
+
+                keyring.set_password("aitbc-wallet", wallet_name, first)
+            except Exception:
+                pass
+        return first
+
+
 def resolve_wallet_password(
     wallet_name: str | None = None,
     *,
@@ -241,6 +284,49 @@ def resolve_wallet_password(
 
     if interactive_ok and sys.stdin.isatty():
         return _tty_password(wallet_name, ctx)
+
+    abort(
+        ctx,
+        "No wallet password available and no TTY for a prompt. Provide one via "
+        "--password-stdin, --password-file <path>, AITBC_WALLET_PASSWORD_FILE, or "
+        "AITBC_WALLET_PASSWORD (or --password <value>, deprecated).",
+    )
+    raise AssertionError("unreachable")  # abort always raises
+
+
+def resolve_new_wallet_password(
+    wallet_name: str | None = None,
+    *,
+    password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+    interactive_ok: bool = True,
+    ctx=None,
+) -> str:
+    """Resolve the password for a *new* wallet (``wallet create``, or
+    ``wallet restore`` of a plaintext backup).
+
+    Same sources, precedence and file checks as
+    :func:`resolve_wallet_password` — but creation semantics differ from
+    signing: every non-interactive source is self-confirming and returned
+    once, while only the TTY fallback runs the two-prompt confirm loop (and
+    writes the keyring). ``--password`` stays self-confirming plus the usual
+    deprecation warning; ``interactive_ok`` disables the prompt for
+    batch/agent callers. Signing commands keep using
+    :func:`resolve_wallet_password` — this never unlocks anything.
+    """
+    resolved = _flag_password(password, password_file, password_stdin, ctx)
+    if resolved is None:
+        resolved = _env_password(wallet_name, (), ctx)
+    if resolved is None:
+        resolved = _keyring_password(wallet_name)
+    if resolved is not None:
+        if not resolved:
+            abort(ctx, "Refusing an empty wallet password — a plaintext wallet is safer than one keyed by nothing")
+        return resolved
+
+    if interactive_ok and sys.stdin.isatty():
+        return _tty_new_password(wallet_name, ctx)
 
     abort(
         ctx,
