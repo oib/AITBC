@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Alerts - AITBC</title>
+    <title>Alerts — AITBC</title>
     <meta name="description" content="Prometheus alerts firing across the AITBC fleet and the watcher event history">
+    <link rel="canonical" href="https://hub.aitbc.bubuit.net/alerts.html">
     <meta name="robots" content="index, follow">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
@@ -12,26 +13,31 @@
     <link rel="stylesheet" href="/style.css?v=12">
 
     <!-- External libraries -->
-    <script src="config.js"></script>
-    <script src="alerts.js?v=3"></script>
+    <script src="config.js" defer></script>
+    <script src="alerts.js?v=3" defer></script>
 </head>
 <body>
+    <!-- aitbc-skip:start -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <!-- aitbc-skip:end -->
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/explorer-api/api/alerts">Alerts API</a> &middot; <a href="/explorer-api/api/alerts/history">event history</a> &middot; <a href="/llms.txt">llms.txt</a>.</p></noscript>
         <header>
             <!-- aitbc-menu:start -->
-            <div class="header-nav">
+            <nav class="header-nav" aria-label="Main">
                 <a href="/">Home</a>
                 <a href="/exchange.html">Exchange</a>
                 <a href="/explorer.html">Explorer</a>
                 <a href="/marketplace.html">Marketplace</a>
                 <a href="/bridges.html">Bridges</a>
                 <a href="/alerts.html" class="is-current" aria-current="page">Alerts</a>
-            </div>
+            </nav>
             <!-- aitbc-menu:end -->
             <h1>Network Alerts</h1>
             <p class="subtitle">Prometheus alerts firing across the fleet, and the alert watcher's event log</p>
         </header>
+
+        <main id="main" tabindex="-1">
 
         <div class="card">
             <div id="monitor-strip" class="monitor-strip">Checking monitor status...</div>
@@ -73,6 +79,7 @@
                 <p class="loading">Loading journal...</p>
             </div>
         </div>
+        </main>
     </div>
 </body>
 </html>

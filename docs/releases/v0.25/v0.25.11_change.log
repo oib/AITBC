@@ -119,3 +119,30 @@ dashboards carrying a different set entirely).
   pointing at the page's own path (dashboards: in the secondary row;
   pages outside the menu carry none), the allowlist is the only
   menu-less page, and `--check` must be clean.
+
+### Website: page hygiene — landmarks, head metadata, deferred scripts (WEB-2)
+
+- Every page now has a real landmark structure: the main menu is
+  `<nav class="header-nav" aria-label="Main">` (inner markup unchanged
+  from WEB-1), the dashboards' secondary row is
+  `<nav class="dashboard-nav" aria-label="Dashboards">`, and each page's
+  primary content sits in `<main id="main" tabindex="-1">`.
+- A "Skip to content" link is the first focusable element in <body> on
+  every page — including the menu-less announcement page — hidden with
+  the clip technique (never display:none) and shown top-left with nav
+  tokens + outline on focus. Stamped by the same generator between
+  `aitbc-skip` markers.
+- Head hygiene: `bridges.html` gains a correct viewport meta (its
+  existing tag was a malformed `name="viewport=..."` attribute that
+  never applied); titles normalize to "<Page name> — AITBC" everywhere
+  except index (kept descriptive per operator); meta descriptions added
+  to block, tx, search, and the follower announcement; `<link
+  rel="canonical">` on the ten sitemap pages; `noindex` on the dynamic
+  block/tx/search pages.
+- Every `<script src>` tag is now `defer`red — all site scripts only
+  touch the DOM from DOMContentLoaded handlers, so nothing blocks first
+  paint and execution order is preserved. No page needed an exception.
+- `tests/unit/test_website_menu_consistency.py` gains a hygiene suite:
+  viewport/charset/lang, exactly one main and one main nav, skip link
+  first, description and title pattern, canonical exactly on sitemap
+  pages, noindex exactly on the dynamic pages.
