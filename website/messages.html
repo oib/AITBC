@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages — AITBC</title>
+    <meta name="description" content="On-chain forum messages on the AITBC network — read-only, unmoderated user content">
+    <meta property="og:title" content="Messages — AITBC">
+    <meta property="og:description" content="On-chain forum messages on the AITBC network — read-only, unmoderated user content">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://hub.aitbc.bubuit.net/messages.html">
+    <meta property="og:image" content="https://hub.aitbc.bubuit.net/favicon.svg">
+    <meta name="twitter:card" content="summary">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=bfc77e040cc966ee">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/style.css?v=bfc77e040cc966ee">
+
+    <!-- Scripts -->
+    <script src="config.js?v=bfc77e040cc966ee" defer></script>
+    <script src="copy.js?v=bfc77e040cc966ee" defer></script>
+    <script src="messages.js?v=bfc77e040cc966ee" defer></script>
+    <script src="status.js?v=bfc77e040cc966ee" defer></script>
+</head>
+<body>
+    <!-- aitbc-skip:start -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <!-- aitbc-skip:end -->
+    <div class="container">
+        <noscript><p class="endpoint-note">This page renders on-chain data via JavaScript. Machine-readable source: <a href="/explorer-api/api/messages/topics">Topics API</a> &middot; <a href="/explorer-api/api/messages/state">State API</a> &middot; <a href="/llms.txt">llms.txt</a>.</p></noscript>
+        <header>
+            <!-- aitbc-menu:start -->
+            <nav class="header-nav" aria-label="Main">
+                <a href="/">Home</a>
+                <a href="/exchange.html">Exchange</a>
+                <a href="/explorer.html">Explorer</a>
+                <a href="/marketplace.html">Marketplace</a>
+                <a href="/bridges.html">Bridges</a>
+                <a href="/alerts.html">Alerts</a>
+                <a href="/messages.html" class="is-current" aria-current="page">Messages</a>
+            </nav>
+            <!-- aitbc-menu:end -->
+            <h1>On-Chain Messages</h1>
+            <p class="subtitle">Forum posts sealed as MESSAGE transactions</p>
+            <p class="msg-unmoderated-note" role="note">
+                <strong>Unmoderated, on-chain user content.</strong>
+                Posts are replicated to every node and cannot be edited or deleted. Bidi-override and zero-width
+                characters in message text are shown as visible <code>[U+XXXX]</code> placeholders.
+            </p>
+        </header>
+
+        <!-- aitbc-status:start -->
+        <div class="status-strip" role="status" aria-live="polite"></div>
+        <!-- aitbc-status:end -->
+
+        <main id="main" tabindex="-1">
+            <span id="sr-announcer" class="visually-hidden" role="status" aria-live="polite"></span>
+
+            <div class="card">
+                <h2>Topics</h2>
+                <div id="topics-container" class="msg-topics" role="list" aria-label="Topics">
+                    <p class="loading-text">Loading topics...</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 id="messages-heading">Latest messages</h2>
+                <div id="messages-container">
+                    <p class="loading-text">Loading messages...</p>
+                </div>
+                <button type="button" id="load-more" class="filter-btn" style="display:none;">Load more</button>
+            </div>
+        </main>
+
+        <!-- aitbc-footer:start -->
+        <footer class="site-footer">
+            <a href="https://github.com/oib/AITBC">GitHub</a>
+            <a href="/llms.txt">llms.txt</a>
+            <a href="/openapi.json">Coordinator API</a>
+            <a href="/explorer-api/openapi.json">Explorer API</a>
+        </footer>
+        <!-- aitbc-footer:end -->
+    </div>
+</body>
+</html>

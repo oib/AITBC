@@ -6,8 +6,8 @@
     <title>Transaction Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Transaction detail for the AITBC explorer: hash, sender, recipient, amount, and status of a single transaction.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=c13dc9e04a38e4f8">
-    <link rel="stylesheet" href="/style.css?v=c13dc9e04a38e4f8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=bfc77e040cc966ee">
+    <link rel="stylesheet" href="/style.css?v=bfc77e040cc966ee">
     <style>
         .detail-header {
             display: flex;
@@ -45,8 +45,8 @@
             text-decoration: underline;
         }
     </style>
-<script src="copy.js?v=c13dc9e04a38e4f8" defer></script>
-<script src="status.js?v=c13dc9e04a38e4f8" defer></script>
+<script src="copy.js?v=bfc77e040cc966ee" defer></script>
+<script src="status.js?v=bfc77e040cc966ee" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -63,6 +63,7 @@
                 <a href="/marketplace.html">Marketplace</a>
                 <a href="/bridges.html">Bridges</a>
                 <a href="/alerts.html">Alerts</a>
+                <a href="/messages.html">Messages</a>
             </nav>
             <!-- aitbc-menu:end -->
             <h1>Transaction Detail</h1>
@@ -166,6 +167,16 @@
                     { label: 'Nonce', value: escapeHtml(data.nonce !== undefined ? data.nonce : 'N/A') },
                     { label: 'Timestamp', value: escapeHtml(data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A') },
                 ];
+
+                // MSG-4: forum posts surface a badge linking to their topic;
+                // non-forum MESSAGE rows (e.g. bridge internals) show nothing.
+                const msg = data.payload && typeof data.payload === 'object' ? data.payload.aitbc_msg : null;
+                if (data.type === 'MESSAGE' && msg && msg.topic) {
+                    details.push({
+                        label: 'Forum',
+                        value: `<a class="badge badge-primary" href="/messages.html?topic=${encodeURIComponent(String(msg.topic))}" title="Open topic">${escapeHtml('forum message: ' + String(msg.topic))}</a>`,
+                    });
+                }
 
                 document.getElementById('tx-details').innerHTML = `
                     <div class="endpoint fade-in block-item" style="padding:0;">
