@@ -146,3 +146,29 @@ dashboards carrying a different set entirely).
   viewport/charset/lang, exactly one main and one main nav, skip link
   first, description and title pattern, canonical exactly on sitemap
   pages, noindex exactly on the dynamic pages.
+
+
+### Website: dashboard init under deferred scripts (WEB-2b)
+
+WEB-2's `defer` on `dashboard.js` broke both dashboard pages: their inline
+scripts passed the bare `loadCustomerDashboard` / `loadShopDashboard`
+identifier to `addEventListener`, evaluated at parse time before the
+deferred file executes — a ReferenceError, so neither dashboard loaded.
+WEB-2's own claim ("site scripts only touch the DOM from DOMContentLoaded
+handlers") missed the inline listeners.
+
+- `caa30f841` — both pages now wrap the init call in an arrow callback so
+  the name resolves when the event fires (the smaller fix vs. moving init
+  into `dashboard.js`; the inline script stays the sole init trigger, so
+  still exactly one load). Audit of every page's inline `<script>`: only
+  these two pages hit; block/tx/search inline blocks are self-contained
+  with no external scripts, index's inline block is JSON-LD, the rest
+  have no inline JS.
+- `caa30f841` — new `tests/unit/test_website_deferred_scripts.py` fails
+  any page whose inline script references a name declared top-level in a
+  deferred script (or the `lucide`/`Chart` vendor globals) outside a
+  callback or function body. Verified: fails with both violations on
+  `7e59f6c13`, passes on the fix. Page-load emulation on node2 (`vm`
+  contexts replaying parse→defer→DOMContentLoaded order): fixed pages
+  init exactly once with no console errors; `7e59f6c13` pages throw
+  ReferenceError and never init.
