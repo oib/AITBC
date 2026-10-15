@@ -325,3 +325,32 @@ pre-update row, so the leg-seal sites passing `settle_ait_tx_hash`,
   no/unreadable monitor DB reports INFO 'settlement hash link unchecked'
   instead of a guess-FAIL. A missing `settlement_eth_tx_hash` stays a
   FAIL; no live DB was backfilled.
+
+### Exchange: bridge routes resolve repo-relative imports (TEST-3b)
+
+Second TEST-3 root cause, found on re-review: the bridge handlers
+inserted literal `/opt/aitbc` paths into `sys.path`, so worktree and
+scratch runs imported `bridge_monitor` from the live checkout — the
+first storage fix was invisible to an isolated run (the earlier green
+held only through `sys.modules` caching from earlier-collected test
+modules). Verified: `TestRoutingTable` alone still failed at `423cddc9a`.
+
+- `55278f532` — `handlers/bridge.py` + `handlers/exchange.py` derive the
+  repo root from `__file__` (deployed layout resolves to `/opt/aitbc`,
+  byte-identical); `wallet/simple_daemon.py` gets the same fix for its
+  `/opt/aitbc/cli` insert.
+- `55278f532` — wallet `bridge_db.py` binds `DB_PATH` from
+  `AITBC_DATA_DIR` -> `DATA_DIR` -> `/var/lib/aitbc`, matching
+  `bridge_monitor.storage`; no deployed unit or env file sets those
+  names (verified hub + node2, names only), so live paths are unchanged.
+  Removes the residual live-write class for any future unpatched
+  `init_db` caller (all current wallet tests patch `DB_PATH`).
+- `55278f532` — `TestBridgeStoreErrors` pins the decided contract:
+  "no such table" -> 404 detail / empty-200 list, any other
+  `OperationalError` -> 500. "database is locked" -> 503 + Retry-After
+  is a possible later follow-up, deliberately not part of this change.
+
+Ops note (report only): node2's dormant `bridge_deposits.db` still has
+the pre-B13 schema; node2's exchange and bridge-monitor units are
+inactive, so this is drift, not a production 500 — hub is healthy
+(unknown deposit id answers 404). No migration, no live write.
