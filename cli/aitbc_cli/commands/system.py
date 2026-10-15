@@ -435,6 +435,69 @@ def status(ctx, service: str | None):
         raise click.ClickException(f"Error getting status for {service_name}: {e}") from e
 
 
+# App loggers write the level name into the message text at normal journal
+# priority, so `journalctl -p warning` misses them. --severity-pattern matches
+# on that text instead. Fixed internal constant — never user input.
+_APP_SEVERITY_PATTERN = r"WARN|WARNING|ERROR|CRITICAL|FATAL"
+
+# journalctl priority levels by name and number — `journalctl -p` accepts a
+# single level or a `from..to` range of either form.
+_JOURNAL_PRIORITY_NAMES = ("emerg", "alert", "crit", "err", "warning", "notice", "info", "debug")
+_JOURNAL_PRIORITY_RE = re.compile(
+    r"^([0-7]|" + "|".join(_JOURNAL_PRIORITY_NAMES) + r")(\.\.([0-7]|" + "|".join(_JOURNAL_PRIORITY_NAMES) + r"))?$"
+)
+
+
+def _validate_logs_options(
+    since: str | None,
+    grep_pattern: str | None,
+    priority: str | None,
+    severity_pattern: bool,
+) -> None:
+    """Reject invalid logs option combinations before argv is built."""
+    if since is not None and ("\n" in since or "\r" in since):
+        raise click.ClickException("--since must not contain newlines")
+    if grep_pattern is not None:
+        if len(grep_pattern) > 200:
+            raise click.ClickException("--grep pattern too long (max 200 chars)")
+        if "\n" in grep_pattern or "\r" in grep_pattern or "\x00" in grep_pattern:
+            raise click.ClickException("--grep must not contain newlines")
+    if grep_pattern and severity_pattern:
+        raise click.ClickException("--grep and --severity-pattern are mutually exclusive")
+    if priority is not None and not _JOURNAL_PRIORITY_RE.match(priority.lower()):
+        raise click.ClickException(
+            "--priority must be a journalctl level (emerg, alert, crit, err, warning, notice, info, debug, 0-7) "
+            "or a 'from..to' range of those"
+        )
+
+
+def _logs_argv(
+    service: str,
+    lines: int,
+    since: str | None,
+    grep_pattern: str | None,
+    priority: str | None,
+    severity_pattern: bool,
+) -> list[str]:
+    """Validate the logs options and build the journalctl argv."""
+    _validate_logs_options(since, grep_pattern, priority, severity_pattern)
+    cmd = ["journalctl", "-n", str(lines), "-u", _service_unit_name(service), "--no-pager"]
+    if since:
+        cmd += ["--since", since]
+    if priority:
+        cmd += ["-p", priority]
+    if grep_pattern:
+        cmd.append(f"--grep={grep_pattern}")
+    if severity_pattern:
+        # Fixed internal pattern — never user input, so it does not go through
+        # the --grep validation path (and must not: the MCP-side blocklist on
+        # user strings rejects '|'). App loggers write the level name into the
+        # message text at normal journal priority, so a text match is the only
+        # way to find them. 'WARN' already covers 'WARNING' as a substring.
+        cmd.append(f"--grep={_APP_SEVERITY_PATTERN}")
+    return cmd
+
+
 @system.command(
     epilog="""Examples:
 
@@ -442,7 +505,11 @@ def status(ctx, service: str | None):
 
   aitbc system logs --service blockchain-node --lines 50
 
-  aitbc system logs --service blockchain-node --since "10 min ago" --grep ERROR"""
+  aitbc system logs --service blockchain-node --since "10 min ago" --grep ERROR
+
+  aitbc system logs --service blockchain-node -p err
+
+  aitbc system logs --service wallet --severity-pattern   # app-level [WARNING]/ERROR text"""
 )
 @click.option("--service", required=True, help="Service to show logs for")
 @click.option("--lines", "-n", type=int, default=50, help="Number of log lines to show")
@@ -453,22 +520,27 @@ def status(ctx, service: str | None):
     default=None,
     help="Filter entries with this journalctl --grep pattern (max 200 chars)",
 )
+@click.option(
+    "--priority",
+    "-p",
+    "priority",
+    default=None,
+    help="journalctl -p priority filter: a level name/number (err, warning, 3) or a range (err..warning)",
+)
+@click.option(
+    "--severity-pattern",
+    "severity_pattern",
+    is_flag=True,
+    default=False,
+    help="Filter on app-level severity text (WARN/ERROR/CRITICAL) — app logs carry no journal priority",
+)
 @click.pass_context
-def logs(ctx, service: str, lines: int, since: str | None, grep_pattern: str | None):
+def logs(
+    ctx, service: str, lines: int, since: str | None, grep_pattern: str | None, priority: str | None, severity_pattern: bool
+):
     """Show journalctl logs for a systemd service."""
+    cmd = _logs_argv(service, lines, since, grep_pattern, priority, severity_pattern)
     service_name = _service_unit_name(service)
-    if since is not None and ("\n" in since or "\r" in since):
-        raise click.ClickException("--since must not contain newlines")
-    if grep_pattern is not None:
-        if len(grep_pattern) > 200:
-            raise click.ClickException("--grep pattern too long (max 200 chars)")
-        if "\n" in grep_pattern or "\r" in grep_pattern or "\x00" in grep_pattern:
-            raise click.ClickException("--grep must not contain newlines")
-    cmd = ["journalctl", "-n", str(lines), "-u", service_name, "--no-pager"]
-    if since:
-        cmd += ["--since", since]
-    if grep_pattern:
-        cmd.append(f"--grep={grep_pattern}")
     try:
         result = subprocess.run(
             cmd,

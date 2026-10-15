@@ -383,3 +383,33 @@ class TestGetServiceLogsFilters:
             result, captured = self._call(service="aitbc-market", host="node2", **kwargs)
             assert "error" in result, kwargs
             assert not captured
+
+    def test_priority_reaches_command(self):
+        """CLI-5: priority maps to journalctl -p on the CLI side."""
+        result, captured = self._call(service="aitbc-market", priority="err", host="node2")
+        assert result["returncode"] == 0
+        assert "--priority=err" in captured[0]
+
+    def test_priority_validated(self):
+        for bad in ("err;rm", "err|info", "e r r", "x" * 41):
+            result, captured = self._call(service="aitbc-market", priority=bad, host="node2")
+            assert "error" in result, bad
+            assert not captured
+
+    def test_severity_pattern_passes_flag_only(self):
+        """The flag forwards as a bare switch — the regex is built CLI-side,
+        so no '|' ever travels as user input through this tool."""
+        result, captured = self._call(service="aitbc-market", severity_pattern=True, host="node2")
+        assert result["returncode"] == 0
+        assert "--severity-pattern" in captured[0]
+        assert "--grep" not in captured[0]
+
+    def test_severity_pattern_and_grep_mutually_exclusive(self):
+        result, captured = self._call(service="aitbc-market", grep="OOM", severity_pattern=True, host="node2")
+        assert "error" in result
+        assert not captured
+
+    def test_defaults_omit_priority_and_severity(self):
+        result, captured = self._call(service="aitbc-market", host="node2")
+        assert "--priority" not in captured[0]
+        assert "--severity-pattern" not in captured[0]
