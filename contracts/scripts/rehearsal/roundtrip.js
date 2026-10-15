@@ -37,9 +37,11 @@ import { getAddress } from "viem";
 import {
   assertSepolia,
   assertSignerOwners,
+  findDeploymentBlock,
   initKit,
   normalizeAddresses,
   publicClient,
+  queryFilterChunked,
   readSignerAddresses,
   readSignerKey,
   resolveKeysDir,
@@ -50,6 +52,19 @@ const LIVE = process.argv.includes("--live");
 // --token / --resume-token reuse an already-deployed MockToken (resume path).
 const tokenIdx = Math.max(process.argv.indexOf("--token"), process.argv.indexOf("--resume-token"));
 const REUSE_TOKEN = tokenIdx > -1 ? getAddress(process.argv[tokenIdx + 1]) : null;
+// --from-block bounds every log scan (publicnode rejects ranges > 50k with
+// -32701). --lock-tx supplies the deposit tx hash for a resumed request, so
+// the BridgeInitiated lookup is a receipt check instead of a log scan.
+const fbIdx = process.argv.indexOf("--from-block");
+const FROM_BLOCK = fbIdx > -1 ? Number(process.argv[fbIdx + 1]) : null;
+if (FROM_BLOCK !== null && (!Number.isInteger(FROM_BLOCK) || FROM_BLOCK < 0)) {
+  throw new Error("--from-block must be a non-negative integer");
+}
+const ltIdx = process.argv.indexOf("--lock-tx");
+const LOCK_TX = ltIdx > -1 ? process.argv[ltIdx + 1] : null;
+if (LOCK_TX !== null && !/^0x[0-9a-fA-F]{64}$/.test(LOCK_TX)) {
+  throw new Error("--lock-tx must be a transaction hash");
+}
 
 const CAP = 1000n * 10n ** 18n;        // lock cap — the value we stay under
 const DEPOSIT = 100n * 10n ** 18n;     // the small deposit
@@ -118,6 +133,55 @@ function key(n) {
   return k;
 }
 
+/**
+ * Lower bound for every log scan: --from-block if given, else the bridge's
+ * deployment block (binary-searched via eth_getCode — needs a full node),
+ * else latest - 200000. The contract exposes no deploymentBlock accessor,
+ * so this is the only readable source for it.
+ */
+let _logLo;
+async function logLowerBound() {
+  if (_logLo !== undefined) return _logLo;
+  if (FROM_BLOCK !== null) return (_logLo = FROM_BLOCK);
+  const latest = await provider.getBlockNumber();
+  const dep = await findDeploymentBlock(provider, bridgeAddress, latest).catch(() => null);
+  if (dep !== null) {
+    note(`log-scan: bridge deployment block = ${dep}`);
+    return (_logLo = dep);
+  }
+  const fallback = Math.max(0, latest - 200000);
+  note(`log-scan: deployment block unreadable — lower bound = latest-200000 = ${fallback}`);
+  return (_logLo = fallback);
+}
+
+/** One bounded scan; logs each window it touches. `fromBlock` overrides the
+ *  resolved lower bound — confirmation scans use the deposit block, since a
+ *  BridgeConfirmed log cannot precede the request it confirms. */
+async function boundedFilter(filter, { firstOnly = true, fromBlock } = {}) {
+  const lo = fromBlock !== undefined ? fromBlock : await logLowerBound();
+  const hi = await provider.getBlockNumber();
+  return queryFilterChunked(ro, filter, { fromBlock: lo, toBlock: hi, firstOnly, log: (l) => note(l) });
+}
+
+/**
+ * Validate a --lock-tx claim without any log scan: the receipt must carry a
+ * BridgeInitiated log from the bridge for `requestId`. Returns
+ * { hash, blockNumber }. Throws otherwise.
+ */
+async function lockTxFromReceipt(requestId) {
+  const receipt = await provider.getTransactionReceipt(LOCK_TX);
+  if (!receipt) throw new Error(`--lock-tx ${LOCK_TX} has no receipt`);
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== bridgeAddress.toLowerCase()) continue;
+    let parsed;
+    try { parsed = iface.parseLog(log); } catch { continue; }
+    if (parsed?.name === "BridgeInitiated" && Number(parsed.args.requestId) === Number(requestId)) {
+      return { hash: receipt.hash ?? receipt.transactionHash, blockNumber: receipt.blockNumber };
+    }
+  }
+  throw new Error(`--lock-tx ${LOCK_TX} carries no BridgeInitiated log for request ${requestId}`);
+}
+
 assertSepolia(await client.getChainId());
 note(`mode: ${LIVE ? "LIVE — transactions will be sent" : "DRY RUN — reads and plan only"}`);
 note(`chain: ${await client.getChainId()}  safe: ${safeAddress}  bridge: ${bridgeAddress}`);
@@ -165,7 +229,30 @@ if (!LIVE) {
     preview.push(`addValidator signer${i + 1}: ${v.isActive ? "SKIP" : "RUN"}`);
   }
   preview.push(`deposit: ${Number(requestCounter0) === 0 ? "RUN" : `SKIP (adopt request ${requestCounter0})`}`);
-  preview.push("confirms: depend on request state");
+  if (Number(requestCounter0) > 0) {
+    // Same bounded scans the live resume uses — a range problem surfaces here.
+    let depositBlock;
+    if (LOCK_TX) {
+      const lk = await lockTxFromReceipt(Number(requestCounter0));
+      preview.push(`lockTxHash=${lk.hash} (--lock-tx receipt)`);
+      depositBlock = lk.blockNumber;
+    } else {
+      const initLogs = await boundedFilter(ro.filters.BridgeInitiated(requestCounter0));
+      preview.push(`lockTxHash=${initLogs[0]?.transactionHash ?? "NOT FOUND"}`);
+      depositBlock = initLogs[0]?.blockNumber;
+    }
+    if (depositBlock === undefined) {
+      preview.push("confirms: lock tx not in scan range — pass --lock-tx or --from-block");
+    } else {
+      for (let i = 0; i < 3; i++) {
+        // Confirmations can't precede the deposit — floor the scan at it.
+        const c = await boundedFilter(ro.filters.BridgeConfirmed(requestCounter0, signerAddresses[i]), { fromBlock: depositBlock });
+        preview.push(`confirm signer${i + 1}: ${c.length ? "SKIP" : "RUN"}`);
+      }
+    }
+  } else {
+    preview.push("confirms: depend on request state");
+  }
   preview.push(`withdraw/repatriate: depend on balances`);
   preview.push(`pause: ${paused0 ? "SKIP" : "RUN"}`);
   note(`resume preview — ${preview.join(" | ")}`);
@@ -268,7 +355,7 @@ note(`read-back: activeValidators[0..2] = ${await ro.activeValidators(0)}, ${awa
 
 // 5 — deposit under the cap (resume: adopt the existing request; the lock tx
 // hash is recovered from the BridgeInitiated log — it is not in any view)
-let requestId, lockTxHash;
+let requestId, lockTxHash, depositBlock;
 const existingCounter = Number(await ro.requestCounter());
 if (existingCounter === 0) {
   const tw = new ethers.Contract(tokenAddress, ERC20_ABI, w1);
@@ -280,6 +367,7 @@ if (existingCounter === 0) {
   const initReceipt = await waitOk(initTx.hash, "initiateBridge deposit", signerAddresses[0]);
   requestId = Number(await ro.requestCounter());
   lockTxHash = initReceipt.transactionHash;
+  depositBlock = initReceipt.blockNumber;
   note(`requestId=${requestId} lockTxHash=${lockTxHash}`);
 } else {
   requestId = existingCounter;
@@ -293,12 +381,20 @@ if (existingCounter === 0) {
     || req0.targetChainId !== TARGET_CHAIN_ID) {
     throw new Error(`existing request ${requestId} does not match this rehearsal's deposit — refusing`);
   }
-  const initLogs = await ro.queryFilter(ro.filters.BridgeInitiated(requestId));
-  if (initLogs.length !== 1) {
-    throw new Error(`expected one BridgeInitiated log for request ${requestId}, found ${initLogs.length}`);
+  if (LOCK_TX) {
+    const lk = await lockTxFromReceipt(requestId);
+    lockTxHash = lk.hash;
+    depositBlock = lk.blockNumber;
+    note(`resume: lockTxHash=${lockTxHash} verified from --lock-tx receipt`);
+  } else {
+    const initLogs = await boundedFilter(ro.filters.BridgeInitiated(requestId));
+    if (initLogs.length !== 1) {
+      throw new Error(`expected one BridgeInitiated log for request ${requestId}, found ${initLogs.length}`);
+    }
+    lockTxHash = initLogs[0].transactionHash;
+    depositBlock = Number(initLogs[0].blockNumber);
   }
-  lockTxHash = initLogs[0].transactionHash;
-  note(`resume: request ${requestId} exists (status ${req0.status}) — recovered lockTxHash=${lockTxHash}`);
+  note(`resume: request ${requestId} exists (status ${req0.status}) — lockTxHash=${lockTxHash}`);
 }
 
 // 6 — validator confirmations, each sent by its own EOA (resume: skip
@@ -306,7 +402,7 @@ if (existingCounter === 0) {
 const messageHash = ethers.keccak256(ethers.solidityPacked(
   ["uint256", "bytes32", "uint256"], [requestId, lockTxHash, 11155111]));
 for (const [i, wallet] of [[1, w1], [2, w2], [3, w3]]) {
-  const confirms = await ro.queryFilter(ro.filters.BridgeConfirmed(requestId, signerAddresses[i - 1]));
+  const confirms = await boundedFilter(ro.filters.BridgeConfirmed(requestId, signerAddresses[i - 1]), { fromBlock: depositBlock });
   if (confirms.length > 0) {
     note(`skip: confirmBridge signer${i} already confirmed`);
     continue;
