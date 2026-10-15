@@ -40,6 +40,7 @@ import {
   findDeploymentBlock,
   initKit,
   normalizeAddresses,
+  pollRead,
   publicClient,
   queryFilterChunked,
   readSignerAddresses,
@@ -262,9 +263,17 @@ if (!LIVE) {
 }
 
 // ---- everything below sends transactions ----
+// Block of the most recently sealed tx — post-tx read-backs pin their
+// blockTag here so a lagging replica cannot answer with pre-tx state, and
+// pollRead retries while the replica catches up (ETH-3 continuation run).
+let lastSeenBlock;
+function at() {
+  return lastSeenBlock ? { blockTag: lastSeenBlock } : {};
+}
 async function waitOk(hash, label, signerAddr) {
   const receipt = await client.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`${label} reverted on-chain: ${hash}`);
+  lastSeenBlock = Number(receipt.blockNumber);
   note(`${label}: tx ${hash} block ${receipt.blockNumber} gas ${receipt.gasUsed}`);
   if (signerAddr) await recordNonce(hash, signerAddr);
   return receipt;
@@ -323,7 +332,7 @@ const token = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
 // 2 — unpause (resume: skip when already unpaused)
 if (await ro.paused()) {
   await safeExec(bridgeAddress, iface.encodeFunctionData("unpause"), "unpause");
-  if (await ro.paused()) throw new Error("bridge still paused after unpause exec");
+  await pollRead(() => ro.paused(at()), (v) => !v, { label: "paused() after unpause" });
   note("read-back: paused=false");
 } else {
   note("skip: already unpaused");
@@ -338,8 +347,8 @@ if (await ro.paused()) {
     await safeExec(bridgeAddress, iface.encodeFunctionData("addSupportedToken", [tokenAddress, CAP, 0n, false]), "addSupportedToken cap=1000 MTK");
   }
 }
-const tcfg = await ro.supportedTokens(tokenAddress);
-if (!tcfg.isActive || tcfg.bridgeLimit !== CAP) throw new Error(`token config wrong: ${tcfg}`);
+const tcfg = await pollRead(() => ro.supportedTokens(tokenAddress, at()),
+  (c) => c.isActive && c.bridgeLimit === CAP, { label: "supportedTokens after addSupportedToken" });
 note(`read-back: token active, bridgeLimit=${tcfg.bridgeLimit}`);
 
 // 4 — three validators (the rehearsal signers; resume: skip the ones already active)
@@ -350,8 +359,13 @@ for (let i = 0; i < 3; i++) {
     continue;
   }
   await safeExec(bridgeAddress, iface.encodeFunctionData("addValidator", [signerAddresses[i], VALIDATOR_WEIGHT]), `addValidator signer${i + 1}`);
+  await pollRead(() => ro.validators(signerAddresses[i], at()), (v) => v.isActive, { label: `validators(signer${i + 1}) after addValidator` });
 }
-note(`read-back: activeValidators[0..2] = ${await ro.activeValidators(0)}, ${await ro.activeValidators(1)}, ${await ro.activeValidators(2)}`);
+const activeVals = await pollRead(
+  async () => Promise.all([0, 1, 2].map((i) => ro.activeValidators(i, at()))),
+  (arr) => arr.every((a, i) => a.toLowerCase() === signerAddresses[i].toLowerCase()),
+  { label: "activeValidators[0..2] listing" });
+note(`read-back: activeValidators[0..2] = ${activeVals.join(", ")}`);
 
 // 5 — deposit under the cap (resume: adopt the existing request; the lock tx
 // hash is recovered from the BridgeInitiated log — it is not in any view)
@@ -365,7 +379,8 @@ if (existingCounter === 0) {
   const initTx = await bw.initiateBridge(tokenAddress, tokenAddress, DEPOSIT, TARGET_CHAIN_ID, signerAddresses[0],
     { nonce: await nextNonce(signerAddresses[0]) });
   const initReceipt = await waitOk(initTx.hash, "initiateBridge deposit", signerAddresses[0]);
-  requestId = Number(await ro.requestCounter());
+  requestId = Number(await pollRead(() => ro.requestCounter(at()),
+    (c) => Number(c) > existingCounter, { label: "requestCounter after initiateBridge" }));
   lockTxHash = initReceipt.transactionHash;
   depositBlock = initReceipt.blockNumber;
   note(`requestId=${requestId} lockTxHash=${lockTxHash}`);
@@ -412,33 +427,36 @@ for (const [i, wallet] of [[1, w1], [2, w2], [3, w3]]) {
     .confirmBridge(requestId, lockTxHash, sig,
       { nonce: await nextNonce(signerAddresses[i - 1]) })).hash, `confirmBridge signer${i}`, signerAddresses[i - 1]);
 }
-const req = await ro.getBridgeRequest(requestId);
-if (Number(req.status) !== 1) throw new Error(`request status ${req.status}, want CONFIRMED(1)`);
+const req = await pollRead(() => ro.getBridgeRequest(requestId, at()),
+  (r) => Number(r.status) === 1, { label: `request ${requestId} status CONFIRMED` });
 note(`read-back: request ${requestId} status CONFIRMED`);
 
 // 7-9 — withdraw via owner emergency path, repatriate, re-pause (each resume-aware)
-const held = await token.balanceOf(bridgeAddress);
+const held = await token.balanceOf(bridgeAddress, at());
 if (held === 0n) {
   note("skip: bridge holds no tokens — nothing to withdraw");
 } else {
   await safeExec(bridgeAddress, iface.encodeFunctionData("emergencyWithdraw", [tokenAddress, held]), `emergencyWithdraw ${held}`);
-  if (await token.balanceOf(bridgeAddress) !== 0n) throw new Error("bridge still holds tokens");
+  await pollRead(() => token.balanceOf(bridgeAddress, at()), (b) => b === 0n,
+    { label: "bridge token balance after emergencyWithdraw" });
 }
-const safeHeld = await token.balanceOf(safeAddress);
+const safeHeld = await token.balanceOf(safeAddress, at());
 if (safeHeld === 0n) {
   note("skip: Safe holds no tokens — nothing to repatriate");
 } else {
   await safeExec(tokenAddress, iface.encodeFunctionData("transfer", [signerAddresses[0], safeHeld]), "token.transfer -> signer1");
+  await pollRead(() => token.balanceOf(safeAddress, at()), (b) => b === 0n,
+    { label: "Safe token balance after repatriate" });
 }
 if (await ro.paused()) {
   note("skip: already paused");
 } else {
   await safeExec(bridgeAddress, iface.encodeFunctionData("pause"), "pause");
 }
-const [pausedEnd, ownerEnd] = await Promise.all([ro.paused(), ro.owner()]);
-if (!pausedEnd || ownerEnd.toLowerCase() !== safeAddress.toLowerCase()) {
-  throw new Error(`final state wrong: paused=${pausedEnd} owner=${ownerEnd}`);
-}
+const [pausedEnd, ownerEnd] = await pollRead(
+  () => Promise.all([ro.paused(at()), ro.owner(at())]),
+  ([p, o]) => p && o.toLowerCase() === safeAddress.toLowerCase(),
+  { label: "final paused()/owner()" });
 note(`final: paused=${pausedEnd} owner=${ownerEnd} signer1 token balance=${await token.balanceOf(signerAddresses[0])}`);
 
 assertReportClean();
