@@ -13,7 +13,10 @@ chains before the book reopens after a crash/restore (design §11). Check
 groups, each reported with counts and per-row detail:
 
 - DB-internal  (always): funded-state/backing/debit/trade consistency,
-  nonce uniqueness, registry completeness.
+  nonce uniqueness, registry completeness. A registered node without
+  eth_address is flag-conditional (the flag lives in the service env —
+  unreadable offline): WARN unless --settlement declares it on AND the
+  node already has orders, which is a FAIL.
 - bridge-db    (--bridge-db): every 'exchange_prepay' deposit row is
   either credited (a prepaid_deposits row holds its tx_hash) or carries a
   deliberate monitor-mark outcome; a bare exchange_prepay row is WARN.
@@ -178,7 +181,7 @@ def _check_trade_rows(orders: dict, trades: list, add) -> None:
             )
 
 
-def check_db_internal(conn: sqlite3.Connection, add) -> None:
+def check_db_internal(conn: sqlite3.Connection, add, *, settlement_enabled: bool = False) -> None:
     try:
         orders = {
             r["id"]: r
@@ -209,9 +212,33 @@ def check_db_internal(conn: sqlite3.Connection, add) -> None:
     _check_trade_rows(orders, trades, add)
 
     if _has_table(conn, "node_registry"):
+        # REPO-2: registered-without-eth_address is flag-conditional. The
+        # exchange stores EXCHANGE_SETTLEMENT_ENABLED in its service env —
+        # unreadable by an offline verifier — so the operator asserts it with
+        # --settlement (mirroring the service's own unset=off default).
+        #   flag off:                     WARN — payout is not needed yet
+        #   flag on, node has orders:     FAIL — a seller cannot be paid
+        #   flag on, node has no orders:  WARN — payout not yet needed
+        order_counts: dict[str, int] = {}
+        if settlement_enabled:
+            for o in orders.values():
+                ua = str(o["user_address"] or "").lower()
+                order_counts[ua] = order_counts.get(ua, 0) + 1
         for r in conn.execute("SELECT address, status, eth_address FROM node_registry"):
-            if r["status"] == "registered" and not r["eth_address"]:
-                add(FAIL, "db", f"node_registry {r['address']}: registered without eth_address")
+            if r["status"] != "registered" or r["eth_address"]:
+                continue
+            if order_counts.get(str(r["address"]).lower(), 0):
+                add(
+                    FAIL,
+                    "db",
+                    f"node_registry {r['address']}: registered with orders but no eth_address "
+                    "(settlement on — seller payout impossible)",
+                )
+            else:
+                hint = (
+                    "no orders — payout not yet needed" if settlement_enabled else "settlement off or --settlement not passed"
+                )
+                add(WARN, "db", f"node_registry {r['address']}: registered without eth_address ({hint})")
     add(INFO, "db", f"{len(orders)} orders, {len(debits)} debits, {len(trades)} trades checked")
 
 
@@ -416,6 +443,14 @@ def main() -> int:
     ap.add_argument("--ait-rpc", help="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
     ap.add_argument("--escrow-address", help="sell-escrow account address for AIT checks")
     ap.add_argument("--no-chain", action="store_true", help="DB-internal checks only")
+    ap.add_argument(
+        "--settlement",
+        action="store_true",
+        help="declare EXCHANGE_SETTLEMENT_ENABLED on for the DB under test — a "
+        "registered node with orders but no eth_address is then a FAIL (else "
+        "a WARN). The verifier cannot read the flag offline; mirroring the "
+        "service's own unset=off default, omitting this means settlement-off.",
+    )
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ns = ap.parse_args()
 
@@ -430,7 +465,7 @@ def main() -> int:
         print(f"FAIL db: cannot open {ns.db} read-only: {e}", file=sys.stderr)
         return 1
     try:
-        check_db_internal(conn, add)
+        check_db_internal(conn, add, settlement_enabled=ns.settlement)
         if ns.bridge_db:
             check_bridge_db(conn, ns.bridge_db, add)
         if not ns.no_chain:

@@ -619,7 +619,7 @@ def _existing_plain_file(value: str, flag: str) -> Path:
     return p
 
 
-def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json) -> list[str]:
+def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json, settlement) -> list[str]:
     """Build the verifier argv — only the script's documented flags."""
     argv = [sys.executable, str(_verify_script_path()), "--db", str(_existing_plain_file(db, "--db"))]
     if bridge_db is not None:
@@ -632,6 +632,8 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
     ):
         if value is not None:
             argv += [flag, value]
+    if settlement:
+        argv.append("--settlement")
     if as_json:
         argv.append("--json")
     if rpc_url is None and ait_rpc is None:
@@ -659,9 +661,14 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
 @click.option("--ait-rpc", default=None, help="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
 @click.option("--escrow-address", default=None, help="Sell-escrow account address for AIT checks")
 @click.option("--bridge-address", default=None, help="Expected deposit destination (enforces `to` on prepays)")
+@click.option(
+    "--settlement",
+    is_flag=True,
+    help="Declare EXCHANGE_SETTLEMENT_ENABLED on for this DB — a registered node with orders but no eth_address is then a FAIL",
+)
 @click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
 @click.pass_context
-def verify(ctx, db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json):
+def verify(ctx, db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, settlement, as_json):
     """Read-only exchange-book verifier (scripts/ops/exchange_verify.py).
 
     Re-derives the exchange DB's funding and settlement claims. Read-only by
@@ -669,7 +676,7 @@ def verify(ctx, db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address,
     RPC endpoint is given explicitly. The script's output and exit code pass
     through unchanged (exit 1 when any check FAILs).
     """
-    argv = _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json)
+    argv = _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json, settlement)
 
     try:
         result = subprocess.run(argv, capture_output=True, text=True, timeout=600)
