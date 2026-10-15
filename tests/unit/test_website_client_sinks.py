@@ -34,7 +34,7 @@ SAFE_CALL = re.compile(
     r"JSON\.stringify|parseInt|parseFloat|Date\.now|new Date|"
     r"shortAddr|shortHash|shortHex|formatAddress|formatBlockHash|formatTxHash|"
     r"formatServiceTitle|formatPrice|formatDate|formatHash|plainHash|fmtAit|fmtNum|"
-    r"eurStr|relTime|sevClass|statusClass|copyBtn|statusBadge|eventBadge|priBadge|"
+    r"eurStr|relTime|sevClass|statusClass|copyBtn|aitbcCopyBtn|statusBadge|eventBadge|priBadge|"
     r"txLink|addrLink|dirBadge|directionBadge|txTypeColor|blockContentHtml|"
     r"txChipsHtml|renderBlockCard|alertCard|eventRow|createOfferCard)\s*\("
 )
