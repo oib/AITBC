@@ -313,6 +313,40 @@ def parse_nginx(text: str) -> tuple[list[Location], str | None]:
     return locs, server_root
 
 
+def _server_level_text(text: str) -> str:
+    """nginx text with every location block removed (server-level directives only)."""
+    text = _strip_comments(text)
+    spans = []
+    for m in _LOC_RE.finditer(text):
+        body = _brace_block(text, m.end() - 1)
+        spans.append((m.start(), m.end() + len(body) + 1))
+    for a, b in sorted(spans, reverse=True):
+        text = text[:a] + text[b:]
+    return text
+
+
+# Server-level security headers deployed on the hub (15 Oct 2026,
+# card-attested operator decision). They apply to the static pages through
+# `location /`, which defines no add_header of its own. Mirrored verbatim —
+# a config sync that drops them fails the guard test.
+EXPECTED_SERVER_HEADERS = [
+    'Referrer-Policy "strict-origin-when-cross-origin" always',
+    "Content-Security-Policy-Report-Only \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'\" always",
+    'Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always',
+]
+
+# Locations serving the HTML pages that must NOT define their own
+# add_header — nginx add_header is not inherited, so a location-level
+# directive would silently drop the whole server-level security set.
+STATIC_LOCATIONS_NO_ADD_HEADER = ("/",)
+
+# Static-page locations known to shadow the server headers today
+# (`add_header Cache-Control`): those two pages get no security headers —
+# documented in docs/ops/website-csp-proposal.md. Pinned here so a config
+# change on either side of the list forces a deliberate fixture update.
+SHADOWED_STATIC_LOCATIONS = ("/dashboard/", "/shop/")
+
+
 def nginx_match(path: str, locs: list[Location]) -> Location | None:
     """nginx matching: exact > longest ^~ > first regex > longest prefix."""
     for loc in locs:
@@ -746,6 +780,54 @@ class TestWebsiteApiContract(unittest.TestCase):
             if e.upstream != "*" and all(r.upstream not in (None, e.upstream) for r in matched):
                 stale.append(f"{e.pattern}\t{e.method}\t{e.upstream}\t# upstream no longer matches")
         self.assertEqual([], stale, "stale allowlist entries:\n" + "\n".join(stale))
+
+
+class TestNginxSecurityHeaders(unittest.TestCase):
+    """WEB-FIX-3: the deployed server-level security headers must survive a
+    config sync, and static-page locations must not shadow them."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        text = NGINX_CONF.read_text(encoding="utf-8")
+        cls.server_text = _server_level_text(text)
+        cls.locs, _ = parse_nginx(text)
+
+    def test_server_level_headers_present_verbatim(self) -> None:
+        missing = [h for h in EXPECTED_SERVER_HEADERS if f"add_header {h};" not in self.server_text]
+        self.assertEqual(
+            [],
+            missing,
+            "server-level security headers missing or reworded in "
+            f"{NGINX_CONF.name} — drift from the deployed hub config:\n" + "\n".join(missing),
+        )
+
+    def test_weak_referrer_policy_removed(self) -> None:
+        self.assertNotIn("no-referrer-when-downgrade", self.server_text)
+
+    def test_static_locations_do_not_shadow(self) -> None:
+        bad = []
+        for pattern in STATIC_LOCATIONS_NO_ADD_HEADER:
+            loc = next((lc for lc in self.locs if lc.modifier == "" and lc.pattern == pattern), None)
+            self.assertIsNotNone(loc, f"expected static location not found: {pattern!r}")
+            if loc and re.search(r"\badd_header\b", loc.body):
+                bad.append(pattern)
+        self.assertEqual(
+            [],
+            bad,
+            "static-page location defines its own add_header — nginx drops all server-level headers for it: " + ", ".join(bad),
+        )
+
+    def test_shadowed_static_locations_are_pinned(self) -> None:
+        """The /dashboard/ and /shop/ shadow gap is a documented fixture: if
+        either loses its add_header (the follow-up named fix) or another
+        static location gains one, update the fixture list deliberately."""
+        bad = []
+        for pattern in SHADOWED_STATIC_LOCATIONS:
+            loc = next((lc for lc in self.locs if lc.modifier == "=" and lc.pattern == pattern), None)
+            self.assertIsNotNone(loc, f"expected shadowed location not found: {pattern!r}")
+            if loc and not re.search(r"\badd_header\b", loc.body):
+                bad.append(f"{pattern} no longer shadows — remove it from SHADOWED_STATIC_LOCATIONS")
+        self.assertEqual([], bad, "shadowing fixture drifted:\n" + "\n".join(bad))
 
 
 if __name__ == "__main__":
