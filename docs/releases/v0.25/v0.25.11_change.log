@@ -354,3 +354,18 @@ Ops note (report only): node2's dormant `bridge_deposits.db` still has
 the pre-B13 schema; node2's exchange and bridge-monitor units are
 inactive, so this is drift, not a production 500 — hub is healthy
 (unknown deposit id answers 404). No migration, no live write.
+
+
+### Verifier: AIT settle legs read through the ledger hash (VERIFY-3)
+
+`check_ait_chain` selected trades `WHERE settlement_ait_tx_hash IS NOT
+NULL`, so pre-mirror-fix settled trades (VERIFY-2 heals them only on the
+ledger row) were never verified on chain — the live run counted 0 legs.
+
+- `05b5e7351` — with `--bridge-db`, a settled trade whose tape column is
+  empty takes `settle_ait_tx_hash` from the settled trade-kind ledger
+  row (reusing `_settle_trade_ait_hashes`) and runs the identical
+  recipient/value/fee-leg checks. No hash anywhere stays a FAIL from
+  the DB check and is skipped in the AIT lane; without `--bridge-db`
+  the lane is unchanged. The leg count now reads
+  `N settlement AIT legs checked (T from tape, L from ledger)`.
