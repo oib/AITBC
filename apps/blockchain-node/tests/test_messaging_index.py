@@ -543,3 +543,89 @@ class TestGossipDrop:
         tx["payload"] = {"type": "BRIDGE_RELEASE", "transfer_id": "x"}
         tx["signature"] = sign_transaction_data(tx, _KEY_A.to_hex())
         assert gossip_transaction_drop_reason(tx) is None
+
+
+# ------------------------------------------------------- hostile payload totality
+
+
+_SURROGATE = "a\ud800"  # lone surrogate: JSON-legal, str-legal, not UTF-8-encodable
+
+# Values JSON can decode that must never make the predicate raise.
+_HOSTILE = [
+    _SURROGATE,
+    "\udfff",
+    "\U0010ffff",  # max code point — legal
+    "",
+    "   ",
+    0,
+    1.0,
+    1.5,
+    True,
+    None,
+    [],
+    ["x"],
+    {},
+    {"nested": _SURROGATE},
+    "x" * (MAX_MESSAGE_BODY_BYTES + 1),
+]
+
+
+class TestPredicateTotality:
+    """envelope_error/admission_error must return a reason, never raise, on
+    any JSON-decodable input (a sealed hostile row must not 500 every read)."""
+
+    @pytest.mark.parametrize("field", ["v", "kind", "topic", "body", "parent", "agent_address"])
+    @pytest.mark.parametrize("value", _HOSTILE)
+    def test_field_values_never_raise(self, field, value):
+        env = _env(kind="reply", parent="ab" * 32) if field == "parent" else _env()
+        env[field] = value
+        result = envelope_error(env, sender=ALICE)
+        assert result is None or isinstance(result, str)
+
+    @pytest.mark.parametrize("sender", _HOSTILE + [ALICE.lower()])
+    def test_sender_values_never_raise(self, sender):
+        assert envelope_error(_env(), sender=sender) is None or isinstance(envelope_error(_env(), sender=sender), str)
+
+    @pytest.mark.parametrize("payload", _HOSTILE + [{"aitbc_msg": v} for v in _HOSTILE])
+    def test_payload_values_never_raise(self, payload):
+        result = admission_error(payload, ALICE)
+        assert result is None or isinstance(result, str)
+
+    def test_lone_surrogate_body_reason(self):
+        reason = envelope_error(_env(body=_SURROGATE), sender=ALICE)
+        assert reason is not None and "UTF-8" in reason
+
+    def test_unhashable_kind_no_raise(self):
+        assert envelope_error(_env(kind={}), sender=ALICE) is not None
+        assert envelope_error(_env(kind=[]), sender=ALICE) is not None
+
+
+class TestHostileSealedRows:
+    """A sealed row with a lone-surrogate field is skipped by every read;
+    the valid sibling in the same page is unaffected."""
+
+    def _seed(self, session: Session, field: str) -> None:
+        _block(session, 1)
+        _block(session, 2)
+        bad_env = _env(kind="reply", parent="cd" * 32) if field == "parent" else _env()
+        bad_env[field] = _SURROGATE
+        session.add(_tx_row(1, 1, payload={"to": ALICE, "amount": 0, "aitbc_msg": bad_env}))
+        session.add(_tx_row(2, 2, payload={"to": ALICE, "amount": 0, "aitbc_msg": _env(body="ok")}))
+        session.commit()
+
+    @pytest.mark.parametrize("field", ["topic", "body", "parent", "agent_address"])
+    def test_surrogate_field_row_skipped(self, session, field):
+        self._seed(session, field)
+        out = list_messages(session, CHAIN)
+        assert [m["body"] for m in out["messages"]] == ["ok"]  # bad row skipped, no raise
+        topics = list_topics(session, CHAIN)
+        assert [t["topic"] for t in topics["topics"]] == ["dev"] and topics["topics"][0]["message_count"] == 1
+        assert state(session, CHAIN)["contract_state"]["total_messages"] == 1
+        assert get_message(session, CHAIN, f"{1:064x}") is None  # bad row 404s, no raise
+        assert get_message(session, CHAIN, f"{2:064x}")["body"] == "ok"
+        # search path (LIKE over body) unaffected
+        assert [m["body"] for m in list_messages(session, CHAIN, body_contains="ok")["messages"]] == ["ok"]
+
+    def test_surrogate_body_admission_reason(self):
+        reason = admission_error({"aitbc_msg": _env(body=_SURROGATE)}, ALICE)
+        assert reason is not None and "UTF-8" in reason
