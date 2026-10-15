@@ -7,6 +7,7 @@ ledger, no keys.
 """
 
 import json
+import logging
 import sqlite3
 from decimal import Decimal
 from pathlib import Path
@@ -376,7 +377,9 @@ class TestLockScan:
         exchange_env["transfers"].append(stray)
         stats = await esm._scan_order_locks(cfg, head=1000)
         assert stats["refunds"] == 1
-        row = get_exchange_settlement("order_refund", oid)
+        # Inbound-lock refunds key on −order_id so they never squat the
+        # owner's +order_id remainder-refund row (ETH-JOIN fixup).
+        row = get_exchange_settlement("order_refund", -oid)
         assert row is not None and row["status"] == "locked"
         # The refund targets the lock's sender, not the order owner.
         assert row["seller_address"] == "0x6666666666666666666666666666666666666666"
@@ -392,6 +395,47 @@ class TestLockScan:
         exchange_env["transfers"].append(tx)
         stats = await esm._scan_order_locks(cfg, head=1000)
         assert stats["scanned"] == 0 and stats["funded"] == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [401, 403, 500, 503])
+    async def test_refused_order_funded_is_unmarked_and_retried(self, exchange_env, status_code):
+        """A non-terminal refusal (5xx/401/403/flag-off 503) must never mark
+        the lock — marking would strand escrowed AIT with no refund row. The
+        poll counts it under http_refused and retries next poll; a recovered
+        endpoint still funds the same lock."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        lock = _lock_tx(oid, "0xhttpfail", SELLER_AIT, 3_636_000_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        exchange_env["post_responses"]["order_funded"] = (status_code, {"error": "refused"})
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["http_refused"] == 1 and stats["funded"] == 0
+        assert monitor_mark("lock:0xhttpfail") is None
+        assert get_exchange_settlement("order_refund", oid) is None
+        assert get_exchange_settlement("order_refund", -oid) is None
+        # Next poll hits a recovered endpoint → the same lock funds.
+        exchange_env["post_responses"].pop("order_funded")
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["funded"] == 1
+        assert monitor_mark("lock:0xhttpfail")["outcome"] == "funded"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [404, 409])
+    async def test_terminal_refusal_still_refunds_and_marks(self, exchange_env, status_code):
+        """404 (order gone) / 409 (lock under cover) stay terminal: the lock
+        is refunded to its sender (ref_id −oid) and marked."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        lock = _lock_tx(oid, f"0xgone{status_code}", SELLER_AIT, 72_000_000)
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        exchange_env["post_responses"]["order_funded"] = (status_code, {"error": "terminal"})
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 1
+        assert monitor_mark(f"lock:0xgone{status_code}")["outcome"] == "refunding"
+        row = get_exchange_settlement("order_refund", -oid)
+        assert row is not None and row["seller_address"] == SELLER_AIT
 
 
 # ---------------------------------------------------------------------------
@@ -544,6 +588,68 @@ class TestBackingScan:
         _insert_trade(exchange_env, amount="10", fee_ait="0.05", sell_order_id=oid, settlement_state="releasing")
         stats = await esm._scan_backing(cfg, head=1000)
         assert stats["refunds"] == 0
+        assert get_exchange_settlement("order_refund", oid) is None
+
+    @pytest.mark.asyncio
+    async def test_stray_lock_never_blocks_owner_remainder_refund(self, exchange_env):
+        """ETH-JOIN gap 2: a stranger's dust lock refunds under ref_id −oid,
+        so it cannot squat the owner's +oid lock-remainder refund row."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        stray = _lock_tx(oid, "0xstray", stranger, 36_000_000)
+        stray["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(stray)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 1
+        assert get_exchange_settlement("order_refund", -oid) is not None
+        assert get_exchange_settlement("order_refund", oid) is None
+        # The owner then funds, fills once (10 AIT + 0.05 fee), and the order
+        # is cancelled — 15 − 10.05 = 4.95 AIT of backing is stranded.
+        conn = _exdb(exchange_env)
+        conn.execute(
+            "UPDATE orders SET status = 'cancelled', funded_state = 'funded', "
+            "backing_tx_hash = '0xback', locked_ticks = 1500000000 WHERE id = ?",
+            (oid,),
+        )
+        conn.commit()
+        conn.close()
+        _insert_trade(exchange_env, amount="10", fee_ait="0.05", sell_order_id=oid, settlement_state="settled")
+        exchange_env["transfers"].append(
+            {
+                "tx_hash": "0xback",
+                "sender": SELLER_AIT,
+                "recipient": exchange_env["escrow"],
+                "value": 540_000_000,
+                "block_height": 500,
+                "payload": {"sell_quote": oid},
+            }
+        )
+        stats = await esm._scan_backing(cfg, head=1000)
+        assert stats["refunds"] == 1
+        row = get_exchange_settlement("order_refund", oid)
+        assert row is not None
+        assert row["seller_address"] == SELLER_AIT
+        assert Decimal(str(row["amount_ait"])) == Decimal("4.95")
+
+    @pytest.mark.asyncio
+    async def test_second_stray_lock_logs_duplicate_not_second_refund(self, exchange_env, caplog):
+        """The UNIQUE pair still bounds inbound refunds to one per order — a
+        second stray is logged for the operator and never a second row."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        for tx_hash in ("0xstray1", "0xstray2"):
+            lock = _lock_tx(oid, tx_hash, stranger, 36_000_000)
+            lock["recipient"] = exchange_env["escrow"]
+            exchange_env["transfers"].append(lock)
+        with caplog.at_level(logging.ERROR):
+            stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 1
+        assert monitor_mark("lock:0xstray1")["outcome"] == "refunding"
+        assert monitor_mark("lock:0xstray2")["outcome"] == "duplicate"
+        assert any("second stray lock" in r.getMessage() for r in caplog.records)
+        assert get_exchange_settlement("order_refund", -oid) is not None
         assert get_exchange_settlement("order_refund", oid) is None
 
 
@@ -865,7 +971,7 @@ class TestFixup:
         stats = await esm._scan_order_locks(cfg, head=1000)
         assert stats["funded"] == 0 and stats["refunds"] == 1
         assert not [p for p in exchange_env["posts"] if p["event"] == "order_funded"]
-        row = get_exchange_settlement("order_refund", oid)
+        row = get_exchange_settlement("order_refund", -oid)
         assert row is not None
         assert row["seller_address"] == stranger
         assert monitor_mark("lock:0xforeign")["outcome"] == "refunding"
