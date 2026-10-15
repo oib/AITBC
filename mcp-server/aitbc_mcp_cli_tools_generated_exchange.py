@@ -721,6 +721,12 @@ def aitbc_exchange_verify(
     ] = None,
     escrow_address: Annotated[str | None, Field(description="Sell-escrow account address for AIT checks")] = None,
     bridge_address: Annotated[str | None, Field(description="Expected deposit destination (enforces `to` on prepays)")] = None,
+    settlement: Annotated[
+        bool | None,
+        Field(
+            description="Declare EXCHANGE_SETTLEMENT_ENABLED on for this DB — a registered node with orders but no eth_address is then a FAIL"
+        ),
+    ] = None,
     as_json: Annotated[bool | None, Field(description="Machine-readable output")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -729,7 +735,7 @@ def aitbc_exchange_verify(
     """Read-only exchange-book verifier (scripts/ops/exchange_verify.py).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"as_json": "json"},
+        flags={"settlement": "settlement", "as_json": "json"},
         values={
             "db": "db",
             "bridge_db": "bridge-db",
