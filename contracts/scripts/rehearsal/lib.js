@@ -181,10 +181,30 @@ export async function deploySafe({ provider, deployerKey, owners, threshold, con
  * in-process signature — no Transaction Service), and execute it. `options.executor`
  * is a kit that only submits the tx (pays the gas); it does not sign. Defaults
  * to kits[0]. Any EOA may submit execTransaction — that is how relayers work.
+ *
+ * `options.expectedNonce` — when set, the caller pins the exact Safe nonce the
+ * signatures must cover. A bounded poll of kits[0].getNonce() must report that
+ * value before anything is built (a lagging RPC replica once returned the
+ * pre-exec nonce here — ETH-3 run, GS026); the pinned nonce then goes into the
+ * safeTx via createTransaction options so the kit never re-reads it. Anything
+ * but an exact match after the poll is a refusal, never a best-effort sign.
  */
 export async function signAndExecute(kits, transactions, options = {}) {
-  const { executor, ...execOptions } = options;
-  let safeTx = await kits[0].createTransaction({ transactions });
+  const { executor, expectedNonce, noncePollAttempts = 20, noncePollIntervalMs = 1500, ...execOptions } = options;
+  if (expectedNonce !== undefined) {
+    let seen = -1;
+    for (let i = 0; i < noncePollAttempts && seen !== expectedNonce; i++) {
+      seen = Number(await kits[0].getNonce());
+      if (seen !== expectedNonce) await new Promise((r) => setTimeout(r, noncePollIntervalMs));
+    }
+    if (seen !== expectedNonce) {
+      throw new Error(`safe nonce reads ${seen}, expected ${expectedNonce} — refusing to sign (stale replica or skipped exec)`);
+    }
+  }
+  let safeTx = await kits[0].createTransaction({
+    transactions,
+    ...(expectedNonce === undefined ? {} : { options: { nonce: expectedNonce } }),
+  });
   for (const kit of kits) {
     safeTx = await kit.signTransaction(safeTx);
   }

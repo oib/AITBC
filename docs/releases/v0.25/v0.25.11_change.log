@@ -498,3 +498,18 @@ Tests: 4 new prepay env-resolution cases (env-file only, flag precedence, proces
 
 - `be79b6fb6` — `--confirm` refuses to sign when the RPC's `eth_gasPrice` exceeds `--max-gas-gwei` (default 50 gwei, the "acceptable" bound in `contracts/scripts/check-gas-price.js`): the refusal runs before the wallet key is decrypted, names both prices, and tells the operator to raise the flag to send into a spike. The dry run still prints, now with `gas_price_gwei`, `gas_ceiling_gwei` and an `over_gas_ceiling` marker. Ceiling must be positive with ≤9 decimals (sub-wei refused). `aitbc_wallet_eth_send` regenerated with `max_gas_gwei`.
 - Tests: `cli/tests/test_wallet_eth_send.py` `TestGasCeiling` (+7) — over-ceiling refusal before key load, raised-ceiling send with the quoted price in the signed blob, boundary equality allowed, dry-run marker, nonpositive and sub-wei ceilings refused.
+### ETH-3b — resumable Sepolia rehearsal driver
+
+`contracts/scripts/rehearsal/roundtrip.js` + `lib.js`: `signAndExecute` gains
+`expectedNonce` — a bounded poll of `kit.getNonce()` that refuses to sign until
+the chain reports the pinned value, then embeds it via createTransaction
+options so the kit's hidden second read can no longer race (root cause of the
+GS026 abort in the first live run: kit signed the nonce-4 hash while the chain
+was at 5 — proven by ecrecover on the failed calldata). `roundtrip.js` is now
+resumable: every step reads on-chain state first and logs `skip: already done`
+(unpause, addSupportedToken, per-signer addValidator, deposit adopted via
+requestCounter + BridgeInitiated log for lockTxHash, per-signer confirmBridge
+via BridgeConfirmed logs, emergencyWithdraw/transfer on balances, pause);
+`--token`/`--resume-token` reuse the deployed MockToken; dry runs print a
+`resume preview` skip table. New hardhat tests cover a once-stale nonce read
+recovering and a never-converging nonce refusing. Chain state untouched.
