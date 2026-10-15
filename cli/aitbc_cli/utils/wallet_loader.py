@@ -15,7 +15,16 @@ from typing import cast
 
 from .address import to_canonical
 from .error_handling import abort
-from .wallet_paths import find_wallet_file, wallet_dir as resolve_wallet_dir, wallet_search_dirs
+from .output import info
+from .wallet_paths import (
+    find_wallet_file,
+    find_wallet_file_report,
+    service_dir_wallet_note,
+    wallet_dir as resolve_wallet_dir,
+    wallet_not_found_hint,
+    wallet_not_found_message,
+    wallet_search_dirs,
+)
 
 
 def _resolve_wallet_name_and_path(
@@ -128,10 +137,15 @@ def load_wallet_for_payment(
 
     # Search configured and service wallet directories.
     path: Path | None
+    report = find_wallet_file_report(name)
     if wallet_path:
         path = Path(wallet_path)
     else:
-        path = find_wallet_file(name)
+        path = report.path
+        if require_private_key:
+            note = service_dir_wallet_note(report)
+            if note:
+                info(note)
     if path is not None:
         password = _resolve_signing_password(ctx, name, path, password, password_file, password_stdin)
     else:
@@ -143,15 +157,19 @@ def load_wallet_for_payment(
 
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=True)
-        info = adapter.get_wallet_info(name)
-        if not info:
-            abort(ctx, f"Wallet '{name}' not found")
-        assert info is not None
-        address = to_canonical(info.get("address", ""))
+        info_doc = adapter.get_wallet_info(name)
+        if not info_doc:
+            abort(ctx, wallet_not_found_message(report))
+        assert info_doc is not None
+        address = to_canonical(info_doc.get("address", ""))
         if not address:
             abort(ctx, f"Wallet '{name}' has no address")
         if require_private_key:
-            abort(ctx, f"Wallet '{name}' is loaded from the daemon; file wallet or explicit private key required for signing")
+            abort(
+                ctx,
+                f"Wallet '{name}' exists only in the wallet daemon keystore; signing needs a "
+                f"file wallet — pass --wallet-path <file>.\n  {wallet_not_found_hint(report)}",
+            )
         return address, None, name
 
     # Load file wallet (encrypted if needed)

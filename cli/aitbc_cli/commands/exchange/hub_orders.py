@@ -42,7 +42,7 @@ from ...utils.chain_id import resolve_chain_id
 from ...utils.island_credentials import get_chain_id as get_island_chain_id
 from ...utils.island_credentials import get_rpc_endpoint
 from ...utils.wallet_loader import _resolve_wallet_name_and_path, load_wallet_for_payment
-from ...utils.wallet_paths import find_wallet_file
+from ...utils.wallet_paths import find_wallet_file, is_service_wallet_path
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ..transactions import _send_transaction_impl
 
@@ -387,6 +387,16 @@ def _fund_wallet_address(ctx, wallet: str | None) -> tuple[str, str, Path | None
     return to_canonical(str(raw)), name, path
 
 
+def _print_fund_equivalent(send_line: str, wallet_path: Path | None) -> None:
+    """--print output for order fund: the resolved wallet file (when the
+    shared search picked it from the service dir) plus the equivalent raw
+    'transactions send' line — nothing is broadcast."""
+    if wallet_path is not None and is_service_wallet_path(Path(wallet_path)):
+        info(f"Using wallet file: {wallet_path}")
+    info("Not broadcasting — equivalent raw command:")
+    click.echo(send_line)
+
+
 @order.command(
     "fund",
     epilog="""Examples:
@@ -463,8 +473,7 @@ def order_fund(ctx, order_id, fee, print_only, wallet, password, password_file, 
         f"--amount {required} --fee {fee} --payload '{{\"sell_quote\": {order_id}}}'"
     )
     if print_only:
-        info("Not broadcasting — equivalent raw command:")
-        click.echo(send_line)
+        _print_fund_equivalent(send_line, wallet_path)
         return
     pw = resolve_wallet_password(
         wallet_id,
