@@ -1936,7 +1936,7 @@ a.btn-secondary {
 /* Service journal card on alerts page */
 .journal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .journal-head h2 { margin: 0; }
-.journal-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.journal-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
 .journal-controls select {
     background: var(--code);
     color: var(--text);
@@ -1945,6 +1945,7 @@ a.btn-secondary {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
     font-family: 'Courier New', monospace;
+    min-width: 0;
     max-width: min(18rem, 100%);
 }
 .journal-nodes { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.5rem 0 0.4rem; font-size: 0.78rem; }
