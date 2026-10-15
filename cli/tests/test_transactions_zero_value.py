@@ -36,11 +36,11 @@ def test_transfer_rejects_zero_amount(tmp_path):
 
 def test_transfer_positive_amount_passes_gate(tmp_path):
     # Past the amount check, the next failure is the missing keystore.
-    assert _send(tmp_path, "TRANSFER", "0.001") == ["Wallet 'no-such-wallet' not found"]
+    assert _send(tmp_path, "TRANSFER", "0.001") == [f"Wallet 'no-such-wallet' not found at {tmp_path / 'no-such-wallet.json'}"]
 
 
 def test_gpu_register_accepts_zero_amount(tmp_path):
-    assert _send(tmp_path, "GPU_REGISTER", "0") == ["Wallet 'no-such-wallet' not found"]
+    assert _send(tmp_path, "GPU_REGISTER", "0") == [f"Wallet 'no-such-wallet' not found at {tmp_path / 'no-such-wallet.json'}"]
 
 
 def test_gpu_register_rejects_nonzero_amount(tmp_path):
@@ -48,7 +48,7 @@ def test_gpu_register_rejects_nonzero_amount(tmp_path):
 
 
 def test_message_accepts_zero_amount(tmp_path):
-    assert _send(tmp_path, "MESSAGE", "0") == ["Wallet 'no-such-wallet' not found"]
+    assert _send(tmp_path, "MESSAGE", "0") == [f"Wallet 'no-such-wallet' not found at {tmp_path / 'no-such-wallet.json'}"]
 
 
 def test_zero_value_set_matches_node(tmp_path):
