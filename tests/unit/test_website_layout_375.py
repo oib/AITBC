@@ -240,7 +240,22 @@ _FIXTURES = {
         ],
         "journal_access": True,
     },
-    "/api/blocks/latest": {"height": 48691, "hash": "0x" + _HEX},
+    # Five blocks x (1 block row + 1 tx row) = 10 live-feed items on
+    # explorer.html — exercises the .live-feed-item tap targets that only
+    # exist once the feed actually renders.
+    "/api/blocks/latest": {
+        "blocks": [
+            {
+                "height": 48691 - i,
+                "hash": "0x" + _HEX,
+                "tx_count": 1,
+                "timestamp": "2026-10-15T21:00:00Z",
+                "proposer": "0x" + "ef" * 20,
+                "transactions": [{"tx_hash": "0x" + _HEX, "type": "TRANSFER", "created_at": "2026-10-15T21:00:00Z"}],
+            }
+            for i in range(5)
+        ]
+    },
     "/api/blocks/non-empty": {
         "blocks": [
             {
@@ -346,6 +361,7 @@ _MEASURE_JS = """
   });
   const TAP = '.status-strip a.status-part, .site-footer a, .filter-btn, .block-item, ' +
               '.journal-controls select, .block-list-table td a, .alerts-table td a, .top-addresses-table td a, ' +
+              '.live-feed-item, tbody tr[role="link"], select.endpoint, ' +
               '.copy-btn';
   // A zero-height rect means the element sits in a display:none subtree —
   // it is not a rendered tap target, so it cannot be undersized.
