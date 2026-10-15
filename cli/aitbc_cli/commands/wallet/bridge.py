@@ -374,7 +374,13 @@ def _hub_bridge_client(hub_url: str | None) -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=base_url, timeout=30, max_retries=0, api_key=config.wallet_api_key)
 
 
-def _resolve_wallet(ctx, wallet_name: str | None):
+def _resolve_wallet(
+    ctx,
+    wallet_name: str | None,
+    password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+):
     """Load the active wallet file on this node — the key never leaves it."""
     wallet_name = wallet_name or ctx.obj["wallet_name"]
     wallet_dir = ctx.obj["wallet_dir"]
@@ -385,7 +391,9 @@ def _resolve_wallet(ctx, wallet_name: str | None):
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         raise click.Abort()
-    return _load_wallet(wallet_path, wallet_name)
+    return _load_wallet(
+        wallet_path, wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
 
 
 @sell.command(
@@ -399,10 +407,22 @@ def _resolve_wallet(ctx, wallet_name: str | None):
 @click.option("--eth-address", "eth_address", required=True, help="Ethereum address to receive ETH.")
 @click.option("--wallet-name", "wallet_name", required=False, help="Shop wallet name (AIT source).")
 @click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL for the quote routes.")
+@wallet_password_options
 @click.pass_context
-def sell_quote(ctx, amount: Decimal, eth_address: str, wallet_name: str | None, hub_url: str | None):
+def sell_quote(
+    ctx,
+    amount: Decimal,
+    eth_address: str,
+    wallet_name: str | None,
+    hub_url: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Request an AIT->ETH sell quote from the hub escrow."""
-    wallet_data = _resolve_wallet(ctx, wallet_name)
+    wallet_data = _resolve_wallet(
+        ctx, wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
     ait_address = to_eip55(wallet_data["address"])
 
     client = _hub_bridge_client(hub_url)
@@ -442,14 +462,25 @@ def sell_quote(ctx, amount: Decimal, eth_address: str, wallet_name: str | None, 
 @click.option("--quote-id", "quote_id", required=True, help="Sell quote id from `sell quote`.")
 @click.option("--wallet-name", "wallet_name", required=False, help="Shop wallet name (signs the lock).")
 @click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL for status lookup.")
+@wallet_password_options
 @click.pass_context
-def sell_lock(ctx, quote_id: str, wallet_name: str | None, hub_url: str | None):
+def sell_lock(
+    ctx,
+    quote_id: str,
+    wallet_name: str | None,
+    hub_url: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
     """Sign and submit the AIT lock to the escrow address.
 
     The TRANSFER is signed with THIS node's wallet key and submitted to the
     local chain RPC — the hub only ever sees the sealed transaction.
     """
-    wallet_data = _resolve_wallet(ctx, wallet_name)
+    wallet_data = _resolve_wallet(
+        ctx, wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
     from_address = to_eip55(wallet_data["address"])
     private_key_hex = wallet_data.get("private_key")
     if not private_key_hex:

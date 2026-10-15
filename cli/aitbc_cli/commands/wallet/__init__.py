@@ -1,6 +1,5 @@
 """Wallet commands for AITBC CLI"""
 
-import getpass
 import json
 import os
 from pathlib import Path
@@ -51,63 +50,6 @@ def decrypt_value(encrypted: dict[str, Any] | str, password: str) -> str:
     from aitbc.security.encryption import decrypt_value as _decrypt
 
     return _decrypt(encrypted, password)
-
-
-def _get_wallet_password(wallet_name: str) -> str:
-    """Get or prompt for wallet encryption password"""
-    # Try to get from keyring first
-    try:
-        import keyring
-
-        password = keyring.get_password("aitbc-wallet", wallet_name)
-        if password:
-            return password
-    except Exception:
-        logger.debug("Keyring operation failed", exc_info=True)
-        pass
-
-    # Check if we're in a TTY environment
-    import sys
-
-    if not sys.stdin.isatty():
-        # Non-interactive: try environment variable
-        password = os.environ.get(f"AITBC_WALLET_PASSWORD_{wallet_name.upper()}")
-        if password:
-            return password
-        # Try generic password env var
-        password = os.environ.get("AITBC_WALLET_PASSWORD")
-        if password:
-            return password
-        error("No TTY available for password prompt. Set AITBC_WALLET_PASSWORD environment variable.")
-        raise click.Abort() from None
-
-    # Prompt for password
-    while True:
-        try:
-            password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
-        except Exception as e:
-            error(f"Password prompt failed: {e}")
-            raise click.Abort() from e
-
-        if not password:
-            error("Password cannot be empty")
-            continue
-
-        confirm = getpass.getpass("Confirm password: ")
-        if password != confirm:
-            error("Passwords do not match")
-            continue
-
-        # Store in keyring for future use
-        try:
-            import keyring
-
-            keyring.set_password("aitbc-wallet", wallet_name, password)
-        except Exception:
-            logger.debug("Keyring operation failed", exc_info=True)
-            pass
-
-        return password
 
 
 def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str | None = None):
