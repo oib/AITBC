@@ -385,4 +385,5 @@ amendment 10).
   drop `agent_id` entirely — recommended).
 - **MSG-2 parking**: votes, moderation/hide/pin, reputation,
   ban/moderator tables — all currently in-memory mutations; become 501
-  until designed as signed-tx kinds.
+  until designed as signed-tx kinds. (MSG-2 Phase 0 design:
+  [msg2-votes-moderation.md](msg2-votes-moderation.md).)
