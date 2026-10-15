@@ -10,7 +10,7 @@ from typing import Any
 
 import click
 
-from aitbc.utils.units import ait_to_units, units_to_ait
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT, ait_to_units, units_to_ait
 
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.validation import validate_address
@@ -23,7 +23,7 @@ from ...utils.money import wallet_amount as _wallet_amount
 from . import _load_wallet, _resave_wallet, wallet
 
 
-LIQUIDITY_FEE_DEFAULT_AIT = Decimal("0.01")
+LIQUIDITY_FEE_DEFAULT_AIT = DEFAULT_TX_FEE_AIT
 
 
 def _brand_token_symbol() -> str:
@@ -475,7 +475,7 @@ def staking_info(ctx, address_override: str | None, password: str | None, passwo
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--pool", default="main", help="Liquidity pool name")
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
-@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.pass_context
 @wallet_password_options
 def liquidity_stake(
@@ -576,7 +576,7 @@ def liquidity_stake(
   aitbc wallet liquidity-claim --stake-id lstake-5678""",
 )
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
-@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.pass_context
 @wallet_password_options
 def liquidity_claim(ctx, stake_id: str, fee: Decimal, password: str | None, password_file: str | None, password_stdin: bool):
@@ -643,7 +643,7 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal, password: str | None, pass
   aitbc wallet liquidity-unstake --stake-id lstake-5678""",
 )
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
-@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.pass_context
 @wallet_password_options
 def liquidity_unstake(ctx, stake_id: str, fee: Decimal, password: str | None, password_file: str | None, password_stdin: bool):
