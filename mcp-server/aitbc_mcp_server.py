@@ -614,6 +614,7 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "delete-db",
     "delete-metric",
     "deploy-brand",
+    "eth-send",
     "deposit-eth",
     "deregister",
     "disburse",
