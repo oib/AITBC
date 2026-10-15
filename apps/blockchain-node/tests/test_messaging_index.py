@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -366,6 +367,126 @@ class TestAdmission:
         assert admission_error({"aitbc_msg": None}, ALICE) is not None
 
 
+class TestAdmissionCoverage:
+    """F6: every path that can put a transaction dict into the mempool either
+    enforces the envelope predicate or is exempt by construction.
+
+    The doors are:
+
+    - ``_validate_transaction_admission`` — REST submit, market submit,
+      AI-job submit, the gossip loop in main.py, the p2p new_transaction
+      path, and orphan re-admission all call it (it runs ``admission_error``
+      for MESSAGE type at the end).
+    - ``gossip_transaction_drop_reason`` — the extra gossip-side drop check.
+    - ``_admit_orphan`` (state/block_deltas.py) — signature verify, then the
+      shared door, for every non-credit type.
+    - Exempt by design: ``protocol_escrow`` (BOND_* internal movements),
+      ``bridge_transfer`` (BRIDGE_RELEASE/BRIDGE_REFUND — verified issuance
+      only; the shared door refuses these types outright) and
+      ``staking.py``'s GOVERNANCE_EXECUTE (internally signed; the
+      ``aitbc_msg`` key is unreachable — payload is built around
+      ``execution_payload``).
+    - The wallet daemon and SDK submit over RPC — they ride the REST door.
+    """
+
+    class _FakeMempool:
+        def __init__(self):
+            self.added: list[dict] = []
+
+        def pending_cost(self, chain_id, sender, exclude_nonce=None):
+            return 0
+
+        def add(self, tx, chain_id=None, tx_hash=None):
+            self.added.append(tx)
+            return tx_hash or "0" * 64
+
+    @pytest.fixture
+    def orphan_door(self, session, monkeypatch):
+        @contextmanager
+        def _scope(chain_id: str = ""):
+            yield session
+
+        monkeypatch.setattr("aitbc_chain.rpc.transactions.session_scope", _scope)
+        monkeypatch.setattr("aitbc_chain.rpc.utils.get_supported_chains", lambda: [CHAIN])
+        return self._FakeMempool()
+
+    def _signed_broken_tx(self) -> dict[str, Any]:
+        """A properly signed MESSAGE whose envelope is invalid — the signature
+        verifies; only the claim is broken (oversized body)."""
+        tx = _signed_message_tx()
+        env = dict(tx["payload"]["aitbc_msg"], body="x" * (MAX_MESSAGE_BODY_BYTES + 1))
+        tx["payload"] = dict(tx["payload"], aitbc_msg=env)
+        tx["signature"] = sign_transaction_data(tx, _KEY_A.to_hex())
+        return tx
+
+    def test_orphan_readmission_refuses_broken_claim(self, orphan_door):
+        from aitbc_chain.state.block_deltas import _admit_orphan
+
+        with pytest.raises(ValueError, match="aitbc_msg"):
+            _admit_orphan(self._signed_broken_tx(), orphan_door, CHAIN)
+        assert orphan_door.added == []
+
+    def test_orphan_readmission_accepts_valid(self, orphan_door):
+        from aitbc_chain.state.block_deltas import _admit_orphan
+
+        _admit_orphan(_signed_message_tx(), orphan_door, CHAIN)
+        assert len(orphan_door.added) == 1
+
+    def test_credit_type_orphan_bypasses_admission_by_design(self, orphan_door):
+        """BRIDGE_RELEASE/BRIDGE_REFUND re-enter from verified issuance only —
+        they skip the door entirely (documented exemption). A stray
+        aitbc_msg key in such a payload is inert: not MESSAGE-typed, so the
+        index never sees it."""
+        from aitbc_chain.state.block_deltas import _admit_orphan
+
+        tx = {
+            "type": "BRIDGE_RELEASE",
+            "from": ALICE,
+            "to": ALICE,
+            "amount": 0,
+            "fee": 0,
+            "nonce": 0,
+            "chain_id": CHAIN,
+            "payload": {"aitbc_msg": {"junk": True}, "transfer_id": "t9"},
+        }
+        _admit_orphan(tx, orphan_door, CHAIN)
+        assert len(orphan_door.added) == 1
+
+    def test_every_mempool_add_site_is_classified(self):
+        """A new mempool.add call site without an admission door must fail
+        this test: the site set is pinned and every listed file is either a
+        validated door or an explicitly exempt internal path."""
+        import re as _re
+
+        src = Path(__file__).resolve().parents[1] / "src" / "aitbc_chain"
+        site_counts: dict[str, int] = {}
+        pat = _re.compile(r"(?:mempool|get_mempool\(\)|mempool_instance)\.add\(")
+        for py in src.rglob("*.py"):
+            n = sum(len(pat.findall(_re.sub(r"#.*", "", line))) for line in py.read_text().splitlines())
+            if n:
+                site_counts[str(py.relative_to(src))] = n
+
+        # file -> (add-sites, "door" | reason it is exempt)
+        expected = {
+            "rpc/transactions.py": (2, "door"),  # REST submit + market submit
+            "rpc/ai_services.py": (1, "door"),
+            "main.py": (1, "door"),  # gossip process loop
+            "p2p_network.py": (1, "door"),  # new_transaction intake
+            "state/block_deltas.py": (1, "door"),  # orphan re-admission
+            "protocol_escrow.py": (1, "internal protocol types; payload built in-code"),
+            "rpc/staking.py": (1, "GOVERNANCE_EXECUTE; internally signed, aitbc_msg unreachable"),
+            "cross_chain/bridge_transfer.py": (3, "credit types; verified issuance only"),
+        }
+        assert site_counts == {k: v[0] for k, v in expected.items()}, (
+            "mempool.add call-site set changed — classify the new path "
+            "(validated door or exempt-by-design) before it can admit a tx"
+        )
+        for rel, (_, kind) in expected.items():
+            text = (src / rel).read_text()
+            if kind == "door":
+                assert "_validate_transaction_admission" in text, f"{rel} lost its admission door"
+
+
 # ------------------------------------------------------------------- index
 
 
@@ -625,6 +746,31 @@ class TestIndex:
         assert replies["re:ghost"]["parent_resolved"] is False
         # unresolvable parent still indexed, with its own topic
         assert replies["re:ghost"]["topic"] == "dev"
+
+    def test_timestamp_is_block_time(self, session):
+        """F5: the view's timestamp is the sealing block's time — not the
+        (nullable, submitter-set) Transaction.timestamp column."""
+        from datetime import datetime
+
+        block_ts = datetime(2030, 1, 2, 3, 4, 5)  # deliberately ≠ _tx_row's tx timestamp
+        session.add(
+            Block(
+                chain_id=CHAIN,
+                height=9,
+                hash=f"{9:064x}",
+                parent_hash=f"{8:064x}",
+                proposer="0x0",
+                state_root="",
+                timestamp=block_ts,
+            )
+        )
+        session.add(_tx_row(9, 1, payload={"aitbc_msg": _env(body="ts")}))
+        session.commit()
+        out = get_message(session, CHAIN, f"{1:064x}")
+        assert out["timestamp"] == block_ts.isoformat()
+        assert out["timestamp"] != "2026-10-15T00:01:00"  # the tx-row value is not surfaced
+        listed = list_messages(session, CHAIN)
+        assert listed["messages"][0]["timestamp"] == block_ts.isoformat()
 
     def test_get_message(self, seeded):
         assert get_message(seeded, CHAIN, f"{1:064x}")["body"] == "first"
