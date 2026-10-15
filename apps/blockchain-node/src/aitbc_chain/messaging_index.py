@@ -50,7 +50,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from sqlalchemy import LargeBinary, and_, cast, func, not_, or_
+from sqlalchemy import LargeBinary, and_, cast, column, desc, func, not_, or_
 from sqlmodel import col, select
 
 from aitbc.messaging import (
@@ -219,9 +219,17 @@ def _candidate_where(chain_id: str):
         func.json_type(payload, f"{ns}.body") == "text",
         func.length(_env_text("body")).between(1, MAX_MESSAGE_BODY_BYTES),
         func.json_type(payload, f"{ns}.agent_address") == "text",
-        # `parent` is deliberately not narrowed: for `post` it must be
-        # absent/null and for `reply` a 64-hex string — the predicate's
-        # shape check stays in Python either way.
+        # `parent` shape, exactly as the predicate decides it: a post has no
+        # parent at all (absent or JSON null), a reply has a 64-hex text.
+        or_(
+            and_(_env_json("kind") == "post", _env_json("parent").is_(None)),
+            and_(
+                _env_json("kind") == "reply",
+                func.json_type(payload, f"{ns}.parent") == "text",
+                func.length(_env_json("parent")) == 64,
+                not_(_env_json("parent").op("GLOB")("*[^0-9a-fA-F]*")),
+            ),
+        ),
     )
 
 
@@ -393,6 +401,20 @@ def get_message(session, chain_id: str, tx_hash: str) -> dict[str, Any] | None:
     return view
 
 
+def _block_timestamps(session, chain_id: str, heights: Any) -> dict[int, Any]:
+    """``height -> Block.timestamp`` for the given heights (one IN query)."""
+    uniq = {int(h) for h in heights if h is not None}
+    if not uniq:
+        return {}
+    rows = session.exec(
+        select(Block.height, Block.timestamp).where(
+            col(Block.chain_id) == chain_id,
+            col(Block.height).in_(uniq),
+        )
+    ).all()
+    return {h: (ts.isoformat() if hasattr(ts, "isoformat") else ts) for h, ts in rows}
+
+
 def list_topics(
     session,
     chain_id: str,
@@ -400,67 +422,76 @@ def list_topics(
     limit: int = DEFAULT_READ_LIMIT,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """Topics ranked by last activity, aggregated over a bounded candidate scan.
+    """Topics ranked by last activity — SQL ``GROUP BY`` over the prefiltered
+    set (F2). Counts are exact for every rule SQL expresses; the documented
+    residual is a row that passes the narrowing but fails a Python-only rule
+    (canonical author comparison, body control characters, malformed UTF-8
+    bytes) — it is *counted* until a materialized index exists, though it can
+    never appear as a listed message. ``scan_bounded`` stays ``False``: no
+    scan bound applies to aggregate queries any more.
 
-    Only valid rows are aggregated (the predicate runs before GROUP BY —
-    sealed junk cannot create a topic or inflate a count). When the scan
-    bound truncates history, ``scan_bounded`` is set and counts may
-    understate older messages.
+    ``last_timestamp`` is the timestamp of the block at ``last_block_height``
+    — the only clock value every node agrees on (``Transaction.timestamp`` is
+    nullable and may be submitter-set).
     """
     limit = max(1, min(int(limit), MAX_READ_LIMIT))
     offset = max(0, min(int(offset), MAX_OFFSET))
-    stmt = _candidate_select(chain_id)
-    topics: dict[str, dict[str, Any]] = {}
-    rows = session.exec(stmt.limit(SCAN_BOUND + 1)).all()
-    bounded = len(rows) > SCAN_BOUND
-    for row in rows[:SCAN_BOUND]:
-        if _row_error(row) is not None:
-            continue
-        topic = _decode_env_bytes(row.env_topic)
-        entry = topics.get(topic)
-        if entry is None:
-            topics[topic] = {
-                "topic": topic,
-                "message_count": 1,
-                "last_block_height": row.block_height,
-                "last_timestamp": row.timestamp,
-            }
-        else:
-            entry["message_count"] += 1
-    ranked = sorted(topics.values(), key=lambda t: (-t["last_block_height"], t["topic"]))
-    page = ranked[offset : offset + limit]
+    topic_expr = _env_json("topic").label("topic")
+    stmt = (
+        select(
+            topic_expr,
+            func.count().label("message_count"),
+            func.max(col(Transaction.block_height)).label("last_block_height"),
+        )
+        .where(*_candidate_where(chain_id))
+        .group_by(topic_expr)
+        .order_by(desc("last_block_height"), column("topic"))
+    )
+    rows = session.exec(stmt).all()
+    page_rows = rows[offset : offset + limit]
+    times = _block_timestamps(session, chain_id, (r.last_block_height for r in page_rows))
+    topics = [
+        {
+            "topic": r.topic,
+            "message_count": r.message_count,
+            "last_block_height": r.last_block_height,
+            "last_timestamp": times.get(r.last_block_height),
+        }
+        for r in page_rows
+    ]
     return {
         "success": True,
         "chain_id": chain_id,
         "index_height": _index_height(session, chain_id),
-        "topics": page,
-        "count": len(page),
-        "total_topics": len(ranked),
-        "scan_bounded": bounded,
+        "topics": topics,
+        "count": len(topics),
+        "total_topics": len(rows),
+        "scan_bounded": False,
     }
 
 
 def state(session, chain_id: str) -> dict[str, Any]:
-    """Totals for the legacy ``/messaging/state`` route, index-derived."""
-    stmt = _candidate_select(chain_id)
-    rows = session.exec(stmt.limit(SCAN_BOUND + 1)).all()
-    topics: set[str] = set()
-    authors: set[str] = set()
-    messages = 0
-    for row in rows[:SCAN_BOUND]:
-        if _row_error(row) is not None:
-            continue
-        messages += 1
-        topics.add(_decode_env_bytes(row.env_topic))
-        authors.add(_to_ait_address(row.sender))
+    """Totals for the legacy ``/messaging/state`` route — SQL aggregates over
+    the prefiltered set (F2; same residual rules as :func:`list_topics`).
+    ``total_agents`` counts distinct senders (case-collapsed); ``sender`` is
+    the verified identity — ``agent_address`` equality is a Python-only rule
+    and therefore part of the documented residual for counts."""
+    row = session.exec(
+        select(
+            func.count().label("total_messages"),
+            func.count(func.distinct(_env_json("topic"))).label("total_topics"),
+            func.count(func.distinct(func.lower(col(Transaction.sender)))).label("total_agents"),
+        ).where(*_candidate_where(chain_id))
+    ).first()
+    totals = {
+        "total_messages": row.total_messages if row else 0,
+        "total_topics": row.total_topics if row else 0,
+        "total_agents": row.total_agents if row else 0,
+    }
     return {
         "success": True,
         "chain_id": chain_id,
         "index_height": _index_height(session, chain_id),
-        "contract_state": {
-            "total_topics": len(topics),
-            "total_messages": messages,
-            "total_agents": len(authors),
-        },
-        "scan_bounded": len(rows) > SCAN_BOUND,
+        "contract_state": totals,
+        "scan_bounded": False,
     }
