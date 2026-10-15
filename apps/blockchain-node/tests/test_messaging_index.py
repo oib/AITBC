@@ -576,10 +576,46 @@ class TestIndex:
         assert len(seen) == len(set(seen)) == 4
 
     def test_cursor_validation(self, seeded):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="invalid cursor"):
             list_messages(seeded, CHAIN, cursor="garbage")
-        assert parse_cursor("10:3") == (10, 3)
+        # row-id cursors from the pre-F3 format are malformed now too
+        with pytest.raises(ValueError, match="invalid cursor"):
+            list_messages(seeded, CHAIN, cursor="10:3")
+        assert parse_cursor("10:" + "ab" * 32) == (10, "ab" * 32)
         assert parse_cursor(None) is None
+
+    def test_same_block_order_is_node_independent(self, session):
+        """F3: (block_height, tx_hash) ordering is deterministic — two DBs
+        with the same transactions in different row order page identically
+        and exchange cursors."""
+        envs = [("a-post", "dev"), ("b-post", "dev"), ("c-post", "dev"), ("d-post", "dev")]
+
+        def build(order: list[int]) -> Session:
+            engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+            chain_metadata.create_all(engine)
+            s = Session(engine)
+            s.add(Account(chain_id=CHAIN, address=ALICE, balance=10**12, nonce=0))
+            _block(s, 5)
+            for n in order:
+                body, topic = envs[n]
+                s.add(_tx_row(5, n + 1, payload={"aitbc_msg": _env(body=body, topic=topic)}))
+            s.commit()
+            return s
+
+        # same block, same four messages, different insertion order → the
+        # assigned Transaction.id ordering differs; the visible order must not
+        s_fwd, s_rev = build([0, 1, 2, 3]), build([3, 2, 1, 0])
+        page_fwd = list_messages(s_fwd, CHAIN, limit=2)
+        page_rev = list_messages(s_rev, CHAIN, limit=2)
+        assert [m["body"] for m in page_fwd["messages"]] == [m["body"] for m in page_rev["messages"]]
+        assert page_fwd["next_cursor"] == page_rev["next_cursor"]
+        # a cursor from one node pages correctly on the other
+        rest_fwd = list_messages(s_fwd, CHAIN, limit=10, cursor=page_fwd["next_cursor"])
+        rest_rev = list_messages(s_rev, CHAIN, limit=10, cursor=page_rev["next_cursor"])
+        assert [m["tx_hash"] for m in rest_fwd["messages"]] == [m["tx_hash"] for m in rest_rev["messages"]]
+        assert [m["tx_hash"] for m in page_fwd["messages"] + rest_fwd["messages"]] == sorted(
+            [f"{n + 1:064x}" for n in range(4)], reverse=True
+        )
 
     def test_parent_resolved_flag(self, seeded):
         out = list_messages(seeded, CHAIN)
