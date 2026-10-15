@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import sqlite3
 import sys
 import threading
 from pathlib import Path
@@ -207,6 +208,65 @@ class TestRoutingTable:
         assert status == 200
         assert headers.get("content-type") == "application/json"
         json.loads(body)
+
+
+class TestBridgeStoreErrors:
+    """Pins the bridge-store error contract (TEST-3, director decision):
+
+    - unknown id / never-initialized store ("no such table") -> 404 on the
+      detail route, empty 200 list on the list route — the honest "nothing
+      there" answers;
+    - any OTHER OperationalError (schema drift, locked file, ...) -> 500,
+      NOT 404. The 404 mapping must not silently widen; a possible later
+      follow-up maps "database is locked" to 503 + Retry-After.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _bridge_monitor_importable(self):
+        src = str(Path(_REPO_ROOT) / "apps" / "bridge-monitor" / "src")
+        if src not in sys.path:
+            sys.path.insert(0, src)
+
+    def test_detail_404_when_store_never_initialized(self, server, monkeypatch):
+        import bridge_monitor.storage as storage
+
+        def _raise(_hash):
+            raise sqlite3.OperationalError("no such table: eth_deposits")
+
+        monkeypatch.setattr(storage, "get_deposit", _raise)
+        status, _, _ = request(server, "GET", "/v1/bridge/deposit/some-id")
+        assert status == 404
+
+    def test_detail_500_when_store_is_broken(self, server, monkeypatch):
+        import bridge_monitor.storage as storage
+
+        def _raise(_hash):
+            raise sqlite3.OperationalError("no such column: deposit_address")
+
+        monkeypatch.setattr(storage, "get_deposit", _raise)
+        status, _, _ = request(server, "GET", "/v1/bridge/deposit/some-id")
+        assert status == 500
+
+    def test_list_empty_200_when_store_never_initialized(self, server, monkeypatch):
+        import bridge_monitor.storage as storage
+
+        def _raise(**_kw):
+            raise sqlite3.OperationalError("no such table: eth_deposits")
+
+        monkeypatch.setattr(storage, "get_deposits", _raise)
+        status, _, body = request(server, "GET", "/v1/bridge/deposits")
+        assert status == 200
+        assert json.loads(body)["deposits"] == []
+
+    def test_list_500_when_store_is_broken(self, server, monkeypatch):
+        import bridge_monitor.storage as storage
+
+        def _raise(**_kw):
+            raise sqlite3.OperationalError("database is locked")
+
+        monkeypatch.setattr(storage, "get_deposits", _raise)
+        status, _, _ = request(server, "GET", "/v1/bridge/deposits")
+        assert status == 500
 
 
 class TestAuthBoundary:
