@@ -1010,7 +1010,11 @@ async def bridge_settlements(
 
 def _release_window(since: datetime) -> dict[str, Any]:
     """Per-lane ETH released (or possibly released) since ``since`` —
-    the committed-status semantics of get_*_eth_committed_since."""
+    the committed-status semantics of get_*_eth_committed_since.
+
+    Ledger rows are stamped with naive host-local ``datetime.now()``, so
+    the comparison runs on the naive isoformat. The reported ``since``
+    attaches the host's zone for display, and ``timezone`` names it."""
     from .bridge_db import (
         get_exchange_eth_committed_since,
         get_sell_eth_committed_since,
@@ -1021,8 +1025,10 @@ def _release_window(since: datetime) -> dict[str, Any]:
     withdrawals = get_withdrawal_eth_committed_since(since_iso)
     sell = get_sell_eth_committed_since(since_iso)
     exchange = get_exchange_eth_committed_since(since_iso)
+    aware = since.astimezone()
     return {
-        "since": since_iso,
+        "since": aware.isoformat(),
+        "timezone": aware.tzname(),
         "withdrawals_eth": _money_str(withdrawals),
         "sell_eth": _money_str(sell),
         "exchange_eth": _money_str(exchange),
@@ -1040,9 +1046,12 @@ async def bridge_float(
     helpers the monitors use.
 
     Admin-keyed like /settlements: reserve and committed totals reveal the
-    bridge's in-flight payment book. ``windows.today`` starts at service
-    midnight (UTC on deployed hosts); ``windows.last_24h`` is the rolling
-    24h window the sell day-cap itself uses."""
+    bridge's in-flight payment book. ``windows.today`` starts at host-local
+    midnight; each window reports ``since`` with the host's zone name in
+    ``timezone`` (Europe/Vienna on the hub). ``windows.last_24h`` is the
+    rolling 24h window the sell day-cap itself uses. On a DST change day
+    the two window boundaries can differ by an hour — both are display
+    aggregates over the same naive host-local ledger stamps either way."""
     from .bridge_withdraw_monitor import _eth_balance, _pending_eth_reserve
 
     address = os.getenv("ETH_WALLET_ADDRESS", "")

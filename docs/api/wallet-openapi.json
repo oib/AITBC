@@ -2023,7 +2023,7 @@
           "bridge"
         ],
         "summary": "Bridge Float",
-        "description": "Bridge ETH float: wallet balance, pending reserve, and release\nwindows (CLI-5). Read-only \u2014 the balance is an eth_getBalance call on\nthe configured RPC; ledger figures come from the same reserve/committed\nhelpers the monitors use.\n\nAdmin-keyed like /settlements: reserve and committed totals reveal the\nbridge's in-flight payment book. ``windows.today`` starts at service\nmidnight (UTC on deployed hosts); ``windows.last_24h`` is the rolling\n24h window the sell day-cap itself uses.",
+        "description": "Bridge ETH float: wallet balance, pending reserve, and release\nwindows (CLI-5). Read-only \u2014 the balance is an eth_getBalance call on\nthe configured RPC; ledger figures come from the same reserve/committed\nhelpers the monitors use.\n\nAdmin-keyed like /settlements: reserve and committed totals reveal the\nbridge's in-flight payment book. ``windows.today`` starts at host-local\nmidnight; each window reports ``since`` with the host's zone name in\n``timezone`` (Europe/Vienna on the hub). ``windows.last_24h`` is the\nrolling 24h window the sell day-cap itself uses. On a DST change day\nthe two window boundaries can differ by an hour \u2014 both are display\naggregates over the same naive host-local ledger stamps either way.",
         "operationId": "bridge_float_v1_bridge_float_get",
         "responses": {
           "200": {
