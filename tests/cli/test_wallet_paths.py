@@ -305,3 +305,113 @@ def test_wallet_delete_does_not_reach_service_dir(two_wallet_dirs, monkeypatch):
     assert "does not exist" in result.output
     assert str(configured) in result.output
     assert service_wallet.exists()
+
+
+# ---------------------------------------------------------------------------
+# CLI-6c: commands that write the wallet file after loading it resolve names
+# in the configured dir only — the shared search is for load/sign/read.
+# ---------------------------------------------------------------------------
+
+
+def _wallet_group_mocks(monkeypatch):
+    monkeypatch.setattr("aitbc_cli.utils.chain_id.get_chain_id", lambda *a, **k: "test-chain")
+    monkeypatch.setattr(
+        "aitbc_cli.commands.wallet.get_config",
+        lambda: type("C", (), {"blockchain_rpc_url": "http://127.0.0.1:1", "wallet_url": "http://127.0.0.1:1"})(),
+    )
+    monkeypatch.setattr("aitbc_cli.utils.wallet_paths.daemon_keystore_has", lambda name: None)
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["export", "--destination", "out.json"],
+        ["earn", "--amount", "1", "--job-id", "job-1"],
+        ["spend", "--amount", "1", "--description", "d"],
+        ["liquidity-stake", "--amount", "1", "--pool", "main", "--lock-days", "7"],
+        ["liquidity-unstake", "--stake-id", "lstake-1"],
+    ],
+)
+def test_write_back_commands_do_not_reach_service_dir(two_wallet_dirs, monkeypatch, tmp_path, argv):
+    """A wallet that exists only in the service dir is NOT found by commands
+    that write the wallet file (earn/spend/liquidity resaves, export). The
+    error names the searched dirs and the service file stays byte-identical
+    (CLI-6c ASK)."""
+    configured, service = two_wallet_dirs
+    service_wallet = _write_wallet(service, "sepolia")
+    before = service_wallet.read_bytes()
+    _wallet_group_mocks(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    from aitbc_cli.commands.wallet import wallet
+
+    result = CliRunner().invoke(wallet, ["--wallet-name", "sepolia", *argv])
+    # earn/spend/export report the miss and return (delete-style); the
+    # liquidity commands ctx.exit(1) — either way the pin is the message
+    # and the untouched service file.
+    assert "not found" in result.output.lower()
+    assert str(configured) in result.output
+    assert str(service) in result.output
+    assert "writes the wallet file" in result.output
+    assert service_wallet.read_bytes() == before
+
+
+def test_wallet_export_explicit_path_still_works(two_wallet_dirs, monkeypatch, tmp_path):
+    """An explicit --wallet-path to a service-dir wallet still exports —
+    narrowing applies to bare names only."""
+    _, service = two_wallet_dirs
+    service_wallet = _write_wallet(service, "sepolia")
+    _wallet_group_mocks(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    from aitbc_cli.commands.wallet import wallet
+
+    result = CliRunner().invoke(
+        wallet,
+        ["--wallet-path", str(service_wallet), "export", "--destination", str(tmp_path / "copy.json")],
+    )
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "copy.json").exists()
+    assert json.loads((tmp_path / "copy.json").read_text())["address"] == "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe"
+
+
+def test_load_wallet_does_not_rewrite_service_dir_legacy(two_wallet_dirs, monkeypatch):
+    """A legacy plaintext-encrypted wallet under a service dir is decrypted in
+    memory but NOT re-saved in place — service-managed files get no CLI write."""
+    _, service = two_wallet_dirs
+    path = _write_wallet(service, "legacy", private_key="0x" + "11" * 32, encrypted=True)
+    before = path.read_bytes()
+    from aitbc_cli.commands.wallet import _load_wallet
+
+    data = _load_wallet(path, "legacy", password="test-password-1")
+    assert data["private_key"] == "0x" + "11" * 32
+    assert path.read_bytes() == before
+
+
+def test_load_wallet_still_reencrypts_configured_legacy(two_wallet_dirs):
+    """The in-place re-encrypt still applies outside the service dir."""
+    configured, _ = two_wallet_dirs
+    path = _write_wallet(configured, "legacy", private_key="0x" + "11" * 32, encrypted=True)
+    from aitbc_cli.commands.wallet import _load_wallet
+
+    data = _load_wallet(path, "legacy", password="test-password-1")
+    assert data["private_key"] == "0x" + "11" * 32
+    on_disk = json.loads(path.read_text())
+    assert isinstance(on_disk["private_key"], dict)
+
+
+def test_write_back_commands_stay_off_shared_search():
+    """Structural pin (CLI-6c ASK): any wallet-group command whose source calls
+    _resave_wallet/_save_wallet — plus export — must not read the shared-search
+    ctx key. A new resave site or a re-wire to wallet_sign_path fails here."""
+    import inspect
+
+    from aitbc_cli.commands.wallet import wallet
+
+    sources = {
+        name: inspect.getsource(cmd.callback)
+        for name, cmd in wallet.commands.items()
+        if getattr(cmd, "callback", None) is not None
+    }
+    writers = {name for name, src in sources.items() if "_resave_wallet(" in src or "_save_wallet(" in src} | {"export"}
+    assert writers == {"create", "earn", "spend", "export", "liquidity-stake", "liquidity-unstake"}
+    for name in writers:
+        assert "wallet_sign_path" not in sources[name], f"{name} writes the wallet file but reads the shared search"

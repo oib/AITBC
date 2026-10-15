@@ -36,7 +36,7 @@ def funded_wallet(tmp_path, monkeypatch):
     (wallets_dir / "test.json").write_text(json.dumps(wallet))
 
     # Make the CLI use this keystore directory.
-    monkeypatch.setattr("aitbc_cli.commands.transactions.wallet_dir", lambda: wallets_dir)
+    monkeypatch.setenv("AITBC_WALLET_DIR", str(wallets_dir))
     return wallet, private_key_hex, wallets_dir
 
 
