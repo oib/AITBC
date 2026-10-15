@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 from unittest import mock
+
+import pytest
 
 # The mcp-server directory is not a package, so add it to the path for tests.
 MCP_SERVER_DIR = Path(__file__).resolve().parent.parent
@@ -434,3 +437,442 @@ class TestGetServiceLogsFilters:
         result, captured = self._call(service="aitbc-market", host="node2")
         assert "--priority" not in captured[0]
         assert "--severity-pattern" not in captured[0]
+
+
+class TestDestructiveClassification:
+    """TOOL-1: the destructive gate must cover the audited mutating leaves.
+
+    The classification sees only the subcommand tokens plus the group for
+    exact-path entries — never the option values.  These pins lock the
+    Phase-0 audit so a rename or refactor cannot silently reopen a gate.
+    """
+
+    @pytest.mark.parametrize(
+        ("group", "subcommand"),
+        [
+            # pre-existing coverage that must keep working
+            ("wallet", ["send"]),
+            ("wallet", ["bridge", "sell", "lock"]),
+            ("wallet", ["bridge", "sell", "quote"]),
+            ("exchange-island", ["cancel"]),
+            ("transactions", ["batch"]),
+            # TOOL-1 additions — each was verified mutating in the audit
+            ("exchange", ["node", "set-payout"]),
+            ("wallet", ["earn"]),
+            ("wallet", ["liquidity-claim"]),
+            ("wallet", ["multisig-create"]),
+            ("wallet", ["switch"]),
+            ("agent", ["register-identity"]),
+            ("agent", ["subscribe"]),
+            ("agent", ["workflow", "create-workflow"]),
+            ("agent", ["config-set"]),
+            ("agent-task", ["hire"]),
+            ("agent-wallet", ["rebalance"]),
+            ("agent-msg", ["request-coins"]),
+            ("agent-msg", ["ping"]),
+            ("ai", ["pay"]),
+            ("ai", ["refund-sweep"]),
+            ("bootstrap", ["bootstrap-env"]),
+            ("bridge", ["attest"]),
+            ("bridge", ["confirm"]),
+            ("bridge", ["ingest-header"]),
+            ("bridge", ["proof"]),
+            ("bridge", ["sign-proof"]),
+            ("bridge", ["store-header"]),
+            ("bridge", ["register-validator"]),
+            ("bridge", ["unlock"]),
+            ("coin-requests", ["approve"]),
+            ("coin-requests", ["reject"]),
+            ("coin-requests", ["reopen"]),
+            ("coin-requests", ["request"]),
+            ("coin-requests", ["reconcile"]),
+            ("config", ["set"]),
+            ("config", ["unset"]),
+            ("config", ["edit"]),
+            ("config", ["reset"]),
+            ("config", ["set-secret"]),
+            ("config", ["import-config"]),
+            ("config", ["profiles", "load"]),
+            ("config", ["profiles", "save"]),
+            ("compliance", ["export-audit"]),
+            ("crosschain", ["confirm"]),
+            ("crosschain", ["swap"]),
+            ("dispute", ["arbitrator", "authorize"]),
+            ("dispute", ["auto-adjudicate"]),
+            ("dispute", ["evidence", "add"]),
+            ("dispute", ["resolve"]),
+            ("edge", ["database", "delete-db"]),
+            ("edge", ["database", "init-db"]),
+            ("edge", ["database", "sync-db"]),
+            ("edge", ["gpu", "remove-gpu"]),
+            ("edge", ["gpu", "scan-gpus"]),
+            ("edge", ["metrics", "delete-metric"]),
+            ("edge", ["metrics", "record"]),
+            ("edge", ["serve", "cancel-request"]),
+            ("edge", ["serve", "submit-request"]),
+            ("edge", ["transfer"]),
+            ("edge", ["island", "join"]),
+            ("edge", ["island", "leave"]),
+            ("exchange", ["add-liquidity"]),
+            ("exchange", ["create-pair"]),
+            ("exchange", ["start-trading"]),
+            ("genesis", ["init"]),
+            ("genesis", ["reset"]),
+            ("genesis", ["sync-from-hub"]),
+            ("governance", ["aggregate-votes"]),
+            ("governance", ["close"]),
+            ("governance", ["execute-cross-chain"]),
+            ("governance", ["propagate"]),
+            ("gpu-onchain", ["allocate"]),
+            ("gpu-onchain", ["deregister"]),
+            ("grant", ["disburse"]),
+            ("ipfs", ["island", "subscribe"]),
+            ("ipfs", ["island", "swarm-key"]),
+            ("ipfs", ["pin"]),
+            ("ipfs", ["unpin"]),
+            ("ipfs", ["upload"]),
+            ("ipfs", ["download"]),
+            ("market", ["host"]),
+            ("market", ["hermes"]),
+            ("market", ["process-video"]),
+            ("market", ["download"]),
+            ("market", ["offer-cancel"]),
+            ("market", ["gpu", "quote"]),
+            ("market", ["exchange", "deposit-eth"]),
+            ("network", ["force-sync"]),
+            ("network", ["set-sync-source"]),
+            ("network", ["heartbeat"]),
+            ("network", ["subscribe"]),
+            ("node", ["add"]),
+            ("node", ["remove"]),
+            ("node", ["bridge", "approve"]),
+            ("node", ["bridge", "reject"]),
+            ("node", ["bridge", "request"]),
+            ("node", ["island", "join"]),
+            ("node", ["island", "leave"]),
+            ("operations", ["agent", "deregister"]),
+            ("operations", ["agent", "message"]),
+            ("operations", ["ai", "submit-job"]),
+            ("operations", ["governance", "delegate"]),
+            ("operations", ["governance", "proposal"]),
+            ("oracle", ["store"]),
+            ("platform", ["init-platform"]),
+            ("plugin", ["load"]),
+            ("reinvest", ["policy"]),
+            ("reputation", ["create-profile"]),
+            ("reputation", ["feedback"]),
+            ("resource", ["allocate"]),
+            ("resource", ["deallocate"]),
+            ("resource", ["optimize"]),
+            ("security", ["patch"]),
+            ("service", ["harden"]),
+            ("system", ["env-set"]),
+            ("system", ["run-script"]),
+            ("tee", ["attest"]),
+            ("tee", ["keygen"]),
+            ("tee", ["launch"]),
+            ("trade", ["lock-escrow"]),
+            ("trade", ["settle"]),
+            ("trade", ["match-all"]),
+            ("trade", ["register-chain"]),
+            ("trade", ["sync"]),
+            ("cluster", ["sync"]),
+            ("blockchain", ["migrate"]),
+            ("deploy", ["deploy-brand"]),
+            ("contract", ["call"]),
+            ("http", ["call"]),
+        ],
+    )
+    def test_known_mutating_leaf_classified(self, group, subcommand):
+        assert mcp_server._is_aitbc_subcommand_destructive(subcommand, group), f"{group} {subcommand}"
+
+    @pytest.mark.parametrize(
+        ("group", "subcommand"),
+        [
+            # bare top-level mutating commands have no subcommand token at all
+            ("start", None),
+            ("stop", []),
+            ("restart", None),
+            ("update", None),
+            ("stake", None),
+            ("unstake", None),
+            ("liquidity-stake", None),
+        ],
+    )
+    def test_bare_mutating_group_classified(self, group, subcommand):
+        assert mcp_server._is_aitbc_subcommand_destructive(subcommand, group), group
+
+    @pytest.mark.parametrize(
+        ("group", "subcommand"),
+        [
+            # leaf-name collisions: these mutate and match by exact path
+            ("monitor", ["alerts"]),
+            ("monitor", ["webhooks"]),
+            ("trade", ["match"]),
+            ("wallet", ["export"]),
+            ("crosschain", ["bridge"]),
+            ("edge", ["island", "bridge"]),
+            ("dispute", ["file"]),
+            ("ai", ["service", "test"]),
+            ("sync", ["bulk"]),
+        ],
+    )
+    def test_exact_path_entries_classified(self, group, subcommand):
+        assert mcp_server._is_aitbc_subcommand_destructive(subcommand, group), f"{group} {subcommand}"
+
+    @pytest.mark.parametrize(
+        ("group", "subcommand"),
+        [
+            # reads sharing a leaf name with a mutating command elsewhere
+            ("market", ["match"]),
+            ("config", ["export"]),
+            ("prometheus", ["alerts"]),
+            ("analytics", ["alerts"]),
+            ("system", ["file"]),
+            ("node", ["test"]),
+            ("wallet", ["bridge", "status"]),
+            ("wallet", ["bridge", "float"]),
+            ("wallet", ["bridge", "settlements"]),
+            ("node", ["bridge", "list-bridges"]),
+            ("sync", ["status"]),
+            # plain reads
+            ("monitor", ["campaigns"]),
+            ("monitor", ["campaign-stats"]),
+            ("system", ["logs"]),
+            ("system", ["status"]),
+            ("explorer", ["block"]),
+            ("trade", ["discover"]),
+            ("wallet", ["balance"]),
+            ("agent", ["discover", "agents"]),
+            ("zk", ["verify"]),
+            ("genesis", ["verify"]),
+            ("exchange", ["verify"]),
+            ("wallet", ["request-payment"]),
+        ],
+    )
+    def test_read_leaves_not_classified(self, group, subcommand):
+        assert not mcp_server._is_aitbc_subcommand_destructive(subcommand, group), f"{group} {subcommand}"
+
+    def test_string_subcommand_splits_for_classification(self):
+        """'sell lock' as one string must classify the same as a list."""
+        assert mcp_server._is_aitbc_subcommand_destructive("bridge sell lock", "wallet")
+        assert mcp_server._is_aitbc_subcommand_destructive("sell lock", "wallet")
+        assert not mcp_server._is_aitbc_subcommand_destructive("bridge status", "wallet")
+
+    def test_list_valued_options_build_repeated_flags(self):
+        command = mcp_server._build_aitbc_cli_command(
+            "http", "call", ["market", "v1/x"], {"expect-status": ["401", "404"]}, "json"
+        )
+        assert "--expect-status=401" in command
+        assert "--expect-status=404" in command
+
+    def test_read_tool_rejects_nested_destructive_path(self):
+        result = json.loads(
+            mcp_server.read_aitbc_cli(
+                group="wallet",
+                subcommand=["bridge", "sell", "lock"],
+                host="node2",
+            )
+        )
+        assert "error" in result
+        assert "destructive" in result["error"]
+
+    def test_read_tool_rejects_exact_path(self):
+        result = json.loads(mcp_server.read_aitbc_cli(group="monitor", subcommand=["alerts"], host="node2"))
+        assert "error" in result
+
+    def test_read_tool_rejects_bare_mutating_group(self):
+        result = json.loads(mcp_server.read_aitbc_cli(group="start", host="node2"))
+        assert "error" in result
+
+    def test_run_tool_requires_confirm_for_new_leaf(self):
+        result = json.loads(
+            mcp_server.run_aitbc_cli(
+                group="exchange",
+                subcommand=["node", "set-payout"],
+                host="node2",
+                dry_run=False,
+                confirm=False,
+            )
+        )
+        assert result.get("error") == "Confirmation required"
+
+
+# Commands whose decorators wrap the callback past inspect.getsource; pinned
+# so a rename still forces a human look rather than silently skipping.
+_WRAPPER_LOOP_PATHS = {
+    "blockchain block",
+    "blockchain height",
+    "http call",
+    "market cancel",
+    "market download",
+    "market hermes",
+    "market host",
+    "market jobs",
+    "market list",
+    "market match",
+    "market offer-disable",
+    "market offer-list",
+    "market process",
+    "market providers",
+    "market run",
+    "market transcribe",
+    "system check",
+    "update",
+}
+
+# Leaves whose callback source matches the mutation signal but which were
+# read and verified read-only in the TOOL-1 Phase-0 audit: pure GETs,
+# systemctl/subprocess reads, POST-for-search (/v1/agents/discover, ipfs
+# pin/ls), POST-for-verify endpoints, a verifier subprocess, and in-process
+# simulators.  A NEW leaf matching the signal must be classified or added
+# here deliberately — never silently.
+_KNOWN_READ_SIGNAL_PATHS = {
+    "agent discover agents",
+    "agent verify-identity",
+    "agent-comm discover",
+    "agent-comm list",
+    "agent-comm network",
+    "agent-task result",
+    "analytics dashboard",
+    "blockchain monitor",
+    "config export",
+    "dispute evidence verify",
+    "energy floor",
+    "energy provider profile",
+    "energy suggest",
+    "exchange verify",
+    "explorer activity-timeline",
+    "explorer block",
+    "explorer block-by-hash",
+    "explorer blocks-by-address",
+    "explorer chain-head",
+    "explorer chains",
+    "explorer latest-blocks",
+    "explorer network-stats",
+    "explorer non-empty-blocks",
+    "explorer provider-reputation",
+    "explorer search-transactions",
+    "explorer top-addresses",
+    "explorer transaction",
+    "explorer transaction-by-hash",
+    "genesis verify",
+    "ipfs list",
+    "market gpu status",
+    "market status",
+    "messaging list",
+    "mining list",
+    "mining status",
+    "monitor metrics",
+    "operations agent list",
+    "operations ai status",
+    "oracle listings",
+    "prometheus alert-history",
+    "prometheus alerts",
+    "prometheus check",
+    "reputation leaderboard",
+    "reputation metrics",
+    "reputation profile",
+    "reputation trust-score",
+    "simulate blockchain",
+    "system cat",
+    "system cron",
+    "system env-names",
+    "system logs",
+    "system show",
+    "system status",
+    "trade discover",
+    "trade watch",
+    "transactions search",
+    "transactions status",
+    "wallet list",
+    "wallet transactions",
+    "workflow list",
+    "zk verify",
+}
+
+_MUT_SIGNAL = re.compile(
+    r"\.post\(|\.put\(|\.delete\(|\.patch\(|_save_wallet|_resave_wallet|write_text|unlink\(|"
+    r"systemctl|subprocess\.|click\.confirm|sign_transaction|/rpc/transaction|broadcast|"
+    r"requests\.post|_send_transaction|_submit|shutil\.|\.write\(|open\(.*w|json\.dump"
+)
+
+# Option names that mark a mutating command (confirmation gates, destructive
+# force flags, dry-run previews).
+_CONFIRM_STYLE_OPTS = {"confirm", "yes", "force", "dry_run", "i_am_sure"}
+
+
+class TestDestructiveStructuralAudit:
+    """Walk the real Click tree: a mutating leaf must be classified.
+
+    Signals: a confirm/yes/force/dry-run option on the command, a
+    ``click.confirm(`` call, or a mutating call in the callback source.
+    The exception lists are pinned — a new mutating command fails the test
+    until a human classifies it.
+    """
+
+    def _leaves(self):
+        import click
+        from aitbc_cli.core.main import cli
+
+        def walk(cmd, path):
+            if isinstance(cmd, click.Group):
+                for name, sub in sorted(cmd.commands.items()):
+                    yield from walk(sub, path + [name])
+            else:
+                yield cmd, path
+
+        return list(walk(cli, []))
+
+    def test_confirm_style_commands_are_classified(self):
+        """Every command carrying a confirm/yes/force/dry-run option or
+        calling click.confirm must classify as destructive — no exceptions."""
+        import click
+        import inspect
+
+        for cmd, path in self._leaves():
+            full = " ".join(path)
+            try:
+                src = inspect.getsource(cmd.callback)
+            except (OSError, TypeError, ValueError):
+                src = ""
+            has_confirm_opt = any(
+                isinstance(p, click.Option) and _CONFIRM_STYLE_OPTS & {o.lstrip("-").replace("-", "_") for o in p.opts}
+                for p in cmd.params
+            )
+            if has_confirm_opt or "click.confirm(" in src:
+                assert mcp_server._is_aitbc_subcommand_destructive(path[1:], path[0]), (
+                    f"{full} asks for confirmation but is not gated"
+                )
+
+    def test_signal_bearing_leaf_is_classified_or_pinned_read(self):
+        import inspect
+
+        for cmd, path in self._leaves():
+            full = " ".join(path)
+            try:
+                src = inspect.getsource(cmd.callback)
+            except (OSError, TypeError, ValueError):
+                assert full in _WRAPPER_LOOP_PATHS, f"{full} callback source unreadable — audit it, then pin"
+                continue
+            if _MUT_SIGNAL.search(src):
+                classified = mcp_server._is_aitbc_subcommand_destructive(path[1:], path[0])
+                assert classified or full in _KNOWN_READ_SIGNAL_PATHS, (
+                    f"{full} matches a mutating-call signal but is neither classified destructive nor a pinned read"
+                )
+
+    def test_exception_lists_stay_in_sync_with_tree(self):
+        """Pinned sets must not drift: every entry must still be a real leaf,
+        and wrapper-loop detection must agree with the pin."""
+        import inspect
+
+        tree_paths = {" ".join(p) for _, p in self._leaves()}
+        for full in _KNOWN_READ_SIGNAL_PATHS:
+            assert full in tree_paths, f"{full} no longer exists — drop it from the read pin"
+        unreadable = set()
+        for cmd, path in self._leaves():
+            try:
+                inspect.getsource(cmd.callback)
+            except (OSError, TypeError, ValueError):
+                unreadable.add(" ".join(path))
+        assert unreadable == _WRAPPER_LOOP_PATHS

@@ -586,6 +586,146 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "withdraw-eth",
     "sync-ratings",
     "offer-disable",
+    # TOOL-1 audit (walked the full Click tree at 895a738a9 and read the
+    # handlers): leaf names below were verified to POST/PUT/DELETE, write a
+    # file, sign or broadcast.  Matching is exact per path token, so compound
+    # names like ``set-payout`` need their whole token here.
+    "add",
+    "add-liquidity",
+    "aggregate-votes",
+    "allocate",
+    "approve",
+    "attest",
+    "authorize",
+    "auto-adjudicate",
+    "bootstrap-env",
+    "call",
+    "cancel-request",
+    "close",
+    "config-export",
+    "config-import",
+    "config-set",
+    "confirm",
+    "create-pair",
+    "create-profile",
+    "create-workflow",
+    "deallocate",
+    "delegate",
+    "delete-db",
+    "delete-metric",
+    "deploy-brand",
+    "deposit-eth",
+    "deregister",
+    "disburse",
+    "download",
+    "earn",
+    "edit",
+    "env-set",
+    "execute-cross-chain",
+    "export-audit",
+    "feedback",
+    "force-sync",
+    "harden",
+    "heartbeat",
+    "hermes",
+    "hire",
+    "host",
+    "import-config",
+    "ingest-header",
+    "init",
+    "init-db",
+    "init-platform",
+    "join",
+    "keygen",
+    "launch",
+    "leave",
+    "liquidity-claim",
+    "load",
+    "lock-escrow",
+    "match-all",
+    "message",
+    "migrate",
+    "multisig-create",
+    "offer-cancel",
+    "optimize",
+    "patch",
+    "pay",
+    "ping",
+    "pin",
+    "policy",
+    "process-video",
+    "proof",
+    "propagate",
+    "proposal",
+    "quote",
+    "rebalance",
+    "reconcile",
+    "record",
+    "refund-sweep",
+    "register-chain",
+    "register-identity",
+    "register-validator",
+    "reject",
+    "rekey",
+    "remove",
+    "remove-gpu",
+    "reopen",
+    "request",
+    "request-coins",
+    "reset",
+    "resolve",
+    "run-script",
+    "save",
+    "scan-gpus",
+    "set",
+    "set-payout",
+    "set-secret",
+    "set-sync-source",
+    "settle",
+    "sign-proof",
+    "start-trading",
+    "store",
+    "store-header",
+    "submit-job",
+    "submit-request",
+    "subscribe",
+    "swap",
+    "sweep",
+    "swarm-key",
+    "switch",
+    "sync",
+    "sync-db",
+    "sync-from-hub",
+    "transfer",
+    "unlock",
+    "unpin",
+    "unset",
+    "upload",
+    "webhooks",
+}
+
+# Full ``group subpath`` entries whose leaf name is shared with a read-only
+# command, so token matching alone would over-gate (e.g. ``trade match``
+# mutates while ``market match`` is a read).  Also covers bare top-level
+# mutating commands like ``aitbc start`` whose subcommand list is empty and
+# so can never match a token.
+DESTRUCTIVE_AITBC_PATHS = {
+    "ai service test",
+    "crosschain bridge",
+    "dispute file",
+    "edge island bridge",
+    "liquidity-stake",
+    "monitor alerts",
+    "monitor webhooks",
+    "restart",
+    "stake",
+    "start",
+    "stop",
+    "sync bulk",
+    "trade match",
+    "unstake",
+    "update",
+    "wallet export",
 }
 
 
@@ -659,12 +799,8 @@ def _build_aitbc_cli_command(
         else:
             tokens.append(f"--{key}={shlex.quote(str(value))}")
 
-    if subcommand:
-        if isinstance(subcommand, str):
-            tokens.append(shlex.quote(subcommand))
-        else:
-            for token in subcommand:
-                tokens.append(shlex.quote(str(token)))
+    for token in _subcommand_tokens(subcommand):
+        tokens.append(shlex.quote(str(token)))
 
     for arg in args or []:
         tokens.append(shlex.quote(str(arg)))
@@ -687,13 +823,32 @@ def _build_aitbc_cli_command(
     return _build_env_prefix(env) + " ".join(tokens)
 
 
-def _is_aitbc_subcommand_destructive(subcommand: str | list[str] | None) -> bool:
-    """Return True when a subcommand is known to mutate state."""
+def _subcommand_tokens(subcommand: str | list[str] | None) -> list[str]:
+    """Normalise a subcommand to its path tokens.
+
+    A string containing whitespace is split with ``shlex.split`` so
+    ``"bridge sell lock"`` and ``["bridge", "sell", "lock"]`` classify
+    identically — and a multi-word string cannot bypass the per-token
+    destructive check.
+    """
     if not subcommand:
-        return False
+        return []
     if isinstance(subcommand, str):
-        return subcommand in DESTRUCTIVE_AITBC_SUBCOMMANDS
-    return any(token in DESTRUCTIVE_AITBC_SUBCOMMANDS for token in subcommand)
+        return shlex.split(subcommand)
+    return [str(token) for token in subcommand]
+
+
+def _is_aitbc_subcommand_destructive(
+    subcommand: str | list[str] | None,
+    group: str | None = None,
+) -> bool:
+    """Return True when a subcommand is known to mutate state."""
+    tokens = _subcommand_tokens(subcommand)
+    if any(token in DESTRUCTIVE_AITBC_SUBCOMMANDS for token in tokens):
+        return True
+    if not tokens and not group:
+        return False
+    return " ".join([group, *tokens] if group else tokens) in DESTRUCTIVE_AITBC_PATHS
 
 
 def _run_aitbc_cli(
@@ -777,6 +932,7 @@ def _run_http(
     timeout: int = 30,
     auth: str = "none",
     auth_env: str = "/etc/aitbc/aitbc-coordinator-api.env",
+    expect_status: list[int] | None = None,
 ) -> dict[str, Any]:
     """Call an AITBC HTTP endpoint on a remote node via the ``aitbc http`` CLI.
 
@@ -790,13 +946,15 @@ def _run_http(
             "known_services": sorted(HTTP_SERVICE_NAMES),
         }
 
-    options: dict[str, str | None] = {"method": method.upper(), "timeout": str(timeout)}
+    options: dict[str, Any] = {"method": method.upper(), "timeout": str(timeout)}
     if params:
         options["params"] = json.dumps(params, default=str)
     if body:
         options["body"] = json.dumps(body, default=str)
     if auth in ("miner", "rpc"):
         options["auth"] = auth
+    if expect_status:
+        options["expect-status"] = [str(s) for s in expect_status]
     # auth_env is intentionally ignored: the CLI resolves the API key from its
     # own config / env file lookup, which already checks the default path.
 
@@ -818,15 +976,18 @@ def _http_dry_run_command(
     params: dict[str, str] | None,
     body: dict[str, Any] | None,
     auth: str,
+    expect_status: list[int] | None = None,
 ) -> str:
     """Build the representative CLI command shown in dry-run responses."""
-    options: dict[str, str | None] = {"method": method.upper()}
+    options: dict[str, Any] = {"method": method.upper()}
     if params:
         options["params"] = json.dumps(params, default=str)
     if body:
         options["body"] = json.dumps(body, default=str)
     if auth in ("miner", "rpc"):
         options["auth"] = auth
+    if expect_status:
+        options["expect-status"] = [str(s) for s in expect_status]
     return _build_aitbc_cli_command(
         "http",
         "call",
@@ -1271,19 +1432,21 @@ def run_aitbc_cli(
         Field(description="Live aitbc CLI group (e.g. 'wallet', 'market', 'ai', 'node')."),
     ],
     subcommand: Annotated[
-        str,
-        Field(description="Subcommand to run (e.g. 'list', 'status', 'submit')."),
+        str | list[str],
+        Field(
+            description="Subcommand to run — a string ('sell lock' is split like a shell) or a path list (['bridge', 'sell', 'lock'])."
+        ),
     ],
     args: Annotated[
         list[str] | None,
         Field(description="Positional arguments for the subcommand."),
     ] = None,
     options: Annotated[
-        dict[str, str | None] | None,
-        Field(description="Options as --key=value. Use null for boolean flags."),
+        dict[str, str | list[str] | None] | None,
+        Field(description="Options as --key=value. Pass a list for repeated options, or null for boolean flags."),
     ] = None,
     group_options: Annotated[
-        dict[str, str | None] | None,
+        dict[str, str | list[str] | None] | None,
         Field(
             description="Group-level options placed before the subcommand, e.g. {'wallet-name': 'default'} for 'aitbc wallet --wallet-name default <subcommand>'."
         ),
@@ -1336,8 +1499,11 @@ def run_aitbc_cli(
             }
         )
 
-    command = _build_aitbc_cli_command(group, subcommand, args, options, output_format, group_options=group_options)
-    destructive = _is_aitbc_subcommand_destructive(subcommand)
+    try:
+        command = _build_aitbc_cli_command(group, subcommand, args, options, output_format, group_options=group_options)
+    except ValueError as e:
+        return _json({"error": f"invalid subcommand or options: {e}"})
+    destructive = _is_aitbc_subcommand_destructive(subcommand, group)
 
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1428,7 +1594,7 @@ def read_aitbc_cli(
                 "allowed_groups": sorted(ALL_AITBC_GROUPS),
             }
         )
-    if _is_aitbc_subcommand_destructive(subcommand):
+    if _is_aitbc_subcommand_destructive(subcommand, group):
         return _json(
             {
                 "error": "subcommand is destructive",
@@ -2312,6 +2478,12 @@ def call_aitbc_http(
         bool,
         Field(description="Confirm a mutating HTTP call."),
     ] = False,
+    expect_status: Annotated[
+        list[int] | None,
+        Field(
+            description="HTTP status codes to treat as an expected answer (e.g. [404]); the call returns {'status', 'detail'} instead of an error."
+        ),
+    ] = None,
     timeout: Annotated[
         int,
         Field(description="Timeout in seconds.", ge=5, le=300),
@@ -2345,14 +2517,14 @@ def call_aitbc_http(
         )
 
     if dry_run:
-        command = _http_dry_run_command(service, path, method, params, body, auth)
+        command = _http_dry_run_command(service, path, method, params, body, auth, expect_status)
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
 
     if method != "GET" and not confirm:
         return _json(
             {
                 "error": "Confirmation required",
-                "command": _http_dry_run_command(service, path, method, params, body, auth),
+                "command": _http_dry_run_command(service, path, method, params, body, auth, expect_status),
                 **_execution_context(target),
                 "note": "Mutating HTTP calls require dry_run=false and confirm=true.",
             }
@@ -2369,6 +2541,7 @@ def call_aitbc_http(
             timeout,
             auth,
             auth_env,
+            expect_status,
         )
     )
 

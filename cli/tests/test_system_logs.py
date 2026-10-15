@@ -112,3 +112,55 @@ class TestUnchangedDefaults:
         result = _invoke(runner, "--service", "wallet", "--grep", "a\nb")
         assert result.exit_code != 0
         assert journalctl.calls == []
+
+
+class TestZeroMatchGrep:
+    """TOOL-1: journalctl exits 1 for a zero-match --grep — that is a
+    successful empty result, not a failure."""
+
+    @pytest.fixture
+    def journalctl_rc1_no_entries(self):
+        class _Result:
+            returncode = 1
+            stdout = "-- No entries --\n"
+            stderr = ""
+
+        with patch.object(system_module.subprocess, "run", return_value=_Result()):
+            yield
+
+    def test_zero_match_is_success(self, runner, journalctl_rc1_no_entries):
+        result = _invoke(runner, "--service", "wallet", "--grep", "nevermatches")
+        assert result.exit_code == 0, result.output
+        assert "No entries" in result.output
+
+    def test_no_entries_in_stderr_also_success(self, runner):
+        class _Result:
+            returncode = 1
+            stdout = ""
+            stderr = "-- No entries --"
+
+        with patch.object(system_module.subprocess, "run", return_value=_Result()):
+            result = _invoke(runner, "--service", "wallet", "--grep", "x")
+        assert result.exit_code == 0, result.output
+
+    def test_unrelated_rc1_still_errors(self, runner):
+        class _Result:
+            returncode = 1
+            stdout = ""
+            stderr = "journalctl: cannot parse date"
+
+        with patch.object(system_module.subprocess, "run", return_value=_Result()):
+            result = _invoke(runner, "--service", "wallet", "--since", "bogus")
+        assert result.exit_code != 0
+        assert "cannot parse date" in result.output
+
+    def test_rc2_still_errors(self, runner):
+        class _Result:
+            returncode = 2
+            stdout = "-- No entries --\n"
+            stderr = "journalctl: disk error"
+
+        with patch.object(system_module.subprocess, "run", return_value=_Result()):
+            result = _invoke(runner, "--service", "wallet")
+        assert result.exit_code != 0
+        assert "disk error" in result.output

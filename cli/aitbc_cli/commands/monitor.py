@@ -355,41 +355,49 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
 CAMPAIGNS_DIR = Path.home() / ".aitbc" / "campaigns"
 
 
-def _ensure_campaigns():
-    CAMPAIGNS_DIR.mkdir(parents=True, exist_ok=True)
+def _default_campaigns() -> dict[str, Any]:
+    return {
+        "campaigns": [
+            {
+                "id": "staking_launch",
+                "name": "Staking Launch Campaign",
+                "type": "staking",
+                "apy_boost": 2.0,
+                "start_date": "2026-02-01T00:00:00",
+                "end_date": "2026-04-01T00:00:00",
+                "status": "active",
+                "total_staked": 0,
+                "participants": 0,
+                "rewards_distributed": 0,
+            },
+            {
+                "id": "liquidity_mining_q1",
+                "name": "Q1 Liquidity Mining",
+                "type": "liquidity",
+                "apy_boost": 3.0,
+                "start_date": "2026-01-15T00:00:00",
+                "end_date": "2026-03-15T00:00:00",
+                "status": "active",
+                "total_staked": 0,
+                "participants": 0,
+                "rewards_distributed": 0,
+            },
+        ]
+    }
+
+
+def _read_campaigns_data() -> dict[str, Any]:
+    """Read campaigns.json if it exists; otherwise the default in memory.
+
+    Read commands must not create or rewrite the campaigns file — expired
+    statuses are computed on the loaded dict only.
+    """
     campaigns_file = CAMPAIGNS_DIR / "campaigns.json"
     if not campaigns_file.exists():
-        default = {
-            "campaigns": [
-                {
-                    "id": "staking_launch",
-                    "name": "Staking Launch Campaign",
-                    "type": "staking",
-                    "apy_boost": 2.0,
-                    "start_date": "2026-02-01T00:00:00",
-                    "end_date": "2026-04-01T00:00:00",
-                    "status": "active",
-                    "total_staked": 0,
-                    "participants": 0,
-                    "rewards_distributed": 0,
-                },
-                {
-                    "id": "liquidity_mining_q1",
-                    "name": "Q1 Liquidity Mining",
-                    "type": "liquidity",
-                    "apy_boost": 3.0,
-                    "start_date": "2026-01-15T00:00:00",
-                    "end_date": "2026-03-15T00:00:00",
-                    "status": "active",
-                    "total_staked": 0,
-                    "participants": 0,
-                    "rewards_distributed": 0,
-                },
-            ]
-        }
-        with open(campaigns_file, "w") as f:
-            json.dump(default, f, indent=2)
-    return campaigns_file
+        return _default_campaigns()
+    with open(campaigns_file) as f:
+        data: dict[str, Any] = json.load(f)
+    return data
 
 
 @monitor.command(
@@ -403,9 +411,7 @@ def _ensure_campaigns():
 @click.pass_context
 def campaigns(ctx, status: str):
     """List active or completed monitoring campaigns."""
-    campaigns_file = _ensure_campaigns()
-    with open(campaigns_file) as f:
-        data = json.load(f)
+    data = _read_campaigns_data()
 
     campaign_list = data.get("campaigns", [])
 
@@ -414,8 +420,6 @@ def campaigns(ctx, status: str):
         end = datetime.fromisoformat(c["end_date"])
         if now > end and c["status"] == "active":
             c["status"] = "ended"
-    with open(campaigns_file, "w") as f:
-        json.dump(data, f, indent=2)
 
     if status != "all":
         campaign_list = [c for c in campaign_list if c["status"] == status]
@@ -439,9 +443,7 @@ def campaigns(ctx, status: str):
 @click.pass_context
 def campaign_stats(ctx, campaign_id: str | None):
     """Show statistics for a monitoring campaign."""
-    campaigns_file = _ensure_campaigns()
-    with open(campaigns_file) as f:
-        data = json.load(f)
+    data = _read_campaigns_data()
 
     campaign_list = data.get("campaigns", [])
 
@@ -463,13 +465,14 @@ def campaign_stats(ctx, campaign_id: str | None):
         duration_days = (end - start).days
         elapsed_days = min((now - start).days, duration_days)
         progress_pct = round(elapsed_days / max(duration_days, 1) * 100, 1)
+        status_value = "ended" if now > end and c["status"] == "active" else c["status"]
 
         stats.append(
             {
                 "campaign_id": c["id"],
                 "name": c["name"],
                 "type": c["type"],
-                "status": c["status"],
+                "status": status_value,
                 "apy_boost": c.get("apy_boost", 0),
                 "tvl": c.get("total_staked", 0),
                 "participants": c.get("participants", 0),

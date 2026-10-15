@@ -13,9 +13,17 @@ from typing import Any, cast
 
 import click
 
+from aitbc.exceptions import CircuitBreakerOpenError, RateLimitError
+
 from ..config import get_config
 from ..utils import OUTPUT_FORMAT_OPTION, output
-from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
+from ..utils.http_client import (
+    AITBCHTTPClient,
+    NetworkError,
+    auth_client_kwargs,
+    http_error_detail,
+    http_response_status,
+)
 from ..utils.output import resolve_output_format
 
 
@@ -124,6 +132,20 @@ def _resolve_auth_key(api_key: str | None, auth_kind: str) -> str | None:
     return None
 
 
+def _error_response_body(exc: BaseException) -> Any:
+    """Return the decoded response body carried inside a wrapped error chain."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        response = getattr(seen, "response", None)
+        if response is not None:
+            try:
+                return response.json()
+            except Exception:
+                return response.text
+        seen = seen.__cause__ or seen.__context__
+    return None
+
+
 def _send(client: AITBCHTTPClient, method: str, path: str, query_params, request_body, idempotency_key):
     if method == "GET":
         return client.get(path, params=query_params)
@@ -167,6 +189,13 @@ def _send(client: AITBCHTTPClient, method: str, path: str, query_params, request
     default=None,
     help="Idempotency-Key header for write requests; enables safe retry of ambiguous outcomes",
 )
+@click.option(
+    "--expect-status",
+    "expect_status",
+    type=int,
+    multiple=True,
+    help="HTTP status codes to treat as an expected answer (repeatable); prints {'status', 'detail'} and exits 0",
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def call_http(
@@ -181,6 +210,7 @@ def call_http(
     auth_kind: str,
     timeout: int,
     idempotency_key: str | None,
+    expect_status: tuple[int, ...],
     output_format: str,
 ):
     """Call an AITBC HTTP endpoint by service name and path."""
@@ -229,7 +259,20 @@ def call_http(
     try:
         result = _send(client, method, path, query_params, request_body, idempotency_key)
         output(result, output_format, title=f"{method} {service}/{path}")
+    except (RateLimitError, CircuitBreakerOpenError) as e:
+        raise click.ClickException(f"{type(e).__name__} calling {service}/{path}: {e}") from e
     except NetworkError as e:
+        status = http_response_status(e)
+        if status is not None and status in expect_status:
+            output(
+                {"status": status, "detail": http_error_detail(e) or _error_response_body(e)},
+                output_format,
+                title=f"{method} {service}/{path}",
+            )
+            return
+        if status is not None:
+            detail = http_error_detail(e) or e
+            raise click.ClickException(f"HTTP {status} from {service}/{path}: {detail}") from e
         raise click.ClickException(f"Network error calling {service}/{path}: {e}") from e
     finally:
         client.close()

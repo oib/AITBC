@@ -324,6 +324,7 @@ FORCE_DESTRUCTIVE_PATHS: set[tuple[str, ...]] = {
     ("trade", "match"),
     ("trade", "get"),
     ("http", "call"),
+    ("dispute", "file"),
     ("agent-msg", "send"),
     ("agent-comm", "collaborate"),
     ("monitor", "alerts"),

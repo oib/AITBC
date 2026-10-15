@@ -551,6 +551,11 @@ def logs(
         if result.returncode == 0:
             click.echo(result.stdout)
             return
+        if result.returncode == 1 and "No entries" in (result.stdout + result.stderr):
+            # journalctl exits 1 for a zero-match --grep / empty journal; that
+            # is a successful query with no results, not a failure.
+            click.echo((result.stdout or result.stderr).strip())
+            return
         raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"journalctl failed for {service_name}")
     except click.ClickException:
         raise
