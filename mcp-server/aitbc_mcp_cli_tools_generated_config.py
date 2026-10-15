@@ -234,13 +234,19 @@ def aitbc_config_export(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_config_get(
+    key: Annotated[str | None, Field(description="Positional argument: key")] = None,
+    global_config: Annotated[bool | None, Field(description="Read the global config file")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the current configuration (alias for show).."""
-    options: dict[str, Any] = {}
-    args = None
+    """Print the stored value of one config key.."""
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"global_config": "global"},
+        values={},
+    )
+    args = [key] if key is not None else []
     return _aitbc_cli_read_tool(
         role,
         host,
