@@ -104,6 +104,19 @@ header {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
+/* Keyboard focus indicator for every interactive element that does not
+   carry a more specific rule (menu links, buttons, scroll regions, and
+   role=link/role=button elements). --primary on --bg is 5.37:1, above the
+   3:1 bar for UI components. */
+a:focus-visible,
+button:focus-visible,
+[role="link"]:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
 /* Network status strip: height is reserved before data arrives so its
    appearance never shifts layout; stays visually hidden until populated. */
 .status-strip {
@@ -531,7 +544,19 @@ input[type="number"] {
     min-height: 44px;
 }
 .toggle-switch input {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.toggle-switch input:focus-visible + .toggle-slider {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
 }
 .toggle-slider {
     width: 36px;
@@ -1193,8 +1218,13 @@ a.btn-secondary {
 .form-row input:focus,
 .form-row select:focus,
 .form-row textarea:focus {
-    outline: none;
     border-color: var(--primary);
+}
+.form-row input:focus-visible,
+.form-row select:focus-visible,
+.form-row textarea:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
 }
 .btn-primary {
     padding: 0.6rem 1.25rem;
