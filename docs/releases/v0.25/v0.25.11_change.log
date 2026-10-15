@@ -492,3 +492,9 @@ Tests: 4 new prepay env-resolution cases (env-file only, flag precedence, proces
 
 - The delegated click listener in `website/copy.js` now runs on the **capture** phase (`addEventListener('click', …, true)`) plus `preventDefault()`: a bubble-phase document handler fired after ancestor inline `onclick` handlers, so a copy click inside a `.block-item` row (search results, explorer block cards) also navigated to the row target. Operator-reported (minimal repro showed nav=1 per click); verified by a real-row browser regression test that fails with nav=1 pre-fix.
 - No markup or CSS changes; `copy.js` restamped.
+
+
+### CLI-8b: `wallet eth-send --max-gas-gwei` — gas-price ceiling (follow-up to CLI-8)
+
+- `be79b6fb6` — `--confirm` refuses to sign when the RPC's `eth_gasPrice` exceeds `--max-gas-gwei` (default 50 gwei, the "acceptable" bound in `contracts/scripts/check-gas-price.js`): the refusal runs before the wallet key is decrypted, names both prices, and tells the operator to raise the flag to send into a spike. The dry run still prints, now with `gas_price_gwei`, `gas_ceiling_gwei` and an `over_gas_ceiling` marker. Ceiling must be positive with ≤9 decimals (sub-wei refused). `aitbc_wallet_eth_send` regenerated with `max_gas_gwei`.
+- Tests: `cli/tests/test_wallet_eth_send.py` `TestGasCeiling` (+7) — over-ceiling refusal before key load, raised-ceiling send with the quoted price in the signed blob, boundary equality allowed, dry-run marker, nonpositive and sub-wei ceilings refused.
