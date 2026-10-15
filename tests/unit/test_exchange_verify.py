@@ -83,8 +83,9 @@ def _exchange_db(path: Path, *, orders=(), debits=(), deposits=(), trades=(), re
     return path
 
 
-def _bridge_db(path: Path, *, prepay_rows=(), marks=()) -> Path:
-    """prepay_rows: (tx_hash, recipient_tag, amount_eth); marks: (mark, outcome)."""
+def _bridge_db(path: Path, *, prepay_rows=(), marks=(), settlements=()) -> Path:
+    """prepay_rows: (tx_hash, recipient_tag, amount_eth); marks: (mark, outcome);
+    settlements: (id, kind, ref_id, status)."""
     conn = sqlite3.connect(path)
     conn.executescript(
         """
@@ -93,6 +94,7 @@ def _bridge_db(path: Path, *, prepay_rows=(), marks=()) -> Path:
             amount_eth TEXT, amount_ait TEXT, status TEXT
         );
         CREATE TABLE exchange_monitor_marks (mark TEXT PRIMARY KEY, detail TEXT, outcome TEXT);
+        CREATE TABLE exchange_settlements (id TEXT PRIMARY KEY, kind TEXT, ref_id INTEGER, status TEXT);
         """
     )
     for i, (txh, tag, amt) in enumerate(prepay_rows):
@@ -102,6 +104,8 @@ def _bridge_db(path: Path, *, prepay_rows=(), marks=()) -> Path:
         )
     for m in marks:
         conn.execute("INSERT INTO exchange_monitor_marks (mark, detail, outcome) VALUES (?,?,?)", (m[0], "", m[1]))
+    for s in settlements:
+        conn.execute("INSERT INTO exchange_settlements VALUES (?,?,?,?)", s)
     conn.commit()
     conn.close()
     return path
@@ -116,7 +120,9 @@ def _findings(tool, db_path, **kwargs):
 
     conn = tool._db(str(db_path))
     try:
-        tool.check_db_internal(conn, add, settlement_enabled=kwargs.get("settlement", False))
+        tool.check_db_internal(
+            conn, add, settlement_enabled=kwargs.get("settlement", False), bridge_db_path=kwargs.get("bridge_db")
+        )
         if "bridge_db" in kwargs:
             tool.check_bridge_db(conn, kwargs["bridge_db"], add)
         if kwargs.get("eth"):
@@ -168,6 +174,66 @@ def test_unfunded_order_with_backing_fails(tool, tmp_path):
     )
     found = _findings(tool, db)
     assert any(s == "FAIL" and "backing_tx_hash set" in m for s, _c, m in found)
+
+
+def test_backing_expired_with_refunded_row_ok(tool, tmp_path):
+    """Cancel-after-funding leaves funded_state=backing_expired and keeps
+    backing_tx_hash — the refund monitor needs it non-NULL. A terminal
+    'refunded' order_refund row accounts for the lock: no FAIL (D4 order 23)."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 360_000_000, SELLER, 1, 0, SELLER_ETH)],
+    )
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "order_refund", 2, "refunded")])
+    found = _findings(tool, db, bridge_db=bdb)
+    assert "FAIL" not in _severities(found), found
+
+
+def test_backing_expired_with_pending_refund_ok(tool, tmp_path):
+    """A refund still in flight ('refunding') is a live refund path — the
+    lock is not stranded."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 360_000_000, SELLER, 1, 0, SELLER_ETH)],
+    )
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "order_refund", 2, "refunding")])
+    found = _findings(tool, db, bridge_db=bdb)
+    assert "FAIL" not in _severities(found), found
+
+
+def test_backing_expired_without_refund_row_fails(tool, tmp_path):
+    """backing_expired + hash and no order_refund row = stranded lock."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 360_000_000, SELLER, 1, 0, SELLER_ETH)],
+    )
+    bdb = _bridge_db(tmp_path / "br.db")
+    found = _findings(tool, db, bridge_db=bdb)
+    assert any(s == "FAIL" and "stranded lock" in m for s, _c, m in found), found
+
+
+def test_backing_expired_failed_refund_fails(tool, tmp_path):
+    """A 'failed' order_refund row means the refund could not pay — the lock
+    is still stranded and must stay a FAIL."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 360_000_000, SELLER, 1, 0, SELLER_ETH)],
+    )
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "order_refund", 2, "failed")])
+    found = _findings(tool, db, bridge_db=bdb)
+    assert any(s == "FAIL" and "refund row failed" in m for s, _c, m in found), found
+
+
+def test_backing_expired_no_bridge_db_is_info(tool, tmp_path):
+    """Without --bridge-db the refund link cannot be checked — INFO, never
+    FAIL (the verifier must not guess at a monitor DB it cannot see)."""
+    db = _exchange_db(
+        tmp_path / "ex.db",
+        orders=[(2, "SELL", "cancelled", "backing_expired", "0xlock2", 360_000_000, SELLER, 1, 0, SELLER_ETH)],
+    )
+    found = _findings(tool, db)
+    assert "FAIL" not in _severities(found), found
+    assert any(s == "INFO" and "refund link unchecked" in m for s, _c, m in found), found
 
 
 def test_over_committed_debit_fails(tool, tmp_path):
