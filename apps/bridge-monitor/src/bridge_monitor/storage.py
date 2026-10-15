@@ -15,7 +15,11 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-DATA_DIR = os.getenv("DATA_DIR", "/var/lib/aitbc")
+# AITBC_DATA_DIR wins over the operator-facing DATA_DIR override (admin.py
+# documents bare DATA_DIR for pointing admin commands at a copied DB): the
+# namespaced var is what test isolation and service env files set, so a suite
+# must bind the scratch dir, not the live deposits file.
+DATA_DIR = os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc"))
 DB_PATH = os.path.join(DATA_DIR, "bridge_deposits.db")
 
 
