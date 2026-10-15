@@ -52,6 +52,34 @@ def enc_wallet_file(tmp_path):
     return path
 
 
+@pytest.fixture
+def keystore_wallet_file(tmp_path):
+    """eth-keystore shape: `encrypted` carries the whole crypto object.
+
+    Some keystore formats store `encrypted` as an object holding the
+    ciphertext — the field is public-named but its value must not dump.
+    """
+    path = tmp_path / "keystore.json"
+    path.write_text(
+        json.dumps(
+            {
+                "wallet_id": "keystore",
+                "type": "simple",
+                "address": ADDRESS,
+                "encrypted": {
+                    "ciphertext": "c1ph3rt3xtbG9i",
+                    "cipherparams": {"iv": "aXY="},
+                    "cipher": "aes-128-ctr",
+                    "kdf": "scrypt",
+                    "kdfparams": {"salt": "c2FsdHNhbHQ=", "n": 262144},
+                },
+                "created_at": "2026-10-15T01:02:03Z",
+            }
+        )
+    )
+    return path
+
+
 def _invoke(runner, *args):
     return runner.invoke(inspect_cmd, list(args), obj={"output_format": "json"})
 
@@ -118,6 +146,37 @@ class TestPrivateRefusal:
         result = _invoke(runner, "--path", str(enc_wallet_file), "--field", "private_key")
         assert "Z0FBQUFBQm9mUQ==" not in (result.output or "")
         assert "c2FsdHNhbHQ=" not in (result.output or "")
+
+
+class TestContainerValues:
+    def test_field_refuses_object_value(self, runner, keystore_wallet_file):
+        result = _invoke(runner, "--path", str(keystore_wallet_file), "--field", "encrypted")
+        assert result.exit_code != 0
+        assert "structured value" in result.output
+        # the crypto object never reaches stdout/stderr
+        assert "c1ph3rt3xtbG9i" not in result.output
+        assert "c2FsdHNhbHQ=" not in result.output
+
+    def test_field_refuses_list_value(self, runner, tmp_path):
+        path = tmp_path / "listy.json"
+        path.write_text(json.dumps({"wallet_id": "w", "address": ADDRESS, "name": ["a", "b"]}))
+        result = _invoke(runner, "--path", str(path), "--field", "name")
+        assert result.exit_code != 0
+        assert "structured value" in result.output
+
+    def test_view_redacts_container_values(self, runner, keystore_wallet_file):
+        result = _invoke(runner, "--path", str(keystore_wallet_file))
+        assert result.exit_code == 0, result.output
+        doc = json.loads(result.output)
+        assert doc["address"] == ADDRESS
+        assert doc["encrypted"] == "<redacted: structured value>"
+        assert "c1ph3rt3xtbG9i" not in result.output
+        assert "c2FsdHNhbHQ=" not in result.output
+
+    def test_scalars_still_print_on_keystore_file(self, runner, keystore_wallet_file):
+        result = _invoke(runner, "--path", str(keystore_wallet_file), "--field", "address")
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.output)["value"] == ADDRESS
 
 
 class TestBadInput:
