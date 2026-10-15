@@ -6,7 +6,9 @@ committed-since ledger helpers. Admin-keyed like /settlements — the real
 ``require_admin_api_key`` dependency runs against a monkeypatched settings.
 """
 
+import os
 import sqlite3
+import time
 from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -180,3 +182,49 @@ class TestFloatRead:
         body = resp.json()
         assert body["windows"]["today"]["total_eth"] == "0"
         assert body["windows"]["last_24h"]["total_eth"] == "0"
+
+
+class TestWindowLabels:
+    """The window boundaries are host-local, and the response says so:
+    ``since`` carries the host's UTC offset and ``timezone`` names the
+    zone. Ledger stamps are naive local times, so a non-UTC TZ is where
+    the labelling actually matters."""
+
+    @pytest.fixture
+    def non_utc_tz(self, monkeypatch):
+        """Run the route under a non-UTC host zone (DST edge and all —
+        on a change day ``today`` and ``last_24h`` can legitimately sit an
+        hour apart; the API only promises to label what it computed)."""
+        old = os.environ.get("TZ")
+        monkeypatch.setenv("TZ", "America/New_York")
+        time.tzset()
+        yield
+        if old is None:
+            monkeypatch.delenv("TZ", raising=False)
+        else:
+            monkeypatch.setenv("TZ", old)
+        time.tzset()
+
+    def test_since_is_offset_aware_and_names_zone(self, client, db):
+        _seed_released(db)
+        resp = client.get("/v1/bridge/float", headers={"X-Api-Key": _TEST_KEY})
+        body = resp.json()
+        for name in ("today", "last_24h"):
+            window = body["windows"][name]
+            since = datetime.fromisoformat(window["since"])
+            assert since.tzinfo is not None, name
+            assert since.utcoffset() is not None
+            # ISO round-trips keep only the offset; ``timezone`` carries
+            # the real zone name ("CEST" here, "UTC" on a UTC host).
+            assert isinstance(window["timezone"], str) and window["timezone"]
+
+    def test_today_since_is_host_local_midnight_not_utc(self, client, db, non_utc_tz):
+        _seed_released(db)
+        resp = client.get("/v1/bridge/float", headers={"X-Api-Key": _TEST_KEY})
+        today = datetime.fromisoformat(resp.json()["windows"]["today"]["since"])
+        assert (today.hour, today.minute, today.second) == (0, 0, 0)
+        # Proof the boundary is host-local: under America/New_York the
+        # offset is -04:00/-05:00, never UTC — a UTC-midnight
+        # implementation would read 04:00/05:00 local here instead.
+        assert today.utcoffset() != timedelta(0)
+        assert resp.json()["windows"]["today"]["timezone"] in ("EDT", "EST")
