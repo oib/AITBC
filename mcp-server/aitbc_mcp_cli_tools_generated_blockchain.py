@@ -77,9 +77,9 @@ def aitbc_blockchain_add(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_backup(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    path: Annotated[str | None, Field(description="Backup directory path")],
-    compress: Annotated[bool | None, Field(description="Compress backup")],
-    verify: Annotated[bool | None, Field(description="Verify backup integrity")],
+    path: Annotated[str | None, Field(description="Backup directory path")] = None,
+    compress: Annotated[bool | None, Field(description="Compress backup")] = None,
+    verify: Annotated[bool | None, Field(description="Verify backup integrity")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -128,7 +128,7 @@ def aitbc_blockchain_backup(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_block(
     block_height: Annotated[int, Field(description="Block height to fetch")],
-    node_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -153,8 +153,8 @@ def aitbc_blockchain_block(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_consensus_slashing_history(
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query slashing history for")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query slashing history for")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -202,8 +202,8 @@ def aitbc_blockchain_consensus_slashing_history(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_consensus_status(
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query consensus status for")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query consensus status for")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -228,8 +228,8 @@ def aitbc_blockchain_consensus_status(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_consensus_validators(
-    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query validators for")],
+    node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query validators for")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -255,8 +255,8 @@ def aitbc_blockchain_consensus_validators(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_create(
     config_file: Annotated[str, Field(description="The Config file.")],
-    node: Annotated[str | None, Field(description="Target node for chain creation")],
-    dry_run_opt: Annotated[bool | None, Field(description="Show what would be created without actually creating")],
+    node: Annotated[str | None, Field(description="Target node for chain creation")] = None,
+    dry_run_opt: Annotated[bool | None, Field(description="Show what would be created without actually creating")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -305,8 +305,8 @@ def aitbc_blockchain_create(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_delete(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    force: Annotated[bool | None, Field(description="Force deletion without confirmation")],
-    confirm_opt: Annotated[bool | None, Field(description="Confirm deletion")],
+    force: Annotated[bool | None, Field(description="Force deletion without confirmation")] = None,
+    confirm_opt: Annotated[bool | None, Field(description="Confirm deletion")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -354,7 +354,7 @@ def aitbc_blockchain_delete(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_height(
-    node_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    node_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -380,8 +380,8 @@ def aitbc_blockchain_height(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_info(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    detailed: Annotated[bool | None, Field(description="Show detailed information")],
-    metrics: Annotated[bool | None, Field(description="Show performance metrics")],
+    detailed: Annotated[bool | None, Field(description="Show detailed information")] = None,
+    metrics: Annotated[bool | None, Field(description="Show performance metrics")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -406,8 +406,8 @@ def aitbc_blockchain_info(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_instances(
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
-    island: Annotated[str | None, Field(description="Filter chains by island ID")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
+    island: Annotated[str | None, Field(description="Filter chains by island ID")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -455,21 +455,21 @@ def aitbc_blockchain_instances(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_list(
-    chain_type: Annotated[Literal["main", "topic", "private", "all"] | None, Field(description="Filter by chain type")],
-    show_private: Annotated[bool | None, Field(description="Show private chains")],
-    sort: Annotated[Literal["id", "size", "nodes", "created"] | None, Field(description="Sort by field")],
+    chain_type: Annotated[Literal["main", "topic", "private", "all"] | None, Field(description="Filter by chain type")] = None,
+    show_private: Annotated[bool | None, Field(description="Show private chains")] = None,
+    sort: Annotated[Literal["id", "size", "nodes", "created"] | None, Field(description="Sort by field")] = None,
     island: Annotated[
         str | None,
         Field(
             description="List attached islands when used without a value; with a value, filter chains by island ID (substring match on chain ID)."
         ),
-    ],
+    ] = None,
     node_url: Annotated[
         str | None,
         Field(
             description="Local node RPC URL (used with --island, and as the chain source when no multichain nodes are configured)"
         ),
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -497,8 +497,8 @@ def aitbc_blockchain_migrate(
     chain_id: Annotated[str, Field(description="The Chain id.")],
     from_node: Annotated[str, Field(description="The From node.")],
     to_node: Annotated[str, Field(description="The To node.")],
-    dry_run_opt: Annotated[bool | None, Field(description="Show migration plan without executing")],
-    verify: Annotated[bool | None, Field(description="Verify migration after completion")],
+    dry_run_opt: Annotated[bool | None, Field(description="Show migration plan without executing")] = None,
+    verify: Annotated[bool | None, Field(description="Verify migration after completion")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -548,7 +548,7 @@ def aitbc_blockchain_migrate(
 def aitbc_blockchain_remove(
     chain_id: Annotated[str, Field(description="The Chain id.")],
     node_id: Annotated[str, Field(description="The Node id.")],
-    migrate: Annotated[bool | None, Field(description="Migrate to another node before removal")],
+    migrate: Annotated[bool | None, Field(description="Migrate to another node before removal")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -597,8 +597,8 @@ def aitbc_blockchain_remove(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_restore(
     backup_file: Annotated[str, Field(description="The Backup file.")],
-    node: Annotated[str | None, Field(description="Target node for restoration")],
-    verify: Annotated[bool | None, Field(description="Verify restoration")],
+    node: Annotated[str | None, Field(description="Target node for restoration")] = None,
+    verify: Annotated[bool | None, Field(description="Verify restoration")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -647,8 +647,8 @@ def aitbc_blockchain_restore(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_start(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
-    chain_type: Annotated[Literal["bilateral", "micro"] | None, Field(description="Chain type")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
+    chain_type: Annotated[Literal["bilateral", "micro"] | None, Field(description="Chain type")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -696,14 +696,16 @@ def aitbc_blockchain_start(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_status(
-    chain_id: Annotated[str | None, Field(description="Specific chain ID to check status (shows all if not specified)")],
+    chain_id: Annotated[
+        str | None, Field(description="Specific chain ID to check status (shows all if not specified)")
+    ] = None,
     node_urls: Annotated[
         list[str] | None,
         Field(
             description="Blockchain RPC URL of a node to query (repeatable); falls back to the configured blockchain_rpc_url when no nodes are known"
         ),
-    ],
-    detailed: Annotated[bool | None, Field(description="Show detailed status information")],
+    ] = None,
+    detailed: Annotated[bool | None, Field(description="Show detailed status information")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -729,7 +731,7 @@ def aitbc_blockchain_status(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_stop(
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    node_url: Annotated[str | None, Field(description="Local node RPC URL")],
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

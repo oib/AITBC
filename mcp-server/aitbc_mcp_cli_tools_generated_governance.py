@@ -124,13 +124,13 @@ def aitbc_governance_close(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_governance_execute(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
-    executor_address: Annotated[str | None, Field(description="Executor wallet address (for on-chain execution)")],
+    executor_address: Annotated[str | None, Field(description="Executor wallet address (for on-chain execution)")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -308,17 +308,17 @@ def aitbc_governance_propose(
     title: Annotated[str, Field(description="Proposal title")],
     description: Annotated[str, Field(description="Proposal description")],
     proposer_id: Annotated[str, Field(description="Proposer profile ID")],
-    proposal_type: Annotated[str | None, Field(description="Proposal type (parameter_change, fund_allocation, etc.)")],
-    category: Annotated[str | None, Field(description="Proposal category")],
-    proposer_address: Annotated[str | None, Field(description="Proposer wallet address (for on-chain submission)")],
-    params: Annotated[str | None, Field(description="JSON-encoded parameters for parameter_change proposals")],
-    voting_days: Annotated[int | None, Field(description="Voting period in days")],
+    proposal_type: Annotated[str | None, Field(description="Proposal type (parameter_change, fund_allocation, etc.)")] = None,
+    category: Annotated[str | None, Field(description="Proposal category")] = None,
+    proposer_address: Annotated[str | None, Field(description="Proposer wallet address (for on-chain submission)")] = None,
+    params: Annotated[str | None, Field(description="JSON-encoded parameters for parameter_change proposals")] = None,
+    voting_days: Annotated[int | None, Field(description="Voting period in days")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -380,17 +380,17 @@ def aitbc_governance_vote(
     proposal_id: Annotated[str, Field(description="Proposal ID to vote on")],
     voter_id: Annotated[str, Field(description="Voter profile ID")],
     vote: Annotated[Literal["for", "against", "abstain"], Field(description="Vote choice")],
-    voter_address: Annotated[str | None, Field(description="Voter wallet address (for on-chain voting power)")],
-    reason: Annotated[str | None, Field(description="Reason for the vote")],
+    voter_address: Annotated[str | None, Field(description="Voter wallet address (for on-chain voting power)")] = None,
+    reason: Annotated[str | None, Field(description="Reason for the vote")] = None,
     voting_power: Annotated[
         float | None, Field(description="Voting power (auto-calculated from on-chain balance if enabled)")
-    ],
+    ] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)")
-    ],
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

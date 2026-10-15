@@ -28,13 +28,13 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_tee_attest(
     enclave_id: Annotated[str, Field(description="The Enclave-id.")],
-    measurement: Annotated[str | None, Field(description="Expected enclave measurement")],
+    measurement: Annotated[str | None, Field(description="Expected enclave measurement")] = None,
     key_file: Annotated[
         str | None,
         Field(
             description="Path to a stable signing key (see 'aitbc tee keygen'). Without this, each call signs with a fresh random key, so there is nothing stable here for 'aitbc tee register' to pin against."
         ),
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -131,7 +131,7 @@ def aitbc_tee_keygen(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_tee_launch(
     enclave_id: Annotated[str, Field(description="The Enclave-id.")],
-    image: Annotated[str | None, Field(description="Enclave image identifier")],
+    image: Annotated[str | None, Field(description="Enclave image identifier")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -180,13 +180,13 @@ def aitbc_tee_launch(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_tee_register(
     enclave_id: Annotated[str, Field(description="The Enclave-id.")],
-    public_key: Annotated[str | None, Field(description="Base64-encoded Ed25519 public key for the enclave")],
+    public_key: Annotated[str | None, Field(description="Base64-encoded Ed25519 public key for the enclave")] = None,
     agent_id: Annotated[
         str | None,
         Field(
             description="Deprecated: ownership is derived from your authenticated identity, this flag is ignored server-side"
         ),
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -259,12 +259,12 @@ def aitbc_tee_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_tee_verify(
-    quote: Annotated[str | None, Field(description="Base64-encoded attestation quote")],
-    attestation_id: Annotated[str | None, Field(description="Stored TEE attestation ID to verify")],
-    job_id: Annotated[str | None, Field(description="Job whose tee_attestation_id will be verified")],
-    measurement: Annotated[str | None, Field(description="Expected measurement to verify against")],
-    zk_proof: Annotated[str | None, Field(description="Optional ZK proof identifier for dual verification")],
-    mode: Annotated[Literal["zk_only", "tee_only", "both"] | None, Field(description="Verification mode")],
+    quote: Annotated[str | None, Field(description="Base64-encoded attestation quote")] = None,
+    attestation_id: Annotated[str | None, Field(description="Stored TEE attestation ID to verify")] = None,
+    job_id: Annotated[str | None, Field(description="Job whose tee_attestation_id will be verified")] = None,
+    measurement: Annotated[str | None, Field(description="Expected measurement to verify against")] = None,
+    zk_proof: Annotated[str | None, Field(description="Optional ZK proof identifier for dual verification")] = None,
+    mode: Annotated[Literal["zk_only", "tee_only", "both"] | None, Field(description="Verification mode")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

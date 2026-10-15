@@ -30,7 +30,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_accept(
     job_id: Annotated[str, Field(description="Job ID to accept")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -79,13 +79,13 @@ def aitbc_ai_accept(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_cancel(
     job_id: Annotated[str, Field(description="Job ID")],
-    wallet: Annotated[str | None, Field(description="Wallet name (optional)")],
+    wallet: Annotated[str | None, Field(description="Wallet name (optional)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    refund: Annotated[bool | None, Field(description="Also refund the escrowed payment after cancel")],
-    reason: Annotated[str | None, Field(description="Reason for refund")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    ] = None,
+    refund: Annotated[bool | None, Field(description="Also refund the escrowed payment after cancel")] = None,
+    reason: Annotated[str | None, Field(description="Reason for refund")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -139,9 +139,9 @@ def aitbc_ai_cancel(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_ai_jobs(
-    limit: Annotated[int | None, Field(description="Limit results")],
-    status: Annotated[str | None, Field(description="Filter by status")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    limit: Annotated[int | None, Field(description="Limit results")] = None,
+    status: Annotated[str | None, Field(description="Filter by status")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -168,17 +168,17 @@ def aitbc_ai_jobs(
 def aitbc_ai_pay(
     job_id: Annotated[str, Field(description="Job ID to pay for")],
     wallet: Annotated[str, Field(description="Wallet name to sign the escrow lock")],
-    buyer_address: Annotated[str | None, Field(description="Override buyer/customer address")],
-    provider_address: Annotated[str | None, Field(description="Override provider address")],
-    offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")],
-    offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy")],
-    currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
-    chain_id: Annotated[str | None, Field(description="Chain ID")],
+    buyer_address: Annotated[str | None, Field(description="Override buyer/customer address")] = None,
+    provider_address: Annotated[str | None, Field(description="Override provider address")] = None,
+    offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")] = None,
+    offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy")] = None,
+    currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -239,8 +239,8 @@ def aitbc_ai_pay(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_refund(
     job_id: Annotated[str, Field(description="Job ID to refund")],
-    reason: Annotated[str | None, Field(description="Reason for refund")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    reason: Annotated[str | None, Field(description="Reason for refund")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -288,10 +288,10 @@ def aitbc_ai_refund(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_refund_sweep(
-    limit: Annotated[int | None, Field(description="Maximum completed jobs to inspect")],
-    reason: Annotated[str | None, Field(description="Reason for refund")],
-    dry_run_opt: Annotated[bool | None, Field(description="Count candidates without refunding")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    limit: Annotated[int | None, Field(description="Maximum completed jobs to inspect")] = None,
+    reason: Annotated[str | None, Field(description="Reason for refund")] = None,
+    dry_run_opt: Annotated[bool | None, Field(description="Count candidates without refunding")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -339,8 +339,8 @@ def aitbc_ai_refund_sweep(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_results(
-    job_id: Annotated[str | None, Field(description="Job ID")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    job_id: Annotated[str | None, Field(description="Job ID")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -388,8 +388,8 @@ def aitbc_ai_results(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_service_test(
-    name: Annotated[str | None, Field(description="Service name")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    name: Annotated[str | None, Field(description="Service name")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -437,7 +437,7 @@ def aitbc_ai_service_test(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_ai_stats(
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -462,8 +462,8 @@ def aitbc_ai_stats(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_ai_status(
-    job_id: Annotated[str | None, Field(description="Job ID")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    job_id: Annotated[str | None, Field(description="Job ID")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -488,48 +488,58 @@ def aitbc_ai_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_ai_submit(
-    wallet: Annotated[str | None, Field(description="Wallet name")],
-    job_type: Annotated[str | None, Field(description="Job type")],
-    prompt: Annotated[str | None, Field(description="Job prompt")],
-    model: Annotated[str | None, Field(description="Ollama model to use")],
-    payment: Annotated[Decimal | None, Field(description="Payment amount")],
-    currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")],
-    buyer_address: Annotated[str | None, Field(description="Customer wallet address for escrow")],
-    provider_address: Annotated[str | None, Field(description="Provider wallet address for escrow")],
-    offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")],
-    offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy (default: 1)")],
+    wallet: Annotated[str | None, Field(description="Wallet name")] = None,
+    job_type: Annotated[str | None, Field(description="Job type")] = None,
+    prompt: Annotated[str | None, Field(description="Job prompt")] = None,
+    model: Annotated[str | None, Field(description="Ollama model to use")] = None,
+    payment: Annotated[Decimal | None, Field(description="Payment amount")] = None,
+    currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")] = None,
+    buyer_address: Annotated[str | None, Field(description="Customer wallet address for escrow")] = None,
+    provider_address: Annotated[str | None, Field(description="Provider wallet address for escrow")] = None,
+    offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")] = None,
+    offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy (default: 1)")] = None,
     acceptance_window: Annotated[
         int | None, Field(description="Seconds after completion before payment auto-releases (default: 0)")
-    ],
+    ] = None,
     min_reputation: Annotated[
         float | None, Field(description="Minimum provider reputation score (0-1) required for this job")
-    ],
-    zk_proof_required: Annotated[bool | None, Field(description="Require a ZK receipt proof before escrow release")],
-    tee_attestation_required: Annotated[bool | None, Field(description="Require a TEE attestation before escrow release")],
-    tee_enclave_id: Annotated[str | None, Field(description="Required TEE enclave identity")],
-    confidential: Annotated[bool | None, Field(description="Mark this job as confidential (requires a TEE attestation)")],
-    enclave_measurement: Annotated[str | None, Field(description="Required enclave measurement for a confidential job")],
+    ] = None,
+    zk_proof_required: Annotated[bool | None, Field(description="Require a ZK receipt proof before escrow release")] = None,
+    tee_attestation_required: Annotated[
+        bool | None, Field(description="Require a TEE attestation before escrow release")
+    ] = None,
+    tee_enclave_id: Annotated[str | None, Field(description="Required TEE enclave identity")] = None,
+    confidential: Annotated[
+        bool | None, Field(description="Mark this job as confidential (requires a TEE attestation)")
+    ] = None,
+    enclave_measurement: Annotated[
+        str | None, Field(description="Required enclave measurement for a confidential job")
+    ] = None,
     auto_reinvest_pct: Annotated[
         float | None, Field(description="Percentage of released payment to auto-stake as reinvestment")
-    ],
-    bond_required: Annotated[bool | None, Field(description="Require the provider to have an active performance bond")],
-    min_bond_amount: Annotated[Decimal | None, Field(description="Minimum bond amount required for provider eligibility")],
+    ] = None,
+    bond_required: Annotated[bool | None, Field(description="Require the provider to have an active performance bond")] = None,
+    min_bond_amount: Annotated[
+        Decimal | None, Field(description="Minimum bond amount required for provider eligibility")
+    ] = None,
     deterministic_decoding: Annotated[
         bool | None, Field(description="Use deterministic decoding for reproducible verification")
-    ],
-    decode_seed: Annotated[int | None, Field(description="Seed for deterministic decoding (auto-assigned if unset)")],
-    input_url: Annotated[str | None, Field(description="Input URL or path for transcribe/reencode jobs")],
-    classification: Annotated[str | None, Field(description="Data classification label (e.g. public, pii, phi)")],
-    compliance_framework: Annotated[str | None, Field(description="Compliance framework to enforce")],
+    ] = None,
+    decode_seed: Annotated[int | None, Field(description="Seed for deterministic decoding (auto-assigned if unset)")] = None,
+    input_url: Annotated[str | None, Field(description="Input URL or path for transcribe/reencode jobs")] = None,
+    classification: Annotated[str | None, Field(description="Data classification label (e.g. public, pii, phi)")] = None,
+    compliance_framework: Annotated[str | None, Field(description="Compliance framework to enforce")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
-    ],
-    chain_id: Annotated[str | None, Field(description="Chain ID")],
-    rpc_url: Annotated[str | None, Field(description="RPC URL")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
-    wait: Annotated[bool | None, Field(description="Wait for the job to reach a terminal state")],
-    timeout_opt: Annotated[float | None, Field(description="Maximum seconds to wait for a terminal state (default: 300)")],
-    poll_interval: Annotated[float | None, Field(description="Seconds between status polls (default: 5)")],
+    ] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID")] = None,
+    rpc_url: Annotated[str | None, Field(description="RPC URL")] = None,
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    wait: Annotated[bool | None, Field(description="Wait for the job to reach a terminal state")] = None,
+    timeout_opt: Annotated[
+        float | None, Field(description="Maximum seconds to wait for a terminal state (default: 300)")
+    ] = None,
+    poll_interval: Annotated[float | None, Field(description="Seconds between status polls (default: 5)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

@@ -29,10 +29,10 @@ from aitbc_mcp_server import (
 def aitbc_network_force_sync(
     peer_url: Annotated[str, Field(description="Peer base URL to import the chain from")],
     admin_private_key: Annotated[str, Field(description="Bridge admin private key hex for the destructive-op signature")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     admin_address: Annotated[
         str | None, Field(description="Admin address (defaults to address derived from --admin-private-key)")
-    ],
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -85,8 +85,8 @@ def aitbc_network_force_sync(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_gossip(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
-    topics: Annotated[bool | None, Field(description="Also break published message counts down by topic")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    topics: Annotated[bool | None, Field(description="Also break published message counts down by topic")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -134,9 +134,11 @@ def aitbc_network_gossip(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_heartbeat(
-    node_id: Annotated[str | None, Field(description="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")],
-    duration: Annotated[int | None, Field(description="Additional lease duration in seconds")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    node_id: Annotated[
+        str | None, Field(description="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")
+    ] = None,
+    duration: Annotated[int | None, Field(description="Additional lease duration in seconds")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -184,8 +186,10 @@ def aitbc_network_heartbeat(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_lease_status(
-    node_id: Annotated[str | None, Field(description="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    node_id: Annotated[
+        str | None, Field(description="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")
+    ] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -233,7 +237,7 @@ def aitbc_network_lease_status(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_network_peers(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -259,8 +263,10 @@ def aitbc_network_peers(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_set_sync_source(
     sync_url: Annotated[str, Field(description="New sync source URL (https:// or http://).")],
-    env_file: Annotated[str | None, Field(description="Environment file to update.")],
-    restart: Annotated[bool | None, Field(description="Restart the blockchain node services after updating the env file.")],
+    env_file: Annotated[str | None, Field(description="Environment file to update.")] = None,
+    restart: Annotated[
+        bool | None, Field(description="Restart the blockchain node services after updating the env file.")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -308,7 +314,7 @@ def aitbc_network_set_sync_source(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_network_status(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -336,15 +342,15 @@ def aitbc_network_subscribe(
     node_id: Annotated[
         str | None,
         Field(description="Unique identifier for this follower node (default: from NODE_ID in /etc/aitbc/node.env)"),
-    ],
+    ] = None,
     transport: Annotated[
         Literal["websocket", "http", "redis"] | None, Field(description="Transport method for block delivery")
-    ],
+    ] = None,
     chain_id: Annotated[
         str | None, Field(description="Chain ID to subscribe to (default: from SUPPORTED_CHAINS in /etc/aitbc/node.env)")
-    ],
-    duration: Annotated[int | None, Field(description="Lease duration in seconds (default: 300)")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    ] = None,
+    duration: Annotated[int | None, Field(description="Lease duration in seconds (default: 300)")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -398,8 +404,8 @@ def aitbc_network_subscribe(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_subscribers(
-    chain_id: Annotated[str | None, Field(description="Filter by chain ID")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    chain_id: Annotated[str | None, Field(description="Filter by chain ID")] = None,
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -448,7 +454,7 @@ def aitbc_network_subscribers(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_test(
     peer: Annotated[str, Field(description="Peer address to test")],
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

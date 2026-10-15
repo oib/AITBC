@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_script_list(
-    script_dir: Annotated[str | None, Field(description="Scripts directory")],
+    script_dir: Annotated[str | None, Field(description="Scripts directory")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -53,7 +53,7 @@ def aitbc_script_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_script_run(
     script_path: Annotated[str, Field(description="Path to script file")],
-    args: Annotated[str | None, Field(description="Script arguments")],
+    args: Annotated[str | None, Field(description="Script arguments")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

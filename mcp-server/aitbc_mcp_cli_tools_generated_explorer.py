@@ -26,8 +26,8 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_activity_timeline(
-    period: Annotated[str | None, Field(description="Time period (1h, 24h, 7d, 30d)")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    period: Annotated[str | None, Field(description="Time period (1h, 24h, 7d, 30d)")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -76,7 +76,7 @@ def aitbc_explorer_activity_timeline(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_block_by_hash(
     block_hash: Annotated[str, Field(description="The Block hash.")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -125,8 +125,8 @@ def aitbc_explorer_block_by_hash(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_blocks_by_address(
     address: Annotated[str, Field(description="Blockchain address to fund.")],
-    limit: Annotated[int | None, Field(description="Number of blocks to return")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    limit: Annotated[int | None, Field(description="Number of blocks to return")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -217,7 +217,7 @@ def aitbc_explorer_chains(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_network_stats(
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -265,9 +265,9 @@ def aitbc_explorer_network_stats(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_non_empty_blocks(
-    limit: Annotated[int | None, Field(description="Number of blocks to return")],
-    offset: Annotated[int | None, Field(description="Offset for pagination")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    limit: Annotated[int | None, Field(description="Number of blocks to return")] = None,
+    offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -316,7 +316,7 @@ def aitbc_explorer_non_empty_blocks(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_provider_reputation(
     provider_id: Annotated[str, Field(description="The Provider id.")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -365,8 +365,8 @@ def aitbc_explorer_provider_reputation(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_search_transactions(
     address: Annotated[str, Field(description="Blockchain address to fund.")],
-    limit: Annotated[int | None, Field(description="Number of transactions to return")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    limit: Annotated[int | None, Field(description="Number of transactions to return")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -414,8 +414,8 @@ def aitbc_explorer_search_transactions(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_top_addresses(
-    limit: Annotated[int | None, Field(description="Number of addresses to return")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    limit: Annotated[int | None, Field(description="Number of addresses to return")] = None,
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -464,7 +464,7 @@ def aitbc_explorer_top_addresses(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_transaction_by_hash(
     tx_hash: Annotated[str, Field(description="The Tx hash.")],
-    chain_id: Annotated[str | None, Field(description="Chain ID to query")],
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

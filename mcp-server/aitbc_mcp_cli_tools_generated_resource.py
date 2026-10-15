@@ -28,17 +28,17 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_resource_allocate(
     agent_id: Annotated[str, Field(description="Agent ID to allocate resources for")],
-    cpu_cores: Annotated[float | None, Field(description="Requested CPU cores")],
-    memory_gb: Annotated[float | None, Field(description="Requested memory (GB)")],
-    gpu_count: Annotated[float | None, Field(description="Requested GPU count")],
-    gpu_memory_gb: Annotated[float | None, Field(description="Requested GPU memory (GB)")],
-    storage_gb: Annotated[float | None, Field(description="Requested storage (GB)")],
-    network_bandwidth: Annotated[float | None, Field(description="Requested network bandwidth (Mbps)")],
+    cpu_cores: Annotated[float | None, Field(description="Requested CPU cores")] = None,
+    memory_gb: Annotated[float | None, Field(description="Requested memory (GB)")] = None,
+    gpu_count: Annotated[float | None, Field(description="Requested GPU count")] = None,
+    gpu_memory_gb: Annotated[float | None, Field(description="Requested GPU memory (GB)")] = None,
+    storage_gb: Annotated[float | None, Field(description="Requested storage (GB)")] = None,
+    network_bandwidth: Annotated[float | None, Field(description="Requested network bandwidth (Mbps)")] = None,
     optimization_target: Annotated[
         Literal["speed", "accuracy", "efficiency", "cost", "scalability", "reliability"] | None,
         Field(description="Optimization target for allocation"),
-    ],
-    priority: Annotated[Literal["low", "normal", "high", "critical"] | None, Field(description="Priority level")],
+    ] = None,
+    priority: Annotated[Literal["low", "normal", "high", "critical"] | None, Field(description="Priority level")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -97,7 +97,7 @@ def aitbc_resource_allocate(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_resource_deallocate(
     allocation_id: Annotated[str, Field(description="Positional argument: allocation_id")],
-    force: Annotated[bool | None, Field(description="Deallocate without confirmation")],
+    force: Annotated[bool | None, Field(description="Deallocate without confirmation")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -161,10 +161,10 @@ def aitbc_resource_optimize(
         ],
         Field(description="Performance metric to optimize"),
     ],
-    optimization_type: Annotated[str | None, Field(description="Optimization type (comprehensive, targeted, etc.)")],
-    current_accuracy: Annotated[float | None, Field(description="Current accuracy (0-1)")],
-    current_latency: Annotated[float | None, Field(description="Current latency (ms)")],
-    current_throughput: Annotated[float | None, Field(description="Current throughput (req/s)")],
+    optimization_type: Annotated[str | None, Field(description="Optimization type (comprehensive, targeted, etc.)")] = None,
+    current_accuracy: Annotated[float | None, Field(description="Current accuracy (0-1)")] = None,
+    current_latency: Annotated[float | None, Field(description="Current latency (ms)")] = None,
+    current_throughput: Annotated[float | None, Field(description="Current throughput (req/s)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -219,12 +219,12 @@ def aitbc_resource_optimize(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_resource_status(
-    agent_id: Annotated[str | None, Field(description="Filter by agent ID")],
+    agent_id: Annotated[str | None, Field(description="Filter by agent ID")] = None,
     status_filter: Annotated[
         Literal["pending", "allocated", "active", "released", "completed", "failed"] | None,
         Field(description="Filter by allocation status"),
-    ],
-    limit: Annotated[int | None, Field(description="Max allocations to list")],
+    ] = None,
+    limit: Annotated[int | None, Field(description="Max allocations to list")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

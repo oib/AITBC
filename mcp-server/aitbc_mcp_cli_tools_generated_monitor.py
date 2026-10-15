@@ -28,12 +28,12 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_monitor_alerts(
     action: Annotated[str, Field(description="Positional argument: action")],
-    name: Annotated[str | None, Field(description="Alert name")],
+    name: Annotated[str | None, Field(description="Alert name")] = None,
     alert_type: Annotated[
         Literal["coordinator_down", "miner_offline", "job_failed", "low_balance"] | None, Field(description="Alert type")
-    ],
-    threshold: Annotated[float | None, Field(description="Alert threshold value")],
-    webhook: Annotated[str | None, Field(description="Webhook URL for notifications")],
+    ] = None,
+    threshold: Annotated[float | None, Field(description="Alert threshold value")] = None,
+    webhook: Annotated[str | None, Field(description="Webhook URL for notifications")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -81,7 +81,7 @@ def aitbc_monitor_alerts(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_monitor_campaign_stats(
-    campaign_id: Annotated[str | None, Field(description="Positional argument: campaign_id")],
+    campaign_id: Annotated[str | None, Field(description="Positional argument: campaign_id")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -125,7 +125,7 @@ def aitbc_monitor_campaign_stats(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_monitor_campaigns(
-    status: Annotated[Literal["active", "ended", "all"] | None, Field(description="Filter by status")],
+    status: Annotated[Literal["active", "ended", "all"] | None, Field(description="Filter by status")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -150,7 +150,7 @@ def aitbc_monitor_campaigns(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_monitor_history(
-    period: Annotated[str | None, Field(description="Analysis period (1d, 7d, 30d)")],
+    period: Annotated[str | None, Field(description="Analysis period (1d, 7d, 30d)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -175,7 +175,7 @@ def aitbc_monitor_history(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_monitor_sweepers(
-    show_config: Annotated[bool | None, Field(description="Also show each sweeper's effective settings")],
+    show_config: Annotated[bool | None, Field(description="Also show each sweeper's effective settings")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -224,9 +224,9 @@ def aitbc_monitor_sweepers(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_monitor_webhooks(
     action: Annotated[str, Field(description="Positional argument: action")],
-    name: Annotated[str | None, Field(description="Webhook name")],
-    url: Annotated[str | None, Field(description="Webhook URL")],
-    events: Annotated[str | None, Field(description="Comma-separated event types (job_completed,miner_offline,alert)")],
+    name: Annotated[str | None, Field(description="Webhook name")] = None,
+    url: Annotated[str | None, Field(description="Webhook URL")] = None,
+    events: Annotated[str | None, Field(description="Comma-separated event types (job_completed,miner_offline,alert)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

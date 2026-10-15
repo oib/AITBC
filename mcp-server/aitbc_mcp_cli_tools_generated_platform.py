@@ -27,8 +27,8 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_platform_init_platform(
     name: Annotated[str, Field(description="Platform name")],
-    template: Annotated[str | None, Field(description="Template name")],
-    output_dir: Annotated[str | None, Field(description="Output directory")],
+    template: Annotated[str | None, Field(description="Template name")] = None,
+    output_dir: Annotated[str | None, Field(description="Output directory")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

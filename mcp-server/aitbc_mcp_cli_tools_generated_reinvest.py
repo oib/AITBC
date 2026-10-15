@@ -28,9 +28,9 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_reinvest_policy(
     agent_id: Annotated[str, Field(description="The Agent-id.")],
-    staking_pct: Annotated[str | None, Field(description="Percentage directed to staking")],
-    reserve_pct: Annotated[str | None, Field(description="Percentage kept in reserve")],
-    min_reinvest: Annotated[str | None, Field(description="Minimum amount to reinvest")],
+    staking_pct: Annotated[str | None, Field(description="Percentage directed to staking")] = None,
+    reserve_pct: Annotated[str | None, Field(description="Percentage kept in reserve")] = None,
+    min_reinvest: Annotated[str | None, Field(description="Minimum amount to reinvest")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -84,10 +84,10 @@ def aitbc_reinvest_policy(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_reinvest_simulate(
     agent_id: Annotated[str, Field(description="The Agent-id.")],
-    earnings: Annotated[str | None, Field(description="Earnings amount to simulate")],
-    budget_total: Annotated[str | None, Field(description="Total budget for the agent")],
-    staking_contract: Annotated[str | None, Field(description="Staking contract address")],
-    reserve_address: Annotated[str | None, Field(description="Reserve address for capacity funds")],
+    earnings: Annotated[str | None, Field(description="Earnings amount to simulate")] = None,
+    budget_total: Annotated[str | None, Field(description="Total budget for the agent")] = None,
+    staking_contract: Annotated[str | None, Field(description="Staking contract address")] = None,
+    reserve_address: Annotated[str | None, Field(description="Reserve address for capacity funds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

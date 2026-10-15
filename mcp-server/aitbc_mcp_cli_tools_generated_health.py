@@ -24,8 +24,8 @@ def aitbc_health(
     host_opt: Annotated[str, Field(description="Remote host to probe (hostname, IP, or http(s):// URL).")],
     services: Annotated[
         str | None, Field(description="Comma-separated list of services to probe (default: all known AITBC services).")
-    ],
-    timeout_opt: Annotated[float | None, Field(description="Timeout per request in seconds.")],
+    ] = None,
+    timeout_opt: Annotated[float | None, Field(description="Timeout per request in seconds.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
