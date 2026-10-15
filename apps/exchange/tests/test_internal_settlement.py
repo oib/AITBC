@@ -702,3 +702,68 @@ def test_adapter_flag_off_503(exchange_db, _handler_pool):
         headers={"X-Api-Key": "test-key"},
     )
     assert resp.status_code == 503
+
+
+def test_adapter_provides_handler_contract_attributes():
+    """Every attribute the legacy handler path reads off self must exist on
+    the real adapter — the ETH-19B bug shipped because tests assigned
+    client_address on a fake handler by hand. The list derives from what
+    handlers/exchange.py actually reads: client_address (getattr, :1486),
+    headers (getattr, :679/:1514 + direct reads), request (getattr, :672),
+    path (urlparse), and rfile/wfile body accessors; command is the
+    BaseHTTPRequestHandler dispatch attribute the adapter must also carry."""
+    from apps.exchange.simple_exchange.main import FastAPIRequestAdapter
+    from starlette.requests import Request
+
+    body = b'{"event":"debit_refund","order_id":1}'
+    messages = [{"type": "http.request", "body": body, "more_body": False}]
+
+    async def receive():
+        return messages.pop(0) if messages else {"type": "http.disconnect"}
+
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "asgi": {"version": "3.0"},
+        "method": "POST",
+        "scheme": "http",
+        "path": _SETTLE,
+        "raw_path": _SETTLE.encode(),
+        "query_string": b"",
+        "headers": [(b"content-type", b"application/json"), (b"x-real-ip", b"10.0.0.9")],
+        "server": ("testserver", 80),
+        "client": ("127.0.0.1", 50123),
+    }
+    request = Request(scope, receive)
+    adapter = FastAPIRequestAdapter(request, "POST", body, _SETTLE)
+
+    assert adapter.client_address == ("127.0.0.1", 50123)
+    assert adapter.command == "POST"
+    assert adapter.path == _SETTLE
+    assert adapter.headers.get("content-type") == "application/json"
+    assert adapter.headers.get("x-real-ip") == "10.0.0.9"
+    assert adapter.request is request
+    assert adapter.rfile.read() == body
+    adapter.wfile.write(b"out")
+    assert adapter.wfile.getvalue() == b"out"
+
+
+def test_server_runs_uvicorn_without_proxy_headers(monkeypatch):
+    """scope["client"] must stay the wire peer. Nothing pinned the flag when
+    ETH-19B chose proxy_headers=False — a future edit or a uvicorn default
+    change could silently re-enable the X-Forwarded-For rewrite this gate
+    rejects. TestClient bypasses uvicorn entirely, so spy the call."""
+    import sys
+
+    import uvicorn
+
+    from apps.exchange.simple_exchange import server
+
+    calls = []
+    monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(sys, "argv", ["server.py"])
+
+    server.main()
+
+    assert len(calls) == 1
+    assert calls[0].get("proxy_headers") is False
