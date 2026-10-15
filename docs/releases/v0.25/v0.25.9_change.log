@@ -2669,3 +2669,25 @@ resolver tests), `d75f144d4` (wallet conftest isolation), `6d0d57b8e`
   test_no_query_delimiter_missing_in_path — any `&` in an extracted
   path pattern fails (red on the buggy tree, green after). No
   assertion weakened; allowlist stays empty.
+
+### fix(website): WEB-8 — content accuracy + discoverability audit (2026-10-15)
+
+- Copy fixes: drop stale "Mainnet" claims (index title/description,
+  llms.txt — the site itself disclaims real-world token value);
+  exchange meta "claim 100 free AIT" -> "3 free AIT"
+  (INITIAL_COIN_AMOUNT, agent_stream.py); index join note no longer
+  promises immediate payout while the hub faucet stays paused;
+  llms.txt bridge endpoint corrected to /rpc/bridge/transfers
+  (bridges.js:36 — /v1/bridge/deposits is loopback-only) and auth
+  requirement noted for /v1/jobs + /v1/monitoring/*.
+- sitemap.xml: llms.txt removed (not a canonical indexable page;
+  set now equals the 10 canonical pages exactly).
+- Social meta: og:title/description/type/url/image + twitter:card on
+  all 10 indexable pages, reusing existing title/description text and
+  the shipped favicon.svg.
+- Guard: tests/unit/test_website_discoverability.py — internal links
+  resolve (WEB-4 nginx model), llms.txt entries routable + not
+  robots-disallowed, sitemap == canonical page set, deny-list scan
+  (retired hosts, gitea, RFC1918, 64-hex, 0x+40-hex), social meta
+  presence. Red on pre-change tree (sitemap + social + llms.txt),
+  5/5 green after.
