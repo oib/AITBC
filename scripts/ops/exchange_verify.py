@@ -6,7 +6,12 @@
         --bridge-db /var/lib/aitbc/bridge_deposits.db \
         --bridge-address 0xBridgeWallet... \
         --ait-rpc http://127.0.0.1:8202 --escrow-address 0xEscrow...
+    venv/bin/python scripts/ops/exchange_verify.py --db /path/exchange.db \
+        --bridge-db /var/lib/aitbc/bridge_deposits.db --settlement
     venv/bin/python scripts/ops/exchange_verify.py --db ... --no-chain --json
+
+    On hub the AIT chain RPC for --ait-rpc is http://127.0.0.1:8202 (not
+    8201 — that listener answers 401).
 
 Re-derives the exchange DB's funding and settlement claims against the
 chains before the book reopens after a crash/restore (design §11). Check
@@ -111,8 +116,15 @@ def _has_table(conn: sqlite3.Connection, name: str) -> bool:
     return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
 
 
-def _check_order_rows(orders: dict, debits: dict, add) -> None:
-    """Funded-state invariants per order row."""
+def _check_order_rows(orders: dict, debits: dict, add, refunds: dict | None) -> None:
+    """Funded-state invariants per order row.
+
+    A non-funded order may keep backing_tx_hash when the lock it points to is
+    accounted for: the exchange's cancel path sets funded_state='backing_expired'
+    and keeps the hash on purpose — the settlement monitor's stranded-lock scan
+    needs it non-NULL to build the order_refund row, and it is the audit link to
+    the lock. ``refunds`` maps order_id -> order_refund row status (None when the
+    monitor DB was not provided — then the link is INFO, not FAIL)."""
     for order in orders.values():
         funded = order["funded_state"] == "funded"
         if order["order_type"] == "BUY" and funded and order["id"] not in debits:
@@ -120,7 +132,28 @@ def _check_order_rows(orders: dict, debits: dict, add) -> None:
         if order["order_type"] == "SELL" and funded and not order["backing_tx_hash"]:
             add(FAIL, "db", f"order {order['id']}: funded SELL without backing_tx_hash")
         if not funded and order["backing_tx_hash"]:
-            add(FAIL, "db", f"order {order['id']}: {order['funded_state']} but backing_tx_hash set")
+            if order["funded_state"] != "backing_expired":
+                add(FAIL, "db", f"order {order['id']}: {order['funded_state']} but backing_tx_hash set")
+            elif refunds is None:
+                add(
+                    INFO,
+                    "db",
+                    f"order {order['id']}: backing_expired with backing_tx_hash — refund link unchecked (no --bridge-db)",
+                )
+            else:
+                status = refunds.get(order["id"])
+                if status is None:
+                    add(
+                        FAIL,
+                        "db",
+                        f"order {order['id']}: backing_expired but backing_tx_hash set — no order_refund row (stranded lock)",
+                    )
+                elif status == "failed":
+                    add(
+                        FAIL,
+                        "db",
+                        f"order {order['id']}: backing_expired but backing_tx_hash set — order_refund row failed (stranded lock)",
+                    )
 
 
 def _check_nonce_uniqueness(orders: dict, add) -> None:
@@ -181,7 +214,32 @@ def _check_trade_rows(orders: dict, trades: list, add) -> None:
             )
 
 
-def check_db_internal(conn: sqlite3.Connection, add, *, settlement_enabled: bool = False) -> None:
+def _refund_ref_statuses(bridge_db_path: str | None) -> dict | None:
+    """order_id -> order_refund status from the monitor DB, or None when the
+    monitor DB cannot be read (caller then reports INFO, not FAIL)."""
+    if not bridge_db_path:
+        return None
+    try:
+        bconn = _db(bridge_db_path)
+    except sqlite3.Error:
+        return None
+    try:
+        if not _has_table(bconn, "exchange_settlements"):
+            return None
+        return {
+            int(r["ref_id"]): str(r["status"] or "")
+            for r in bconn.execute("SELECT ref_id, status FROM exchange_settlements WHERE kind = 'order_refund'")
+        }
+    except sqlite3.Error:
+        return None
+    finally:
+        bconn.close()
+
+
+def check_db_internal(
+    conn: sqlite3.Connection, add, *, settlement_enabled: bool = False, bridge_db_path: str | None = None
+) -> None:
+    refunds = _refund_ref_statuses(bridge_db_path)
     try:
         orders = {
             r["id"]: r
@@ -206,7 +264,7 @@ def check_db_internal(conn: sqlite3.Connection, add, *, settlement_enabled: bool
         "settlement_state, settlement_eth_tx_hash, settlement_ait_tx_hash FROM trades"
     ).fetchall()
 
-    _check_order_rows(orders, debits, add)
+    _check_order_rows(orders, debits, add, refunds)
     _check_nonce_uniqueness(orders, add)
     _check_debit_rows(orders, debits, add)
     _check_trade_rows(orders, trades, add)
@@ -465,7 +523,7 @@ def main() -> int:
         print(f"FAIL db: cannot open {ns.db} read-only: {e}", file=sys.stderr)
         return 1
     try:
-        check_db_internal(conn, add, settlement_enabled=ns.settlement)
+        check_db_internal(conn, add, settlement_enabled=ns.settlement, bridge_db_path=ns.bridge_db)
         if ns.bridge_db:
             check_bridge_db(conn, ns.bridge_db, add)
         if not ns.no_chain:
