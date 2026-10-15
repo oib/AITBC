@@ -42,9 +42,9 @@ Concretely, on a `0.0.0.0` bind:
 - Uvicorn runs with `--proxy-headers`, so even the `request.client.host`
   fallback trusts a spoofed XFF.
 
-The followers' binds are on private LAN segments (`10.1.223.0/24`,
-`192.168.100.0/24`), so the spoofing surface is the LAN, not the public
-internet — but any machine that can reach `:8202` bypasses the limiter.
+The followers' binds are on private LAN segments, so the spoofing
+surface is the LAN, not the public internet — but any machine that can
+reach `:8202` bypasses the limiter.
 The durable fixes, in preference order:
 
 1. **Bind loopback where nginx fronts the service**

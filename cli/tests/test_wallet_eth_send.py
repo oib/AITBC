@@ -463,3 +463,55 @@ class TestGasCeiling:
         result = CliRunner().invoke(eth_send, _argv(wallet_file, "--max-gas-gwei", "0.0000000001"), obj={})
         assert result.exit_code != 0
         assert "9 decimals" in result.output
+
+
+class TestContractRecipient:
+    """TOOL-2: --to is probed with eth_getCode; --confirm refuses contract
+    bytecode unless --allow-contract, before the key is decrypted. The dry
+    run shows the result either way."""
+
+    CONTRACT_RPC = {**BASE_RPC, "eth_getCode": "0x6080604052"}
+
+    def test_contract_recipient_refuses_before_key_load(self, wallet_file, rpc_fn, monkeypatch):
+        broadcasts = []
+        monkeypatch.setattr(eth_send_mod, "broadcast_raw", lambda *a, **k: broadcasts.append(a))
+        monkeypatch.setattr(
+            "aitbc_cli.commands.wallet._load_wallet",
+            lambda *a, **k: pytest.fail("wallet decrypted for a contract recipient"),
+        )
+        rpc_fn(self.CONTRACT_RPC)
+        result = CliRunner().invoke(eth_send, _argv(wallet_file, "--confirm", "--password", "x"), obj={})
+        assert result.exit_code != 0
+        assert "--allow-contract" in result.output
+        assert broadcasts == []
+
+    def test_allow_contract_sends(self, wallet_file, rpc_fn, broadcast_sink):
+        rpc_fn(self.CONTRACT_RPC)
+        result = CliRunner().invoke(
+            eth_send,
+            _argv(wallet_file, "--confirm", "--password", "x", "--allow-contract"),
+            obj={},
+        )
+        assert result.exit_code == 0, result.output
+        assert len(broadcast_sink) == 1
+
+    def test_allow_contract_without_confirm_refuses(self, wallet_file, rpc_fn):
+        rpc_fn(BASE_RPC)
+        result = CliRunner().invoke(eth_send, _argv(wallet_file, "--allow-contract"), obj={})
+        assert result.exit_code != 0
+        assert "--allow-contract" in result.output
+
+    def test_dry_run_shows_getcode_result(self, wallet_file, rpc_fn):
+        rpc_fn(self.CONTRACT_RPC)
+        result = CliRunner().invoke(eth_send, _argv(wallet_file), obj={})
+        assert result.exit_code == 0, result.output
+        assert "DRY RUN" in result.output
+        assert "to_is_contract" in result.output
+
+    def test_empty_code_is_not_a_contract(self, wallet_file, rpc_fn, broadcast_sink):
+        for empty in ("0x", "0x0", ""):
+            rpc_fn({**BASE_RPC, "eth_getCode": empty})
+            broadcast_sink.clear()
+            result = CliRunner().invoke(eth_send, _argv(wallet_file, "--confirm", "--password", "x"), obj={})
+            assert result.exit_code == 0, f"{empty!r}: {result.output}"
+            assert len(broadcast_sink) == 1
