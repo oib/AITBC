@@ -41,6 +41,7 @@ class TestBridgeCommands:
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
+
 class TestSellLockChainId:
     """sell lock is a signing path: no explicit chain id + unreachable probe
     must abort with the chain-id message and sign nothing (WAL-1 fix)."""
@@ -52,15 +53,11 @@ class TestSellLockChainId:
         monkeypatch.delenv("AITBC_WALLET_PASSWORD", raising=False)
 
         wallet_file = tmp_path / "w.json"
-        wallet_file.write_text(
-            '{"address": "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c", "private_key": "'
-            + "ab" * 32
-            + '"}'
-        )
+        wallet_file.write_text('{"address": "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c", "private_key": "' + "ab" * 32 + '"}')
         monkeypatch.setattr(
             bridge_mod,
             "_resolve_wallet",
-            lambda ctx, name: {
+            lambda ctx, name, **kw: {
                 "address": "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
                 "private_key": "ab" * 32,
             },
