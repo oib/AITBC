@@ -643,6 +643,9 @@ def aitbc_wallet_eth_send(
     max_gas_gwei: Annotated[
         str | None, Field(description="Gas-price ceiling in gwei — --confirm refuses to sign above it")
     ] = None,
+    allow_contract: Annotated[
+        bool | None, Field(description="With --confirm: allow --to to hold contract bytecode (default: refuse contracts)")
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and broadcast once (default: dry run, prints the unsigned transfer)")
     ] = None,
@@ -661,7 +664,7 @@ def aitbc_wallet_eth_send(
     """Send plain Sepolia ETH from this node's wallet to an explicit address.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm", "wait_receipt": "wait"},
+        flags={"allow_contract": "allow-contract", "confirm_opt": "confirm", "wait_receipt": "wait"},
         values={
             "to_address": "to",
             "amount_eth": "amount-eth",

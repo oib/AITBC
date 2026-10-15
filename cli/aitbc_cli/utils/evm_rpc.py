@@ -5,6 +5,12 @@ nonzero exit carrying the reason — never a fabricated value. ``rpc_try``
 is the display-only variant that returns ``None`` so an unsigned preview
 can still render partial fields. ``broadcast_raw`` performs exactly one
 ``eth_sendRawTransaction``; a failure is reported, never retried.
+
+Error text never carries the RPC URL or its key material: provider keys
+sit in the URL path (Infura ``/v3/<key>``, Alchemy ``/v2/<key>``) or the
+query string, and a raw echo would drop them into journals, CI logs and
+pasted error reports. Messages show the masked display URL instead and
+scrub path/query/userinfo out of any echoed exception text.
 """
 
 from __future__ import annotations
@@ -12,8 +18,49 @@ from __future__ import annotations
 import asyncio
 import os
 from typing import Any
+from urllib.parse import urlsplit
 
 from .error_handling import abort
+
+
+def display_rpc_url(rpc_url: str) -> str:
+    """Scheme + host + port only — the parts of an RPC URL that never hold
+    a provider key."""
+    try:
+        parts = urlsplit(rpc_url)
+    except ValueError:
+        return "<unparseable RPC URL>"
+    if not parts.hostname:
+        return "<unparseable RPC URL>"
+    shown = f"{parts.scheme}://{parts.hostname}"
+    if parts.port:
+        shown += f":{parts.port}"
+    return shown
+
+
+def mask_rpc_url(text: str, rpc_url: str) -> str:
+    """Scrub key-bearing URL parts out of ``text`` — the full URL, its
+    path, its query, and any embedded credentials each become ``***``."""
+    out = text.replace(rpc_url, display_rpc_url(rpc_url))
+    try:
+        parts = urlsplit(rpc_url)
+    except ValueError:
+        return out
+    for secret in (parts.path, parts.query, parts.password, parts.username):
+        if secret and len(secret) > 1:
+            out = out.replace(secret, "***")
+    return out
+
+
+def _masked_exc(e: Exception, rpc_url: str) -> Exception:
+    """``e`` re-thrown with its text scrubbed — ``abort`` puts
+    ``str(from_exception)`` into the JSON error detail, so the raw httpx
+    exception (which can echo the full URL) must never become the cause."""
+    masked = mask_rpc_url(str(e), rpc_url)
+    try:
+        return type(e)(masked)
+    except Exception:
+        return RuntimeError(masked)
 
 
 def rpc_call(ctx, rpc_url: str, method: str, params: list[Any]) -> Any:
@@ -29,10 +76,14 @@ def rpc_call(ctx, rpc_url: str, method: str, params: list[Any]) -> Any:
         resp.raise_for_status()
         body = resp.json()
     except Exception as e:
-        abort(ctx, f"EVM RPC {method} failed at {rpc_url}: {e}", from_exception=e)
+        abort(
+            ctx,
+            f"EVM RPC {method} failed at {display_rpc_url(rpc_url)}: {mask_rpc_url(str(e), rpc_url)}",
+            from_exception=_masked_exc(e, rpc_url),
+        )
         raise AssertionError("unreachable: abort always raises") from e
     if "error" in body:
-        abort(ctx, f"EVM RPC {method} refused: {body['error']}")
+        abort(ctx, f"EVM RPC {method} refused: {mask_rpc_url(str(body['error']), rpc_url)}")
     return body.get("result")
 
 
@@ -73,7 +124,11 @@ def broadcast_raw(ctx, rpc_url: str, raw: str, label: str = "ETH transfer") -> s
     try:
         return asyncio.run(_post())
     except Exception as e:
-        abort(ctx, f"{label} broadcast failed (not retried): {e}", from_exception=e)
+        abort(
+            ctx,
+            f"{label} broadcast failed at {display_rpc_url(rpc_url)} (not retried): {mask_rpc_url(str(e), rpc_url)}",
+            from_exception=_masked_exc(e, rpc_url),
+        )
         raise AssertionError("unreachable: abort always raises") from e
 
 
