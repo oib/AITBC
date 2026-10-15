@@ -49,6 +49,7 @@ import asyncio
 import json
 import os
 import sqlite3
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from decimal import Decimal
@@ -241,6 +242,24 @@ def _exchange_order_id(payload_value: Any) -> int | None:
     return None
 
 
+def _norm_tx_hash(value: Any) -> str:
+    """Lower-case, 0x-less chain hash for equality checks — the RPC spells
+    one hash with either case or prefix across endpoints, so comparisons
+    normalize both sides rather than trusting the wire spelling."""
+    h = str(value or "").strip().lower()
+    return h[2:] if h.startswith("0x") else h
+
+
+def _lock_refund_ref_id(tx_hash: str) -> int:
+    """ref_id for an owner-sender inbound refund whose ``−order_id`` slot is
+    already held: a deterministic negative derived from the lock hash and
+    bounded below −2**59. Order ids are small positives, so the range can
+    never collide with a ``+order_id`` remainder refund, a ``−order_id``
+    inbound refund, or a trade id — and a re-scan derives the same id, so
+    the UNIQUE pair dedupes instead of writing a second row."""
+    return -(int(_norm_tx_hash(tx_hash)[:15], 16) | (1 << 59))
+
+
 def _units_to_ticks(units: int) -> int:
     """Chain units -> exchange ticks, floored — a lock's recorded cover can
     never exceed what was actually sent."""
@@ -287,10 +306,17 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
 
 
 async def _lock_refund(
-    cfg: ExchangeCfg, order_id: int, sender: str, lock_ait: Decimal, tx_hash: str, stats: dict[str, int]
+    cfg: ExchangeCfg,
+    order_id: int,
+    sender: str,
+    lock_ait: Decimal,
+    tx_hash: str,
+    stats: dict[str, int],
+    *,
+    owner_lock: bool = False,
 ) -> str:
     """order_refund for a lock the order can't take; counts the row."""
-    outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash, remainder=False)
+    outcome = await _ensure_order_refund(cfg, order_id, sender, lock_ait, tx_hash, remainder=False, owner_lock=owner_lock)
     if outcome == "refunding":
         stats["refunds"] += 1
     return outcome
@@ -311,9 +337,10 @@ async def _order_lock_outcome(
     lock_ait = units_to_ait(int(tx.get("value", 0) or 0))
     if order is None:
         return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
-    if order["backing_tx_hash"] == tx_hash:
+    if _norm_tx_hash(order["backing_tx_hash"]) == _norm_tx_hash(tx_hash):
         return "recorded"
-    if order["status"] == "open" and order["funded_state"] == "unfunded" and _sender_owns_order(sender, order["user_address"]):
+    owner_lock = _sender_owns_order(sender, order["user_address"])
+    if order["status"] == "open" and order["funded_state"] == "unfunded" and owner_lock:
         event: dict[str, Any] = {
             "event": "order_funded",
             "order_id": order_id,
@@ -328,7 +355,7 @@ async def _order_lock_outcome(
             return "funded"
         if status_code in (404, 409):
             # Order gone or lock can't cover it — the AIT goes back.
-            return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
+            return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats, owner_lock=True)
         # Any other refusal (5xx, 401/403, the flag-off 503) is transient or a
         # misconfiguration — marking it would drop the lock from the scan
         # forever and strand escrowed AIT with no refund row. Warn once per
@@ -342,7 +369,7 @@ async def _order_lock_outcome(
             body,
         )
         return None
-    return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats)
+    return await _lock_refund(cfg, order_id, sender, lock_ait, tx_hash, stats, owner_lock=owner_lock)
 
 
 def _sender_owns_order(sender: str, user_address: Any) -> bool:
@@ -355,7 +382,14 @@ def _sender_owns_order(sender: str, user_address: Any) -> bool:
 
 
 async def _ensure_order_refund(
-    cfg: ExchangeCfg, order_id: int, sender: str, amount_ait: Decimal, tx_hash: str, *, remainder: bool
+    cfg: ExchangeCfg,
+    order_id: int,
+    sender: str,
+    amount_ait: Decimal,
+    tx_hash: str,
+    *,
+    remainder: bool,
+    owner_lock: bool = False,
 ) -> str:
     """Create the order_refund row returning this lock to its sender.
 
@@ -363,32 +397,52 @@ async def _ensure_order_refund(
     order's own lock-remainder refund — keys on ``+order_id`` (one per order);
     ``remainder=False`` — a refund for an *inbound* lock the order could not
     take — keys on ``-order_id``, so a stranger's dust lock can never squat
-    the row the owner's remainder refund needs. One row per class per order:
-    a second inbound refund on the same order is still a logged duplicate."""
+    the row the owner's remainder refund needs. A stranger's second and later
+    dust locks stay a logged duplicate — the one-refund-per-order bound keeps
+    a dust spammer from draining the escrow's sweep-fee float.
+
+    Squat residual (ETH-JOIN-2): when the ``-order_id`` slot is already held,
+    an *owner*-sender lock (same sender check as crediting) still gets its
+    refund — the row falls back to a lock-hash-derived ref_id below −2**59,
+    disjoint from every order/trade id and deterministic per lock, so a
+    re-scan dedupes onto it. A stranger's lock never gets the fallback."""
     if not sender:
         logger.error("Lock %s on order %s has no sender — cannot refund", tx_hash, order_id)
         return "no_sender"
+    ref_id = order_id if remainder else -order_id
     row_id = insert_exchange_settlement(
         "order_refund",
-        order_id if remainder else -order_id,
+        ref_id,
         seller_address=canonical_address(sender),
         amount_ait=amount_ait,
         fee_ait=Decimal(0),
     )
+    lock_keyed = False
+    if row_id is None and not remainder and owner_lock:
+        ref_id = _lock_refund_ref_id(tx_hash)
+        row_id = insert_exchange_settlement(
+            "order_refund",
+            ref_id,
+            seller_address=canonical_address(sender),
+            amount_ait=amount_ait,
+            fee_ait=Decimal(0),
+        )
+        lock_keyed = row_id is not None
     if row_id is None:
         logger.error(
-            "Order %s has a second stray lock %s — only one order_refund per order; operator refund needed for this lock",
+            "Order %s has a second stray lock %s — no free order_refund ref_id; operator refund needed for this lock",
             order_id,
             tx_hash,
         )
         return "duplicate"
     logger.warning(
-        "Order %s cannot take lock %s (%s AIT from %s) — order_refund %s created",
+        "Order %s cannot take lock %s (%s AIT from %s) — order_refund %s created%s",
         order_id,
         tx_hash,
         amount_ait,
         sender,
         row_id,
+        f" (lock-keyed ref_id {ref_id} — -order_id slot held)" if lock_keyed else "",
     )
     return "refunding"
 
@@ -594,7 +648,7 @@ async def _lock_sender(cfg: ExchangeCfg, backing_tx_hash: str) -> str | None:
     except Exception:
         return None
     for tx in txs:
-        if (tx.get("tx_hash") or tx.get("hash")) == backing_tx_hash:
+        if _norm_tx_hash(tx.get("tx_hash") or tx.get("hash")) == _norm_tx_hash(backing_tx_hash):
             return tx.get("sender") or tx.get("from")
     return None
 
@@ -603,12 +657,34 @@ async def _lock_sender(cfg: ExchangeCfg, backing_tx_hash: str) -> str | None:
 # Lane 4 — trade settlement driver
 # ---------------------------------------------------------------------------
 
+# The no-payout-address skip retries forever — a later registry entry
+# self-heals — so the ERROR is rate-limited to one line per trade per hour
+# and the rest of the polls drop to DEBUG (visible without flooding).
+_NO_PAYOUT_LOG_SECONDS = 3600
+_no_payout_last_log: dict[int, int] = {}
+
+
+def _log_no_payout(trade_id: int, seller_address: str) -> None:
+    now = int(time.monotonic())
+    last = _no_payout_last_log.get(trade_id)
+    if last is not None and now - last < _NO_PAYOUT_LOG_SECONDS:
+        logger.debug("Trade %s still has no resolvable seller payout address — skipped", trade_id)
+        return
+    _no_payout_last_log[trade_id] = now
+    logger.error(
+        "Trade %s seller %s has no resolvable payout address (order snapshot and registry empty) "
+        "— no settlement row; retried until one exists",
+        trade_id,
+        seller_address,
+    )
+
 
 def _ensure_trade_rows(cfg: ExchangeCfg) -> dict[str, int]:
     """Create kind='trade' ledger rows for exchange trades the mirror says
     are not finished. Denormalizes the fields the driver needs so the
     ledger survives exchange.db pruning."""
     created = 0
+    no_payout_skipped = 0
     rows = _ro_all(
         cfg,
         "SELECT id, amount, total, fee_ait, buyer_address, seller_address, buy_order_id, sell_order_id, "
@@ -618,7 +694,18 @@ def _ensure_trade_rows(cfg: ExchangeCfg) -> dict[str, int]:
     for row in rows:
         trade_id = int(row["id"])
         if row["buy_order_id"] is None or row["sell_order_id"] is None:
-            logger.error("Trade %s has no order links — no settlement row can be derived", trade_id)
+            mark = f"unlinked-trade:{trade_id}"
+            if monitor_mark(mark) is not None:
+                continue
+            # No row can ever be derived from a NULL link — mark terminal
+            # once so the trade stops logging an ERROR every poll while it
+            # waits for operator reconciliation.
+            insert_monitor_mark(
+                mark,
+                detail=f"buy_order_id={row['buy_order_id']} sell_order_id={row['sell_order_id']}",
+                outcome="no_order_links",
+            )
+            logger.error("Trade %s has no order links — no settlement row can be derived; marked terminal", trade_id)
             continue
         if get_exchange_settlement("trade", trade_id) is not None:
             continue
@@ -645,6 +732,12 @@ def _ensure_trade_rows(cfg: ExchangeCfg) -> dict[str, int]:
         if not seller_eth:
             reg = _ro_one(cfg, "SELECT eth_address FROM node_registry WHERE address = ?", (seller_address,))
             seller_eth = reg["eth_address"] if reg else None
+        if not seller_eth:
+            # No payout address yet — skip without a row or a mark: a seller
+            # who registers one later settles on the next poll.
+            no_payout_skipped += 1
+            _log_no_payout(trade_id, seller_address)
+            continue
         row_id = insert_exchange_settlement(
             "trade",
             trade_id,
@@ -660,7 +753,7 @@ def _ensure_trade_rows(cfg: ExchangeCfg) -> dict[str, int]:
         if row_id is not None:
             created += 1
             logger.info("Recorded exchange settlement %s for trade %s", row_id, trade_id)
-    return {"created": created}
+    return {"created": created, "no_payout_skipped": no_payout_skipped}
 
 
 async def _update_with_retry(row_id: str, status: str, **fields: Any) -> bool:
@@ -1310,7 +1403,9 @@ async def poll_exchange_settlements_once() -> dict[str, Any]:
     await _run_lane(summary, "backing", "Backing scan", _scan_backing(cfg, head))
 
     try:
-        summary["new_rows"] = _ensure_trade_rows(cfg)
+        new_rows = _ensure_trade_rows(cfg)
+        summary["new_rows"] = {"created": new_rows["created"]}
+        summary["no_payout_skipped"] = new_rows["no_payout_skipped"]
     except Exception as e:
         logger.error("Trade-row ensure failed this poll: %s", e)
         summary["new_rows"] = f"failed: {e}"
