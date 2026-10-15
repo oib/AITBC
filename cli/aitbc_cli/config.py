@@ -177,6 +177,10 @@ class CLIConfig(BaseAITBCConfig):
     evm_rpc_url: str | None = Field(
         default=None, description="Ethereum JSON-RPC URL for EVM energy quote verification and rental transactions"
     )
+    eth_rpc_url: str | None = Field(
+        default=None,
+        description="Ethereum/Sepolia JSON-RPC URL (ETH_RPC_URL env var; also resolved from the /etc/aitbc env files via _cli_env_files)",
+    )
     energy_pricing_contract_address: str | None = Field(default=None, description="IEnergyPricing contract address")
     energy_pricing_chain_id: int = Field(default=1, description="EVM chain ID for energy oracle reads")
     energy_rental_contract_address: str | None = Field(default=None, description="AIPowerRental contract address")

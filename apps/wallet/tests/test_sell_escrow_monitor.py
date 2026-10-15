@@ -26,6 +26,7 @@ from wallet_app.bridge import bridge_routes, bridge_withdraw_monitor as wdm
 from wallet_app.bridge import sell_escrow_monitor as sellmon
 from wallet_app.bridge.bridge_db import (
     _SELL_OPEN_STATUSES,
+    get_sell_eth_committed_since,
     get_sell_lock_by_ait_tx_hash,
     get_sell_lock_by_quote_id,
     get_sell_quote,
@@ -1503,3 +1504,78 @@ class TestStatusHandlerDispatch:
 
     def test_handler_table_covers_open_statuses(self):
         assert set(sellmon._SELL_STATUS_HANDLERS) == set(_SELL_OPEN_STATUSES) - {"needs_review_sweep"}
+
+
+class TestEthAmountStorage:
+    """ETH-10c: eth_amount is TEXT affinity storing a plain-decimal string —
+    never a REAL float; legacy NUMERIC rows still parse."""
+
+    def test_quote_eth_amount_stores_plain_decimal_text(self, sell_env):
+        """A tiny quote (0.01 AIT ≈ 9.3e-7 ETH — the exact case str() would
+        render in scientific notation) must persist as plain TEXT."""
+        from wallet_app.bridge import bridge_db as db
+
+        quote_id = _insert_quote(ait_amount=Decimal("0.01"))
+        conn = db._connect_db()
+        try:
+            kind, value = conn.execute(
+                "SELECT typeof(eth_amount), eth_amount FROM bridge_sell_quotes WHERE id = ?", (quote_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+        assert kind == "text"
+        assert value == "0.00000093"  # format(v, 'f'), not the REAL '9.3e-07'
+        assert "e" not in value.lower()
+
+    def test_lock_eth_amount_stores_plain_decimal_text(self, sell_env):
+        """The lock row (where the amount actually pays out) gets the same
+        TEXT form — via insert and via the status update path."""
+        from wallet_app.bridge import bridge_db as db
+
+        h = "0x" + "cc" * 32
+        insert_sell_lock(
+            ait_tx_hash=h, shop_ait_address=SHOP_AIT, amount_ait=Decimal("0.01"), eth_amount=Decimal("0.00000093")
+        )
+        update_sell_lock_status(h, "released", eth_amount=Decimal("9.3e-7"))
+        conn = db._connect_db()
+        try:
+            kind, value = conn.execute(
+                "SELECT typeof(eth_amount), eth_amount FROM bridge_sell_locks WHERE ait_tx_hash = ?", (h,)
+            ).fetchone()
+        finally:
+            conn.close()
+        assert kind == "text"
+        assert value == "0.00000093"
+
+    def test_legacy_numeric_row_still_prices_a_lock(self, sell_env, tmp_path):
+        """A row persisted by an old binary — NUMERIC column holding a REAL —
+        still parses through the converter and prices its lock."""
+        from wallet_app.bridge import bridge_db as db
+
+        legacy = tmp_path / "legacy.db"
+        conn = db._connect_db(str(legacy))
+        conn.execute("CREATE TABLE legacy (ait_amount NUMERIC, eth_amount NUMERIC)")
+        conn.execute("INSERT INTO legacy VALUES (?, ?)", (Decimal("0.05"), Decimal("0.00000510899882107927")))
+        conn.commit()
+        row = conn.execute("SELECT ait_amount, eth_amount FROM legacy").fetchone()
+        conn.close()
+
+        quote = {"ait_amount": row[0], "eth_amount": row[1]}
+        priced = sellmon._eth_for_lock_at_quote(Decimal("0.05"), quote)
+        assert priced == Decimal("0.00000510899882107927")
+
+    def test_daily_cap_boundary_on_text_rows(self, sell_env):
+        """Operator-pinned boundary: 0.02 committed + 0.01 incoming is admitted
+        at the 0.03/day cap; anything more is refused. The SUM runs over TEXT
+        values, so this also proves aggregate reads still coerce."""
+        for i, amount in enumerate(("0.015", "0.005")):
+            h = "0x" + str(i) * 64
+            insert_sell_lock(ait_tx_hash=h, shop_ait_address=SHOP_AIT, amount_ait=Decimal("10"), status="locked")
+            update_sell_lock_status(h, "released", eth_amount=Decimal(amount))
+            update_sell_lock_status(h, "settled")
+
+        committed = get_sell_eth_committed_since((datetime.now() - timedelta(hours=1)).isoformat())
+        assert committed == Decimal("0.02")
+        cap = Decimal("0.03")  # SELL_MAX_ETH_PER_DAY default
+        assert not committed + Decimal("0.01") > cap  # 0.02 + 0.01 admitted
+        assert committed + Decimal("0.0100001") > cap  # anything more refused
