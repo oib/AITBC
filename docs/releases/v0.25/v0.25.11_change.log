@@ -531,3 +531,22 @@ recovering and a never-converging nonce refusing. Chain state untouched.
 
 - `eth-send`'s wrong-chain refusal and `commands/eth.py`'s two ExplorerError paths (`_rpc` transport failure, `_verify_sepolia` refusal) printed the raw URL — the keyed-provider case. Both now render `display_rpc_url`, and echoed error text goes through `mask_rpc_url`. AIT-side `{rpc_url}` echoes are unchanged (no key material).
 - Tests: `test_evm_rpc_masking.py` `TestEthSendWrongChain` + `TestExplorerCommands` (+4) — the wrong-chain abort and both explorer paths asserted key-free.
+
+### ETH-3c — bounded log scans in the rehearsal driver
+
+`contracts/scripts/rehearsal/lib.js` + `roundtrip.js`: public RPCs cap
+`eth_getLogs` ranges (publicnode `-32701` above 50k blocks) and prune old
+logs outright (`4444 pruned history unavailable`), which killed the resumed
+run's `BridgeConfirmed` check before any confirm was attempted.
+`queryFilterChunked` walks backward in <=40,000-block windows and recursively
+halves any window that hits a range cap or straddles the ragged prune
+boundary (a single-block pruned window is skipped with a warning; other
+errors propagate; 512-window ceiling). Every scan is bounded by
+`--from-block`, else the bridge's deployment block (binary-searched via
+`eth_getCode`), else `latest-200000`. Confirm scans floor at the deposit
+block — a BridgeConfirmed log cannot precede its request. `--lock-tx
+<hash>` skips the BridgeInitiated scan entirely by verifying the supplied
+receipt carries the log. Dry runs exercise the same bounded scans read-only
+and report the adopted request's lockTxHash plus per-signer confirm state.
+New hardhat test proves the chunked helper succeeds where one unbounded
+query fails under a simulated range cap.

@@ -17,6 +17,7 @@ import {
   initKit,
   isOnlyOwnerRevert,
   publicClient,
+  queryFilterChunked,
   signAndExecute,
 } from "../scripts/rehearsal/lib.js";
 
@@ -243,6 +244,83 @@ describe("RehearsalSafe (BR-9 phase A, hardhat)", function () {
     const r2 = await signAndExecute([kit2, kit3], txSpec, { executor: kitExec, expectedNonce: 1, noncePollIntervalMs: 50 });
     await publicClient(provider).waitForTransactionReceipt({ hash: r2.hash ?? r2.transactionResponse?.hash });
     expect(await chainNonce()).to.equal(2);
+  });
+
+  /** Wrap an EIP-1193 provider so eth_getLogs refuses any range wider than
+   *  `cap` blocks with the same -32701 shape publicnode returned in the ETH-3
+   *  resumed run ("exceed maximum block range"). The real cap is 50,000 — far
+   *  wider than any hardhat chain — so the test reproduces it at small scale;
+   *  the chunking path is identical either way. */
+  function cappedGetLogs(inner, cap) {
+    const num = async (v) => {
+      if (v === undefined || v === "latest" || v === "pending") {
+        return parseInt(await inner.request({ method: "eth_blockNumber" }), 16);
+      }
+      if (v === "earliest") return 0;
+      if (typeof v === "number") return v;
+      if (typeof v === "bigint") return Number(v);
+      return parseInt(v, 16);
+    };
+    return {
+      request: async (args) => {
+        if (args?.method === "eth_getLogs") {
+          const p = args.params?.[0] ?? {};
+          const [from, to] = [await num(p.fromBlock), await num(p.toBlock)];
+          if (to - from > cap) {
+            const err = new Error("exceed maximum block range: 50000");
+            err.code = -32701;
+            throw err;
+          }
+        }
+        return inner.request(args);
+      },
+      on: (...a) => inner.on?.(...a),
+      once: (...a) => inner.once?.(...a),
+      emit: (...a) => inner.emit?.(...a),
+      removeListener: (...a) => inner.removeListener?.(...a),
+    };
+  }
+
+  it("chunks event queries under an eth_getLogs range cap (ETH-3 -32701 regression)", async function () {
+    const BridgeFactory = await ethers.getContractFactory("CrossChainBridge", funder);
+    const bridge = await BridgeFactory.deploy(s1.address);
+    await bridge.waitForDeployment();
+    const deployBlock = (await bridge.deploymentTransaction().wait()).blockNumber;
+    // Put real distance between the event and the head so one window cannot
+    // cover the whole range.
+    await ethers.provider.send("hardhat_mine", ["0x10"]);
+
+    const cap = 4;
+    const bp = new ethers.BrowserProvider(cappedGetLogs(provider, cap));
+    const capped = new ethers.Contract(
+      await bridge.getAddress(),
+      ["event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)"],
+      bp,
+    );
+    const filter = capped.filters.OwnershipTransferred();
+
+    // What the old code did — one unbounded query — must fail under the cap.
+    let threw = false;
+    try {
+      await capped.queryFilter(filter, 0, "latest");
+    } catch (e) {
+      expect(`${e.code ?? ""} ${e.message}`).to.match(/maximum block range|-32701/);
+      threw = true;
+    }
+    expect(threw).to.equal(true);
+
+    // The chunked helper subdivides oversized windows until each fits under
+    // the cap, and finds the log.
+    const latest = await bp.getBlockNumber();
+    const windows = [];
+    const logs = await queryFilterChunked(capped, filter, {
+      fromBlock: 0, toBlock: latest, chunkSize: 16, firstOnly: true,
+      log: (l) => windows.push(l),
+    });
+    expect(logs.length).to.equal(1);
+    expect(logs[0].blockNumber).to.equal(deployBlock);
+    expect(logs[0].args.newOwner).to.equal(funder.address);
+    expect(windows.length).to.be.greaterThan(1); // actually chunked
   });
 
   it("refuses to sign when the Safe nonce never reaches the expected value", async function () {
