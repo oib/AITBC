@@ -313,7 +313,7 @@ def withdraw(
     epilog="""Examples:
 
   aitbc wallet bridge status --ait-tx-hash 0x...
-  aitbc wallet bridge status --today     # releases since 00:00 service time (UTC on hosts)
+  aitbc wallet bridge status --today     # releases since 00:00 host-local time on the hub
   aitbc wallet bridge status --24h       # rolling 24h — the sell day-cap window"""
 )
 @click.option("--ait-tx-hash", "ait_tx_hash", required=False, help="AIT withdrawal transaction hash.")
@@ -322,7 +322,7 @@ def withdraw(
     "today",
     is_flag=True,
     default=False,
-    help="Aggregate releases since service-local midnight (UTC on deployed hosts).",
+    help="Aggregate releases since host-local midnight on the hub (the zone named in the window's timezone field).",
 )
 @click.option(
     "--24h",
@@ -358,10 +358,11 @@ def status(ctx, ait_tx_hash: str | None, today: bool, last_24h: bool, hub_url: s
         error(f"Failed to read bridge float: {e}")
         raise click.Abort() from e
     window = doc.get("windows", {}).get("today" if today else "last_24h", {})
-    label = "today (since 00:00 service time)" if today else "last 24h (rolling)"
+    label = "today (since 00:00 host-local)" if today else "last 24h (rolling)"
     output(
         {
             "window": label,
+            "timezone": window.get("timezone", ""),
             "since": window.get("since", ""),
             "withdrawals_eth": window.get("withdrawals_eth", ""),
             "sell_eth": window.get("sell_eth", ""),

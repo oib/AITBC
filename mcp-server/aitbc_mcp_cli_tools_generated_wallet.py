@@ -433,7 +433,10 @@ def aitbc_wallet_bridge_settlements(
 def aitbc_wallet_bridge_status(
     ait_tx_hash: Annotated[str | None, Field(description="AIT withdrawal transaction hash.")] = None,
     today: Annotated[
-        bool | None, Field(description="Aggregate releases since service-local midnight (UTC on deployed hosts).")
+        bool | None,
+        Field(
+            description="Aggregate releases since host-local midnight on the hub (the zone named in the window's timezone field)."
+        ),
     ] = None,
     last_24h: Annotated[
         bool | None, Field(description="Aggregate releases over the rolling 24h window (the sell day-cap basis).")
