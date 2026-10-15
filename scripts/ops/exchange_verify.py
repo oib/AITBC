@@ -487,9 +487,13 @@ def _check_sell_backing(o: sqlite3.Row, escrow_txs: dict, escrow: str, add) -> N
         add(FAIL, "ait", f"order {o['id']}: lock {tx.get('value')} units < notional {want_units}")
 
 
-def _check_ait_leg(t: sqlite3.Row, escrow_txs: dict, add) -> None:
-    """One trade's settlement AIT leg (+ fee leg) against the escrow history."""
-    txh = t["settlement_ait_tx_hash"]
+def _check_ait_leg(t: sqlite3.Row, escrow_txs: dict, add, ait_hash: str | None = None) -> None:
+    """One trade's settlement AIT leg (+ fee leg) against the escrow history.
+
+    ``ait_hash`` is the ledger fallback: the settle leg's tx hash read from
+    exchange_settlements when the tape column is empty (VERIFY-2/VERIFY-3 —
+    pre-mirror-fix trades keep the hash only on the ledger row)."""
+    txh = ait_hash or t["settlement_ait_tx_hash"]
     tx = escrow_txs.get(str(txh))
     if tx is None:
         add(FAIL, "ait", f"trade {t['id']}: ait leg {txh} not in escrow history")
@@ -511,7 +515,7 @@ def _check_ait_leg(t: sqlite3.Row, escrow_txs: dict, add) -> None:
         add(WARN, "ait", f"trade {t['id']}: fee leg {fee_hash} recorded for a zero-fee trade")
 
 
-def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add) -> None:
+def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add, bridge_db_path: str | None = None) -> None:
     try:
         escrow_txs = _ait_transfers(ait_rpc, escrow)
     except RpcError as e:
@@ -531,7 +535,28 @@ def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add) ->
     ).fetchall()
     for t in legs:
         _check_ait_leg(t, escrow_txs, add)
-    add(INFO, "ait", f"{len(legs)} settlement AIT legs checked")
+    tape_count = len(legs)
+
+    ledger_count = 0
+    # VERIFY-3: pre-mirror-fix trades carry the leg hash only on the settled
+    # ledger row. A settled trade with neither tape nor ledger hash is skipped
+    # here — the DB check already FAILs it; re-reporting would double-count.
+    settles = _settle_trade_ait_hashes(bridge_db_path)
+    if settles:
+        missing = conn.execute(
+            "SELECT id, amount, fee_ait, buyer_address, settlement_ait_tx_hash, settlement_fee_tx_hash "
+            "FROM trades WHERE settlement_state = 'settled' AND settlement_ait_tx_hash IS NULL"
+        ).fetchall()
+        for t in missing:
+            ledger_hash = settles.get(int(t["id"]))
+            if ledger_hash:
+                _check_ait_leg(t, escrow_txs, add, ait_hash=ledger_hash)
+                ledger_count += 1
+    add(
+        INFO,
+        "ait",
+        f"{tape_count + ledger_count} settlement AIT legs checked ({tape_count} from tape, {ledger_count} from ledger)",
+    )
 
 
 def main() -> int:
@@ -571,7 +596,7 @@ def main() -> int:
         if not ns.no_chain:
             check_eth_chain(conn, ns.rpc_url, ns.bridge_address, add)
             if ns.ait_rpc and ns.escrow_address:
-                check_ait_chain(conn, ns.ait_rpc, ns.escrow_address, add)
+                check_ait_chain(conn, ns.ait_rpc, ns.escrow_address, add, bridge_db_path=ns.bridge_db)
             else:
                 add(INFO, "ait", "no --ait-rpc/--escrow-address — AIT chain checks skipped")
     finally:

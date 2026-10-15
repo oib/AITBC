@@ -130,7 +130,9 @@ def _findings(tool, db_path, **kwargs):
         if kwargs.get("eth"):
             tool.check_eth_chain(conn, kwargs.get("rpc_url", "http://rpc.test"), kwargs.get("bridge_address"), add)
         if kwargs.get("ait"):
-            tool.check_ait_chain(conn, kwargs["ait_rpc"], kwargs["escrow_address"], add)
+            tool.check_ait_chain(
+                conn, kwargs["ait_rpc"], kwargs["escrow_address"], add, bridge_db_path=kwargs.get("bridge_db")
+            )
     finally:
         conn.close()
     return found
@@ -244,7 +246,7 @@ def _settled_trade_fixture(tmp_path, *, eth_hash="0xeth", ait_hash=None):
     return _exchange_db(
         tmp_path / "ex.db",
         orders=[
-            (24, "SELL", "filled", "funded", "0xlock", 360_000_000, SELLER, 1, 100_000_000, SELLER_ETH),
+            (24, "SELL", "filled", "funded", "0xlock", 360_000_000, SELLER, 1, 100_000_000, SELLER_ETH, 100_000_000),
             (25, "BUY", "filled", "funded", None, None, BUYER, 2, 100_000_000, None),
         ],
         debits=[(BUYER, 25, "0.00011493", "0", "open")],
@@ -483,6 +485,22 @@ def _lock_tx(tx_hash, *, order_id, sender=SELLER, value=400_000_000):
     }
 
 
+def _leg_tx(tx_hash, *, recipient=BUYER, value=36_000_000):
+    """Escrow → buyer settle leg for trade 7's 1 AIT (amount × UNITS_PER_AIT)."""
+    return {
+        "tx_hash": tx_hash,
+        "sender": ESCROW,
+        "recipient": recipient,
+        "value": value,
+        "payload": {"exs_ref": "exs_1", "reason": "settling"},
+        "block_height": 100,
+    }
+
+
+def _ait_leg_errors(found):
+    return [m for s, sc, m in found if s == "FAIL" and sc == "ait" and "ait leg" in m]
+
+
 def test_ait_backing_verified(tool, tmp_path, monkeypatch):
     # 10 AIT lock: 10 * 36e6 = 360_000_000 units; send extra to cover fee.
     db = _exchange_db(
@@ -512,6 +530,72 @@ def test_ait_missing_backing_fails(tool, tmp_path, monkeypatch):
     _ait_stub(tool, monkeypatch, [])
     found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW)
     assert any(s == "FAIL" and "not in escrow" in m for s, _c, m in found)
+
+
+_LOCK_24 = _lock_tx("0xlock", order_id=24)
+
+
+def test_ait_leg_tape_hash_checked(tool, tmp_path, monkeypatch):
+    """Tape-carried hash is checked as today and counted 'from tape'."""
+    db = _settled_trade_fixture(tmp_path, ait_hash="0xleg1")
+    _ait_stub(tool, monkeypatch, [_LOCK_24, _leg_tx("0xleg1")])
+    found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW)
+    assert _ait_leg_errors(found) == []
+    assert any("1 settlement AIT legs checked (1 from tape, 0 from ledger)" in m for _s, _c, m in found)
+
+
+def test_ait_leg_ledger_hash_checked(tool, tmp_path, monkeypatch):
+    """VERIFY-3: settled trade with empty tape hash takes the leg hash from
+    the settled ledger row and checks it against escrow history."""
+    db = _settled_trade_fixture(tmp_path)
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "trade", 7, "settled", "0xleg2")])
+    _ait_stub(tool, monkeypatch, [_LOCK_24, _leg_tx("0xleg2")])
+    found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW, bridge_db=str(bdb))
+    assert _ait_leg_errors(found) == []
+    assert any("1 settlement AIT legs checked (0 from tape, 1 from ledger)" in m for _s, _c, m in found)
+
+
+def test_ait_leg_both_hashes_tape_wins(tool, tmp_path, monkeypatch):
+    """Tape hash present + ledger hash present — the tape hash is used; the
+    ledger hash is never even looked up."""
+    db = _settled_trade_fixture(tmp_path, ait_hash="0xtape")
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "trade", 7, "settled", "0xledger")])
+    _ait_stub(tool, monkeypatch, [_LOCK_24, _leg_tx("0xtape")])  # 0xledger deliberately absent
+    found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW, bridge_db=str(bdb))
+    assert _ait_leg_errors(found) == []
+    assert any("1 from tape, 0 from ledger" in m for _s, _c, m in found)
+
+
+def test_ait_leg_neither_hash_skips(tool, tmp_path, monkeypatch):
+    """Settled trade with no tape hash and no ledger row: the AIT lane
+    skips it (the DB check already FAILs the missing hash — no double
+    report)."""
+    db = _settled_trade_fixture(tmp_path)
+    bdb = _bridge_db(tmp_path / "br.db")
+    _ait_stub(tool, monkeypatch, [_LOCK_24])
+    found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW, bridge_db=str(bdb))
+    assert _ait_leg_errors(found) == []
+    assert any("0 settlement AIT legs checked (0 from tape, 0 from ledger)" in m for _s, _c, m in found)
+
+
+def test_ait_leg_ledger_hash_not_in_escrow_fails(tool, tmp_path, monkeypatch):
+    """Ledger-carried hash pointing at a tx absent from escrow history is
+    the same FAIL a tape hash gets."""
+    db = _settled_trade_fixture(tmp_path)
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "trade", 7, "settled", "0xgone")])
+    _ait_stub(tool, monkeypatch, [_LOCK_24])
+    found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW, bridge_db=str(bdb))
+    assert any("0xgone" in m and "not in escrow" in m for m in _ait_leg_errors(found))
+
+
+def test_ait_leg_ledger_wrong_recipient_fails(tool, tmp_path, monkeypatch):
+    """Ledger-carried hash resolving to a leg sent to the wrong address is
+    the same FAIL a tape hash gets."""
+    db = _settled_trade_fixture(tmp_path)
+    bdb = _bridge_db(tmp_path / "br.db", settlements=[("exs_1", "trade", 7, "settled", "0xleg3")])
+    _ait_stub(tool, monkeypatch, [_LOCK_24, _leg_tx("0xleg3", recipient=SELLER)])
+    found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW, bridge_db=str(bdb))
+    assert any("!= buyer" in m for m in _ait_leg_errors(found))
 
 
 # --- read-only guarantee -------------------------------------------------------
