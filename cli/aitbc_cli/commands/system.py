@@ -5,9 +5,12 @@ Provides real service health checks and node readiness reporting.
 
 from __future__ import annotations
 
+import json
 import os
+import pwd
 import re
 import subprocess
+from datetime import datetime, UTC
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -542,13 +545,12 @@ def show(ctx, service: str, properties: str | None):
         raise click.ClickException(f"Error showing properties for {service_name}: {e}") from e
 
 
-def _unit_env_file(service_name: str) -> Path | None:
-    """Resolve the unit's ``EnvironmentFile`` path (fleet convention: ``/etc/aitbc/<unit>.env``).
+def _unit_env_files(service_name: str) -> list[tuple[Path, bool]]:
+    """All ``EnvironmentFile`` paths declared by the unit, main file and drop-ins.
 
-    Returns the first existing env file declared by the unit, or the
-    conventional ``/etc/aitbc/<unit>`` path if it exists. ``None`` when the
-    unit declares no env file and the conventional path is absent — writing
-    a file nothing loads would be a silent no-op.
+    Returns ``(path, optional)`` pairs; ``optional`` marks systemd's ``-``
+    prefix (``ignore_errors=yes`` in ``systemctl show`` output). Empty list
+    when the unit declares none or systemctl cannot be queried.
     """
     try:
         result = subprocess.run(
@@ -558,13 +560,35 @@ def _unit_env_file(service_name: str) -> Path | None:
             timeout=10,
             check=False,
         )
-        if result.returncode == 0:
-            for match in re.finditer(r"(/[^ ]+\.env)", result.stdout):
-                candidate = Path(match.group(1))
-                if candidate.exists():
-                    return candidate
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
         logger.warning("Could not query EnvironmentFiles for %s: %s", service_name, e)
+        return []
+    if result.returncode != 0:
+        return []
+    text = result.stdout.strip()
+    files: list[tuple[Path, bool]] = []
+    # Modern format: /path (ignore_errors=yes|no) [/path (...)]
+    matched = list(re.finditer(r"(-?/\S+)\s*\(ignore_errors=(yes|no)\)", text))
+    if matched:
+        return [(Path(m.group(1).lstrip("-")), m.group(2) == "yes") for m in matched]
+    # Fallback: bare whitespace-separated paths ('-' marks optional)
+    for tok in text.split():
+        if tok.startswith("-/") or tok.startswith("/"):
+            files.append((Path(tok.lstrip("-")), tok.startswith("-")))
+    return files
+
+
+def _unit_env_file(service_name: str) -> Path | None:
+    """Resolve the unit's ``EnvironmentFile`` path (fleet convention: ``/etc/aitbc/<unit>.env``).
+
+    Returns the first existing ``.env`` file declared by the unit, or the
+    conventional ``/etc/aitbc/<unit>`` path if it exists. ``None`` when the
+    unit declares no env file and the conventional path is absent — writing
+    a file nothing loads would be a silent no-op.
+    """
+    for candidate, _optional in _unit_env_files(service_name):
+        if candidate.suffix == ".env" and candidate.exists():
+            return candidate
 
     fallback = Path("/etc/aitbc") / f"{service_name.removesuffix('.service')}.env"
     return fallback if fallback.exists() else None
@@ -655,6 +679,197 @@ def env_set(ctx, service: str, assignments: tuple[str, ...], no_restart: bool, e
         warning(f"Skipped restart — {service_name} keeps its previous environment until restarted")
     else:
         _systemctl_service_action(ctx, "restart", service_name, action_label="restarted")
+
+
+def _env_file_key_names(path: Path) -> tuple[set[str], list[int]]:
+    """Variable names in an env file plus the line numbers that did not parse.
+
+    Names only — values are never read into the result. A non-empty,
+    non-comment line without ``KEY=`` is reported by line number only (the
+    line text may carry a value and is never returned).
+    """
+    names: set[str] = set()
+    bad_lines: list[int] = []
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return names, bad_lines
+    for lineno, line in enumerate(lines, 1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        m = re.match(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=", stripped)
+        if m:
+            names.add(m.group(1))
+        else:
+            bad_lines.append(lineno)
+    return names, bad_lines
+
+
+@system.command(
+    "env-names",
+    epilog="""Examples:
+
+  aitbc system env-names --service aitbc-coordinator-api
+
+  aitbc system env-names --service blockchain-node --names LOG_LEVEL SYNC_INTERVAL""",
+)
+@click.option("--service", required=True, help="Unit name (with or without the aitbc- prefix/.service suffix)")
+@click.option("--names", multiple=True, help="Report only whether each named variable is set (repeatable)")
+@click.pass_context
+def env_names(ctx, service: str, names: tuple[str, ...]):
+    """List environment variable NAMES declared in a service's env files.
+
+    Reads the unit's full ``EnvironmentFiles`` list via ``systemctl show``
+    so drop-in files are included. Names only — values and ``Environment=``
+    inline assignments are never printed.
+    """
+    service_name = _service_unit_name(service)
+    files = _unit_env_files(service_name)
+    if not files:
+        fallback = Path("/etc/aitbc") / f"{service_name.removesuffix('.service')}.env"
+        if fallback.exists():
+            files = [(fallback, False)]
+    if not files:
+        raise click.ClickException(
+            f"{service_name} declares no EnvironmentFile and no /etc/aitbc/{service_name.removesuffix('.service')}.env exists"
+        )
+
+    wanted = [n.upper() for n in names]
+    report: list[dict[str, Any]] = []
+    present: set[str] = set()
+    for path, optional in files:
+        entry: dict[str, Any] = {"file": str(path)}
+        if optional:
+            entry["optional"] = True
+        if not path.exists():
+            entry["missing"] = True
+            report.append(entry)
+            continue
+        key_names, bad_lines = _env_file_key_names(path)
+        present |= key_names
+        entry["names"] = sorted(key_names if not wanted else (key_names & set(wanted)))
+        if bad_lines:
+            entry["unparsed_lines"] = bad_lines
+        report.append(entry)
+
+    if wanted:
+        output({n: n in present for n in sorted(set(wanted))}, ctx.obj.get("output_format", "table"))
+    else:
+        output(report, ctx.obj.get("output_format", "table"))
+
+
+_FIELD_DENY_NAMES = frozenset({"private_key", "secret", "password", "token", "mnemonic", "seed", "key", "api_key"})
+_FIELD_MAX_VALUE = 200
+
+
+def _field_name_denied(name: str) -> bool:
+    lowered = name.lower()
+    return lowered in _FIELD_DENY_NAMES or lowered.endswith("_key")
+
+
+def _subtree_has_denied(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(_field_name_denied(str(k)) or _subtree_has_denied(v) for k, v in value.items())
+    if isinstance(value, list):
+        return any(_subtree_has_denied(v) for v in value)
+    return False
+
+
+@system.command(
+    name="file-info",
+    epilog="""Examples:
+
+  aitbc system file-info --path /var/lib/aitbc/wallets/node.json
+
+  aitbc system file-info --path /var/lib/aitbc/wallets/node.json --field address""",
+)
+@click.option(
+    "--path",
+    required=True,
+    help="Absolute path under /opt/aitbc, /etc/aitbc, /etc/systemd, /var/log/aitbc, or /var/lib/aitbc",
+)
+@click.option("--field", "field_name", default=None, help="Print one scalar top-level JSON field (e.g. address)")
+@click.pass_context
+def file_info(ctx, path: str, field_name: str | None):
+    """Show file metadata without dumping content — the safe form of `system file`.
+
+    Reports size, mtime, owner, mode and type; for JSON files also the
+    top-level key names. ``--field`` prints a single scalar field and
+    hard-refuses denied names (private_key, secret, password, token,
+    mnemonic, seed, key, api_key, anything ending in ``_key``, including
+    inside nested objects) and values over 200 characters.
+
+    Coverage is the ``system file`` allowlist: ``/var/lib/aitbc/wallets``
+    and ``/etc/aitbc/credentials`` are inside it; ``/root/.aitbc/wallets``
+    is not — the path refuses before anything is read.
+    """
+    resolved = _resolve_allowed_read_path(path)
+
+    st = resolved.stat()
+    info: dict[str, Any] = {
+        "path": str(resolved),
+        "type": "file" if resolved.is_file() else ("directory" if resolved.is_dir() else "other"),
+        "size": st.st_size,
+        "mtime": datetime.fromtimestamp(st.st_mtime, tz=UTC).isoformat(),
+        "owner": pwd.getpwuid(st.st_uid).pw_name,
+        "mode": oct(st.st_mode & 0o7777),
+    }
+
+    parsed = _json_object_or_none(resolved)
+    if parsed is not None:
+        info["json_keys"] = sorted(parsed.keys())
+
+    if field_name is not None:
+        if parsed is None:
+            raise click.ClickException(f"--field requires a JSON object file: {resolved}")
+        match, value = _allowed_json_field(parsed, field_name)
+        info["field"] = {match: value}
+
+    output(info, ctx.obj.get("output_format", "table"))
+
+
+def _resolve_allowed_read_path(path: str) -> Path:
+    """Allowlist + metachar check, then the resolved path must stay inside it."""
+    if not any(path.startswith(prefix) for prefix in _ALLOWED_READ_PREFIXES):
+        raise click.ClickException(f"file path not allowed: {path}")
+    if re.search(r"[;&|<>$`\\!\n\r]", path):
+        raise click.ClickException(f"invalid file path: {path}")
+    try:
+        resolved = Path(path).resolve(strict=True)
+    except OSError as e:
+        raise click.ClickException(f"Error reading {path}: {e}") from e
+    if not any(str(resolved).startswith(prefix) for prefix in _ALLOWED_READ_PREFIXES):
+        raise click.ClickException(f"file path not allowed: {path} resolves outside the allowed prefixes")
+    return resolved
+
+
+def _json_object_or_none(path: Path) -> dict[str, Any] | None:
+    """The file's top-level JSON object, or None when it is not one."""
+    if not path.is_file():
+        return None
+    try:
+        candidate = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        return None
+    return candidate if isinstance(candidate, dict) else None
+
+
+def _allowed_json_field(parsed: dict[str, Any], field_name: str) -> tuple[str, Any]:
+    """One scalar field under the denylist — every refusal is an explicit error."""
+    if _field_name_denied(field_name):
+        raise click.ClickException(f"field refused (denied name): {field_name}")
+    match = next((k for k in parsed if k.lower() == field_name.lower()), None)
+    if match is None:
+        raise click.ClickException(f"no such top-level field: {field_name}")
+    value = parsed[match]
+    if _subtree_has_denied(value):
+        raise click.ClickException(f"field refused (contains a denied name): {match}")
+    if not isinstance(value, (str, int, float, bool)) and value is not None:
+        raise click.ClickException(f"field refused (not a scalar): {match}")
+    if isinstance(value, str) and len(value) > _FIELD_MAX_VALUE:
+        raise click.ClickException(f"field refused (value over {_FIELD_MAX_VALUE} characters): {match}")
+    return match, value
 
 
 @system.command(
