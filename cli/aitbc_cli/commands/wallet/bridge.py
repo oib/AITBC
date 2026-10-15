@@ -35,13 +35,13 @@ def bridge():
 def _resolve_wallet_path(ctx, wallet_name: str) -> Path:
     """Resolve a wallet name to a readable file via the shared search order.
 
-    The group-set ``ctx.obj['wallet_path']`` wins for the active wallet (it is
+    The group-set ``ctx.obj['wallet_sign_path']`` wins for the active wallet (it is
     already search-resolved and honours an explicit --wallet-path); any other
     name goes through the configured dir then the service wallet dir.
     """
-    if wallet_name == ctx.obj.get("wallet_name") and ctx.obj.get("wallet_path"):
+    if wallet_name == ctx.obj.get("wallet_name") and ctx.obj.get("wallet_sign_path"):
         _emit_wallet_path_note(ctx)
-        return Path(ctx.obj["wallet_path"])
+        return Path(ctx.obj["wallet_sign_path"])
     report = find_wallet_file_report(wallet_name)
     if report.path is not None:
         note = ambiguous_wallet_note(report)

@@ -253,6 +253,7 @@ class TestCommandWiring:
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(bridge_mod, "_load_wallet", _fake_load)
+        monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path))
         result = runner.invoke(
             bridge_mod.withdraw,
             [
@@ -305,7 +306,7 @@ class TestCommandWiring:
             "_send_transaction_impl",
             lambda *a, **kw: captured.update(password=a[4]) or "0xhash",
         )
-        monkeypatch.setattr("aitbc_cli.commands.transactions.wallet_dir", lambda: tmp_path)
+        monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path))
         result = runner.invoke(
             tx_mod.send,
             [
@@ -333,7 +334,7 @@ class TestCommandWiring:
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(ops_mod, "decrypt_private_key", _fake_decrypt)
-        monkeypatch.setattr(ops_mod, "wallet_dir", lambda: tmp_path)
+        monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path))
         result = runner.invoke(
             ops_mod.message,
             ["--agent", "0xabc", "--message", "hi", "--wallet", "w", "--password-stdin"],

@@ -168,6 +168,7 @@ def test_staking_info_address_override_skips_wallet(runner, tmp_path):
             obj={
                 "wallet_name": "doesnotexist",
                 "wallet_path": missing_wallet,
+                "wallet_sign_path": missing_wallet,
                 "rpc_url": "http://localhost:8202",
                 "output_format": "json",
             },
@@ -190,6 +191,7 @@ def test_staking_info_address_override_validates(runner, tmp_path):
             obj={
                 "wallet_name": "w",
                 "wallet_path": tmp_path / "w.json",
+                "wallet_sign_path": tmp_path / "w.json",
                 "rpc_url": "http://localhost:8202",
                 "output_format": "json",
             },
@@ -206,6 +208,7 @@ def test_staking_info_default_requires_wallet(runner, tmp_path):
         obj={
             "wallet_name": "gone",
             "wallet_path": missing_wallet,
+            "wallet_sign_path": missing_wallet,
             "rpc_url": "http://localhost:8202",
             "output_format": "json",
         },
