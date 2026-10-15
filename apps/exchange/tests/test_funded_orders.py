@@ -107,6 +107,8 @@ def _handler():
         "_commit_register",
         "_commit_payout",
         "_commit_cancel",
+        "handle_my_orders",
+        "_funding_block",
         "_registry_status",
         "_registry_labels",
         "_expected_nonce",
@@ -120,7 +122,7 @@ def _handler():
     ):
         if hasattr(ExchangeMixin, name):
             attr = getattr(ExchangeMixin, name)
-            if name in ("_expected_nonce", "_claim_nonce", "_expire_open_orders", "_watchlisted_addresses"):
+            if name in ("_expected_nonce", "_claim_nonce", "_expire_open_orders", "_watchlisted_addresses", "_funding_block"):
                 setattr(h, name, attr)
             else:
                 setattr(h, name, attr.__get__(h, ExchangeMixin))
@@ -679,3 +681,92 @@ def test_flag_off_never_reads_destination_envs(exchange_db, monkeypatch):
     assert doc["status"] == "open"
     assert doc["funded_state"] == "unfunded"
     assert "funding" not in doc
+
+
+# --- my-orders funding block (CLI-1) ----------------------------------------
+
+
+def _my_orders(db_path, h, address):
+    """GET /api/exchange/my-orders?addr=<address> on the mock handler."""
+    h.send_error.reset_mock()
+    h.send_json_response.reset_mock()
+    parsed = MagicMock()
+    parsed.query = f"addr={address}"
+    with patch("apps.exchange.simple_exchange.handlers.exchange.get_db_path", return_value=db_path):
+        h.handle_my_orders(parsed)
+    return _last_json(h)
+
+
+def test_my_orders_unfunded_sell_carries_lock_instruction(exchange_db, settlement_on):
+    """Under the flag an open unfunded SELL row re-exposes its funding block —
+    escrow address + required cover — so 'order fund' can run later, from a
+    fresh read, without the place response."""
+    node, payout = Account.create(), Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-my-sell")
+    h = _handler()
+    _set_payout(exchange_db, h, node.address, node.key.hex(), payout.address, nonce=1)
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="SELL", amount=10, price="0.001", nonce=2))
+    placed = _last_json(h)
+    doc = _my_orders(exchange_db, h, node.address)
+    row = next(o for o in doc["orders"] if o["id"] == placed["id"])
+    funding = row["funding"]
+    assert funding["type"] == "ait_lock"
+    assert funding["state"] == "unfunded"
+    assert funding["escrow"] == _ESCROW_ADDR
+    assert funding["payload"] == f"sell_quote={placed['id']}"
+    assert Decimal(funding["required_ait"]) == Decimal("10")
+
+
+def test_my_orders_unfunded_buy_carries_prepay_instruction(exchange_db, settlement_on):
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-my-buy")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", amount=10, price="0.001", nonce=1))
+    placed = _last_json(h)
+    doc = _my_orders(exchange_db, h, node.address)
+    row = next(o for o in doc["orders"] if o["id"] == placed["id"])
+    funding = row["funding"]
+    assert funding["type"] == "eth_prepay"
+    assert funding["needed_eth"] == "0.01"
+    assert funding["tag"] == f"EXCHANGE_DEPOSIT:{node.address}"
+
+
+def test_my_orders_no_funding_key_flag_off(exchange_db):
+    """Flag-off responses stay byte-identical: no 'funding' key anywhere,
+    same column set as before CLI-1."""
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-my-off")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", amount=10, price="0.001", nonce=1))
+    _last_json(h)
+    doc = _my_orders(exchange_db, h, node.address)
+    assert doc["orders"]
+    for row in doc["orders"]:
+        assert "funding" not in row
+        assert "total" not in row
+
+
+def test_my_orders_funded_and_closed_rows_carry_no_block(exchange_db, settlement_on):
+    """Funded, cancelled, and expired rows never carry a funding block —
+    only open + unfunded."""
+    node = Account.create()
+    _register(exchange_db, node.address, node.key.hex(), "n-my-funded")
+    _prepay(exchange_db, node.address, "0.05")
+    h = _handler()
+    _place(exchange_db, h, _order_body(node.address, node.key.hex(), side="BUY", amount=10, price="0.001", nonce=1))
+    funded_doc = _last_json(h)
+    # An unfunded SELL then cancelled keeps funded_state='unfunded' — must
+    # still hide the block once it is no longer open.
+    seller, payout = Account.create(), Account.create()
+    _register(exchange_db, seller.address, seller.key.hex(), "n-my-cx")
+    _set_payout(exchange_db, h, seller.address, seller.key.hex(), payout.address, nonce=1)
+    _place(exchange_db, h, _order_body(seller.address, seller.key.hex(), side="SELL", amount=5, price="0.001", nonce=2))
+    sell_doc = _last_json(h)
+    _cancel(exchange_db, h, seller.address, seller.key.hex(), sell_doc["id"], nonce=3)
+    doc = _my_orders(exchange_db, h, node.address)
+    funded_row = next(o for o in doc["orders"] if o["id"] == funded_doc["id"])
+    assert "funding" not in funded_row
+    doc2 = _my_orders(exchange_db, h, seller.address)
+    cancelled_row = next(o for o in doc2["orders"] if o["id"] == sell_doc["id"])
+    assert cancelled_row["status"] == "cancelled"
+    assert "funding" not in cancelled_row
