@@ -1882,6 +1882,7 @@ narrative; this list cites each remaining commit by hash so
 - `8a0218e8d1` feat(cli): REPO-1 — file-info denylist extension, env-names case, verify DB containment, OPS-4 nginx example
 - `bfaa13b440` fix(cli): CLI-3a — order fund --fee defaults to DEFAULT_TX_FEE_AIT (0.01)
 - `8159a73a40` fix(cli): CLI-3a — wallet send reports submitted-not-confirmed; --wait seals
+- `f8933199e2` fix(cli): CLI-4 — order fund forwards wallet password options, real encrypted-wallet tests
 
 ### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
 
@@ -2249,3 +2250,30 @@ command, since a retry reuses the nonce.
 Commits: `bfaa13b44` (order fund fee default → DEFAULT_TX_FEE_AIT +
 tests), `8159a73a4` (wallet send submitted-not-confirmed + --wait +
 shared message).
+
+### CLI-4: `exchange order fund` forwards the wallet password options (2026-10-15)
+
+`order fund` declared `--password/--password-file/--password-stdin` but
+passed none of them to `load_wallet_for_payment`, so an encrypted wallet
+aborted "No wallet password available" before the funding block was read —
+`--print` included (found live on node2 during ETH-19 Phase D1; the D1
+lock went out via `transactions send` instead). The loader cannot return
+an address without decrypting (`_load_wallet` decrypts eagerly and its
+password resolution is unconditional), so the command now reads the
+wallet's plaintext `address` field — or the daemon record — for both
+paths, then resolves the password exactly once right before the broadcast
+and reuses it for `_send_transaction_impl`: `--password-stdin` is
+consumed one time, `--print` on an encrypted wallet needs no password at
+all, and a failed send exits nonzero instead of silently skipping the
+success line. Sender-must-be-order-owner, the funding-block aborts, the
+`{"sell_quote": <id>}` payload and the lock amount are unchanged.
+
+Tests (`TestOrderFundEncryptedWallet`) run a real `_save_wallet`-encrypted
+fixture through real password resolution with only the broadcast mocked:
+`--password-file` reaches the send, wrong and missing passwords fail
+closed, `--print` works with empty stdin, and `--password-stdin` is read
+exactly once. The existing fund tests move from the loader mock to a real
+unencrypted wallet file.
+
+Commits: `f8933199e2` (password forwarding + plaintext address read +
+real encrypted-wallet tests).
