@@ -478,6 +478,9 @@ def aitbc_wallet_create(
     name: Annotated[str, Field(description="Wallet name.")],
     wallet_type: Annotated[str | None, Field(description="Wallet type (hd, simple)")] = None,
     no_encrypt: Annotated[bool | None, Field(description="Skip wallet encryption (not recommended)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -488,7 +491,7 @@ def aitbc_wallet_create(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"no_encrypt": "no-encrypt"},
-        values={"name": "name", "wallet_type": "type"},
+        values={"name": "name", "wallet_type": "type", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1044,6 +1047,12 @@ def aitbc_wallet_restore(
     backup_path: Annotated[str, Field(description="Path to the backup file.")],
     name: Annotated[str, Field(description="Wallet name.")],
     force: Annotated[bool | None, Field(description="Override existing wallet")] = None,
+    password_file: Annotated[
+        str | None,
+        Field(
+            description="Path to a file containing only the wallet password (mode 0600, owned by you) — encrypts a plaintext backup on restore"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1054,7 +1063,7 @@ def aitbc_wallet_restore(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
-        values={"backup_path": "backup-path", "name": "name"},
+        values={"backup_path": "backup-path", "name": "name", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
