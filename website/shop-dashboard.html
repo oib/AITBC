@@ -49,8 +49,8 @@
             <h2>Operator Credential</h2>
             <p class="endpoint-note">Optional. Enter your miner ID and miner API key (or auth token) to load assigned jobs, earnings, and network metrics; without them this page shows public network data.</p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
-                <input type="text" id="shop-miner-input" class="endpoint" placeholder="miner ID (e.g. aitbc-miner-1)" autocomplete="off">
-                <input type="password" id="shop-cred-input" class="endpoint" placeholder="miner API key or auth token" style="flex:1;min-width:16rem" autocomplete="off">
+                <input type="text" id="shop-miner-input" class="endpoint" aria-label="Miner ID" placeholder="miner ID (e.g. aitbc-miner-1)" autocomplete="off">
+                <input type="password" id="shop-cred-input" class="endpoint" aria-label="Miner API key or auth token" placeholder="miner API key or auth token" style="flex:1;min-width:16rem" autocomplete="off">
                 <button class="endpoint" onclick="applyCredential('shop-cred-input')">Apply</button>
                 <button class="endpoint" onclick="clearCredential('shop-cred-input')">Clear</button>
             </div>
@@ -104,11 +104,11 @@
 
             <h3 style="margin-top:1rem">Earnings</h3>
             <div class="table-wrap" role="region" tabindex="0" aria-label="Earnings breakdown">
-            <table class="block-list-table">
-                <tr><td>Total</td><td id="shop-earnings-total">--</td></tr>
-                <tr><td>Paid</td><td id="shop-earnings-paid">--</td></tr>
-                <tr><td>Pending</td><td id="shop-earnings-pending">--</td></tr>
-                <tr><td>Miner uptime (pool-hub SLA)</td><td id="shop-miner-uptime">--</td></tr>
+            <table class="block-list-table" aria-label="Earnings breakdown">
+                <tr><th scope="row">Total</th><td>id="shop-earnings-total">--</td></tr>
+                <tr><th scope="row">Paid</th><td>id="shop-earnings-paid">--</td></tr>
+                <tr><th scope="row">Pending</th><td>id="shop-earnings-pending">--</td></tr>
+                <tr><th scope="row">Miner uptime (pool-hub SLA)</th><td>id="shop-miner-uptime">--</td></tr>
             </table>
             </div>
         </div>

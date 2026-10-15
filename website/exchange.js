@@ -160,6 +160,7 @@ function showConnectedAccount(account) {
     const span = document.getElementById('connected-account');
     if (span && account) {
         span.textContent = `${account.slice(0, 6)}...${account.slice(-4)}`;
+        span.setAttribute('aria-label', account);
     }
     const buyBtn = document.getElementById('buy-with-eth-btn');
     if (buyBtn && lastEstimate) {
@@ -299,13 +300,13 @@ function renderDeposit(deposit) {
     const resultEl = document.getElementById('track-result');
     if (!resultEl) return;
     const aitTxLink = deposit.ait_tx_hash
-        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a>`
+        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener" aria-label="AIT transaction ${escapeHtml(deposit.ait_tx_hash)}">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a>`
         : '<span class="muted-text">pending</span>';
     const errLine = deposit.status === 'failed' && deposit.error_message
         ? `<p class="error-box" style="margin-top:0.5rem;">${escapeHtml(deposit.error_message)}</p>`
         : '';
     const fromShort = deposit.eth_from_address
-        ? `${escapeHtml(deposit.eth_from_address.slice(0, 6))}...${escapeHtml(deposit.eth_from_address.slice(-4))}`
+        ? `<span aria-hidden="true">${escapeHtml(deposit.eth_from_address.slice(0, 6))}...${escapeHtml(deposit.eth_from_address.slice(-4))}</span><span class="visually-hidden">${escapeHtml(deposit.eth_from_address)}</span>`
         : '-';
     resultEl.innerHTML = `
         <p><strong>Status:</strong> ${statusBadge(deposit.status)}</p>
