@@ -13,6 +13,90 @@ from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import _load_wallet, wallet
 
 
+# Public wallet-file fields inspect may print. Deny-by-default: anything not
+# listed is refused, so a new secret-bearing field can never leak by accident.
+_INSPECT_PUBLIC_FIELDS = frozenset(
+    {
+        "address",
+        "wallet_id",
+        "name",
+        "type",
+        "created_at",
+        "public_key",
+        "encrypted",
+        "balance",
+        "chain_id",
+    }
+)
+
+# Names that are refused outright with a clear "private field" error — kept
+# explicit so the refusal message names the reason, not just "not allowed".
+_INSPECT_PRIVATE_FIELDS = frozenset(
+    {
+        "private_key",
+        "seed",
+        "seed_phrase",
+        "mnemonic",
+        "password",
+        "secret",
+        "keystore",
+        "encrypted_data",
+        "salt",
+        "nonce",
+        "iv",
+        "xprv",
+    }
+)
+
+
+@wallet.command(
+    epilog="""Examples:
+
+  aitbc wallet inspect --path /var/lib/aitbc/wallets/shop.json --field address
+
+  aitbc wallet inspect --path ./genesis.json"""
+)
+@click.option("--path", "wallet_file", required=True, help="Path to the wallet JSON file")
+@click.option("--field", "field", default=None, help="Print a single public field (e.g. address)")
+@click.pass_context
+def inspect(ctx, wallet_file: str, field: str | None):
+    """Print public metadata from a wallet file without decrypting it.
+
+    Reads the JSON directly and only ever returns fields on a public
+    allowlist — private_key, seed/mnemonic material, and any unknown field
+    are refused. Works on encrypted wallets without a password."""
+    path = Path(wallet_file)
+    if not path.is_file():
+        error(f"Wallet file not found: {wallet_file}")
+        raise click.Abort()
+    try:
+        with open(path) as f:
+            wallet_data = json.load(f)
+    except json.JSONDecodeError:
+        error(f"Not a JSON wallet file: {wallet_file}")
+        raise click.Abort() from None
+    if not isinstance(wallet_data, dict):
+        error(f"Not a wallet JSON object: {wallet_file}")
+        raise click.Abort()
+
+    if field is not None:
+        if field in _INSPECT_PRIVATE_FIELDS:
+            error(f"refusing: '{field}' is a private field — inspect prints public wallet metadata only")
+            raise click.Abort()
+        if field not in _INSPECT_PUBLIC_FIELDS:
+            error(f"refusing: '{field}' is not a public wallet field (allowed: {', '.join(sorted(_INSPECT_PUBLIC_FIELDS))})")
+            raise click.Abort()
+        output(
+            {"field": field, "value": wallet_data.get(field)},
+            ctx.obj.get("output_format", "table"),
+        )
+        return
+
+    public_view = {k: wallet_data.get(k) for k in sorted(_INSPECT_PUBLIC_FIELDS) if k in wallet_data}
+    public_view["path"] = str(path)
+    output(public_view, ctx.obj.get("output_format", "table"))
+
+
 @wallet.command(
     epilog="""Examples:
 
