@@ -450,7 +450,7 @@ class TestStatusStripAndFooter(unittest.TestCase):
 
     def test_status_js_deferred_on_menu_pages(self) -> None:
         for name, p in self.parsed.items():
-            status = [s for s in p.scripts if s["src"].endswith("status.js")]
+            status = [s for s in p.scripts if s["src"].split("?")[0].endswith("status.js")]
             if name in NO_MENU_PAGES:
                 self.assertEqual([], status, f"{name}: menu-less page must not load status.js")
                 continue
