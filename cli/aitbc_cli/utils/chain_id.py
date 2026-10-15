@@ -67,6 +67,20 @@ def _probe_endpoint(http_client: AITBCHTTPClient, endpoint: str, errors: list[st
     return None
 
 
+def _rpc_probe_root(rpc_url: str) -> str:
+    """Root base for chain-id probes.
+
+    The probe paths are service-native root paths (``/rpc/proposer``,
+    ``/health``), so a base that already ends in ``/rpc`` — e.g.
+    ``get_rpc_endpoint()``'s ``https://<hub>/rpc`` — must lose exactly that
+    one suffix; otherwise the probes hit ``/rpc/rpc/proposer`` and 404.
+    """
+    root = rpc_url.rstrip("/")
+    if root.endswith("/rpc"):
+        root = root[: -len("/rpc")]
+    return root
+
+
 def get_chain_id_from_health(rpc_url: str, timeout: int = 5, *, strict: bool = False) -> str:
     """Auto-detect chain ID from the blockchain node.
 
@@ -75,7 +89,10 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5, *, strict: bool = F
     returns ``chain_id`` and ``supported_chains`` on every blockchain node.
 
     Args:
-        rpc_url: The blockchain node RPC URL (e.g., http://localhost:8202)
+        rpc_url: The blockchain node RPC URL — a root base
+            (``http://localhost:8202``) or a ``/rpc``-suffixed base
+            (``https://<hub>/rpc``); one trailing ``/rpc`` is stripped before
+            probing so both shapes resolve identically.
         timeout: Request timeout in seconds
         strict: Raise :class:`ChainIdLookupError` naming the underlying
             failures instead of falling back to the environment default.
@@ -87,7 +104,7 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5, *, strict: bool = F
     """
     errors: list[str] = []
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout, max_retries=0)
+        http_client = AITBCHTTPClient(base_url=_rpc_probe_root(rpc_url), timeout=timeout, max_retries=0)
     except NetworkError as e:
         errors.append(str(e))
         logger.debug("Network error creating chain ID client for %s", rpc_url, exc_info=True)

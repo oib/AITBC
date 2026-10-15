@@ -35,6 +35,7 @@ from ...utils import DECIMAL, info, output, resolve_output_format, success
 from ...utils.error_handling import abort
 from ...utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, http_response_status
 from ...utils.chain_id import resolve_chain_id
+from ...utils.island_credentials import get_chain_id as get_island_chain_id
 from ...utils.island_credentials import get_rpc_endpoint
 from ...utils.wallet_loader import load_wallet_for_payment
 from ...utils.wallet_paths import wallet_dir
@@ -99,11 +100,32 @@ def _chain_head(ctx) -> int:
 
 def _envelope_chain_id(ctx, override: str | None) -> str:
     """The envelope chain_id: explicit flag, else resolved against this node's
-    own RPC — fail-closed (resolve_chain_id probes strictly on signing paths),
-    never a silent default: a guessed chain_id signs an unverifiable envelope."""
+    own RPC — fail-closed, never a silent default: a guessed chain_id signs an
+    unverifiable envelope.
+
+    ``resolve_chain_id`` keeps ``--chain-id``/``CHAIN_ID`` ahead of the probe;
+    when no node answers the probe the island credentials' ``island_chain_id``
+    (written and validated at join) is the last source before the abort — a
+    wrong value there still fails closed at exchange signature verification.
+    """
     if override:
         return override
-    return resolve_chain_id(ctx, get_rpc_endpoint())
+    rpc_endpoint = get_rpc_endpoint()
+    chain_id = resolve_chain_id(ctx, rpc_endpoint, required=False)
+    if chain_id:
+        return chain_id
+    try:
+        chain_id = get_island_chain_id()
+    except (FileNotFoundError, PermissionError, ValueError):
+        chain_id = ""
+    if chain_id:
+        return chain_id
+    abort(
+        ctx,
+        f"Chain ID lookup via {rpc_endpoint} failed and island credentials carry no "
+        "island_chain_id. Set CHAIN_ID or pass --chain-id",
+    )
+    raise AssertionError("unreachable: abort always raises")
 
 
 def _node_state(client: AITBCHTTPClient, ctx, address: str) -> tuple[int, dict[str, Any]]:
