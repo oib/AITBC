@@ -289,3 +289,22 @@ def test_env_names_names_are_case_sensitive(runner, tmp_path):
     assert result.exit_code == 0, result.output
     reported = json.loads(result.output)
     assert reported == {"FOO": False, "foo": True}
+
+
+def test_file_info_help_lists_denylist(runner):
+    """CLI-7 row 37: --help epilog is generated from the denylist constants,
+    so the documented refused names cannot drift from the code."""
+    result = runner.invoke(system, args=["file-info", "--help"])
+    assert result.exit_code == 0, result.output
+    for token in (
+        # one name per denylist category, straight from the constants
+        "private_key",
+        "mnemonic",
+        "_key",
+        "passphrase",
+        "credentials",
+        "privatekey",
+        "private/secret/api/auth/signing/access",
+        "200",
+    ):
+        assert token in result.output, token
