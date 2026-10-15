@@ -182,6 +182,15 @@ class TestLayoutHeuristics(unittest.TestCase):
         m = re.search(r"\.journal-controls\s*\{([^}]*)\}", self.css)
         self.assertIsNotNone(m)
         self.assertIn("flex-wrap: wrap", m.group(1), ".journal-controls must wrap at narrow widths")
+        # min-width:auto floors a flex item at its min-content — a long unit
+        # name option made the live page overflow even with wrap. Pin both
+        # layers: the row (flex item of .journal-head) and the selects.
+        self.assertIn("min-width: 0", m.group(1), ".journal-controls is a flex item of .journal-head — needs min-width:0")
+        m2 = re.search(r"\.journal-controls\s+select\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m2)
+        self.assertIn(
+            "min-width: 0", m2.group(1), ".journal-controls select needs min-width:0 or min-content beats max-width:100%"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -218,8 +227,17 @@ _FIXTURES = {
     },
     "/api/alerts": {"firing": [], "pending": [], "prometheus_ok": True, "watcher": {}},
     "/api/journal/counts": {"prometheus_ok": True},
+    # Long unit name populates a long #journal-unit <option> — exercises the
+    # min-width:auto floor that made the live alerts page overflow at 375px.
     "/api/journal/recent": {
-        "entries": [{"ts": "2026-10-15T19:00:00Z", "unit": "fixture", "priority": "info", "message": "fixture entry"}],
+        "entries": [
+            {
+                "ts": "2026-10-15T19:00:00Z",
+                "unit": "aitbc-blockchain-node.service",
+                "priority": "warning",
+                "message": "fixture entry",
+            }
+        ],
         "journal_access": True,
     },
     "/api/blocks/latest": {"height": 48691, "hash": "0x" + _HEX},
