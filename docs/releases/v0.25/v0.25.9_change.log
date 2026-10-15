@@ -2189,21 +2189,8 @@ passphrase/credential, and keeps bare `config get` as the show alias.
 `--global` reads the global config file. MCP wrapper regenerated for the
 new signature.
 
-Item 6 (operator addendum, 15 Oct): `exchange order fund --fee` defaulted
-to `Decimal("0.001")` — below the chain standard — and now takes
-`DEFAULT_TX_FEE_AIT` (`aitbc.utils.units`) like every other fee path; an
-explicit `--fee` still wins. `wallet send` no longer reads a returned
-mempool hash as a landed transfer: it prints "submitted, not confirmed"
-(the same wording lands in the shared `_send_transaction_impl` used by
-`transactions send`, `order fund`, and `batch`), and a new `--wait` flag
-polls `wait_for_tx` for the seal — a confirmed send reports the block,
-while a send still unsealed after 120s exits nonzero naming the hash and
-the status command, since a retry reuses the nonce.
-
 Commits: `e64b0b123` (probe normalization + creds fallback + tests),
-`9e7daa873` (config get + tests + MCP regen), `bfaa13b44` (order fund
-fee default → DEFAULT_TX_FEE_AIT + tests), `8159a73a4` (wallet send
-submitted-not-confirmed + --wait + shared message).
+`9e7daa873` (config get + tests + MCP regen).
 
 ### REPO-1: file-info denylist extension + env-names case + verify DB containment + OPS-4 nginx example (2026-10-15)
 
@@ -2243,3 +2230,22 @@ check-mcp-cli-drift and check-c901-ratchet all pass.
 
 Commits: `8a0218e8d` (denylist + env-names + verify containment +
 nginx block + tests + MCP regen).
+
+### CLI-3b: `order fund --fee` → DEFAULT_TX_FEE_AIT + `wallet send` confirmation semantics (2026-10-15)
+
+`exchange order fund --fee` defaulted to `Decimal("0.001")` — below the
+chain standard — and now takes `DEFAULT_TX_FEE_AIT`
+(`aitbc.utils.units`) like every other fee path; an explicit `--fee`
+still wins. `wallet send` no longer reads a returned mempool hash as a
+landed transfer (the 15 Oct unsealed tx was indistinguishable from
+success): it prints "submitted, not confirmed" — the same wording lands
+in the shared `_send_transaction_impl` used by `transactions send`,
+`order fund` and `batch` — and its JSON output carries a `status` field
+(`submitted`/`confirmed`). A new `--wait` flag polls `wait_for_tx` for
+the seal: a confirmed send reports the block height, while a send still
+unsealed after 120s exits nonzero naming the hash and the status
+command, since a retry reuses the nonce.
+
+Commits: `bfaa13b44` (order fund fee default → DEFAULT_TX_FEE_AIT +
+tests), `8159a73a4` (wallet send submitted-not-confirmed + --wait +
+shared message).
