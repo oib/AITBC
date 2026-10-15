@@ -345,8 +345,12 @@ _MEASURE_JS = """
     }
   });
   const TAP = '.status-strip a.status-part, .site-footer a, .filter-btn, .block-item, ' +
-              '.journal-controls select, .block-list-table td a, .alerts-table td a, .top-addresses-table td a';
-  const tap = [...document.querySelectorAll(TAP)].filter(e => e.getBoundingClientRect().height < 44).length;
+              '.journal-controls select, .block-list-table td a, .alerts-table td a, .top-addresses-table td a, ' +
+              '.copy-btn';
+  // A zero-height rect means the element sits in a display:none subtree —
+  // it is not a rendered tap target, so it cannot be undersized.
+  const tap = [...document.querySelectorAll(TAP)]
+    .filter(e => { const r = e.getBoundingClientRect(); return r.height > 0 && r.height < 44; }).length;
   const smallCtl = [...document.querySelectorAll(
     'input:not([type="checkbox"]):not([type="radio"]), select, textarea')]
     .filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).length;
