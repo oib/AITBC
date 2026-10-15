@@ -33,8 +33,11 @@ groups, each reported with counts and per-row detail:
   order id from the order's owner; settled trades show both sweep legs.
 
 Guarantees: stdlib only, sqlite opened read-only (``mode=ro``), no
-writes, no keys, no environment reads — all endpoints/addresses come
-from flags. Exit status is 1 if any check FAILs; WARN and INFO never
+writes, no keys — all endpoints/addresses come from flags. The only
+environment read is the --db default: EXCHANGE_DATABASE_URL /
+AITBC_DATA_DIR, the same resolution apps/exchange/simple_exchange/db.py
+get_db_path() uses, minus the directory creation (this script never
+creates a DB). Exit status is 1 if any check FAILs; WARN and INFO never
 fail the run. Rows whose chain leg is merely unsealed are WARN, not
 FAIL — a lagging RPC is not evidence of loss.
 """
@@ -43,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -52,6 +56,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 DEFAULT_ETH_RPC = "https://ethereum-sepolia-rpc.publicnode.com"
+DEFAULT_DATA_DIR = "/var/lib/aitbc"
 WEI_PER_ETH = Decimal(10) ** 18
 UNITS_PER_AIT = Decimal(36_000_000)  # chain units per AIT
 TICKS_PER_UNIT = Decimal(100_000_000)  # exchange ticks per AIT
@@ -103,6 +108,34 @@ def _db(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _service_db_path() -> str:
+    """The exchange service's DB path — mirrors get_db_path() in
+    apps/exchange/simple_exchange/db.py (EXCHANGE_DATABASE_URL with
+    sqlite:/// stripped, else AITBC_DATA_DIR/data/exchange/exchange.db),
+    minus its mkdir: this script must never create a DB."""
+    raw = os.getenv("EXCHANGE_DATABASE_URL")
+    if raw:
+        if raw.startswith("sqlite:"):
+            raw = raw[len("sqlite:") :]
+        while raw.startswith("/"):
+            raw = raw[1:]
+        return "/" + raw
+    return os.path.join(os.getenv("AITBC_DATA_DIR", DEFAULT_DATA_DIR), "data/exchange/exchange.db")
+
+
+def _resolve_db(ns_db: str | None) -> str:
+    """--db wins; otherwise the service default is used when readable."""
+    if ns_db:
+        return ns_db
+    candidate = _service_db_path()
+    if os.path.isfile(candidate) and os.access(candidate, os.R_OK):
+        return candidate
+    raise SystemExit(
+        f"--db is required: no readable exchange DB at the service default {candidate} "
+        "(checked EXCHANGE_DATABASE_URL / AITBC_DATA_DIR)"
+    )
 
 
 def _dec(value: Any) -> Decimal | None:
@@ -561,7 +594,12 @@ def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add, br
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--db", required=True, help="exchange SQLite DB path")
+    ap.add_argument(
+        "--db",
+        default=None,
+        help="exchange SQLite DB path (default: the service path from EXCHANGE_DATABASE_URL / AITBC_DATA_DIR, "
+        "i.e. /var/lib/aitbc/data/exchange/exchange.db, when it is readable)",
+    )
     ap.add_argument("--bridge-db", help="bridge_deposits.db path — enables the prepay cross-check")
     ap.add_argument("--rpc-url", default=DEFAULT_ETH_RPC, help="Sepolia JSON-RPC endpoint")
     ap.add_argument("--bridge-address", help="expected deposit destination (enforces `to` on prepays)")
@@ -578,6 +616,7 @@ def main() -> int:
     )
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ns = ap.parse_args()
+    ns.db = _resolve_db(ns.db)
 
     findings: list[dict[str, str]] = []
 
@@ -598,7 +637,12 @@ def main() -> int:
             if ns.ait_rpc and ns.escrow_address:
                 check_ait_chain(conn, ns.ait_rpc, ns.escrow_address, add, bridge_db_path=ns.bridge_db)
             else:
-                add(INFO, "ait", "no --ait-rpc/--escrow-address — AIT chain checks skipped")
+                add(
+                    INFO,
+                    "ait",
+                    "AIT chain checks skipped — pass --ait-rpc http://127.0.0.1:8202 --escrow-address 0x... "
+                    "to enable backing/settlement-leg verification",
+                )
     finally:
         conn.close()
 

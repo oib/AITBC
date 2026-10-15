@@ -775,8 +775,11 @@ def aitbc_exchange_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_exchange_verify(
     db: Annotated[
-        str, Field(description="Exchange SQLite DB path under /var/lib/aitbc/ (absolute, existing regular file, no symlinks)")
-    ],
+        str | None,
+        Field(
+            description="Exchange SQLite DB path under /var/lib/aitbc/ (absolute, existing regular file, no symlinks). Default: the service path the script resolves (EXCHANGE_DATABASE_URL / AITBC_DATA_DIR exchange.db)"
+        ),
+    ] = None,
     bridge_db: Annotated[
         str | None, Field(description="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check")
     ] = None,

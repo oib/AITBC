@@ -89,6 +89,25 @@ def test_verify_passthrough_exit_code_and_fail_lines(runner, tmp_path):
     assert "WARN lagging rpc" in result.output
 
 
+def test_verify_db_omitted_lets_script_default(runner, tmp_path):
+    """CLI-5: no --db → argv carries none; exchange_verify.py resolves the
+    service default itself (EXCHANGE_DATABASE_URL / AITBC_DATA_DIR)."""
+    captured = {}
+
+    def fake_run(argv, **kw):
+        captured["argv"] = argv
+        return mock.Mock(returncode=0, stdout="OK\n", stderr="")
+
+    with (
+        mock.patch.object(hub_mod, "_verify_script_path", return_value=tmp_path / "exchange_verify.py"),
+        mock.patch.object(hub_mod.subprocess, "run", side_effect=fake_run),
+    ):
+        result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=[])
+    assert result.exit_code == 0, result.output
+    assert "--db" not in captured["argv"]
+    assert "--no-chain" in captured["argv"]
+
+
 @pytest.mark.parametrize("bad", ["relative.db", "also/relative.db"])
 def test_verify_rejects_relative_db(runner, bad):
     result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=["--db", bad])
