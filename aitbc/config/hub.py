@@ -81,6 +81,12 @@ def hub_service_url(path: str) -> str | None:
     return f"https://{host}/{path.lstrip('/')}"
 
 
+def hub_origin() -> str | None:
+    """``https://<hub>`` with no path, or None when no hub host is configured."""
+    host = hub_discovery_host()
+    return f"https://{host}" if host else None
+
+
 def hub_agent_url() -> str | None:
     """Where the hub's agent API is mounted.
 
@@ -102,11 +108,18 @@ def hub_agent_url() -> str | None:
 
 
 def hub_exchange_url() -> str | None:
-    """Where the hub's exchange API is mounted."""
+    """Where the hub's exchange API is mounted.
+
+    The signed-order routes are published at their natural ``/api/*`` paths on
+    the hub host itself (OPS-4) — ``/exchange/`` is the wallet service's mount,
+    not the exchange. The default base is therefore the bare hub origin.
+    ``HUB_EXCHANGE_URL`` / ``EXCHANGE_SERVICE_URL`` are already full bases and
+    still win.
+    """
     explicit = os.getenv("HUB_EXCHANGE_URL") or os.getenv("EXCHANGE_SERVICE_URL")
     if explicit:
         return explicit.rstrip("/")
-    return hub_service_url("exchange")
+    return hub_origin()
 
 
 def hub_coordinator_url() -> str | None:
