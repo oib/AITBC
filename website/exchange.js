@@ -300,7 +300,7 @@ function renderDeposit(deposit) {
     const resultEl = document.getElementById('track-result');
     if (!resultEl) return;
     const aitTxLink = deposit.ait_tx_hash
-        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener" aria-label="AIT transaction ${escapeHtml(deposit.ait_tx_hash)}">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a>`
+        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener noreferrer" aria-label="AIT transaction ${escapeHtml(deposit.ait_tx_hash)}">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a>`
         : '<span class="muted-text">pending</span>';
     const errLine = deposit.status === 'failed' && deposit.error_message
         ? `<p class="error-box" style="margin-top:0.5rem;">${escapeHtml(deposit.error_message)}</p>`
