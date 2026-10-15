@@ -303,7 +303,8 @@ def test_staging_mainnet_stack_passes_7_of_7(tmp_path, capsys):
     """Part B proof: the mainnet profile is green on a mainnet-style env
     layered exactly like the real EnvironmentFile list."""
     files = _staging_env_paths(tmp_path, dict(STAGING_MAINNET))
-    rc = preflight.main(["--env-file", *files])
+    argv = [arg for f in files for arg in ("--env-file", f)]
+    rc = preflight.main(argv)
     out = capsys.readouterr().out
     assert rc == 0
     assert "7/7" in out
@@ -316,7 +317,8 @@ def test_staging_mainnet_stack_knob_removed_fails(tmp_path, capsys, knob):
     env = dict(STAGING_MAINNET)
     del env[knob]
     files = _staging_env_paths(tmp_path, env)
-    rc = preflight.main(["--env-file", *files])
+    argv = [arg for f in files for arg in ("--env-file", f)]
+    rc = preflight.main(argv)
     out = capsys.readouterr().out
     assert rc == 1
     assert f"FAIL  {knob}" in out
