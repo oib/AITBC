@@ -1,0 +1,178 @@
+"""Public read routes for on-chain forum messages (MSG-1).
+
+Data comes from the derived index in ``aitbc_chain.messaging_index`` — a
+bounded, predicate-filtered query over the ``transaction`` table. These
+handlers are bound twice: under the canonical ``/rpc/messaging/*`` paths and
+as the legacy ``/rpc/contracts/messaging/*`` aliases the generated MCP tools
+still call.
+
+Posting is not an RPC operation: a message is a signed ``MESSAGE``
+transaction submitted through ``/rpc/transaction`` (``aitbc messaging
+send``). The mutation routes under ``/rpc/contracts/messaging/*`` return 501
+pointing here.
+"""
+
+from typing import Any
+
+from fastapi import HTTPException, Request
+
+from aitbc.messaging import MIN_SEARCH_CHARS, normalize_topic
+from aitbc.rate_limiting import rate_limit
+
+from ..database import session_scope
+from ..logger import get_logger
+from ..messaging_index import (
+    MAX_OFFSET,
+    MAX_READ_LIMIT,
+    get_message,
+    list_messages,
+    list_topics,
+    parse_cursor,
+    state,
+)
+from .utils import get_chain_id
+
+_logger = get_logger(__name__)
+
+
+def _clamp_limit(limit: int) -> int:
+    return max(1, min(int(limit), MAX_READ_LIMIT))
+
+
+def _check_cursor(cursor: str | None) -> None:
+    if cursor:
+        try:
+            parse_cursor(cursor)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Forum totals derived from the chain, plus the index height."""
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        return state(session, resolved)
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_topics(
+    request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    chain_id: str | None = None,
+) -> dict[str, Any]:
+    """Topics ranked by last activity. Implicit — first post creates them."""
+    if offset < 0 or offset > MAX_OFFSET:
+        raise HTTPException(status_code=400, detail=f"offset must be 0..{MAX_OFFSET}")
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        return list_topics(session, resolved, limit=_clamp_limit(limit), offset=offset)
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_messages(
+    request: Request,
+    topic: str | None = None,
+    author: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    cursor: str | None = None,
+    chain_id: str | None = None,
+) -> dict[str, Any]:
+    """Page messages newest-first. ``cursor`` takes a previous next_cursor."""
+    if offset < 0 or offset > MAX_OFFSET:
+        raise HTTPException(status_code=400, detail=f"offset must be 0..{MAX_OFFSET}")
+    _check_cursor(cursor)
+    canonical_topic: str | None = None
+    if topic is not None:
+        canonical_topic = normalize_topic(topic)
+        if canonical_topic is None:
+            raise HTTPException(status_code=400, detail=f"topic '{topic}' is not a valid slug")
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        return list_messages(
+            session,
+            resolved,
+            topic=canonical_topic,
+            author=author,
+            limit=_clamp_limit(limit),
+            offset=offset,
+            cursor=cursor,
+        )
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_get(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+    """One message by its transaction hash; 404 when it is not a forum message."""
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        view = get_message(session, resolved, tx_hash)
+    if view is None:
+        raise HTTPException(status_code=404, detail=f"No forum message {tx_hash}")
+    view["success"] = True
+    view["chain_id"] = resolved
+    return view
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_search(
+    request: Request,
+    query: str | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    cursor: str | None = None,
+    chain_id: str | None = None,
+) -> dict[str, Any]:
+    """Literal substring search over message bodies (LIKE metachars escaped)."""
+    text = (q if q is not None else query) or ""
+    if len(text.strip()) < MIN_SEARCH_CHARS:
+        raise HTTPException(status_code=400, detail=f"query must be at least {MIN_SEARCH_CHARS} characters")
+    if offset < 0 or offset > MAX_OFFSET:
+        raise HTTPException(status_code=400, detail=f"offset must be 0..{MAX_OFFSET}")
+    _check_cursor(cursor)
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        result = list_messages(
+            session,
+            resolved,
+            body_contains=text.strip(),
+            limit=_clamp_limit(limit),
+            offset=offset,
+            cursor=cursor,
+        )
+    result["query"] = text.strip()
+    return result
+
+
+# -- Legacy `/rpc/contracts/messaging/*` aliases ---------------------------
+# The generated MCP HTTP tools (get_forum_topics, get_topic_messages,
+# get_messaging_contract_state) call these paths; they keep working.
+
+
+async def forum_topics(request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"):
+    if sort_by != "last_activity":
+        raise HTTPException(status_code=400, detail="only sort_by=last_activity is supported")
+    return await messaging_topics(request, limit=limit, offset=offset)
+
+
+async def forum_topic_messages(request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"):
+    # topic_id is the slug itself — implicit topics have no separate id space.
+    return await messaging_messages(request, topic=topic_id, limit=limit, offset=offset)
+
+
+async def forum_search(request: Request, query: str, limit: int = 50):
+    return await messaging_search(request, query=query, limit=limit)
+
+
+def _not_implemented(feature: str) -> HTTPException:
+    return HTTPException(status_code=501, detail=feature)
+
+
+def messaging_not_on_chain(feature: str = "messaging via RPC") -> HTTPException:
+    """501 for the retired in-memory write paths."""
+    return _not_implemented(
+        f"{feature} is not an RPC call: post by signing a MESSAGE transaction "
+        "(aitbc messaging send / POST /rpc/transaction). No contract is deployed."
+    )
