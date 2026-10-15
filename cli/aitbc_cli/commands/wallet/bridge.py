@@ -312,20 +312,86 @@ def withdraw(
 @bridge.command(
     epilog="""Examples:
 
-  aitbc wallet bridge status --ait-tx-hash 0x..."""
+  aitbc wallet bridge status --ait-tx-hash 0x...
+  aitbc wallet bridge status --today     # releases since 00:00 service time (UTC on hosts)
+  aitbc wallet bridge status --24h       # rolling 24h — the sell day-cap window"""
 )
-@click.option("--ait-tx-hash", "ait_tx_hash", required=True, help="AIT withdrawal transaction hash.")
+@click.option("--ait-tx-hash", "ait_tx_hash", required=False, help="AIT withdrawal transaction hash.")
+@click.option(
+    "--today",
+    "today",
+    is_flag=True,
+    default=False,
+    help="Aggregate releases since service-local midnight (UTC on deployed hosts).",
+)
+@click.option(
+    "--24h",
+    "last_24h",
+    is_flag=True,
+    default=False,
+    help="Aggregate releases over the rolling 24h window (the sell day-cap basis).",
+)
+@click.option("--hub-url", "hub_url", default=None, help="Hub wallet-service base URL (default: configured wallet daemon)")
 @click.pass_context
-def status(ctx, ait_tx_hash: str):
-    """Check the status of an AIT->ETH withdrawal."""
-    wallet_client = get_wallet_client()
-    try:
-        info = wallet_client.get(f"/v1/bridge/withdraw/{ait_tx_hash}")
-    except Exception as e:
-        error(f"Failed to get withdrawal status: {e}")
-        raise click.Abort() from e
+def status(ctx, ait_tx_hash: str | None, today: bool, last_24h: bool, hub_url: str | None):
+    """Check an AIT->ETH withdrawal, or aggregate ETH released over a
+    window for day-cap reconciliation (--today / --24h, read-only)."""
+    chosen = [bool(ait_tx_hash), today, last_24h]
+    if sum(chosen) != 1:
+        error("status needs exactly one of --ait-tx-hash, --today, --24h")
+        raise click.Abort()
 
-    output(info, ctx.obj.get("output_format", "table"))
+    if ait_tx_hash:
+        wallet_client = get_wallet_client()
+        try:
+            info = wallet_client.get(f"/v1/bridge/withdraw/{ait_tx_hash}")
+        except Exception as e:
+            error(f"Failed to get withdrawal status: {e}")
+            raise click.Abort() from e
+        output(info, ctx.obj.get("output_format", "table"))
+        return
+
+    client = _hub_bridge_client(hub_url)
+    try:
+        doc = client.get("/v1/bridge/float")
+    except Exception as e:
+        error(f"Failed to read bridge float: {e}")
+        raise click.Abort() from e
+    window = doc.get("windows", {}).get("today" if today else "last_24h", {})
+    label = "today (since 00:00 service time)" if today else "last 24h (rolling)"
+    output(
+        {
+            "window": label,
+            "since": window.get("since", ""),
+            "withdrawals_eth": window.get("withdrawals_eth", ""),
+            "sell_eth": window.get("sell_eth", ""),
+            "exchange_eth": window.get("exchange_eth", ""),
+            "total_eth": window.get("total_eth", ""),
+            "sell_daily_cap": doc.get("sell_daily_cap", {}),
+        },
+        ctx.obj.get("output_format", "table"),
+    )
+
+
+@bridge.command(
+    "float",
+    epilog="""Examples:
+
+  aitbc wallet bridge float
+  aitbc wallet bridge float --hub-url https://hub.example/wallet   # from a shop node""",
+)
+@click.option("--hub-url", "hub_url", default=None, help="Hub wallet-service base URL (default: configured wallet daemon)")
+@click.pass_context
+def float_cmd(ctx, hub_url: str | None):
+    """Show the bridge ETH float: wallet balance, pending reserve across
+    all three release lanes, and today/24h release windows (read-only)."""
+    client = _hub_bridge_client(hub_url)
+    try:
+        doc = client.get("/v1/bridge/float")
+    except Exception as e:
+        error(f"Failed to read bridge float: {e}")
+        raise click.Abort() from e
+    output(doc, ctx.obj.get("output_format", "table"))
 
 
 @bridge.command(
