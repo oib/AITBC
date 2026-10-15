@@ -674,7 +674,6 @@ def mock_send():
     with (
         patch("aitbc_cli.commands.exchange.hub_orders._send_transaction_impl") as send,
         patch("aitbc_cli.commands.exchange.hub_orders.resolve_wallet_password", return_value="pw") as pw,
-        patch("aitbc_cli.commands.exchange.hub_orders.wallet_dir", return_value=__import__("pathlib").Path("/tmp/wallets")),
     ):
         send.return_value = "0x" + "aa" * 32
 
@@ -684,6 +683,66 @@ def mock_send():
 
         send.side_effect = _record
         yield send, pw, calls
+
+
+@pytest.fixture
+def mock_broadcast():
+    """CLI-4: patch ONLY the broadcast — password resolution and the wallet
+    file read stay real. Returns the ``_send_transaction_impl`` call list."""
+    calls = []
+    with patch("aitbc_cli.commands.exchange.hub_orders._send_transaction_impl") as send:
+        send.return_value = "0x" + "bb" * 32
+
+        def _record(*args, **kwargs):
+            calls.append((args, kwargs))
+            return send.return_value
+
+        send.side_effect = _record
+        yield calls
+
+
+@pytest.fixture
+def wallet_file(tmp_path, monkeypatch, wallet_key):
+    """A real unencrypted file wallet — ``order fund`` reads its plaintext
+    ``address`` field; nothing mocks the wallet path."""
+    wdir = tmp_path / "wallets"
+    wdir.mkdir()
+    (wdir / "testwallet.json").write_text(
+        json.dumps({"wallet_id": "testwallet", "address": wallet_key[0], "private_key": wallet_key[1]})
+    )
+    monkeypatch.setenv("AITBC_WALLET_DIR", str(wdir))
+    return wdir
+
+
+@pytest.fixture
+def enc_wallet(tmp_path, monkeypatch):
+    """A REAL encrypted file wallet — written through ``_save_wallet`` (the
+    wallet command's own encrypt_value path), no hand-rolled blob."""
+    from aitbc_cli.commands.wallet import _save_wallet
+
+    acct = Account.create()
+    wdir = tmp_path / "wallets"
+    wdir.mkdir()
+    _save_wallet(
+        wdir / "encwallet.json",
+        {"wallet_id": "encwallet", "address": acct.address, "private_key": acct.key.hex()},
+        password="test-pass-1",
+    )
+    monkeypatch.setenv("AITBC_WALLET_DIR", str(wdir))
+    monkeypatch.delenv("AITBC_WALLET_PASSWORD", raising=False)
+    monkeypatch.delenv("AITBC_WALLET_PASSWORD_FILE", raising=False)
+    monkeypatch.delenv("AITBC_WALLET_PASSWORD_ENCWALLET", raising=False)
+    return wdir, acct.address
+
+
+@pytest.fixture
+def pw_file(tmp_path):
+    """A real password file — mode 600, owned by the test user (required by
+    ``_read_password_file``'s ownership/permission checks)."""
+    f = tmp_path / "pw.txt"
+    f.write_text("test-pass-1\n")
+    f.chmod(0o600)
+    return f
 
 
 def _fund_args(order_id=42, extra=None):
@@ -700,7 +759,7 @@ def _fund_args(order_id=42, extra=None):
 
 
 class TestOrderFund:
-    def test_happy_path_sends_lock(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_happy_path_sends_lock(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, pw, calls = mock_send
         mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
         result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
@@ -713,7 +772,7 @@ class TestOrderFund:
         assert kwargs["payload"] == {"sell_quote": 42}
         pw.assert_called_once()
 
-    def test_default_fee_is_chain_standard(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_default_fee_is_chain_standard(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         """CLI-3 item 6: the fee default is DEFAULT_TX_FEE_AIT, not a literal."""
         from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
@@ -724,7 +783,7 @@ class TestOrderFund:
         args, _kwargs = calls[0]
         assert args[3] == DEFAULT_TX_FEE_AIT == Decimal("0.01")
 
-    def test_explicit_fee_wins(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_explicit_fee_wins(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, _pw, calls = mock_send
         mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
         result = runner.invoke(order, _fund_args(extra=["--fee", "0.5"]), obj={"output_format": "json"})
@@ -733,7 +792,7 @@ class TestOrderFund:
         assert args[3] == Decimal("0.5")
 
     def test_print_emits_raw_command_without_broadcast(
-        self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key
+        self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key
     ):
         send, pw, calls = mock_send
         mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
@@ -745,14 +804,14 @@ class TestOrderFund:
         assert "sell_quote" in result.output and '"sell_quote": 42' in result.output
         assert "0x52908400098527886E0F7030069857D2E4169EE7" in result.output
 
-    def test_unknown_order_aborts(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_unknown_order_aborts(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, _pw, calls = mock_send
         mock_client.get_responses = _unfunded_sell_doc(wallet_key[0])
         result = runner.invoke(order, _fund_args(order_id=99), obj={"output_format": "json"})
         assert result.exit_code != 0
         assert not calls
 
-    def test_buy_order_refused(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_buy_order_refused(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, _pw, calls = mock_send
         doc = _unfunded_sell_doc(wallet_key[0])
         doc["/api/exchange/my-orders"]["orders"][0]["order_type"] = "BUY"
@@ -762,7 +821,7 @@ class TestOrderFund:
         assert "BUY" in result.output
         assert not calls
 
-    def test_funded_order_refused(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_funded_order_refused(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, _pw, calls = mock_send
         doc = _unfunded_sell_doc(wallet_key[0])
         doc["/api/exchange/my-orders"]["orders"][0]["funded_state"] = "funded"
@@ -772,7 +831,7 @@ class TestOrderFund:
         assert result.exit_code != 0
         assert not calls
 
-    def test_flag_off_no_funding_block_refused(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_flag_off_no_funding_block_refused(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, _pw, calls = mock_send
         doc = _unfunded_sell_doc(wallet_key[0])
         doc["/api/exchange/my-orders"]["orders"][0].pop("funding")
@@ -781,19 +840,130 @@ class TestOrderFund:
         assert result.exit_code != 0
         assert not calls
 
-    def test_missing_escrow_aborts(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_missing_escrow_aborts(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, _pw, calls = mock_send
         mock_client.get_responses = _unfunded_sell_doc(wallet_key[0], escrow="")
         result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
         assert result.exit_code != 0
         assert not calls
 
-    def test_bad_required_ait_aborts(self, runner, mock_client, mock_wallet, mock_chain, mock_send, wallet_key):
+    def test_bad_required_ait_aborts(self, runner, mock_client, wallet_file, mock_chain, mock_send, wallet_key):
         send, _pw, calls = mock_send
         mock_client.get_responses = _unfunded_sell_doc(wallet_key[0], required="abc")
         result = runner.invoke(order, _fund_args(), obj={"output_format": "json"})
         assert result.exit_code != 0
         assert not calls
+
+
+# --- order fund on a real encrypted wallet (CLI-4) --------------------------
+
+
+def _enc_fund_args(order_id=42, password_args=None, extra=None):
+    return (
+        ["fund", str(order_id), "--wallet", "encwallet"]
+        + (password_args or [])
+        + ["--exchange-url", "http://e.invalid"]
+        + (extra or [])
+    )
+
+
+class TestOrderFundEncryptedWallet:
+    """CLI-4: a REAL encrypted file wallet (``_save_wallet``/encrypt_value),
+    REAL password resolution — only the broadcast and the exchange HTTP
+    client are faked. The 15 Oct D1 failure was exactly this shape: the
+    loader demanded a password before the funding block was read."""
+
+    def test_password_file_sends_resolved_pw(self, runner, mock_client, mock_chain, enc_wallet, pw_file, mock_broadcast):
+        """--password-file reaches the send: resolved once, reused verbatim."""
+        _wdir, addr = enc_wallet
+        mock_client.get_responses = _unfunded_sell_doc(addr)
+        result = runner.invoke(
+            order, _enc_fund_args(password_args=["--password-file", str(pw_file)]), obj={"output_format": "json"}
+        )
+        assert result.exit_code == 0, result.output
+        assert len(mock_broadcast) == 1
+        args, _kwargs = mock_broadcast[0]
+        assert args[0] == "encwallet"
+        assert args[4] == "test-pass-1"  # the file's content — resolution was real
+        assert args[2] == Decimal("10")
+
+    def test_wrong_password_fails_closed(self, runner, mock_client, mock_chain, enc_wallet, tmp_path):
+        """Wrong password: real ``_send_transaction_impl`` runs, its decrypt
+        fails before any network, and the command exits nonzero — no hash."""
+        _wdir, addr = enc_wallet
+        bad = tmp_path / "bad.txt"
+        bad.write_text("wrong-pass-1\n")
+        bad.chmod(0o600)
+        mock_client.get_responses = _unfunded_sell_doc(addr)
+        result = runner.invoke(
+            order,
+            _enc_fund_args(password_args=["--password-file", str(bad)], extra=["--rpc-url", "http://x.invalid"]),
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code != 0
+        assert "ait_tx_hash" not in result.output
+
+    def test_no_password_fails_closed(self, runner, mock_client, mock_chain, enc_wallet, mock_broadcast):
+        """Encrypted wallet, no source, no TTY: fails closed, nothing sent."""
+        _wdir, addr = enc_wallet
+        mock_client.get_responses = _unfunded_sell_doc(addr)
+        result = runner.invoke(order, _enc_fund_args(), obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert "No wallet password available" in result.output
+        assert not mock_broadcast
+
+    def test_print_needs_no_password(self, runner, mock_client, mock_chain, enc_wallet, mock_broadcast):
+        """--print on an encrypted wallet: the plaintext ``address`` field is
+        enough — no password resolved, no key touched (spec 1b)."""
+        _wdir, addr = enc_wallet
+        mock_client.get_responses = _unfunded_sell_doc(addr)
+        result = runner.invoke(order, _enc_fund_args(extra=["--print"]), obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        assert "password" not in result.output.lower()
+        assert "--from encwallet" in result.output
+        assert '"sell_quote": 42' in result.output
+        assert not mock_broadcast
+
+    def test_print_with_stdin_never_reads(self, runner, mock_client, mock_chain, enc_wallet, mock_broadcast):
+        """--print --password-stdin with EMPTY stdin still succeeds — the
+        stdin source is never touched on the print path."""
+        _wdir, addr = enc_wallet
+        mock_client.get_responses = _unfunded_sell_doc(addr)
+        result = runner.invoke(
+            order,
+            _enc_fund_args(password_args=["--password-stdin"], extra=["--print"]),
+            input="",
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code == 0, result.output
+        assert "--from encwallet" in result.output
+        assert not mock_broadcast
+
+    def test_password_stdin_read_exactly_once(self, runner, mock_client, mock_chain, enc_wallet, mock_broadcast):
+        """One line on stdin funds the send. A second readline would return
+        '' and abort — success here proves the resolution ran exactly once
+        and its value was reused for the broadcast."""
+        _wdir, addr = enc_wallet
+        mock_client.get_responses = _unfunded_sell_doc(addr)
+        result = runner.invoke(
+            order, _enc_fund_args(password_args=["--password-stdin"]), input="test-pass-1\n", obj={"output_format": "json"}
+        )
+        assert result.exit_code == 0, result.output
+        assert len(mock_broadcast) == 1
+        args, _kwargs = mock_broadcast[0]
+        assert args[4] == "test-pass-1"
+
+    def test_unknown_wallet_aborts(self, runner, mock_client, mock_chain, enc_wallet, mock_broadcast):
+        """A wallet that exists nowhere still aborts 'not found' before any
+        password or order work."""
+        result = runner.invoke(
+            order,
+            ["fund", "42", "--wallet", "ghost", "--exchange-url", "http://e.invalid"],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code != 0
+        assert "not found" in result.output
+        assert not mock_broadcast
 
 
 # --- node set-payout (CLI-1) -----------------------------------------------

@@ -23,6 +23,7 @@ verifies ``keccak256(canonical JSON)`` over the pinned field set.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from decimal import Decimal, InvalidOperation
@@ -34,13 +35,14 @@ import click
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ...utils import DECIMAL, info, output, resolve_output_format, success
+from ...utils.address import to_canonical
 from ...utils.error_handling import abort
 from ...utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, http_response_status
 from ...utils.chain_id import resolve_chain_id
 from ...utils.island_credentials import get_chain_id as get_island_chain_id
 from ...utils.island_credentials import get_rpc_endpoint
-from ...utils.wallet_loader import load_wallet_for_payment
-from ...utils.wallet_paths import wallet_dir
+from ...utils.wallet_loader import _resolve_wallet_name_and_path, load_wallet_for_payment
+from ...utils.wallet_paths import find_wallet_file
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ..transactions import _send_transaction_impl
 
@@ -341,6 +343,50 @@ def order_my(ctx, wallet, address_opt, exchange_url):
     )
 
 
+def _fund_wallet_address(ctx, wallet: str | None) -> tuple[str, str, Path | None]:
+    """(address, wallet_id, wallet_path) for ``order fund`` — resolved
+    without touching key material.
+
+    ``load_wallet_for_payment`` cannot serve this call: for an encrypted
+    file wallet it resolves a signing password and decrypts eagerly, so even
+    ``order fund --print`` died with "No wallet password available" before
+    the funding block was read (CLI-4 — the 15 Oct D1 live find). An
+    encrypted wallet file keeps ``address`` in plaintext, so reading the
+    field directly needs no secret; the daemon fallback needs no key either.
+    The lock send re-reads the keystore itself inside
+    ``_send_transaction_impl`` — the password is resolved once, right before
+    the broadcast, so ``--password-stdin`` is consumed exactly one time.
+    """
+    name, _resolved = _resolve_wallet_name_and_path(wallet_name=wallet)
+    path = find_wallet_file(name)
+    if path is None:
+        # No file wallet — the daemon may still know it (same fallback the
+        # payment loader uses).
+        from ..config import get_config
+        from ...utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+
+        info_doc = DualModeWalletAdapter(get_config(), use_daemon=True).get_wallet_info(name)
+        if not info_doc:
+            abort(ctx, f"Wallet '{name}' not found")
+            raise AssertionError("unreachable: abort always raises")
+        address = to_canonical(info_doc.get("address", ""))
+        if not address:
+            abort(ctx, f"Wallet '{name}' has no address")
+            raise AssertionError("unreachable: abort always raises")
+        return address, name, None
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        abort(ctx, f"Cannot read wallet '{name}': {e}", from_exception=e)
+        raise AssertionError("unreachable: abort always raises") from e
+    metadata = data.get("metadata") or {}
+    raw = data.get("address") or metadata.get("address") or metadata.get("original_address")
+    if not raw:
+        abort(ctx, f"Wallet '{name}' has no address")
+        raise AssertionError("unreachable: abort always raises")
+    return to_canonical(str(raw)), name, path
+
+
 @order.command(
     "fund",
     epilog="""Examples:
@@ -371,12 +417,14 @@ def order_fund(ctx, order_id, fee, print_only, wallet, password, password_file, 
     refunded, never credited). --print emits the equivalent
     'transactions send' line without broadcasting anything.
 
-    Operator note (CLI-1): this command was implemented and exercised
-    against mocks only — no live exchange, wallet, or chain run has been
-    performed. A real transfer is an AIT move the operator names
+    Operator note (CLI-1/CLI-4): the password path was fixed after the
+    15 Oct D1 find — the loader's resolution is replaced by a plaintext
+    address read plus a single password resolution reused for the send,
+    covered by a real encrypted-wallet test. The command has still never
+    broadcast live — a real transfer is an AIT move the operator names
     explicitly.
     """
-    address, _pk, wallet_id = load_wallet_for_payment(ctx, wallet_name=wallet, require_private_key=False)
+    address, wallet_id, wallet_path = _fund_wallet_address(ctx, wallet)
     client = _exchange_client(ctx, exchange_url)
     _nonce, doc = _node_state(client, ctx, address)
     row = next((o for o in (doc.get("orders") or []) if o.get("id") == order_id), None)
@@ -424,15 +472,18 @@ def order_fund(ctx, order_id, fee, print_only, wallet, password, password_file, 
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
-        wallet_path=wallet_dir() / f"{wallet_id}.json",
+        wallet_path=wallet_path,
+        ctx=ctx,
     )
     tx_hash = _send_transaction_impl(wallet_id, escrow, required, fee, pw, rpc_url=rpc_url, payload={"sell_quote": order_id})
-    if tx_hash:
-        success(f"Lock sent for order {order_id}: {tx_hash} — the settlement monitor funds it once it lands")
-        output(
-            {"order_id": order_id, "ait_tx_hash": tx_hash, "escrow": escrow, "required_ait": str(required)},
-            resolve_output_format(ctx),
-        )
+    if not tx_hash:
+        abort(ctx, f"Lock transfer for order {order_id} failed — see the error above")
+        return
+    success(f"Lock sent for order {order_id}: {tx_hash} — the settlement monitor funds it once it lands")
+    output(
+        {"order_id": order_id, "ait_tx_hash": tx_hash, "escrow": escrow, "required_ait": str(required)},
+        resolve_output_format(ctx),
+    )
 
 
 @node.command(
