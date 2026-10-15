@@ -66,6 +66,9 @@ def aitbc_genesis_init(
     force: Annotated[bool | None, Field(description="Force overwrite existing genesis")] = None,
     register_service: Annotated[bool | None, Field(description="Register genesis wallet with wallet service")] = None,
     service_url: Annotated[str | None, Field(description="Wallet service URL")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -76,7 +79,12 @@ def aitbc_genesis_init(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"create_wallet": "create-wallet", "force": "force", "register_service": "register-service"},
-        values={"chain_id": "chain-id", "proposer": "proposer", "service_url": "service-url"},
+        values={
+            "chain_id": "chain-id",
+            "proposer": "proposer",
+            "service_url": "service-url",
+            "password_file": "password-file",
+        },
     )
     args = None
     target = _host_for_role(role, host)
