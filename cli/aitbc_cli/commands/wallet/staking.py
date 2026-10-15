@@ -20,7 +20,7 @@ from ...utils.wallet_secret import resolve_wallet_password, wallet_password_opti
 from ...utils import DECIMAL, error, output, success
 from ...utils.http_client import AITBCHTTPClient, http_error_detail, retired_surface_message
 from ...utils.money import wallet_amount as _wallet_amount
-from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
+from . import _load_wallet, _save_wallet, wallet
 
 
 LIQUIDITY_FEE_DEFAULT_AIT = Decimal("0.01")
@@ -554,9 +554,7 @@ def liquidity_stake(
         "status": "active",
     }
     wallet_data.setdefault("liquidity", []).append(liq_record)
-    password = None
-    if wallet_data.get("encrypted"):
-        password = resolved_password or _get_wallet_password(wallet_name)
+    password = resolved_password if wallet_data.get("encrypted") else None
     _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
     success(f"Submitted liquidity deposit of {amount} AIT to pool '{pool}' (tx={tx_hash})")
@@ -702,9 +700,7 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal, password: str | None, pa
     for rec in wallet_data.get("liquidity", []):
         if rec.get("stake_id") == stake_id and rec.get("status") == "active":
             rec["status"] = "completed"
-    password = None
-    if wallet_data.get("encrypted"):
-        password = resolved_password or _get_wallet_password(wallet_name)
+    password = resolved_password if wallet_data.get("encrypted") else None
     _save_wallet(Path(wallet_path), wallet_data, password if password else None)
 
     success(f"Submitted liquidity unstake for stake {stake_id} (tx={tx_hash})")

@@ -265,13 +265,17 @@ def main():
 
     args = parser.parse_args()
 
+    # The CLI hands the secret through the environment (AITBC_GENESIS_PASSWORD)
+    # so it never sits on the subprocess argv; --password remains for direct use.
+    wallet_password = args.password or os.environ.get("AITBC_GENESIS_PASSWORD")
+
     print(f"🌟 Unified Genesis Generation for {args.chain_id}")
     print("=" * 60)
 
     # Create genesis wallet
     if args.create_wallet:
         print("\n📝 Creating Genesis Wallet...")
-        wallet_result = create_genesis_wallet(args.password, args.chain_id)
+        wallet_result = create_genesis_wallet(wallet_password, args.chain_id)
 
         print(f"Address: {wallet_result['address']}")
         print(f"Public key: {wallet_result['public_key']}")

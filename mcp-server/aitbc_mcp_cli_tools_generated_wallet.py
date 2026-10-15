@@ -190,6 +190,9 @@ def aitbc_wallet_bridge_sell_sell_lock(
     quote_id: Annotated[str, Field(description="Sell quote id from `sell quote`.")],
     wallet_name: Annotated[str | None, Field(description="Shop wallet name (signs the lock).")] = None,
     hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for status lookup.")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -200,7 +203,7 @@ def aitbc_wallet_bridge_sell_sell_lock(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"quote_id": "quote-id", "wallet_name": "wallet-name", "hub_url": "hub-url"},
+        values={"quote_id": "quote-id", "wallet_name": "wallet-name", "hub_url": "hub-url", "password_file": "password-file"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -241,6 +244,9 @@ def aitbc_wallet_bridge_sell_sell_quote(
     eth_address: Annotated[str, Field(description="Ethereum address to receive ETH.")],
     wallet_name: Annotated[str | None, Field(description="Shop wallet name (AIT source).")] = None,
     hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for the quote routes.")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -251,7 +257,13 @@ def aitbc_wallet_bridge_sell_sell_quote(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"amount": "amount", "eth_address": "eth-address", "wallet_name": "wallet-name", "hub_url": "hub-url"},
+        values={
+            "amount": "amount",
+            "eth_address": "eth-address",
+            "wallet_name": "wallet-name",
+            "hub_url": "hub-url",
+            "password_file": "password-file",
+        },
     )
     args = None
     target = _host_for_role(role, host)
