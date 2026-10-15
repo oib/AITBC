@@ -2,12 +2,19 @@
 
 import urllib.parse
 from decimal import Decimal
+from pathlib import Path
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.decimal import to_decimal as _to_decimal
 from ..config import bridge_config
 
 logger = get_logger(__name__)
+
+# Repo root derived from this file (apps/exchange/simple_exchange/handlers/bridge.py),
+# so lazy sys.path inserts resolve inside the running checkout instead of a
+# hardcoded /opt/aitbc — identical on deployed nodes, correct in worktrees/tests.
+_REPO_ROOT = str(Path(__file__).resolve().parents[4])
+_BRIDGE_MONITOR_SRC = str(Path(_REPO_ROOT) / "apps" / "bridge-monitor" / "src")
 
 
 class BridgeMixin:
@@ -17,7 +24,7 @@ class BridgeMixin:
         """GET /v1/bridge/price?base=ETH&quote=USD — oracle price feed"""
         import sys
 
-        sys.path.insert(0, "/opt/aitbc")
+        sys.path.insert(0, _REPO_ROOT)
         params = urllib.parse.parse_qs(parsed.query)
         base = params.get("base", ["ETH"])[0].upper()
         quote = params.get("quote", ["USD"])[0].upper()
@@ -56,7 +63,7 @@ class BridgeMixin:
         try:
             import sys
 
-            sys.path.insert(0, "/opt/aitbc")
+            sys.path.insert(0, _REPO_ROOT)
             from aitbc.oracles.price_oracle import get_price_oracle
 
             body = self._read_json_body()  # type: ignore[attr-defined]
@@ -179,7 +186,7 @@ class BridgeMixin:
         try:
             import sys
 
-            sys.path.insert(0, "/opt/aitbc")
+            sys.path.insert(0, _REPO_ROOT)
 
             body = self._read_json_body()  # type: ignore[attr-defined]
             try:
@@ -247,7 +254,7 @@ class BridgeMixin:
             import sys
             from urllib.parse import parse_qs
 
-            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
+            sys.path.insert(0, _BRIDGE_MONITOR_SRC)
             from bridge_monitor.storage import BridgeDepositStatus, count_deposits, get_deposits
 
             params = parse_qs(parsed.query)
@@ -311,7 +318,7 @@ class BridgeMixin:
         try:
             import sys
 
-            sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
+            sys.path.insert(0, _BRIDGE_MONITOR_SRC)
             from bridge_monitor.storage import get_deposit
 
             deposit = get_deposit(tx_hash)
@@ -337,7 +344,7 @@ class BridgeMixin:
         """GET /cross-chain/rates or /v1/cross-chain/rates."""
         import sys
 
-        sys.path.insert(0, "/opt/aitbc")
+        sys.path.insert(0, _REPO_ROOT)
         try:
             from aitbc.oracles.price_oracle import get_price_oracle
 
@@ -393,7 +400,7 @@ class BridgeMixin:
 
             import sys
 
-            sys.path.insert(0, "/opt/aitbc")
+            sys.path.insert(0, _REPO_ROOT)
             from aitbc.oracles.price_oracle import get_price_oracle
 
             oracle = get_price_oracle()
