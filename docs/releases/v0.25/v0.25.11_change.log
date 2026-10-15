@@ -513,3 +513,11 @@ via BridgeConfirmed logs, emergencyWithdraw/transfer on balances, pause);
 `--token`/`--resume-token` reuse the deployed MockToken; dry runs print a
 `resume preview` skip table. New hardhat tests cover a once-stale nonce read
 recovering and a never-converging nonce refusing. Chain state untouched.
+
+
+### TOOL-2 — RPC URL masking, eth-send contract check, fleet-prefix scrub
+
+- `fa606bf5e` — `evm_rpc` error text no longer carries the RPC URL: provider keys sit in the path (Infura `/v3/<key>`, Alchemy `/v2/<key>`) or query, and both our message and an echoed httpx exception — including the `detail` field `--output=json` takes from `from_exception` — would publish them. `display_rpc_url` renders scheme+host+port; `mask_rpc_url` scrubs full URL, path, query and userinfo; the abort cause is a same-type masked re-throw.
+- `fa606bf5e` — `wallet eth-send` probes `--to` with `eth_getCode`: `--confirm` refuses a bytecode-bearing recipient unless `--allow-contract` (confirm-only flag, same rule as `--wait`); the dry run shows the `eth_getCode` result and `to_is_contract` either way.
+- `fa606bf5e` — `docs/ops/messaging-nginx-limits.md` drops the follower LAN prefixes; `test_no_fleet_details_are_published` was failing on the unpinned addresses and `make test-critical` goes green again.
+- Tests: `cli/tests/test_evm_rpc_masking.py` (new, 9) — path-key, query-key, userinfo, RPC-error-body and async-broadcast scrubbing; `test_wallet_eth_send.py` `TestContractRecipient` (+5). `aitbc_wallet_eth_send` regenerated with `allow_contract`.
