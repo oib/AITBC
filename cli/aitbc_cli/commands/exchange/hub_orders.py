@@ -537,8 +537,11 @@ def _verify_script_path() -> Path:
     return repo_root / "scripts" / "ops" / "exchange_verify.py"
 
 
+_VERIFY_DB_ALLOWED_PREFIX = "/var/lib/aitbc/"
+
+
 def _existing_plain_file(value: str, flag: str) -> Path:
-    """Validate a verifier DB path: absolute, existing regular file, no '..' or symlinks."""
+    """Validate a verifier DB path: absolute, under /var/lib/aitbc/, existing regular file, no '..' or symlinks."""
     p = Path(value)
     if not p.is_absolute():
         _abort_verify(f"{flag} must be an absolute path: {value}")
@@ -552,6 +555,8 @@ def _existing_plain_file(value: str, flag: str) -> Path:
         _abort_verify(f"{flag} must not be a symlink: {value}")
     if not p.is_file():
         _abort_verify(f"{flag} is not a regular file: {value}")
+    if not str(p).startswith(_VERIFY_DB_ALLOWED_PREFIX):
+        _abort_verify(f"{flag} must be under {_VERIFY_DB_ALLOWED_PREFIX.rstrip('/')}: {value}")
     return p
 
 
@@ -579,14 +584,18 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
     name="verify",
     epilog="""Examples:
 
-  aitbc exchange verify --db /var/lib/aitbc/exchange.db
+  aitbc exchange verify --db /var/lib/aitbc/data/exchange/exchange.db
 
-  aitbc exchange verify --db /var/lib/aitbc/exchange.db --bridge-db /var/lib/aitbc/bridge_deposits.db
+  aitbc exchange verify --db /var/lib/aitbc/data/exchange/exchange.db --bridge-db /var/lib/aitbc/bridge_deposits.db
 
   aitbc exchange verify --db ... --rpc-url https://sepolia.example --json""",
 )
-@click.option("--db", required=True, help="Exchange SQLite DB path (absolute, existing regular file, no symlinks)")
-@click.option("--bridge-db", default=None, help="bridge_deposits.db path — enables the prepay cross-check")
+@click.option(
+    "--db", required=True, help="Exchange SQLite DB path under /var/lib/aitbc/ (absolute, existing regular file, no symlinks)"
+)
+@click.option(
+    "--bridge-db", default=None, help="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check"
+)
 @click.option("--rpc-url", default=None, help="Sepolia JSON-RPC endpoint — enables eth-chain checks")
 @click.option("--ait-rpc", default=None, help="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
 @click.option("--escrow-address", default=None, help="Sell-escrow account address for AIT checks")
