@@ -74,7 +74,7 @@ class _NavParser(HTMLParser):
         self._stack.append(tag)
         attr = dict(attrs)
         classes = (attr.get("class") or "").split()
-        if tag == "div" and self._nav_class is None:
+        if tag in ("div", "nav") and self._nav_class is None:
             for nav in self.navs:
                 if nav in classes:
                     self._nav_class = nav
@@ -100,8 +100,9 @@ class _NavParser(HTMLParser):
                         "classes": self._a_classes,
                     }
                 )
-        if tag == "div" and self._nav_class is not None:
-            # The nav blocks contain no nested divs: the first </div> closes it.
+        if tag in ("div", "nav") and self._nav_class is not None:
+            # The nav blocks contain no nested containers: the first close
+            # tag of the same name ends the block.
             self._nav_class = None
         while self._stack and self._stack.pop() != tag:
             pass
@@ -202,6 +203,169 @@ class TestWebsiteMenuConsistency(unittest.TestCase):
             result.returncode,
             f"sync-website-menu.py --check reported drift:\n{result.stdout}\n{result.stderr}",
         )
+
+
+# Pages listed in website/sitemap.xml get a <link rel="canonical">; dynamic
+# detail pages are deliberately excluded and carry noindex instead.
+SITEMAP_PAGES = {
+    "index.html": "https://hub.aitbc.bubuit.net/",
+    "explorer.html": "https://hub.aitbc.bubuit.net/explorer.html",
+    "blocks.html": "https://hub.aitbc.bubuit.net/blocks.html",
+    "marketplace.html": "https://hub.aitbc.bubuit.net/marketplace.html",
+    "exchange.html": "https://hub.aitbc.bubuit.net/exchange.html",
+    "bridges.html": "https://hub.aitbc.bubuit.net/bridges.html",
+    "alerts.html": "https://hub.aitbc.bubuit.net/alerts.html",
+    "customer-dashboard.html": "https://hub.aitbc.bubuit.net/customer-dashboard.html",
+    "shop-dashboard.html": "https://hub.aitbc.bubuit.net/shop-dashboard.html",
+    "follower-api-key-announcement.html": "https://hub.aitbc.bubuit.net/follower-api-key-announcement.html",
+}
+DYNAMIC_PAGES = {"block.html", "tx.html", "search.html"}
+# Title exceptions to the "<Page name> — AITBC" pattern (index keeps its
+# descriptive title for discovery — operator decision, WEB-2 ASK).
+TITLE_EXCEPTIONS = {"index.html"}
+DESCRIPTION_ALLOWLIST: set[str] = set()
+
+
+class _HygieneParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.title = ""
+        self._in_title = False
+        self.viewport = False
+        self.charset = False
+        self.lang = ""
+        self.description = False
+        self.noindex = False
+        self.canonicals: list[str] = []
+        self.mains: list[dict] = []
+        self.main_navs = 0
+        self.first_link: dict | None = None
+        self.skip_links = 0
+
+    def _meta(self, attr: dict) -> None:
+        if attr.get("charset") is not None:
+            self.charset = True
+        if attr.get("name") == "viewport":
+            self.viewport = True
+        if attr.get("name") == "description":
+            self.description = True
+        if attr.get("name") == "robots" and "noindex" in (attr.get("content") or ""):
+            self.noindex = True
+
+    def _link(self, attr: dict) -> None:
+        if attr.get("rel") == "canonical":
+            self.canonicals.append(attr.get("href") or "")
+
+    def _anchor(self, attr: dict) -> None:
+        if "skip-link" in (attr.get("class") or "").split():
+            self.skip_links += 1
+        if self.first_link is None and attr.get("href"):
+            self.first_link = attr
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attr = dict(attrs)
+        if tag == "html":
+            self.lang = attr.get("lang", "")
+        elif tag == "meta":
+            self._meta(attr)
+        elif tag == "title":
+            self._in_title = True
+        elif tag == "link":
+            self._link(attr)
+        elif tag == "main":
+            self.mains.append(attr)
+        elif tag == "nav" and attr.get("aria-label") == "Main":
+            self.main_navs += 1
+        elif tag == "a":
+            self._anchor(attr)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self._in_title = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self.title += data
+
+
+class TestWebsiteHygiene(unittest.TestCase):
+    """WEB-2: landmark/head hygiene across every website page."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.parsed: dict[str, _HygieneParser] = {}
+        for path in sorted(WEBSITE.glob("*.html")):
+            parser = _HygieneParser()
+            parser.feed(path.read_text(encoding="utf-8"))
+            cls.parsed[path.name] = parser
+
+    def test_head_basics(self) -> None:
+        for name, p in self.parsed.items():
+            self.assertEqual("en", p.lang, f"{name}: <html lang> is {p.lang!r}, expected 'en'")
+            self.assertTrue(p.charset, f"{name}: missing <meta charset>")
+            self.assertTrue(p.viewport, f'{name}: missing <meta name="viewport">')
+
+    def test_one_main_with_id_and_tabindex(self) -> None:
+        for name, p in self.parsed.items():
+            self.assertEqual(1, len(p.mains), f"{name}: expected exactly one <main>, found {len(p.mains)}")
+            self.assertEqual("main", p.mains[0].get("id"), f'{name}: <main> lacks id="main"')
+            self.assertEqual("-1", p.mains[0].get("tabindex"), f'{name}: <main> lacks tabindex="-1"')
+
+    def test_one_main_nav_unless_allowlisted(self) -> None:
+        for name, p in self.parsed.items():
+            expected = 0 if name in NO_MENU_PAGES else 1
+            self.assertEqual(
+                expected, p.main_navs, f'{name}: expected {expected} <nav aria-label="Main">, found {p.main_navs}'
+            )
+
+    def test_skip_link_is_first_focusable(self) -> None:
+        for name, p in self.parsed.items():
+            self.assertEqual(1, p.skip_links, f"{name}: expected exactly one .skip-link, found {p.skip_links}")
+            self.assertIsNotNone(p.first_link, f"{name}: no <a href> at all")
+            self.assertEqual(
+                "#main",
+                p.first_link.get("href"),
+                f"{name}: first focusable link is {p.first_link.get('href')!r}, expected '#main' (skip link first)",
+            )
+            self.assertIn(
+                "skip-link",
+                (p.first_link.get("class") or "").split(),
+                f"{name}: first link is not the skip link",
+            )
+
+    def test_meta_description(self) -> None:
+        for name, p in self.parsed.items():
+            if name in DESCRIPTION_ALLOWLIST:
+                continue
+            self.assertTrue(p.description, f'{name}: missing <meta name="description">')
+
+    def test_title_pattern(self) -> None:
+        for name, p in self.parsed.items():
+            if name in TITLE_EXCEPTIONS:
+                continue
+            self.assertRegex(
+                p.title.strip(),
+                r"^\S.* — AITBC$",
+                f"{name}: title {p.title.strip()!r} does not match '<Page name> — AITBC'",
+            )
+
+    def test_canonical_exactly_on_sitemap_pages(self) -> None:
+        for name, p in self.parsed.items():
+            if name in SITEMAP_PAGES:
+                self.assertEqual(
+                    [SITEMAP_PAGES[name]],
+                    p.canonicals,
+                    f"{name}: expected canonical {SITEMAP_PAGES[name]!r}, found {p.canonicals}",
+                )
+            else:
+                self.assertEqual([], p.canonicals, f"{name}: dynamic page must not carry canonical: {p.canonicals}")
+
+    def test_noindex_on_dynamic_pages(self) -> None:
+        for name, p in self.parsed.items():
+            if name in DYNAMIC_PAGES:
+                self.assertTrue(p.noindex, f'{name}: dynamic page missing <meta name="robots" content="noindex">')
+            else:
+                self.assertFalse(p.noindex, f"{name}: unexpected noindex")
 
 
 if __name__ == "__main__":

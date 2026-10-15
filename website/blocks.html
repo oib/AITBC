@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Latest Blocks - AITBC Blockchain Explorer</title>
+    <title>Blocks — AITBC</title>
     <meta name="description" content="Browse the latest blocks on the AITBC blockchain">
+    <link rel="canonical" href="https://hub.aitbc.bubuit.net/blocks.html">
     <meta name="robots" content="index, follow">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
@@ -12,28 +13,33 @@
     <link rel="stylesheet" href="/style.css?v=12">
 
     <!-- External libraries -->
-    <script src="/vendor/lucide.min.js"></script>
-    <script src="config.js"></script>
-    <script src="explorer.js?v=1"></script>
-    <script src="blocks.js?v=1"></script>
+    <script src="/vendor/lucide.min.js" defer></script>
+    <script src="config.js" defer></script>
+    <script src="explorer.js?v=1" defer></script>
+    <script src="blocks.js?v=1" defer></script>
 </head>
 <body>
+    <!-- aitbc-skip:start -->
+    <a href="#main" class="skip-link">Skip to content</a>
+    <!-- aitbc-skip:end -->
     <div class="container">
         <noscript><p class="endpoint-note">This page renders live data via JavaScript. Machine-readable sources: <a href="/llms.txt">llms.txt</a> &middot; <a href="/openapi.json">Coordinator API</a> &middot; <a href="/explorer-api/openapi.json">Explorer API</a>.</p></noscript>
         <header>
             <!-- aitbc-menu:start -->
-            <div class="header-nav">
+            <nav class="header-nav" aria-label="Main">
                 <a href="/">Home</a>
                 <a href="/exchange.html">Exchange</a>
                 <a href="/explorer.html">Explorer</a>
                 <a href="/marketplace.html">Marketplace</a>
                 <a href="/bridges.html">Bridges</a>
                 <a href="/alerts.html">Alerts</a>
-            </div>
+            </nav>
             <!-- aitbc-menu:end -->
             <h1>Latest Blocks</h1>
             <p class="subtitle">Browse the most recent blocks on the AITBC blockchain</p>
         </header>
+
+        <main id="main" tabindex="-1">
 
         <!-- Latest Blocks -->
         <div class="card">
@@ -58,6 +64,7 @@
                 <button id="load-more-btn" class="btn-secondary">Load 10 More</button>
             </div>
         </div>
+        </main>
     </div>
 </body>
 </html>
