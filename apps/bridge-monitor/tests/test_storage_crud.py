@@ -97,3 +97,26 @@ def test_init_db_migrates_pre_b13_schema(tmp_path, monkeypatch) -> None:
     con.close()
     assert "deposit_address" in columns
     assert addr is None
+
+
+def test_db_path_env_precedence(tmp_path, monkeypatch):
+    """AITBC_DATA_DIR wins over the operator-facing DATA_DIR override.
+
+    DATA_DIR/DB_PATH bind at import, so re-derive via reload and restore
+    afterwards — a dirty module constant would leak into later tests.
+    """
+    import importlib
+
+    monkeypatch.setenv("AITBC_DATA_DIR", str(tmp_path / "ns"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "bare"))
+    try:
+        importlib.reload(storage)
+        assert storage.DATA_DIR == str(tmp_path / "ns")
+        assert storage.DB_PATH == os.path.join(str(tmp_path / "ns"), "bridge_deposits.db")
+        monkeypatch.delenv("AITBC_DATA_DIR")
+        importlib.reload(storage)
+        assert storage.DATA_DIR == str(tmp_path / "bare")
+        assert storage.DB_PATH == os.path.join(str(tmp_path / "bare"), "bridge_deposits.db")
+    finally:
+        monkeypatch.undo()
+        importlib.reload(storage)
