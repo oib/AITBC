@@ -46,6 +46,30 @@ _BOOL_CONFIG_KEYS = {"tee_attestation_enabled"}
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 
+# ``config get`` refuses to print values under these names — mirrors the
+# ``system file-info --field`` denylist (system.py _FIELD_DENY_NAMES) plus
+# passphrase/credential from the CLI-3 spec.
+_CONFIG_GET_DENY_NAMES = frozenset(
+    {
+        "private_key",
+        "secret",
+        "password",
+        "token",
+        "mnemonic",
+        "seed",
+        "key",
+        "api_key",
+        "passphrase",
+        "credential",
+    }
+)
+
+
+def _config_key_denied(name: str) -> bool:
+    lowered = name.lower()
+    return lowered in _CONFIG_GET_DENY_NAMES or lowered.endswith("_key")
+
+
 # Success messages for the keys that already had one; every other accepted
 # key gets the generic ``{key} set to: {value}`` line.
 _SET_MESSAGES = {
@@ -97,12 +121,36 @@ def show(ctx):
 
   aitbc config get
 
-  aitbc config get --output json""",
+  aitbc config get exchange_service_url
+
+  aitbc config get timeout --global""",
 )
+@click.argument("key", required=False)
+@click.option("--global", "global_config", is_flag=True, help="Read the global config file")
 @click.pass_context
-def get(ctx):
-    """Get the current configuration (alias for show)."""
-    return ctx.invoke(show)
+def get(ctx, key: str | None, global_config: bool):
+    """Print the stored value of one config key.
+
+    Without a key, shows the current configuration (alias for show). With a
+    key, prints its stored value; exits nonzero when the key is absent, and
+    refuses sensitive key names outright.
+    """
+    if key is None:
+        return ctx.invoke(show)
+    if _config_key_denied(key):
+        error(f"Refusing to read sensitive config key: {key}")
+        ctx.exit(1)
+        return
+    config_file = _global_config_path() if global_config else _local_config_path()
+    config_data: dict = {}
+    if config_file.exists():
+        with open(config_file) as f:
+            config_data = yaml.safe_load(f) or {}
+    if key not in config_data:
+        error(f"Config key not set: {key} ({config_file})")
+        ctx.exit(1)
+        return
+    output({"key": key, "value": config_data[key]}, resolve_output_format(ctx))
 
 
 @config.command(
