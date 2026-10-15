@@ -219,6 +219,13 @@ def main(argv: list[str] | None = None) -> int:
         default="mainnet",
         help="which network profile to evaluate (default: mainnet)",
     )
+    # argparse refuses a value starting with '-' after "--env-file" — but the
+    # optional-file marker is exactly that ("--env-file -/path"). Fold the pair
+    # into "--env-file=-/path" before parsing so the documented form works.
+    argv = list(sys.argv[1:] if argv is None else argv)
+    for i, tok in enumerate(argv[:-1]):
+        if tok == "--env-file" and argv[i + 1].startswith("-") and not argv[i + 1].startswith("--"):
+            argv[i : i + 2] = ["--env-file=" + argv[i + 1]]
     args = parser.parse_args(argv)
 
     if args.env_file:
