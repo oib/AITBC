@@ -346,6 +346,11 @@ class TestHelpers:
         assert esm._lock_refund_ref_id("0xDeAdBeEf") == esm._lock_refund_ref_id("deadbeef")
         # Far below any plausible order id — never confusable with ±order_id.
         assert esm._lock_refund_ref_id("0x1234") < -(1 << 59) < -(2**31)
+        # Fails closed (CLEAN-1): empty or non-hex input returns None
+        # instead of raising ValueError inside int(..., 16).
+        assert esm._lock_refund_ref_id("") is None
+        assert esm._lock_refund_ref_id("0xZZZZ") is None
+        assert esm._lock_refund_ref_id(None) is None
 
 
 # ---------------------------------------------------------------------------
@@ -522,9 +527,9 @@ class TestLockScan:
 
     @pytest.mark.asyncio
     async def test_below_fee_stranger_lock_creates_no_row(self, exchange_env):
-        """ETH-JOIN-3: a stranger's lock at/below the sweep fee is worth
-        less than its refund — no order_refund row, no mark; the re-scan
-        just re-evaluates it."""
+        """A stranger's lock at/below the sweep fee is worth less than its
+        refund — no order_refund row; the lock marks terminal 'below_fee'
+        (CLEAN-1) so the lane never retries it."""
         cfg = _cfg(exchange_env)
         stranger = "0x6666666666666666666666666666666666666666"
         oid = _insert_order(
@@ -539,7 +544,7 @@ class TestLockScan:
         stats = await esm._scan_order_locks(cfg, head=1000)
         assert stats["refunds"] == 0
         assert get_exchange_settlement("order_refund", -oid) is None
-        assert monitor_mark("lock:0xdust1") is None
+        assert monitor_mark("lock:0xdust1")["outcome"] == "below_fee"
 
     @pytest.mark.asyncio
     async def test_below_fee_owner_lock_no_row_on_either_insert(self, exchange_env):
@@ -565,7 +570,7 @@ class TestLockScan:
         conn = bridge_db._connect_db()
         assert conn.execute("SELECT COUNT(*) FROM exchange_settlements").fetchone()[0] == 1
         conn.close()
-        assert monitor_mark("lock:0xdust2") is None
+        assert monitor_mark("lock:0xdust2")["outcome"] == "below_fee"
 
     @pytest.mark.asyncio
     async def test_just_above_fee_owner_lock_still_uses_fallback(self, exchange_env):
@@ -616,7 +621,8 @@ class TestLockScan:
     async def test_below_fee_follows_sweep_fee_accessor(self, exchange_env, monkeypatch):
         """The inbound skip reads _sweep_fee_ait() — the same accessor as
         the remainder skip — so both bounds move together if the fee
-        source ever changes."""
+        source ever changes. The below-fee mark is terminal (CLEAN-1), so
+        the post-change refund uses a second lock."""
         cfg = _cfg(exchange_env)
         stranger = "0x6666666666666666666666666666666666666666"
         oid = _insert_order(
@@ -631,18 +637,25 @@ class TestLockScan:
         monkeypatch.setattr(esm, "_sweep_fee_ait", lambda: Decimal("5"))
         stats = await esm._scan_order_locks(cfg, head=1000)
         assert stats["refunds"] == 0
-        assert monitor_mark("lock:0xdust3") is None
+        assert monitor_mark("lock:0xdust3")["outcome"] == "below_fee"
+        # A marked lock stays terminal even when the fee drops again.
         monkeypatch.setattr(esm, "_sweep_fee_ait", lambda: Decimal("0.01"))
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["refunds"] == 0
+        # ...but the accessor still bounds every newly scanned lock.
+        lock2 = _lock_tx(oid, "0xdust4", stranger, 72_000_000)
+        lock2["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock2)
         stats = await esm._scan_order_locks(cfg, head=1000)
         assert stats["refunds"] == 1
         assert get_exchange_settlement("order_refund", -oid) is not None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("bad_hash", ["", "0xZZZZ", None])
-    async def test_bad_tx_hash_fallback_returns_bad_tx_hash(self, exchange_env, bad_hash, caplog):
-        """Empty/non-hex/None input on the owner-fallback attempt returns
-        bad_tx_hash, writes no row, and logs ERROR naming the hash
-        problem — never a ref_id collision."""
+    async def test_bad_tx_hash_fallback_returns_duplicate(self, exchange_env, bad_hash, caplog):
+        """Empty/non-hex/None input on the owner-fallback attempt fails
+        closed to 'duplicate' (CLEAN-1): writes no row, logs ERROR naming
+        the hash problem — never a ref_id collision."""
         cfg = _cfg(exchange_env)
         oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
         insert_exchange_settlement(
@@ -656,7 +669,7 @@ class TestLockScan:
             outcome = await esm._ensure_order_refund(
                 cfg, oid, SELLER_AIT, Decimal("1"), bad_hash, remainder=False, owner_lock=True
             )
-        assert outcome == "bad_tx_hash"
+        assert outcome == "duplicate"
         assert any("empty or not hex" in r.getMessage() for r in caplog.records)
         conn = bridge_db._connect_db()
         assert conn.execute("SELECT COUNT(*) FROM exchange_settlements").fetchone()[0] == 1
@@ -664,8 +677,8 @@ class TestLockScan:
 
     @pytest.mark.asyncio
     async def test_bad_tx_hash_marks_like_duplicate(self, exchange_env):
-        """Through the scan, bad_tx_hash marks the lock exactly like a
-        duplicate — terminal, no retry, no row."""
+        """Through the scan, a bad tx hash marks the lock exactly like a
+        duplicate — terminal, no retry, no row (CLEAN-1)."""
         cfg = _cfg(exchange_env)
         oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
         insert_exchange_settlement(
@@ -681,25 +694,33 @@ class TestLockScan:
         exchange_env["post_responses"]["order_funded"] = (409, {"error": "lock under cover"})
         stats = await esm._scan_order_locks(cfg, head=1000)
         assert stats["refunds"] == 0
-        assert monitor_mark("lock:0xzzzz")["outcome"] == "bad_tx_hash"
+        assert monitor_mark("lock:0xzzzz")["outcome"] == "duplicate"
 
-    def test_below_fee_log_rate_limited_per_lock(self, caplog):
-        """INFO once per lock per hour, DEBUG between — a permanent dust
-        lock re-evaluated every poll must not spam the journal."""
-        esm._below_fee_last_log.clear()
-        h = "0x" + "ab" * 32
-        with caplog.at_level(logging.DEBUG):
-            esm._log_below_fee(7, h, Decimal("0.001"))
-            esm._log_below_fee(7, h, Decimal("0.001"))
-        infos = [r for r in caplog.records if r.levelno == logging.INFO]
-        debugs = [r for r in caplog.records if r.levelno == logging.DEBUG]
-        assert len(infos) == 1 and "lock value cannot cover the refund sweep fee — no row" in infos[0].getMessage()
-        assert len(debugs) == 1
-        esm._below_fee_last_log[h] -= esm._BELOW_FEE_LOG_SECONDS + 1
+    @pytest.mark.asyncio
+    async def test_below_fee_logs_warning_once_and_marks(self, exchange_env, caplog):
+        """CLEAN-1: a sub-fee lock logs one WARNING naming the order id and
+        lock hash, then marks terminal — re-scans log nothing and write
+        no row."""
+        cfg = _cfg(exchange_env)
+        stranger = "0x6666666666666666666666666666666666666666"
+        oid = _insert_order(
+            exchange_env,
+            funded_state="funded",
+            backing_tx_hash="0xfirst",
+            locked_ticks=1_000_000_000,
+        )
+        dust = _lock_tx(oid, "0xdust9", stranger, 36_000)
+        dust["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(dust)
+        with caplog.at_level(logging.WARNING):
+            await esm._scan_order_locks(cfg, head=1000)
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1
+        msg = warnings[0].getMessage()
+        assert str(oid) in msg and "0xdust9" in msg and "sweep fee" in msg
         caplog.clear()
-        with caplog.at_level(logging.INFO):
-            esm._log_below_fee(7, h, Decimal("0.001"))
-        assert any(r.levelno == logging.INFO for r in caplog.records)
+        await esm._scan_order_locks(cfg, head=1000)
+        assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
 
 
 # ---------------------------------------------------------------------------
