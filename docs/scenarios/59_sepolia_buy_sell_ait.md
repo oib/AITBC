@@ -362,7 +362,9 @@ Verify with `aitbc wallet bridge sell status --id …` or
 > the fleet wallet table. Signing happens **on each node with its own
 > wallet** — `aitbc exchange …` resolves `exchange_service_url` from
 > `HUB_EXCHANGE_URL`/`HUB_DISCOVERY_URL` in `/etc/aitbc/*.env` (or pass
-> `--exchange-url http://<hub>:8106`).
+> `--exchange-url http://<hub>:8106`). The discovery-derived default is the
+> bare `https://<hub>` origin — the signed-order routes publish at their
+> natural `/api/*` paths; `/exchange/` is the wallet service's mount.
 
 ```bash
 # on node2 — claim the seeded registry row (signs exchange_register locally)
