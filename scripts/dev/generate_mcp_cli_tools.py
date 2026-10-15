@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -900,6 +901,7 @@ def main() -> int:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(output)
+    _format_written([out_path])
     print(f"Wrote {len(results)} tools to {out_path}")
     return 0
 
@@ -932,6 +934,7 @@ def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace)
         groups.setdefault(top, []).append(spec)
 
     group_modules: list[str] = []
+    written: list[Path] = []
     for group, specs in sorted(groups.items()):
         safe_group = group.replace("-", "_")
         module_name = f"{master_name}_{safe_group}"
@@ -947,6 +950,7 @@ def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace)
 
         group_path.parent.mkdir(parents=True, exist_ok=True)
         group_path.write_text(group_output)
+        written.append(group_path)
         print(f"Wrote {len(specs)} tools to {group_path}")
 
     master_lines = [
@@ -972,8 +976,30 @@ def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(master_output)
+    written.append(out_path)
+    _format_written(written)
     print(f"Wrote master imports for {len(group_modules)} groups to {out_path}")
     return 0
+
+
+def _format_written(paths: list[Path]) -> None:
+    """Format the just-written modules with the running interpreter's ruff.
+
+    The drift check compares formatted copies against the committed modules, so
+    emit the same shape the check expects — a plain regen would otherwise look
+    like repo-wide drift. Whoever runs the generator gets the ruff version
+    their interpreter has installed.
+    """
+    try:
+        result = subprocess.run([sys.executable, "-m", "ruff", "format", "--quiet", *(str(p) for p in paths)])
+    except OSError as exc:
+        print(f"warning: could not run `python -m ruff format` ({exc}) — output left unformatted", file=sys.stderr)
+        return
+    if result.returncode != 0:
+        print(
+            "warning: `python -m ruff format` failed — output left unformatted; run again with the repo venv",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

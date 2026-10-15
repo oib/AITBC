@@ -14,7 +14,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 BASELINE="scripts/ci/except-baseline.txt"
-PYTHON="${PYTHON:-python3}"
+# Shared resolution: $PYTHON env, checkout venv, then main-checkout venv —
+# `python3` without ruff made this report an empty "current" as all-clear.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
 
 current="$(mktemp)"
 trap 'rm -f "$current"' EXIT

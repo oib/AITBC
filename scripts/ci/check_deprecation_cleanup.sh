@@ -11,6 +11,10 @@ source "${REPO_ROOT}/scripts/ci/setup-job-logging.sh" 2>/dev/null || true
 
 fail=0
 
+# Shared resolution: $PYTHON env, checkout venv, then main-checkout venv — a
+# hardcoded $REPO_ROOT/venv/bin/python fails outright inside a linked worktree.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
+
 check_grep() {
     local name="$1"
     local pattern="$2"
@@ -51,7 +55,7 @@ echo "Checking for light-theme references..."
 check_grep "light-theme" "(light[-_]?theme|theme[^\n]{0,20}light|light[-_]?mode|light[-_]?css)"
 
 echo "Running secret scan..."
-if ! "${REPO_ROOT}/venv/bin/python" "${REPO_ROOT}/scripts/security/scan_secrets.py" --root "$REPO_ROOT"; then
+if ! "$PYTHON" "${REPO_ROOT}/scripts/security/scan_secrets.py" --root "$REPO_ROOT"; then
     fail=1
 fi
 

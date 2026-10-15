@@ -14,13 +14,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 BASELINE="scripts/ci/c901-baseline.txt"
 
-# Same PYTHON resolution as scripts/ci/mypy-precommit.sh: the caller's PYTHON
-# wins, then the repo venv, then whatever python3 is on PATH — worktrees have
-# no venv/ of their own.
-PYTHON="${PYTHON:-}"
-if [ -z "$PYTHON" ]; then
-  if [ -x ./venv/bin/python ]; then PYTHON=./venv/bin/python; else PYTHON=python3; fi
-fi
+# Shared resolution: $PYTHON env, then the checkout venv, then the main
+# checkout's venv — worktrees have no venv/ of their own and a PATH python3
+# without deps would make this check a silent skip.
+PYTHON="$("$(dirname "${BASH_SOURCE[0]}")/repo-python.sh")" || exit 1
 
 # `python -m ruff` with ruff absent produces no findings, which below reads as
 # "no violations". Same preflight as the mypy hook: it checked nothing; this is
