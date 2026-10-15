@@ -57,10 +57,13 @@ def wallet_search_dirs() -> list[Path]:
     """Return all directories that should be searched for file wallets.
 
     For load/sign/read paths only: commands that remove, overwrite, re-key
-    or export a wallet file (``wallet delete``/``restore``/``import``/
-    ``backup``) must keep resolving in the configured ``wallet_dir`` alone —
-    a bare name must never reach into the service dir for a destructive act
-    (CLI-6 ASK answer). Send/sign commands use this shared order.
+    or export a wallet file — or that write the wallet file back after
+    loading it (``wallet delete``/``restore``/``import``/``backup``/
+    ``export`` and the ``earn``/``spend``/``liquidity_stake``/
+    ``liquidity_unstake`` bookkeeping re-saves) — must keep resolving in the
+    configured ``wallet_dir`` alone: a service-managed wallet file must
+    never receive a CLI write (CLI-6 + CLI-6c ASK answers). Send/sign
+    commands use this shared order.
     """
     dirs: list[Path] = [wallet_dir()]
     seen = {dirs[0]}
@@ -198,6 +201,32 @@ def wallet_not_found_message(report: WalletSearchResult) -> str:
         )
     else:
         lines.append("  pass --wallet-path <file> to point at it directly")
+    return "\n".join(lines)
+
+
+def wallet_write_restricted_message(report: WalletSearchResult) -> str:
+    """Not-found text for commands that write the wallet file after loading.
+
+    These commands resolve names in the configured wallet dir only (CLI-6c
+    ASK answer), so the message still reports the full shared search — a
+    name that exists only in the service dir is named, along with the
+    restriction that keeps CLI bookkeeping off service-managed files.
+    """
+    lines = [f"Wallet '{report.name}' not found in the configured wallet directory."]
+    lines.append("  " + wallet_not_found_hint(report))
+    if report.path is not None and is_service_wallet_path(report.path):
+        lines.append(
+            f"  found at {report.path} — this command writes the wallet file, so it resolves "
+            "names in the configured wallet directory only; pass --wallet-path to use that file explicitly"
+        )
+    elif report.unreadable:
+        lines.append("  unreadable: " + ", ".join(str(p) for p in report.unreadable))
+    if report.path is None:
+        daemon = daemon_keystore_has(report.name)
+        if daemon is True:
+            lines.append("  the name exists in the wallet daemon keystore — pass --wallet-path <file>")
+        else:
+            lines.append("  pass --wallet-path <file> to point at it directly")
     return "\n".join(lines)
 
 

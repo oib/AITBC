@@ -139,7 +139,7 @@ def _message_patches(tmp_path, prober, nonce=7):
     client.get.return_value = {} if nonce is None else {"nonce": nonce}
     client.post.return_value = {"transaction_hash": "0xtx"}
     return (
-        patch("aitbc_cli.commands.operations.wallet_dir", return_value=tmp_path),
+        patch.dict("os.environ", {"AITBC_WALLET_DIR": str(tmp_path)}),
         patch("aitbc_cli.commands.operations.decrypt_private_key", return_value="ab" * 32),
         patch("aitbc_cli.commands.operations.AITBCHTTPClient", return_value=client),
         prober,

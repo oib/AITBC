@@ -81,6 +81,7 @@ def _wallet_obj(enc_wallet):
         "wallet_name": "encwallet",
         "wallet_dir": wpath.parent,
         "wallet_path": wpath,
+        "wallet_sign_path": wpath,
         "output_format": "json",
     }
 
