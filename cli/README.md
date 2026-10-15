@@ -53,7 +53,7 @@ aitbc --help
 | `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `island`, `list`, `pin`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
 | `market` | GPU and software offers published by shop miners | `cancel`, `download`, `escrow`, `exchange`, `gpu`, `hermes`, `host`, `jobs`, `list`, `match`, `offer`, `offer-cancel`, `offer-disable`, `offer-list`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
-| `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
+| `messaging` | On-chain forum messaging (signed MESSAGE txs) | `list`, `send`, `show`, `state`, `topic`, `topics` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `sweepers`, `webhooks` |
 | `network` | Peer connectivity and network operations | `force-sync`, `gossip`, `heartbeat`, `lease-status`, `peers`, `set-sync-source`, `status`, `subscribe`, `subscribers`, `test` |

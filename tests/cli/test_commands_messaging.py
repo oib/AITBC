@@ -1,174 +1,183 @@
 """
-Messaging Commands Tests
-Tests for messaging CLI commands
+Messaging Commands Tests (MSG-1)
 
-Converted from skipped stubs to functional tests using the shared CLI mock
-fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
+The forum commands now sign MESSAGE transactions locally and read the
+chain-derived index — there is no RPC post endpoint and no simulated
+fallback. ``_send_transaction_impl`` is monkeypatched to capture the exact
+transaction the command builds.
 """
 
+import json
 from unittest.mock import patch
 
 import pytest
 
+from aitbc_cli.commands import messaging as messaging_mod
+
+SENDER = "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
+
+
+@pytest.fixture
+def sender_wallet(tmp_path, monkeypatch):
+    """A throwaway wallet file so ``--wallet`` resolves an address."""
+    monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path))
+    (tmp_path / "poster.json").write_text(json.dumps({"address": SENDER}))
+    return "poster"
+
+
+@pytest.fixture
+def captured_send(monkeypatch):
+    """Capture the _send_transaction_impl call; never signs or submits."""
+    calls = []
+    monkeypatch.setattr(messaging_mod, "_send_transaction_impl", lambda *a, **kw: calls.append((a, kw)) or "ab" * 32)
+    monkeypatch.setattr(messaging_mod, "resolve_wallet_password", lambda **kw: "")
+    return calls
+
 
 class TestMessagingCommands:
-    """Test messaging command group"""
-
-    def test_messaging_group_exists(self):
-        """Test that messaging command group exists"""
-        from aitbc_cli.commands.messaging import messaging
-
-        assert messaging is not None
-        assert hasattr(messaging, "name")
-
     def test_messaging_group_name(self):
-        """Test messaging group name"""
-        from aitbc_cli.commands.messaging import messaging
+        assert messaging_mod.messaging.name == "messaging"
 
-        assert messaging.name == "messaging"
+    def test_subcommands_registered(self):
+        names = set(messaging_mod.messaging.commands)
+        assert {"send", "list", "topics", "topic", "show", "state"} <= names
 
-    def test_messaging_group_has_send_subcommand(self):
-        """The ``send`` subcommand is registered on the messaging group."""
-        from aitbc_cli.commands.messaging import messaging
+    def test_send_requires_wallet(self, runner):
+        result = runner.invoke(messaging_mod.messaging, ["send", "--message", "hi"])
+        assert result.exit_code != 0
 
-        assert "send" in messaging.commands
-
-    def test_messaging_group_has_list_subcommand(self):
-        """The ``list`` subcommand is registered on the messaging group."""
-        from aitbc_cli.commands.messaging import messaging
-
-        assert "list" in messaging.commands
-
-    def test_messaging_group_has_topic_subcommand(self):
-        """The ``topic`` subcommand is registered on the messaging group."""
-        from aitbc_cli.commands.messaging import messaging
-
-        assert "topic" in messaging.commands
-
-    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
-    def test_messaging_send_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``messaging send`` posts a forum message via the mocked RPC."""
-        mock_client = mock_http_class.return_value
-        # "general" resolves to an existing topic, so send posts exactly once.
-        mock_client.get.return_value = {"topics": [{"title": "general", "topic_id": "topic_general"}]}
-        mock_client.post.return_value = {"status": "sent", "message_id": "test123"}
-
-        from aitbc_cli.commands.messaging import messaging
-
+    def test_send_builds_signed_message_tx(self, runner, sender_wallet, captured_send):
         result = runner.invoke(
-            messaging,
-            ["send", "--recipient", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "--message", "Hello"],
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "hello", "--topic", "Dev", "--no-wait"],
         )
-
         assert result.exit_code == 0, result.output
-        mock_client.post.assert_called_once()
-        args, kwargs = mock_client.post.call_args
-        assert "/rpc/contracts/messaging/messages/post" in args[0]
-        assert kwargs["json"]["agent_id"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
-        assert kwargs["json"]["agent_address"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
-        assert kwargs["json"]["content"] == "Hello"
+        args, kwargs = captured_send[0]
+        assert args[0] == "poster"
+        assert args[1] == SENDER  # self-send
+        assert kwargs["tx_type"] == "MESSAGE"
+        env = kwargs["payload"]["aitbc_msg"]
+        assert env["v"] == 1 and env["kind"] == "post"
+        assert env["topic"] == "dev"  # normalized pre-sign
+        assert env["body"] == "hello"
+        assert env["agent_address"] == SENDER
+        assert "agent_id" not in json.dumps(kwargs["payload"])
+        assert "public, permanent" in result.output  # permanence warning printed
 
-    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
-    def test_messaging_send_falls_back_on_network_error(self, mock_http_class, runner):
-        """``messaging send`` falls back to simulated data on NetworkError."""
-        from aitbc_cli.commands.messaging import messaging
-        from aitbc_cli.utils.http_client import NetworkError
-
-        mock_client = mock_http_class.return_value
-        mock_client.post.side_effect = NetworkError("connection refused")
-
+    def test_send_reply(self, runner, sender_wallet, captured_send):
+        parent = "ab" * 32
         result = runner.invoke(
-            messaging,
-            ["send", "--recipient", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "--message", "Hello"],
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "re:hi", "--reply-to", parent, "--no-wait"],
         )
-
         assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        env = captured_send[0][1]["payload"]["aitbc_msg"]
+        assert env["kind"] == "reply" and env["parent"] == parent
+
+    def test_send_refuses_empty_body(self, runner, sender_wallet, captured_send):
+        result = runner.invoke(
+            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "   ", "--no-wait"]
+        )
+        assert result.exit_code != 0
+        assert captured_send == []
+
+    def test_send_refuses_oversize_body(self, runner, sender_wallet, captured_send):
+        result = runner.invoke(
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "x" * 4097, "--no-wait"],
+        )
+        assert result.exit_code != 0
+        assert captured_send == []
+
+    def test_send_refuses_bad_parent(self, runner, sender_wallet, captured_send):
+        result = runner.invoke(
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "re", "--reply-to", "not-hex", "--no-wait"],
+        )
+        assert result.exit_code != 0
+        assert captured_send == []
+
+    def test_send_no_simulated_fallback(self, runner, sender_wallet, monkeypatch):
+        """RPC failure must abort non-zero — the simulated path is gone."""
+        monkeypatch.setattr(messaging_mod, "resolve_wallet_password", lambda **kw: "")
+        monkeypatch.setattr(
+            messaging_mod,
+            "_send_transaction_impl",
+            lambda *a, **kw: None,  # submit failed
+        )
+        result = runner.invoke(
+            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "hi", "--no-wait"]
+        )
+        assert result.exit_code != 0
+        assert "simulated" not in result.output.lower()
+
+    def test_send_waits_for_seal(self, runner, sender_wallet, captured_send, monkeypatch):
+        class _Client:
+            def __init__(self, *a, **kw):
+                pass
+
+            def get(self, path, **kw):
+                assert path == f"/rpc/transaction/{'ab' * 32}"
+                return {"block_height": 42, "status": "confirmed"}
+
+        monkeypatch.setattr(messaging_mod, "AITBCHTTPClient", _Client)
+        result = runner.invoke(
+            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "hi", "--wait"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Sealed at block 42" in result.output
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
-    def test_messaging_list_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``messaging list`` lists messages from the mocked RPC."""
+    def test_list_reads_index(self, mock_http_class, runner, mock_blockchain_rpc):
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"messages": [], "count": 0}
+        result = runner.invoke(messaging_mod.messaging, ["list", "--topic", "dev"])
+        assert result.exit_code == 0, result.output
+        path = mock_client.get.call_args[0][0]
+        assert path == "/rpc/messaging/messages"
+        assert mock_client.get.call_args[1]["params"]["topic"] == "dev"
+
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_list_query_uses_search(self, mock_http_class, runner, mock_blockchain_rpc):
         mock_client = mock_http_class.return_value
         mock_client.get.return_value = {"messages": []}
-
-        from aitbc_cli.commands.messaging import messaging
-
-        result = runner.invoke(messaging, ["list"])
-
+        result = runner.invoke(messaging_mod.messaging, ["list", "--query", "hello"])
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        assert "/rpc/contracts/messaging/messages/search" in mock_client.get.call_args[0][0]
+        assert mock_client.get.call_args[0][0] == "/rpc/messaging/messages/search"
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
-    def test_messaging_list_falls_back_on_network_error(self, mock_http_class, runner):
-        """``messaging list`` falls back to simulated data on NetworkError."""
-        from aitbc_cli.commands.messaging import messaging
+    def test_list_aborts_on_network_error(self, mock_http_class, runner, mock_blockchain_rpc):
         from aitbc_cli.utils.http_client import NetworkError
 
-        mock_client = mock_http_class.return_value
-        mock_client.get.side_effect = NetworkError("connection refused")
-
-        result = runner.invoke(messaging, ["list"])
-
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
-
-    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
-    def test_messaging_topic_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``messaging topic`` creates a forum topic via the mocked RPC."""
-        mock_client = mock_http_class.return_value
-        mock_client.post.return_value = {"topic_id": "topic123", "status": "created"}
-
-        from aitbc_cli.commands.messaging import messaging
-
-        result = runner.invoke(
-            messaging,
-            [
-                "topic",
-                "--agent-id",
-                "test-agent",
-                "--agent-address",
-                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
-                "--title",
-                "Test Topic",
-                "--description",
-                "Test Description",
-            ],
-        )
-
-        assert result.exit_code == 0, result.output
-        mock_client.post.assert_called_once()
-        args, kwargs = mock_client.post.call_args
-        assert "/rpc/contracts/messaging/topics/create" in args[0]
-        assert kwargs["json"]["agent_id"] == "test-agent"
-        assert kwargs["json"]["agent_address"] == "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"
-        assert kwargs["json"]["title"] == "Test Topic"
-
-    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
-    def test_messaging_topic_aborts_on_network_error(self, mock_http_class, runner):
-        """``messaging topic`` aborts on NetworkError (no fallback)."""
-        from aitbc_cli.commands.messaging import messaging
-        from aitbc_cli.utils.http_client import NetworkError
-
-        mock_client = mock_http_class.return_value
-        mock_client.post.side_effect = NetworkError("connection refused")
-
-        result = runner.invoke(
-            messaging,
-            [
-                "topic",
-                "--agent-id",
-                "test-agent",
-                "--agent-address",
-                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
-                "--title",
-                "Test Topic",
-                "--description",
-                "Test Description",
-            ],
-        )
-
+        mock_http_class.return_value.get.side_effect = NetworkError("connection refused")
+        result = runner.invoke(messaging_mod.messaging, ["list"])
         assert result.exit_code != 0
+        assert "simulated" not in result.output.lower()
+
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_topics_lists(self, mock_http_class, runner, mock_blockchain_rpc):
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"topics": []}
+        result = runner.invoke(messaging_mod.messaging, ["topics"])
+        assert result.exit_code == 0, result.output
+        assert mock_client.get.call_args[0][0] == "/rpc/messaging/topics"
+
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_topic_alias_lists(self, mock_http_class, runner, mock_blockchain_rpc):
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"topics": []}
+        result = runner.invoke(messaging_mod.messaging, ["topic"])
+        assert result.exit_code == 0, result.output
+        assert mock_client.get.call_args[0][0] == "/rpc/messaging/topics"
+
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_show_by_hash(self, mock_http_class, runner, mock_blockchain_rpc):
+        h = "ab" * 32
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"tx_hash": h, "body": "hi"}
+        result = runner.invoke(messaging_mod.messaging, ["show", h])
+        assert result.exit_code == 0, result.output
+        assert mock_client.get.call_args[0][0] == f"/rpc/messaging/messages/{h}"
 
 
 if __name__ == "__main__":
