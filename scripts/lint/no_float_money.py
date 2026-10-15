@@ -226,24 +226,38 @@ STRICT_FILES = frozenset(
 )
 
 
-def _tokenize(name: str) -> set[str]:
-    """Split an identifier into lowercase word tokens.
+def _tokenize(name: str) -> list[str]:
+    """Split an identifier into lowercase word tokens, in order.
 
     Both conventions, because this tree uses both: ``total_amount`` is snake_case and
     ``averagePrice`` (in ``schemas/__init__.py``) is camelCase. Splitting on ``_`` alone
     made every camelCase money field invisible.
 
     Tokens, never substrings -- an early draft matched ``wei`` inside ``weight``.
+    The order matters to the head-noun rule in ``_is_money_name``.
     """
-    return set(re.findall(r"[a-z]+|[0-9]+", re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name).lower()))
+    return re.findall(r"[a-z]+|[0-9]+", re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name).lower())
 
 
 def _is_money_name(name: str) -> bool:
-    """True when ``name`` denotes an amount of money rather than something derived from one or a time."""
+    """True when ``name`` denotes an amount of money rather than something derived from one or a time.
+
+    A TIME_TOKENS word only exempts the identifier when the head noun — the
+    final word token — is not itself money: ``payout_deadlines`` is a deadline
+    collection and ``payment_retry_at`` a timestamp, but ``epoch_reward``,
+    ``height_fee`` and ``retry_payment`` are amounts of money whose earlier
+    time token only says *when* or *which try* they belong to.
+    """
     tokens = _tokenize(name)
-    if not tokens & MONEY_TOKENS:
+    token_set = set(tokens)
+    if not token_set & MONEY_TOKENS:
         return False
-    return not (tokens & (DERIVED_TOKENS | TIME_TOKENS))
+    if token_set & DERIVED_TOKENS:
+        return False
+    if token_set & TIME_TOKENS:
+        head = tokens[-1] if tokens else ""
+        return head in MONEY_TOKENS
+    return True
 
 
 def _tracked_python_files() -> list[Path]:
