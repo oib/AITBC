@@ -210,7 +210,8 @@ run_pytest governance "" apps/governance/tests
 run_pytest critical   "" \
   apps/exchange/tests apps/api-gateway/tests apps/wallet/tests apps/market/tests \
   apps/trading/tests apps/agent-coordinator/tests apps/bridge-monitor/tests \
-  tests/security tests/core tests/property_tests tests/smoke
+  tests/security tests/core tests/property_tests tests/smoke \
+  tests/unit/test_env_protection.py
 run_pytest cli        "WALLET_URL=http://127.0.0.1:1 BLOCKCHAIN_RPC_URL=http://127.0.0.1:1" \
   cli/tests tests/cli tests/test_cli_docs_sync.py tests/test_syspath_hygiene.py
 

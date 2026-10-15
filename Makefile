@@ -117,7 +117,10 @@ test-critical:
 		tests/security \
 		tests/core \
 		tests/property_tests \
-		tests/smoke
+		tests/smoke \
+		tests/unit/test_env_protection.py
+	# ^ explicit file: lives under tests/unit (unit gate) and is named here so the
+	#   critical gate collects it too — it guards the root-conftest env rewrite.
 
 # The scheduled sweep: every offline-safe suite (fast + nightly classes), with
 # manual-only dirs — live fleet, load, browser UI — excluded via --ignore.
