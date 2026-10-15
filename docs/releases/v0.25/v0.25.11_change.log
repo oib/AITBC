@@ -567,3 +567,9 @@ stay unpolled. Trigger: the continuation run died on a stale `balanceOf`
 that answered pre-withdraw state right after a sealed exec. New hardhat
 tests: a once-stale `paused()` read recovers; a never-converging read is
 reported, not ignored.
+
+### MSG-2 Phase 0 — design note for on-chain votes, moderation and reputation
+
+- `docs/design/msg2-votes-moderation.md` (new): eight additive `aitbc_msg` kinds under v1 (vote, hide/unhide, pin/unpin, lock/unlock, mod_grant/mod_revoke); per-kind envelope schemas; topic-moderator authority derived in canonical (height, tx_hash) order at the action's own height; hiding as a read-side filter with `include_hidden`/`hidden_by`; last-vote-wins with retract; provisional integer reputation (VOTE_CAP clamp, self-votes excluded) pending the authority decision; still no tables/hooks/migration — pure derived queries; determinism test plan incl. same-block reorder and reorg-removal; CLI/MCP surfaces and the 501-route fates; six open questions with recommendations. No consensus, state_root or tx-type change.
+
+- One-line pointer added to `msg1-onchain-messaging.md`.
