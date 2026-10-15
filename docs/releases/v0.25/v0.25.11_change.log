@@ -525,3 +525,9 @@ recovering and a never-converging nonce refusing. Chain state untouched.
 - Raise the remaining live-data tap targets to 44px at phone sizes: explorer live-feed rows (37px) and top-addresses table rows (33px) get min-height/height under (pointer: coarse),(max-width: 640px); marketplace status select (38px) gets min-height.
 - 375px guard now renders these elements: blocks/latest fixture returns blocks[] (feed rows), top-addresses rows and select.endpoint added to the TAP selector list. The fixture gap is why the live measurement caught what the test could not.
 - Desktop layout unchanged; no page overflows at 375px or 1280px.
+
+
+### TOOL-2b — remaining raw RPC-URL echoes masked
+
+- `eth-send`'s wrong-chain refusal and `commands/eth.py`'s two ExplorerError paths (`_rpc` transport failure, `_verify_sepolia` refusal) printed the raw URL — the keyed-provider case. Both now render `display_rpc_url`, and echoed error text goes through `mask_rpc_url`. AIT-side `{rpc_url}` echoes are unchanged (no key material).
+- Tests: `test_evm_rpc_masking.py` `TestEthSendWrongChain` + `TestExplorerCommands` (+4) — the wrong-chain abort and both explorer paths asserted key-free.
