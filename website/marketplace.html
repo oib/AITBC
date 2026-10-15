@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/style.css">
     <script src="config.js" defer></script>
     <script src="marketplace.js" defer></script>
+    <script src="status.js" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -34,6 +35,10 @@
             <h1>AITBC Marketplace</h1>
             <p class="subtitle">Hardware+Software Bundle Offers from the Island Plan</p>
         </header>
+
+        <!-- aitbc-status:start -->
+        <div class="status-strip" role="status" aria-live="polite"></div>
+        <!-- aitbc-status:end -->
 
         <main id="main" tabindex="-1">
 
@@ -145,6 +150,14 @@
             <p class="endpoint-note" id="last-updated">Last updated: loading...</p>
         </div>
         </main>
+        <!-- aitbc-footer:start -->
+        <footer class="site-footer">
+            <a href="https://github.com/oib/AITBC">GitHub</a>
+            <a href="/llms.txt">llms.txt</a>
+            <a href="/openapi.json">Coordinator API</a>
+            <a href="/explorer-api/openapi.json">Explorer API</a>
+        </footer>
+        <!-- aitbc-footer:end -->
     </div>
 </body>
 </html>
