@@ -840,6 +840,16 @@ _FIELD_DENY_NORMALIZED = frozenset({"privatekey", "apikey", "secretkey", "passph
 # "signingkey"/"auth_key"/"access-key" — while "pubkey"/"monkey" stay allowed.
 _FIELD_DENY_KEY_PREFIXES = ("private", "secret", "api", "auth", "signing", "access")
 _FIELD_MAX_VALUE = 200
+# Generated from the constants above so --help can never drift from the code.
+_FIELD_DENY_EPILOG = (
+    "--field refused names: "
+    + ", ".join(sorted(_FIELD_DENY_NAMES))
+    + "; any name ending in '_key'; separator-insensitive forms "
+    + ", ".join(sorted(_FIELD_DENY_NORMALIZED))
+    + "; names ending in 'key' prefixed "
+    + "/".join(_FIELD_DENY_KEY_PREFIXES)
+    + f"; values over {_FIELD_MAX_VALUE} characters are refused."
+)
 
 
 def _field_name_denied(name: str) -> bool:
@@ -866,7 +876,10 @@ def _subtree_has_denied(value: Any) -> bool:
 
   aitbc system file-info --path /var/lib/aitbc/wallets/node.json
 
-  aitbc system file-info --path /var/lib/aitbc/wallets/node.json --field address""",
+  aitbc system file-info --path /var/lib/aitbc/wallets/node.json --field address
+
+"""
+    + _FIELD_DENY_EPILOG,
 )
 @click.option(
     "--path",

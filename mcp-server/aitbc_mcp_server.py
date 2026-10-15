@@ -1862,7 +1862,9 @@ def _service_logs_error(
             continue
         if len(value) > 200:
             return {"error": f"{name} too long (max 200 chars)"}
-        if re.search(r"[;&|<>$`\\!\n\r\x00]", value):
+        # values are shlex-quoted into --opt=<value>, so shell metacharacters
+        # are inert — mirror the CLI's logs validation (newline/CR/NUL only)
+        if re.search(r"[\n\r\x00]", value):
             return {"error": f"invalid {name}", name: value}
     if grep is not None and severity_pattern:
         return {"error": "grep and severity_pattern are mutually exclusive"}
