@@ -2691,3 +2691,26 @@ resolver tests), `d75f144d4` (wallet conftest isolation), `6d0d57b8e`
   (retired hosts, gitea, RFC1918, 64-hex, 0x+40-hex), social meta
   presence. Red on pre-change tree (sitemap + social + llms.txt),
   5/5 green after.
+
+### fix(website): WEB-9 — client-side rendering safety audit + hardening (2026-10-15)
+
+- Audit: enumerated every DOM sink across website/*.js and inline
+  scripts (60 innerHTML writes, insertAdjacentHTML in blocks.js,
+  dynamic href/src setters, storage use). Every data-bearing
+  interpolation resolves to escapeHtml/encodeURIComponent/
+  textContent or a numeric/class constant — no unescaped
+  attacker-controlled sink found; jsdom proofs with hostile stub
+  payloads stayed inert (scratch/web9/, never committed).
+- Hardening: every target="_blank" link (13 static + generated)
+  now carries rel="noopener noreferrer" (8 files).
+- Guard: tests/unit/test_website_client_sinks.py — offline static
+  scan; every markup-template interpolation must provably resolve
+  to an escaping call, constant, or audited allowlist entry
+  (stale entries fail); forbids eval/new Function/document.write/
+  outerHTML; no external-origin includes; _blank requires
+  noopener noreferrer. Red-proof verified by injecting an
+  unescaped field. 5/5 green.
+- Docs: docs/website-csp-proposal.md — report-only CSP draft
+  (default-src 'self', connect-src 'self'), inventories the
+  inline scripts/handlers/styles blocking a strict policy, with
+  an examples/nginx snippet for review. No nginx change here.
