@@ -15,6 +15,8 @@ from decimal import Decimal
 
 import click
 
+from aitbc.utils.units import DEFAULT_TX_FEE_AIT
+
 from ..utils import DECIMAL
 from .wallet import wallet as _wallet_group
 from .wallet.staking import liquidity_stake as _wallet_liquidity_stake
@@ -103,7 +105,7 @@ See also: `aitbc wallet liquidity-unstake` and `aitbc wallet liquidity-claim`.""
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--pool", default="main", help="Liquidity pool name")
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
-@click.option("--fee", type=DECIMAL, default="0.01", help="Transaction fee in AIT")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.pass_context
 def liquidity_stake(
     ctx,
