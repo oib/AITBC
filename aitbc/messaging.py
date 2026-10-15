@@ -132,7 +132,12 @@ def _topic_error(topic: Any) -> str | None:
 def _body_error(body: Any) -> str | None:
     if not isinstance(body, str):
         return "aitbc_msg.body must be a string"
-    body_bytes = len(body.encode("utf-8"))
+    try:
+        body_bytes = len(body.encode("utf-8"))
+    except UnicodeEncodeError:
+        # Lone surrogates (JSON "a\ud800") decode into str but cannot
+        # encode — the row is junk, never an exception.
+        return "aitbc_msg.body is not valid UTF-8 text"
     if body_bytes == 0:
         return "aitbc_msg.body is empty"
     if body_bytes > MAX_MESSAGE_BODY_BYTES:
@@ -142,8 +147,13 @@ def _body_error(body: Any) -> str | None:
     return None
 
 
-def _author_error(agent_address: Any, sender: str) -> str | None:
-    if not isinstance(agent_address, str) or canonical_address(agent_address) != canonical_address(sender):
+def _author_error(agent_address: Any, sender: Any) -> str | None:
+    if not isinstance(agent_address, str):
+        return "aitbc_msg.agent_address must equal the transaction signer"
+    try:
+        if canonical_address(agent_address) != canonical_address(sender):
+            return "aitbc_msg.agent_address must equal the transaction signer"
+    except Exception:
         return "aitbc_msg.agent_address must equal the transaction signer"
     return None
 
@@ -171,7 +181,8 @@ def envelope_error(envelope: Any, *, sender: str) -> str | None:
     if not isinstance(version, int) or isinstance(version, bool) or version != MSG_VERSION:
         return f"unsupported aitbc_msg.v (want {MSG_VERSION})"
     kind = envelope.get("kind")
-    if kind not in MSG_KINDS:
+    # isinstance first: `dict not in frozenset` raises TypeError (unhashable).
+    if not isinstance(kind, str) or kind not in MSG_KINDS:
         return f"unsupported aitbc_msg.kind (want one of {sorted(MSG_KINDS)})"
     return (
         _topic_error(envelope.get("topic"))
