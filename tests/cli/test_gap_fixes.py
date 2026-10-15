@@ -315,69 +315,51 @@ def test_find_service_by_type_and_name():
 
 
 # ---------------------------------------------------------------------------
-# GAP-30: messaging --topic title → topic_id resolution
+# GAP-30 (superseded by MSG-1): --topic is now the implicit slug itself —
+# there is no topic_id lookup or create call; the slug is normalized
+# client-side and an invalid one aborts before any network or wallet work.
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_topic_id_passthrough():
-    from aitbc_cli.commands.messaging import _resolve_topic_id
-
-    client = Mock()
-    assert _resolve_topic_id(client, "topic_abc123", "agent", "addr") == "topic_abc123"
-    client.get.assert_not_called()
-
-
-def test_resolve_topic_id_title_lookup():
-    from aitbc_cli.commands.messaging import _resolve_topic_id
-
-    client = Mock()
-    client.get.return_value = {"topics": [{"topic_id": "topic_9", "title": "General"}]}
-    assert _resolve_topic_id(client, "general", "agent", "addr") == "topic_9"
-    client.post.assert_not_called()
-
-
-def test_resolve_topic_id_creates_when_missing():
-    from aitbc_cli.commands.messaging import _resolve_topic_id
-
-    client = Mock()
-    client.get.return_value = {"topics": []}
-    client.post.return_value = {"topic_id": "topic_new1"}
-    assert _resolve_topic_id(client, "brand-new", "agent", "addr") == "topic_new1"
-    args, kwargs = client.post.call_args
-    assert args[0] == "/rpc/contracts/messaging/topics/create"
-    assert kwargs["json"]["title"] == "brand-new"
-
-
-def test_messaging_send_resolves_title_to_id(runner):
+def test_messaging_send_normalizes_topic_slug(runner):
     from aitbc_cli.commands.messaging import send
 
-    client = Mock()
-    client.get.return_value = {"topics": [{"topic_id": "topic_9", "title": "general"}]}
-    client.post.return_value = {"success": True, "message_id": "msg_1"}
-    with patch("aitbc_cli.commands.messaging.AITBCHTTPClient", return_value=client):
+    with patch("aitbc_cli.commands.messaging._send_transaction_impl", return_value="ab" * 32) as send_tx, patch(
+        "aitbc_cli.commands.messaging._wallet_address", return_value="0x" + "11" * 20
+    ), patch("aitbc_cli.commands.messaging.resolve_wallet_password", return_value="pw"), patch(
+        "aitbc_cli.commands.messaging._wait_for_seal"
+    ):
         result = runner.invoke(
             send,
-            ["--recipient", "agent-1", "--message", "hi", "--topic", "general"],
+            ["--wallet", "w1", "--message", "hi", "--topic", "General  Chat"],
             obj={"output_format": "json"},
         )
     assert result.exit_code == 0, result.output
-    posts = [c for c in client.post.call_args_list if "messages/post" in c.args[0]]
-    assert posts and posts[0].kwargs["json"]["topic_id"] == "topic_9"
+    assert "topic normalized to 'general-chat'" in result.output
+    payload = send_tx.call_args.kwargs["payload"]
+    assert payload["aitbc_msg"]["topic"] == "general-chat"
 
 
-def test_messaging_send_stale_topic_id_aborts(runner):
+def test_messaging_send_invalid_topic_aborts(runner):
     from aitbc_cli.commands.messaging import send
 
-    client = Mock()
-    client.post.return_value = {"success": False, "error_code": "TOPIC_NOT_FOUND"}
-    with patch("aitbc_cli.commands.messaging.AITBCHTTPClient", return_value=client):
+    with patch("aitbc_cli.commands.messaging._send_transaction_impl") as send_tx:
         result = runner.invoke(
             send,
-            ["--recipient", "agent-1", "--message", "hi", "--topic", "topic_gone"],
+            ["--wallet", "w1", "--message", "hi", "--topic", "!!!"],
             obj={"output_format": "json"},
         )
     assert result.exit_code != 0
-    assert "not found" in result.output
+    assert "cannot become a slug" in result.output
+    send_tx.assert_not_called()
+
+
+def test_messaging_send_requires_wallet(runner):
+    from aitbc_cli.commands.messaging import send
+
+    result = runner.invoke(send, ["--message", "hi"], obj={"output_format": "json"})
+    assert result.exit_code != 0
+    assert "wallet" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------
