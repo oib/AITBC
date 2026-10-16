@@ -32,6 +32,8 @@ Approved design: ``docs/design/msg1-onchain-messaging.md`` (MSG-1).
 
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 from typing import Any
 
@@ -56,8 +58,12 @@ MOD_ACTION_KINDS = frozenset({"hide", "unhide", "pin", "unpin", "lock", "unlock"
 #: All non-content kinds: the moderation set plus ``vote``.
 ACTION_KINDS = MOD_ACTION_KINDS | frozenset({"vote"})
 
+#: v1 direct-message kinds (MSG-8). ``dm`` is the sealed ciphertext;
+#: ``dm_key`` publishes the recipient's X25519 public key.
+DM_KINDS = frozenset({"dm", "dm_key"})
+
 #: Every recognised v1 kind.
-MSG_KINDS = POST_KINDS | ACTION_KINDS
+MSG_KINDS = POST_KINDS | ACTION_KINDS | DM_KINDS
 
 #: Legal ``vote`` values: +1 up, -1 down, 0 retract (MSG-2).
 VOTE_VALUES = frozenset({-1, 0, 1})
@@ -71,6 +77,19 @@ MAX_MESSAGE_BODY_BYTES = 4096
 #: spelling only — posting stays open to any fee-paying signer and nothing in
 #: the index or API marks its posts as official.
 BROADCAST_TOPIC = "broadcast"
+
+#: Reserved slug for the DM kinds (MSG-8). ``topic == DM_TOPIC`` if and only
+#: if ``kind in DM_KINDS`` — enforced both ways in the predicate, so a ``dm``
+#: can never hide under a user topic and user content can never squat on the
+#: reserved slug. The read index answers every carve-out from this one rule.
+DM_TOPIC = "dm"
+
+#: Context string bound into every DM plaintext (MSG-8 §3).
+DM_CONTEXT = "aitbc-dm-v1"
+
+#: ``ct`` cap: base64 characters on the wire (4096 base64 = 3072 raw bytes;
+#: 48 B sealed-box overhead + ~100 B header leaves ≈ 2920 B of message).
+MAX_DM_CT_B64_BYTES = 4096
 
 #: Minimum length for the public search query.
 MIN_SEARCH_CHARS = 3
@@ -217,6 +236,44 @@ def _grantee_error(kind: str, grantee: Any) -> str | None:
     return None
 
 
+def _strict_b64(value: Any) -> bytes | None:
+    """Decode strict base64 (standard alphabet, padding required) or ``None``."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return base64.b64decode(value.encode("ascii"), validate=True)
+    except (binascii.Error, UnicodeEncodeError, ValueError):
+        return None
+
+
+def _dm_error(envelope: dict[str, Any]) -> str | None:
+    """Field rules for the ``dm`` kind: ``to`` is a canonical recipient
+    address; ``ct`` is strict base64 of at most ``MAX_DM_CT_B64_BYTES``
+    characters (the sealed box, never decoded server-side)."""
+    to = envelope.get("to")
+    if not isinstance(to, str):
+        return "aitbc_msg.to must be the recipient's 0x address"
+    try:
+        canonical_address(to, strict=True)
+    except Exception:
+        return "aitbc_msg.to must be the recipient's 0x address"
+    ct = envelope.get("ct")
+    if not isinstance(ct, str) or len(ct.encode("ascii", "ignore")) > MAX_DM_CT_B64_BYTES:
+        return f"aitbc_msg.ct must be base64 text of at most {MAX_DM_CT_B64_BYTES} chars"
+    if _strict_b64(ct) is None:
+        return "aitbc_msg.ct must be strict base64 (standard alphabet, padding required)"
+    return None
+
+
+def _dm_key_error(envelope: dict[str, Any]) -> str | None:
+    """``dm_key`` carries ``enc_pubkey``: strict base64 of a 32-byte X25519
+    public key."""
+    raw = _strict_b64(envelope.get("enc_pubkey"))
+    if raw is None or len(raw) != 32:
+        return "aitbc_msg.enc_pubkey must be strict base64 of a 32-byte X25519 public key"
+    return None
+
+
 def envelope_error(envelope: Any, *, sender: str) -> str | None:
     """The one validity predicate. ``None`` means valid; otherwise the reason.
 
@@ -238,13 +295,53 @@ def envelope_error(envelope: Any, *, sender: str) -> str | None:
     common = _topic_error(envelope.get("topic")) or _author_error(envelope.get("agent_address"), sender)
     if common is not None:
         return common
+    # The `dm` slug is reserved in both directions (MSG-8): only the DM
+    # kinds may carry it, and they may carry nothing else.
+    if (envelope["topic"] == DM_TOPIC) != (kind in DM_KINDS):
+        return f"aitbc_msg.topic '{DM_TOPIC}' is reserved for the dm kinds, and the dm kinds may use no other topic"
     if kind in POST_KINDS:
         return _body_error(envelope.get("body")) or _parent_error(kind, envelope.get("parent"))
+    if kind == "dm":
+        return _dm_error(envelope)
+    if kind == "dm_key":
+        return _dm_key_error(envelope)
     return (
         _target_error(kind, envelope.get("target"))
         or _value_error(kind, envelope.get("value"))
         or _grantee_error(kind, envelope.get("grantee"))
     )
+
+
+def _attach_fields(
+    envelope: dict[str, Any],
+    *,
+    kind: str,
+    body: str | None,
+    parent: str | None,
+    target: str | None,
+    value: int | None,
+    grantee: str | None,
+    to: str | None,
+    ct: str | None,
+    enc_pubkey: str | None,
+) -> None:
+    """Attach the per-kind payload fields; ``envelope_error`` validates."""
+    if kind in POST_KINDS:
+        envelope["body"] = body
+        if parent is not None:
+            envelope["parent"] = parent
+    if kind in _TARGET_KINDS or kind in {"lock", "unlock"}:
+        if target is not None:
+            envelope["target"] = target
+    if kind == "vote":
+        envelope["value"] = value
+    if kind in {"mod_grant", "mod_revoke"}:
+        envelope["grantee"] = grantee
+    if kind == "dm":
+        envelope["to"] = to
+        envelope["ct"] = ct
+    if kind == "dm_key":
+        envelope["enc_pubkey"] = enc_pubkey
 
 
 def build_envelope(
@@ -257,6 +354,9 @@ def build_envelope(
     target: str | None = None,
     value: int | None = None,
     grantee: str | None = None,
+    to: str | None = None,
+    ct: str | None = None,
+    enc_pubkey: str | None = None,
 ) -> dict[str, Any]:
     """Build a validated ``aitbc_msg`` envelope for signing.
 
@@ -276,17 +376,18 @@ def build_envelope(
         "topic": canonical_topic,
         "agent_address": agent_address,
     }
-    if kind in POST_KINDS:
-        envelope["body"] = body
-        if parent is not None:
-            envelope["parent"] = parent
-    if kind in _TARGET_KINDS or kind in {"lock", "unlock"}:
-        if target is not None:
-            envelope["target"] = target
-    if kind == "vote":
-        envelope["value"] = value
-    if kind in {"mod_grant", "mod_revoke"}:
-        envelope["grantee"] = grantee
+    _attach_fields(
+        envelope,
+        kind=kind,
+        body=body,
+        parent=parent,
+        target=target,
+        value=value,
+        grantee=grantee,
+        to=to,
+        ct=ct,
+        enc_pubkey=enc_pubkey,
+    )
     error = envelope_error(envelope, sender=agent_address)
     if error is not None:
         raise ValueError(error)

@@ -9,6 +9,8 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from ..messaging import (
+    messaging_dm_inbox,
+    messaging_dm_key,
     messaging_get,
     messaging_messages,
     messaging_moderation,
@@ -69,6 +71,22 @@ async def reputation_route(request: Request, address: str, chain_id: str | None 
 @router.get("/topics/{slug}/moderation", summary="Topic moderator set and actions")
 async def topic_moderation_route(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
     return await messaging_moderation(request, slug, chain_id=chain_id)  # type: ignore[no-any-return]
+
+
+@router.get("/dm-keys/{address}", summary="Latest DM encryption key for an address (MSG-8)")
+async def dm_key_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+    return await messaging_dm_key(request, address, chain_id=chain_id)  # type: ignore[no-any-return]
+
+
+@router.get("/dm/{address}", summary="DM inbox for an address — ciphertext only (MSG-8)")
+async def dm_inbox_route(
+    request: Request,
+    address: str,
+    limit: int = 50,
+    cursor: str | None = None,
+    chain_id: str | None = None,
+) -> dict[str, Any]:
+    return await messaging_dm_inbox(request, address, limit=limit, cursor=cursor, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 # Declared before /messages/{tx_hash} so the literal path wins.

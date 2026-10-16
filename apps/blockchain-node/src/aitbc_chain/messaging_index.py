@@ -61,6 +61,9 @@ from sqlmodel import col, select
 
 from aitbc.messaging import (
     ACTION_KINDS,
+    DM_KINDS,
+    DM_TOPIC,
+    MAX_DM_CT_B64_BYTES,
     MAX_MESSAGE_BODY_BYTES,
     MAX_TOPIC_CHARS,
     MSG_KINDS,
@@ -161,6 +164,10 @@ def _env_from_row(row: Any) -> dict[str, Any]:
     grantee = _decode_env_bytes(row.env_grantee)
     if grantee is not None:
         env["grantee"] = grantee
+    for f in ("to", "ct", "enc_pubkey"):
+        v = _decode_env_bytes(getattr(row, f"env_{f}", None))
+        if v is not None:
+            env[f] = v
     return env
 
 
@@ -312,7 +319,35 @@ def _candidate_where(chain_id: str):
         func.json_type(payload, f"{ns}.grantee") == "text",
         func.length(_env_json("grantee")) >= 1,
     )
-    return (common, or_(post_branch, vote_branch, targeted_branch, lock_branch, grant_branch))
+    # MSG-8: the `dm` slug is reserved for the DM kinds and vice versa. Every
+    # non-DM branch excludes it so a legacy/squatted `dm`-topic row (sealed
+    # before the bidirectional rule existed) can never surface or count; the
+    # DM branches require it.
+    not_dm_slug = _env_json("topic") != DM_TOPIC
+    dm_branch = and_(
+        _env_json("kind") == "dm",
+        _env_json("topic") == DM_TOPIC,
+        func.json_type(payload, f"{ns}.to") == "text",
+        func.json_type(payload, f"{ns}.ct") == "text",
+        func.length(_env_text("ct")).between(1, MAX_DM_CT_B64_BYTES),
+    )
+    dm_key_branch = and_(
+        _env_json("kind") == "dm_key",
+        _env_json("topic") == DM_TOPIC,
+        func.json_type(payload, f"{ns}.enc_pubkey") == "text",
+    )
+    return (
+        common,
+        or_(
+            and_(post_branch, not_dm_slug),
+            and_(vote_branch, not_dm_slug),
+            and_(targeted_branch, not_dm_slug),
+            and_(lock_branch, not_dm_slug),
+            and_(grant_branch, not_dm_slug),
+            dm_branch,
+            dm_key_branch,
+        ),
+    )
 
 
 def _candidate_columns():
@@ -330,6 +365,9 @@ def _candidate_columns():
         _env_text("target").label("env_target"),
         _env_json("value").label("env_value"),
         _env_text("grantee").label("env_grantee"),
+        _env_text("to").label("env_to"),
+        _env_text("ct").label("env_ct"),
+        _env_text("enc_pubkey").label("env_enc_pubkey"),
     ]
 
 
@@ -1270,3 +1308,89 @@ def reputation(session, chain_id: str, address: str) -> dict[str, Any]:
         "messages_counted": counted,
         "vote_cap": VOTE_CAP,
     }
+
+
+# -- MSG-8: encrypted direct messages -----------------------------------------
+# The index stores and serves ciphertext only — no plaintext, no keys. The
+# `dm` slug is reserved for the DM kinds (enforced bidirectionally by the
+# predicate and by the branch-level topic rules in _candidate_where), so a
+# single check — kind + slug — is the whole carve-out: DM rows are invisible
+# to topics/messages/state/search reads because they are never POST_KINDS,
+# and they surface only through the two functions below.
+
+
+def is_dm_row(env: dict[str, Any]) -> bool:
+    """The one DM carve-out predicate: envelope is a DM row iff its kind is a
+    DM kind *and* it sits on the reserved slug (the admission rule, mirrored
+    for reads)."""
+    return env.get("kind") in DM_KINDS and env.get("topic") == DM_TOPIC
+
+
+def _dm_view(row: Any) -> dict[str, Any]:
+    env = _env_from_row(row)
+    return {
+        "tx_hash": row.tx_hash,
+        "block_height": row.block_height,
+        "sender": _to_ait_address(row.sender),
+        "to": env.get("to"),
+        "ct": env.get("ct"),
+        "kind": env.get("kind"),
+    }
+
+
+def dm_inbox(
+    session,
+    chain_id: str,
+    address: str,
+    *,
+    limit: int = DEFAULT_READ_LIMIT,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """The recipient's DM inbox: valid ``dm`` rows with ``to == address``,
+    newest-first under the same ``<height>:<tx_hash>`` cursor shape."""
+    limit = max(1, min(int(limit), MAX_READ_LIMIT))
+    parsed = parse_cursor(cursor)
+    stmt = _candidate_select(chain_id).where(
+        _env_json("kind") == "dm",
+        func.lower(_env_json("to")) == address.lower(),
+    )
+    rows, next_cursor, bounded = _scan_valid(session, stmt, cursor=parsed, limit=limit, scan_bound=SCAN_BOUND)
+    return {
+        "success": True,
+        "chain_id": chain_id,
+        "index_height": _index_height(session, chain_id),
+        "messages": [_dm_view(r) for r in rows],
+        "count": len(rows),
+        "next_cursor": next_cursor,
+        "scan_bounded": bounded,
+    }
+
+
+def latest_dm_key(session, chain_id: str, address: str) -> dict[str, Any] | None:
+    """The newest valid ``dm_key`` published by ``address``, or ``None``.
+
+    Latest wins in ``(block_height, tx_hash)`` order — rotation is a fresh
+    envelope. Invalid rows never count (same predicate arbiter as the rest
+    of the index).
+    """
+    stmt = _candidate_select(chain_id).where(
+        _env_json("kind") == "dm_key",
+        func.lower(_env_json("agent_address")) == address.lower(),
+    )
+    cursor: tuple[int, str] | None = None
+    while True:
+        # _scan_valid's cursor always advances past junk, so a hostile run of
+        # invalid dm_key rows can never hide a valid earlier key.
+        rows, next_cursor, _bounded = _scan_valid(session, stmt, cursor=cursor, limit=1, scan_bound=SCAN_BOUND)
+        if rows:
+            row = rows[0]
+            env = _env_from_row(row)
+            return {
+                "address": _canonical(row.sender),
+                "enc_pubkey": env.get("enc_pubkey"),
+                "tx_hash": row.tx_hash,
+                "block_height": row.block_height,
+            }
+        if next_cursor is None:
+            return None
+        cursor = parse_cursor(next_cursor)

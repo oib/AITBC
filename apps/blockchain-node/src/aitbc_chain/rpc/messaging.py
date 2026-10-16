@@ -26,7 +26,9 @@ from ..messaging_metrics import collect_gauges, note_read, note_read_client_erro
 from ..messaging_index import (
     MAX_OFFSET,
     MAX_READ_LIMIT,
+    dm_inbox,
     get_message,
+    latest_dm_key,
     list_messages,
     list_topics,
     message_votes,
@@ -243,6 +245,37 @@ async def messaging_search(
             cursor=cursor,
         )
     result["query"] = text.strip()
+    return result
+
+
+@rate_limit(rate=200, per=60)
+@_observed("dm_inbox")
+async def messaging_dm_inbox(
+    request: Request,
+    address: str,
+    limit: int = 50,
+    cursor: str | None = None,
+    chain_id: str | None = None,
+) -> dict[str, Any]:
+    """The recipient's DM inbox — ciphertext rows only (MSG-8). The node
+    never sees plaintext or keys; decryption is client-side."""
+    _check_cursor(cursor)
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        return dm_inbox(session, resolved, address, limit=_clamp_limit(limit), cursor=cursor)
+
+
+@rate_limit(rate=200, per=60)
+@_observed("dm_key")
+async def messaging_dm_key(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+    """The latest published DM encryption key for an address (MSG-8)."""
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        result = latest_dm_key(session, resolved, address)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No dm_key published for {address}")
+    result["success"] = True
+    result["chain_id"] = resolved
     return result
 
 
