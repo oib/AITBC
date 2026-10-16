@@ -64,8 +64,10 @@ MIN_SEARCH_CHARS = 3
 
 _TX_HASH_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 
-#: Canonical topic charset: lowercase alnum with single ``.`` ``_`` ``-``
-#: separators between runs of alnum. No leading/trailing separator.
+#: Canonical topic charset: lowercase alnum, starting and ending with an
+#: alphanumeric, with ``.`` ``_`` ``-`` separators in between — *runs* of
+#: separators are legal (``a..b``, ``a_-_b``); only ``--`` runs are collapsed
+#: by ``normalize_topic`` into a single ``-`` and so never appear canonical.
 _TOPIC_RE = re.compile(r"[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?")
 
 #: C0 control characters except tab/LF/CR, plus DEL. Bodies are rendered as
