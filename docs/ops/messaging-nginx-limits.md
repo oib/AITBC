@@ -3,10 +3,13 @@
 Status: **applied on hub 16 Oct 2026** (zone + both `/rpc/messaging/`-family
 locations, deployed as `/etc/nginx/conf.d/aitbc-messaging-limits.conf`;
 explorer-api side applied the same day — see the companion document).
-Follower nodes have no nginx in front of `:8202` — the `0.0.0.0`-bind
-bypass caveat below still stands for them. This document records the
-MSG-FIX-1 F4 verification findings and the nginx-layer limit now live
-for the messaging read endpoints.
+This document records the MSG-FIX-1 F4 verification findings and the
+nginx-layer limit now live for the messaging read endpoints.
+
+Follower exposure resolved 16 Oct (FOLLOWER-RPC-5): node0, node1 and
+node2 now bind `127.0.0.1:8202`, so their nginx on `:80` is the only
+ingress — the `0.0.0.0`-bind bypass caveat below applies to hub1 only,
+which still binds `0.0.0.0:8202` pending its own change row.
 
 ## What is already in place
 
@@ -29,12 +32,14 @@ inputs are trustworthy.
 ## Public-exposure caveat (verified live, 15 Oct 2026)
 
 The in-app limiter is only trustworthy when requests arrive **through
-nginx** (or when the socket is loopback-only). Verified fleet state:
+nginx** (or when the socket is loopback-only). Verified fleet state
+(after FOLLOWER-RPC-5, 16 Oct 2026):
 
 | host | RPC socket | XFF/X-Real-IP trustworthy? |
 |---|---|---|
 | hub (proposer, customer-facing) | `127.0.0.1:8202` | yes — nginx-only path; nginx overwrites `X-Real-IP` and appends XFF |
-| hub1, node0, node1, node2 | `0.0.0.0:8202` | **no** on direct access — a client reaching `:8202` without nginx sets `X-Forwarded-For`/`X-Real-IP` itself and picks its own rate-limit key |
+| node0, node1, node2 | `127.0.0.1:8202` | yes — every request enters via the follower's own nginx on `:80`, which overwrites `X-Real-IP`/`X-Forwarded-For`; direct `:8202` is refused |
+| hub1 | `0.0.0.0:8202` | **no** on direct access — a client reaching `:8202` without nginx sets `X-Forwarded-For`/`X-Real-IP` itself and picks its own rate-limit key (bind in `node.env`; pending its own row) |
 
 Concretely, on a `0.0.0.0` bind:
 
@@ -45,14 +50,20 @@ Concretely, on a `0.0.0.0` bind:
 - Uvicorn runs with `--proxy-headers`, so even the `request.client.host`
   fallback trusts a spoofed XFF.
 
-The followers' binds are on private LAN segments, so the spoofing
-surface is the LAN, not the public internet — but any machine that can
-reach `:8202` bypasses the limiter.
+The remaining `0.0.0.0` bind (hub1) sits on a private LAN segment, so the
+spoofing surface is the LAN, not the public internet — but any machine
+that can reach `:8202` bypasses the limiter.
 The durable fixes, in preference order:
 
 1. **Bind loopback where nginx fronts the service**
-   (`RPC_BIND_HOST=127.0.0.1` in `/etc/aitbc/blockchain-rpc.env`) and let
-   nginx be the only ingress. On hub this is already the effective state.
+   (`RPC_BIND_HOST=127.0.0.1` in the env file the rpc unit reads —
+   `blockchain.env` on the followers, which overrides the unit's
+   `Environment=` value) and let nginx be the only ingress. On hub and on
+   node0/node1/node2 this is now the live state: their nginx on `:80`
+   proxies `/rpc/` (including `/rpc/gossip/ws` with Upgrade headers) to
+   `127.0.0.1:8202`, and peer gossip URLs were repointed from
+   `ws://<lan-ip>:8202/...` to `ws://<lan-ip>/...` beforehand so no peer
+   link was lost.
 2. **Firewall `:8202`** so only localhost (and explicitly peered services)
    can connect.
 3. If a follower must expose the RPC directly, deploy the nginx limit
