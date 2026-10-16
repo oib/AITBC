@@ -137,3 +137,44 @@ def test_mod_grant_dry_run(runner, patched):
     assert body["kind"] == "mod_grant" and body["grantee"] == BOB
     assert body["envelope"]["grantee"] == BOB
     send_impl.assert_not_called()
+
+
+def test_reputation_sanitises_chain_text(runner):
+    """MSG-FIX-3 item 2: reputation output goes through sanitize_chain_obj —
+    a bidi/zero-width char in the RPC body shows as [U+XXXX], never raw."""
+    client = MagicMock()
+    client.get.side_effect = lambda url: {
+        "address": "0xabc​def",
+        "reputation": 3,
+        "topics": {"dev‮x": 2},
+    }
+    with (
+        patch(f"{MOD}._resolve_transaction_rpc_url", return_value="http://rpc"),
+        patch(f"{MOD}._rpc_client", return_value=client),
+    ):
+        result = _invoke(runner, ["reputation", "0xabcdef"])
+    body = _payload(result)
+    assert body["address"] == "0xabc[U+200B]def"
+    assert "dev[U+202E]x" in body["topics"]
+
+
+def test_moderators_sanitises_chain_text(runner):
+    """Same rule on the moderation read — a hostile topic/action string is
+    replaced, not rendered."""
+    client = MagicMock()
+    client.get.side_effect = lambda url: {
+        "topic": "dev",
+        "founder": "0xabc​def",
+        "moderators": ["0xabc​def"],
+        "authority_unresolved": False,
+        "actions": [{"kind": "pin‮x"}],
+    }
+    with (
+        patch(f"{MOD}._resolve_transaction_rpc_url", return_value="http://rpc"),
+        patch(f"{MOD}._rpc_client", return_value=client),
+    ):
+        result = _invoke(runner, ["moderators", "dev"])
+    body = _payload(result)
+    assert body["founder"] == "0xabc[U+200B]def"
+    assert body["moderators"] == ["0xabc[U+200B]def"]
+    assert body["actions"][0]["kind"] == "pin[U+202E]x"
