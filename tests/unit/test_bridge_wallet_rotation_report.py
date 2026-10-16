@@ -33,7 +33,7 @@ REL2 = "0x38b1fa3387b073c4495da7fa788b16cde6e5db683485a2c9d0c9daa7a70d342f"
 OLD_DEFICIT_WEI = 52335372406592269
 OLD_RESIDUAL_WEI = 2375372406592269
 SWEEP_WEI = 50664627593407731
-WALLETS = {OLD.lower(): OLD, CUR.lower(): CUR}
+WALLETS = {bwr._norm(OLD): OLD, bwr._norm(CUR): CUR}
 
 
 def _tx(tx_hash, frm, to, value_wei, status=1, gas_used=None, gas_price=None):
@@ -96,7 +96,7 @@ def _txs() -> list[dict]:
 
 def _analyze(tmp_path: Path):
     ledger = bwr._load_ledger(_ledger(tmp_path))
-    return bwr.analyze(_txs(), ledger["deposits"], ledger["depositors"], ledger["withdrawals"], set(), WALLETS, CUR.lower())
+    return bwr.analyze(_txs(), ledger["deposits"], ledger["depositors"], ledger["withdrawals"], set(), WALLETS, bwr._norm(CUR))
 
 
 def _main(tmp_path: Path, capsys) -> tuple[int, str]:
@@ -119,43 +119,43 @@ def _main(tmp_path: Path, capsys) -> tuple[int, str]:
 
 def test_old_deficit_decomposes_to_nothing(tmp_path):
     books, _, flags = _analyze(tmp_path)
-    cur = books[CUR.lower()]
+    cur = books[bwr._norm(CUR)]
     assert cur.expected_in == 105000000000000000  # 5 deposits attributed (0.105 ETH)
     assert cur.expected_out == 1674524307415464  # the two releases
     assert cur.residual == -OLD_DEFICIT_WEI
     # 0.103 expected-never-arrived minus 0.0507 arrived-unexpected, fully
     # decomposed once rotation is modelled — no unexplained remainder.
     assert cur.residual - sum(d for d, _ in cur.components) == 0
-    assert not any("unexplained" in f for f in flags if CUR.lower() in f or CUR in f)
+    assert not any("unexplained" in f for f in flags if bwr._norm(CUR) in f or CUR in f)
 
 
 def test_sweep_is_internal_transfer(tmp_path):
     _, transfers, flags = _analyze(tmp_path)
-    assert [(t["from"], t["to"], t["value_wei"]) for t in transfers] == [(OLD.lower(), CUR.lower(), SWEEP_WEI)]
+    assert [(t["from"], t["to"], t["value_wei"]) for t in transfers] == [(bwr._norm(OLD), bwr._norm(CUR), SWEEP_WEI)]
     assert not any(SWEEP in f for f in flags)
 
 
 def test_four_deposits_addressed_elsewhere(tmp_path):
     books, _, _ = _analyze(tmp_path)
-    cur_elsewhere = [d for d, lbl in books[CUR.lower()].components if "landed on" in lbl]
+    cur_elsewhere = [d for d, lbl in books[bwr._norm(CUR)].components if "landed on" in lbl]
     assert len(cur_elsewhere) == 4
     assert sum(cur_elsewhere) == -103000000000000000
-    old_inflows = [d for d, lbl in books[OLD.lower()].components if "inflow attributed to" in lbl]
+    old_inflows = [d for d, lbl in books[bwr._norm(OLD)].components if "inflow attributed to" in lbl]
     assert len(old_inflows) == 4
     assert sum(old_inflows) == 103000000000000000
 
 
 def test_refund_is_unledgered_outflow_on_old_only(tmp_path):
     books, _, flags = _analyze(tmp_path)
-    old = books[OLD.lower()]
+    old = books[bwr._norm(OLD)]
     assert any(d == -49960000000000000 and "unledgered outflow" in lbl for d, lbl in old.components)
     assert any("unledgered outflow" in f for f in flags)
-    assert not any("refund" in lbl or "unledgered" in lbl for _, lbl in books[CUR.lower()].components)
+    assert not any("refund" in lbl or "unledgered" in lbl for _, lbl in books[bwr._norm(CUR)].components)
 
 
 def test_old_wallet_residual_unexplained_not_gas(tmp_path):
     books, _, flags = _analyze(tmp_path)
-    old = books[OLD.lower()]
+    old = books[bwr._norm(OLD)]
     assert old.residual == OLD_RESIDUAL_WEI  # 0.103 - 0.04996 - 0.050665
     assert any("retains" in f and "unexplained" in f and OLD in f for f in flags)
     # Gas is its own term, never the unexplained label.
@@ -273,7 +273,7 @@ def test_unmatched_row_hash_is_flagged(tmp_path):
         ledger["withdrawals"],
         set(),
         WALLETS,
-        CUR.lower(),
+        bwr._norm(CUR),
     )
     assert any("dep_mig" in f and "no chain tx in dump" in f for f in flags)
 
@@ -288,5 +288,79 @@ def test_malformed_tx_rejected(tmp_path):
             ledger["withdrawals"],
             set(),
             WALLETS,
-            CUR.lower(),
+            bwr._norm(CUR),
         )
+
+
+def _ledger_with_sell_tables(tmp_path: Path) -> Path:
+    """Ledger fixture extended with bridge_sell_locks + exchange_settlements
+    (the same file the wallet side writes)."""
+    db = _ledger(tmp_path)
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE bridge_sell_locks (id TEXT PRIMARY KEY, amount_ait NUMERIC, "
+        "eth_amount TEXT, status TEXT, eth_tx_hash TEXT)"
+    )
+    con.execute(
+        "CREATE TABLE exchange_settlements (id TEXT PRIMARY KEY, amount_ait NUMERIC, "
+        "eth_amount NUMERIC, status TEXT, eth_tx_hash TEXT)"
+    )
+    return db
+
+
+def test_hash_norm_bridges_0x_prefix(tmp_path):
+    """_norm strips 0x and lowercases: a prefixed dump hash must match a bare
+    ledger tx_hash and vice versa (the ledger mixes both conventions)."""
+    depmap = _ledger(tmp_path)
+    ledger = bwr._load_ledger(depmap)
+    # dump entry is 0x-prefixed; ledger row (OCT_DEP, prefixed constant) is
+    # normalized at load — both directions must match.
+    dep = [d for d in ledger["deposits"] if bwr._norm(d["tx_hash"]) == bwr._norm(OCT_DEP)]
+    assert dep, "deposit lookup must survive case + 0x normalization"
+    # withdrawals rows stay prefixed in the table; lookup is via _norm.
+    bwr._norm(REL1)
+    tx_prefixed = _tx(REL1.upper().replace("0X", "0x"), CUR, RECEIVER, 1113060053784850, gas_used=1, gas_price=1)
+    tx_bare = _tx(REL1[2:], CUR, RECEIVER, 1113060053784850, gas_used=1, gas_price=1)
+    for tx in (tx_prefixed, tx_bare):
+        books = {bwr._norm(CUR): bwr._Book(CUR, True)}
+        wmap = {w["eth_tx_hash"]: w for w in ledger["withdrawals"]}
+        book = books[bwr._norm(CUR)]
+        bwr._outbound(book, tx, int(tx["value_wei"]), bwr._norm(RECEIVER), wmap, set(), set())
+        assert not any("unexplained" in f for f in book.flags), tx["tx_hash"]
+
+
+def test_sell_lock_and_settlement_releases_explained(tmp_path):
+    """An outbound hash recorded on a sell lock or an exchange settlement is
+    a known release leg — it must not flag as unexplained. Hashes are NOT in
+    eth_withdrawals, so only the new joins can explain them."""
+    sell1 = "0x" + "aa" * 32
+    sell2 = "0x" + "bb" * 32
+    db = _ledger_with_sell_tables(tmp_path)
+    con = sqlite3.connect(db)
+    con.execute("INSERT INTO bridge_sell_locks VALUES ('sl1','100','0.001','released',?)", (sell1,))
+    con.execute("INSERT INTO exchange_settlements VALUES ('es1','100',0.0005,'released',?)", (sell2,))
+    con.commit()
+    con.close()
+
+    ledger = bwr._load_ledger(db)
+    assert len(ledger["sell_releases"]) == 2
+
+    txs = [
+        _tx(sell1, CUR, RECEIVER, 10**15, gas_used=21000, gas_price=1),  # matches lock exactly
+        _tx(sell2[2:], CUR, RECEIVER, 5 * 10**14, gas_used=21000, gas_price=1),  # bare hash matches settlement
+        _tx("0x" + "cc" * 32, CUR, RECEIVER, 7 * 10**14, gas_used=21000, gas_price=1),  # orphan — still flags
+    ]
+    books, _, flags = bwr.analyze(
+        txs,
+        ledger["deposits"],
+        ledger["depositors"],
+        ledger["withdrawals"],
+        set(),
+        WALLETS,
+        bwr._norm(CUR),
+        sell_releases=ledger["sell_releases"],
+    )
+    unexplained = [f for f in flags if "unexplained outflow" in f]
+    assert len(unexplained) == 1 and "cccc" in unexplained[0]
+    cur = books[bwr._norm(CUR)]
+    assert not any("release" in f and sell1[:14] in f for f in cur.flags)  # exact match, no delta flag

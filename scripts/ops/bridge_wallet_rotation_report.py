@@ -80,7 +80,11 @@ def _eth_to_wei(amount: object, field: str) -> int:
 
 
 def _norm(addr: object) -> str:
-    return str(addr or "").strip().lower()
+    """Lowercase, stripped, single leading ``0x`` removed — the ledger mixes
+    hash conventions (eth_deposits bare, eth_withdrawals prefixed), so all
+    hash/address compares go through this."""
+    v = str(addr or "").strip().lower()
+    return v[2:] if v.startswith("0x") else v
 
 
 def _short(addr: str) -> str:
@@ -114,21 +118,40 @@ def _load_ledger(ledger: Path) -> dict:
             for r in con.execute(f"SELECT id, tx_hash, from_address, amount_eth, status, {dep_addr_expr} FROM eth_deposits")  # nosec B608
         ]
         depositors = {
-            str(r[0]).lower()
-            for r in con.execute("SELECT DISTINCT from_address FROM eth_deposits WHERE from_address IS NOT NULL")
+            _norm(r[0]) for r in con.execute("SELECT DISTINCT from_address FROM eth_deposits WHERE from_address IS NOT NULL")
         }
         try:
             withdrawals = [
-                {"eth_tx_hash": str(r[0]).lower(), "amount_wei": _eth_to_wei(r[1], f"withdrawal {r[0]}"), "status": r[2]}
+                {"eth_tx_hash": _norm(r[0]), "amount_wei": _eth_to_wei(r[1], f"withdrawal {r[0]}"), "status": r[2]}
                 for r in con.execute(
                     "SELECT eth_tx_hash, amount_eth, status FROM eth_withdrawals WHERE eth_tx_hash IS NOT NULL"
                 )
             ]
         except sqlite3.OperationalError:
             withdrawals = []
+        # Sell-flow releases: the payout leg's ETH hash is recorded on the
+        # sell lock or the exchange settlement, not in eth_withdrawals —
+        # without these joins every sell release flags as unexplained.
+        # Both tables may be absent on a pre-ETH-8 ledger.
+        sell_releases: list[dict] = []
+        for table in ("bridge_sell_locks", "exchange_settlements"):
+            try:
+                sell_releases += [
+                    {
+                        "eth_tx_hash": _norm(r[0]),
+                        "amount_wei": _eth_to_wei(r[1], f"{table} {r[0]}"),
+                        "status": r[2],
+                        "source": table,
+                    }
+                    for r in con.execute(
+                        f"SELECT eth_tx_hash, eth_amount, status FROM {table} WHERE eth_tx_hash IS NOT NULL"  # nosec B608
+                    )
+                ]
+            except sqlite3.OperationalError:
+                continue
     finally:
         con.close()
-    return {"deposits": deposits, "depositors": depositors, "withdrawals": withdrawals}
+    return {"deposits": deposits, "depositors": depositors, "withdrawals": withdrawals, "sell_releases": sell_releases}
 
 
 class _Book:
@@ -198,9 +221,12 @@ def _outbound(
     withdrawal_by_hash: dict[str, dict],
     depositors: set[str],
     funding: set[str],
+    sell_release_by_hash: dict[str, dict] | None = None,
 ) -> None:
     book.observed_out += value
     w = withdrawal_by_hash.get(_norm(tx["tx_hash"]))
+    if w is None and sell_release_by_hash:
+        w = sell_release_by_hash.get(_norm(tx["tx_hash"]))
     if w is not None:
         if not book.is_current:
             book.flags.append(f"ledgered release {tx['tx_hash']} observed from non-current wallet — needs operator note")
@@ -227,6 +253,7 @@ def _classify_tx(
     depositors: set[str],
     funding: set[str],
     transfers: list[dict],
+    sell_release_by_hash: dict[str, dict] | None = None,
 ) -> None:
     if not isinstance(tx, dict) or not tx.get("tx_hash") or not tx.get("to") or not tx.get("from"):
         raise SystemExit(f"txs[{i}]: missing tx_hash, from or to")
@@ -251,7 +278,7 @@ def _classify_tx(
     if dest in books:
         _inbound(books[dest], tx, value, sender, deposit_by_hash)
     if sender in books:
-        _outbound(books[sender], tx, value, dest, withdrawal_by_hash, depositors, funding)
+        _outbound(books[sender], tx, value, dest, withdrawal_by_hash, depositors, funding, sell_release_by_hash)
 
 
 def _deposit_components(deposits: list[dict], books: dict[str, _Book], dump_by_hash: dict[str, dict], current: str) -> None:
@@ -300,22 +327,26 @@ def analyze(
     funding: set[str],
     wallets: dict[str, str],
     current: str,
+    sell_releases: list[dict] | None = None,
     dust_wei: int = 0,
 ) -> tuple[dict[str, _Book], list[dict], list[str]]:
     """Attribute every ledger row and chain tx to a wallet, then decompose
     each wallet's residual. ``wallets`` maps lowercase address -> display
     form and must contain ``current``. Returns ``(books, internal_transfers, flags)``.
     """
-    current = current.lower()
-    books = {addr: _Book(display, addr == current) for addr, display in wallets.items()}
+    current = _norm(current)
+    depositors = {_norm(d) for d in depositors}
+    funding = {_norm(f) for f in funding}
+    books = {_norm(addr): _Book(display, _norm(addr) == current) for addr, display in wallets.items()}
     _attribute_ledger(deposits, withdrawals, books, current)
 
     deposit_by_hash = {_norm(d["tx_hash"]): d for d in deposits}
     withdrawal_by_hash = {w["eth_tx_hash"]: w for w in withdrawals}
+    sell_release_by_hash = {w["eth_tx_hash"]: w for w in (sell_releases or [])}
     dump_by_hash = {_norm(t.get("tx_hash")): t for t in txs if isinstance(t, dict)}
     transfers: list[dict] = []
     for i, tx in enumerate(txs):
-        _classify_tx(i, tx, books, deposit_by_hash, withdrawal_by_hash, depositors, funding, transfers)
+        _classify_tx(i, tx, books, deposit_by_hash, withdrawal_by_hash, depositors, funding, transfers, sell_release_by_hash)
     _deposit_components(deposits, books, dump_by_hash, current)
     return books, transfers, _collect_flags(books, dust_wei)
 
@@ -359,7 +390,8 @@ def main(argv: list[str] | None = None) -> int:
         ledger["withdrawals"],
         funding,
         wallets,
-        current.lower(),
+        _norm(current),
+        sell_releases=ledger["sell_releases"],
         dust_wei=args.dust_wei,
     )
     return _print_report(books, transfers, flags, dust_wei=args.dust_wei)

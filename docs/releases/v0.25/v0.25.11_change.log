@@ -982,3 +982,19 @@ path. tests/ops/test_bridge_deposits_db_env.py pins all consumers to one
 table for the future default flip (DATA-LAYOUT-2). No host, service, env
 file or database touched; takes effect fleet-wide only where the var is
 later set.
+
+### BR-6d
+
+- bridge_wallet_rotation_report.py: `_norm` now strips a leading `0x`
+  (the ledger mixes bare/prefixed hashes); books, depositors, funding and
+  withdrawal keys are normalized consistently. Sell-flow releases no
+  longer flag as unexplained — `bridge_sell_locks.eth_tx_hash` and
+  `exchange_settlements.eth_tx_hash` join the release-leg match set
+  (both tables tolerated absent).
+- bridge_outbound_collect.py: `_load_depositor_map` tolerates a
+  `tx_hash`-less `eth_deposits` schema (NULL match evidence).
+- Runbook appendix: the reviewed 5-row historical backfill procedure —
+  preconditions, emit→record_outbound path, verification queries,
+  downgrade by tx_hash. Expected post-insert verdict: named ~0.052 ETH
+  deficit (pre-rotation old-wallet outflows), two rows stay
+  `unidentified` by design.

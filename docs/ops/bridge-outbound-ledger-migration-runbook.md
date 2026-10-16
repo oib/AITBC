@@ -150,3 +150,72 @@ No key-bearing env file is read for any step (`exchange.env`,
 bridge-monitor env). Address material needed by verification comes from
 `cli/aitbc_cli/commands/eth.py` `DEFAULT_WALLETS` /
 `docs/ops/node-sepolia-wallets.md` — public address data only.
+
+## Appendix — historical backfill (executed 16 Oct pending operator line)
+
+Backfills the five outbound sends the monitor made *before* the writer
+shipped. One reviewed transaction; nothing else writes.
+
+### Preconditions
+
+- [ ] Typed operator line naming the backfill INSERT on hub.
+- [ ] Fresh backup artifact: `systemctl start aitbc-backup.service`, then
+      confirm the newest `/var/backups/aitbc/<ts>/` lists a bridge-ledger
+      artifact (BACKUP-1 sweeps DATA_DIR-root DBs since `c2c604339`).
+- [ ] `bridge_outbound` is empty or contains none of the five tx_hashes:
+      `sqlite3 "file:/var/lib/aitbc/bridge_deposits.db?mode=ro"
+      "SELECT tx_hash FROM bridge_outbound"`.
+- [ ] The row set reviewed from a regenerated `--emit-rows` output (tx
+      list from Blockscout `txlist` for the bridge wallet, mode=ro
+      ledger reads, funding sources from the unit env *names*).
+
+### Procedure
+
+```bash
+# 1. Build the row set (read-only everywhere; emits JSON rows).
+python3 scripts/ops/bridge_outbound_collect.py \
+  --txs outbound_txs.json --ledger <scratch .backup of the DB> \
+  --funding-json funding.json \
+  --self-address 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781 \
+  --balance-wei <current> --emit-rows rows.json
+
+# 2. Apply via the monitor's own writer path (INSERT OR IGNORE, one
+#    transaction per row, deduped on tx_hash):
+/opt/aitbc/venv/bin/python - <<'PYEOF'
+import json, sys
+sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
+from bridge_monitor.storage import record_outbound, init_db
+init_db()
+for r in json.load(open("rows.json")):
+    ok = record_outbound(r["tx_hash"], r["to_address"],
+        int(float(r["value_eth"]) * 10**18), r["block_height"], r["kind"],
+        gas_wei=r["gas_wei"], matched_deposit_tx=r["matched_deposit_tx"], note=r["note"])
+    print(r["tx_hash"][:14], "inserted" if ok else "already present")
+PYEOF
+```
+
+### Verification (all read-only)
+
+```bash
+sqlite3 "file:<db>?mode=ro" "SELECT COUNT(*) FROM bridge_outbound"   # 5
+sqlite3 "file:<db>?mode=ro" "SELECT COUNT(*) FROM eth_deposits"      # still 9
+scripts/ops/bridge_wallet_reconcile.py --ledger <scratch copy> --onchain onchain.json
+# expected: named residual, not BALANCED — see below
+```
+
+Expected verdict after insert: **DEFICIT ~0.052 ETH**, the already-
+decomposed pre-rotation old-wallet outflows (`52335372406592269` wei in
+the rotation fixture) — the five new rows explain 0.00184 ETH of named
+outbound; the rest is the OLD wallet's history which a backfill of the
+current wallet's txlist cannot cover. Two rows stay `unidentified`
+(~0.000166 ETH to `0xcf17…`, node2's Sepolia wallet) — flagged for
+operator review, not reclassified.
+
+### Downgrade
+
+Delete exactly the five inserted rows by tx_hash — additive rows only:
+
+```sql
+DELETE FROM bridge_outbound WHERE tx_hash IN
+  ('0x914463b7…','0x7b7eaec3…','0x38b1fa33…','0xcbf5a1a8…','0xdaf4b9cf…')
+```
