@@ -73,3 +73,13 @@
   the node external_label disambiguates identical remote-written instance
   strings; hub-local series match the empty node value. Rule tests moved to
   live label shapes; monitoring-setup.md documents the scoping.
+
+### MON-ALERT-2: node0 alert-state drop by label, not by name
+
+- node0's remote_write dropped alert-state series by a 26-name alertname
+  list that silently drifted as rules were added — ChainHeadMetricMissing
+  was absent, so node0's evaluated copy collided with hub's own evaluation
+  (duplicate-sample 400s, whole batches dropped, RemoteWriteFailing).
+  node0 now drops ALERTS/ALERTS_FOR_STATE series that lack the marker
+  origin=node0-local, which its local-only alerts.yml rules carry.
+  Host-local files, no repo copy; documented in monitoring-setup.md.
