@@ -1772,6 +1772,16 @@
             }
           },
           {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Hidden"
+            }
+          },
+          {
             "name": "chain_id",
             "in": "query",
             "required": false,
@@ -1797,6 +1807,128 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Messages Route Rpc Messaging Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/messaging/reputation/{address}": {
+      "get": {
+        "tags": [
+          "rpc",
+          "messaging"
+        ],
+        "summary": "Derived forum reputation (display-only)",
+        "operationId": "reputation_route_rpc_messaging_reputation__address__get",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Address"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reputation Route Rpc Messaging Reputation  Address  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/messaging/topics/{slug}/moderation": {
+      "get": {
+        "tags": [
+          "rpc",
+          "messaging"
+        ],
+        "summary": "Topic moderator set and actions",
+        "operationId": "topic_moderation_route_rpc_messaging_topics__slug__moderation_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Topic Moderation Route Rpc Messaging Topics  Slug  Moderation Get"
                 }
               }
             }
@@ -1917,6 +2049,67 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Search Route Rpc Messaging Messages Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/messaging/messages/{tx_hash}/votes": {
+      "get": {
+        "tags": [
+          "rpc",
+          "messaging"
+        ],
+        "summary": "Standing votes for a message",
+        "operationId": "votes_route_rpc_messaging_messages__tx_hash__votes_get",
+        "parameters": [
+          {
+            "name": "tx_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tx Hash"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Votes Route Rpc Messaging Messages  Tx Hash  Votes Get"
                 }
               }
             }
@@ -12465,6 +12658,16 @@
             }
           },
           {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Hidden"
+            }
+          },
+          {
             "name": "chain_id",
             "in": "query",
             "required": false,
@@ -12490,6 +12693,128 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Messages Route V1 Messaging Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messaging/reputation/{address}": {
+      "get": {
+        "tags": [
+          "v1",
+          "messaging"
+        ],
+        "summary": "Derived forum reputation (display-only)",
+        "operationId": "reputation_route_v1_messaging_reputation__address__get",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Address"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reputation Route V1 Messaging Reputation  Address  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messaging/topics/{slug}/moderation": {
+      "get": {
+        "tags": [
+          "v1",
+          "messaging"
+        ],
+        "summary": "Topic moderator set and actions",
+        "operationId": "topic_moderation_route_v1_messaging_topics__slug__moderation_get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Topic Moderation Route V1 Messaging Topics  Slug  Moderation Get"
                 }
               }
             }
@@ -12610,6 +12935,67 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Search Route V1 Messaging Messages Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messaging/messages/{tx_hash}/votes": {
+      "get": {
+        "tags": [
+          "v1",
+          "messaging"
+        ],
+        "summary": "Standing votes for a message",
+        "operationId": "votes_route_v1_messaging_messages__tx_hash__votes_get",
+        "parameters": [
+          {
+            "name": "tx_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tx Hash"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Votes Route V1 Messaging Messages  Tx Hash  Votes Get"
                 }
               }
             }
