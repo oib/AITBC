@@ -750,6 +750,13 @@ class _ModState:
         self.thread_locks: dict[str, tuple[str, str, tuple[int, str]]] = {}
         # Latest effective topic lock/unlock: (kind, action_tx_hash, moderator, pos)
         self.topic_lock: tuple[str, str, str, tuple[int, str]] | None = None
+        # Lock intervals (rule (b), MSG-2e): a row sealed while its topic or
+        # an ancestor thread was locked keeps ``after_lock`` forever — an
+        # unlock only clears rows sealed *after* it. ``[start_pos,
+        # end_pos|None]``; open-ended while locked. Ineffective actions
+        # (non-moderator at their height) never reach this list.
+        self.topic_intervals: list[list] = []
+        self.thread_intervals: dict[str, list[list]] = {}
         # True when the authority fixpoint hit AUTHORITY_PASSES_CAP without
         # converging. The route reports it and answers best-effort — it must
         # never 500, or a long grant chain could break reads on a topic.
@@ -821,16 +828,37 @@ def _advance_moderators(
     return grant_idx
 
 
+def _record_lock_interval(ivs: list[list], kind: Any, pos: tuple[int, str]) -> None:
+    """``lock`` opens ``[pos, None]`` only when no interval is open (a second
+    lock while locked must not move the start); ``unlock`` closes the open
+    interval and is a no-op when none is."""
+    if kind == "lock":
+        if not ivs or ivs[-1][1] is not None:
+            ivs.append([pos, None])
+    elif ivs and ivs[-1][1] is None:
+        ivs[-1][1] = pos
+
+
+def _in_interval(pos: tuple[int, str], ivs: list[list]) -> bool:
+    """True when ``pos`` falls inside any ``[start, end|None]`` interval —
+    sealed after the lock and, if an unlock closed it, before the unlock."""
+    return any(s < pos and (e is None or pos < e) for s, e in ivs)
+
+
 def _apply_mod_effect(st: _ModState, kind: Any, target: Any, entry: tuple[str, str, tuple[int, str]]) -> None:
     """Apply one effective action: hide/pin/lock are independent
     latest-per-category state — a pin must not erase a hide (§3)."""
     if kind in {"lock", "unlock"}:
         if target is None:
             st.topic_lock = (kind, *entry)
-        elif kind == "lock":
-            st.thread_locks[str(target).lower()] = entry
+            _record_lock_interval(st.topic_intervals, kind, entry[2])
         else:
-            st.thread_locks.pop(str(target).lower(), None)
+            root = str(target).lower()
+            if kind == "lock":
+                st.thread_locks[root] = entry
+            else:
+                st.thread_locks.pop(root, None)
+            _record_lock_interval(st.thread_intervals.setdefault(root, []), kind, entry[2])
         return
     state = {"hide": st.hidden, "unhide": st.hidden, "pin": st.pinned, "unpin": st.pinned}[kind]
     if kind in {"unhide", "unpin"}:
@@ -900,9 +928,9 @@ def moderation_state(session, chain_id: str, topic: str) -> _ModState:
     return st
 
 
-def _locked_roots(st: _ModState) -> dict[str, tuple[int, str]]:
-    """Locked thread roots -> lock position (latest effective wins)."""
-    return {t: (h, m, pos)[2] for t, (h, m, pos) in st.thread_locks.items()}
+def _root_lock_intervals(st: _ModState) -> dict[str, list[list]]:
+    """Thread roots -> all of their lock intervals (open or closed)."""
+    return {t: ivs for t, ivs in st.thread_intervals.items() if ivs}
 
 
 def _hidden_map(st: _ModState) -> dict[str, tuple[str, str, tuple[int, str]]]:
@@ -914,15 +942,14 @@ def _pinned_map(st: _ModState) -> dict[str, tuple[str, str, tuple[int, str]]]:
     return dict(st.pinned)
 
 
-def _locked_descendants(
-    session, chain_id: str, topic: str, locked_roots: dict[str, tuple[int, str]]
-) -> dict[str, tuple[int, str]]:
-    """tx_hash -> lock pos for replies inside a locked subtree.
+def _locked_descendants(session, chain_id: str, topic: str, root_intervals: dict[str, list[list]]) -> dict[str, list[list]]:
+    """tx_hash -> its root's lock intervals, for replies under a locked root.
 
-    BFS from each locked root over the topic's reply graph, bounded at
-    LOCK_WALK_LIMIT descendants per root (fail-open per the design note).
+    BFS from each root over the topic's reply graph. ``LOCK_WALK_LIMIT``
+    bounds descendants walked per root across all of that root's intervals
+    (fail-open per the design note) — interval count does not grow the walk.
     """
-    if not locked_roots:
+    if not root_intervals:
         return {}
     children: dict[str, list[str]] = {}
     stmt = _asc_select(chain_id, topic).where(_env_json("kind") == "reply", _env_json("parent").is_not(None))
@@ -930,17 +957,15 @@ def _locked_descendants(
         parent = _decode_env_bytes(row.env_parent)
         if isinstance(parent, str):
             children.setdefault(_bare_hash(parent), []).append(_bare_hash(row.tx_hash))
-    out: dict[str, tuple[int, str]] = {}
-    for root, lock_pos in locked_roots.items():
-        _walk_locked_subtree(children, _bare_hash(root), lock_pos, out)
+    out: dict[str, list[list]] = {}
+    for root, intervals in root_intervals.items():
+        _walk_locked_subtree(children, _bare_hash(root), intervals, out)
     return out
 
 
-def _walk_locked_subtree(
-    children: dict[str, list[str]], root: str, lock_pos: tuple[int, str], out: dict[str, tuple[int, str]]
-) -> None:
-    """BFS one locked root; replies beyond LOCK_WALK_LIMIT are treated as
-    outside the lock (fail-open)."""
+def _walk_locked_subtree(children: dict[str, list[str]], root: str, intervals: list[list], out: dict[str, list[list]]) -> None:
+    """BFS one root, stamping its interval list on each descendant; replies
+    beyond LOCK_WALK_LIMIT are treated as outside the lock (fail-open)."""
     frontier = [root]
     seen = {root}
     walked = 0
@@ -951,7 +976,7 @@ def _walk_locked_subtree(
                 if child in seen or walked >= LOCK_WALK_LIMIT:
                     continue
                 seen.add(child)
-                out[child] = lock_pos
+                out[child] = intervals
                 nxt.append(child)
                 walked += 1
         frontier = nxt
@@ -1011,17 +1036,17 @@ def _cached_moderation_state(session, chain_id: str, topic: str) -> _ModState:
 
 
 def _cached_locked_descendants(
-    session, chain_id: str, topic: str, locked_roots: dict[str, tuple[int, str]]
-) -> dict[str, tuple[int, str]]:
-    if not locked_roots:
+    session, chain_id: str, topic: str, root_intervals: dict[str, list[list]]
+) -> dict[str, list[list]]:
+    if not root_intervals:
         return {}
     h, head_hash = _index_head(session, chain_id)
     key = ("desc", chain_id, topic, h, head_hash)
     hit = _mod_cache_get(key)
     if hit is not None:
-        return typing.cast(dict[str, tuple[int, str]], hit)
+        return typing.cast(dict[str, list[list]], hit)
     return typing.cast(
-        dict[str, tuple[int, str]], _mod_cache_put(key, _locked_descendants(session, chain_id, topic, locked_roots))
+        dict[str, list[list]], _mod_cache_put(key, _locked_descendants(session, chain_id, topic, root_intervals))
     )
 
 
@@ -1122,8 +1147,7 @@ def _moderation_fields(
     st = _cached_moderation_state(session, chain_id, topic)
     hidden = _hidden_map(st)
     pinned = _pinned_map(st)
-    locked_roots = _locked_roots(st)
-    descendants = _cached_locked_descendants(session, chain_id, topic, locked_roots)
+    descendants = _cached_locked_descendants(session, chain_id, topic, _root_lock_intervals(st))
     msgs: list[dict[str, Any]] = []
     pins: list[dict[str, Any]] = []
     for m in items:
@@ -1132,9 +1156,7 @@ def _moderation_fields(
         h = hidden.get(mkey)
         m["hidden"] = h is not None
         m["hidden_by"] = {"action_tx_hash": h[0], "moderator": h[1], "block_height": h[2][0]} if h else None
-        after_lock = (st.topic_lock is not None and st.topic_lock[0] == "lock" and pos > st.topic_lock[3]) or (
-            mkey in descendants and pos > descendants[mkey]
-        )
+        after_lock = _in_interval(pos, st.topic_intervals) or (mkey in descendants and _in_interval(pos, descendants[mkey]))
         m["after_lock"] = bool(after_lock)
         p = pinned.get(mkey)
         m["pinned"] = p is not None
