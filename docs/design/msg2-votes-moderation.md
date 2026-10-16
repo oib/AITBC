@@ -186,6 +186,9 @@ the full payload unchanged. Hiding only changes the *derived index views*:
   ones are unaffected. A lock never blocks `unlock`, `mod_grant`,
   `mod_revoke`, or any moderation action — moderation actions always apply
   regardless of lock state. Votes on locked content still count.
+  Unlock scope: rows sealed while a topic is locked are hidden only while
+  the lock is the latest effective lock/unlock; after an unlock they
+  appear again. — *confirm intended* (operator, MSG-2b)
   Subtree-lock walk is bounded (`LOCK_WALK_LIMIT = 512` descendants in
   canonical order): a reply beyond the bound is treated as outside the
   locked subtree — visible, not flagged. Stated as the fail-open side of
