@@ -105,8 +105,13 @@ Operator procedures for the live fleet:
 - [Messaging RPC nginx limits](ops/messaging-nginx-limits.md) — the
   per-IP limiting layers on the messaging read endpoints (in-app
   `rate_limit` keying, trusted-proxy inputs, the direct-port spoofing
-  caveat on `0.0.0.0` binds) and a proposed `limit_req_zone` (not applied;
-  needs an operator-gated nginx change).
+  caveat on `0.0.0.0` binds) and the `limit_req_zone` proposal —
+  **applied on hub 16 Oct 2026** (zone `messaging_rpc` covering
+  `/rpc/messaging/*` and `/explorer-api/api/messages*`); follower
+  `0.0.0.0:8202` binds remain uncovered.
+- [Messaging spam economics](features/messaging-spam-economics.md) —
+  MSG-9 measured storage growth, the cost model for spam at the current
+  fee, and ranked non-consensus mitigations (report only).
 - Audits: [security audit summary](security/security_audit_summary.md),
   [CLI audit findings](security/aitbc-audit-4-cli-findings.md),
   [audit framework](security/4_security-audit-framework.md),
