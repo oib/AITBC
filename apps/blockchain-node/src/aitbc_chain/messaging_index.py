@@ -637,6 +637,10 @@ VOTE_CAP = 20
 #: treated as outside the locked subtree (fail-open, stated in the note).
 LOCK_WALK_LIMIT = 512
 
+#: Max literals per ``IN (...)`` in ``_standing_votes`` — far inside
+#: SQLite's variable limit (999 on old builds, 32766 on new).
+_VOTE_TARGET_CHUNK = 500
+
 #: Defensive cap on the authority fixpoint passes; each changing pass adds
 #: at least one member, so convergence is way below this in practice. A hit
 #: raises rather than truncating.
@@ -1119,7 +1123,13 @@ def reputation(session, chain_id: str, address: str) -> dict[str, Any]:
     stmt = _asc_select(chain_id).where(func.lower(col(Transaction.sender)) == address.lower())
     authored = [r for r in _iter_valid_asc(session, stmt) if _decode_env_bytes(r.env_kind) in POST_KINDS]
     targets = [str(r.tx_hash) for r in authored]
-    votes = _standing_votes(session, chain_id, targets=targets or ["\x00"])
+    # Chunk the IN(...) list: one literal per target would hit SQLite's
+    # variable limit for a prolific author (500 at a time is far inside
+    # the 999/32766 bounds). Chunks are disjoint on target, so merging
+    # standing-vote rows keeps the result exact — no truncation.
+    votes: list[tuple[str, str, int, str]] = []
+    for i in range(0, len(targets) or 1, _VOTE_TARGET_CHUNK):
+        votes.extend(_standing_votes(session, chain_id, targets=targets[i : i + _VOTE_TARGET_CHUNK] or ["\x00"]))
     topic_of = {str(r.tx_hash).lower(): _decode_env_bytes(r.env_topic) for r in authored}
     per: dict[str, list[tuple[str, int]]] = {}
     for signer, target, v, vtopic in votes:
