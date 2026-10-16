@@ -529,7 +529,10 @@ def _rep_reference(session, address):
     """Straightforward reference for reputation(): the last valid vote per
     (voter, target, claimed topic) stands; counted only when the claimed
     topic equals the target's real topic; self-votes excluded."""
-    from aitbc.messaging import POST_KINDS, VOTE_CAP
+    import aitbc_chain.messaging_index as mi
+    from aitbc.messaging import POST_KINDS
+
+    VOTE_CAP = mi.VOTE_CAP
 
     author = address.lower()
     rows = session.exec(
