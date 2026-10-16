@@ -879,3 +879,6 @@ reported, not ignored.
 
 ### WALLET-CUSTODY-1
 - docs(topology): read-only fleet wallet inventory — 18 files across 5 hosts; plaintext defaults on node0/1/2 and the hub sell-escrow key documented; operator decision: accept plaintext
+
+### MSG-19-publish
+- feat(website): publish the policy block on the messages page — "User content, moderated only by topic moderators"; no contact sentence until the operator fills one
