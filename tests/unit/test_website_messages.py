@@ -47,12 +47,11 @@ class TestMessagesStatic(unittest.TestCase):
 
     def test_sanitizer_covers_pinned_ranges(self) -> None:
         src = MSG_JS.read_text(encoding="utf-8")
-        self.assertIn("\\u0080-\\u009F", src)  # C1 controls
-        self.assertIn("\\u061C", src)  # Arabic Letter Mark (bidi formatting)
-        self.assertIn("\\u200B-\\u200F", src)
-        self.assertIn("\\u202A-\\u202E", src)
-        self.assertIn("\\u2066-\\u2069", src)
-        self.assertIn("\\uFEFF", src)
+        # MSG-4b (folds MSG-FIX-2): one rule — all of Unicode category Cf
+        # plus the C1 controls, U+061C, U+180E and the astral tag block
+        # (parity pinned in tests/unit/test_textsafety.py).
+        for pin in (r"\u0080-\u009F", r"\p{Cf}", r"\u061C", r"\u180E", "E0000", "E007F"):
+            self.assertIn(pin, src, f"sanitizer regex missing {pin}")
         self.assertIn("U+", src, "neutralised chars must render as visible [U+XXXX] placeholders")
 
     def test_page_is_noindex_and_absent_from_sitemap(self) -> None:
@@ -89,7 +88,7 @@ window.fetch = ((u, opts) => {
       message_id: 'h2', tx_hash: '0x' + 'ef'.repeat(32), block_height: 48866,
       author: '0x' + 'cd'.repeat(20), sender: '0x' + 'cd'.repeat(20),
       topic: 'msg-fix', kind: 'post',
-      body: 'bidi ‮tihs si dessert‬ zero‑width here‌ and there‍ bom﻿end',
+      body: 'bidi \u202Etihs si dessert\u202C zero\u2011width here\u200C and there\u200D bom\uFEFFend',
       parent: null, timestamp: '2026-10-15T22:31:00Z', fee: 360000,
     },
     {
@@ -115,6 +114,18 @@ window.fetch = ((u, opts) => {
       topic: 'msg-fix', kind: 'post',
       body: 'c1 \u0085hidden\u0088 byte \u009Bhere',
       parent: null, timestamp: '2026-10-15T22:34:00Z', fee: 360000,
+    },
+    {
+      // MSG-4b classes: soft hyphen, word joiner, invisible operators,
+      // Mongolian vowel separator, interlinear anchor, and a tag block that
+      // spells 'secret' invisibly to agents.
+      message_id: 'h6', tx_hash: '0x' + '78'.repeat(32), block_height: 48870,
+      author: '0x' + 'cd'.repeat(20), sender: '0x' + 'cd'.repeat(20),
+      topic: 'msg-fix', kind: 'post',
+      body: 'soft\u00ADhy wj\u2060 op\u2062\u2063 mvs\u180E ila\uFFF9 tag' +
+            String.fromCodePoint(0xE0073, 0xE0065, 0xE0063, 0xE0072, 0xE0065, 0xE0074, 0xE007F) +
+            ' end',
+      parent: null, timestamp: '2026-10-15T22:35:00Z', fee: 360000,
     },
   ];
   const TOPICS = {success: true, chain_id: 'ait-fixture', index_height: 48867,
@@ -144,6 +155,7 @@ _PROBE_JS = r"""
     items, scripts, imgs,
     bodies,
     hasPlaceholder: bodies.some(b => /\[U\+20(2E|0B)\]|\[U\+FEFF\]|\[U\+200[DEF]\]|\[U\+061C\]|\[U\+00[89][0-9A-F]\]/.test(b)),
+    hasNewPlaceholder: bodies.some(b => /\[U\+(00AD|2060|061C|180E|FFF9|E00[0-7][0-9A-F])\]/.test(b)),
     topicBtns,
     copyBtns: document.querySelectorAll('#messages-container .copy-btn').length,
   });
@@ -162,7 +174,7 @@ class TestMessagesBrowser(TestCopyControlBrowser):
     def test_hostile_content_renders_inert(self) -> None:
         r = self._read()
         self.assertNotIn("err", r, r.get("err"))
-        self.assertEqual(5, r["items"], "all five hostile fixture messages render")
+        self.assertEqual(6, r["items"], "all six hostile fixture messages render")
         self.assertEqual(0, r["xss"], "no chain-supplied script/onerror may execute")
         self.assertEqual(0, r["scripts"], "no <script> element injected from chain text")
         self.assertEqual(0, r["imgs"], "no <img> element injected from chain text")
@@ -175,11 +187,22 @@ class TestMessagesBrowser(TestCopyControlBrowser):
             f"bidi/zero-width chars must show as [U+XXXX], bodies: {[b[:60] for b in r['bodies']]}",
         )
 
+    def test_msg4b_invisible_classes_become_visible(self) -> None:
+        r = self._read()
+        self.assertNotIn("err", r, r.get("err"))
+        self.assertTrue(
+            r["hasNewPlaceholder"],
+            f"soft hyphen/word joiner/ALM/tag chars must show as [U+XXXX], bodies: {[b[-60:] for b in r['bodies']]}",
+        )
+        for b in r["bodies"]:
+            self.assertNotRegex(b, r"[\u00AD\u2060-\u2064\u061C\u180E\uFFF9-\uFFFB]", f"raw invisible char leaked: {b!r}")
+            self.assertNotRegex(b, "[\U000e0000-\U000e007f]", f"raw tag char leaked: {b!r}")
+
     def test_copy_controls_present_for_hashes_and_authors(self) -> None:
         r = self._read()
         self.assertNotIn("err", r, r.get("err"))
         # per message: author address + tx hash = 2 controls
-        self.assertEqual(10, r["copyBtns"])
+        self.assertEqual(12, r["copyBtns"])
 
 
 if __name__ == "__main__":

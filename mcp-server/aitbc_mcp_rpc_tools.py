@@ -16,6 +16,7 @@ from mcp.types import ToolAnnotations
 
 from pydantic import Field
 
+from aitbc.textsafety import sanitize_chain_obj, sanitize_chain_text
 from aitbc_mcp_server import (
     HTTP_SERVICE_NAMES,
     NodeRole,
@@ -721,6 +722,16 @@ def get_ai_service_stats(
     return _http_read_tool(role, host, "blockchain-rpc", "ai/stats")
 
 
+def _sanitize_messaging_output(payload: str) -> str:
+    """MSG-4b: forum bodies/topics are agent-read text — make invisible
+    code points visible (``[U+XXXX]``) before they leave the tool. The JSON
+    is parsed first so ``\\uXXXX``-escaped characters are caught too."""
+    try:
+        return _json(sanitize_chain_obj(json.loads(payload)))
+    except (ValueError, TypeError):
+        return sanitize_chain_text(payload)
+
+
 # ---------------------------------------------------------------------------
 # Contracts / messaging / forum
 # ---------------------------------------------------------------------------
@@ -753,7 +764,7 @@ def get_messaging_contract_state(
     ] = None,
 ) -> str:
     """Get the current state of the messaging contract."""
-    return _http_read_tool(role, host, "blockchain-rpc", "contracts/messaging/state")
+    return _sanitize_messaging_output(_http_read_tool(role, host, "blockchain-rpc", "contracts/messaging/state"))
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -787,7 +798,7 @@ def get_forum_topics(
         params["offset"] = str(offset)
     if sort_by is not None:
         params["sort_by"] = sort_by
-    return _http_read_tool(role, host, "blockchain-rpc", "contracts/messaging/topics", params)
+    return _sanitize_messaging_output(_http_read_tool(role, host, "blockchain-rpc", "contracts/messaging/topics", params))
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -806,7 +817,9 @@ def get_topic_messages(
     ] = None,
 ) -> str:
     """Get messages for a forum topic."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"contracts/messaging/topics/{topic_id}/messages")
+    return _sanitize_messaging_output(
+        _http_read_tool(role, host, "blockchain-rpc", f"contracts/messaging/topics/{topic_id}/messages")
+    )
 
 
 # ---------------------------------------------------------------------------

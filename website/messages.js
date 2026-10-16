@@ -13,11 +13,13 @@
     const API = (window.AITBC_CONFIG && window.AITBC_CONFIG.explorerApiUrl) || '/explorer-api';
     const PAGE_LIMIT = 50;
 
-    // Bidi overrides/isolates (U+202A-U+202E, U+2066-U+2069, U+061C), zero-width
-    // characters (U+200B-U+200F, U+FEFF) and C1 controls (U+0080-U+009F) —
-    // invisible or reordering codepoints that can make rendered text lie
-    // about its bytes.
-    const NEUTRAL_RE = /[\u0080-\u009F\u061C\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+    // MSG-4b (folds MSG-FIX-2): every Unicode format character (Cf) — bidi
+    // overrides/isolates, zero-widths, soft hyphen, word joiner, invisible
+    // operators — plus the C1 controls (U+0080-U+009F, category Cc), U+061C,
+    // U+180E and the astral tag block U+E0000-U+E007F, which can carry hidden
+    // text to agents reading bodies.
+    // Mirrors aitbc/textsafety.py; parity pinned by tests/unit/test_textsafety.py.
+    const NEUTRAL_RE = /[\u0080-\u009F\p{Cf}\u061C\u180E\u{E0000}-\u{E007F}]/gu;
 
     function sanitizeChainText(s) {
         return String(s).replace(NEUTRAL_RE, (ch) => `[U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);

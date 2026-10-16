@@ -94,6 +94,20 @@ def test_get_eth_bridge_status_redacted_reports_failure_without_leak():
     assert "stderr" not in result
 
 
+def test_messaging_tools_sanitise_invisible_chars():
+    """MSG-4b: forum bodies must reach the agent with format chars made
+    visible — including characters serialized as JSON \\uXXXX escapes."""
+    body = f"hi{chr(0x200B)}there{chr(0xE0001)}end"  # ZWSP + a tag char
+    payload = {"messages": [{"body": body, "topic": "msg-fix"}], "count": 1}
+    rpc_tools._http_read_tool = lambda *a, **kw: json.dumps(payload, ensure_ascii=True)
+    result = json.loads(rpc_tools.get_topic_messages(topic_id="msg-fix", role="hub"))
+    out = result["messages"][0]["body"]
+    assert "[U+200B]" in out
+    assert "[U+E0001]" in out
+    assert chr(0x200B) not in out
+    assert chr(0xE0001) not in out
+
+
 if __name__ == "__main__":
     test_get_eth_bridge_status_redacted_omits_rpc_url()
     test_get_eth_bridge_status_redacted_falls_back_to_stdout()
