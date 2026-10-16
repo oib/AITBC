@@ -1200,9 +1200,9 @@ echo "=== chain-head convergence (height + hash, two samples) ==="
 # https://<host>.<domain> edge endpoint (which a node cannot use to reach
 # *itself* — the edge has no hairpin NAT — hence the LAN first).
 declare -A RPC_ENDPOINTS=(
-    [node0]="${NODE0_HOST:+http://${NODE0_HOST}:8202/rpc/status} https://node0.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — 8202 is the LAN blockchain RPC, not the edge service
-    [node1]="${NODE1_HOST:+http://${NODE1_HOST}:8202/rpc/status} https://node1.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — 8202 is the LAN blockchain RPC, not the edge service
-    [node2]="${NODE2_HOST:+http://${NODE2_HOST}:8202/rpc/status} https://node2.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — 8202 is the LAN blockchain RPC, not the edge service
+    [node0]="${NODE0_HOST:+http://${NODE0_HOST}/rpc/status} https://node0.${AITBC_FLEET_DOMAIN}/rpc/status"  # LAN RPC now rides the follower nginx on :80 — 8202 is loopback-only since FOLLOWER-RPC-5
+    [node1]="${NODE1_HOST:+http://${NODE1_HOST}/rpc/status} https://node1.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — LAN hits nginx :80, not the edge service
+    [node2]="${NODE2_HOST:+http://${NODE2_HOST}/rpc/status} https://node2.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — LAN hits nginx :80, not the edge service
     [hub]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
     [hub1]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
     [${AITBC_HUB_ALIAS:-_unset_hub_alias}]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
