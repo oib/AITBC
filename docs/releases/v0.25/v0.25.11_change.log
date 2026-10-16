@@ -774,3 +774,12 @@ reported, not ignored.
   poll getNonce() to it (20 x 1500ms), refuse on timeout, pin via
   options.nonce; check 3 now states blockTag is pinned at the receipt block
   and polled. No code change; BR-1 stays testnet-parked.
+
+### MSG-8
+
+- docs/design/msg8-direct-messages.md — Phase 0 design for encrypted
+  direct messages: separate published X25519 key bound by a signed
+  dm_key envelope, libsodium crypto_box with ephemeral sender keys,
+  ciphertext-only index, client-side decryption, ~3900 B plaintext cap
+  under the 4 KiB body cap. No forward secrecy; Phase 1 requires
+  operator authorization plus independent crypto review.
