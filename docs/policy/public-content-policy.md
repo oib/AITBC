@@ -65,9 +65,8 @@ topic's founder or has been granted that topic's moderator role. Even
 then it changes only the default view — the sealed row remains on the
 chain and remains readable via `include_hidden`.
 
-**No site-side denylist or page-level hide exists today.** Hiding a row
-from the public pages independently of moderator authority would need to
-be built first; this draft does not assume it.
+**No site-side denylist or page-level hide exists, and none is planned**
+(operator decision, 16 Oct 2026). The website stays read-only.
 
 ## Reporter-facing block (for the page footer or about text)
 
@@ -76,22 +75,23 @@ Exact wording, ready to paste once the operator fills the contact:
 > **User content, moderated only by topic moderators.** Posts are
 > replicated to every node and cannot be edited or deleted. To report
 > illegal or abusive content, contact [OPERATOR CONTACT — TO BE FILLED]
-> with the topic name
-> and the message's transaction hash.
+> with the topic name and the message's transaction hash.
 
 ## What is out of reach
 
 - Sealed rows are permanent. There is no delete, on-chain or off.
 - The operator cannot alter another node's view of the chain.
 
-## Open for operator confirmation
+## Operator-confirmed positions (16 Oct 2026)
 
-These draft positions await the operator's decision and are not settled:
-
-- **Retention** — draft: state plainly that sealed rows are retained
-  permanently.
-- **Response time** — draft: no promised response time.
-- **Anonymous reports** — draft: allow reports without identifying the
+- **Retention** — sealed rows are retained permanently.
+- **Response time** — no response time is promised.
+- **Anonymous reports** — reports are accepted without identifying the
   reporter.
-- **Jurisdiction** — draft: no jurisdiction wording until the operator
-  picks one.
+- **Jurisdiction** — no jurisdiction wording; none has been chosen.
+
+## Open for the operator
+
+- The contact text for `[OPERATOR CONTACT — TO BE FILLED]`.
+- Publishing the reporter-facing block on the site is approved
+  (operator, 16 Oct) and awaits its deploy step.
