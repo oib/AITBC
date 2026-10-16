@@ -806,7 +806,7 @@ class MarketService:
                 changed |= self._persist_anchor(dbkey, offer, is_gpu, anchor_tx, ts_dt, stored.get(dbkey), local_rows)
             if changed:
                 await self.session.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - anchor resolution is best-effort enrichment
             logger.warning("Failed to resolve on-chain offer anchors: %s", e)
 
     async def get_software_service(self, plugin_id: str) -> dict[str, Any] | None:
@@ -825,7 +825,7 @@ class MarketService:
                 # table); fall back so /v1/market/offer/{gpu_id} resolves too.
                 try:
                     gpu = await self._rpc_client.get_offer(plugin_id)
-                except Exception:
+                except Exception:  # noqa: BLE001 - chain probe: unreachable RPC means no on-chain offer
                     gpu = None
                 if gpu:
                     data = _gpu_offer_to_service_dict(gpu, None, settings.hub_rpc_url)

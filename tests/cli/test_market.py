@@ -61,11 +61,12 @@ def mock_http_client(monkeypatch):
                 return {"transaction_hash": "0xabc123"}
             return {}
 
-    # ``market escrow`` and the escrow helpers import the client into their own
-    # namespaces, so patch every copy.
+    # ``market escrow``, the escrow helpers and the chain-id probe each import
+    # the client into their own namespaces, so patch every copy.
     monkeypatch.setattr("aitbc_cli.commands.market.escrow.AITBCHTTPClient", FakeClient)
     monkeypatch.setattr("aitbc_cli.utils.escrow.AITBCHTTPClient", FakeClient)
     monkeypatch.setattr("aitbc_cli.utils.http_client.AITBCHTTPClient", FakeClient)
+    monkeypatch.setattr("aitbc_cli.utils.chain_id.AITBCHTTPClient", FakeClient)
     # ``_escrow_create`` re-imports this at call time, so patching the source
     # module covers it — the signing and nonce round-trips are skipped.
     monkeypatch.setattr(
@@ -144,6 +145,10 @@ def test_market_escrow_create_503_shows_detail(mock_market_config, monkeypatch):
     )
     monkeypatch.setattr(
         "aitbc_cli.utils.http_client.AITBCHTTPClient",
+        _refusing_client_cls(_REFUSAL_DETAIL),
+    )
+    monkeypatch.setattr(
+        "aitbc_cli.utils.chain_id.AITBCHTTPClient",
         _refusing_client_cls(_REFUSAL_DETAIL),
     )
     monkeypatch.setattr(

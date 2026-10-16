@@ -4,6 +4,7 @@ These tests spawn subprocesses to avoid import-time side effects (e.g., SQLModel
 metadata pollution) from leaking between tests.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -50,6 +51,10 @@ def _can_import(module: str) -> tuple[bool, str]:
         str(REPO_ROOT / "apps/blockchain-node/src"),
     ]
     env = {
+        # Inherit first so test-harness scratch paths (AITBC_DATA_DIR from the
+        # root conftest, API_KEY_STORAGE_PATH from the test-required recipe)
+        # reach the subprocess — import-time singletons resolve them.
+        **os.environ,
         "PYTHONPATH": ":".join(pp),
         "DEBUG": "false",
         "APP_ENV": "test",

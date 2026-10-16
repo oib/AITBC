@@ -48,7 +48,8 @@ DEFAULT_KEYS_FILE = Path("/var/lib/aitbc/keystore/service_accounts.json")
 
 
 def rpc_get(base: str, path: str) -> dict:
-    with urllib.request.urlopen(f"{base}{path}", timeout=10) as r:  # nosec B310 -- operator-supplied internal RPC endpoint
+    # operator-supplied internal RPC endpoint
+    with urllib.request.urlopen(f"{base}{path}", timeout=10) as r:  # nosec B310
         return json.load(r)
 
 
@@ -57,7 +58,8 @@ def rpc_post(base: str, path: str, body: dict) -> tuple[int, dict | str]:
         f"{base}{path}", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST"
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:  # nosec B310 -- operator-supplied internal RPC endpoint
+        # operator-supplied internal RPC endpoint
+        with urllib.request.urlopen(req, timeout=20) as r:  # nosec B310
             return r.status, json.load(r)
     except urllib.error.HTTPError as e:
         raw = e.read().decode(errors="replace")

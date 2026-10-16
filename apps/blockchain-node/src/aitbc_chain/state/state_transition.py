@@ -551,7 +551,7 @@ def _governance_binding_verdict(
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
-        except Exception:
+        except (ValueError, RecursionError):
             payload = {}
     if not isinstance(payload, dict):
         payload = {}
@@ -636,7 +636,7 @@ def _authority_parameter_change_error(
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
-        except Exception:
+        except (ValueError, RecursionError):
             payload = {}
     if not isinstance(payload, dict):
         return None
@@ -2581,7 +2581,7 @@ class StateTransition:
             existing.updated_at = datetime.now(UTC)
             logger.info("GPU deregistration handled: %s", gpu_id)
             return (True, "GPU deregistration successful")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - handler boundary: any failure becomes a (False, reason) verdict
             logger.error("GPU deregistration error: %s", e)
             return (False, str(e))
 

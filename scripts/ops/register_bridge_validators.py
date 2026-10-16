@@ -299,7 +299,7 @@ def _load_validator_blobs(paths: list[str], chain_id: str) -> list[dict[str, str
     for path in paths:
         try:
             blob = _json.loads(Path(path).read_text())
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             _die(f"validator blob {path!r} could not be read: {exc}")
         for field in ("chain_id", "address", "public_key", "signature"):
             if not blob.get(field):
@@ -308,7 +308,7 @@ def _load_validator_blobs(paths: list[str], chain_id: str) -> list[dict[str, str
             _die(f"validator blob {path!r} is for chain {blob['chain_id']!r}, not {chain_id!r}")
         try:
             recovered = _recover_address(_self_sign_data(chain_id, blob["address"], blob["public_key"]), blob["signature"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - any recovery failure is fatal: report and die
             _die(f"validator blob {path!r} signature could not be recovered: {exc}")
         if _normalize_address(recovered) != _normalize_address(blob["address"]):
             _die(f"validator blob {path!r} signature recovers to {recovered}, not declared address {blob['address']}")
@@ -333,7 +333,7 @@ def _post_registration(rpc_url: str, payload: dict[str, Any]) -> dict[str, Any]:
             resp = client.post(url, json=payload)
             try:
                 return resp.json()
-            except Exception:
+            except ValueError:
                 return {"success": resp.is_success, "error": resp.text, "status_code": resp.status_code}
     except httpx.HTTPError as exc:
         return {"success": False, "error": str(exc)}

@@ -177,7 +177,7 @@ def _row_error(row: Any) -> str | None:
     sealed row must not be able to break a read for everyone."""
     try:
         return envelope_error(_env_from_row(row), sender=row.sender or "")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a malformed sealed row must not break reads for everyone
         return f"invalid aitbc_msg envelope ({type(e).__name__})"
 
 
@@ -195,7 +195,7 @@ def admission_error(payload: Any, sender: str) -> str | None:
         return None
     try:
         return envelope_error(extract_envelope(payload), sender=sender or "")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - malformed payload reports invalid, never raises into admission
         return f"invalid aitbc_msg envelope ({type(e).__name__})"
 
 
@@ -756,7 +756,7 @@ def _iter_valid_asc(session, stmt, *, before: tuple[int, str] | None = None, pag
 def _canonical(sender: str | None) -> str:
     try:
         return canonical_address(sender or "")
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return (sender or "").lower()
 
 
@@ -840,7 +840,7 @@ def _grant_pass(session, stmt, founder: str | None):
         kind = env.get("kind")
         try:
             grantee = canonical_address(env.get("grantee") or "", strict=True)
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             continue
         if kind == "mod_grant" and grantee not in mods:
             mods.add(grantee)

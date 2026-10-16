@@ -15,6 +15,19 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+
+@pytest.fixture(autouse=True)
+def _dead_rpc_endpoints(monkeypatch):
+    """Dead endpoints so unmocked wallet/RPC lookups fail fast.
+
+    Scoped to this suite via monkeypatch (restored per test) — the required
+    gate runs every suite in one pytest process, so a module-level
+    ``setdefault`` would leak into other suites or silently lose to an
+    earlier conftest's value. Replicates the old workflow's step-level env.
+    """
+    monkeypatch.setenv("WALLET_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:1")
+
 # Make the shared fixtures importable.
 _FIXTURES_DIR = str(Path(__file__).resolve().parent.parent / "fixtures")
 if _FIXTURES_DIR not in sys.path:

@@ -17,8 +17,10 @@ from typing import Any, cast
 
 import click
 
-ORACLE_DIR = Path(os.environ.get("AITBC_ORACLE_DIR", "/var/lib/aitbc/oracle"))
-IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR", "/var/lib/aitbc/ipfs"))
+from aitbc.constants import DATA_DIR
+
+ORACLE_DIR = Path(os.environ.get("AITBC_ORACLE_DIR") or str(DATA_DIR / "oracle"))
+IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR") or str(DATA_DIR / "ipfs"))
 LISTINGS_FILE = ORACLE_DIR / "listings.json"
 
 

@@ -27,7 +27,8 @@ from aitbc.market.offer_registration import offer_body_hash, registration_messag
 # Initialize logger
 logger = get_logger(__name__)
 
-from . import get_chain_id, get_island_id, get_market_wallet, get_next_nonce, market, safe_load_credentials
+from ._group import market
+from . import get_chain_id, get_island_id, get_market_wallet, get_next_nonce, safe_load_credentials
 from .escrow import _get_blockchain_rpc_url, _get_rpc_client
 
 

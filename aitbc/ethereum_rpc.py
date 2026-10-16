@@ -238,7 +238,7 @@ class EthereumRPCClient:
         w3 = self._get_web3()
         contract = w3.eth.contract(abi=abi)
         fn = contract.functions[function_name]
-        return fn(*(args or []))._encode_transaction_data().hex()
+        return str(fn(*(args or []))._encode_transaction_data().hex())
 
     def sign_transaction(self, tx: dict[str, Any], private_key: str) -> str:
         """Sign an EVM transaction and return the raw signed hex string.
@@ -255,7 +255,7 @@ class EthereumRPCClient:
         if to and isinstance(to, str):
             tx = {**tx, "to": Web3.to_checksum_address(to)}
         signed = w3.eth.account.sign_transaction(tx, private_key)
-        return signed.raw_transaction.hex()
+        return str(signed.raw_transaction.hex())
 
     def send_raw_transaction(self, raw_tx_hex: str) -> str:
         """Submit a raw signed transaction and return the tx hash hex."""
@@ -266,7 +266,7 @@ class EthereumRPCClient:
         else:
             raw_bytes = bytes.fromhex(raw_tx_hex)
         tx_hash = w3.eth.send_raw_transaction(raw_bytes)
-        return tx_hash.hex()
+        return str(tx_hash.hex())
 
     def wait_for_transaction(self, tx_hash: str, timeout: int = 120, poll_interval: int = 5) -> dict[str, Any] | None:
         """Poll for transaction confirmation up to timeout seconds."""

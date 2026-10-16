@@ -76,12 +76,14 @@ def find_rows(conn: sqlite3.Connection, chain_id: str, gpu_ids: tuple[str, ...])
     marks = _placeholders(len(gpu_ids))
     params = (*gpu_ids, chain_id)
     registrations = conn.execute(
-        f"SELECT gpu_id, chain_id, status, registered_by FROM gpu_registration "  # nosec B608 - placeholders only
+        # placeholders only
+        f"SELECT gpu_id, chain_id, status, registered_by FROM gpu_registration "  # nosec
         f"WHERE gpu_id IN ({marks}) AND (chain_id = ? OR chain_id = '') ORDER BY gpu_id",
         params,
     ).fetchall()
     allocations = conn.execute(
-        f"SELECT allocation_id, gpu_id, chain_id, status FROM gpu_allocation "  # nosec B608 - placeholders only
+        # placeholders only
+        f"SELECT allocation_id, gpu_id, chain_id, status FROM gpu_allocation "  # nosec
         f"WHERE gpu_id IN ({marks}) AND (chain_id = ? OR chain_id = '') ORDER BY gpu_id, allocation_id",
         params,
     ).fetchall()
@@ -149,11 +151,11 @@ def sweep(
         conn.execute("BEGIN IMMEDIATE")
         try:
             allocs = conn.execute(
-                f"DELETE FROM gpu_allocation WHERE gpu_id IN ({marks}) AND (chain_id = ? OR chain_id = '')",  # nosec B608
+                f"DELETE FROM gpu_allocation WHERE gpu_id IN ({marks}) AND (chain_id = ? OR chain_id = '')",  # nosec
                 params,
             ).rowcount
             regs = conn.execute(
-                f"DELETE FROM gpu_registration WHERE gpu_id IN ({marks}) AND (chain_id = ? OR chain_id = '')",  # nosec B608
+                f"DELETE FROM gpu_registration WHERE gpu_id IN ({marks}) AND (chain_id = ? OR chain_id = '')",  # nosec
                 params,
             ).rowcount
             conn.execute("COMMIT")

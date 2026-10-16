@@ -17,7 +17,8 @@ class Settings(ServiceSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
     service_name: str = "aitbc-memory"
-    app_host: str = "0.0.0.0"  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    app_host: str = "0.0.0.0"  # nosec B104
     app_port: int = 8112
     api_prefix: str = "/v1"
 

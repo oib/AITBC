@@ -124,7 +124,7 @@ def _wallet_is_unencrypted(wallet_name: str, wallet_path: Path | None = None) ->
 
         data = json.loads(Path(path).read_text())
         return not data.get("encrypted") and not data.get("encrypted_private_key")
-    except Exception:
+    except (OSError, ValueError):
         return False
 
 
@@ -193,7 +193,7 @@ def _keyring_password(wallet_name: str | None) -> str | None:
         import keyring
 
         return keyring.get_password("aitbc-wallet", wallet_name) or None
-    except Exception:
+    except Exception:  # noqa: BLE001 - keyring is best-effort: any backend failure means no stored password
         return None
 
 
@@ -241,7 +241,7 @@ def _tty_new_password(wallet_name: str | None, ctx) -> str:
                 import keyring
 
                 keyring.set_password("aitbc-wallet", wallet_name, first)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - keyring store is best-effort; a backend failure must not fail wallet creation
                 pass
         return first
 

@@ -47,7 +47,8 @@ def _post_rpc(rpc_url: str, method: str, params: list, timeout: float) -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as resp:  # nosec B310 -- http(s)-only endpoint, scheme enforced in _check_url
+        # http(s)-only endpoint, scheme enforced in _check_url
+        with urllib.request.urlopen(request, timeout=timeout) as resp:  # nosec B310
             payload = json.loads(resp.read().decode())
     except urllib.error.URLError as exc:
         raise RpcError(f"RPC request failed: {exc}") from exc

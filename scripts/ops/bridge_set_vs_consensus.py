@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         name, _, raw = spec.partition(":")
         try:
             rows = load_rows(Path(raw))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-file containment — a bad input prints ERROR, others still compared
             print(f"{name}: ERROR {exc.__class__.__name__}")
             rc = 1
             continue

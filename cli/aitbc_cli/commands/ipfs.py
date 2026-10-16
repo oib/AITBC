@@ -39,7 +39,9 @@ from ..utils.wallet_paths import (
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from .transactions import _send_transaction_impl
 
-IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR", "/var/lib/aitbc/ipfs"))
+from aitbc.constants import DATA_DIR
+
+IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR") or str(DATA_DIR / "ipfs"))
 IPFS_API = os.environ.get("IPFS_API_URL", "http://127.0.0.1:5001")
 TIMEOUT = 120
 

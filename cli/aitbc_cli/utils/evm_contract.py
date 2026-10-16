@@ -123,7 +123,7 @@ class EVMContractClient:
         self.rental_contract = rental_contract_address
         self.token_contract = token_contract_address
 
-    def get_rental_agreement(self, agreement_id: int) -> dict[str, Any]:
+    def get_rental_agreement(self, agreement_id: int) -> list[Any]:
         """Read a rental agreement from the AIPowerRental contract."""
         result = self.rpc.call_contract(
             contract_address=self.rental_contract,
@@ -131,7 +131,7 @@ class EVMContractClient:
             function_name="getRentalAgreement",
             args=[agreement_id],
         )
-        return result
+        return list(result)
 
     def get_token_balance(self, address: str) -> int:
         """Read the ERC-20 balance of ``address``."""

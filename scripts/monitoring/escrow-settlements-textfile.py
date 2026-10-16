@@ -168,7 +168,7 @@ def read_db(path: str, now: float, max_age_seconds: float) -> list[Violation] | 
         uri = f"file:{path}?mode=ro"
         with sqlite3.connect(uri, uri=True, timeout=5.0) as conn:
             return _unlanded_rows(conn, now, max_age_seconds)
-    except Exception:
+    except (OSError, sqlite3.Error):
         return None
 
 
@@ -215,7 +215,7 @@ def read_open_locks(path: str, known: set[str]) -> set[str] | None:
         uri = f"file:{path}?mode=ro"
         with sqlite3.connect(uri, uri=True, timeout=5.0) as conn:
             return {row[0] for row in conn.execute(query)} - known
-    except Exception:
+    except (OSError, sqlite3.Error):
         return None
 
 
@@ -350,14 +350,14 @@ def main() -> int:
         # emits nothing and the registry's own scrape_success carries the failure.
         failed_sources = [] if known is not None else [registry_path]
         write_atomic(directory, render(results, now, open_locks=open_locks, failed_sources=failed_sources))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - exporter containment — a raised export still leaves a failing series
         # The exporter itself raised (like the int(inf) OverflowError that
         # killed the run on the unsealed-release row): still leave a failing
         # series behind -- exiting without a textfile is indistinguishable
         # from a dead timer and only the stale-check alert would notice.
         try:
             write_atomic(directory, _failure_render(now))
-        except Exception:
+        except OSError:
             pass
         print(f"escrow-settlements: exporter error: {exc!r}", file=sys.stderr)
         return 1

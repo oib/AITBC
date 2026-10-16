@@ -79,7 +79,7 @@ async def get_eth_prices() -> dict[str, Decimal] | None:
     if fixed_usd:
         try:
             return {"usd": Decimal(str(fixed_usd)), "eur": Decimal(str(fixed_eur or fixed_usd))}
-        except Exception:
+        except (ArithmeticError, TypeError, ValueError):
             logger.warning("Invalid fixed ETH price env: %s / %s", fixed_usd, fixed_eur)
     return None
 
@@ -88,7 +88,7 @@ def _bridge_price_max_age() -> float:
     """Max age in seconds a price feed may reach before it is stale."""
     try:
         return float(os.getenv("BRIDGE_PRICE_MAX_AGE", "7200"))
-    except Exception:
+    except (TypeError, ValueError):
         return 7200.0
 
 
@@ -116,7 +116,7 @@ async def get_eth_prices_meta() -> dict[str, Any] | None:
                 "feed_age_seconds": max(0.0, time.time() - oldest),
                 "feed_source": "oracle",
             }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - feed failure falls back to the env override
         logger.error("Failed to fetch ETH prices: %s", e)
 
     fixed_usd = os.getenv("ETH_USD_FIXED_PRICE")
@@ -129,7 +129,7 @@ async def get_eth_prices_meta() -> dict[str, Any] | None:
                 "feed_age_seconds": 0.0,
                 "feed_source": "env",
             }
-        except Exception:
+        except (ArithmeticError, TypeError, ValueError):
             logger.warning("Invalid fixed ETH price env: %s / %s", fixed_usd, fixed_eur)
     return None
 
@@ -189,14 +189,14 @@ async def calculate_ait_amount(eth_amount: Decimal, eth_price_usd: Decimal | Non
 def _bridge_fee_rate() -> Decimal:
     try:
         return Decimal(os.getenv("BRIDGE_FEE_RATE", "0.005"))
-    except Exception:
+    except (ArithmeticError, TypeError, ValueError):
         return Decimal("0.005")
 
 
 def _min_withdraw_ait() -> Decimal:
     try:
         return Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
-    except Exception:
+    except (ArithmeticError, TypeError, ValueError):
         return Decimal("0.01")
 
 

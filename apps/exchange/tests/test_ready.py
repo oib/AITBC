@@ -46,7 +46,7 @@ def bridge_storage(tmp_path, monkeypatch):
     """A bridge deposits store under the test DATA_DIR."""
     import aitbc.constants as constants
 
-    db_path = constants.DATA_DIR / "bridge_deposits.db"
+    db_path = constants.DATA_DIR / "data" / "bridge_deposits.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     _make_bridge_db(db_path)
     return db_path
@@ -64,7 +64,7 @@ class TestExchangeReadiness:
         # Deposits are enabled by default; with no monitor db the surface is dead.
         import aitbc.constants as constants
 
-        (constants.DATA_DIR / "bridge_deposits.db").unlink(missing_ok=True)
+        (constants.DATA_DIR / "data" / "bridge_deposits.db").unlink(missing_ok=True)
         resp = await _ready()
         assert resp.status_code == 503
         assert json.loads(resp.body)["failed"] == ["bridge_storage"]

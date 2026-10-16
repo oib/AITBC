@@ -81,7 +81,7 @@ def _note_error(*, height: int, chain_id: str, log: logging.Logger, exc: BaseExc
             type(exc).__name__,
             exc,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - a broken logger must never reach the seal path
         pass
 
 
@@ -115,7 +115,7 @@ def check_locks_dryrun(
                 ):
                     raise TypeError("non-dict payload/envelope")
                 src = lock_derivation_source(payload or {}, envelope or {})
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - malformed items are counted+skipped, never raised into the seal path
                 _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
                 continue
             if src != "unreadable":
@@ -133,12 +133,12 @@ def check_locks_dryrun(
                         boundary,
                         chain_id,
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - malformed items are counted+skipped, never raised into the seal path
                     _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
             else:
                 out["grandfathered"] += 1
                 metrics_registry.increment("bridge_lock_guard_grandfathered_total")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dry-run guard never raises into the seal path
         _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
     metrics_registry.increment("bridge_lock_guard_checked_total", float(out["checked"]))
     return out
@@ -168,7 +168,7 @@ def _processed_lock_items(
             if payload is not None and not isinstance(payload, dict):
                 raise TypeError("non-dict payload")
             items.append((tx_hash, payload or {}, content))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - malformed items are counted+skipped, never raised into the seal path
             _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
     return items
 
@@ -195,7 +195,7 @@ def _dict_lock_items(
             if not tx_hash:
                 raise TypeError("missing tx_hash")
             items.append((str(tx_hash), payload or {}, tx))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - malformed items are counted+skipped, never raised into the seal path
             _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
     return items
 
@@ -221,7 +221,7 @@ def run_guard_dryrun(
             chain_id=chain_id,
             log=log,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dry-run guard never raises into the seal path
         _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
         return None
 
@@ -246,6 +246,6 @@ def run_guard_dryrun_dicts(
             chain_id=chain_id,
             log=log,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dry-run guard never raises into the seal path
         _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
         return None

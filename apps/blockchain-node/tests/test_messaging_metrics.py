@@ -455,7 +455,7 @@ class TestReadErrorSemantics:
         ):
             try:
                 asyncio.run(fn())
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 -- the invariant is the counter, not the return path
                 pass
         assert self._sample("aitbc_messaging_read_errors_total", route) == before_err + 2
         assert self._sample("aitbc_messaging_read_client_errors_total", route) == before_cli + 2

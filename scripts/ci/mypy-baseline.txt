@@ -1,8 +1,0 @@
-aitbc/ethereum_rpc.py: error: Returning Any from function declared to return "str"  [no-any-return]
-apps/edge/src/aitbc_edge/services/compute_worker.py: error: Argument 1 to "order_by" of "GenerativeSelect" has incompatible type "datetime"; expected "Literal[_NoArg.NO_ARG] | str | ColumnElement[Any] | _HasClauseElement[Any] | SQLCoreOperations[Any] | ExpressionElementRole[Any] | TypedColumnsClauseRole[Any] | Callable[[], ColumnElement[Any]] | LambdaElement | None"  [arg-type]
-apps/edge/src/aitbc_edge/services/compute_worker.py: error: Returning Any from function declared to return "str"  [no-any-return]
-cli/aitbc_cli/commands/market/gpu.py: error: Invalid index type "int" for "dict[str, Any]"; expected type "str"  [index]
-cli/aitbc_cli/commands/market/gpu.py: error: Statement is unreachable  [unreachable]
-cli/aitbc_cli/commands/market/host.py: error: Cannot determine type of "market"  [has-type]
-cli/aitbc_cli/commands/market/jobs.py: error: Cannot determine type of "market"  [has-type]
-cli/aitbc_cli/utils/evm_contract.py: error: Returning Any from function declared to return "dict[str, Any]"  [no-any-return]

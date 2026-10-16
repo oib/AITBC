@@ -443,7 +443,8 @@ class AgentSandboxManager:
                 "network_access": False,
                 "allowed_commands": ["python", "node", "java"],
                 "blocked_commands": ["rm", "sudo", "chmod", "chown"],
-                "allowed_file_paths": ["/tmp", "/workspace"],  # nosec B108 - sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                # sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                "allowed_file_paths": ["/tmp", "/workspace"],  # nosec
                 "blocked_file_paths": ["/etc", "/root", "/home"],
                 "allowed_domains": [],
                 "blocked_domains": [],
@@ -463,7 +464,8 @@ class AgentSandboxManager:
                 "network_access": True,
                 "allowed_commands": ["python", "node", "java", "curl", "wget"],
                 "blocked_commands": ["rm", "sudo", "chmod", "chown", "iptables"],
-                "allowed_file_paths": ["/tmp", "/workspace", "/app"],  # nosec B108 - sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                # sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                "allowed_file_paths": ["/tmp", "/workspace", "/app"],  # nosec
                 "blocked_file_paths": ["/etc", "/root", "/home", "/var"],
                 "allowed_domains": ["*.internal.com", "*.api.internal"],
                 "blocked_domains": ["malicious.com", "*.suspicious.net"],
@@ -483,7 +485,8 @@ class AgentSandboxManager:
                 "network_access": True,
                 "allowed_commands": ["python", "node", "java", "curl", "wget", "git"],
                 "blocked_commands": ["rm", "sudo", "chmod", "chown", "iptables", "systemctl"],
-                "allowed_file_paths": ["/tmp", "/workspace", "/app", "/data"],  # nosec B108 - sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                # sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                "allowed_file_paths": ["/tmp", "/workspace", "/app", "/data"],  # nosec
                 "blocked_file_paths": ["/etc", "/root", "/home", "/var", "/sys", "/proc"],
                 "allowed_domains": ["*.internal.com", "*.api.internal", "*.trusted.com"],
                 "blocked_domains": ["malicious.com", "*.suspicious.net", "*.evil.org"],
@@ -503,7 +506,8 @@ class AgentSandboxManager:
                 "network_access": True,
                 "allowed_commands": ["python", "node", "java", "curl", "wget", "git", "docker"],
                 "blocked_commands": ["rm", "sudo", "chmod", "chown", "iptables", "systemctl", "systemd"],
-                "allowed_file_paths": ["/tmp", "/workspace", "/app", "/data", "/shared"],  # nosec B108 - sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                # sandbox policy declaring /tmp as an allowed path for guest code, not this code writing an insecure temp file
+                "allowed_file_paths": ["/tmp", "/workspace", "/app", "/data", "/shared"],  # nosec
                 "blocked_file_paths": ["/etc", "/root", "/home", "/var", "/sys", "/proc", "/boot"],
                 "allowed_domains": ["*.internal.com", "*.api.internal", "*.trusted.com", "*.partner.com"],
                 "blocked_domains": ["malicious.com", "*.suspicious.net", "*.evil.org"],

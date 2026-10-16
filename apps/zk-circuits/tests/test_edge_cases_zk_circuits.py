@@ -12,10 +12,12 @@ def test_is_cache_valid_no_cache_entry():
     """Test cache validation with no cache entry"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_circuit.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_circuit.circom")  # nosec B108
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    output_dir = Path("/tmp/build/test")  # nosec B108
 
     try:
         is_valid = cache.is_cache_valid(test_file, output_dir)
@@ -29,10 +31,12 @@ def test_is_cache_valid_missing_output_files():
     """Test cache validation when output files are missing"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_circuit.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_circuit.circom")  # nosec B108
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_missing")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    output_dir = Path("/tmp/build/test_missing")  # nosec B108
 
     # Create a cache entry with non-existent output files
     cache_key = cache._get_cache_key(test_file, output_dir)
@@ -56,10 +60,12 @@ def test_is_cache_valid_changed_source():
     """Test cache validation when source file has changed"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_circuit_change.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_circuit_change.circom")  # nosec B108
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_change")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    output_dir = Path("/tmp/build/test_change")  # nosec B108
 
     # Create a cache entry
     cache_key = cache._get_cache_key(test_file, output_dir)
@@ -82,10 +88,12 @@ def test_cache_artifacts_with_missing_files():
     """Test caching artifacts when output directory is empty"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_cache_empty.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_cache_empty.circom")  # nosec B108
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_empty")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    output_dir = Path("/tmp/build/test_empty")  # nosec B108
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -107,10 +115,12 @@ def test_get_cached_artifacts_invalid():
     """Test getting cached artifacts when cache is invalid"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_cache_invalid.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_cache_invalid.circom")  # nosec B108
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test_invalid")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    output_dir = Path("/tmp/build/test_invalid")  # nosec B108
 
     try:
         result = cache.get_cached_artifacts(test_file, output_dir)
@@ -150,7 +160,8 @@ def test_find_dependencies_file_read_error():
     """Test dependency finding with file read error"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_deps_error.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_deps_error.circom")  # nosec B108
     test_file.write_text('include "dep.circom"')
 
     # Make file unreadable

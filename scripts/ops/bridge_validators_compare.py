@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
         path = Path(raw)
         try:
             rows = load_rows(path)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - load failure reports ERROR, never tracebacks
             print(f"{name}: ERROR {exc.__class__.__name__}")
             return 1
         counts[name] = len(rows)

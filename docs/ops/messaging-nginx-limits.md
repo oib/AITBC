@@ -39,7 +39,7 @@ nginx** (or when the socket is loopback-only). Verified fleet state
 |---|---|---|
 | hub (proposer, customer-facing) | `127.0.0.1:8202` | yes — nginx-only path; nginx overwrites `X-Real-IP` and appends XFF |
 | node0, node1, node2 | `127.0.0.1:8202` | yes — every request enters via the follower's own nginx on `:80`, which overwrites `X-Real-IP`/`X-Forwarded-For`; direct `:8202` is refused |
-| hub1 | `127.0.0.1:8202` | yes — every request enters via its nginx on `:80` (FOLLOWER-RPC-6, 16 Oct; bind set in `node.env`; direct `:8202` refused, verified from `192.168.100.1`) |
+| hub1 | `127.0.0.1:8202` | yes — every request enters via its nginx on `:80` (FOLLOWER-RPC-6, 16 Oct; bind set in `node.env`; direct `:8202` refused, verified from a LAN peer) |
 
 Concretely, on a `0.0.0.0` bind:
 

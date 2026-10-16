@@ -52,7 +52,8 @@ class Settings(ServiceSettings):
     market_bind_host: str = Field(
         default="0.0.0.0",
         validation_alias=AliasChoices("MARKET_BIND_HOST", "MARKETPLACE_BIND_HOST"),
-    )  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+        # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    )  # nosec B104
     market_bind_port: int = Field(
         default=8102,
         validation_alias=AliasChoices("MARKET_BIND_PORT", "MARKETPLACE_BIND_PORT"),

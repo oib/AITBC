@@ -411,7 +411,7 @@ class RemoteAttestationService:
                             if tx_nonce != expected_nonce[sender]:
                                 return "nonce_order"
                         expected_nonce[sender] += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - any check failure verdicts check_error: refuse, never attest unverified
             if _attempt < V9_CHECK_ATTEMPTS and _is_transient_db_lock(e):
                 logger.info(
                     "v9 attestation tx check hit a locked database for height %s (attempt %s of %s), retrying: %s",
@@ -577,7 +577,7 @@ class RemoteAttestationService:
                     continue
                 try:
                     vcanon = canonical_address(validator)
-                except Exception:
+                except (TypeError, ValueError):
                     vcanon = ""
                 if vcanon and vcanon in expected_remote:
                     answered.add(vcanon)

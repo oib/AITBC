@@ -6,7 +6,7 @@ market, api-gateway, trading, security and the property suite sat in
 `testpaths` for a release cycle without a single CI run. This module is the
 one place that decides which discovered suite runs where:
 
-- ``fast``    — offline-safe suites in the required PR gate (make test-critical).
+- ``fast``    — offline-safe suites in the required PR gate (make test-required).
 - ``nightly`` — offline-safe but slower/broader suites; the scheduled job runs
                 fast + nightly together.
 - ``manual``  — need live services, hardware, or external network. Never run
@@ -27,11 +27,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 
-# The required PR gate: offline-safe suites, each reachable via a `make`
-# target that ci.yml invokes (test-critical plus the pre-existing test /
-# test-apps / test-governance / test-cli targets).
+# The required PR gate: offline-safe suites, all run by the single
+# `make test-required` target both CI workflows call. The target's pytest
+# args come from fast_args() below — the list is no longer restated in the
+# Makefile, so a suite cannot drift out of the gate while staying classified.
 FAST_SUITES: tuple[str, ...] = (
-    # previously gated via existing Make targets
+    # previously gated via existing Make targets (kept for local use)
     "tests/unit",  # make test
     "mcp-server/tests",  # make test
     "apps/coordinator-api/tests",  # make test-apps
@@ -39,7 +40,7 @@ FAST_SUITES: tuple[str, ...] = (
     "apps/governance/tests",  # make test-governance
     "cli/tests",  # make test-cli
     "tests/cli",  # make test-cli
-    # added to the gate by make test-critical
+    # added to the gate when test-critical was introduced
     "apps/exchange/tests",
     "apps/api-gateway/tests",
     "apps/wallet/tests",
@@ -47,7 +48,9 @@ FAST_SUITES: tuple[str, ...] = (
     "apps/trading/tests",
     "apps/agent-coordinator/tests",
     "apps/bridge-monitor/tests",
-    # smoke coverage added for previously zero-test apps (all offline-safe)
+    # smoke coverage added for previously zero-test apps (all offline-safe).
+    # Classified fast at SEC-2 but the hardcoded test-critical list never
+    # named them — exactly the drift the single derived target now prevents.
     "apps/ffmpeg/tests",
     "apps/hermes_agent/tests",
     "apps/ipfs/tests",
@@ -55,6 +58,8 @@ FAST_SUITES: tuple[str, ...] = (
     "apps/shared-core/tests",
     "apps/shared-domain/tests",
     "apps/whisper/tests",
+    # flag-gated unix-socket service (SEC-2): tmp-path fixtures, no network
+    "apps/ops-signer/tests",
     "tests/security",
     "tests/core",
     "tests/property_tests",
@@ -92,6 +97,22 @@ MANUAL_SUITES: dict[str, str] = {
     "tests/ui-accessibility": "needs a browser/UI harness",
 }
 
+# Repo-root modules the old test-cli target named explicitly. They live under
+# `tests` (nightly class, since the whole dir sweeps) but guard CLI docs sync
+# and sys.path hygiene, so the required gate names them as files.
+EXTRA_REQUIRED_FILES: tuple[str, ...] = (
+    "tests/test_cli_docs_sync.py",
+    "tests/test_syspath_hygiene.py",
+)
+
+# Deselected in the required run, as they were under test-apps: both files
+# self-skip without live services, but skipping still costs a probe — CI
+# deselects to keep the required run deterministic.
+REQUIRED_DESELECTS: tuple[str, ...] = (
+    "apps/coordinator-api/tests/test_phase8_integration.py",
+    "apps/coordinator-api/tests/test_zk_receipt.py",
+)
+
 
 def testpaths() -> list[str]:
     """The pytest testpaths from pyproject.toml."""
@@ -119,6 +140,19 @@ def classification() -> dict[str, str]:
     return classes
 
 
+def fast_args() -> list[str]:
+    """pytest args for the required gate: every fast dir + named root files.
+
+    Entries that vanish from disk are dropped rather than erroring — the
+    parity guard already fails on classified-but-missing paths, so this stays
+    a faithful projection of what exists.
+    """
+    args = [p for p in FAST_SUITES if (REPO_ROOT / p).is_dir()]
+    args += [f for f in EXTRA_REQUIRED_FILES if (REPO_ROOT / f).is_file()]
+    args += [f"--deselect={d}" for d in REQUIRED_DESELECTS if (REPO_ROOT / d).is_file()]
+    return args
+
+
 def nightly_args() -> list[str]:
     """pytest args for the nightly run: nightly + fast dirs, manual excluded.
 
@@ -136,7 +170,7 @@ def nightly_args() -> list[str]:
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "parity"
     if mode == "fast":
-        print(" ".join(FAST_SUITES))
+        print(" ".join(fast_args()))
     elif mode == "nightly":
         print(" ".join(nightly_args()))
     elif mode == "parity":

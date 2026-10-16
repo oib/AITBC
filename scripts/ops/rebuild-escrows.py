@@ -96,7 +96,7 @@ def _canonicalizers():
     if _CANON is None:
         try:
             from aitbc.crypto.signature_recovery import canonical_address as canon
-        except Exception:
+        except ImportError:
             # Same lenient semantics as aitbc.crypto.signature_recovery's
             # canonical_address(strict=False): EIP-55 for 0x+40-hex, else
             # lowercased pass-through.
@@ -202,7 +202,8 @@ def _load_legs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     # The IN-list is a fixed-size placeholder string, never user data — the
     # interpolated `placeholders` is built from the LEG_TYPES constant above.
     rows = conn.execute(
-        f"SELECT id, chain_id, tx_hash, block_height, sender, recipient, payload, value, type"  # nosec B608 - placeholders only, values bound
+        # placeholders only, values bound
+        f"SELECT id, chain_id, tx_hash, block_height, sender, recipient, payload, value, type"  # nosec
         f' FROM "transaction" WHERE block_height IS NOT NULL AND type IN ({placeholders})',
         LEG_TYPES,
     ).fetchall()
@@ -239,7 +240,8 @@ def _load_escrow_rows(conn: sqlite3.Connection) -> dict[tuple[str, str], dict[st
     # columns with the table's real schema and leave the rest NULL.
     existing = {r[1] for r in conn.execute("PRAGMA table_info(escrow)").fetchall()}
     wanted = [c for c in names if c in existing]
-    rows = conn.execute(f"SELECT {','.join(wanted)} FROM escrow").fetchall()  # nosec B608 - fixed literal column list
+    # fixed literal column list
+    rows = conn.execute(f"SELECT {','.join(wanted)} FROM escrow").fetchall()  # nosec
     return {(r[1], r[0]): {**dict.fromkeys(names), **dict(zip(wanted, r, strict=True))} for r in rows}
 
 

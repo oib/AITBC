@@ -307,7 +307,7 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
         )
         try:
             outcome = await _order_lock_outcome(cfg, order, tx, order_id, sender, tx_hash, head, stats)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - unmarked item retried next poll — a failed lock must not kill the lane
             logger.error("order-lock handling failed for %s on order %s: %s", tx_hash, order_id, e)
             continue  # unmarked — retried next poll
         if outcome is None:
@@ -518,7 +518,7 @@ async def _scan_prepay_credits(cfg: ExchangeCfg) -> dict[str, int]:
                     "eth_tx_hash": tx_hash,
                 },
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - post failure retried next poll
             logger.error("prepaid_credit post failed for %s: %s", tx_hash, e)
             continue
         if status_code == 200:
@@ -597,7 +597,7 @@ async def _expire_order_backings(cfg: ExchangeCfg, head: int | None, stats: dict
             status_code, _body = await _post_event(cfg, {"event": "order_backing_expired", "order_id": row["id"]})
             if status_code == 200:
                 stats["expired"] += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - event post failure logged, poll continues
             logger.error("order_backing_expired post failed for order %s: %s", row["id"], e)
 
 
@@ -612,7 +612,7 @@ async def _refund_stranded_debits(cfg: ExchangeCfg, stats: dict[str, int]) -> No
             status_code, _body = await _post_event(cfg, {"event": "debit_refund", "order_id": row["order_id"]})
             if status_code == 200:
                 stats["debits"] += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - event post failure logged, poll continues
             logger.error("debit_refund post failed for order %s: %s", row["order_id"], e)
 
 
@@ -684,7 +684,7 @@ async def _lock_sender(cfg: ExchangeCfg, backing_tx_hash: str) -> str | None:
     blindly to the order owner (same stranger-lock rule as the sell lane)."""
     try:
         txs = await sellmon._fetch_transfers(cfg.escrow.escrow_address)
-    except Exception:
+    except Exception:  # noqa: BLE001 - probe containment — unreadable means unproven
         return None
     for tx in txs:
         if _norm_tx_hash(tx.get("tx_hash") or tx.get("hash")) == _norm_tx_hash(backing_tx_hash):
@@ -801,7 +801,7 @@ async def _update_with_retry(row_id: str, status: str, **fields: Any) -> bool:
     for attempt in range(wdm._STATUS_PERSIST_ATTEMPTS):
         try:
             return update_exchange_settlement(row_id, status, **fields)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - persist retry: any store failure alike
             last_exc = e
             logger.error(
                 "Failed to persist settlement %s status %s (attempt %d/%d): %s",
@@ -936,7 +936,7 @@ async def _mirror_trade_state(cfg: ExchangeCfg, ref_id: str, target: str, row: d
                 cfg,
                 {"event": "trade_state", "trade_id": trade_id, "state": state, **hashes},
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - mirror post failure stops this replay only
             logger.error("Mirror post for trade %s -> %s failed: %s", trade_id, state, e)
             return
         if status_code != 200:
@@ -1272,7 +1272,7 @@ async def _handle_locked(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     broadcast release."""
     try:
         await _release_eth_for_settlement(cfg, row)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - release failure resolved in-place, never raised into the poll
         logger.error("ETH release failed for settlement %s: %s", row["id"], e)
         await _resolve_release_failure(cfg, row, e)
 
@@ -1333,7 +1333,7 @@ async def _start_refund(cfg: ExchangeCfg, row: dict[str, Any], reason: str) -> N
     try:
         await _escrow_sweep(cfg, {**row, "status": "refunding"}, "refunding", "queued_fee_refund")
         return
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - refund sweep failure resolved by the resolver
         logger.error("Refund sweep errored for settlement %s: %s", row["id"], e)
     fresh = get_exchange_settlement(str(row["kind"]), int(row["ref_id"])) or {}
     if fresh.get("status") == "refunding":
@@ -1401,7 +1401,7 @@ async def _run_lane(summary: dict[str, Any], key: str, label: str, awaitable: An
     logged — the other lanes still run."""
     try:
         summary[key] = await awaitable
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - lane containment — other lanes still run
         logger.error("%s failed this poll: %s", label, e)
         summary[key] = f"failed: {e}"
 
@@ -1417,7 +1417,7 @@ async def _drain_open_settlements(cfg: ExchangeCfg, summary: dict[str, Any]) -> 
         try:
             await _process_settlement(cfg, row)
             processed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - row containment — one bad settlement must not kill the drain
             logger.error("Error processing settlement %s: %s", row.get("id"), e)
     summary["processed"] = processed
 
@@ -1433,7 +1433,7 @@ async def poll_exchange_settlements_once() -> dict[str, Any]:
 
     try:
         head: int | None = await sellmon._chain_height()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - height probe containment — lane skipped this poll
         logger.error("Chain height unavailable — expiry lane skipped this poll: %s", e)
         head = None
 
@@ -1445,7 +1445,7 @@ async def poll_exchange_settlements_once() -> dict[str, Any]:
         new_rows = _ensure_trade_rows(cfg)
         summary["new_rows"] = {"created": new_rows["created"]}
         summary["no_payout_skipped"] = new_rows["no_payout_skipped"]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - lane containment
         logger.error("Trade-row ensure failed this poll: %s", e)
         summary["new_rows"] = f"failed: {e}"
 
@@ -1485,7 +1485,7 @@ async def exchange_settlement_loop() -> None:
             summary = await poll_exchange_settlements_once()
             if not summary.get("skipped"):
                 logger.info("Exchange settlement poll completed: %s", summary)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - poll containment — a failed pass must not end the monitor loop
             logger.error("Error in exchange settlement loop: %s", e)
         for _ in range(cfg.poll_interval):
             if not _exchange_polling_enabled:

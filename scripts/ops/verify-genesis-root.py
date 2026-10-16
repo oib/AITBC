@@ -82,7 +82,7 @@ def _check_allocations(allocs: list[Any], report: dict[str, Any]) -> None:
             addr = str(alloc["address"]).strip().lower()
             int(alloc["balance"])
             int(alloc.get("nonce", 0))
-        except Exception:
+        except (KeyError, TypeError, ValueError):
             malformed += 1
             continue
         if addr in seen:
@@ -127,7 +127,7 @@ def _check_roots(f: dict[str, Any], allocs: list[Any], report: dict[str, Any]) -
                 state_root=f["claimed_root"],
                 bridge_state_root=empty_bridge_root,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - recompute failure is a reported problem
             report["problems"].append(f"hash recompute failed: {exc}")
     if not f["claimed_hash"]:
         report["problems"].append("no claimed block hash in file")
@@ -141,7 +141,7 @@ def verify(path: Path) -> dict[str, Any]:
     report: dict[str, Any] = {"file": str(path), "problems": []}
     try:
         doc = json.loads(path.read_text())
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         report["problems"].append(f"unreadable/invalid JSON: {exc}")
         report["verdict"] = "FAIL"
         return report

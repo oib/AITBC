@@ -45,7 +45,8 @@ def publish_capacity(
     data = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - coordinator_url comes from a caller-supplied param or trusted COORDINATOR_URL env var, not runtime user input
+        # coordinator_url comes from a caller-supplied param or trusted COORDINATOR_URL env var, not runtime user input
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             return cast(dict[str, Any], json.loads(resp.read().decode()))
     except urllib.error.HTTPError as exc:
         return {"error": exc.read().decode(), "status": exc.code}

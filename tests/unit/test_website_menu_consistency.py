@@ -221,7 +221,7 @@ SITEMAP_PAGES = {
     "shop-dashboard.html": "https://hub.aitbc.bubuit.net/shop-dashboard.html",
     "follower-api-key-announcement.html": "https://hub.aitbc.bubuit.net/follower-api-key-announcement.html",
 }
-DYNAMIC_PAGES = {"block.html", "tx.html", "search.html", "messages.html"}
+DYNAMIC_PAGES = {"block.html", "tx.html", "search.html", "messages.html", "author.html", "topic.html"}
 # Title exceptions to the "<Page name> — AITBC" pattern (index keeps its
 # descriptive title for discovery — operator decision, WEB-2 ASK).
 TITLE_EXCEPTIONS = {"index.html"}

@@ -352,7 +352,7 @@ def _websockets_available() -> bool:
         import websockets  # noqa: F401
 
         return True
-    except Exception:
+    except ImportError:
         return False
 
 
@@ -398,7 +398,7 @@ class TestCopyControlBrowser(unittest.TestCase):
                 if tabs:
                     cls.ws_url = tabs[0]["webSocketDebuggerUrl"]
                     break
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 -- CDP endpoint poll: retry until the timeout decides
                 pass
             time.sleep(0.25)
         if not cls.ws_url:

@@ -35,7 +35,8 @@ class MessagingSetup:
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
             # Check if messaging service is running
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "messaging", "status"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -51,7 +52,8 @@ class MessagingSetup:
 
         # Configure authentication if needed
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "messaging", "auth", "configure"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -77,7 +79,8 @@ class MessagingSetup:
         log.info("Verifying messaging connection...")
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "messaging", "test"],
                 cwd=self.aitbc_dir,
                 capture_output=True,

@@ -298,7 +298,7 @@ async def _gather_proofs(
     for url in dict.fromkeys(urls):
         try:
             verdicts.append(await _release_verdict(wdm, url, row))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - verdict probe — an unreadable endpoint reports rpc error, never raises
             detail = f"rpc error: {redact_text(str(e))}"
             if "historical state" in detail or "-32000" in detail:
                 # The receiver-balance proof reads state at the failed
@@ -404,7 +404,7 @@ async def _release_retry_preflight(wdm: Any, row: dict[str, Any], verify_rpc: st
     try:
         gas_limit = await wdm._release_gas_limit(to_address, amount_eth)
         gas_price = await wdm._eth_gas_price()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - fail closed — unbounded gas refuses the release
         print(f"refusing: cannot bound release gas safely: {redact_text(str(e))}")
         return None
     print("planned retry:")
@@ -485,7 +485,7 @@ async def _cmd_release_retry(wdm: Any, db: Any, args: argparse.Namespace) -> int
             intent_status="releasing_retry",
             nonce=nonce,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - attempt containment — a failed broadcast is recorded, never raised
         db.update_release_attempt(attempt_id, outcome=f"failed: {redact_text(str(e))}")
         print(f"release attempt failed before/at broadcast: {redact_text(str(e))}")
         print("row stays eligible for another proven retry or mark-review")

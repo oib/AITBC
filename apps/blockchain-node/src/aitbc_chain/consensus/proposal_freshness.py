@@ -42,6 +42,8 @@ from enum import Enum
 from typing import Any
 from urllib.parse import urlparse
 
+import httpx
+
 from aitbc.network import SharedHttpClient
 
 from ..logger import get_logger
@@ -120,7 +122,7 @@ class ProposalFreshnessChecker:
             )
             resp.raise_for_status()
             head = resp.json()
-        except Exception:
+        except (httpx.HTTPError, ValueError):
             return None
         if not isinstance(head, dict):
             return None

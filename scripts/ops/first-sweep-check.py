@@ -188,7 +188,7 @@ def _payload_job_id(payload: object) -> str | None:
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
-        except Exception:
+        except (ValueError, RecursionError):
             return None
     if isinstance(payload, dict):
         jid = payload.get("job_id")

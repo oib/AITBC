@@ -170,7 +170,7 @@ def apply_plan(conn: sqlite3.Connection, report: dict[str, Any], plan: dict[str,
             derived = _reb._derive_job(cid, jid, legs_by_job.get(jid, []), blocks, canonical)
             row = [jid, cid] + [derived.get(c) for c in _DERIVED_COLS[2:]]
             # cols/marks are built from the _DERIVED_COLS constant — fixed identifiers, values bound
-            cur.execute(f"INSERT INTO escrow ({cols}) VALUES ({marks})", row)  # nosec B608
+            cur.execute(f"INSERT INTO escrow ({cols}) VALUES ({marks})", row)  # nosec
             written["insert"].append(jid)
 
         # Class 2 — deferred-residue updates, field-for-field from the plan.
@@ -180,7 +180,7 @@ def apply_plan(conn: sqlite3.Connection, report: dict[str, Any], plan: dict[str,
                 # s['field'] comes from the plan's conflict fields — drawn from the
                 # proof's EXACT_FIELDS whitelist, never user input; the value is bound
                 cur.execute(
-                    f"UPDATE escrow SET {s['field']} = ? WHERE job_id = ?",  # nosec B608
+                    f"UPDATE escrow SET {s['field']} = ? WHERE job_id = ?",  # nosec
                     (s["derived"], jid),
                 )
             written["update"].append(jid)

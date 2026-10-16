@@ -489,7 +489,7 @@ def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
         if isinstance(payload, str):
             try:
                 payload = json.loads(payload)
-            except Exception:
+            except ValueError:
                 continue
         execution_payload = payload.get("execution_payload", {}) or {}
         if execution_payload.get("action", "parameter_change") != "parameter_change":
