@@ -964,8 +964,10 @@ def _locked_descendants(session, chain_id: str, topic: str, root_intervals: dict
 
 
 def _walk_locked_subtree(children: dict[str, list[str]], root: str, intervals: list[list], out: dict[str, list[list]]) -> None:
-    """BFS one root, stamping its interval list on each descendant; replies
-    beyond LOCK_WALK_LIMIT are treated as outside the lock (fail-open)."""
+    """BFS one root, accumulating its intervals onto each descendant —
+    a descendant of several locked roots carries all their intervals.
+    Replies beyond LOCK_WALK_LIMIT are treated as outside the lock
+    (fail-open)."""
     frontier = [root]
     seen = {root}
     walked = 0
@@ -976,7 +978,7 @@ def _walk_locked_subtree(children: dict[str, list[str]], root: str, intervals: l
                 if child in seen or walked >= LOCK_WALK_LIMIT:
                     continue
                 seen.add(child)
-                out[child] = intervals
+                out.setdefault(child, []).extend(list(iv) for iv in intervals)
                 nxt.append(child)
                 walked += 1
         frontier = nxt
