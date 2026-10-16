@@ -242,6 +242,16 @@ groups:
           summary: "RPC error rate is spiking"
 ```
 
+### Chain head stall
+
+`ChainHeadStalled` (critical, in `aitbc_rules.yml`, tests in `aitbc_rules_test.yml`) fires when `aitbc_messaging_chain_head_height` — the RPC process's scrape-time read of the highest block in the local chain DB — has not advanced for 15 minutes, held for 2 more. It covers the case the other rules miss: every node up but stuck at the same height, where `ServiceDown` and `SyncLagHigh` stay quiet. Heartbeat blocks seal about every 68 s and a stand-in proposer takes over within about 2 minutes, so 15 minutes is a stall rather than a slow round.
+
+- Firing on every host: the chain stopped producing — check proposer rotation and attestation arrival (`AttestationValidatorSilent`).
+- Firing on one host: that node stopped importing — check its sync peer and gossip connection.
+- A failing scrape-time collect freezes the gauge too; the rpc journal then logs `messaging metrics: collect failed`.
+
+It stays quiet until Prometheus holds 15 minutes of history, and never fires on a fresh node whose chain DB is still empty.
+
 ### Authority account balances
 
 The node exporters carry no account balances, so nothing warned when the escrow settlement authority ran short of fee float. Escrow release and refund debit `max(36, amount // 100)` units (1% of the settled amount) from that account; once its balance is below the fee, both fail and the escrowed funds stay locked until it is topped up. `scripts/monitoring/authority-balances-textfile.py` reads the settlement and bridge release authorities from the local RPC and writes them as a node_exporter textfile, once a minute, from `aitbc-authority-balances.timer`:
