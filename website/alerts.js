@@ -45,26 +45,19 @@ function eventBadge(name) {
 }
 
 function renderMonitorStrip(data) {
-    const el = document.getElementById('monitor-strip');
-    const parts = [];
-    if (data.prometheus_ok) {
-        parts.push('<span class="mon-ok">Prometheus: reachable</span>');
-    } else {
-        parts.push('<span class="mon-bad">Prometheus: unreachable</span> — showing the last state the watcher recorded');
-    }
+    // Rendered as Service Health tiles now — same status dot + label as the
+    // API probes: Prometheus reachable?, watcher heartbeat fresh?
+    updateHealthItem('prometheus', !!data.prometheus_ok, data.prometheus_ok ? 'reachable' : 'unreachable');
     const w = data.watcher;
-    if (w) {
-        if (!w.present) {
-            parts.push('<span class="mon-bad">Watcher heartbeat: absent</span>');
-        } else if (w.stale) {
-            parts.push(`<span class="mon-bad">Watcher heartbeat: stale (${relTime(Date.now() / 1000 - w.last_poll_age_seconds)})</span>`);
-        } else {
-            parts.push(`<span class="mon-ok">Watcher: polled ${relTime(Date.now() / 1000 - w.last_poll_age_seconds)}</span>`);
-        }
-    } else if (!data.prometheus_ok) {
-        parts.push('<span class="mon-warn">Watcher heartbeat: unknown (Prometheus down)</span>');
+    if (!w) {
+        updateHealthItem('watcher', false, data.prometheus_ok ? '--' : 'unknown');
+    } else if (!w.present) {
+        updateHealthItem('watcher', false, 'absent');
+    } else if (w.stale) {
+        updateHealthItem('watcher', false, 'stale ' + relTime(Date.now() / 1000 - w.last_poll_age_seconds));
+    } else {
+        updateHealthItem('watcher', true, 'polled ' + relTime(Date.now() / 1000 - w.last_poll_age_seconds));
     }
-    el.innerHTML = parts.join('<span class="mon-sep">&middot;</span>');
 }
 
 function alertCard(a, extraClass) {
@@ -233,8 +226,9 @@ async function loadAlerts() {
         document.getElementById('updated-note').textContent =
             `Updated ${new Date().toLocaleTimeString()} — auto-refresh every ${REFRESH_MS / 1000}s`;
     } catch (err) {
-        document.getElementById('monitor-strip').innerHTML =
-            `<span class="mon-bad">Alert API unreachable</span> — ${escapeHtml(err.message || err)}`;
+        updateHealthItem('prometheus', false, 'API unreachable');
+        updateHealthItem('watcher', false, '--');
+        console.error('Alert API unreachable:', err);
     }
     await Promise.all([loadJournal(), loadJournalCounts()]);
 }
