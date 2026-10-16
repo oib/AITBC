@@ -892,6 +892,11 @@ reported, not ignored.
   a signer1 canary correctly FAILED (missing recipient). Repo copies
   updated (plan doc status, canary runbook, decisions O-7 row); shrink to
   F alone and the mainnet pass remain open.
+- tooling gaps found during the cutover, fixed: `bridge_monitor.admin`
+  gains `list [--status S] [--limit N]` so FUNDING/FAILED rows are
+  readable without the journal, and `scripts/ops/bridge-admin.sh` wraps
+  the module so it runs from any cwd without a hand-set PYTHONPATH —
+  doc invocations updated to the wrapper.
 
 ### MSG-CLI-HASH-1
 - fix(cli): all `aitbc messaging` commands accept bare or 0x-prefixed 64-hex tx hashes — normalized once to bare at parse; read routes use the 0x-prefixed form
