@@ -27,6 +27,7 @@ import rlp
 from click.testing import CliRunner
 from eth_account import Account
 
+from aitbc_cli.commands.wallet import eth_common as eth_common_mod
 from aitbc_cli.commands.wallet import eth_send as eth_send_mod
 from aitbc_cli.commands.wallet.eth_send import SEPOLIA_CHAIN_ID, eth_send
 from aitbc_cli.utils.error_handling import abort
@@ -55,7 +56,9 @@ def wallet_file(tmp_path):
 
 @pytest.fixture()
 def rpc_fn(monkeypatch):
-    """Per-test RPC tables: replace eth_send's rpc_call with a method->result map."""
+    """Per-test RPC tables: replace rpc_call with a method->result map in
+    both the command module and shared ``eth_common`` — the eth_chainId
+    cross-check calls the shared copy."""
 
     def apply(table):
         def fake(ctx, _url, method, params):
@@ -65,6 +68,7 @@ def rpc_fn(monkeypatch):
             return value(method, params) if callable(value) else value
 
         monkeypatch.setattr(eth_send_mod, "rpc_call", fake)
+        monkeypatch.setattr(eth_common_mod, "rpc_call", fake)
 
     return apply
 

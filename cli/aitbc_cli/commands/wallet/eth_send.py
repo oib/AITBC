@@ -29,8 +29,6 @@ would strand the funds.
 
 from __future__ import annotations
 
-import json
-import os
 import time
 from decimal import Decimal
 from pathlib import Path
@@ -41,48 +39,17 @@ import click
 from ...utils import DECIMAL, info, output, resolve_output_format, success
 from ...utils.address import to_eip55
 from ...utils.error_handling import abort
-from ...utils.evm_rpc import broadcast_raw, display_rpc_url, hex_to_int, resolve_rpc_url, rpc_call
+from ...utils.evm_rpc import broadcast_raw, hex_to_int, resolve_rpc_url, rpc_call
 from ...utils.wallet_secret import wallet_password_options
 from . import _load_signing_key, wallet
-from .bridge import _resolve_wallet_path
+from .eth_common import SEPOLIA_CHAIN_ID, check_rpc_chain, resolve_wallet_file, wallet_address_only
 
-SEPOLIA_CHAIN_ID = 11155111
 DEFAULT_MAX_ETH = Decimal("0.1")
 # 50 gwei mirrors the "acceptable" bound in contracts/scripts/check-gas-price.js;
 # Sepolia's usual price is far below it, so the default only binds on a spike.
 DEFAULT_MAX_GAS_GWEI = Decimal("50")
 RECEIPT_POLL_SECONDS = 3.0
 RECEIPT_TIMEOUT_SECONDS = 120.0
-
-
-def _send_wallet(ctx, wallet: str | None) -> tuple[str | None, Path]:
-    """``--wallet`` names a wallet (standard search order) or gives a wallet
-    file path — which is only ever opened locally; remote fetch does not
-    exist, so a file on another host cannot be signed with."""
-    name = wallet or (ctx.obj or {}).get("wallet_name")
-    if name and (os.sep in name or name.endswith(".json")):
-        path = Path(name)
-        if not path.is_file():
-            abort(ctx, f"wallet file not found: {path}")
-        return Path(name).stem, path
-    if not name:
-        abort(ctx, "no wallet selected — pass --wallet <name|path> or the group --wallet-name")
-    return name, _resolve_wallet_path(ctx, str(name))
-
-
-def _wallet_address_only(ctx, wallet_path: Path) -> str:
-    """The wallet file's plaintext ``address`` — a raw JSON read, no
-    decryption, no password resolution. Used by the dry run."""
-    try:
-        with open(wallet_path) as f:
-            data: dict[str, Any] = json.load(f)
-    except OSError as e:
-        abort(ctx, f"cannot read wallet file {wallet_path}: {e}", from_exception=e)
-        raise AssertionError("unreachable: abort always raises") from e
-    address = data.get("address")
-    if not address:
-        abort(ctx, f"wallet file {wallet_path} has no address field")
-    return to_eip55(str(address))
 
 
 def _validated_wei(ctx, amount_eth: Decimal, max_eth: Decimal) -> int:
@@ -107,15 +74,6 @@ def _validated_gas_ceiling(ctx, max_gas_gwei: Decimal) -> int:
     if scaled != scaled.to_integral_value():
         abort(ctx, f"--max-gas-gwei {max_gas_gwei} has more than 9 decimals — not representable in wei")
     return int(scaled)
-
-
-def _check_rpc_chain(ctx, rpc_url: str) -> None:
-    rpc_chain = hex_to_int(ctx, rpc_call(ctx, rpc_url, "eth_chainId", []), "chain id")
-    if rpc_chain != SEPOLIA_CHAIN_ID:
-        abort(
-            ctx,
-            f"RPC at {display_rpc_url(rpc_url)} reports chain id {rpc_chain}, not Sepolia ({SEPOLIA_CHAIN_ID}) — refusing",
-        )
 
 
 def _validated_recipient(ctx, to_address: str, from_address: str) -> str:
@@ -231,12 +189,12 @@ def eth_send(
     value_wei = _validated_wei(ctx, amount_eth, max_eth)
     gas_ceiling_wei = _validated_gas_ceiling(ctx, max_gas_gwei)
 
-    wallet_name, wallet_path = _send_wallet(ctx, wallet_name)
-    from_address = _wallet_address_only(ctx, wallet_path)
+    wallet_name, wallet_path = resolve_wallet_file(ctx, wallet_name)
+    from_address = wallet_address_only(ctx, wallet_path)
     to = _validated_recipient(ctx, to_address, from_address)
 
     rpc_url = resolve_rpc_url(ctx, eth_rpc_url)
-    _check_rpc_chain(ctx, rpc_url)
+    check_rpc_chain(ctx, rpc_url)
     nonce = hex_to_int(ctx, rpc_call(ctx, rpc_url, "eth_getTransactionCount", [from_address, "pending"]), "nonce")
     gas_price_wei = hex_to_int(ctx, rpc_call(ctx, rpc_url, "eth_gasPrice", []), "gas price")
     gas_limit = hex_to_int(
