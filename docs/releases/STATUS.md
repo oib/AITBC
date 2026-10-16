@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-09-12
+**Last updated:** 2026-10-16
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -68,7 +68,10 @@
 | v0.25.4 | Bridge, escrow/consensus hardening, GPU electricity-cost floor | ✅ Complete | See v0.25.4_change.log |
 | v0.25.6 | Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path | ✅ Complete | Chain ID / island peer fixes; multi-validator source validated; auth/coordinator/CLI/state/monitoring hardening; see v0.25.6_change.log |
 | v0.25.7 | First-class IPFS marketplace support | ✅ Complete | Marketplace Job/Payment model, `aitbc market host/run` for IPFS, sweeper, MCP, agent SDK, migration; live node0/node2 validation passed; see v0.25.7_change.log |
-| v0.25.8 | Post-v0.25.2-tag consolidation: coordinator hardening, faucet budgets, consensus freshness & fork choice, fleet ops | 🚧 In progress | Relocated post-tag v0.25.2 working notes + new entries; see v0.25.8_change.log |
+| v0.25.8 | Post-v0.25.2-tag consolidation: coordinator hardening, faucet budgets, consensus freshness & fork choice, fleet ops | ✅ Complete | Tagged 2026-09-29 at `6026404775`; relocated post-tag v0.25.2 working notes + new entries; see v0.25.8_change.log |
+| v0.25.9 | Bridge payout monitor, governance service-local reclassification, v9 shadow window | ✅ Complete | Tagged 2026-10-04 at `217eaa9742`; see v0.25.9_change.log |
+| v0.25.10 | Escrow settlement passes, energy-rate guard, v11/v12 consensus pins, governance parameter tooling | ✅ Complete | Tagged 2026-10-07 at `6fc1ed373b`; see v0.25.10_change.log |
+| v0.25.11 | On-chain messaging (votes, moderation, DMs, agent SDK), bridge ledger/ops hardening, authority monitoring, website status pages | ✅ Complete | Finalised 2026-10-16; KR-2…KR-6 key rotations, v13/v14 shared activation at 46,100; see v0.25.11_change.log |
 | v0.25.5 | Audit reconciliation: register fully closed, fleet hardening, dead-code removal | ✅ Complete | All 8 register lanes at 0 items; see v0.25.5_change.log |
 
 ## Security Audit Summary
@@ -99,6 +102,30 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 > **Bridge security defaults (2026-08-25):** `bridge_release_enabled` is now `True` live on `<hub-node>` and `<node2>`; `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, and `require_merkle_proof: true`. However, a live consensus stall prevents safe confirmations: see the Open design-review gaps table and the bridge/live-validation section below.
 >
 > **Bridge trust model — verified and documented (2026-08-25):** Merkle and multi-sig verification are implemented and live-enabled on `<hub-node>` / `<node2>`. Custodian mode remains the honest fallback. Bridge `confirm` should not be invoked while the two-validator chain is stalled; the safe path is to clear the consensus stall first. See `docs/security/bridge-custodian.md`.
+
+## Current topology (2026-10-16)
+
+The sections from "Trust root" down to the 2026-09-25 entry are dated
+history. Their two-validator topology, validator addresses and "current live
+topology" lines describe late August, not the fleet today. As last recorded:
+
+- **Hosts:** five. `<hub-node>` — validator, runs the hub services
+  (coordinator, exchange, pool-hub, hub alert rules). `<replica-node>` —
+  validator; the former hub, reduced to the follower service set on
+  2026-10-04 (`docs/getting-started/setup-service-selection.md`). `<node1>`
+  and `<node2>` — validators; `<node2>` is also the GPU shop. `<node0>` —
+  follower, no block production.
+- **Consensus:** `MultiValidatorPoA` round-robin over four validators with
+  `MULTI_VALIDATOR_MIN_ATTESTATIONS=2`, so each block carries three of four
+  signatures; PBFT stays disabled (`docs/blockchain/4_consensus.md`). The
+  chain survives one validator outage, not two.
+- **Validator identities:** all four rotated in KR-5 on 2026-10-07
+  (v0.25.11 log). Addresses are deliberately not listed here.
+- **State-transition heights:** v10 at 32,100, v11 at 35,400, v12 at 37,500,
+  v13 and v14 together at 46,100 (`apps/blockchain-node/src/aitbc_chain/config.py`).
+- **Bridge:** Sepolia only. Locks are open with `BRIDGE_MAX_LOCK_AMOUNT`
+  of 1,000 AIT and a four-attester epoch-1 set; mainnet stays parked
+  (`docs/decisions/2026-10-12-operator-decisions.md`).
 
 ## Trust root
 
