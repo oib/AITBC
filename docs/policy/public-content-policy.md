@@ -92,6 +92,7 @@ Exact wording, ready to paste once the operator fills the contact:
 
 ## Open for the operator
 
-- The contact text for `[OPERATOR CONTACT — TO BE FILLED]`. Until it is
-  filled, the site shows the block without the contact sentence —
-  published that way on the messages page, 16 Oct 2026.
+- The contact text: set `CONTACT_EMAIL` in `/etc/aitbc/website.env` on the
+  hub and run `render-website.sh` — the report sentence appears between
+  the `aitbc-contact` markers on the messages page. While unset the page
+  shows the block without it (published that way, 16 Oct 2026).
