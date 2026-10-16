@@ -28,7 +28,7 @@ from aitbc.dm_client import (
     dm_store_load,
     fetch_dm_inbox,
     fetch_dm_key,
-    open_dm,
+    open_dm_with_eras,
     seal_dm,
 )
 from aitbc.messaging import DM_TOPIC, build_envelope
@@ -335,15 +335,18 @@ class MessagingClient:
         """Fetch and decrypt one DM addressed to ``address``.
 
         The secret key comes from ``secret_key`` (base64 X25519, for callers
-        that manage their own eras) or from the wallet's local ``dm-keys``
-        store when ``wallet`` is named. Header verification is mandatory —
-        a wrong-context, wrong-party or tampered payload raises ``AITBCError``,
-        never returns unverified plaintext.
+        that manage their own eras — tried alone, exactly as passed) or from
+        the wallet's local ``dm-keys`` store when ``wallet`` is named; a
+        multi-era store is tried newest→oldest so a DM sealed to a
+        superseded key still opens after rotation (MSG-8g). Header
+        verification is mandatory — a wrong-context, wrong-party or
+        tampered payload raises ``AITBCError``, never returns unverified
+        plaintext.
         """
-        address, secret_key = _resolve_dm_read_identity(wallet, address, secret_key)
+        address, secrets = _resolve_dm_read_identity(wallet, address, secret_key)
         row = self._dm_find_row(tx_hash, address, max_pages)
         try:
-            body = open_dm(secret_key, str(row["sender"]), address, str(row["ct"]))
+            body = open_dm_with_eras(secrets, str(row["sender"]), address, str(row["ct"]))
         except ValueError as e:
             raise AITBCError(f"cannot read DM: {e}") from e
         return {
@@ -369,20 +372,25 @@ class MessagingClient:
         raise MessagingNotFoundError(f"no DM to {address} with tx hash {tx_hash} in the scanned inbox pages")
 
 
-def _resolve_dm_read_identity(wallet: str | None, address: str | None, secret_key: str | None) -> tuple[str, str]:
-    """Fill in ``address``/``secret_key`` from the named wallet's local state."""
+def _resolve_dm_read_identity(wallet: str | None, address: str | None, secret_key: str | None) -> tuple[str, list[str]]:
+    """Fill in ``address`` plus the key-era list from local state.
+
+    Returns ``(address, secrets)`` — every stored era's secret, oldest→newest,
+    for ``open_dm_with_eras``. An explicit ``secret_key`` keeps its single-key
+    meaning: it is the only entry tried.
+    """
     if address is None:
         if wallet is None:
             raise AITBCError("dm_read needs an address (or a wallet to resolve it from)")
         address = _resolve_wallet_address(wallet)
-    if secret_key is None:
-        if wallet is None:
-            raise AITBCError("dm_read needs a secret_key (or a wallet whose dm-keys store holds it)")
-        try:
-            store = dm_store_load(_resolve_dm_key_path(wallet), strict=True)
-        except DmStoreCorruptError as e:
-            raise AITBCError(str(e)) from e
-        if not store["keys"]:
-            raise AITBCError(f"no DM key stored for wallet '{wallet}'")
-        secret_key = str(store["keys"][-1]["secret_key"])
-    return address, secret_key
+    if secret_key is not None:
+        return address, [secret_key]
+    if wallet is None:
+        raise AITBCError("dm_read needs a secret_key (or a wallet whose dm-keys store holds it)")
+    try:
+        store = dm_store_load(_resolve_dm_key_path(wallet), strict=True)
+    except DmStoreCorruptError as e:
+        raise AITBCError(str(e)) from e
+    if not store["keys"]:
+        raise AITBCError(f"no DM key stored for wallet '{wallet}'")
+    return address, [str(k["secret_key"]) for k in store["keys"]]

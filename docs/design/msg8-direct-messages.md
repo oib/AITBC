@@ -251,10 +251,19 @@ aitbc messaging dm keygen   # create + publish your dm_key (signs once)
 Same shape as `messaging send` and the MSG-2c actions: `--wallet`
 required, dry run by default, `--confirm` to sign, `wallet_password_options`
 reused. `dm read` needs the *encryption* key file, not the wallet — the
-two are separate credentials and stay separate. MCP tools wrap the same
-calls; the MCP layer never sees plaintext (decryption happens in the CLI
-process, not the MCP server's response path — same boundary as MSG-FIX-3's
-`call_aitbc_http` note).
+two are separate credentials and stay separate. The generated MCP tools
+wrap these same calls by shelling out to `aitbc` on the resolved host —
+a local subprocess when the tool's host is the MCP host, `ssh` otherwise
+(`_run_remote` in `aitbc_mcp_server.py`). Decryption happens in the CLI
+process on that host and the wallet and `dm-keys` files are read from
+that host only; but the CLI's stdout — which for `dm read` carries the
+plaintext body — is captured by the MCP server process and returned in
+the tool result, and `dm_send`'s plaintext `message` arrives at the MCP
+server as a tool argument and is forwarded inside the remote command
+line. So a remote MCP client does send and receive DM plaintext through
+the MCP server; the "no plaintext" boundary holds for the chain node and
+index, not for the MCP tool path — the same caveat as MSG-FIX-3's
+`call_aitbc_http` note (the tool returns the remote response raw).
 
 **Sender copy.** With `SealedBox` the sender cannot decrypt their own
 sent message (the ephemeral private key is discarded). Two options:
@@ -266,7 +275,10 @@ attaches it — the sent record is recoverable on-chain, but doubles the
 (a).** Sent-copy recovery is a UX nicety, not a protocol property; any
 agent that needs durable sent history can back up its client state. If
 cross-device sent history ever matters, (b) is additive later — an
-optional second field does not break the format.
+optional second field does not break the format. **Phase 1 status: not
+implemented** — `dm send` keeps no sender copy at all (recommendation (a)
+is deferred to a later `aitbc-dm` version), so the sender cannot re-read
+what they sent.
 
 ## (6) Abuse and economics
 

@@ -19,6 +19,7 @@ and hands in paths, keys and submit callables.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -202,6 +203,20 @@ def seal_dm(recipient_pub_b64: str, sender: str, recipient: str, body: str) -> s
     return base64.b64encode(box.encrypt(plaintext)).decode("ascii")
 
 
+class DmDecryptError(ValueError):
+    """The SealedBox decryption itself failed — wrong key or tampered ct.
+
+    ``open_dm`` raises this only for the ``CryptoError`` case, keeping its
+    historical message and its ``ValueError`` contract for existing
+    callers. It is deliberately distinct from the plain ``ValueError``s
+    raised *after* a successful decrypt (malformed ciphertext, non-UTF-8
+    payload, inner-header/context/identity mismatch): an era-iterating
+    caller may try the next stored key era on this failure only. An era
+    that decrypts but fails the authenticated header is a tampered or
+    misrouted message — never a reason to try older keys.
+    """
+
+
 def open_dm(secret_b64: str, sender: str, recipient: str, ct_b64: str) -> str:
     """Decrypt + verify the authenticated inner header. Raises ValueError on
     any failure — never returns unverified plaintext."""
@@ -218,12 +233,32 @@ def open_dm(secret_b64: str, sender: str, recipient: str, ct_b64: str) -> str:
     try:
         plain = SealedBox(PrivateKey(base64.b64decode(secret_b64, validate=True))).decrypt(ct)
     except CryptoError as e:
-        raise ValueError("decryption failed — wrong key or tampered ciphertext") from e
+        raise DmDecryptError("decryption failed — wrong key or tampered ciphertext") from e
     try:
         text = plain.decode("utf-8")
     except UnicodeDecodeError as e:
         raise ValueError("decrypted payload is not UTF-8") from e
     return dm_check_header(text, sender, recipient)
+
+
+def open_dm_with_eras(secret_keys: Iterable[str], sender: str, recipient: str, ct_b64: str) -> str:
+    """Open ``ct_b64`` by trying each stored key era newest→oldest.
+
+    ``secret_keys`` is the base64 X25519 secret list (oldest→newest, as
+    stored) — secret strings only, never era dicts. An era advances to the
+    next only on ``DmDecryptError`` — the sealed box did not open under
+    that key. A malformed ciphertext, a non-UTF-8 payload, or a header
+    mismatch raises immediately and is never retried against older keys.
+    When no era decrypts, raises one ``ValueError`` that names only how
+    many eras were tried — never key, era or ciphertext material.
+    """
+    eras = list(secret_keys)
+    for secret in reversed(eras):
+        try:
+            return open_dm(secret, sender, recipient, ct_b64)
+        except DmDecryptError:
+            continue
+    raise ValueError(f"no stored DM key era opens this message ({len(eras)} era(s) tried)")
 
 
 def dm_check_header(text: str, sender: str, recipient: str) -> str:

@@ -279,3 +279,109 @@ class TestDmIndex:
         _tx(session, 11, 2, ALICE, env)
         out = dm_inbox(session, CHAIN, BOB)
         assert out["messages"] == []
+
+
+# ------------------------------------------------------------------ MSG-8g
+# Era fallback in the shared read kernel (aitbc.dm_client): the read paths
+# try every stored key era newest→oldest; only a sealed-box decrypt failure
+# advances to the next era — an authenticity (header) failure raises on the
+# spot.
+
+import aitbc.dm_client as dm
+from aitbc.dm_client import DmDecryptError, generate_key_era, open_dm, open_dm_with_eras, seal_dm
+
+
+def _spy_open(monkeypatch):
+    """Count open_dm calls while still running the real implementation."""
+    calls = []
+    real = dm.open_dm
+
+    def spy(secret, sender, recipient, ct):
+        calls.append(secret)
+        return real(secret, sender, recipient, ct)
+
+    monkeypatch.setattr(dm, "open_dm", spy)
+    return calls
+
+
+class TestOpenDmWithEras:
+    def test_rotated_store_opens_old_and_new_ciphertexts(self):
+        era1, era2 = generate_key_era(), generate_key_era()
+        secrets = [era1["secret_key"], era2["secret_key"]]
+        ct_old = seal_dm(era1["enc_pubkey"], ALICE, BOB, "sealed to era one")
+        ct_new = seal_dm(era2["enc_pubkey"], ALICE, BOB, "sealed to era two")
+        assert open_dm_with_eras(secrets, ALICE, BOB, ct_old) == "sealed to era one"
+        assert open_dm_with_eras(secrets, ALICE, BOB, ct_new) == "sealed to era two"
+
+    def test_newest_era_is_tried_first(self, monkeypatch):
+        era1, era2 = generate_key_era(), generate_key_era()
+        calls = _spy_open(monkeypatch)
+        ct = seal_dm(era2["enc_pubkey"], ALICE, BOB, "for the current key")
+        assert open_dm_with_eras([era1["secret_key"], era2["secret_key"]], ALICE, BOB, ct) == "for the current key"
+        assert calls == [era2["secret_key"]]  # first try opens — older era never touched
+
+    def test_unknown_key_fails_naming_only_the_tried_count(self):
+        era1, era2 = generate_key_era(), generate_key_era()
+        stranger = generate_key_era()  # a key the wallet never had
+        ct = seal_dm(stranger["enc_pubkey"], ALICE, BOB, "unreachable")
+        with pytest.raises(ValueError) as exc:
+            open_dm_with_eras([era1["secret_key"], era2["secret_key"]], ALICE, BOB, ct)
+        text = str(exc.value)
+        assert "no stored DM key era" in text and "2" in text
+        # No key, era or ciphertext material leaks into the error text.
+        for leak in (
+            era1["secret_key"],
+            era2["secret_key"],
+            stranger["secret_key"],
+            era1["enc_pubkey"],
+            era2["enc_pubkey"],
+            stranger["enc_pubkey"],
+            ct,
+        ):
+            assert leak not in text
+
+    def test_header_failure_does_not_fall_through(self, monkeypatch):
+        era1, era2 = generate_key_era(), generate_key_era()
+        calls = _spy_open(monkeypatch)
+        # Sealed to era1's key, but the inner header names CAROL while the tx
+        # is signed by ALICE: era2 is tried first (decrypt fails → advance),
+        # era1 decrypts and the header check must stop the walk right there.
+        ct = seal_dm(era1["enc_pubkey"], CAROL, BOB, "rebound")
+        with pytest.raises(ValueError, match="signer"):
+            open_dm_with_eras([era1["secret_key"], era2["secret_key"]], ALICE, BOB, ct)
+        assert calls == [era2["secret_key"], era1["secret_key"]]
+
+    def test_tampered_ciphertext_fails_every_era(self):
+        era1, era2 = generate_key_era(), generate_key_era()
+        raw = bytearray(base64.b64decode(seal_dm(era1["enc_pubkey"], ALICE, BOB, "hi")))
+        raw[-1] ^= 1
+        ct = base64.b64encode(bytes(raw)).decode("ascii")
+        with pytest.raises(ValueError, match="no stored DM key era"):
+            open_dm_with_eras([era1["secret_key"], era2["secret_key"]], ALICE, BOB, ct)
+
+    def test_malformed_ciphertext_does_not_iterate(self, monkeypatch):
+        era1, era2 = generate_key_era(), generate_key_era()
+        calls = _spy_open(monkeypatch)
+        with pytest.raises(ValueError, match="not strict base64"):
+            open_dm_with_eras([era1["secret_key"], era2["secret_key"]], ALICE, BOB, "!!!not-b64!!!")
+        assert len(calls) == 1  # the same malformed ct cannot open under any era
+
+    def test_single_era_behaves_like_open_dm(self):
+        era, other = generate_key_era(), generate_key_era()
+        ct = seal_dm(era["enc_pubkey"], ALICE, BOB, "just me")
+        assert open_dm_with_eras([era["secret_key"]], ALICE, BOB, ct) == "just me"
+        with pytest.raises(ValueError, match="1 era"):
+            open_dm_with_eras([other["secret_key"]], ALICE, BOB, ct)
+
+    def test_empty_era_list_reports_zero_tried(self):
+        ct = seal_dm(generate_key_era()["enc_pubkey"], ALICE, BOB, "x")
+        with pytest.raises(ValueError, match="0 era"):
+            open_dm_with_eras([], ALICE, BOB, ct)
+
+    def test_dm_decrypt_error_keeps_the_value_error_contract(self):
+        era, other = generate_key_era(), generate_key_era()
+        ct = seal_dm(era["enc_pubkey"], ALICE, BOB, "x")
+        with pytest.raises(DmDecryptError):
+            open_dm(other["secret_key"], ALICE, BOB, ct)
+        with pytest.raises(ValueError, match="wrong key or tampered ciphertext"):
+            open_dm(other["secret_key"], ALICE, BOB, ct)
