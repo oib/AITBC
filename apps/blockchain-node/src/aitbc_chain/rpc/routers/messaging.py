@@ -11,9 +11,12 @@ from fastapi import APIRouter, Request
 from ..messaging import (
     messaging_get,
     messaging_messages,
+    messaging_moderation,
+    messaging_reputation,
     messaging_search,
     messaging_state,
     messaging_topics,
+    messaging_votes,
 )
 
 router = APIRouter(prefix="/messaging", tags=["messaging"])
@@ -37,11 +40,29 @@ async def messages_route(
     limit: int = 50,
     offset: int = 0,
     cursor: str | None = None,
+    include_hidden: bool = False,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
     return await messaging_messages(  # type: ignore[no-any-return]
-        request, topic=topic, author=author, limit=limit, offset=offset, cursor=cursor, chain_id=chain_id
+        request,
+        topic=topic,
+        author=author,
+        limit=limit,
+        offset=offset,
+        cursor=cursor,
+        include_hidden=include_hidden,
+        chain_id=chain_id,
     )
+
+
+@router.get("/reputation/{address}", summary="Derived forum reputation (display-only)")
+async def reputation_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+    return await messaging_reputation(request, address, chain_id=chain_id)  # type: ignore[no-any-return]
+
+
+@router.get("/topics/{slug}/moderation", summary="Topic moderator set and actions")
+async def topic_moderation_route(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
+    return await messaging_moderation(request, slug, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 # Declared before /messages/{tx_hash} so the literal path wins.
@@ -58,6 +79,11 @@ async def search_route(
     return await messaging_search(  # type: ignore[no-any-return]
         request, query=query, q=q, limit=limit, offset=offset, cursor=cursor, chain_id=chain_id
     )
+
+
+@router.get("/messages/{tx_hash}/votes", summary="Standing votes for a message")
+async def votes_route(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+    return await messaging_votes(request, tx_hash, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/messages/{tx_hash}", summary="Get one forum message")

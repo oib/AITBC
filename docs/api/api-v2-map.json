@@ -1757,6 +1757,20 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/messaging/messages/{tx_hash}/votes",
+          "upstream": "/rpc/messaging/messages/{tx_hash}/votes",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/messaging/reputation/{address}",
+          "upstream": "/rpc/messaging/reputation/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/messaging/state",
           "upstream": "/rpc/messaging/state",
           "methods": [
@@ -1766,6 +1780,13 @@
         {
           "public": "/api/v2/chain/rpc/messaging/topics",
           "upstream": "/rpc/messaging/topics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/messaging/topics/{slug}/moderation",
+          "upstream": "/rpc/messaging/topics/{slug}/moderation",
           "methods": [
             "GET"
           ]
@@ -2913,6 +2934,20 @@
           ]
         },
         {
+          "public": "/api/v2/chain/v1/messaging/messages/{tx_hash}/votes",
+          "upstream": "/v1/messaging/messages/{tx_hash}/votes",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/reputation/{address}",
+          "upstream": "/v1/messaging/reputation/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/v1/messaging/state",
           "upstream": "/v1/messaging/state",
           "methods": [
@@ -2922,6 +2957,13 @@
         {
           "public": "/api/v2/chain/v1/messaging/topics",
           "upstream": "/v1/messaging/topics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/topics/{slug}/moderation",
+          "upstream": "/v1/messaging/topics/{slug}/moderation",
           "methods": [
             "GET"
           ]

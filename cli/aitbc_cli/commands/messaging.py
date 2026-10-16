@@ -218,9 +218,10 @@ def send(
 @click.option("--limit", type=int, default=50, help="Max messages (server caps at 100)")
 @click.option("--offset", type=int, default=0, help="Skip the first N results (bounded)")
 @click.option("--cursor", default=None, help="Resume from a previous next_cursor")
+@click.option("--include-hidden", is_flag=True, default=False, help="Show hidden/after-lock rows flagged, body withheld")
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @click.pass_context
-def list(ctx, topic, author, query, limit, offset, cursor, rpc_url):
+def list(ctx, topic, author, query, limit, offset, cursor, include_hidden, rpc_url):
     """List forum messages, newest first."""
     if query is not None and len(query.strip()) < MIN_SEARCH_CHARS:
         abort(ctx, f"--query must be at least {MIN_SEARCH_CHARS} characters")
@@ -241,6 +242,7 @@ def list(ctx, topic, author, query, limit, offset, cursor, rpc_url):
                     "limit": limit,
                     "offset": offset,
                     "cursor": cursor,
+                    "include_hidden": str(include_hidden).lower(),
                 },
             )
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Messages")
@@ -307,6 +309,311 @@ def show(ctx, tx_hash, rpc_url):
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error fetching message: {e}", from_exception=e)
+
+
+# -- MSG-2: signed on-chain actions ------------------------------------------
+# Votes and moderation are signed MESSAGE transactions carrying action-kind
+# `aitbc_msg` envelopes — never RPC writes. Moderation is a read-side filter;
+# the bytes stay on every replica (docs/design/msg2-votes-moderation.md).
+
+_TARGET_ACTIONS = {"hide", "unhide", "pin", "unpin"}
+
+
+def _target_topic(ctx, http_client: AITBCHTTPClient, tx_hash: str) -> str:
+    """Resolve an action target's topic by reading the message (avoids a
+    mismatched-topic no-op only the index would see)."""
+    try:
+        view = http_client.get(f"/rpc/messaging/messages/{tx_hash}")
+    except Exception as e:
+        abort(ctx, f"Cannot resolve target {tx_hash} — not a forum message ({e})", from_exception=e)
+    topic = view.get("topic")
+    if not topic:
+        abort(ctx, f"Target {tx_hash} is not a forum message")
+    return str(topic)
+
+
+def _submit_action(
+    ctx,
+    wallet_name: str,
+    kind: str,
+    topic: str,
+    fee: Decimal,
+    wait: bool,
+    wait_timeout: float,
+    rpc_url: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    *,
+    target: str | None = None,
+    value: int | None = None,
+    grantee: str | None = None,
+) -> None:
+    sender_address = _wallet_address(ctx, wallet_name)
+    resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        envelope = build_envelope(
+            kind=kind,
+            topic=topic,
+            agent_address=sender_address,
+            target=target,
+            value=value,
+            grantee=grantee,
+        )
+    except ValueError as e:
+        abort(ctx, f"Invalid action envelope: {e}", from_exception=e)
+    resolved_password = resolve_wallet_password(
+        wallet_name=wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        ctx=ctx,
+    )
+    click.echo(_PERMANENCE_WARNING, err=True)
+    tx_hash = _send_transaction_impl(
+        wallet_name,
+        sender_address,
+        Decimal(0),
+        fee,
+        resolved_password,
+        rpc_url=resolved_rpc,
+        tx_type="MESSAGE",
+        payload={"aitbc_msg": envelope},
+    )
+    if not tx_hash:
+        raise SystemExit(1)
+    output(
+        {"tx_hash": tx_hash, "topic": topic, "kind": kind, "author": sender_address},
+        (ctx.obj or {}).get("output_format", "table"),
+        title=f"{kind} submitted",
+    )
+    if wait:
+        _wait_for_seal(ctx, _rpc_client(resolved_rpc), tx_hash, wait_timeout)
+
+
+def _action_options(f):
+    f = click.option("--wallet", "wallet_name", required=True, help="Wallet name that signs the action")(f)
+    f = click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")(f)
+    f = click.option("--wait/--no-wait", default=True, help="Poll until sealed (default: wait)")(f)
+    f = click.option("--wait-timeout", type=float, default=180.0, show_default=True)(f)
+    f = click.option("--rpc-url", default=None, help="Blockchain RPC URL")(f)
+    return wallet_password_options(f)
+
+
+def _target_action(ctx, kind: str, tx_hash: str, topic: str | None, kw: dict) -> None:
+    rpc = _resolve_transaction_rpc_url(kw["rpc_url"])
+    resolved_topic = topic or _target_topic(ctx, _rpc_client(rpc), tx_hash)
+    canonical_topic = normalize_topic(resolved_topic)
+    if canonical_topic is None:
+        abort(ctx, f"Topic '{resolved_topic}' is not a valid slug")
+    assert canonical_topic is not None  # abort() raises; narrow for mypy
+    _submit_action(ctx, kind=kind, topic=canonical_topic, target=tx_hash, **kw)
+
+
+@messaging.command(
+    epilog="""Example:
+
+  aitbc messaging vote 0011…eeff up --wallet my-wallet"""
+)
+@click.argument("tx_hash")
+@click.argument("direction", type=click.Choice(["up", "down", "retract"]))
+@click.option("--topic", default=None, help="Topic slug (default: the target's own topic)")
+@_action_options
+@click.pass_context
+def vote(
+    ctx, tx_hash, direction, topic, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+):
+    """Vote on a forum message. Last vote per signer wins; 'retract' clears it."""
+    _target_action(
+        ctx,
+        "vote",
+        tx_hash,
+        topic,
+        {
+            "wallet_name": wallet_name,
+            "fee": fee,
+            "wait": wait,
+            "wait_timeout": wait_timeout,
+            "rpc_url": rpc_url,
+            "password": password,
+            "password_file": password_file,
+            "password_stdin": password_stdin,
+            "value": {"up": 1, "down": -1, "retract": 0}[direction],
+        },
+    )
+
+
+def _simple_target_command(kind: str, help_text: str):
+    @messaging.command(kind, epilog=f"Example:\n\n  aitbc messaging {kind} <tx_hash> --wallet my-wallet")
+    @click.argument("tx_hash")
+    @click.option("--topic", default=None, help="Topic slug (default: the target's own topic)")
+    @_action_options
+    @click.pass_context
+    def cmd(ctx, tx_hash, topic, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+        _target_action(
+            ctx,
+            kind,
+            tx_hash,
+            topic,
+            {
+                "wallet_name": wallet_name,
+                "fee": fee,
+                "wait": wait,
+                "wait_timeout": wait_timeout,
+                "rpc_url": rpc_url,
+                "password": password,
+                "password_file": password_file,
+                "password_stdin": password_stdin,
+            },
+        )
+
+    cmd.__doc__ = help_text
+    return cmd
+
+
+_simple_target_command("hide", "Hide a message in default reads (moderator only).")
+_simple_target_command("unhide", "Undo a hide (moderator only).")
+_simple_target_command("pin", "Pin a message atop its topic (moderator only).")
+_simple_target_command("unpin", "Undo a pin (moderator only).")
+
+
+def _lock_impl(
+    ctx, action: str, topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+):
+    """Lock a topic or one thread (moderator only). Exactly one of --topic/--target."""
+    if (topic is None) == (target is None):
+        abort(ctx, "Pass exactly one of --topic (whole topic) or --target (thread root)")
+    canonical_topic: str | None
+    if target is not None:
+        rpc = _resolve_transaction_rpc_url(rpc_url)
+        canonical_topic = _target_topic(ctx, _rpc_client(rpc), target)
+    else:
+        assert topic is not None  # the exactly-one check above guarantees it
+        canonical_topic = normalize_topic(topic)
+        if canonical_topic is None:
+            abort(ctx, f"Topic '{topic}' is not a valid slug")
+    assert canonical_topic is not None  # abort() raises; narrow for mypy
+    _submit_action(
+        ctx,
+        wallet_name=wallet_name,
+        kind=action,
+        topic=canonical_topic,
+        target=target,
+        fee=fee,
+        wait=wait,
+        wait_timeout=wait_timeout,
+        rpc_url=rpc_url,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+    )
+
+
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc messaging lock --topic dev --wallet my-wallet          # whole topic
+  aitbc messaging lock --target <tx_hash> --wallet my-wallet   # one thread"""
+)
+@click.option("--topic", default=None, help="Lock the whole topic")
+@click.option("--target", default=None, help="Lock the reply subtree under this message")
+@_action_options
+@click.pass_context
+def lock(ctx, topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+    """Lock a topic or one thread (moderator only)."""
+    _lock_impl(
+        ctx, "lock", topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+    )
+
+
+@messaging.command("unlock", epilog="Same options as `messaging lock`.")
+@click.option("--topic", default=None, help="Unlock the whole topic")
+@click.option("--target", default=None, help="Unlock the reply subtree under this message")
+@_action_options
+@click.pass_context
+def unlock(ctx, topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+    """Undo a lock (moderator only)."""
+    _lock_impl(
+        ctx, "unlock", topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+    )
+
+
+def _mod_grant_command(kind: str, help_text: str):
+    @messaging.command(
+        kind.replace("_", "-"),
+        epilog=f"Example:\n\n  aitbc messaging {kind.replace('_', '-')} <address> --topic dev --wallet my-wallet",
+    )
+    @click.argument("grantee")
+    @click.option("--topic", required=True, help="Topic slug the grant applies to")
+    @_action_options
+    @click.pass_context
+    def cmd(ctx, grantee, topic, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+        canonical_topic = normalize_topic(topic)
+        if canonical_topic is None:
+            abort(ctx, f"Topic '{topic}' is not a valid slug")
+        assert canonical_topic is not None  # abort() raises; narrow for mypy
+        _submit_action(
+            ctx,
+            wallet_name=wallet_name,
+            kind=kind,
+            topic=canonical_topic,
+            grantee=grantee,
+            fee=fee,
+            wait=wait,
+            wait_timeout=wait_timeout,
+            rpc_url=rpc_url,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+        )
+
+    cmd.__doc__ = help_text
+    return cmd
+
+
+_mod_grant_command("mod_grant", "Grant topic moderation to an address (moderator only).")
+_mod_grant_command("mod_revoke", "Revoke a topic moderator (moderator only; cannot empty the set).")
+
+
+@messaging.command(
+    epilog="""Example:
+
+  aitbc messaging reputation 0x…"""
+)
+@click.argument("address")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def reputation(ctx, address, rpc_url):
+    """Show an address's derived forum reputation (display-only integer)."""
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        result = _rpc_client(rpc).get(f"/rpc/messaging/reputation/{address}")
+        output(result, (ctx.obj or {}).get("output_format", "table"), title="Reputation")
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error fetching reputation: {e}", from_exception=e)
+
+
+@messaging.command(
+    epilog="""Example:
+
+  aitbc messaging moderators dev"""
+)
+@click.argument("topic")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def moderators(ctx, topic, rpc_url):
+    """Show a topic's derived moderator set, locks and recent actions."""
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        result = _rpc_client(rpc).get(f"/rpc/messaging/topics/{topic}/moderation")
+        output(result, (ctx.obj or {}).get("output_format", "table"), title=f"Moderation: {topic}")
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error fetching moderation state: {e}", from_exception=e)
 
 
 @messaging.command(
