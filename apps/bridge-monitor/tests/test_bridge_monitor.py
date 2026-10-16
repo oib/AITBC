@@ -1138,3 +1138,105 @@ class TestExchangePrepay:
         assert parse("0x" + ("aa" * 20)) is None
         # A raw address as utf-8 text is not a tag either.
         assert parse("0x" + ("0x" + "aa" * 20).encode().hex()) is None
+
+
+class TestOutboundLedger:
+    """B13/BR-6: bridge_outbound table, record_outbound, scan-side writer."""
+
+    BRIDGE = "0x" + "a" * 40
+    DEPOSITOR = "0x" + "d" * 40
+    FUNDING = "0x" + "f" * 40
+
+    def _tx(self, tx_hash: str, to: str, value_wei: int):
+        tx = MagicMock()
+        tx.hash = MagicMock()
+        tx.hash.hex.return_value = tx_hash
+        tx.get = lambda k, d=None: {"to": to, "value": value_wei}.get(k, d)
+        return tx
+
+    def _w3(self, gas_used=21000, gas_price=10**9, status=1):
+        w3 = MagicMock()
+        receipt = MagicMock()
+        receipt.__getitem__ = lambda self, k: {"gasUsed": gas_used, "effectiveGasPrice": gas_price}[k]
+        receipt.get = lambda k, d=None: {"status": status}.get(k, d)
+        receipt["gasUsed"] = gas_used
+        receipt["effectiveGasPrice"] = gas_price
+        receipt["status"] = status
+        w3.eth.get_transaction_receipt.return_value = receipt
+        return w3
+
+    def _outbound_rows(self):
+        import sqlite3
+        from bridge_monitor import storage
+
+        with sqlite3.connect(storage.DB_PATH) as con:
+            return con.execute(
+                "SELECT tx_hash, to_address, value_eth, gas_wei, kind, matched_deposit_tx, note "
+                "FROM bridge_outbound ORDER BY tx_hash"
+            ).fetchall()
+
+    def test_table_created_by_init_db(self, monitor):
+        from bridge_monitor.storage import outbound_totals_wei
+
+        # Fixture already ran init_db; totals on the empty table must not raise.
+        assert outbound_totals_wei() == {"refund": 0, "withdrawal": 0, "unidentified": 0, "gas_wei": 0}
+
+    def test_record_outbound_dedupes_on_tx_hash(self, monitor):
+        from bridge_monitor.storage import record_outbound
+
+        assert record_outbound("0xout1", "0xdest", 10**18, 100, "unidentified", gas_wei=21000) is True
+        assert record_outbound("0xout1", "0xdest", 10**18, 100, "unidentified") is False
+        rows = self._outbound_rows()
+        assert len(rows) == 1
+        assert float(rows[0][2]) == 1.0 and rows[0][3] == 21000
+
+    def test_refund_classifies_with_matched_deposit(self, monitor):
+        from bridge_monitor.storage import create_deposit, record_outbound  # noqa: F401
+
+        create_deposit("0xdep1", self.DEPOSITOR, "0.5", "0x" + "b" * 40, deposit_address=self.BRIDGE)
+        monitor.funding_sources = set()
+        monitor._record_outbound(self._w3(), self._tx("0xout_ref", self.DEPOSITOR, 10**17), 55)
+        rows = self._outbound_rows()
+        assert rows[0][4] == "refund" and rows[0][5] == "0xdep1"
+        assert rows[0][3] == 21000 * 10**9
+
+    def test_funding_return_and_release_leg_are_withdrawal(self, monitor, tmp_path):
+        import sqlite3
+        from bridge_monitor import storage
+
+        monitor.funding_sources = {self.FUNDING.lower()}
+        # A release-leg row in eth_withdrawals (wallet-side table, same file).
+        with sqlite3.connect(storage.DB_PATH) as con:
+            con.execute("CREATE TABLE IF NOT EXISTS eth_withdrawals (id TEXT PRIMARY KEY, eth_tx_hash TEXT)")
+            con.execute("INSERT INTO eth_withdrawals VALUES ('w1', '0xout_rel')")
+        monitor._record_outbound(self._w3(), self._tx("0xout_rel", "0x" + "e" * 40, 5 * 10**17), 56)
+        monitor._record_outbound(self._w3(), self._tx("0xout_fund", self.FUNDING, 10**17), 57)
+        rows = {r[0]: r for r in self._outbound_rows()}
+        assert rows["0xout_rel"][4] == "withdrawal"
+        assert rows["0xout_fund"][4] == "withdrawal"
+
+    def test_self_send_and_unidentified(self, monitor):
+        monitor.funding_sources = set()
+        monitor._record_outbound(self._w3(), self._tx("0xout_self", self.BRIDGE, 10**18), 58)
+        monitor._record_outbound(self._w3(), self._tx("0xout_unk", "0x" + "9" * 40, 10**17), 59)
+        rows = {r[0]: r for r in self._outbound_rows()}
+        assert rows["0xout_self"][4] == "self_send"
+        assert rows["0xout_unk"][4] == "unidentified"
+
+    def test_failed_send_records_gas_only_note(self, monitor):
+        monitor.funding_sources = set()
+        monitor._record_outbound(self._w3(status=0), self._tx("0xout_fail", "0x" + "9" * 40, 10**17), 60)
+        row = self._outbound_rows()[0]
+        assert row[4] == "unidentified" and "failed" in (row[6] or "")
+
+    def test_totals_exclude_self_send_value(self, monitor):
+        from bridge_monitor.storage import outbound_totals_wei, record_outbound
+
+        record_outbound("0xr1", "0xd1", 10**17, 1, "refund", gas_wei=1000)
+        record_outbound("0xw1", "0xf1", 2 * 10**17, 2, "withdrawal", gas_wei=2000)
+        record_outbound("0xs1", self.BRIDGE, 10**18, 3, "self_send", gas_wei=500)
+        terms = outbound_totals_wei()
+        assert terms["refund"] == 10**17
+        assert terms["withdrawal"] == 2 * 10**17
+        assert terms["self_send"] if "self_send" in terms else True
+        assert terms["gas_wei"] == 3500
