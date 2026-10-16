@@ -437,9 +437,13 @@ def create_app() -> FastAPI:
     async def metrics() -> PlainTextResponse:
         # MSG-6: refresh the derived messaging-index gauges lazily at scrape
         # time. Never raises — collect_all logs and skips a broken chain.
+        # Off the event loop: a cold checkpoint digest over ~100k envelopes
+        # takes tens of seconds (measured in the MSG-6 report).
+        from starlette.concurrency import run_in_threadpool
+
         from .messaging_metrics import collect_all
 
-        collect_all([c.strip() for c in settings.supported_chains.split(",") if c.strip()])
+        await run_in_threadpool(collect_all, [c.strip() for c in settings.supported_chains.split(",") if c.strip()])
         default_metrics = generate_latest()
         legacy_metrics = metrics_registry.render_prometheus().encode()
         if legacy_metrics.strip():
