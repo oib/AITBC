@@ -829,3 +829,9 @@ reported, not ignored.
 
 - Messaging index operability: `aitbc_messaging_*` metrics (index height, lag vs chain head, message/action totals, reads, read errors, admission rejects by coarse reason) refreshed at `/metrics` scrape time; checkpoint index digest — SHA-256 over valid envelopes at the last full 1000-block checkpoint, cached per (chain, checkpoint, head hash), computed lazily at read/scrape only (no block-import hook, no consensus change) — exported as `aitbc_messaging_index_digest{chain_id,checkpoint,digest}` for cross-node divergence checks.
 - New `GET /rpc/messaging/stats` snapshot and read-only `aitbc messaging stats`; `aitbc-messaging` alert group (MessagingIndexLag, MessagingIndexDigestMismatch, MessagingReadErrors, MessagingVolumeSpike) with promtool tests; runbook `docs/ops/messaging-operability.md`.
+### MSG-8b (follow-up)
+
+- design note: header parser bound (split at most 3 newlines, reject
+  malformed); dm_key rotation keeps old private keys or old inbox
+  rows go unreadable; "dm" slug squatting guard — admission refuses
+  the slug on non-dm kinds, index hides any that pre-date the rule.
