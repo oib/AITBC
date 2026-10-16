@@ -72,6 +72,15 @@ stores the X25519 private key in a mode-600 file alongside (not inside)
 the wallet directory — a new file, not a keystore format change. Phase 1
 states the exact path; the operator reviews it then.
 
+**Key-file safety rules (MSG-8e).** A new key era is persisted with
+`published_tx: null` *before* the `dm_key` envelope is submitted (a crash
+can never strand a published public half; a retry re-publishes the stored
+unpublished era); writes are atomic — directory 0700, file written via
+`O_CREAT|O_EXCL` at 0600 then `os.replace`, so the secret never exists on
+disk with a wider mode; a corrupt or non-list store is refused and left
+byte-identical, never overwritten (no backup copies of key-bearing
+files).
+
 **Key takeover, stated plainly.** Whoever holds the wallet key can
 publish a new `dm_key` and receive all future DMs — the DM key adds no
 protection against wallet-key theft *going forward* (old ciphertext still
