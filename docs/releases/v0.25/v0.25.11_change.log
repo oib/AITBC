@@ -677,3 +677,13 @@ reported, not ignored.
   preconditions marked, and two reported defects (MAX_BRIDGE_AMOUNT
   never enforced; validator weight unused). No Solidity changed; BR-1
   stays parked until a mainnet decision.
+
+
+### BR-1 defect 3 (operator review)
+
+- `CrossChainBridge.sol` `confirmBridge`: each confirmer counts toward
+  the threshold while overwriting `request.lockTxHash` — the 2-of-3
+  threshold can be reached on different lock hashes (validators bound to
+  their own hash, not to each other). Recorded in the runbook gap table
+  and defect list with a proposed fix (first-hash equality or
+  per-hash confirmations) for the audit decision. Solidity untouched.
