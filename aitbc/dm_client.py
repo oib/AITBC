@@ -32,22 +32,92 @@ def dm_keys_dir(wallet_path: Path) -> Path:
     return wallet_path.parent.parent / "dm-keys"
 
 
-def dm_store_load(path: Path) -> dict[str, Any]:
-    """The ``{"keys": [...]}`` DM key store; an empty store on any read error."""
+class DmStoreCorruptError(ValueError):
+    """The ``dm-keys`` store exists but is unreadable or malformed.
+
+    Callers that would later *save* must surface this rather than treat it
+    as an empty store — a corrupt file is never overwritten (no backup
+    copies of key-bearing files: the operator restores from custody)."""
+
+
+def dm_store_load(path: Path, *, strict: bool = False) -> dict[str, Any]:
+    """The ``{"keys": [...]}`` DM key store.
+
+    Missing file → empty store (first run). With ``strict=True`` — the mode
+    every save-path uses — a parse error, read error or non-list ``keys``
+    raises ``DmStoreCorruptError`` and nothing is touched; non-strict keeps
+    the historical tolerant read (empty store) for display-only callers.
+    """
     try:
         data = json.loads(path.read_text())
     except FileNotFoundError:
         return {"keys": []}
-    except Exception:
+    except Exception as e:
+        if strict:
+            raise DmStoreCorruptError(f"DM key store {path} is unreadable ({e}); refusing to touch it") from e
         return {"keys": []}
-    return data if isinstance(data, dict) and isinstance(data.get("keys"), list) else {"keys": []}
+    if isinstance(data, dict) and isinstance(data.get("keys"), list):
+        return data
+    if strict:
+        raise DmStoreCorruptError(
+            f"DM key store {path} is malformed (expected a dict with a 'keys' list); refusing to touch it"
+        )
+    return {"keys": []}
 
 
 def dm_store_save(path: Path, data: dict[str, Any]) -> None:
-    """Persist the key store mode-600 (contains X25519 secret keys)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2))
-    path.chmod(0o600)
+    """Persist the key store atomically at mode-600 (X25519 secret keys).
+
+    The directory is created 0700; the payload goes to a same-dir
+    ``<name>.tmp`` opened ``O_CREAT|O_EXCL|O_WRONLY`` at 0o600 — the secret
+    is never on disk with a wider mode, under any umask — then
+    ``os.replace`` puts it in place. No backup copies are made."""
+    import os
+
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(data, indent=2))
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def dm_prepare_era(path: Path, *, rotate: bool = False) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """Pick or create the era a key publication should use — shared by the
+    CLI ``dm keygen`` and the SDK ``dm_publish_key`` so the persist-before-
+    publish order cannot drift.
+
+    Returns ``(era, store)``; ``era`` is ``None`` when the newest era is
+    already published and ``rotate`` was not requested (nothing to send).
+    Otherwise the era carries ``published_tx: None`` and is **already on
+    disk**: a retry reuses the stored unpublished era instead of minting a
+    second key, so a crash between save and submit can never strand a
+    published public half.
+    """
+    store = dm_store_load(path, strict=True)
+    keys = store["keys"]
+    if keys and not rotate:
+        last = keys[-1]
+        if last.get("published_tx"):
+            return None, store
+        return last, store  # unpublished era — retry publishes this one
+    era = generate_key_era()
+    keys.append(era)
+    dm_store_save(path, store)
+    return era, store
+
+
+def dm_mark_published(path: Path, store: dict[str, Any], era: dict[str, Any], tx_hash: str) -> None:
+    """Record the sealed ``dm_key`` tx on an already-persisted era."""
+    era["published_tx"] = tx_hash
+    dm_store_save(path, store)
 
 
 def generate_key_era() -> dict[str, Any]:
