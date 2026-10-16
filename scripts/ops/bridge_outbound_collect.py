@@ -25,8 +25,9 @@ node; this script never reaches the network.
 Matching (``--ledger``, optional, opened mode=ro): the monitor's
 ``eth_deposits.from_address`` set identifies refund recipients -- an
 outbound send to a recorded depositor is a refund -- and
-``eth_withdrawals.eth_tx_hash`` identifies release legs -- an outbound
-tx whose hash the withdrawal ledger recorded is a withdrawal.
+the release-leg tables' ``eth_tx_hash`` columns identify release legs --
+an outbound tx whose hash the withdrawal, sell-lock or settlement ledger
+recorded is a withdrawal.
 ``--funding-json`` (names a JSON list of funding-source addresses, the
 BRIDGE_FUNDING_SOURCES set) marks float top-up returns as ``funding``.
 Everything else is ``unidentified`` -- the reconcile script treats an
@@ -47,7 +48,8 @@ Output: the ``--onchain`` JSON for bridge_wallet_reconcile.py:
 ``withdrawals_wei`` sums outbound txs whose hash appears in the ledger's
 ``eth_withdrawals.eth_tx_hash`` column (B13 release leg). Without
 ``--ledger`` no release can be identified and every unmatched send is
-``unidentified``.
+``unidentified``. Release-leg tables checked (same as the live monitor):
+``eth_withdrawals``, ``bridge_sell_locks``, ``exchange_settlements``.
 """
 
 from __future__ import annotations
@@ -92,23 +94,41 @@ def _load_depositors(ledger: Path | None) -> set[str]:
     return set(_load_depositor_map(ledger))
 
 
-def _load_release_hashes(ledger: Path | None) -> set[str]:
-    """eth_tx_hash values of recorded withdrawals — the release-leg set."""
+# Keep in sync with bridge_monitor.storage._RELEASE_SOURCES — this script
+# is standalone (run from repo root on operator-held exports), so it mirrors
+# the tuple rather than importing the app package.
+_RELEASE_SOURCES = (
+    ("eth_withdrawals", ""),
+    ("bridge_sell_locks", "bridge_sell_locks release"),
+    ("exchange_settlements", "exchange_settlements release"),
+)
+
+
+def _load_release_sources(ledger: Path | None) -> dict[str, str]:
+    """Lowercased eth_tx_hash -> source label across every release-leg
+    table. Missing tables count as no rows, never an error (ledgers of
+    varying age are valid input)."""
     if ledger is None:
-        return set()
+        return {}
     con = sqlite3.connect(f"file:{ledger}?mode=ro", uri=True)
+    out: dict[str, str] = {}
     try:
-        try:
-            rows = con.execute("SELECT eth_tx_hash FROM eth_withdrawals WHERE eth_tx_hash IS NOT NULL").fetchall()
-        except sqlite3.OperationalError:
-            return set()  # older ledger without the withdrawals table
+        for table, label in _RELEASE_SOURCES:
+            try:
+                rows = con.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL").fetchall()  # nosec B608 - table is a fixed literal from _RELEASE_SOURCES above
+            except sqlite3.OperationalError:
+                continue
+            for (h,) in rows:
+                out.setdefault(str(h).lower(), label)
     finally:
         con.close()
-    return {str(r[0]).lower() for r in rows}
+    return out
 
 
-def classify(txs: list[dict], depositors: set[str], funding: set[str], releases: set[str] | None = None) -> dict[str, int]:
-    releases = releases or set()
+def classify(
+    txs: list[dict], depositors: set[str], funding: set[str], releases: dict[str, str] | None = None
+) -> dict[str, int]:
+    releases = releases or {}
     terms = {"refunds_wei": 0, "withdrawals_wei": 0, "gas_wei": 0, "unidentified_wei": 0}
     for i, tx in enumerate(txs):
         if not isinstance(tx, dict) or not tx.get("tx_hash") or not tx.get("to"):
@@ -137,14 +157,14 @@ def emit_rows(
     txs: list[dict],
     depositor_map: dict[str, str],
     funding: set[str],
-    releases: set[str] | None = None,
+    releases: dict[str, str] | None = None,
     self_address: str | None = None,
 ) -> list[dict]:
     """Per-tx bridge_outbound rows — same classification order as the live
     writer in bridge_monitor.main._record_outbound (release hash, self-send,
     depositor, funding, unidentified), so a backfilled table matches what the
     monitor itself would have written."""
-    releases = releases or set()
+    releases = releases or {}
     self_addr = (self_address or "").lower()
     rows: list[dict] = []
     for i, tx in enumerate(txs):
@@ -165,6 +185,7 @@ def emit_rows(
         matched: str | None = None
         if tx_hash.lower() in releases:
             kind = "withdrawal"
+            note = releases[tx_hash.lower()] or None
         elif to == self_addr and self_addr:
             kind = "self_send"
         elif to in depositor_map:
@@ -220,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--txs must be a JSON list")
     funding = {a.lower() for a in json.loads(args.funding_json.read_text())} if args.funding_json else set()
     depositors = _load_depositors(args.ledger)
-    releases = _load_release_hashes(args.ledger)
+    releases = _load_release_sources(args.ledger)
 
     terms = classify(txs, depositors, funding, releases)
     if args.emit_rows:

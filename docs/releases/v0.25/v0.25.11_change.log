@@ -1110,3 +1110,12 @@ probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
 - Tests: SDK fake-RPC suite (post boundary, read params, error
   distinction, subscribe cursor semantics) + CLI subscribe tests.
   Phase B (DM helpers) not started — waits on MSG-8 verification.
+
+### BR-6c: collector classifies sell-lock/settlement release legs
+
+- `bridge_outbound_collect.py` now looks up outbound sends in
+  `bridge_sell_locks` and `exchange_settlements` (mirroring the monitor's
+  `_RELEASE_SOURCES`, sync comment in place) in addition to
+  `eth_withdrawals` — re-runs emit `withdrawal` with the source named in
+  `note` instead of `unidentified`. Behaviour on the 16 Oct backfill set
+  now matches the operator's reviewed relabel. Missing tables tolerated.
