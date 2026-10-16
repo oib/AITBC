@@ -20,7 +20,15 @@ from typing import Any, cast
 
 import click
 
-from aitbc.messaging import BROADCAST_TOPIC, MAX_MESSAGE_BODY_BYTES, MIN_SEARCH_CHARS, build_envelope, normalize_topic
+from aitbc.messaging import (
+    BROADCAST_TOPIC,
+    DM_CONTEXT,
+    DM_TOPIC,
+    MAX_MESSAGE_BODY_BYTES,
+    MIN_SEARCH_CHARS,
+    build_envelope,
+    normalize_topic,
+)
 from aitbc.textsafety import sanitize_chain_obj
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
@@ -1042,6 +1050,373 @@ def state(ctx, rpc_url):
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error fetching state: {e}", from_exception=e)
+
+
+# -- MSG-8: encrypted direct messages ----------------------------------------
+# SealedBox (libsodium crypto_box_seal) to a recipient's published `dm_key`;
+# the chain carries ciphertext only and the node never sees plaintext. The
+# X25519 private key is client state: one mode-600 JSON file per wallet in a
+# `dm-keys/` dir that is a sibling of the wallet's directory — key material
+# stays out of the wallet file format entirely.
+
+
+def _dm_keys_dir(wallet_path: Path) -> Path:
+    """``<wallets_dir>/../dm-keys`` — alongside the wallet directory."""
+    return wallet_path.parent.parent / "dm-keys"
+
+
+def _dm_key_file(ctx, wallet_name: str) -> Path:
+    report = find_wallet_file_report(wallet_name)
+    if report.path is None:
+        abort(ctx, wallet_not_found_message(report))
+    path = cast(Path, report.path)
+    return _dm_keys_dir(path) / f"{wallet_name}.json"
+
+
+def _dm_store_load(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text())
+    except FileNotFoundError:
+        return {"keys": []}
+    except Exception:
+        return {"keys": []}
+    # `list` is shadowed by the Click command above — use the builtins name.
+    import builtins
+
+    return data if isinstance(data, dict) and isinstance(data.get("keys"), builtins.list) else {"keys": []}
+
+
+def _dm_store_save(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2))
+    path.chmod(0o600)
+
+
+def _dm_current_key(ctx, wallet_name: str) -> tuple[dict[str, Any], Path]:
+    """The newest key era for the wallet, or abort with the fix."""
+    path = _dm_key_file(ctx, wallet_name)
+    store = _dm_store_load(path)
+    if store["keys"]:
+        return store["keys"][-1], path
+    abort(
+        ctx,
+        f"No DM key for wallet '{wallet_name}' — run `aitbc messaging dm keygen --wallet {wallet_name} --confirm` first",
+    )
+    raise AssertionError  # unreachable
+
+
+def _seal_dm(recipient_pub_b64: str, sender: str, recipient: str, body: str) -> str:
+    import base64
+
+    from nacl.public import PublicKey, SealedBox
+
+    plaintext = f"{DM_CONTEXT}\n{sender}\n{recipient}\n{body}".encode()
+    box = SealedBox(PublicKey(base64.b64decode(recipient_pub_b64, validate=True)))
+    return base64.b64encode(box.encrypt(plaintext)).decode("ascii")
+
+
+def _open_dm(secret_b64: str, sender: str, recipient: str, ct_b64: str) -> str:
+    """Decrypt + verify the authenticated inner header. Raises ValueError on
+    any failure — never returns unverified plaintext."""
+    import base64
+    import binascii
+
+    from nacl.exceptions import CryptoError
+    from nacl.public import PrivateKey, SealedBox
+
+    try:
+        ct = base64.b64decode(ct_b64.encode("ascii"), validate=True)
+    except (binascii.Error, UnicodeEncodeError, ValueError) as e:
+        raise ValueError("ciphertext is not strict base64") from e
+    try:
+        plain = SealedBox(PrivateKey(base64.b64decode(secret_b64, validate=True))).decrypt(ct)
+    except CryptoError as e:
+        raise ValueError("decryption failed — wrong key or tampered ciphertext") from e
+    try:
+        text = plain.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError("decrypted payload is not UTF-8") from e
+    return _dm_check_header(text, sender, recipient)
+
+
+def _dm_check_header(text: str, sender: str, recipient: str) -> str:
+    """Verify the ``aitbc-dm-v1`` inner header and return the body, or raise.
+
+    The header ties plaintext to both identities: header sender must equal
+    the transaction signer, header recipient must equal this wallet. Any
+    mismatch rejects — never a guess."""
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    parts = text.split("\n", 3)
+    if len(parts) != 4:
+        raise ValueError("decrypted payload lacks the aitbc-dm-v1 header")
+    context, h_sender, h_recipient, body = parts
+    if context != DM_CONTEXT:
+        raise ValueError("decrypted payload has the wrong context string")
+    try:
+        if canonical_address(h_sender) != canonical_address(sender):
+            raise ValueError("header sender does not match the transaction signer")
+        if canonical_address(h_recipient) != canonical_address(recipient):
+            raise ValueError("header recipient is not this wallet")
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError("malformed address in the decrypted header") from e
+    if not body:
+        raise ValueError("decrypted payload has an empty body")
+    return body
+
+
+def _dm_max_plaintext_bytes() -> int:
+    """Room for the message after the sealed-box overhead + inner header."""
+    # 4096 base64 chars = 3072 raw bytes; SealedBox adds 48 B; the header is
+    # context + 2 newlines + two 42-char addresses + 1 newline ≈ 106 B.
+    return 3072 - 48 - (len(DM_CONTEXT) + 3 + 84)
+
+
+@messaging.group("dm")
+def dm_group():
+    """Encrypted direct messages (MSG-8): ciphertext on-chain, keys client-side."""
+
+
+@dm_group.command(
+    "keygen",
+    epilog="""Example:
+
+  aitbc messaging dm keygen --wallet my-wallet --confirm""",
+)
+@click.option("--wallet", "wallet_name", required=True, help="Wallet that signs the dm_key publication")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
+@click.option("--confirm", is_flag=True, help="Generate the key (if needed) and sign+submit once (default: dry run)")
+@click.option(
+    "--rotate",
+    is_flag=True,
+    help="Publish a fresh key even if one exists (old eras are kept in the key file for old ciphertext)",
+)
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@wallet_password_options
+@click.pass_context
+def dm_keygen(ctx, wallet_name, fee, confirm, rotate, rpc_url, password, password_file, password_stdin):
+    """Create (or rotate) this wallet's DM key and publish the public half on-chain.
+
+    DRY RUN by default. With --confirm: a new X25519 keypair is stored in the
+    mode-600 dm-keys file and a ``dm_key`` envelope is signed and submitted.
+    """
+    import base64
+
+    from nacl.public import PrivateKey
+
+    path = _dm_key_file(ctx, wallet_name)
+    store = _dm_store_load(path)
+    if store["keys"] and not rotate:
+        pub = store["keys"][-1]["enc_pubkey"]
+        click.echo(f"DM key already exists for '{wallet_name}' (enc_pubkey {pub}); use --rotate to publish a new one")
+        era = None
+    else:
+        sk = PrivateKey.generate()
+        pub = base64.b64encode(bytes(sk.public_key)).decode("ascii")
+        era = {"enc_pubkey": pub, "secret_key": base64.b64encode(bytes(sk)).decode("ascii"), "published_tx": None}
+    sender_address = _wallet_address(ctx, wallet_name)
+    resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
+    envelope = build_envelope(kind="dm_key", topic=DM_TOPIC, agent_address=sender_address, enc_pubkey=pub)
+    if not confirm:
+        click.echo("DRY RUN — nothing signed, nothing sent. Re-run with --confirm to sign and submit once:", err=True)
+        output(
+            {"wallet": wallet_name, "sender": sender_address, "kind": "dm_key", "enc_pubkey": pub, "fee_ait": str(fee)},
+            (ctx.obj or {}).get("output_format", "table"),
+            title="dm_key dry run",
+        )
+        return
+    resolved_password = resolve_wallet_password(
+        wallet_name=wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        ctx=ctx,
+    )
+    click.echo(_PERMANENCE_WARNING, err=True)
+    tx_hash = _send_transaction_impl(
+        wallet_name,
+        sender_address,
+        Decimal(0),
+        fee,
+        resolved_password,
+        rpc_url=resolved_rpc,
+        tx_type="MESSAGE",
+        payload={"aitbc_msg": envelope},
+    )
+    if not tx_hash:
+        raise SystemExit(1)
+    if era is not None:
+        era["published_tx"] = tx_hash
+        store["keys"].append(era)
+        _dm_store_save(path, store)
+    output(
+        {"tx_hash": tx_hash, "kind": "dm_key", "author": sender_address, "key_file": str(path)},
+        (ctx.obj or {}).get("output_format", "table"),
+        title="dm_key submitted",
+    )
+
+
+@dm_group.command(
+    "send",
+    epilog="""Example:
+
+  aitbc messaging dm send 0xRECIPIENT --message 'hello' --wallet my-wallet --confirm""",
+)
+@click.argument("recipient")
+@click.option("--wallet", "wallet_name", required=True, help="Wallet that signs the DM")
+@click.option("--message", required=True, help="Plaintext body (encrypted before it leaves this process)")
+@click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
+@click.option("--confirm", is_flag=True, help="Seal, sign and submit once (default: dry run)")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@wallet_password_options
+@click.pass_context
+def dm_send(ctx, recipient, wallet_name, message, fee, confirm, rpc_url, password, password_file, password_stdin):
+    """Send an encrypted DM to a recipient who has published a dm_key.
+
+    Metadata (sender, recipient, size, time) is public by design; only the
+    body is sealed.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    try:
+        recipient_c = canonical_address(recipient, strict=True)
+    except Exception:
+        abort(ctx, f"Recipient '{recipient}' is not a 0x address")
+    if not message:
+        abort(ctx, "Empty message refused")
+    limit = _dm_max_plaintext_bytes()
+    if len(message.encode("utf-8")) > limit:
+        abort(ctx, f"Message is {len(message.encode('utf-8'))} bytes; the DM limit is ~{limit}")
+    sender_address = _wallet_address(ctx, wallet_name)
+    resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        keyinfo = _rpc_client(resolved_rpc).get(f"/rpc/messaging/dm-keys/{recipient_c}")
+    except Exception as e:
+        abort(ctx, f"Recipient {recipient_c} has no published dm_key ({e})", from_exception=e)
+    enc_pub = (keyinfo or {}).get("enc_pubkey")
+    if not isinstance(enc_pub, str) or not enc_pub:
+        abort(ctx, f"Recipient {recipient_c} has no published dm_key")
+    ct = _seal_dm(cast(str, enc_pub), sender_address, recipient_c, message)
+    envelope = build_envelope(kind="dm", topic=DM_TOPIC, agent_address=sender_address, to=recipient_c, ct=ct)
+    if not confirm:
+        click.echo("DRY RUN — nothing signed, nothing sent. Re-run with --confirm to sign and submit once:", err=True)
+        output(
+            {
+                "wallet": wallet_name,
+                "sender": sender_address,
+                "to": recipient_c,
+                "kind": "dm",
+                "ct_bytes": len(ct),
+                "fee_ait": str(fee),
+            },
+            (ctx.obj or {}).get("output_format", "table"),
+            title="dm dry run",
+        )
+        return
+    resolved_password = resolve_wallet_password(
+        wallet_name=wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        ctx=ctx,
+    )
+    click.echo(_PERMANENCE_WARNING, err=True)
+    tx_hash = _send_transaction_impl(
+        wallet_name,
+        sender_address,
+        Decimal(0),
+        fee,
+        resolved_password,
+        rpc_url=resolved_rpc,
+        tx_type="MESSAGE",
+        payload={"aitbc_msg": envelope},
+    )
+    if not tx_hash:
+        raise SystemExit(1)
+    output(
+        {"tx_hash": tx_hash, "kind": "dm", "author": sender_address, "to": recipient_c},
+        (ctx.obj or {}).get("output_format", "table"),
+        title="dm submitted",
+    )
+
+
+@dm_group.command(
+    "inbox",
+    epilog="""Example:
+
+  aitbc messaging dm inbox --wallet my-wallet""",
+)
+@click.option("--wallet", "wallet_name", required=True, help="Wallet whose address is the recipient")
+@click.option("--limit", type=int, default=50, help="Max rows (server caps at 100)")
+@click.option("--cursor", default=None, help="Resume from a previous next_cursor")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def dm_inbox_cmd(ctx, wallet_name, limit, cursor, rpc_url):
+    """List this wallet's DM inbox — ciphertext metadata only, nothing decrypted."""
+    address = _wallet_address(ctx, wallet_name)
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        result = _rpc_client(rpc).get(f"/rpc/messaging/dm/{address}", params={"limit": limit, "cursor": cursor})
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="DM inbox")
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error fetching inbox: {e}", from_exception=e)
+
+
+@dm_group.command(
+    "read",
+    epilog="""Example:
+
+  aitbc messaging dm read 0011…eeff --wallet my-wallet""",
+)
+@click.argument("tx_hash", callback=_normalize_tx_hash)
+@click.option("--wallet", "wallet_name", required=True, help="Wallet whose DM key decrypts the message")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def dm_read(ctx, tx_hash, wallet_name, rpc_url):
+    """Fetch and decrypt one DM addressed to this wallet."""
+    address = _wallet_address(ctx, wallet_name)
+    key, _path = _dm_current_key(ctx, wallet_name)
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    want = tx_hash.lower()
+    row = None
+    cursor = None
+    try:
+        http = _rpc_client(rpc)
+        for _ in range(20):
+            page = http.get(f"/rpc/messaging/dm/{address}", params={"limit": 100, "cursor": cursor})
+            for m in page.get("messages") or []:
+                if str(m.get("tx_hash", "")).lower().removeprefix("0x") == want:
+                    row = m
+                    break
+            if row is not None or not page.get("next_cursor"):
+                break
+            cursor = page["next_cursor"]
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
+    if row is None:
+        abort(ctx, f"No DM to {address} with tx hash 0x{tx_hash} in the scanned inbox pages")
+    row = cast("dict[str, Any]", row)
+    try:
+        body = _open_dm(key["secret_key"], row["sender"], address, row["ct"])
+    except ValueError as e:
+        abort(ctx, f"Cannot read message: {e}", from_exception=e)
+    output(
+        {
+            "tx_hash": row["tx_hash"],
+            "block_height": row["block_height"],
+            "from": row["sender"],
+            "to": address,
+            "body": sanitize_chain_obj(body),
+        },
+        (ctx.obj or {}).get("output_format", "table"),
+        title="Direct message",
+    )
 
 
 @messaging.command(
