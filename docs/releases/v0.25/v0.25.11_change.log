@@ -691,6 +691,13 @@ reported, not ignored.
   0.001 ETH top-up from F recorded as FUNDING by the monitor. Bridge
   stays paused until a supported token/chain is named.
 
+- BR-1 testnet activation 16 Oct: repo AIToken.sol deployed on Sepolia
+  (0x87fC…23A) and added via Safe (1% fee); bridge unpaused; deposit leg
+  proven — 10 AIT initiateBridge → request 1 CONFIRMED at 3/3 validator
+  confirms; withdraw leg via Safe emergencyWithdraw (completeBridge is
+  single-chain-unreachable by construction). Deployments record +
+  rehearsal runbook updated.
+
 ### BR-1 defect 3 (operator review)
 
 - `CrossChainBridge.sol` `confirmBridge`: each confirmer counts toward
