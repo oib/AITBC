@@ -78,6 +78,11 @@
                 <div class="section-title">Transactions</div>
                 <div id="txs-list"></div>
             </div>
+
+            <div id="messages-section" style="display:none;">
+                <div class="section-title">Messages</div>
+                <div id="messages-list"></div>
+            </div>
         </div>
 
         <div id="error" class="loading" style="display:none; color:#ef4444;"></div>
@@ -155,18 +160,23 @@
             document.getElementById('query-display').textContent = query;
 
             try {
-                const [txResp, blockResp] = await Promise.all([
+                const [txResp, blockResp, msgResp] = await Promise.all([
                     fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(query)}&limit=50`),
                     fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}?limit=50`),
+                    // MSG-17: body-text search over the messaging index. A
+                    // failed search degrades to no section, not a page error.
+                    fetch(`${EXPLORER_API_URL}/api/messages/search?q=${encodeURIComponent(query)}&limit=50`).catch(() => null),
                 ]);
                 const txData = await txResp.json();
                 const blockData = await blockResp.json();
+                const msgData = msgResp && msgResp.ok ? await msgResp.json() : {};
                 const txs = txData.transactions || [];
                 const blocks = blockData.blocks || [];
+                const messages = msgData.messages || [];
 
-                if (txs.length === 0 && blocks.length === 0) {
+                if (txs.length === 0 && blocks.length === 0 && messages.length === 0) {
                     document.getElementById('loading').style.display = 'none';
-                    document.getElementById('error').textContent = 'No transactions or blocks found for this query.';
+                    document.getElementById('error').textContent = 'No transactions, blocks or messages found for this query.';
                     document.getElementById('error').style.display = 'block';
                     return;
                 }
@@ -204,6 +214,39 @@
                         </div>
                         `;
                     }).join('');
+                }
+
+                if (messages.length > 0) {
+                    // MSG-17: chain-sourced text renders through DOM APIs only
+                    // (textContent/attributes) — the same rule as messages.js.
+                    const NEUTRAL_RE = /[\u0080-\u009F\p{Cf}\u061C\u180E\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}\u3164\u115F\u1160\uFFA0\u2800]/gu;
+                    const clean = (s) => String(s).replace(NEUTRAL_RE, (ch) => `[U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
+                    const make = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+                    const list = document.getElementById('messages-list');
+                    list.textContent = '';
+                    messages.forEach((m) => {
+                        const item = make('div', 'msg-item');
+                        const head = make('div', 'msg-item-head');
+                        const topicLink = make('a', 'msg-topic-chip', clean(m.topic || ''));
+                        topicLink.href = `/topic.html?t=${encodeURIComponent(m.topic || '')}`;
+                        head.appendChild(topicLink);
+                        head.appendChild(make('span', 'msg-kind', clean(m.kind || 'post')));
+                        const author = m.author || m.sender || '';
+                        const authorLink = make('a', 'clickable-value msg-author', clean(author));
+                        authorLink.href = `/author.html?a=${encodeURIComponent(author)}`;
+                        head.appendChild(authorLink);
+                        const time = m.timestamp || m.created_at || '';
+                        head.appendChild(make('span', 'msg-time', time ? new Date(time).toLocaleString() : ''));
+                        item.appendChild(head);
+                        item.appendChild(make('div', 'msg-body', clean(m.body || '')));
+                        const hashLine = make('div', 'msg-hash');
+                        const txLink = make('a', 'clickable-value', `${(m.tx_hash || '').substring(0, 18)}…`);
+                        txLink.href = `/tx.html?hash=${encodeURIComponent(m.tx_hash || '')}`;
+                        hashLine.appendChild(txLink);
+                        item.appendChild(hashLine);
+                        list.appendChild(item);
+                    });
+                    document.getElementById('messages-section').style.display = 'block';
                 }
 
                 document.getElementById('loading').style.display = 'none';
