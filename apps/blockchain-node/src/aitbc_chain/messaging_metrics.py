@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import typing
+from collections import OrderedDict
 from typing import Any
 
 from prometheus_client import Counter, Gauge
@@ -139,6 +141,27 @@ def _digest_key_hash(session, chain_id: str, checkpoint: int) -> str:
     return key_hash
 
 
+#: Single-flight locks for cold digest scans, keyed on the full cache key.
+#: Bounded like the result cache; an evicted live lock only ever causes a
+#: duplicate scan, never a wrong value.
+_DIGEST_FLIGHTS: OrderedDict[tuple, threading.Lock] = OrderedDict()
+_DIGEST_FLIGHTS_MAX = 256
+_DIGEST_FLIGHTS_GUARD = threading.Lock()
+
+
+def _flight_lock(key: tuple) -> threading.Lock:
+    with _DIGEST_FLIGHTS_GUARD:
+        lock = _DIGEST_FLIGHTS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _DIGEST_FLIGHTS[key] = lock
+            while len(_DIGEST_FLIGHTS) > _DIGEST_FLIGHTS_MAX:
+                _DIGEST_FLIGHTS.popitem(last=False)
+        else:
+            _DIGEST_FLIGHTS.move_to_end(key)
+    return lock
+
+
 def _scan_digest(session, chain_id: str, checkpoint: int) -> str:
     digest = hashlib.sha256()
     stmt = _asc_select(chain_id)
@@ -165,12 +188,20 @@ def checkpoint_digest(session, chain_id: str, checkpoint: int) -> str:
     replaces that block and its hash; a new block above the checkpoint
     does not. The result is a pure function of sealed rows: insertion
     order and rowids never enter.
+
+    Cold scans are single-flight per key: concurrent scrapes share one
+    computation. A failing first caller releases the lock; each waiter
+    re-checks the cache and scans on its own if it is still empty.
     """
     key = ("digest", chain_id, "", checkpoint, _digest_key_hash(session, chain_id, checkpoint))
     hit = _mod_cache_get(key)
     if hit is not None:
         return typing.cast(str, hit)
-    return typing.cast(str, _mod_cache_put(key, _scan_digest(session, chain_id, checkpoint)))
+    with _flight_lock(key):
+        hit = _mod_cache_get(key)  # the first caller may have filled it
+        if hit is not None:
+            return typing.cast(str, hit)
+        return typing.cast(str, _mod_cache_put(key, _scan_digest(session, chain_id, checkpoint)))
 
 
 def collect_gauges(session, chain_id: str) -> dict[str, Any]:
