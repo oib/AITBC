@@ -700,3 +700,16 @@ reported, not ignored.
 - Tests: `cli/tests/test_messaging_actions.py` (7) — dry run signs nothing,
   `--confirm` signs once, effectiveness reports moderator membership,
   lock scope validation, grant envelope fields.
+
+### NGINX-MSG-1
+
+- examples/nginx/nginx-aitbc.conf.example: mirrors the hub's live messaging_rpc
+  zone — limit_req_zone declaration (commented, http-context), limit_req
+  burst=20 nodelay + 429 on /rpc/messaging/, /rpc/contracts/messaging/ and the
+  three exact-match /explorer-api/api/messages* locations.
+- tests/unit/test_website_api_contract.py: new TestMessagingRateLimit class —
+  fails if a messaging location loses its limit_req, if the zone declaration
+  disappears, or if a new messaging-pattern location appears without a limit.
+- docs/ops/messaging-nginx-limits.md + messaging-explorer-nginx.md: status
+  wording updated proposal -> applied on hub 16 Oct 2026; follower 0.0.0.0:8202
+  bypass caveat kept.
