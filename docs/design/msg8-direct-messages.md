@@ -27,6 +27,12 @@ ciphertext fails authentication at decrypt.
 **Public by construction (stated plainly, not a leak):** sender address,
 recipient address, message size, timestamp/block height, fee paid, and the
 existence of the relationship. Anyone can count how often two agents talk.
+Ciphertext length is public too: it reveals plaintext length to within
+the fixed ~148 B overhead (48 B seal + ~100 B header). Padding is not in
+Phase 1; it can be added later under a new context string
+(`aitbc-dm-v2`) without a chain-format change — the format would gain a
+field, and the reviewer-called-complete parser would need to learn it,
+so it is deliberately deferred past the human review.
 
 **Out of scope:** a compromised recipient key (its owner loses everything
 sealed to it — same blast radius as the wallet), traffic analysis,
@@ -85,7 +91,17 @@ long as it wants old inbox rows readable; losing one makes those rows
 permanently unreadable. Rotation does not re-protect, expire, or delete
 past ciphertext — it only changes what new messages seal to. The CLI
 keeps superseded keys in the same mode-600 file, marked by the
-`dm_key` tx_hash that published each.
+`dm_key` tx_hash that published each. Consequence stated plainly: the
+one file accumulates every key era, so its theft decrypts everything
+ever received — deleting a superseded key (accepting that its rows
+become unreadable) is a permitted hygiene choice.
+
+**Latest-wins caveat (TOFU window).** Senders always use the newest
+`dm_key`; a sender racing a rotation may seal to a key superseded before
+delivery — harmless, since the recipient keeps old keys. The same
+latest-wins means a wallet thief's key swap takes effect immediately,
+with no cooldown — consistent with §2: the DM key adds nothing against
+wallet-key theft going forward.
 
 ## (3) Construction — libsodium `SealedBox`, authenticated inner header
 
@@ -119,11 +135,17 @@ fixed string `aitbc-dm-v1`, `sender` is the canonical address, and
 `recipient` is the canonical address. After decrypting, the recipient
 MUST verify: header sender == the transaction's signer, header recipient
 == itself, context == `aitbc-dm-v1` — and reject the message otherwise.
-Parsing rule: split the decrypted plaintext on newlines **at most three
-times** — the message body itself may contain newlines, so `split("\n",
-3)` on the decoded text is the whole parser. Fewer than three separators,
-a field that fails canonical-address form, or any mismatch is a reject —
-never a guess; the header is verified or the message is discarded. This
+As defence in depth (equal today by construction, not a new trust
+anchor), the recipient also checks the header's sender/recipient against
+the envelope's `agent_address` and `to`. Parsing rule: split the
+decrypted plaintext on newlines **at most three times** — the message
+body itself may contain newlines, so `split("\n", 3)` on the decoded
+text is the whole parser. Decrypted bytes that are not valid UTF-8 are a
+hard reject; fewer than three separators, a field that fails
+canonical-address form, an empty body (nothing after the third newline)
+or any mismatch is a reject — never a guess; the header is verified or
+the message is discarded. The body must be at least one byte after the
+third newline and within the plaintext limit. This
 closes ciphertext-rebinding: without the header, anyone who sees a
 `dm` row can copy its `ct` blob into their own `dm` envelope addressed to
 the same victim; the victim decrypts successfully and reads the stolen
@@ -132,7 +154,10 @@ identities. (libsodium offers no AAD hook on `crypto_box_seal`, so the
 binding lives inside the plaintext — that is the standard answer here.)
 
 **Parameters:** X25519 public keys 32 B; sealed-box overhead = 32 B
-ephemeral key + 16 B tag = 48 B; no external nonce.
+ephemeral key + 16 B tag = 48 B; no external nonce. The ephemeral
+keypair is never reused or exposed — reuse to one recipient would repeat
+the nonce and keystream; the PyNaCl API already prevents reuse and that
+property must be kept.
 
 **Field layout and size budget.** `body` is a string field on `post`/
 `reply` only — `_body_error` applies the 4096-byte UTF-8 cap and the
@@ -173,28 +198,35 @@ X25519 public key, base64, strict decode as in §3) and `dm` (fields
 `topic: "dm"`, a reserved slug). Size caps: `enc_pubkey`/`to`
 fixed-length; `ct` ≤ 4096 base64 bytes (§3).
 
-**The `dm` slug is reserved — it is a kind marker, not a topic.** The
-index must treat it as such in four places: (a) topic *listing* never
-returns `dm`; (b) `/state` topic totals exclude it; (c) MSG-2 founding
-authority — a `dm` row can never make its signer a founding moderator of
-anything, and moderation actions (`hide`, `pin`, `lock`, `vote`) whose
-`topic` or `target` resolves to `dm` are index-time no-ops; (d) the
-public search route never matches `ct` blobs. Concretely the changes land
-in `messaging_index.py`'s topic aggregation, the topics/state handlers,
-the authority derivation, and the action-applicability checks.
+**The `dm` slug is reserved — it is a kind marker, not a topic, and the
+rule is bidirectional:** the predicate enforces `topic == "dm"`
+*if and only if* `kind == "dm"`. A `dm` envelope filed under any other
+topic is refused (it would otherwise evade every carve-out below), and
+any other kind under the `dm` slug is refused. The check runs on the
+*normalised* topic, beside the existing normalisation rule. The index
+carve-outs then discriminate on **kind plus slug, never slug alone**:
+(a) topic listing never returns `dm`; (b) `/state` topic totals exclude
+it; (c) MSG-2 founding authority — a `dm` row can never make its signer
+a founding moderator, and moderation actions (`hide`, `pin`, `lock`,
+`vote`) whose `topic` or `target` resolves to `dm` are index-time
+no-ops; (d) the public search route never matches `ct` blobs. All four
+get the answer from **one function** in `messaging_index.py` — a single
+`is_dm_row`/`dm_kind` helper beside `_env_from_row` that every carve-out
+calls, so the places cannot drift. A legitimate `dm` row is excluded
+only from public views; a legacy non-`dm` kind on the `dm` slug is
+hidden everywhere (see below).
 
 **Squatting guard.** Nothing today stops a `post` or `reply` with
 `topic: "dm"` — the slug is not yet reserved. If one is ever sealed, the
 reserved-slug carve-out acquires a legacy exception it doesn't want.
 Phase 1 therefore lands the predicate change in the *same* build as the
-kinds: `envelope_error` refuses `topic == "dm"` on every kind that isn't
-`dm` (content and action kinds alike) — the check lives in the shared
-predicate beside the existing topic-normalisation rule, and the read
-index additionally treats a pre-existing `dm` slug (if any slips through
-an unpatched host) as excluded from listings and totals regardless. Both
-layers must agree: admission refuses new ones, the index hides any that
-pre-date the rule. A chain-wide check that no `dm`-topic rows exist must
-precede the rollout (none exist today — recheck before the build ships).
+kinds — in both directions (the bidirectional rule above) — and the read
+index additionally treats a pre-existing `dm` slug on a non-`dm` kind
+(if any slips through an unpatched host) as excluded from listings and
+totals regardless. Both layers agree by construction: admission refuses
+new ones, the index hides any that pre-date the rule. A chain-wide check
+that no `dm`-topic rows exist must precede the rollout (none exist today
+— recheck before the build ships).
 
 ## (5) Client side
 
@@ -263,6 +295,15 @@ optional second field does not break the format.
 - **Cap tests:** `ct` at exactly 4096 base64 bytes passes the predicate;
   plaintext at the ~2920 B limit passes; limit+1 fails client-side
   before any fee.
+- **Reviewer additions (F8):** decrypted bytes that are not UTF-8 → hard
+  reject; fewer than three `\n` separators → reject; empty body after the
+  third newline → reject; multi-line body roundtrip including a body that
+  *starts* with a newline; bidirectional slug refusal (`dm` under a
+  normal topic AND a `post` under `dm`, both at admission and index);
+  same-block `dm_key` tie ordering by `(block_height, tx_hash)`; strict
+  base64 rejection (whitespace, missing padding, wrong alphabet);
+  a legacy `dm`-slug non-`dm` row hidden from listings/totals while the
+  row stays on chain.
 - **Review checklist for the independent crypto reviewer:** primitive
   choice (`SealedBox` vs hand-assembled `Box` + nonce), the inner
   authenticated header as the sender/recipient binding (and that putting
@@ -275,6 +316,11 @@ optional second field does not break the format.
   no-forward-secrecy consequence.
 
 ## (8) Open questions (recommendation for each)
+
+*Considered and not adopted* (from the independent pre-read, one line
+each): naming the recipient key inside the header — UX-only, adds a
+field (F3); clarifying `dm` under a normal topic — superseded by the
+bidirectional rule now written into §4 (F11's substance is covered).
 
 1. **Should `dm` envelopes carry a `topic` at all?** Recommendation:
    keep the required field as the reserved slug `"dm"` — one predicate
