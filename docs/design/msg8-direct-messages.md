@@ -78,6 +78,15 @@ identity root for every other purpose on the chain; a second root buys a
 marginal property and costs irrecoverable lockout. Document the exposure
 and let wallet-key compromise mean what it already means.
 
+**Key retention after rotation.** Rotation supersedes the *public* key
+only — ciphertext sealed to a previous `dm_key` stays sealed to it. A
+recipient that rotates must keep every previous DM private key for as
+long as it wants old inbox rows readable; losing one makes those rows
+permanently unreadable. Rotation does not re-protect, expire, or delete
+past ciphertext — it only changes what new messages seal to. The CLI
+keeps superseded keys in the same mode-600 file, marked by the
+`dm_key` tx_hash that published each.
+
 ## (3) Construction — libsodium `SealedBox`, authenticated inner header
 
 Primitive: **`nacl.public.SealedBox`** — libsodium's `crypto_box_seal`:
@@ -110,7 +119,12 @@ fixed string `aitbc-dm-v1`, `sender` is the canonical address, and
 `recipient` is the canonical address. After decrypting, the recipient
 MUST verify: header sender == the transaction's signer, header recipient
 == itself, context == `aitbc-dm-v1` — and reject the message otherwise.
-This closes ciphertext-rebinding: without the header, anyone who sees a
+Parsing rule: split the decrypted plaintext on newlines **at most three
+times** — the message body itself may contain newlines, so `split("\n",
+3)` on the decoded text is the whole parser. Fewer than three separators,
+a field that fails canonical-address form, or any mismatch is a reject —
+never a guess; the header is verified or the message is discarded. This
+closes ciphertext-rebinding: without the header, anyone who sees a
 `dm` row can copy its `ct` blob into their own `dm` envelope addressed to
 the same victim; the victim decrypts successfully and reads the stolen
 text as if the copyist had authored it. The header ties plaintext to both
@@ -168,6 +182,19 @@ anything, and moderation actions (`hide`, `pin`, `lock`, `vote`) whose
 public search route never matches `ct` blobs. Concretely the changes land
 in `messaging_index.py`'s topic aggregation, the topics/state handlers,
 the authority derivation, and the action-applicability checks.
+
+**Squatting guard.** Nothing today stops a `post` or `reply` with
+`topic: "dm"` — the slug is not yet reserved. If one is ever sealed, the
+reserved-slug carve-out acquires a legacy exception it doesn't want.
+Phase 1 therefore lands the predicate change in the *same* build as the
+kinds: `envelope_error` refuses `topic == "dm"` on every kind that isn't
+`dm` (content and action kinds alike) — the check lives in the shared
+predicate beside the existing topic-normalisation rule, and the read
+index additionally treats a pre-existing `dm` slug (if any slips through
+an unpatched host) as excluded from listings and totals regardless. Both
+layers must agree: admission refuses new ones, the index hides any that
+pre-date the rule. A chain-wide check that no `dm`-topic rows exist must
+precede the rollout (none exist today — recheck before the build ships).
 
 ## (5) Client side
 
