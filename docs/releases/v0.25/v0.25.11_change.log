@@ -1038,3 +1038,34 @@ database).
 - `_record_outbound` records those sends as `withdrawal` with the source
   named in `note` (appended to a failed-send note with `; `) instead of
   `unidentified`. Deploy = next pull + bridge-monitor restart.
+### MSG-8d — Phase 1: encrypted direct messages implemented
+
+- Predicate (`aitbc/messaging.py`): new kinds `dm` (`to` + `ct` fields)
+  and `dm_key` (`enc_pubkey`, strict base64 of a 32-byte X25519 key);
+  reserved slug `dm` enforced bidirectionally for both DM kinds —
+  `topic == "dm"` iff `kind in DM_KINDS` (dm_key carries the slug too,
+  so the carve-outs stay uniform; the design text names the rule for
+  `dm` only — this is the one reading that keeps dm_key out of forum
+  aggregates). `ct` capped at 4096 base64 chars; strict decode.
+- Index (`messaging_index.py`): single `is_dm_row` helper; candidate
+  SQL excludes the `dm` slug from every non-DM branch so legacy squats
+  are hidden; DM rows never surface in listings/topics/state/search;
+  `dm_inbox` + `latest_dm_key` serve ciphertext only, `_scan_valid`
+  paging means invalid rows can never hide a valid key.
+- RPC: `GET /rpc/messaging/dm-keys/{address}` (404 when none) and
+  `GET /rpc/messaging/dm/{address}` (cursor-paged inbox).
+- CLI: `aitbc messaging dm keygen|send|inbox|read`; X25519 keys live in
+  mode-600 `<wallets>/../dm-keys/<wallet>.json` (eras accumulate for
+  rotation); send is dry-run by default and refuses when the recipient
+  has no published key; plaintext cap ~2920 B enforced before signing;
+  read verifies the `aitbc-dm-v1` inner header (context + sender +
+  recipient) — rejects on any mismatch, never prints unverified text.
+- No forward secrecy (accepted Phase-1 limit; v2 work is parked).
+- Tests: 42 new — predicate (kinds, caps, bidirectional slug, bad
+  recipients/keys), index carve-outs + legacy-row hiding, inbox
+  ordering/cursor/dm_key rotation + same-block tie, CLI crypto
+  (roundtrip, tamper, wrong key, header/context/UTF-8/empty rejects)
+  and the key-file store.
+- Pre-rollout chain check: 15 sealed MESSAGE txs on live main; zero
+  carry a `dm` topic or DM field — the reserved-slug rule lands on a
+  clean slate. Deployment itself stays separately gated.
