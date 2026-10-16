@@ -128,6 +128,22 @@ is not recomputable and is lost on a drop.
   report rather than reclassify.
 - Anything prompting for a wallet password or key file: stop and ask.
 
+## Bridge ledger path override (`BRIDGE_DEPOSITS_DB`)
+
+Every consumer of the ledger — `bridge_monitor.storage`, the wallet's
+`bridge_db` helpers (routes, settlement and withdraw monitors all funnel
+through it), the exchange readiness check, `exchange_verify.py`/`aitbc
+exchange verify --bridge-db`, and `fleet-config-check.sh` — honours the
+`BRIDGE_DEPOSITS_DB` env var. Unset, each resolves exactly the default it
+always did (`<data dir>/bridge_deposits.db`); explicit `--ledger`/`--db`
+flags still win over the variable.
+
+Set it for **every** consumer on a host or for **none**. `sqlite3.connect()`
+creates an empty file at a missing path, so a consumer left on the old path
+silently opens a fresh empty ledger — split-brain with no error. Scripts
+that glob (`bridge-payout-audit.py`) or require `--ledger`
+(`bridge_wallet_rotation_report.py`) follow their own rules and are exempt.
+
 ## Boundaries
 
 No key-bearing env file is read for any step (`exchange.env`,

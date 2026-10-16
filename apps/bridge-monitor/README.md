@@ -77,6 +77,7 @@ cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
 | `AIT_USD_FIXED_PRICE` | unset | pins the AIT/USD quote (oracle bypass) |
 | `BLOCKCHAIN_RPC_URL` | `http://127.0.0.1:8202` | node RPC — balance, nonce, and submit all share this endpoint |
 | `BRIDGE_MONITOR_ENV` | `/etc/aitbc/aitbc-bridge-monitor.env` | env file loaded by `admin.py` |
+| `BRIDGE_DEPOSITS_DB` | unset | absolute ledger path override; unset resolves `DATA_DIR/bridge_deposits.db`. Set for every consumer or none — a consumer left on the old path silently creates an empty ledger |
 | `GENESIS_WALLET_ADDRESS` / `GENESIS_WALLET_PRIVATE_KEY` | — | transitional fallback for the payout wallet — deprecated; set `BRIDGE_PAYOUT_*` instead (a warning is logged when the fallback signs) |
 | `CHAIN_ID` | `ait-localnet` | chain ID bound into signed payout transactions |
 | `BRIDGE_BURST_INTERVAL` / `BRIDGE_BURST_WINDOW` | `20` / `60` | fast poll cadence and the window it applies for after a kick-file touch |

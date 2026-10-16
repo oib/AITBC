@@ -636,7 +636,11 @@ def main() -> int:
         help="exchange SQLite DB path (default: the service path from EXCHANGE_DATABASE_URL / AITBC_DATA_DIR, "
         "i.e. /var/lib/aitbc/data/exchange/exchange.db, when it is readable)",
     )
-    ap.add_argument("--bridge-db", help="bridge_deposits.db path — enables the prepay cross-check")
+    ap.add_argument(
+        "--bridge-db",
+        default=os.environ.get("BRIDGE_DEPOSITS_DB"),
+        help="bridge_deposits.db path — enables the prepay cross-check (default: BRIDGE_DEPOSITS_DB env var)",
+    )
     ap.add_argument("--rpc-url", default=DEFAULT_ETH_RPC, help="Sepolia JSON-RPC endpoint")
     ap.add_argument("--bridge-address", help="expected deposit destination (enforces `to` on prepays)")
     ap.add_argument("--ait-rpc", help="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
