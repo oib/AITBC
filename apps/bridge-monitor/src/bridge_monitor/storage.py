@@ -511,7 +511,8 @@ def depositor_tx_hashes() -> dict[str, str]:
         return {str(addr).lower(): str(tx) for addr, tx in cursor.fetchall()}
 
 
-# Fixed literals only — never user input — so the f-string below is safe.
+# Fixed literals only — never user input — so the identifier interpolation
+# in release_sources() below is safe and carries its nosec for B608.
 _RELEASE_SOURCES = (
     ("eth_withdrawals", ""),
     ("bridge_sell_locks", "bridge_sell_locks release"),
@@ -532,7 +533,7 @@ def release_sources() -> dict[str, str]:
         cursor = conn.cursor()
         for table, label in _RELEASE_SOURCES:
             try:
-                cursor.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL")
+                cursor.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL")  # nosec B608
             except sqlite3.OperationalError:
                 continue
             for (h,) in cursor.fetchall():
