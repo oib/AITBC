@@ -767,3 +767,90 @@ class TestReadCache:
         second = topic_moderation(session, CHAIN, "dev")
         assert "mutant" not in second["moderators"]
         assert all(a["kind"] != "x" for a in second["actions"])
+
+
+def _tx0x(session, height, n, sender, env, commit=True):
+    """A transaction stored the way production stores it: ``tx_hash`` is
+    ``0x``-prefixed, while envelope ``target``/``parent`` fields are bare
+    64-hex (the codec's shape). The bare test fixtures above masked every
+    join between the two — this helper reproduces the live layout."""
+    _block(session, height)
+    stored = "0x" + f"{n:064x}"
+    session.add(
+        Transaction(
+            chain_id=CHAIN,
+            tx_hash=stored,
+            sender=sender,
+            recipient=sender,
+            payload={"aitbc_msg": env},
+            type="MESSAGE",
+            status="confirmed",
+            block_height=height,
+            nonce=n,
+            timestamp=(datetime(2026, 1, 1) + timedelta(seconds=height * 100 + n)).isoformat(),
+        )
+    )
+    if commit:
+        session.commit()
+    return stored
+
+
+def _bare(h: str) -> str:
+    return h[2:] if h.lower().startswith("0x") else h.lower()
+
+
+class TestPrefixedStorage:
+    """Production layout: stored tx_hash carries ``0x``, envelope fields
+    are bare 64-hex. Every derivation must join across the two forms."""
+
+    def _seed(self, session):
+        post = _tx0x(session, 1, 0x10, ALICE, _env("post", body="root post"))
+        reply = _tx0x(session, 2, 0x11, BOB, _env("reply", sender=BOB, body="child", parent=_bare(post)))
+        return post, reply
+
+    def test_parent_resolves(self, session):
+        post, reply = self._seed(session)
+        view = get_message(session, CHAIN, reply)
+        assert view["parent"] == _bare(post)
+        assert view["parent_resolved"] is True
+
+    def test_get_message_accepts_both_forms(self, session):
+        post, _reply = self._seed(session)
+        assert get_message(session, CHAIN, post)["tx_hash"] == post
+        assert get_message(session, CHAIN, _bare(post))["tx_hash"] == post
+        assert get_message(session, CHAIN, post.upper().replace("0X", "0x")) is not None
+
+    def test_vote_scores_prefixed_target(self, session):
+        post, _reply = self._seed(session)
+        _tx0x(session, 3, 0x12, BOB, _env("vote", sender=BOB, target=_bare(post), value=1))
+        view = get_message(session, CHAIN, post)
+        assert (view["score"], view["upvotes"], view["voter_count"]) == (1, 1, 1)
+        v = message_votes(session, CHAIN, post)
+        assert v["count"] == 1 and v["votes"][0]["voter"] == BOB.lower()
+        assert message_votes(session, CHAIN, _bare(post))["count"] == 1
+
+    def test_hide_and_pin_apply(self, session):
+        post, reply = self._seed(session)
+        _tx0x(session, 3, 0x12, ALICE, _env("hide", target=_bare(reply)))
+        _tx0x(session, 4, 0x13, ALICE, _env("pin", target=_bare(post)))
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        by_id = {m["tx_hash"]: m for m in out["messages"]}
+        assert by_id[reply]["hidden"] is True
+        assert out["pinned"] and out["pinned"][0]["tx_hash"] == post
+        assert by_id[reply]["parent_hidden"] is False  # the post is not hidden; the reply is
+
+    def test_locked_subtree_walk_prefixed(self, session):
+        post, reply = self._seed(session)
+        _tx0x(session, 3, 0x12, ALICE, _env("lock", target=_bare(post)))
+        _tx0x(session, 4, 0x13, CAROL, _env("reply", sender=CAROL, body="late", parent=_bare(post)))
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        ids = {m["tx_hash"]: m for m in out["messages"]}
+        assert ids[reply]["after_lock"] is False  # sealed before the lock
+        late = next(m for m in out["messages"] if m["body"] is None and m["after_lock"])
+        assert late["tx_hash"] == f"0x{0x13:064x}"
+
+    def test_reputation_counts_prefixed(self, session):
+        post, _reply = self._seed(session)
+        _tx0x(session, 3, 0x12, BOB, _env("vote", sender=BOB, target=_bare(post), value=1))
+        rep = reputation(session, CHAIN, ALICE)
+        assert rep["reputation"] == 1 and rep["messages_counted"] == 1
