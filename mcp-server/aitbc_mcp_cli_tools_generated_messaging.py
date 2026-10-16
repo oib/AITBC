@@ -35,7 +35,10 @@ def aitbc_messaging_hide(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -46,7 +49,7 @@ def aitbc_messaging_hide(
     """Run `aitbc messaging hide`.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -139,7 +142,10 @@ def aitbc_messaging_lock(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -150,7 +156,7 @@ def aitbc_messaging_lock(
     """Lock a topic or one thread (moderator only).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "target": "target",
@@ -204,7 +210,10 @@ def aitbc_messaging_mod_grant(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -215,7 +224,7 @@ def aitbc_messaging_mod_grant(
     """Run `aitbc messaging mod-grant`.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -268,7 +277,10 @@ def aitbc_messaging_mod_revoke(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -279,7 +291,7 @@ def aitbc_messaging_mod_revoke(
     """Run `aitbc messaging mod-revoke`.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -381,7 +393,10 @@ def aitbc_messaging_pin(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -392,7 +407,7 @@ def aitbc_messaging_pin(
     """Run `aitbc messaging pin`.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -717,7 +732,10 @@ def aitbc_messaging_unhide(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -728,7 +746,7 @@ def aitbc_messaging_unhide(
     """Run `aitbc messaging unhide`.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -781,7 +799,10 @@ def aitbc_messaging_unlock(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -792,7 +813,7 @@ def aitbc_messaging_unlock(
     """Undo a lock (moderator only).."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "target": "target",
@@ -846,7 +867,10 @@ def aitbc_messaging_unpin(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -857,7 +881,7 @@ def aitbc_messaging_unpin(
     """Run `aitbc messaging unpin`.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -911,7 +935,10 @@ def aitbc_messaging_vote(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until sealed (default: wait)")] = None,
+    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -922,7 +949,7 @@ def aitbc_messaging_vote(
     """Vote on a forum message. Last vote per signer wins; 'retract' clears it.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
