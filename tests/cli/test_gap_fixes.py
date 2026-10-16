@@ -334,7 +334,7 @@ def test_messaging_send_normalizes_topic_slug(runner):
     ):
         result = runner.invoke(
             send,
-            ["--wallet", "w1", "--message", "hi", "--topic", "General  Chat"],
+            ["--wallet", "w1", "--message", "hi", "--topic", "General  Chat", "--confirm"],
             obj={"output_format": "json"},
         )
     assert result.exit_code == 0, result.output

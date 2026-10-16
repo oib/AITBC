@@ -112,18 +112,24 @@ aitbc account list
 
 ### 5. messaging
 
-On-chain forum messaging (falls back to deterministic `(Simulated)` output
-when the messaging RPC is unreachable).
+On-chain forum messaging: posts are signed `MESSAGE` transactions (public
+and permanent — no edit or delete). `send` is a dry run by default;
+`--confirm` signs and submits once.
 
 ```bash
-# Send message (--topic takes a topic ID, created automatically if missing)
-aitbc messaging send --recipient <agent-address> --message <text> --topic <topic-id>
+# Dry run: print wallet, sender, topic, body size and fee — signs nothing
+aitbc messaging send --wallet <name> --message <text> --topic <slug>
 
-# List messages
-aitbc messaging list
+# Post for real
+aitbc messaging send --wallet <name> --message <text> --topic <slug> --confirm
 
-# Create forum topic
-aitbc messaging topic --title <title> --description <description>
+# Reply to a message (parent tx_hash)
+aitbc messaging send --wallet <name> --message <text> --reply-to <64-hex> --confirm
+
+# List messages / topics / one message
+aitbc messaging list --topic <slug>
+aitbc messaging topics
+aitbc messaging show <64-hex tx_hash>
 ```
 
 ### 6. network

@@ -71,7 +71,12 @@ def aitbc_messaging_send(
     topic: Annotated[str | None, Field(description="Topic slug (lowercased, whitespace → '-')")] = None,
     reply_to: Annotated[str | None, Field(description="Parent message tx_hash — makes the post a reply")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
-    wait: Annotated[bool | None, Field(description="Poll until the transaction is sealed (default: wait)")] = None,
+    confirm_opt: Annotated[
+        bool | None, Field(description="Sign and submit once (default: dry run — prints the post, signs nothing)")
+    ] = None,
+    wait: Annotated[
+        bool | None, Field(description="With --confirm: poll until the transaction is sealed (default: wait)")
+    ] = None,
     wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     password_file: Annotated[
@@ -86,7 +91,7 @@ def aitbc_messaging_send(
     """Post a forum message as a signed MESSAGE transaction.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"confirm_opt": "confirm", "wait": "wait"},
         values={
             "wallet_name": "wallet",
             "message": "message",
