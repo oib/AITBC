@@ -35,3 +35,6 @@ Related design documents:
 - [TOPOLOGY/2026-10-16-wallet-custody-inventory.md](../../TOPOLOGY/2026-10-16-wallet-custody-inventory.md) —
   read-only fleet wallet custody inventory (WALLET-CUSTODY-1); operator decision
   16 Oct: accept plaintext.
+- [TOPOLOGY/2026-10-16-keytrace.md](../../TOPOLOGY/2026-10-16-keytrace.md) —
+  KEYTRACE-1: fleet backup-file inventory (5 key-bearing env backups named) and
+  the 0x02B8 treasury signing trace — verdict historical, last send 7 Oct.
