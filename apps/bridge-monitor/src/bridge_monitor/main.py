@@ -24,7 +24,7 @@ from .storage import (
     depositor_tx_hashes,
     init_db,
     record_outbound,
-    release_tx_hashes,
+    release_sources,
     set_cursor,
     sum_committed_ait,
     update_deposit,
@@ -1039,8 +1039,11 @@ class BridgeMonitor:
 
         depositors = depositor_tx_hashes()
         matched: str | None = None
-        if tx_hash.lower() in release_tx_hashes():
+        release_source = release_sources().get(tx_hash.lower())
+        if release_source is not None:
             kind = "withdrawal"
+            if release_source:
+                note = "; ".join(x for x in (note, release_source) if x)
         elif to_address == self.bridge_eth_address:
             kind = "self_send"
         elif to_address in depositors:
