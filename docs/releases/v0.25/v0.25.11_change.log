@@ -678,7 +678,6 @@ reported, not ignored.
   never enforced; validator weight unused). No Solidity changed; BR-1
   stays parked until a mainnet decision.
 
-
 ### BR-1 defect 3 (operator review)
 
 - `CrossChainBridge.sol` `confirmBridge`: each confirmer counts toward
@@ -687,3 +686,17 @@ reported, not ignored.
   their own hash, not to each other). Recorded in the runbook gap table
   and defect list with a proposed fix (first-hash equality or
   per-hash confirmations) for the audit decision. Solidity untouched.
+
+### MSG-2c — action commands are dry-run by default
+
+- `aitbc messaging vote|hide|unhide|pin|unpin|lock|unlock|mod-grant|mod-revoke`
+  now print the envelope, the fee and `would_be_effective_now` (derived
+  moderator-set membership for moderation kinds; always-true for votes;
+  "unknown" when the read fails) and sign nothing. `--confirm` signs and
+  submits once — same shape as `messaging send` (MSG-FIX-2). Target
+  resolution still proves the target exists and supplies its topic.
+- MCP wrappers regenerated: the CLI `--confirm` surfaces as `confirm_opt`
+  beside the existing dry_run/confirm gate.
+- Tests: `cli/tests/test_messaging_actions.py` (7) — dry run signs nothing,
+  `--confirm` signs once, effectiveness reports moderator membership,
+  lock scope validation, grant envelope fields.
