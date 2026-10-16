@@ -740,3 +740,27 @@ def state(ctx, rpc_url):
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error fetching state: {e}", from_exception=e)
+
+
+@messaging.command(
+    epilog="""Example:
+
+  aitbc messaging stats"""
+)
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def stats(ctx, rpc_url):
+    """MSG-6 operability snapshot: index height, lag and checkpoint digest.
+
+    Read-only; the checkpoint digest is the same value the node exports as
+    ``aitbc_messaging_index_digest`` for cross-node comparison.
+    """
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    try:
+        http_client = _rpc_client(rpc)
+        result = http_client.get("/rpc/messaging/stats")
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Messaging stats")
+    except NetworkError as e:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
+    except Exception as e:
+        abort(ctx, f"Error fetching stats: {e}", from_exception=e)

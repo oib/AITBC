@@ -1778,6 +1778,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/messaging/stats",
+          "upstream": "/rpc/messaging/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/messaging/topics",
           "upstream": "/rpc/messaging/topics",
           "methods": [
@@ -2950,6 +2957,13 @@
         {
           "public": "/api/v2/chain/v1/messaging/state",
           "upstream": "/v1/messaging/state",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/messaging/stats",
+          "upstream": "/v1/messaging/stats",
           "methods": [
             "GET"
           ]
