@@ -852,6 +852,24 @@ class FailJobRequest(BaseModel):
     error_message: str
 
 
+# Receipt fields that carry a verdict the release gates trust. Only the
+# coordinator sets them (_attach_zk_proof, _attach_tee_attestation,
+# _apply_tee_computation_attestation); a miner's own receipt must not.
+_MINER_RECEIPT_VERDICT_FIELDS = (
+    "zk_status",
+    "computation_correct",
+    "zk_proof",
+    "receipt_binding_proof",
+    "tee_status",
+    "tee_attestation_id",
+)
+
+
+def _strip_miner_receipt_verdicts(receipt: dict[str, Any] | None) -> dict[str, Any]:
+    """Return the miner-supplied receipt without any coordinator-owned verdict field."""
+    return {k: v for k, v in (receipt or {}).items() if k not in _MINER_RECEIPT_VERDICT_FIELDS}
+
+
 class CompleteJobRequest(BaseModel):
     output: dict[str, Any]
     receipt: dict[str, Any] | None = None
@@ -880,7 +898,7 @@ async def complete_job(
         job = job_service.get_job(job_id)
         if job.assigned_miner_id != user["sub"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
-        result = {"output": complete_req.output, "receipt": complete_req.receipt or {}}
+        result = {"output": complete_req.output, "receipt": _strip_miner_receipt_verdicts(complete_req.receipt)}
         job = job_service.execute_job(job_id, result)
 
         # Record completion in the reputation service so dispatch can use it.
@@ -916,7 +934,7 @@ async def complete_job(
         return {
             "job_id": job_id,
             "status": "completed",
-            "state": job.state.value,
+            "state": getattr(job.state, "value", job.state),
             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
             "receipt_hash": complete_req.receipt.get("hash", "")[:16] if complete_req.receipt else None,
         }

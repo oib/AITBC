@@ -277,18 +277,22 @@ def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> 
 
 
 def get_receipt_of_record(session: Session, job: Job | None) -> dict[str, Any] | None:
-    """Return the canonical receipt for a job.
+    """Return the canonical receipt for a job, or None when it has none.
 
     Prefer the ``JobReceipt`` row (indexed by ``job.receipt_id``) because it is the
-    authoritative, signed record; fall back to the denormalised ``Job.receipt`` JSON.
+    authoritative, signed record. The denormalised ``Job.receipt`` JSON is a
+    fallback only when ``receipt_id`` is set (the coordinator signed a receipt and
+    wrote the copy itself). A job without ``receipt_id`` has no receipt of record:
+    its ``Job.receipt`` may be the miner's own ``complete`` body, and the release
+    gates (:func:`_computation_is_correct`) must never trust verdict fields a
+    miner wrote (SEC-20).
     """
-    if job is None:
+    if job is None or not job.receipt_id:
         return None
-    if job.receipt_id:
-        row = session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
-        if row and row.payload:
-            payload: dict[str, Any] = row.payload
-            return payload
+    row = session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
+    if row and row.payload:
+        payload: dict[str, Any] = row.payload
+        return payload
     return job.receipt if job.receipt else None
 
 
