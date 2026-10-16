@@ -1119,3 +1119,25 @@ probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
   `eth_withdrawals` — re-runs emit `withdrawal` with the source named in
   `note` instead of `unidentified`. Behaviour on the 16 Oct backfill set
   now matches the operator's reviewed relabel. Missing tables tolerated.
+### MSG-15 — Phase B: agent SDK DM helpers (client-side encryption)
+
+- New shared kernel `aitbc/dm_client.py`: the SealedBox seal/open,
+  `aitbc-dm-v1` header verification, key-era generation and the
+  mode-600 `dm-keys/` store helpers extracted from the CLI and
+  re-imported there under their `_names` (CLI DM tests unchanged), plus
+  `fetch_dm_key`/`fetch_dm_inbox` index reads.
+- SDK `MessagingClient` DM methods: `dm_publish_key` (generate/rotate an
+  X25519 era, publish the public half as `dm_key`, persist the secret
+  era mode-600; reuses the existing era unless `rotate=True`),
+  `dm_send` (fetch the recipient's `enc_pubkey`, seal in-process,
+  submit ciphertext only — the submit callable never sees plaintext),
+  `dm_inbox`/`dm_key_for` (404 vs transport kept distinct), `dm_read`
+  (pages the inbox, decrypts with mandatory header verification —
+  `secret_key` explicit or from the wallet's local dm-keys store).
+- MCP: the `aitbc_messaging_dm_*` tools already generated under MSG-8
+  cover the same commands (`dm_send`/`dm_keygen` destructive+confirm,
+  `dm_inbox`/`dm_read` read-only); no regeneration needed.
+- Tests: SDK fake-RPC DM suite — full round trip asserting the
+  plaintext appears in no captured request body or submit call, era
+  persistence/rotation, inbox paging, tamper/wrong-key rejects, and the
+  wallet/submit/key-material refusals.
