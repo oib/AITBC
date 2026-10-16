@@ -1439,3 +1439,58 @@ tests:
         exp_samples:
           - labels: 'ALERTS{alertname="MessagingVolumeSpike", alertstate="firing", chain_id="aitbc-main", instance="node1:9009", job="blockchain-node", severity="info"}'
             value: 1
+
+  # ChainHeadStalled (CHAIN-STALL-1). hub advances one block a minute until
+  # t=10m and then sticks at 110; node0 keeps advancing; a fresh empty node
+  # sits at 0; stuck is flat at 500 from the very first sample, so it may only
+  # alert once 15 min of history exist (the offset arm), never before.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="hub:8202", job="blockchain-node"}'
+        values: '100+1x10 110x30'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="node0:8202", job="blockchain-node"}'
+        values: '200+1x40'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="fresh:8202", job="blockchain-node"}'
+        values: '0x40'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="stuck:8202", job="blockchain-node"}'
+        values: '500x40'
+
+    alert_rule_test:
+      # Flat from t=0 but no 15-minute history yet: nothing fires.
+      - eval_time: 14m
+        alertname: ChainHeadStalled
+        exp_alerts: []
+      # hub stuck since t=10m: the condition holds from t=25m, so it is only
+      # pending at 26m; stuck has been pending since 15m and fires.
+      - eval_time: 26m
+        alertname: ChainHeadStalled
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              chain_id: aitbc-main
+              instance: stuck:8202
+              job: blockchain-node
+            exp_annotations:
+              summary: "Chain head on aitbc-main has not advanced for 15 minutes on stuck:8202"
+              description: "aitbc_messaging_chain_head_height on stuck:8202 has stayed at 500 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
+      # After the 2m hold hub fires too; node0 (advancing) and fresh (empty)
+      # never do.
+      - eval_time: 28m
+        alertname: ChainHeadStalled
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              chain_id: aitbc-main
+              instance: hub:8202
+              job: blockchain-node
+            exp_annotations:
+              summary: "Chain head on aitbc-main has not advanced for 15 minutes on hub:8202"
+              description: "aitbc_messaging_chain_head_height on hub:8202 has stayed at 110 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
+          - exp_labels:
+              severity: critical
+              chain_id: aitbc-main
+              instance: stuck:8202
+              job: blockchain-node
+            exp_annotations:
+              summary: "Chain head on aitbc-main has not advanced for 15 minutes on stuck:8202"
+              description: "aitbc_messaging_chain_head_height on stuck:8202 has stayed at 500 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."

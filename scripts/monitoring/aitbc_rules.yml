@@ -75,6 +75,28 @@ groups:
           summary: "Node is lagging on {{ $labels.chain_id }}"
           description: "Local chain on {{ $labels.chain_id }} is {{ $value }} blocks behind the remote peer."
 
+      # CHAIN-STALL-1: the local chain head has not moved for 15 minutes.
+      # ServiceDown and SyncLagHigh stay quiet when every node is up but stuck
+      # at the same height — the shape of the 2026-08-24/25 stalls (21+ min
+      # with no block on any host). Heartbeat blocks seal every ~68 s and a
+      # stand-in proposer takes over within ~2 min, so 15 min is a stall, not
+      # a slow round. The gauge is the RPC process's scrape-time read of
+      # max(block.height) from the chain DB (messaging_metrics.collect_gauges),
+      # not blockchain_block_height, which only moves in a process that seals
+      # or imports. The offset keeps it quiet until 15 min of history exists
+      # (fresh Prometheus); the > 0 arm keeps an empty fresh node quiet and,
+      # as the left side of `and`, makes $value the stuck height.
+      - alert: ChainHeadStalled
+        expr: |
+          aitbc_messaging_chain_head_height > 0
+          and (aitbc_messaging_chain_head_height - aitbc_messaging_chain_head_height offset 15m) <= 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Chain head on {{ $labels.chain_id }} has not advanced for 15 minutes on {{ $labels.instance }}"
+          description: "aitbc_messaging_chain_head_height on {{ $labels.instance }} has stayed at {{ $value }} for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
+
       - alert: MempoolFull
         expr: blockchain_mempool_pending_count > 9000
         for: 5m
