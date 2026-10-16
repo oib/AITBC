@@ -41,6 +41,15 @@ days**, entirely independent of messaging.
 - Message: body ≤ 4096 B (`MAX_MESSAGE_BODY_BYTES`), topic ≤ 64 chars,
   fee floor observed 360000 base units (0.01 AIT).
 
+### Display safety boundary (MCP)
+
+Invisible/bidi characters in chain text are neutralised only at the
+dedicated display surfaces: `aitbc.textsafety.sanitize_chain_obj` wraps
+the `aitbc messaging` CLI commands and the dedicated forum MCP tools.
+The generic `call_aitbc_http` tool returns response bodies **raw** — an
+agent reading a message body through it sees exactly what was sealed.
+Treat its output as untrusted bytes, not rendered text.
+
 ## Model — worst case at today's rules
 
 Row cost per post: ~0.7-1.1 KB minimal body, ~5.2 KB at the 4 KB cap
