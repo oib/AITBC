@@ -640,6 +640,11 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "keygen",
     "launch",
     "leave",
+    # MSG-2 signed forum actions (sign + broadcast a MESSAGE tx).
+    "hide",
+    "unhide",
+    "mod-grant",
+    "mod-revoke",
     "liquidity-claim",
     "load",
     "lock-escrow",
