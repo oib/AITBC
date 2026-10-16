@@ -32,3 +32,6 @@ Related design documents:
   settlement (ETH-8 design, Sepolia only).
 - [node-held-wallet-access.md](../design/node-held-wallet-access.md) — bounded,
   allow-listed, operator-approved agent spends from a node-held ops wallet (SEC-1).
+- [TOPOLOGY/2026-10-16-wallet-custody-inventory.md](../../TOPOLOGY/2026-10-16-wallet-custody-inventory.md) —
+  read-only fleet wallet custody inventory (WALLET-CUSTODY-1); operator decision
+  16 Oct: accept plaintext.
