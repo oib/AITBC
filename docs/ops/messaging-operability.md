@@ -79,6 +79,18 @@ node's checkout commit (`git -C /opt/aitbc rev-parse HEAD`). If the rows
 differ, the divergence is in sync/sealing, and this runbook ends — that is
 a chain-level incident, not a messaging one.
 
+**Expected mismatch during a rollout:** the digest covers envelope
+validity and canonical order, so during a rollout that adds envelope
+kinds (like the MSG-2 action kinds), old builds judge the new kinds
+invalid and derive a different digest — a mismatch is EXPECTED until the
+whole fleet runs the same build. Before treating it as real divergence,
+compare `git rev-parse --short HEAD` and the `aitbc-blockchain-node`
+start time on every host; a uniform fleet with matching digests is what
+proves the rollout is done. Note also what the digest does *not* cover:
+derived moderation state (hidden/pinned/locked views) — it detects
+different sealed input or different validity code, not different
+moderation computation.
+
 ### MessagingReadErrors (info)
 
 More than 0.1 read errors/s for 15m on one route. 4xx (bad cursor, bad
