@@ -673,7 +673,7 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
 )
 @click.option(
     "--bridge-db",
-    default=os.environ.get("BRIDGE_DEPOSITS_DB"),
+    default=(os.environ.get("BRIDGE_DEPOSITS_DB") or "").strip() or None,
     help="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check (default: BRIDGE_DEPOSITS_DB env var)",
 )
 @click.option("--rpc-url", default=None, help="Sepolia JSON-RPC endpoint — enables eth-chain checks")

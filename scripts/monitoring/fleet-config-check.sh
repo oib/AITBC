@@ -828,6 +828,8 @@ if [ -z "$SEPOLIA_HEAD" ]; then
     echo "  WARNING: Sepolia head fetch failed — cursor liveness skipped"
 else
     for h in $HOSTS; do
+        # BRIDGE_DEPOSITS_DB is expanded here, on the machine running the check —
+        # it is not read on the checked host (the remote env is not consulted).
         probe=$(sshr "${RESOLVED[$h]:-$h}" \
             "systemctl is-active aitbc-bridge-monitor 2>/dev/null; \
              python3 -c 'import sqlite3; c=sqlite3.connect(\"file:${BRIDGE_DEPOSITS_DB:-/var/lib/aitbc/bridge_deposits.db}?mode=ro\",uri=True); d=dict(c.execute(\"SELECT key,value FROM bridge_cursor\")); print(d.get(\"last_processed_block\",\"\"))' 2>/dev/null" \
