@@ -8,8 +8,6 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from aitbc.rate_limiting import rate_limit
-
 from ..messaging import (
     messaging_get,
     messaging_messages,
@@ -22,19 +20,16 @@ router = APIRouter(prefix="/messaging", tags=["messaging"])
 
 
 @router.get("/state", summary="Forum index state")
-@rate_limit(rate=200, per=60)
 async def state_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     return await messaging_state(request, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/topics", summary="List forum topics")
-@rate_limit(rate=200, per=60)
 async def topics_route(request: Request, limit: int = 50, offset: int = 0, chain_id: str | None = None) -> dict[str, Any]:
     return await messaging_topics(request, limit=limit, offset=offset, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/messages", summary="List forum messages")
-@rate_limit(rate=200, per=60)
 async def messages_route(
     request: Request,
     topic: str | None = None,
@@ -51,7 +46,6 @@ async def messages_route(
 
 # Declared before /messages/{tx_hash} so the literal path wins.
 @router.get("/messages/search", summary="Search message bodies")
-@rate_limit(rate=200, per=60)
 async def search_route(
     request: Request,
     query: str | None = None,
@@ -67,6 +61,5 @@ async def search_route(
 
 
 @router.get("/messages/{tx_hash}", summary="Get one forum message")
-@rate_limit(rate=200, per=60)
 async def message_route(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     return await messaging_get(request, tx_hash, chain_id=chain_id)  # type: ignore[no-any-return]
