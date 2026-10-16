@@ -278,23 +278,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.height) {
                 document.getElementById('chain-height').textContent = data.height;
             }
-
-            document.getElementById('node-status').textContent = 'Connected';
-            document.getElementById('node-status').style.color = 'var(--success)';
         } catch (error) {
             console.error('Error updating chain stats:', error);
-            document.getElementById('node-status').textContent = 'Disconnected';
-            document.getElementById('node-status').style.color = 'var(--error-color)';
         }
     }
-
-    // Auto-refresh every 30 seconds to recover from temporary disconnections
-    setInterval(() => {
-        if (document.getElementById('node-status').textContent === 'Disconnected') {
-            console.log('Auto-retrying connection...');
-            refreshData();
-        }
-    }, 30000);
 
     // Clear search
     function clearSearch() {
