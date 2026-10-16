@@ -280,3 +280,67 @@ class TestDigestCacheKey:
         import aitbc_chain.messaging_metrics as mm
 
         assert checkpoint_digest(session, CHAIN, 4) == mm._scan_digest(session, CHAIN, 4)
+
+
+class TestDigestSingleFlight:
+    """MSG-6b item 2: concurrent cold scans share one computation."""
+
+    def _stub(self, monkeypatch, slow=None, fail_first=False):
+        import aitbc_chain.messaging_metrics as mm
+        from aitbc_chain.messaging_index import _MOD_CACHE
+
+        _MOD_CACHE.clear()
+        calls = {"n": 0}
+        monkeypatch.setattr(mm, "_digest_key_hash", lambda s, c, cp: "fixedkey")
+
+        def fake_scan(session, chain_id, checkpoint):
+            calls["n"] += 1
+            if fail_first and calls["n"] == 1:
+                raise RuntimeError("boom")
+            if slow:
+                slow.wait()
+            return "d" * 64
+
+        monkeypatch.setattr(mm, "_scan_digest", fake_scan)
+        return calls
+
+    def test_concurrent_callers_scan_once(self, session, monkeypatch):
+        import threading
+        import time
+
+        calls = self._stub(monkeypatch)
+
+        def fake_scan(session, chain_id, checkpoint):
+            calls["n"] += 1
+            time.sleep(0.2)
+            return "d" * 64
+
+        import aitbc_chain.messaging_metrics as mm
+
+        monkeypatch.setattr(mm, "_scan_digest", fake_scan)
+        results: list[str] = []
+        errors: list[Exception] = []
+        threads = [
+            threading.Thread(
+                target=lambda: results.append(checkpoint_digest(session, CHAIN, 4))  # noqa: B023
+            )
+            for _ in range(6)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+        assert not errors
+        assert results == ["d" * 64] * 6
+        assert calls["n"] == 1
+
+    def test_failing_first_caller_does_not_wedge(self, session, monkeypatch):
+        calls = self._stub(monkeypatch, fail_first=True)
+        import pytest as _pytest
+
+        with _pytest.raises(RuntimeError):
+            checkpoint_digest(session, CHAIN, 4)
+        assert calls["n"] == 1
+        # The lock is released; the next caller scans and succeeds.
+        assert checkpoint_digest(session, CHAIN, 4) == "d" * 64
+        assert calls["n"] == 2
