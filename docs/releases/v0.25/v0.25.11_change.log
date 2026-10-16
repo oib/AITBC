@@ -871,3 +871,4 @@ reported, not ignored.
 
 ### O-7
 - docs(ops): bridge funding-source migration plan — separate the BRIDGE_FUNDING_SOURCES sender wallet from the hot treasury/proposer key before mainnet (plan only, nothing executed)
+- docs(ops): correct the plan's "0x02B8 key still loaded" finding — read-only env check on hub 16 Oct shows PROPOSER_KEY/VALIDATOR_KEYS hold only 0x2aD5… in both env files; the journal proposer=0x02B8 line is the genesis label. Step 9 marked no-action-needed with the check documented as Phase 0

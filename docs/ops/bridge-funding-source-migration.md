@@ -7,9 +7,10 @@ authorizations. Prepared 16 Oct 2026 from `origin/main` (`b435f3ee9`)
 plus read-only hub inventory.
 
 Goal: `BRIDGE_FUNDING_SOURCES` on hub currently names the treasury /
-genesis address `0x02B8F2C61DB19B04aB68cfb43d0605e63dE74c5b`, whose key
-is loaded in internet-facing processes. Before mainnet the funding sender
-must be a separate wallet whose key never lives on a node.
+genesis address `0x02B8F2C61DB19B04aB68cfb43d0605e63dE74c5b`. Before
+mainnet the funding sender must be a separate wallet whose key never
+lives on a node. (The 0x02B8 *key* is no longer loaded by any hub
+service — verified 16 Oct 2026, see section 2.)
 
 ## 1. Inventory — where the address or key appears
 
@@ -19,7 +20,7 @@ must be a separate wallet whose key never lives on a node.
 |---|---|---|---|
 | `/etc/aitbc/aitbc-bridge-monitor.env` | `BRIDGE_FUNDING_SOURCES=0x02b8…4c5b` | `bridge_monitor/main.py` → allowlist of ETH senders whose inflows record `FUNDING` (never paid out) | a top-up from the *new* wallet while the old address is still listed still records `FUNDING`; a top-up from an address **not** listed takes the deposit path and fails (missing recipient) |
 | `/etc/aitbc/node.env` + ~12 other env files | `GENESIS_WALLET_ADDRESS=0x02B8…` (address only) | informational / genesis labelling across `blockchain.env`, `exchange.env`, `aitbc-*` envs | nothing — it is an address string, not a key or an allowlist entry |
-| `/etc/aitbc/aitbc-blockchain-node.env`, `validator-secrets.env` | `PROPOSER_KEY` / `VALIDATOR_KEYS` | **the 0x02B8 key is still loaded by `aitbc-blockchain-node`** — journal since the 12 Oct rotation still shows `proposer=0x02B8F2C6…` | removing the key without rotating the validator set breaks hub block production/attestation |
+| `/etc/aitbc/aitbc-blockchain-node.env`, `validator-secrets.env` | `PROPOSER_KEY` / `VALIDATOR_KEYS` | **verified 16 Oct 2026: both files hold only the `0x2aD5…` key (hub's live identity); the 0x02B8 key is absent.** The journal line `proposer=0x02B8F2C6…` that suggested otherwise is the genesis block's historical proposer label (`Genesis block already exists: height=0 …`), printed once per node start — not a loaded key | nothing — the old key is already gone; step 9 is a confirm-only check |
 | `/root/.aitbc/wallets/treasury` | keystore file, root-only | on-demand `aitbc wallet` CLI | nothing running; not a daemon load |
 | `/etc/aitbc/blockchain-secrets.env` | `WALLET_IMPORT_PASSWORD` | wallet import path | unrelated to the address change |
 | `/etc/aitbc/exchange.env` | `SELL_TREASURY_ADDRESS`, `SELL_ESCROW_FUNDING_SOURCES=0x34FF…9267` | exchange sell side — a **different** wallet already | none; the sell-side funding source was already separated — it is the model to mirror |
@@ -40,12 +41,18 @@ must be a separate wallet whose key never lives on a node.
 
 ## 2. Which processes load the key today
 
-- **`aitbc-blockchain-node` (hub)** — holds the 0x02B8 key as
-  `PROPOSER_KEY`/in `VALIDATOR_KEYS`; **internet-facing** (p2p, consensus
-  gossip). Post-rotation hub attests as `0x2aD5…`, but `proposer=0x02B8…`
-  still appears in the journal — the old key may still be in the unit's
-  env even though the active validator identity moved. Confirm which env
-  var still carries it before removal (name-only check is fine).
+- **`aitbc-blockchain-node` (hub)** — **verified 16 Oct 2026:** the
+  unit's `EnvironmentFile=` list is `aitbc-blockchain-node.env`,
+  `blockchain.env`, `node.env`, `blockchain-secrets.env`,
+  `validator-secrets.env`. `PROPOSER_KEY` and `VALIDATOR_KEYS` (in both
+  `aitbc-blockchain-node.env` and `validator-secrets.env`) each derive to
+  `0x2aD555A9e5208A6438b24FbdA4BC83c4c2453e64` — hub's own post-rotation
+  identity, and no other node's key. The 0x02B8 key is **not** present.
+  The `proposer=0x02B8F2C6…` journal line is the genesis block's
+  historical proposer label (`Genesis block already exists: height=0
+  …`), printed once per node start — it is not evidence of a loaded key.
+  (Earlier wording inferred a loaded key from that line; that inference
+  was wrong.)
 - **`aitbc` wallet CLI as root** — `/root/.aitbc/wallets/treasury`
   keystore, on-demand only; not a resident process.
 - **`aitbc-wallet` service** — binds `127.0.0.1` (unit overrides
@@ -55,9 +62,9 @@ must be a separate wallet whose key never lives on a node.
   (payout wallet `0x356d…`), **not** the funding key. It only *matches*
   the funding address; it never signs from it.
 
-Internet-facing summary: the key is hot exactly where it should not be —
-the p2p consensus daemon — plus an offline CLI keystore. The monitor only
-needs the *address*.
+Internet-facing summary: the treasury key is **not** hot in the p2p
+consensus daemon (verified 16 Oct 2026); the only remaining copy is the
+offline CLI keystore. The monitor only needs the *address*.
 
 ## 3. Migration steps (in order)
 
@@ -91,12 +98,25 @@ needs the *address*.
    `docs/ops/bridge-canary-runbook.md`, `docs/decisions/README.md` O-7
    row (mark the move done, keep the record).
 9. **[operator]** Retire the 0x02B8 key from `aitbc-blockchain-node`'s
-   env (`PROPOSER_KEY`/`VALIDATOR_KEYS`) — **only after confirming the
-   active validator/proposer identity is `0x2aD5…`** and the 0x02B8
-   material is vestigial. This is cleanup, not rotation: the validator
-   set already rotated 12 Oct. Then `systemctl restart
-   aitbc-blockchain-node` on hub — hub node restarts are *not* in the
-   standing authorization; this step needs its own operator line.
+   env (`PROPOSER_KEY`/`VALIDATOR_KEYS`) — **no action needed, confirmed
+   16 Oct 2026**: the check below already found only `0x2aD5…` keys. If a
+   future re-check finds the key back, this is cleanup, not rotation:
+   the validator set already rotated 12 Oct. A removal plus
+   `systemctl restart aitbc-blockchain-node` on hub would then need its
+   own operator line (hub node restarts are *not* in the standing
+   authorization).
+
+   - **Phase 0 — repeat the read-only check before assuming.** Do not
+     trust the journal's `proposer=` string (the genesis line always
+     names the historical proposer). Instead list the unit's
+     `EnvironmentFile=` entries (`systemctl cat
+     aitbc-blockchain-node`), then for each file derive the public
+     address of `PROPOSER_KEY` and every `VALIDATOR_KEYS` entry inside
+     one short-lived process that prints only `NAME -> 0xADDRESS` —
+     the key material must never reach stdout, a log, shell history, or
+     a file (run e.g.
+     `ssh hub '/opt/aitbc/venv/bin/python -' < derive.py`). Compare the
+     results against `0x02B8…4c5b` (old) and `0x2aD5…` (live).
 10. **[operator]** When confident nothing needs the old address, shrink
     the allowlist to `F` alone (if step 2 chose overlap) and repeat
     step 4–5.
@@ -124,9 +144,9 @@ BRIDGE_FUNDING_SOURCES=S  (in a staging env, never live)
 #   still fails on missing recipient exactly as documented
 ```
 
-Also rehearse step 9 on hub *read-only*: `systemctl cat
-aitbc-blockchain-node` + journal grep for `proposer=` to prove which key
-the unit actually loads before touching it.
+Step 9's Phase 0 (the read-only env/derived-address check) was already
+run 16 Oct 2026 and found the key absent; repeat it rather than trusting
+the journal before any removal.
 
 ## 5. Risks and their checks
 
@@ -136,7 +156,7 @@ the unit actually loads before touching it.
 | float alerts during the move — `BRIDGE_LOW_FLOAT_AIT=250` vs ~746.8 AIT balance | read payout-wallet balance before and after; the alert counts balance minus non-terminal payout rows — an in-flight top-up is unaffected either way |
 | in-flight top-up misclassified during the env swap | keep overlap posture (step 2) until the new sender is proven; check no `FAILED` row appears in the ledger between steps 4 and 6 |
 | hub restart timing — `aitbc-bridge-monitor` `Requires=aitbc-blockchain-rpc` | restart monitor alone, never rpc; if rpc restarts for another reason the monitor follows automatically |
-| key still needed for consensus — removing 0x02B8 from `PROPOSER_KEY` while it is still the active proposer stalls hub block production | journal check shows hub attests as `0x2aD5…` today; do step 9 only after a named hub-node-restart line exists |
+| key still needed for consensus — removing 0x02B8 from `PROPOSER_KEY` while it is still the active proposer stalls hub block production | moot as of 16 Oct 2026: the env check found only `0x2aD5…` keys; if the key ever reappears, run step 9 Phase 0 and require a named hub-node-restart line before touching it |
 | `fleet-config-check.sh` drift alert — the var is compared across hosts | verify the script only expects it where the monitor runs (hub); if it flags followers, the fix belongs to the check, not the env |
 
 ## Out of scope (unchanged)
