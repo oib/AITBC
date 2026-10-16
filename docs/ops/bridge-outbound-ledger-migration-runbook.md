@@ -263,6 +263,15 @@ The other two rows the collector could not classify (~0.000166 ETH to
 operator's line after read-only joins matched them to
 `bridge_sell_locks` and `exchange_settlements`.
 
+Named residual inside that deficit: `deposit_77bcbbf6`
+(`0xE7Bb…B6A6`, 0.0015 ETH, status `completed` — AIT paid out 29 Sep)
+was later sent back **0.004 ETH** (`0xacc422a9…`), a 0.0025 ETH
+over-refund on an already-settled deposit — **no recovery action taken
+(Sepolia ETH, operator ruling)**. It is documented here rather than as
+a `bridge_outbound` row because the ledger deliberately covers only
+post-writer outflows; a lone pre-ledger `refund` row would look like
+completeness the ledger does not have.
+
 ### Downgrade
 
 Delete exactly the inserted rows — additive rows only. Build the DELETE
