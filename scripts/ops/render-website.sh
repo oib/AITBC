@@ -65,6 +65,34 @@ NEW_CHAIN_ID="$(value_of WEBSITE_CHAIN_ID "$ENV_FILE")"
 NEW_DOMAIN="${NEW_DOMAIN:-$DEFAULT_DOMAIN}"
 NEW_CHAIN_ID="${NEW_CHAIN_ID:-$DEFAULT_CHAIN_ID}"
 
+# Operator contact line: messages.html carries an aitbc-contact marked
+# region that every render rewrites from CONTACT_EMAIL — emptied when the
+# variable is unset, so adding the address later is an env edit + render,
+# not a repo change. Charset is email-shaped to keep markup injection out.
+NEW_CONTACT="$(value_of CONTACT_EMAIL "$ENV_FILE")"
+if [ -n "$NEW_CONTACT" ]; then
+    [[ "$NEW_CONTACT" =~ ^[A-Za-z0-9._%+@-]+$ ]] \
+        || { echo "Invalid CONTACT_EMAIL: $NEW_CONTACT" >&2; exit 1; }
+fi
+_contact_file="$WEB_DIR/messages.html"
+if [ -f "$_contact_file" ] && grep -q "aitbc-contact:start" "$_contact_file"; then
+    if [ -n "$NEW_CONTACT" ]; then
+        _contact_inner="To report illegal or abusive content, contact <a href=\"mailto:${NEW_CONTACT}\">${NEW_CONTACT}</a> with the topic name and the message's transaction hash."
+    else
+        _contact_inner=""
+    fi
+    python3 - "$_contact_file" "$_contact_inner" <<'PYEOF'
+import re
+import sys
+
+path, inner = sys.argv[1], sys.argv[2]
+text = open(path).read()
+region = re.compile(r"(<!-- aitbc-contact:start -->).*?(<!-- aitbc-contact:end -->)", re.S)
+body = ("\n                " + inner + "\n                ") if inner else "\n                "
+open(path, "w").write(region.sub(lambda m: m.group(1) + body + m.group(2), text, count=1))
+PYEOF
+fi
+
 # Conservative charset: these values are substituted into sed patterns and
 # markup; anything outside it is a config error, not something to escape.
 [[ "$NEW_DOMAIN" =~ ^[a-z0-9][a-z0-9.-]*$ ]] \
