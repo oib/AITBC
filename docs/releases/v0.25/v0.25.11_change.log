@@ -748,3 +748,21 @@ reported, not ignored.
   ``tx_hash`` rows with bare env fields and re-proves parent resolution,
   both-form lookups, vote scoring, hide/pin, locked-subtree walks and
   reputation. The live vote at 0x782b…03cc reads correctly once deployed.
+
+### MSG-FIX-3 — residuals from the MSG-FIX-2/MSG-4b/MSG-9/BR-6 read
+
+- messaging_index._resolve_parents: item's premise did not hold —
+  stored tx_hash can be 0x-prefixed (MSG-2d/bd10f1606 proves it), so
+  the plain-column change was not made; only an extra case test was
+  added. Reported, not "fixed".
+- CLI: reputation, moderators and the action dry-run/submitted echoes
+  now go through sanitize_chain_obj like the other messaging reads
+  (a chain-resolved topic can carry hostile text).
+- textsafety: U+E0100-U+E01EF variation selectors and blank fillers
+  U+3164/U+115F/U+1160/U+FFA0/U+2800 neutralised (operator pick b);
+  BMP U+FE00-U+FE0F kept for emoji. messages.js in parity.
+- docs: call_aitbc_http documented as returning raw bodies; the
+  body-cap/fee wording in messaging-spam-economics.md now matches
+  the code (admission+index visible, not consensus); the BR-6 runbook
+  gains a missing-code precondition, a re-derivation caveat and the
+  note-column loss warning.
