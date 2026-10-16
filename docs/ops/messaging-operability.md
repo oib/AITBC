@@ -84,9 +84,10 @@ validity and canonical order, so during a rollout that adds envelope
 kinds (like the MSG-2 action kinds), old builds judge the new kinds
 invalid and derive a different digest — a mismatch is EXPECTED until the
 whole fleet runs the same build. Before treating it as real divergence,
-compare `git rev-parse --short HEAD` and the `aitbc-blockchain-node`
-start time on every host; a uniform fleet with matching digests is what
-proves the rollout is done. Note also what the digest does *not* cover:
+compare `git rev-parse --short HEAD` and the `aitbc-blockchain-rpc`
+start time on every host (the index and /metrics live in the rpc
+service); a uniform fleet with matching digests is what proves the
+rollout is done. Note also what the digest does *not* cover:
 derived moderation state (hidden/pinned/locked views) — it detects
 different sealed input or different validity code, not different
 moderation computation.
