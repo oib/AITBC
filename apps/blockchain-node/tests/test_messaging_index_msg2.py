@@ -662,3 +662,101 @@ class TestWrongTopicVotePartition:
         assert listed[post]["score"] == 1 and listed[other]["score"] == -1
         rep = reputation(session, CHAIN, ALICE)
         assert rep["reputation"] == 1 - 1 == 0
+
+
+@pytest.fixture(autouse=True)
+def _clear_read_cache():
+    """The MSG-2b read cache is module-global and keyed on (chain, topic,
+    head) — clear it between tests so no state leaks across sessions."""
+    import aitbc_chain.messaging_index as mi
+
+    with mi._MOD_CACHE_LOCK:
+        mi._MOD_CACHE.clear()
+    yield
+
+
+class TestReadCache:
+    """MSG-2b item 3: moderation state and locked descendants are cached
+    per (chain, topic, index height, head hash)."""
+
+    def _seed_locked(self, session):
+        post = _tx(session, 10, 0x10, ALICE, _env("post", sender=ALICE, body="hi"))
+        _tx(session, 10, 0x11, BOB, _env("reply", sender=BOB, parent=post, body="r1"))
+        _tx(session, 11, 0x20, ALICE, _env("lock", sender=ALICE, target=post))
+        return post
+
+    def test_two_reads_one_height_derive_once(self, session, monkeypatch):
+        import aitbc_chain.messaging_index as mi
+
+        self._seed_locked(session)
+        calls = {"mod": 0, "desc": 0}
+        real_mod, real_desc = mi.moderation_state, mi._locked_descendants
+        monkeypatch.setattr(
+            mi, "moderation_state", lambda *a, **k: (calls.__setitem__("mod", calls["mod"] + 1), real_mod(*a, **k))[1]
+        )
+        monkeypatch.setattr(
+            mi, "_locked_descendants", lambda *a, **k: (calls.__setitem__("desc", calls["desc"] + 1), real_desc(*a, **k))[1]
+        )
+        assert topic_moderation(session, CHAIN, "dev") is not None
+        list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        list_topics(session, CHAIN)
+        assert calls == {"mod": 1, "desc": 1}
+
+    def test_new_block_rederives(self, session, monkeypatch):
+        import aitbc_chain.messaging_index as mi
+
+        self._seed_locked(session)
+        calls = {"n": 0}
+        real_mod = mi.moderation_state
+        monkeypatch.setattr(
+            mi, "moderation_state", lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), real_mod(*a, **k))[1]
+        )
+        topic_moderation(session, CHAIN, "dev")
+        _block(session, 12)
+        topic_moderation(session, CHAIN, "dev")
+        assert calls["n"] == 2
+
+    def test_same_height_different_head_hash_misses(self, session, monkeypatch):
+        import aitbc_chain.messaging_index as mi
+
+        self._seed_locked(session)
+        calls = {"n": 0}
+        real_mod = mi.moderation_state
+        monkeypatch.setattr(
+            mi, "moderation_state", lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), real_mod(*a, **k))[1]
+        )
+        topic_moderation(session, CHAIN, "dev")
+        # Simulate a replaced head block at the same height (fork heal).
+        head = session.exec(select(Block).where(col(Block.chain_id) == CHAIN, col(Block.height) == 11)).one()
+        head.hash = "ab" * 32
+        session.commit()
+        topic_moderation(session, CHAIN, "dev")
+        assert calls["n"] == 2
+
+    def test_cached_equals_uncached(self, session):
+        import aitbc_chain.messaging_index as mi
+
+        post = self._seed_locked(session)
+        _tx(session, 11, 0x21, ALICE, _env("hide", sender=ALICE, target=post))
+        warm = {
+            "topics": list_topics(session, CHAIN),
+            "mod": topic_moderation(session, CHAIN, "dev"),
+            "msgs": list_messages(session, CHAIN, topic="dev", include_hidden=True),
+        }
+        with mi._MOD_CACHE_LOCK:
+            mi._MOD_CACHE.clear()
+        cold = {
+            "topics": list_topics(session, CHAIN),
+            "mod": topic_moderation(session, CHAIN, "dev"),
+            "msgs": list_messages(session, CHAIN, topic="dev", include_hidden=True),
+        }
+        assert warm == cold
+
+    def test_cache_returns_copies(self, session):
+        self._seed_locked(session)
+        first = topic_moderation(session, CHAIN, "dev")
+        first["moderators"].append("mutant")
+        first["actions"].append({"kind": "x"})
+        second = topic_moderation(session, CHAIN, "dev")
+        assert "mutant" not in second["moderators"]
+        assert all(a["kind"] != "x" for a in second["actions"])

@@ -47,9 +47,13 @@ still never *surface* as a listed message.
 
 from __future__ import annotations
 
+import copy
 import re
+import threading
+from collections import OrderedDict
 from types import SimpleNamespace
 from typing import Any
+import typing
 
 from sqlalchemy import LargeBinary, and_, cast, column, desc, func, not_, or_
 from sqlalchemy import select as sa_select
@@ -563,7 +567,7 @@ def list_topics(
     times = _block_timestamps(session, chain_id, (r.last_block_height for r in page_rows))
     topics = []
     for r in page_rows:
-        st = moderation_state(session, chain_id, r.topic)
+        st = _cached_moderation_state(session, chain_id, r.topic)
         hidden = _hidden_map(st)
         pinned = _pinned_map(st)
         locked = st.topic_lock is not None and st.topic_lock[0] == "lock"
@@ -940,6 +944,74 @@ def _walk_locked_subtree(
         frontier = nxt
 
 
+# -- Read-cost cache (MSG-2b) -------------------------------------------------
+# Moderation state and locked-descendant maps are pure derivations of the
+# sealed rows, so they can be cached per (chain, topic, index head). The head
+# *hash* is part of the key: a replaced block at the same height (fork heal)
+# changes it and therefore misses. Memory-only, bounded LRU, thread-safe;
+# callers always get a deep copy so cached state can never be mutated through
+# a returned object.
+
+_MOD_CACHE_SIZE = 256
+_MOD_CACHE_LOCK = threading.Lock()
+_MOD_CACHE: OrderedDict[tuple[str, str, str, int, str], Any] = OrderedDict()
+
+
+def _index_head(session, chain_id: str) -> tuple[int, str]:
+    """(height, block hash) of the index head — the cache-key component."""
+    row = session.exec(
+        select(col(Block.height), col(Block.hash))
+        .where(col(Block.chain_id) == chain_id)
+        .order_by(col(Block.height).desc())
+        .limit(1)
+    ).first()
+    if row is None:
+        return 0, ""
+    return int(row[0]), str(row[1])
+
+
+def _mod_cache_get(key: tuple[str, str, str, int, str]) -> Any:
+    with _MOD_CACHE_LOCK:
+        hit = _MOD_CACHE.get(key)
+        if hit is not None:
+            _MOD_CACHE.move_to_end(key)
+            return copy.deepcopy(hit)
+    return None
+
+
+def _mod_cache_put(key: tuple[str, str, str, int, str], value: Any) -> Any:
+    with _MOD_CACHE_LOCK:
+        _MOD_CACHE[key] = value
+        _MOD_CACHE.move_to_end(key)
+        while len(_MOD_CACHE) > _MOD_CACHE_SIZE:
+            _MOD_CACHE.popitem(last=False)
+    return copy.deepcopy(value)
+
+
+def _cached_moderation_state(session, chain_id: str, topic: str) -> _ModState:
+    h, head_hash = _index_head(session, chain_id)
+    key = ("mod", chain_id, topic, h, head_hash)
+    hit = _mod_cache_get(key)
+    if hit is not None:
+        return typing.cast(_ModState, hit)
+    return typing.cast(_ModState, _mod_cache_put(key, moderation_state(session, chain_id, topic)))
+
+
+def _cached_locked_descendants(
+    session, chain_id: str, topic: str, locked_roots: dict[str, tuple[int, str]]
+) -> dict[str, tuple[int, str]]:
+    if not locked_roots:
+        return {}
+    h, head_hash = _index_head(session, chain_id)
+    key = ("desc", chain_id, topic, h, head_hash)
+    hit = _mod_cache_get(key)
+    if hit is not None:
+        return typing.cast(dict[str, tuple[int, str]], hit)
+    return typing.cast(
+        dict[str, tuple[int, str]], _mod_cache_put(key, _locked_descendants(session, chain_id, topic, locked_roots))
+    )
+
+
 def _standing_votes(session, chain_id: str, *, targets: list[str] | None = None, topic: str | None = None):
     """Exact standing votes — SQL window, last-in-canonical-order wins.
 
@@ -1034,11 +1106,11 @@ def _moderation_fields(
     after-lock rows drop out of the default view; with ``include_hidden``
     they are returned flagged, body withheld.
     """
-    st = moderation_state(session, chain_id, topic)
+    st = _cached_moderation_state(session, chain_id, topic)
     hidden = _hidden_map(st)
     pinned = _pinned_map(st)
     locked_roots = _locked_roots(st)
-    descendants = _locked_descendants(session, chain_id, topic, locked_roots)
+    descendants = _cached_locked_descendants(session, chain_id, topic, locked_roots)
     msgs: list[dict[str, Any]] = []
     pins: list[dict[str, Any]] = []
     for m in items:
@@ -1092,7 +1164,7 @@ def message_votes(session, chain_id: str, tx_hash: str) -> dict[str, Any]:
 def topic_moderation(session, chain_id: str, topic: str) -> dict[str, Any] | None:
     """Moderator set + locks + recent actions for one topic. None if no topic."""
     canonical = topic
-    st = moderation_state(session, chain_id, canonical)
+    st = _cached_moderation_state(session, chain_id, canonical)
     if st.founder is None:
         return None
     hidden = _hidden_map(st)
