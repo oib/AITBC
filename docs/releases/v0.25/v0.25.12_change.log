@@ -53,3 +53,13 @@
   refusing the whole deploy; the drift check still reports it separately.
 - `d9ff3f18` — STATUS.md: the v0.25.5 row moves back between v0.25.4 and
   v0.25.6; it had drifted to the bottom of the v0.25 block.
+
+### DEPS-4: mcp 2.2.0, mako 1.4.3, urllib3 2.8.0 — dependabot tail
+
+- `d50b0fd4` — clears the fixable Python advisories: mcp >= 2.2.0 (root
+  pin + lock), mako >= 1.4.2 (transitive via alembic/pycuda, lands at
+  1.4.3), urllib3 >= 2.8.0 in aitbc-agent-sdk (transitive via requests).
+  requirements.txt regenerated from the lock; mcp-server and agent-sdk
+  suites pass. Left standing: braces and sprintf-js advisories have no
+  patched release upstream; the python-jose alert references
+  apps/ai-service, a manifest that no longer exists on main.
