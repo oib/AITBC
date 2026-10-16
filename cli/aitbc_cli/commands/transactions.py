@@ -614,53 +614,63 @@ def search(address: str, sender: str, recipient: str, limit: int, use_explorer: 
         if sender or recipient:
             error("The Explorer API cannot filter by sender or recipient. Omit --use-explorer to use the RPC path.")
             return
-        try:
-            config = get_config()
-            http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
-            params = {"address": address, "limit": limit}
-            result = http_client.get("/api/transactions/search", params=params)
-            transactions = result.get("transactions", [])
-            success(f"Found {len(transactions)} transactions for {address} (via Explorer)")
-            click.echo(json.dumps(transactions, indent=2))
-        except NetworkError as e:
-            error(f"Explorer API unavailable: {e}")
-        except Exception as e:
-            error(f"Error searching transactions: {e}")
+        _search_via_explorer(address, limit)
     else:
-        try:
-            http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=30)
-            transactions = http_client.get_json("/rpc/transactions", params={**filters, "limit": limit})
-            if not isinstance(transactions, list):
-                error("Unexpected response shape from /rpc/transactions (expected a JSON array).")
-                return
+        _search_via_rpc(filters, sender, recipient, limit, rpc_url)
 
-            # A node that has not been restarted since sender/recipient landed
-            # silently ignores those params and returns either-side rows —
-            # verify locally rather than present a wrong answer confidently.
-            def _matches(row: object, key: str, want: str) -> bool:
-                if not isinstance(row, dict):
-                    return False
-                return str(row.get(key, "")).lower() == want.lower()
 
-            if sender or recipient:
-                kept = [
-                    r
-                    for r in transactions
-                    if (not sender or _matches(r, "sender", sender)) and (not recipient or _matches(r, "recipient", recipient))
-                ]
-                dropped = len(transactions) - len(kept)
-                if dropped:
-                    warning(
-                        f"node returned {dropped} rows that did not match the filter "
-                        "(rpc not yet restarted with the sender/recipient filter?); "
-                        "results were filtered locally, and `limit` applied before "
-                        "the filter, so the list may be incomplete"
-                    )
-                transactions = kept
-            names = "+".join(filters)
-            success(f"Found {len(transactions)} transactions matching {names} (via RPC)")
-            click.echo(json.dumps(transactions, indent=2))
-        except NetworkError as e:
-            error(f"RPC unavailable: {e}")
-        except Exception as e:
-            error(f"Error searching transactions: {e}")
+def _search_via_explorer(address: str, limit: int) -> None:
+    try:
+        config = get_config()
+        http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
+        params = {"address": address, "limit": limit}
+        result = http_client.get("/api/transactions/search", params=params)
+        transactions = result.get("transactions", [])
+        success(f"Found {len(transactions)} transactions for {address} (via Explorer)")
+        click.echo(json.dumps(transactions, indent=2))
+    except NetworkError as e:
+        error(f"Explorer API unavailable: {e}")
+    except Exception as e:
+        error(f"Error searching transactions: {e}")
+
+
+def _row_matches(row: object, key: str, want: str) -> bool:
+    if not isinstance(row, dict):
+        return False
+    return str(row.get(key, "")).lower() == want.lower()
+
+
+def _search_via_rpc(filters: dict, sender: str | None, recipient: str | None, limit: int, rpc_url: str | None) -> None:
+    try:
+        http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=30)
+        transactions = http_client.get_json("/rpc/transactions", params={**filters, "limit": limit})
+        if not isinstance(transactions, list):
+            error("Unexpected response shape from /rpc/transactions (expected a JSON array).")
+            return
+
+        # A node that has not been restarted since sender/recipient landed
+        # silently ignores those params and returns either-side rows —
+        # verify locally rather than present a wrong answer confidently.
+        if sender or recipient:
+            kept = [
+                r
+                for r in transactions
+                if (not sender or _row_matches(r, "sender", sender))
+                and (not recipient or _row_matches(r, "recipient", recipient))
+            ]
+            dropped = len(transactions) - len(kept)
+            if dropped:
+                warning(
+                    f"node returned {dropped} rows that did not match the filter "
+                    "(rpc not yet restarted with the sender/recipient filter?); "
+                    "results were filtered locally, and `limit` applied before "
+                    "the filter, so the list may be incomplete"
+                )
+            transactions = kept
+        names = "+".join(filters)
+        success(f"Found {len(transactions)} transactions matching {names} (via RPC)")
+        click.echo(json.dumps(transactions, indent=2))
+    except NetworkError as e:
+        error(f"RPC unavailable: {e}")
+    except Exception as e:
+        error(f"Error searching transactions: {e}")
