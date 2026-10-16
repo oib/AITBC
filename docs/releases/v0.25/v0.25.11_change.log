@@ -677,6 +677,11 @@ reported, not ignored.
   preconditions marked, and two reported defects (MAX_BRIDGE_AMOUNT
   never enforced; validator weight unused). No Solidity changed; BR-1
   stays parked until a mainnet decision.
+- docs/contracts/bridge-sepolia-rehearsal.md: second Sepolia run 16 Oct
+  against the hardened post-BR-11 deploy script — new bridge
+  0xfbDd3Dc5… deployed to the existing rehearsal Safe, owner/paused/
+  feeRecipient read-backs green, negative checks refused as expected.
+  Rehearsal only; BR-1 itself still waits on the mainnet decision.
 
 ### BR-1 defect 3 (operator review)
 
