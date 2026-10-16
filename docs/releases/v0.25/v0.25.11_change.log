@@ -766,3 +766,11 @@ reported, not ignored.
   the code (admission+index visible, not consensus); the BR-6 runbook
   gains a missing-code precondition, a re-derivation caveat and the
   note-column loss warning.
+
+### BR-1b
+
+- docs/contracts/cross-chain-bridge-deployment.md: pre-flight 1 rewritten to
+  match the rehearsal tooling — track expected nonce from own sealed execs,
+  poll getNonce() to it (20 x 1500ms), refuse on timeout, pin via
+  options.nonce; check 3 now states blockTag is pinned at the receipt block
+  and polled. No code change; BR-1 stays testnet-parked.
