@@ -146,7 +146,7 @@ def test_reputation_sanitises_chain_text(runner):
     client.get.side_effect = lambda url: {
         "address": "0xabc​def",
         "reputation": 3,
-        "topics": {"dev‮x": 2},
+        "topics": {"dev": "‮2"},
     }
     with (
         patch(f"{MOD}._resolve_transaction_rpc_url", return_value="http://rpc"),
@@ -155,7 +155,7 @@ def test_reputation_sanitises_chain_text(runner):
         result = _invoke(runner, ["reputation", "0xabcdef"])
     body = _payload(result)
     assert body["address"] == "0xabc[U+200B]def"
-    assert "dev[U+202E]x" in body["topics"]
+    assert body["topics"]["dev"] == "[U+202E]2"
 
 
 def test_moderators_sanitises_chain_text(runner):
