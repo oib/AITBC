@@ -108,7 +108,7 @@ def derive_address(key_hex: str) -> str | None:
     raw = key_hex[2:] if key_hex.startswith(("0x", "0X")) else key_hex
     try:
         return str(keys.PrivateKey(bytes.fromhex(raw)).public_key.to_checksum_address()).lower()
-    except Exception:
+    except Exception:  # noqa: BLE001 - unparseable key material derives to None
         return None
 
 

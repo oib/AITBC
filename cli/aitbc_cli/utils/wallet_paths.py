@@ -258,5 +258,5 @@ def daemon_keystore_has(wallet_name: str) -> bool | None:
             if wallet_name in (item.get("wallet_id"), item.get("wallet_name")):
                 return True
         return False
-    except Exception:
+    except Exception:  # noqa: BLE001 - list probe — unreadable wallet index means no match
         return None

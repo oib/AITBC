@@ -337,7 +337,8 @@ def _migrate_real_to_text(conn, cursor, table_name, schema_sql, monetary_columns
     col_list = ", ".join(old_cols)
     select_list = ", ".join(select_parts)
 
-    cursor.execute(f"INSERT INTO {table_name} ({col_list}) SELECT {select_list} FROM {old_name}")  # nosec B608 - table_name validated against _ALLOWED_TABLES above; old_name/col_list derive from it and the DB's own schema, never external input
+    # table_name validated against _ALLOWED_TABLES above; old_name/col_list derive from it and the DB's own schema, never external input
+    cursor.execute(f"INSERT INTO {table_name} ({col_list}) SELECT {select_list} FROM {old_name}")  # nosec
     cursor.execute(f"DROP TABLE {old_name}")
     return True
 
@@ -400,7 +401,7 @@ def _backfill_tick_columns(cursor, table: str, columns: dict) -> None:
     null_filter = " OR ".join(f"{tick} IS NULL" for tick in tick_cols)
     src_cols = list(columns)
     # all identifiers come from the hardcoded _TICK_COLUMNS map, not input
-    cursor.execute(f"SELECT id, {', '.join(src_cols)} FROM {table} WHERE {null_filter}")  # nosec B608
+    cursor.execute(f"SELECT id, {', '.join(src_cols)} FROM {table} WHERE {null_filter}")  # nosec
     failures: list[tuple[str, object, str, str]] = []
     backfill: list[tuple[object, dict[str, int]]] = []
     for row in cursor.fetchall():
@@ -418,7 +419,7 @@ def _backfill_tick_columns(cursor, table: str, columns: dict) -> None:
     for row_id, values in backfill:
         assignments = ", ".join(f"{tick_col} = ?" for tick_col in values)
         # table/tick columns come from _TICK_COLUMNS; only values are bound
-        cursor.execute(f"UPDATE {table} SET {assignments} WHERE id = ?", (*values.values(), row_id))  # nosec B608
+        cursor.execute(f"UPDATE {table} SET {assignments} WHERE id = ?", (*values.values(), row_id))  # nosec
 
 
 def _orders_check_allows_expired(cursor) -> bool:
@@ -450,7 +451,8 @@ def _migrate_orders_status_check(cursor) -> bool:
     new_cols = {r[1] for r in cursor.execute("PRAGMA table_info(orders)").fetchall()}
     shared = [c for c in old_cols if c in new_cols]
     col_list = ", ".join(shared)
-    cursor.execute(f"INSERT INTO orders ({col_list}) SELECT {col_list} FROM {old_name}")  # nosec B608 - identifiers come from PRAGMA on the fixed 'orders' table
+    # identifiers come from PRAGMA on the fixed 'orders' table
+    cursor.execute(f"INSERT INTO orders ({col_list}) SELECT {col_list} FROM {old_name}")  # nosec
     cursor.execute(f"DROP TABLE {old_name}")
     return True
 
@@ -495,8 +497,8 @@ def _add_columns(cursor, table: str, column_defs: list) -> None:
     is skipped, which is how idempotent migrations run on existing DBs."""
     for column_def in column_defs:
         try:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")  # nosec B608 - hardcoded lists only
-        except Exception:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")  # hardcoded lists only
+        except Exception:  # nosec
             pass
 
 

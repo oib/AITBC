@@ -258,7 +258,7 @@ class IpfsRentalSweeper:
         """True when the chain reports no escrow record at all for job_id."""
         try:
             return await self._rpc_client.verify_escrow(job_id) is None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - probe containment — an unreadable escrow is transient, never absent
             logger.warning("Escrow presence probe for %s failed: %s; treating as transient", job_id, e)
             return False
 

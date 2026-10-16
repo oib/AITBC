@@ -73,7 +73,7 @@ def _wallet_address(ctx, wallet_name: str) -> str:
     path = cast(Path, report.path)
     try:
         address = json.loads(path.read_text()).get("address")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Wallet '{wallet_name}' unreadable: {e}", from_exception=e)
     if not address:
         abort(ctx, f"Wallet '{wallet_name}' carries no address field")
@@ -426,7 +426,7 @@ def list(ctx, topic, author, query, limit, offset, cursor, include_hidden, rpc_u
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Messages")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error listing messages: {e}", from_exception=e)
 
 
@@ -448,7 +448,7 @@ def topics(ctx, limit, offset, rpc_url):
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Topics")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error listing topics: {e}", from_exception=e)
 
 
@@ -568,7 +568,7 @@ def show(ctx, tx_hash, rpc_url):
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Message")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error fetching message: {e}", from_exception=e)
 
 
@@ -585,7 +585,7 @@ def _target_topic(ctx, http_client: AITBCHTTPClient, tx_hash: str) -> str:
     mismatched-topic no-op only the index would see)."""
     try:
         view = http_client.get(f"/rpc/messaging/messages/0x{tx_hash}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Cannot resolve target {tx_hash} — not a forum message ({e})", from_exception=e)
     topic = view.get("topic")
     if not topic:
@@ -604,7 +604,7 @@ def _effectiveness_now(http_client: AITBCHTTPClient, kind: str, topic: str, send
         return True
     try:
         view = http_client.get(f"/rpc/messaging/topics/{topic}/moderation")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         return f"unknown: moderation read failed ({e})"
     if view.get("authority_unresolved"):
         return "unknown: topic authority unresolved"
@@ -987,7 +987,7 @@ def reputation(ctx, address, rpc_url):
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Reputation")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error fetching reputation: {e}", from_exception=e)
 
 
@@ -1007,7 +1007,7 @@ def moderators(ctx, topic, rpc_url):
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title=f"Moderation: {topic}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error fetching moderation state: {e}", from_exception=e)
 
 
@@ -1027,7 +1027,7 @@ def state(ctx, rpc_url):
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Messaging state")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error fetching state: {e}", from_exception=e)
 
 
@@ -1186,7 +1186,7 @@ def dm_send(ctx, recipient, wallet_name, message, fee, confirm, rpc_url, passwor
 
     try:
         recipient_c = canonical_address(recipient, strict=True)
-    except Exception:
+    except ValueError:
         abort(ctx, f"Recipient '{recipient}' is not a 0x address")
     if not message:
         abort(ctx, "Empty message refused")
@@ -1197,7 +1197,7 @@ def dm_send(ctx, recipient, wallet_name, message, fee, confirm, rpc_url, passwor
     resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
     try:
         keyinfo = _rpc_client(resolved_rpc).get(f"/rpc/messaging/dm-keys/{recipient_c}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Recipient {recipient_c} has no published dm_key ({e})", from_exception=e)
     enc_pub = (keyinfo or {}).get("enc_pubkey")
     if not isinstance(enc_pub, str) or not enc_pub:
@@ -1267,7 +1267,7 @@ def dm_inbox_cmd(ctx, wallet_name, limit, cursor, rpc_url):
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="DM inbox")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error fetching inbox: {e}", from_exception=e)
 
 
@@ -1342,5 +1342,5 @@ def stats(ctx, rpc_url):
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Messaging stats")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure aborts cleanly, never tracebacks
         abort(ctx, f"Error fetching stats: {e}", from_exception=e)

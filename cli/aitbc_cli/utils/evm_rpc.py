@@ -59,7 +59,7 @@ def _masked_exc(e: Exception, rpc_url: str) -> Exception:
     masked = mask_rpc_url(str(e), rpc_url)
     try:
         return type(e)(masked)
-    except Exception:
+    except Exception:  # noqa: BLE001 - masked-exc reconstruction fallback
         return RuntimeError(masked)
 
 
@@ -99,7 +99,7 @@ def rpc_try(ctx, rpc_url: str, method: str, params: list[Any]) -> Any:
         )
         resp.raise_for_status()
         body = resp.json()
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort probe — any RPC failure returns None
         return None
     return body.get("result")
 

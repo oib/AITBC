@@ -97,7 +97,7 @@ class BridgeMonitor:
         # manual-payout, which is intentionally uncapped, or refund).
         try:
             self.max_payout_fraction = Decimal(os.getenv("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"))
-        except Exception:
+        except ArithmeticError:
             self.max_payout_fraction = Decimal("0.5")
         if not (Decimal(0) < self.max_payout_fraction <= Decimal(1)):
             logger.warning(
@@ -119,7 +119,7 @@ class BridgeMonitor:
                     self.max_payout_ait = parsed_abs
                 else:
                     logger.warning("BRIDGE_MAX_PAYOUT_AIT %s not positive — ignored", raw_abs)
-            except Exception:
+            except ArithmeticError:
                 logger.warning("BRIDGE_MAX_PAYOUT_AIT %r unparseable — ignored", raw_abs)
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
         # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
@@ -220,7 +220,7 @@ class BridgeMonitor:
             ait_amount = eth_amount * Decimal(eth_usd) / Decimal(ait_usd)
             logger.info("Price calculation: %s ETH * $%s / $%s = %s AIT", eth_amount, eth_usd, ait_usd, ait_amount)
             return ait_amount
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - price calc containment — a failure defers the payout to retry
             logger.error("Error calculating AIT amount: %s", e)
             return None
 
@@ -276,7 +276,7 @@ class BridgeMonitor:
             transaction["signature"] = signature.to_bytes().hex()
             logger.info("Built signed payout: %s units (%s AIT) to %s (nonce=%s)", tx_amount, amount, to_address, nonce)
             return transaction
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - payout build boundary — any failure means no tx to post
             logger.error("Error building signed payout: %s", e)
             return None
 
@@ -299,7 +299,7 @@ class BridgeMonitor:
             self._last_post_rejection = submit_response.text[:300]
             logger.error("Failed to submit AIT transfer: %s", submit_response.text)
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - submit transport boundary — failure keeps the row SUBMITTED
             self._last_post_rejection = str(e)
             logger.error("Error submitting AIT transfer: %s", e)
             return None
@@ -319,7 +319,7 @@ class BridgeMonitor:
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/head", timeout=5)
             if resp.status_code == 200:
                 return int(resp.json().get("height", 0))
-        except Exception as e:
+        except (httpx.HTTPError, TypeError, ValueError) as e:
             logger.warning("head height fetch failed: %s", e)
         return None
 
@@ -628,7 +628,7 @@ class BridgeMonitor:
                     eth_usd = eth_usd_result.price if eth_usd_result else None
                     ait_usd = ait_usd_result.price if ait_usd_result else None
                     ait_amount = self.calculate_ait_amount(Decimal(d["eth_amount"]), eth_usd=eth_usd, ait_usd=ait_usd)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-retry containment — failure marks the row for another retry
                     logger.error("Retry %s price recalculation error: %s", tx_hash, e)
                     self._mark_for_retry(tx_hash, f"Price recalculation error: {e}")
                     continue
@@ -744,7 +744,7 @@ class BridgeMonitor:
                         st = (body.get("status") or "").lower()
                         if st and st not in ("pending", "confirmed", "success", ""):
                             failed_on_chain = True
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - status probe — a fetch failure leaves the payout SUBMITTED
                     logger.warning("payout status fetch failed for %s: %s", payout_hash, e)
             if failed_on_chain:
                 logger.critical(
@@ -821,7 +821,7 @@ class BridgeMonitor:
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{address}", timeout=5)
             if resp.status_code == 200:
                 return int(resp.json().get("nonce", 0))
-        except Exception as e:
+        except (httpx.HTTPError, TypeError, ValueError) as e:
             logger.warning("account nonce fetch failed for %s: %s", address, e)
         return None
 
@@ -835,7 +835,7 @@ class BridgeMonitor:
                 return resp.json().get("block_height") is not None
             if resp.status_code == 404:
                 return False
-        except Exception as e:
+        except (httpx.HTTPError, AttributeError, TypeError, ValueError) as e:
             logger.warning("tx status fetch failed for %s: %s", tx_hash, e)
         return None
 
@@ -925,7 +925,7 @@ class BridgeMonitor:
                     depth,
                     self.queue_alert_depth,
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - queue health-check containment
             logger.warning("queue health check failed: %s", e)
 
     def _payout_wallet_balance(self) -> int | None:
@@ -936,7 +936,7 @@ class BridgeMonitor:
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
             if resp.status_code == 200:
                 return int(resp.json().get("balance", 0))
-        except Exception as e:
+        except (httpx.HTTPError, TypeError, ValueError) as e:
             logger.warning("payout balance fetch failed: %s", e)
         return None
 
@@ -1006,7 +1006,7 @@ class BridgeMonitor:
                 )
             else:
                 self._float_alert_last.pop("eth_float", None)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - float-check containment
             logger.warning("ETH float check failed: %s", e)
 
     def _record_outbound(self, w3, tx, block_num: int) -> None:
@@ -1034,7 +1034,7 @@ class BridgeMonitor:
                 if int(receipt.get("status", 1)) == 0:
                     note = f"tx failed — gas burned, intended {value_wei} wei not moved"
                     value_wei = 0  # a reverted send moves no value; only gas is outbound
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - receipt probe: an unreadable receipt must not blank the row
             note = f"receipt unavailable: {e}"
 
         depositors = depositor_tx_hashes()
@@ -1178,7 +1178,7 @@ class BridgeMonitor:
                     # whole block instead of losing the inflow silently.
                     break
                 set_cursor("last_processed_block", block_num)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - poll containment — failures streak-count toward the alert
             self._poll_fail_streak += 1
             if self._poll_fail_streak >= 3:
                 logger.critical(
@@ -1212,7 +1212,7 @@ class BridgeMonitor:
                     self.process_retry_queue()
                     self.process_submitted_deposits()
                     self._check_queue_health()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - monitor service-loop containment
                     logger.error("Error in polling loop: %s", e)
                 interval = self.burst_interval if now < self._burst_until else self.poll_interval
                 next_poll = time.monotonic() + interval

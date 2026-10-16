@@ -353,7 +353,8 @@ if __name__ == "__main__":
     import os
 
     # Standardized environment variable naming: SERVICE_BIND_HOST and SERVICE_BIND_PORT
-    host = os.getenv("FFMPEG_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    host = os.getenv("FFMPEG_BIND_HOST", "0.0.0.0")  # nosec B104
     port = int(os.getenv("FFMPEG_BIND_PORT", os.getenv("FFMPEG_PORT", "8230")))
 
     uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)

@@ -247,13 +247,13 @@ def _pending_eth_reserve() -> Decimal:
     withdraw_sum = Decimal(sum((Decimal(w["amount_eth"]) for w in pending), Decimal("0")))
     try:
         sell_sum = get_sell_pending_eth_reserve()
-    except Exception:
+    except Exception:  # noqa: BLE001 - pre-ETH-10 databases lack the sell tables — reserve must not depend on them
         # Pre-ETH-10 databases lack the sell tables; withdraw reserve must not
         # depend on them existing.
         sell_sum = Decimal("0")
     try:
         exchange_sum = get_exchange_pending_eth_reserve()
-    except Exception:
+    except Exception:  # noqa: BLE001 - same fail-open: a pre-phase-3 database may lack the table
         # Same fail-open as the sell term: a pre-phase-3 database may lack
         # the table; reserve must not depend on it existing.
         exchange_sum = Decimal("0")
@@ -418,7 +418,7 @@ async def _update_status_with_retry(
                 error=error,
                 release_nonce=release_nonce,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - persist retry — any store failure alike
             last_exc = e
             logger.error(
                 "Failed to persist withdrawal %s status %s (attempt %d/%d): %s",
@@ -661,7 +661,7 @@ async def _compose_release_outcome_detail(row: dict[str, Any]) -> tuple[str, str
         if _release_intent_age_seconds(row) < ETH_RELEASE_ABSENCE_GRACE_SECONDS:
             return "unknown", "absent_in_grace"
         return "not_sent", "absent_expired"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - verify containment — an unverifiable outcome is unknown, never guessed
         logger.error("Release outcome verification failed for %s: %s", row.get("ait_tx_hash"), e)
         return "unknown", "verify_error"
 
@@ -682,7 +682,7 @@ async def _verify_release_outcome_detail(ait_tx_hash: str) -> tuple[str, str]:
     _compose_release_outcome_detail for the reason vocabulary."""
     try:
         row = get_withdrawal_by_ait_tx_hash(ait_tx_hash)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - verify containment — row unreadable means outcome unknown
         logger.error("Could not read withdrawal %s for release verification: %s", ait_tx_hash, e)
         return "unknown", "verify_error"
     if not row:
@@ -723,7 +723,7 @@ async def _resolve_release_failure(ait_tx_hash: str, sender: str, gross_ait: Dec
         )
         try:
             await _update_status_with_retry(ait_tx_hash, "completed")
-        except Exception as persist_err:
+        except Exception as persist_err:  # noqa: BLE001 - persist best-effort inside the confirmed-error path
             logger.error("Could not persist completion for %s: %s", ait_tx_hash, persist_err)
     elif outcome == "not_sent":
         update_withdrawal_status(ait_tx_hash, "failed", error=str(exc))
@@ -816,7 +816,7 @@ async def _resume_unfinished_releases() -> dict[str, int]:
                         reason,
                         age_txt,
                     )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - row containment — a failed resume check must not kill the pass
             resolved["still_open"] += 1
             logger.error("Resume check failed for withdrawal %s: %s", row.get("ait_tx_hash"), e)
     return resolved
@@ -860,7 +860,7 @@ async def poll_withdrawals_once() -> dict[str, Any]:
         resume = await _resume_unfinished_releases()
         if any(resume.values()):
             logger.info("Release resume pass: %s", resume)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - resume pass containment — logged, retried next poll
         logger.error("Release resume pass failed: %s", e)
 
     transactions = await get_bridge_withdraw_transactions()

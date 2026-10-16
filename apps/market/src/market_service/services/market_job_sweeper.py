@@ -202,7 +202,7 @@ class MarketJobSweeper:
 
         try:
             result = await self._rpc_client.release_escrow(job.escrow_contract_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
             # Any raised answer (425 'lock not sealed', 5xx, transport) is a
             # 'not yet' too -- it shares the bounded deferral instead of
             # retrying forever and silently.
@@ -253,7 +253,7 @@ class MarketJobSweeper:
 
         try:
             result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
             return await self._settlement_not_yet(
                 session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id, "refunded"
             )
@@ -349,7 +349,7 @@ class MarketJobSweeper:
         read_error: Exception | None = None
         try:
             escrow = await self._rpc_client.verify_escrow(contract_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - read error captured, deferral bookkeeping continues
             read_error = e
         if read_error is None and escrow is None:
             meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
@@ -393,7 +393,7 @@ class MarketJobSweeper:
             seal_error: Exception | None = None
             try:
                 tx = await self._rpc_client.get_transaction(tx_hash)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - seal error captured — unsealed reads skip, never raise
                 seal_error = e
             if tx is None or tx.get("block_height") is None:
                 logger.error(

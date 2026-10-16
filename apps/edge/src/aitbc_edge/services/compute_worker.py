@@ -15,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
-from sqlmodel import select
+from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
 
@@ -39,8 +39,9 @@ def _extract_prompt(input_data: dict[str, Any]) -> str:
     if not input_data:
         return ""
     for key in ("prompt", "text", "input", "query"):
-        if key in input_data and isinstance(input_data[key], str):
-            return input_data[key]
+        value = input_data.get(key)
+        if isinstance(value, str):
+            return value
     return json.dumps(input_data)
 
 
@@ -193,7 +194,7 @@ async def process_queued_requests() -> int:
     """Poll the queue and process all queued requests."""
     async with get_session() as session:
         result = await session.execute(
-            select(ComputeRequest).where(ComputeRequest.status == "queued").order_by(ComputeRequest.created_at)
+            select(ComputeRequest).where(ComputeRequest.status == "queued").order_by(col(ComputeRequest.created_at))
         )
         queued = list(result.scalars().all())
 

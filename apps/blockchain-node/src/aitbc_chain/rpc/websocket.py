@@ -227,7 +227,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 try:
                     await gossip_broker.publish(topic, data)
                     gossip_messages_published_total.labels(topic=topic).inc()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - one bad publish must not close the socket
                     # A broker-side failure (e.g. an ACL-denied topic) loses
                     # this message — but must not close the connection: the
                     # same socket carries other topics and the receive path,
@@ -247,7 +247,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             subscription.close()
             try:
                 await websocket.close()
-            except Exception:
+            except Exception:  # nosec
                 pass
     finally:
         _gossip_ip_connections[client_ip] = max(0, _gossip_ip_connections.get(client_ip, 1) - 1)
@@ -325,9 +325,10 @@ async def subscription_websocket(websocket: WebSocket) -> None:
                 while True:
                     await asyncio.sleep(20)
                     await websocket.send_json({"type": "ping", "timestamp": time.time()})
-            except WebSocketDisconnect:  # nosec B110 - expected disconnect
+            except WebSocketDisconnect:  # expected disconnect
                 pass
-            except Exception:  # nosec B110 - intentional silent cleanup
+            # intentional silent cleanup
+            except Exception:  # nosec B110
                 pass
 
         from asyncio import create_task, wait
@@ -350,6 +351,6 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             del _active_subscribers[node_id, chain_id]
         try:
             await websocket.close()
-        except Exception:
+        except Exception:  # nosec
             pass
         logger.info("WebSocket subscriber cleanup complete: %s", node_id)

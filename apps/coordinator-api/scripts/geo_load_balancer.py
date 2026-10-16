@@ -50,7 +50,8 @@ class GeoLoadBalancer:
 
         import random
 
-        rand = random.randint(1, total_weight)  # nosec B311 - weighted random selection for load balancing, not security-sensitive
+        # weighted random selection for load balancing, not security-sensitive
+        rand = random.randint(1, total_weight)  # nosec B311
         current_weight = 0
 
         for name, config in healthy_regions:
@@ -143,6 +144,7 @@ async def create_app():
 
 if __name__ == "__main__":
     app = asyncio.run(create_app())
-    host = os.environ.get("HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    host = os.environ.get("HOST", "0.0.0.0")  # nosec B104
     port = int(os.environ.get("PORT", 8017))
     web.run_app(app, host=host, port=port)

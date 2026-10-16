@@ -77,7 +77,8 @@ def _fetch_live_balance(
         headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(url, headers=headers)  # type: ignore[arg-type]
     try:
-        # nosec B310: the scheme is checked against http/https above. B310 is a blacklist
+        # the scheme is checked against http/https above. B310 is a blacklist
+        # nosec B310
         # rule on the call itself and fires whatever guards precede it.
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             payload = json.loads(resp.read().decode())

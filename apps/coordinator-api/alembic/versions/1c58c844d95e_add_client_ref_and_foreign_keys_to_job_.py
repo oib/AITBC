@@ -100,7 +100,7 @@ def upgrade() -> None:
         #    client_id values that are not yet valid users.
         unresolved_refs: dict[str, str] = {}
         for table in tables:
-            session.execute(text(f"UPDATE {table} SET client_ref = client_id"))  # nosec B608
+            session.execute(text(f"UPDATE {table} SET client_ref = client_id"))  # nosec
             client_ids = set()
             for row in session.execute(text(f"SELECT DISTINCT client_id FROM {table}")).all():  # nosec B608
                 if row[0]:
@@ -174,7 +174,7 @@ def upgrade() -> None:
             for table in tables:
                 for raw_client_id, user_id in unresolved_refs.items():
                     session.execute(
-                        text(f"UPDATE {table} SET client_id = :user_id WHERE client_id = :raw"),  # nosec B608
+                        text(f"UPDATE {table} SET client_id = :user_id WHERE client_id = :raw"),  # nosec
                         {"user_id": user_id, "raw": raw_client_id},
                     )
             session.commit()

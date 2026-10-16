@@ -83,7 +83,7 @@ def _load_depositor_map(ledger: Path | None) -> dict[str, str]:
     try:
         cols = {r[1] for r in con.execute("PRAGMA table_info(eth_deposits)")}
         tx_expr = "tx_hash" if "tx_hash" in cols else "NULL"
-        rows = con.execute(f"SELECT from_address, {tx_expr} FROM eth_deposits WHERE from_address IS NOT NULL").fetchall()  # nosec B608
+        rows = con.execute(f"SELECT from_address, {tx_expr} FROM eth_deposits WHERE from_address IS NOT NULL").fetchall()  # nosec
     finally:
         con.close()
     return {str(a).lower(): str(t) for a, t in rows}
@@ -115,7 +115,8 @@ def _load_release_sources(ledger: Path | None) -> dict[str, str]:
     try:
         for table, label in _RELEASE_SOURCES:
             try:
-                rows = con.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL").fetchall()  # nosec B608 - table is a fixed literal from _RELEASE_SOURCES above
+                # table is a fixed literal from _RELEASE_SOURCES above
+                rows = con.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL").fetchall()  # nosec
             except sqlite3.OperationalError:
                 continue
             for (h,) in rows:

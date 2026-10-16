@@ -55,7 +55,8 @@ class BlockchainSetup:
         log.info("Checking genesis wallet and blockchain status...")
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "wallet", "list"], cwd=self.aitbc_dir, capture_output=True, text=True, timeout=10
             )
             if "genesis" in result.stdout:
@@ -65,7 +66,8 @@ class BlockchainSetup:
         except Exception as e:
             log.warning("Genesis wallet check failed: %s", e)
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "wallet", "balance", "genesis"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -92,7 +94,8 @@ class BlockchainSetup:
         log.info("Checking genesis wallet as funding source...")
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "wallet", "balance", "genesis"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -126,11 +129,13 @@ class BlockchainSetup:
         log.info("Funding training wallet: %s", wallet_name)
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "wallet", "list"], cwd=self.aitbc_dir, capture_output=True, text=True, timeout=10
             )
             if wallet_name not in result.stdout:
-                create_result = subprocess.run(  # nosec B603: fixed command, safe input
+                # fixed command, safe input
+                create_result = subprocess.run(  # nosec B603
                     [str(aitbc_cli), "wallet", "create", wallet_name, password],
                     cwd=self.aitbc_dir,
                     capture_output=True,
@@ -144,7 +149,8 @@ class BlockchainSetup:
         except Exception as e:
             log.warning("Wallet creation check failed: %s", e)
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "wallet", "send", "genesis", wallet_name, str(amount), self.genesis_password],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -174,7 +180,8 @@ class BlockchainSetup:
         log.info("Checking wallet balance: %s", wallet_name)
         aitbc_cli = self.aitbc_dir / "aitbc-cli"
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "wallet", "balance", wallet_name],
                 cwd=self.aitbc_dir,
                 capture_output=True,
