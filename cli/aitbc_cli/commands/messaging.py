@@ -100,7 +100,8 @@ def messaging():
 @click.option("--topic", default=BROADCAST_TOPIC, show_default=True, help="Topic slug (lowercased, whitespace → '-')")
 @click.option("--reply-to", default=None, help="Parent message tx_hash — makes the post a reply")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
-@click.option("--wait/--no-wait", default=True, help="Poll until the transaction is sealed (default: wait)")
+@click.option("--confirm", is_flag=True, help="Sign and submit once (default: dry run — prints the post, signs nothing)")
+@click.option("--wait/--no-wait", default=True, help="With --confirm: poll until the transaction is sealed (default: wait)")
 @click.option("--wait-timeout", type=float, default=180.0, show_default=True, help="Seconds --wait polls for")
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @wallet_password_options
@@ -112,6 +113,7 @@ def send(
     topic: str,
     reply_to: str | None,
     fee: Decimal,
+    confirm: bool,
     wait: bool,
     wait_timeout: float,
     rpc_url: str | None,
@@ -119,7 +121,12 @@ def send(
     password_file: str | None,
     password_stdin: bool,
 ):
-    """Post a forum message as a signed MESSAGE transaction."""
+    """Post a forum message as a signed MESSAGE transaction.
+
+    The default is a DRY RUN: it prints the wallet, sender address, topic,
+    body length and fee and signs nothing. ``--confirm`` resolves the wallet
+    password, signs once and submits once.
+    """
     if not message or not message.strip():
         abort(ctx, "Empty message refused — a post must carry a body")
     if len(message.encode("utf-8")) > MAX_MESSAGE_BODY_BYTES:
@@ -141,10 +148,29 @@ def send(
             topic=canonical_topic,
             body=message,
             agent_address=sender_address,
-            parent=reply_to,
+            # stored tx_hash values are lowercase; an uppercase --reply-to
+            # would sign a parent the index can never resolve
+            parent=reply_to.lower() if reply_to else None,
         )
     except ValueError as e:
         abort(ctx, f"Invalid message envelope: {e}", from_exception=e)
+
+    if not confirm:
+        click.echo("DRY RUN — nothing signed, nothing sent. Re-run with --confirm to sign and submit once:", err=True)
+        output(
+            {
+                "wallet": wallet_name,
+                "sender": sender_address,
+                "topic": canonical_topic,
+                "kind": envelope["kind"],
+                "parent": envelope.get("parent"),
+                "body_bytes": len(message.encode("utf-8")),
+                "fee_ait": str(fee),
+            },
+            (ctx.obj or {}).get("output_format", "table"),
+            title="Message dry run",
+        )
+        return
 
     resolved_password = resolve_wallet_password(
         wallet_name=wallet_name,

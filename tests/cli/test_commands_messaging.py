@@ -46,10 +46,25 @@ class TestMessagingCommands:
         result = runner.invoke(messaging_mod.messaging, ["send", "--message", "hi"])
         assert result.exit_code != 0
 
+    def test_send_dry_run_default_signs_nothing(self, runner, sender_wallet, captured_send):
+        """Without --confirm nothing is signed or sent — the dry run prints
+        wallet, sender, topic, byte length and fee."""
+        result = runner.invoke(
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "hello", "--topic", "dev"],
+        )
+        assert result.exit_code == 0, result.output
+        assert captured_send == []
+        assert "DRY RUN" in result.output
+        assert "poster" in result.output
+        assert SENDER in result.output
+        assert "dev" in result.output
+        assert "5" in result.output  # body bytes
+
     def test_send_builds_signed_message_tx(self, runner, sender_wallet, captured_send):
         result = runner.invoke(
             messaging_mod.messaging,
-            ["send", "--wallet", "poster", "--message", "hello", "--topic", "Dev", "--no-wait"],
+            ["send", "--wallet", "poster", "--message", "hello", "--topic", "Dev", "--no-wait", "--confirm"],
         )
         assert result.exit_code == 0, result.output
         args, kwargs = captured_send[0]
@@ -68,15 +83,27 @@ class TestMessagingCommands:
         parent = "ab" * 32
         result = runner.invoke(
             messaging_mod.messaging,
-            ["send", "--wallet", "poster", "--message", "re:hi", "--reply-to", parent, "--no-wait"],
+            ["send", "--wallet", "poster", "--message", "re:hi", "--reply-to", parent, "--no-wait", "--confirm"],
         )
         assert result.exit_code == 0, result.output
         env = captured_send[0][1]["payload"]["aitbc_msg"]
         assert env["kind"] == "reply" and env["parent"] == parent
 
+    def test_send_reply_uppercase_parent_lowercased(self, runner, sender_wallet, captured_send):
+        """--reply-to is lowercased before signing: stored tx_hash values are
+        lowercase hex and an uppercase parent would never resolve."""
+        parent = "AB" * 32
+        result = runner.invoke(
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "re:hi", "--reply-to", parent, "--no-wait", "--confirm"],
+        )
+        assert result.exit_code == 0, result.output
+        env = captured_send[0][1]["payload"]["aitbc_msg"]
+        assert env["kind"] == "reply" and env["parent"] == parent.lower()
+
     def test_send_refuses_empty_body(self, runner, sender_wallet, captured_send):
         result = runner.invoke(
-            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "   ", "--no-wait"]
+            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "   ", "--no-wait", "--confirm"]
         )
         assert result.exit_code != 0
         assert captured_send == []
@@ -84,7 +111,7 @@ class TestMessagingCommands:
     def test_send_refuses_oversize_body(self, runner, sender_wallet, captured_send):
         result = runner.invoke(
             messaging_mod.messaging,
-            ["send", "--wallet", "poster", "--message", "x" * 4097, "--no-wait"],
+            ["send", "--wallet", "poster", "--message", "x" * 4097, "--no-wait", "--confirm"],
         )
         assert result.exit_code != 0
         assert captured_send == []
@@ -92,7 +119,7 @@ class TestMessagingCommands:
     def test_send_refuses_bad_parent(self, runner, sender_wallet, captured_send):
         result = runner.invoke(
             messaging_mod.messaging,
-            ["send", "--wallet", "poster", "--message", "re", "--reply-to", "not-hex", "--no-wait"],
+            ["send", "--wallet", "poster", "--message", "re", "--reply-to", "not-hex", "--no-wait", "--confirm"],
         )
         assert result.exit_code != 0
         assert captured_send == []
@@ -106,7 +133,7 @@ class TestMessagingCommands:
             lambda *a, **kw: None,  # submit failed
         )
         result = runner.invoke(
-            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "hi", "--no-wait"]
+            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "hi", "--no-wait", "--confirm"]
         )
         assert result.exit_code != 0
         assert "simulated" not in result.output.lower()
@@ -122,7 +149,7 @@ class TestMessagingCommands:
 
         monkeypatch.setattr(messaging_mod, "AITBCHTTPClient", _Client)
         result = runner.invoke(
-            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "hi", "--wait"]
+            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "hi", "--wait", "--confirm"]
         )
         assert result.exit_code == 0, result.output
         assert "Sealed at block 42" in result.output
