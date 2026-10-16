@@ -154,7 +154,7 @@ bridge-monitor env). Address material needed by verification comes from
 `cli/aitbc_cli/commands/eth.py` `DEFAULT_WALLETS` /
 `docs/ops/node-sepolia-wallets.md` — public address data only.
 
-## Appendix — historical backfill (executed 16 Oct pending operator line)
+## Appendix — historical backfill (prepared 16 Oct, not run; waits for the operator's typed line)
 
 Backfills the five outbound sends the monitor made *before* the writer
 shipped. One reviewed transaction; nothing else writes.
@@ -183,17 +183,43 @@ python3 scripts/ops/bridge_outbound_collect.py \
   --balance-wei <current> --emit-rows rows.json
 
 # 2. Apply via the monitor's own writer path (INSERT OR IGNORE, one
-#    transaction per row, deduped on tx_hash):
+#    transaction per row, deduped on tx_hash). The precheck loop validates
+#    every row first and aborts *before any write* if a single check fails.
+#    value_eth is an exact decimal string — Decimal, never float (a float
+#    round trip can be off by a wei):
 /opt/aitbc/venv/bin/python - <<'PYEOF'
-import json, sys
+import json, re, sqlite3, sys
+from decimal import Decimal
 sys.path.insert(0, "/opt/aitbc/apps/bridge-monitor/src")
-from bridge_monitor.storage import record_outbound, init_db
-init_db()
-for r in json.load(open("rows.json")):
-    ok = record_outbound(r["tx_hash"], r["to_address"],
-        int(float(r["value_eth"]) * 10**18), r["block_height"], r["kind"],
-        gas_wei=r["gas_wei"], matched_deposit_tx=r["matched_deposit_tx"], note=r["note"])
-    print(r["tx_hash"][:14], "inserted" if ok else "already present")
+from bridge_monitor.storage import DB_PATH, record_outbound, init_db
+
+ALLOWED_KINDS = {"refund", "withdrawal", "unidentified", "self_send"}
+ADDR = re.compile(r"0x[0-9a-fA-F]{40}")
+rows = json.load(open("rows.json"))
+
+init_db()  # idempotent — ensures bridge_outbound exists for the ro read
+conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+existing = {r[0] for r in conn.execute("SELECT tx_hash FROM bridge_outbound")}
+conn.close()
+
+seen = set()
+for r in rows:
+    h = r["tx_hash"]
+    wei = Decimal(r["value_eth"]) * Decimal(10**18)
+    assert wei == int(wei), f"{h[:14]}: value_eth is not an exact integer wei ({wei})"
+    assert r["kind"] in ALLOWED_KINDS, f"{h[:14]}: unexpected kind {r['kind']}"
+    assert ADDR.fullmatch(r["to_address"]), f"{h[:14]}: bad to_address {r['to_address']}"
+    assert h not in existing, f"{h[:14]}: already in bridge_outbound"
+    assert h not in seen, f"{h[:14]}: duplicated in rows.json"
+    seen.add(h)
+    r["_value_wei"] = int(wei)
+print(f"precheck ok — writing {len(rows)} rows (expect 5)")
+
+for r in rows:
+    ok = record_outbound(h := r["tx_hash"], r["to_address"], r["_value_wei"],
+        r["block_height"], r["kind"], gas_wei=r["gas_wei"],
+        matched_deposit_tx=r["matched_deposit_tx"], note=r["note"])
+    print(h[:14], "inserted" if ok else "already present")
 PYEOF
 ```
 
@@ -211,14 +237,20 @@ decomposed pre-rotation old-wallet outflows (`52335372406592269` wei in
 the rotation fixture) — the five new rows explain 0.00184 ETH of named
 outbound; the rest is the OLD wallet's history which a backfill of the
 current wallet's txlist cannot cover. Two rows stay `unidentified`
-(~0.000166 ETH to `0xcf17…`, node2's Sepolia wallet) — flagged for
-operator review, not reclassified.
+(~0.000166 ETH to `0xcf17…`, node2's Sepolia wallet) — left unclassified
+deliberately; the operator rules on them, the coder does not reclassify.
 
 ### Downgrade
 
-Delete exactly the five inserted rows by tx_hash — additive rows only:
+Delete exactly the inserted rows — additive rows only. Build the DELETE
+from `rows.json` itself so it cannot drift from what was inserted (never
+a hand-typed hash list):
 
-```sql
-DELETE FROM bridge_outbound WHERE tx_hash IN
-  ('0x914463b7…','0x7b7eaec3…','0x38b1fa33…','0xcbf5a1a8…','0xdaf4b9cf…')
+```bash
+/opt/aitbc/venv/bin/python - <<'PYEOF'
+import json
+hashes = ", ".join(repr(r["tx_hash"]) for r in json.load(open("rows.json")))
+print(f"DELETE FROM bridge_outbound WHERE tx_hash IN ({hashes});")
+PYEOF
+# then run the printed statement against the ledger via sqlite3.
 ```
