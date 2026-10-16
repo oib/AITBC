@@ -429,11 +429,15 @@ class TestDeterminism:
             _tx(session, height, n, sender, env)
         hidden_post = f"{0x11:064x}"
         assert get_message(session, CHAIN, hidden_post)["hidden"] is True
-        # Reorg removes the hide's block rows (fork-heal deletes them).
+        # Reorg removes the hide's block rows (fork-heal deletes them). The
+        # replacement chain's head carries a different hash — the read cache
+        # is keyed on it, so this must be a miss, not a stale hit.
         for r in session.exec(select(Transaction).where(col(Transaction.block_height) == 12)).all():
             session.delete(r)
         for b in session.exec(select(Block).where(col(Block.height) == 12)).all():
             session.delete(b)
+        head = session.exec(select(Block).where(col(Block.chain_id) == CHAIN).order_by(col(Block.height).desc())).first()
+        head.hash = "cd" * 32
         session.commit()
         assert get_message(session, CHAIN, hidden_post)["hidden"] is False
 
