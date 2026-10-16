@@ -83,6 +83,19 @@ cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
 | `BRIDGE_BURST_INTERVAL` / `BRIDGE_BURST_WINDOW` | `20` / `60` | fast poll cadence and the window it applies for after a kick-file touch |
 | `EXCHANGE_SETTLEMENT_ENABLED` | `false` | ETH-8 phase 3: routes `EXCHANGE_DEPOSIT:<addr>`-tagged inflows to `EXCHANGE_PREPAY` rows instead of the mint path; bypasses `MIN_ETH_DEPOSIT` (no payout is owed). Flag-off leaves the old path — the tag fails recipient parsing → `FAILED` |
 
+## Outbound ledger (`bridge_outbound`)
+
+Every ETH send *from* the bridge wallet is ledgered (`record_outbound`,
+deduped on `tx_hash`). `kind` is assigned by strongest evidence first: the
+tx hash found in a release-leg table (`eth_withdrawals`,
+`bridge_sell_locks`, or `exchange_settlements` — the note names which) →
+`withdrawal`; `to` the wallet itself → `self_send` (gas only, value
+returns); `to` a recorded depositor → `refund`; `to` a
+`BRIDGE_FUNDING_SOURCES` address → `withdrawal` (float return); otherwise
+`unidentified` and logged as a warning — the reconcile treats that term as
+untrusted. A failed send records gas only (`value_eth = 0`, intended value
+in `note`).
+
 ## Layout
 
 `src/bridge_monitor/` — `main.py` (poll loop, payout lifecycle, caps, float
