@@ -1440,19 +1440,23 @@ tests:
           - labels: 'ALERTS{alertname="MessagingVolumeSpike", alertstate="firing", chain_id="aitbc-main", instance="node1:9009", job="blockchain-node", severity="info"}'
             value: 1
 
-  # ChainHeadStalled (CHAIN-STALL-1). hub advances one block a minute until
-  # t=10m and then sticks at 110; node0 keeps advancing; a fresh empty node
-  # sits at 0; stuck is flat at 500 from the very first sample, so it may only
-  # alert once 15 min of history exist (the offset arm), never before.
+  # ChainHeadStalled (CHAIN-STALL-1). Live label shapes: the gauge is served
+  # by the blockchain-rpc job on :8202 (the RPC process's scrape-time
+  # collect), followers carry a node external_label, hub's own series carry
+  # none. hub advances one block a minute until t=10m and then sticks at
+  # 110; node0 keeps advancing (same instance string as hub, told apart by
+  # node); a fresh empty node sits at 0; node1 is flat at 500 from the very
+  # first sample, so it may only alert once 15 min of history exist (the
+  # offset arm), never before.
   - interval: 1m
     input_series:
-      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="hub:8202", job="blockchain-node"}'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="localhost:8202", job="blockchain-rpc"}'
         values: '100+1x10 110x30'
-      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="node0:8202", job="blockchain-node"}'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="localhost:8202", job="blockchain-rpc", node="node0"}'
         values: '200+1x40'
-      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="fresh:8202", job="blockchain-node"}'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="127.0.0.1:8202", job="blockchain-rpc", node="fresh"}'
         values: '0x40'
-      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="stuck:8202", job="blockchain-node"}'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="127.0.0.1:8202", job="blockchain-rpc", node="node1"}'
         values: '500x40'
 
     alert_rule_test:
@@ -1461,18 +1465,19 @@ tests:
         alertname: ChainHeadStalled
         exp_alerts: []
       # hub stuck since t=10m: the condition holds from t=25m, so it is only
-      # pending at 26m; stuck has been pending since 15m and fires.
+      # pending at 26m; node1 has been pending since 15m and fires.
       - eval_time: 26m
         alertname: ChainHeadStalled
         exp_alerts:
           - exp_labels:
               severity: critical
-              chain_id: aitbc-main
-              instance: stuck:8202
-              job: blockchain-node
+              chain_id: ait-hub.aitbc.bubuit.net
+              instance: 127.0.0.1:8202
+              job: blockchain-rpc
+              node: node1
             exp_annotations:
-              summary: "Chain head on aitbc-main has not advanced for 15 minutes on stuck:8202"
-              description: "aitbc_messaging_chain_head_height on stuck:8202 has stayed at 500 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
+              summary: "Chain head on ait-hub.aitbc.bubuit.net has not advanced for 15 minutes on 127.0.0.1:8202"
+              description: "aitbc_messaging_chain_head_height on 127.0.0.1:8202 has stayed at 500 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
       # After the 2m hold hub fires too; node0 (advancing) and fresh (empty)
       # never do.
       - eval_time: 28m
@@ -1480,38 +1485,60 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: critical
-              chain_id: aitbc-main
-              instance: hub:8202
-              job: blockchain-node
+              chain_id: ait-hub.aitbc.bubuit.net
+              instance: localhost:8202
+              job: blockchain-rpc
             exp_annotations:
-              summary: "Chain head on aitbc-main has not advanced for 15 minutes on hub:8202"
-              description: "aitbc_messaging_chain_head_height on hub:8202 has stayed at 110 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
+              summary: "Chain head on ait-hub.aitbc.bubuit.net has not advanced for 15 minutes on localhost:8202"
+              description: "aitbc_messaging_chain_head_height on localhost:8202 has stayed at 110 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
           - exp_labels:
               severity: critical
-              chain_id: aitbc-main
-              instance: stuck:8202
-              job: blockchain-node
+              chain_id: ait-hub.aitbc.bubuit.net
+              instance: 127.0.0.1:8202
+              job: blockchain-rpc
+              node: node1
             exp_annotations:
-              summary: "Chain head on aitbc-main has not advanced for 15 minutes on stuck:8202"
-              description: "aitbc_messaging_chain_head_height on stuck:8202 has stayed at 500 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
+              summary: "Chain head on ait-hub.aitbc.bubuit.net has not advanced for 15 minutes on 127.0.0.1:8202"
+              description: "aitbc_messaging_chain_head_height on 127.0.0.1:8202 has stayed at 500 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
 
-  # ChainHeadMetricMissing (CHAIN-STALL-2). ok answers scrapes and exposes the
-  # gauge; blind answers scrapes but exposes none (collect crashed or the
-  # metrics family vanished); dead is down — ServiceDown's territory, not
-  # this rule's.
+  # ChainHeadMetricMissing (CHAIN-STALL-2). Live label shapes as hub sees
+  # them: the up side and the gauge both live on the blockchain-rpc job
+  # (:8202), followers carry a node external_label, hub's local series carry
+  # none. hub, node0 and hub1 expose the gauge; node1 answers scrapes but
+  # exposes none (collect crashed or the metrics family vanished); broken is
+  # a second gap; dead is down — ServiceDown's territory, not this rule's;
+  # the blockchain-node :9009 up series must never fire (wrong job).
   - interval: 1m
     input_series:
-      - series: 'up{instance="ok:8202", job="blockchain-node"}'
+      - series: 'up{instance="localhost:8202", job="blockchain-rpc"}'
         values: '1x20'
-      - series: 'up{instance="blind:8202", job="blockchain-node"}'
+      - series: 'up{instance="localhost:8202", job="blockchain-rpc", node="node0"}'
         values: '1x20'
-      - series: 'up{instance="dead:8202", job="blockchain-node"}'
+      - series: 'up{instance="127.0.0.1:8202", job="blockchain-rpc", node="hub1"}'
+        values: '1x20'
+      - series: 'up{instance="127.0.0.1:8202", job="blockchain-rpc", node="node1"}'
+        values: '1x20'
+      - series: 'up{instance="127.0.0.1:8202", job="aitbc3-blockchain-rpc", node="aitbc3", monitor="aitbc3-central", service="blockchain-rpc"}'
+        values: '1x20'
+      - series: 'up{instance="localhost:8202", job="blockchain-rpc", node="broken"}'
+        values: '1x20'
+      - series: 'up{instance="127.0.0.1:8202", job="blockchain-rpc", node="dead"}'
         values: '0x20'
-      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="ok:8202", job="blockchain-node"}'
+      - series: 'up{instance="localhost:9009", job="blockchain-node", node="node0"}'
+        values: '1x20'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="localhost:8202", job="blockchain-rpc"}'
+        values: '100+1x20'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="localhost:8202", job="blockchain-rpc", node="node0"}'
+        values: '100+1x20'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="127.0.0.1:8202", job="blockchain-rpc", node="hub1"}'
+        values: '100+1x20'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="ait-hub.aitbc.bubuit.net", instance="127.0.0.1:8202", job="aitbc3-blockchain-rpc", node="aitbc3", monitor="aitbc3-central", service="blockchain-rpc"}'
         values: '100+1x20'
 
     alert_rule_test:
-      # blind has been up-without-gauge since t=0; the 10m hold ends at t=10m.
+      # node1 and broken have been up-without-gauge since t=0; the 10m hold
+      # ends at t=10m. hub1's gauge on the same instance string must not
+      # suppress node1 — the node label is part of the join.
       - eval_time: 9m
         alertname: ChainHeadMetricMissing
         exp_alerts: []
@@ -1520,8 +1547,17 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              instance: blind:8202
-              job: blockchain-node
+              instance: 127.0.0.1:8202
+              job: blockchain-rpc
+              node: node1
             exp_annotations:
-              summary: "chain-head metric missing on blind:8202"
-              description: "blind:8202 answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height, so ChainHeadStalled cannot see a stall there. Check for 'messaging metrics: collect failed' in the rpc journal and that the metrics endpoint still serves the messaging family."
+              summary: "chain-head metric missing on 127.0.0.1:8202"
+              description: "127.0.0.1:8202 answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height, so ChainHeadStalled cannot see a stall there. Check for 'messaging metrics: collect failed' in the rpc journal and that the metrics endpoint still serves the messaging family."
+          - exp_labels:
+              severity: warning
+              instance: localhost:8202
+              job: blockchain-rpc
+              node: broken
+            exp_annotations:
+              summary: "chain-head metric missing on localhost:8202"
+              description: "localhost:8202 answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height, so ChainHeadStalled cannot see a stall there. Check for 'messaging metrics: collect failed' in the rpc journal and that the metrics endpoint still serves the messaging family."
