@@ -6,8 +6,8 @@
     <title>Transaction Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Transaction detail for the AITBC explorer: hash, sender, recipient, amount, and status of a single transaction.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=bfc77e040cc966ee">
-    <link rel="stylesheet" href="/style.css?v=bfc77e040cc966ee">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=da7a0211f0e82881">
+    <link rel="stylesheet" href="/style.css?v=da7a0211f0e82881">
     <style>
         .detail-header {
             display: flex;
@@ -45,8 +45,8 @@
             text-decoration: underline;
         }
     </style>
-<script src="copy.js?v=bfc77e040cc966ee" defer></script>
-<script src="status.js?v=bfc77e040cc966ee" defer></script>
+<script src="copy.js?v=da7a0211f0e82881" defer></script>
+<script src="status.js?v=da7a0211f0e82881" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -177,9 +177,14 @@
                     && (msg.kind === 'post' || msg.kind === 'reply')
                     && typeof msg.topic === 'string';
                 if (data.type === 'MESSAGE' && forumLike) {
+                    // MSG-4b: the topic is chain text — make format/C1/tag
+                    // chars visible before it reaches the DOM (same rule as
+                    // messages.js).
+                    const NEUTRAL_RE = /[\u0080-\u009F\p{Cf}\u061C\u180E\u{E0000}-\u{E007F}]/gu;
+                    const cleanTopic = String(msg.topic).replace(NEUTRAL_RE, (ch) => `[U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
                     details.push({
                         label: 'Forum',
-                        value: `<a class="badge badge-primary" href="/messages.html?topic=${encodeURIComponent(String(msg.topic))}" title="Open topic">${escapeHtml('forum message: ' + String(msg.topic))}</a>`,
+                        value: `<a class="badge badge-primary" href="/messages.html?topic=${encodeURIComponent(cleanTopic)}" title="Open topic">${escapeHtml('forum message: ' + cleanTopic)}</a>`,
                     });
                 }
 

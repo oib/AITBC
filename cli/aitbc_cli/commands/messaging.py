@@ -20,6 +20,7 @@ from typing import cast
 import click
 
 from aitbc.messaging import BROADCAST_TOPIC, MAX_MESSAGE_BODY_BYTES, MIN_SEARCH_CHARS, build_envelope, normalize_topic
+from aitbc.textsafety import sanitize_chain_obj
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..utils import DECIMAL, output, success
@@ -242,7 +243,7 @@ def list(ctx, topic, author, query, limit, offset, cursor, rpc_url):
                     "cursor": cursor,
                 },
             )
-        output(result, (ctx.obj or {}).get("output_format", "table"), title="Messages")
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Messages")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
@@ -264,7 +265,7 @@ def topics(ctx, limit, offset, rpc_url):
     try:
         http_client = _rpc_client(rpc)
         result = http_client.get("/rpc/messaging/topics", params={"limit": limit, "offset": offset})
-        output(result, (ctx.obj or {}).get("output_format", "table"), title="Topics")
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Topics")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
@@ -301,7 +302,7 @@ def show(ctx, tx_hash, rpc_url):
     try:
         http_client = _rpc_client(rpc)
         result = http_client.get(f"/rpc/messaging/messages/{tx_hash}")
-        output(result, (ctx.obj or {}).get("output_format", "table"), title="Message")
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Message")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
@@ -321,7 +322,7 @@ def state(ctx, rpc_url):
     try:
         http_client = _rpc_client(rpc)
         result = http_client.get("/rpc/messaging/state")
-        output(result, (ctx.obj or {}).get("output_format", "table"), title="Messaging state")
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Messaging state")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
