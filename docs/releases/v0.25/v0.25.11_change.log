@@ -1177,3 +1177,1338 @@ probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
 ### FOLLOWER-RPC-5 (cleanup)
 
 - fix(monitoring): fleet-config-check LAN probes now hit the follower nginx path (`http://<host>/rpc/status` on :80) — direct `:8202` is loopback-only since FOLLOWER-RPC-5/6, so the old first probe always failed before the https fallback.
+
+### ETH-14: release gas estimation + receipt-gated completion + withdraw_admin recovery (2026-10-14)
+
+Withdrawal `withdrawal_90ff8a73` was recorded `completed` on a broadcast
+that reverted on-chain (gas limit 100,000 vs the ~207,391 a fresh-account
+transfer needs post-Glamsterdam — Sepolia activated EIP-8037 state-gas on
+2026-10-06). The broadcast echo was trusted as payment proof; the ETH-9
+receipt machinery only ran on crash/resume paths, never the happy path.
+
+- `bridge_withdraw_monitor.py`: `_release_eth_for_withdrawal` now leaves
+  the row `releasing` after broadcast — `completed` is written only by
+  the verified-outcome paths (`_resume_unfinished_releases`,
+  `_resolve_release_failure`, the retry command). Gas is
+  `eth_estimateGas(from, to, value)` × `ETH_WITHDRAW_GAS_MARGIN`
+  (default 1.25), floored at 21,000, hard-capped by
+  `ETH_WITHDRAW_GAS_MAX` (default 300,000); an estimate error or an
+  over-cap result raises before signing. `ETH_WITHDRAW_GAS` survives only
+  as an explicit override escape hatch (rejected outside (0, MAX]).
+- `sell_escrow_monitor.py`: `_release_eth_for_lock` takes the same gas
+  path and drops its post-broadcast `released` write — `_handle_inflight`
+  verifies the receipt each poll and moves `releasing` → `released` →
+  settle only on proof.
+- `bridge_db.py`: additive `eth_withdrawals.retry_count` +
+  `eth_withdrawal_release_attempts` (id, ait_tx_hash, eth_tx_hash,
+  release_nonce, resolved_by, resolved_at, operator_note, outcome);
+  resumable/pending status lists cover `releasing_retry` +
+  `needs_review_release` — the parked retry status is deliberately NOT
+  auto-resumed.
+- `withdraw_admin.py` (new, `python -m wallet_app.bridge.withdraw_admin`
+  on hub, in the unit env): `status`, `release-retry` (dry-run default;
+  `--confirm --note` required to sign), `mark-review` (the refund
+  fallback). `release-retry` refuses unless two independent Ethereum RPCs
+  in the same run prove the recorded release reverted at depth + nonce
+  consumed + receiver gained nothing in the failed block (or, for a
+  retry that never sealed, hash absent + nonce still free), and the AIT
+  `BRIDGE_WITHDRAW` leg is `confirmed`. The resend uses exactly the
+  recorded `amount_eth`/`eth_address` at the current account nonce —
+  never re-quoted — with intent (`releasing_retry` + nonce +
+  deterministic hash + attempt row) persisted before broadcast. A
+  verified `sent` completes the row; a proven failure parks it
+  `needs_review_release` for the operator, never auto-refunds.
+- `bridge_monitor.py`: dropped the dead `ETH_WITHDRAW_GAS` constant.
+- Runbook: `docs/ops/withdraw-release-runbook.md`.
+- Absence grace (follow-up): receipt verification now runs on the happy
+  path, so a lagging RPC can report a just-broadcast release as absent.
+  `_compose_release_outcome` treats an absence-only view (no receipt, no
+  tx, nonce not pending) on a row whose release intent is younger than
+  `ETH_RELEASE_ABSENCE_GRACE_SECONDS` (default `600`, measured from the
+  row's `released_at` intent-write timestamp) as `unknown` — never a
+  refund trigger. A status-0 receipt is `not_sent` at any age. Applies to
+  `releasing`, `releasing_retry` and sell-escrow releases alike.
+
+Tests: `test_bridge_withdraw_monitor.py` (broadcast-leaves-releasing,
+estimate/margin/floor/cap/override, estimate-failure refund path,
+releasing_retry park + sent, parked row not resumable),
+`test_sell_escrow_monitor.py` (releasing → verified released on all
+release tests), `test_bridge_db.py` (attempt record/retry_count/status
+lists), `test_withdraw_admin.py` (dry-run purity, every refusal gate,
+confirm→completed, revert→parked, single-use nonce reuse).
+
+### ETH-15: keyed RPC URLs out of output, env precedence, log levels, runbook gaps (2026-10-14)
+
+The ETH-14 recovery surfaced three hygiene gaps: `withdraw_admin` printed
+the effective `ETH_RPC_URL` verbatim (a gateway URL carrying its API-key
+path), httpx's INFO request lines logged the same URL into the
+aitbc-wallet journal on every poll, and the admin's env-file loader
+applied *first-wins* precedence where systemd `EnvironmentFile` — which
+the unit actually uses — is *last-wins*.
+
+- `wallet_app/bridge/url_redact.py` (new): `redact_url` /
+  `redact_text` — `scheme://host[:port]` only; path, query, userinfo and
+  fragments never reach stdout, the journal, or a stored field.
+- `withdraw_admin.py`: every endpoint print (`_print_verdicts`, verdict
+  dicts) stores only the redacted form; `_rpc_call`/`_ait_rpc_get` wrap
+  httpx errors so exception text never carries the URL; stored attempt
+  `outcome` text is redacted the same way. `_load_env_files` now collects
+  file values first and applies them last-file-wins (systemd semantics)
+  while an already-exported shell variable still wins — the documented
+  operator override for picking the proof RPC pair. Proof refusals caused
+  by a pruned endpoint now say "not archive-capable" instead of only the
+  raw RPC error.
+- `aitbc_logging.py`: `_HttpxStatusFilter` now drops sub-400 `HTTP
+  Request:` lines entirely (they carried the full URL on every poll) and
+  keeps 4xx/5xx at WARNING/ERROR with the URL rewritten to
+  `scheme://host` — the error signal survives without the credential
+  path; an unparseable `HTTP Request:` line is dropped rather than risk a
+  URL. The httpx logger's level is untouched (a WARNING level would drop
+  records *before* the filter could see them — silently killing the
+  4xx/5xx signal); `httpcore` is set to WARNING. Shared setup, so wallet,
+  exchange and bridge-monitor all inherit it.
+- `aitbc/url_redact.py`: the redaction helpers live in the shared package
+  so `aitbc_logging` can use them; `wallet_app/bridge/url_redact.py` is a
+  re-export shim so bridge imports keep working.
+- `bridge_withdraw_monitor.py` / `bridge_monitor.py`: `_eth_rpc`/`_rpc`
+  wrap `raise_for_status`/transport errors so an HTTP failure's exception
+  text (which embeds the request URL) is redacted before it reaches logs
+  or error fields.
+- Grace log level: `_compose_release_outcome_detail` returns the reason
+  behind `unknown`; the withdraw resume pass logs an in-grace absence at
+  INFO and the sell inflight check at WARNING (its row still parks
+  `needs_review` — state transitions unchanged), while `unknown` after
+  the grace window or for any non-absence reason stays ERROR.
+- Runbook: documents sourcing the unit env before python starts (import-
+  time `COORDINATOR_API_KEY`), the `&`-misparsing line in
+  `blockchain-secrets.env`, the archive-endpoint requirement for the
+  `block−1` balance proof (drpc/tenderly pair; publicnode is pruned,
+  Infura flakes), and that `ETH_RPC_URL` also picks the broadcast
+  endpoint on `--confirm`.
+
+Tests: `test_withdraw_admin.py` (keyed URL never in stdout/stderr across
+status/retry/mark-review incl. error paths, attempt outcome redaction,
+env precedence), `test_bridge_withdraw_monitor.py` +
+`test_sell_escrow_monitor.py` (in-grace log level vs. ERROR for real
+unknowns), `test_aitbc_logging.py` (httpx/httpcore WARNING after
+`configure_logging`).
+
+### DEPS-2: venv-pinned pip in update.sh, copied-venv shebang repair, CLI version source (2026-10-14)
+
+`update.sh`'s four bare `pip` sites now run `"$VENV_DIR/bin/python" -m
+pip` with stderr visible, and a post-install assert proves pip resolves
+inside the venv (`command -v`, `pip -V`, and the `bin/pip` shebang).
+`setup-python-venv.sh --mode copy` repoints `bin/*` shebangs, the
+`activate*` files' `VIRTUAL_ENV`/`VIRTUAL_ENV_PROMPT`, and `pyvenv.cfg`'s
+`command =` line to the destination, then fails if any script's shebang
+escapes its own venv; the CLI's stray version literals collapse onto
+`aitbc_cli/__init__.py`. The new `update.sh` venv check fails on a venv
+whose `bin/*` shebangs still name `/var/cache/aitbc/python-venvs` (hub
+and hub1 today), so such a host needs the SEC-15 venv repair before
+`update.sh` will run there.
+
+### SEC-18: wallet bridge 5xx bodies drop config and exception text (2026-10-14)
+
+`4bd1aca607` and `2f04b11160` fix three `bridge_routes.py` sites that put
+server configuration or exception text into 503 response bodies — the
+class `tests/security/test_http_exception_hardening.py` already forbids
+(the wallet parametrization was red on main because nothing ran the full
+suite). `_sell_gate` and the sell-quote config path return
+`detail="Sell escrow disabled"` instead of `Sell escrow disabled:
+<reason>`/`<exc>` — the removed text named the missing env keys
+(`AIT_SELL_ESCROW`, `SELL_ESCROW_WALLET_PATH`, `CHAIN_ID`). The
+admin-gated poll trigger returns `"Bridge poll skipped"` instead of
+echoing the monitor's `"ETH_WALLET_ADDRESS not set"` reason. Each site
+logs the removed text via `logger.warning` with `redact_text`, so a
+keyed RPC URL cannot reach the journal either; the remaining 5xx
+details were audited and are fixed constants (rate_info "error",
+"Internal server error" + `logging.exception`). `wallet-openapi.json`
+regenerated; the 503 descriptions lose the `{reason}`/`{exc}`
+placeholders. Tests assert the fixed body and the logged config text
+for all three sites.
+
+### CFG-1: `block_scoped_preregistered_transactions` defaults on (2026-10-14)
+
+O-11 path A, decided by the operator 14 Oct. `f3260ea1f1` flips the
+`ChainSettings.block_scoped_preregistered_transactions` default to True:
+a node without `BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS` can no longer
+debit `account` at RPC time. With the flag unset, `/bridge` lock /
+confirm / refund used to mutate `account` immediately; at
+state-transition >= v14 that host's `aux_state_root` then differed from
+the fleet's and its block would be refused (`sync_aux_root_rejected`).
+The env override still works both ways — an explicit `false` keeps the
+legacy path — and the fleet already carries the flag `=true` in
+`/etc/aitbc/blockchain.env` on all five hosts (verified in the chain
+units' `EnvironmentFile` list and in the running process env), so
+running nodes see no behaviour change.
+
+- `config.py`: field default `False` -> `True`.
+- `bridge_transfer.py` / `poa.py`: the four `getattr` readers now fall
+  back to `True` — a missing attribute resolves to the non-divergent
+  path instead of silently restoring RPC-time debits.
+- Tests: the 12 tests asserting the legacy RPC-time mutation path pin
+  the flag off explicitly (6 files, each in its own patch style; no
+  assertion weakened). `test_signature_skip_guard.py` gains the
+  default-True and env-false-wins cases.
+- Replay unaffected: the flag is read at RPC issuance and in the
+  proposer mempool branch only; block import/apply never consults it.
+
+The parked `dev/block-scoped-account` design (O-11 path B) still
+describes where this goes next: a v15 rung that scopes the semantics to
+the block version so no env flag decides consensus at all.
+
+### ETH-11 phase 2: signed orders + node registration on the hub exchange (2026-10-14)
+
+Phase 2 of `docs/design/eth8-exchange-page.md` (decisions DECIDED 14 Oct):
+the hub exchange now accepts only **signed** order envelopes from
+registered nodes, still entirely unfunded — placement moves no funds and
+a match books a `trades` row but settles nothing (funded settlement is
+phase 3 / ETH-16, gated on a clean ETH-2 live withdraw run).
+
+- `db.py`: `node_registry` (seeded from the fleet wallet labels), the
+  exchange-scoped `order_nonces` counter (explicitly not the chain
+  nonce), and order columns `signature`/`envelope_hash`/`account_nonce`/
+  `expiry_height`/`funded_state`/`cancelled_at`; `orders.status` gains
+  `expired` via a table-rebuild migration preserving existing rows;
+  `trades` gains `buyer_address`/`seller_address`/`fee_ait`. The design's
+  `prepaid_eth` table was deliberately left out — it is phase-3 funding
+  machinery with no phase-2 readers.
+- `handlers/exchange.py`: `keccak256(canonical JSON)` envelope verify via
+  the repo's `signature_recovery`/`crypto` primitives before any DB
+  write; per-IP rate limit runs *before* the secp256k1 verify; nonce
+  replay guard with byte-identical resubmit dedupe via
+  `(user_address, envelope_hash)`; expiry bound to chain head; ±10%
+  `EXCHANGE_PRICE_BAND_PCT` oracle band (feed stale → 503 like the quote
+  endpoint); `EXCHANGE_MIN_ORDER_AIT`; per-node and book-wide open-order
+  caps; cancel shares the placement `BEGIN IMMEDIATE` lock so
+  cancel-vs-fill is a deterministic 409 for the loser; self-match never
+  fills; watchlist flag for cancel-ratio abuse — flag-and-log only
+  (never blocks), knobs `EXCHANGE_CANCEL_RATIO` (0.9),
+  `EXCHANGE_WATCHLIST_MIN_PLACEMENTS` (10), `EXCHANGE_WATCHLIST_WINDOW_S`
+  (86400); per-IP limits read `X-Real-IP` only from peers in
+  `EXCHANGE_TRUSTED_PROXIES` (default `127.0.0.1,::1`); all phase-2 rows
+  stay `funded_state='unfunded'`. Chart feeds `depth`/`ohlc`/`stats`
+  (design §8, no phase marker) are deferred — read-only follow-up, no
+  schema gap (trades/orders tick columns already cover them).
+- Routes: `POST /api/orders` (signed), `POST /api/orders/<id>/cancel`,
+  `POST /api/exchange/nodes/register`, `GET /api/exchange/nodes`,
+  `GET /api/exchange/my-orders?addr=`. The signature is the credential —
+  `X-Api-Key` stays only on the legacy unsigned path, which remains
+  reachable by pinning `EXCHANGE_REQUIRE_SIGNED_ORDERS=0` (flag-off also
+  404s the phase-2 routes).
+- CLI: `aitbc exchange order place|cancel|my` and
+  `aitbc exchange node register`, signing with the node's own wallet via
+  `load_wallet_for_payment` (`--password-file`/`--password-stdin`; no
+  secrets in argv/logs). `chain_id` resolves fail-closed through
+  `resolve_chain_id` against the node's own RPC. MCP wrappers
+  regenerated.
+- Docs: exchange API documented by hand in `docs/apps/exchange/
+  exchange.md` — the service is a `BaseHTTPRequestHandler`, excluded
+  from generated OpenAPI by design; scenario 59 gains a phase-2
+  Scenario D addendum.
+
+### DEPS-3: eth-* signing family replica validation before hub/hub1 pin move (2026-10-14)
+
+Phase-1 replica evidence for the five-package move (anyio 4.14.2,
+eth-account 0.14.0, eth-keyfile 0.10.0, eth-rlp 3.0.0, hexbytes 2.0.0):
+OLD (hub Sep-11 set) and NEW (node set) scratch venvs on node2 produced
+byte-identical EIP-191 signatures, unsafe_sign_hash output, legacy and
+EIP-1559 Sepolia raw transaction bytes/hashes, keyfile round trips both
+directions, rlp codec output, and the ops-signer canonical-JSON
+signature; 641 repo tests passed identically in both environments.
+`tests/unit/test_eth_signing_known_vectors.py` locks those vectors so a
+future bump that changes any of them fails loudly. Host rollout of the
+pins on hub/hub1 remains a separate gated step.
+
+### SEC-19: dependency-scan.sh no longer reinstalls safety or mutates the project venv (2026-10-14)
+
+The script still ran `pip install safety bandit pip-audit` into the repo
+venv on every run — on a SEC-15-cleaned host that reinstalls the removed
+safety/Authlib chain, and the install always mutated the live venv's
+dependency set. The script now runs pip-audit only, resolved in order:
+pip-audit on PATH, an existing `AITBC_SCAN_TOOLS_VENV`, else a throwaway
+venv (env-var path or `mktemp -d`) removed on exit. It never creates
+`./venv` (that is setup-python-venv.sh's job) and never installs into it.
+Exit behaviour is unchanged — a findings report prints a warning and the
+script still exits 0; it documents itself as a report, not a gate.
+SECURITY.md and the dev-tier tool lists in install-profiles.sh /
+requirements-test.txt no longer name the removed package. New tests run a
+copy of the script under stub shims and assert no safety invocation, no
+project-venv install, tools-venv removal and clean exit, plus bash -n and
+no-safety static guards.
+
+### TEST-2(B): test hygiene — fleet literals, .git skips, endpoint probes (2026-10-14)
+
+Leftovers from TEST-1. The no-fleet-details guard failed on literal hostnames
+and an internal IP in `test_prometheus_alert_watch.py`,
+`test_ntfy_heartbeat.py`, and quoted commit subjects in this log — all now
+RFC-5737/`*.example.*` placeholders of the same shape, assertions unchanged.
+Tests that enumerate the repo through `git ls-files`/`git grep` failed (or
+passed vacuously) on `.git`-less exports; they share one skip mark in
+`tests/git_checkout.py`, while the mocked `aitbc update` tests satisfy the
+command's real `.git` gate with a patched `REPO_ROOT` and keep running
+everywhere. The phase-8 endpoint checks now probe their env-provided URL for
+reachability — the conftest `setdefault`s had disarmed every set-based skip.
+The OpenAPI drift tests skip only when extraction fails for every app (an
+interpreter without app dependencies); real drift still fails. The migration
+downgrade sweep's flaky rerun was masking a wrong ceiling — it measures ~525s
+(9 min) on node2, so the 60s ini timeout could only ever kill it; it now pins
+`pytest.mark.timeout(1800)` (~3.4x measured) and drops the rerun. Docs record
+the TEST-1 rerun policy, and the releases README drops the stale
+two-version-scheme story for the checker-enforced single `0.25.9`.
+
+### ETH-13: sell-lock operator command — sell_admin (2026-10-14)
+
+Builds the operator command the sell-escrow runbook flagged as a tool
+gap, per `TOPOLOGY/2026-10-13-sell-lock-operator-command.md` (all six
+open choices decided 14 Oct). `python -m wallet_app.bridge.sell_admin` —
+hub-local root only, no new network surface, same
+dry-run/`--confirm --note` contract and exit codes as `withdraw_admin`.
+
+Verbs: `list`/`inspect` (read-only; the persisted intent is shown parsed
+and the signed blob never prints), `confirm-swept <hash> --tx <sealed>`
+(re-verifies the sealed outflow on-chain through the monitor's own
+`_find_escrow_outflow` match rule — nonce + recipient + amount +
+`payload.sell_ref` — then writes `settled`/`refunded`; no hash or
+mismatch refuses), `requeue` (literal return to the intent's lane —
+`released`/`refund_pending`; refuses while a sweep is in flight and when
+the intent blob is unreadable), `write-off --reason` (terminal
+`written_off`; refuses rows with a live send in flight), and `sweep-now`
+(`queued_fee_*` only — one synchronous `_escrow_sweep` through the
+monitor's own code path, same fee-float check and park outcome).
+
+Ledger: `bridge_sell_locks` gains `resolved_by`/`resolved_at`/
+`operator_note` via `init_db`'s `_add_column_if_not_exists` block — the
+same mechanism `eth_withdrawals.retry_count` used — written on every
+resolution; the row's `error` carries `operator:<verb>`.
+`sell_escrow_monitor._expected_sweep` takes an explicit `lane` argument
+so the admin can re-derive the expected outflow for a
+`needs_review_sweep` row (whose status no longer names the lane).
+`written_off` is terminal by omission from every status set, but a
+written-off row that recorded a release tx still counts toward the daily
+sell-release cap (`get_sell_eth_committed_since` filters on
+`eth_tx_hash IS NOT NULL` for it — decided 14 Oct): the cap measures ETH
+that left the wallet, and write-off bookkeeping does not undo a payment.
+It stays fully out of the pending reserve — the reserve is for ETH not
+yet paid.
+`SELL_ESCROW_ENABLED` is not required — operator duties exist while the
+feature stays dark; chain-touching verbs still need the sell config and
+(for `sweep-now`) a loadable escrow key slot. Runbook
+`docs/ops/sell-escrow-runbook.md` gained the real procedures.
+
+Host gates (decided 14 Oct, enforced in code): the module refuses unless
+euid 0 and `BLOCKCHAIN_MODE=hub` in the loaded env set, and refuses when
+the bridge ledger file is absent — `init_db` can never create an empty
+DB on the wrong host.
+
+Commits: `c2b963f5b` (module + audit columns + cap rule + tests),
+`4ada8732f` (host gates + settled/foreign-nonce/requeue-serialization
+proofs). `docs/ops/sell-escrow-runbook.md` + this section land in the
+accompanying docs commit.
+
+### ETH-18: a young pending release logs below ERROR, not 'needs review' (2026-10-14)
+
+During ETH-16's live withdrawal the hub withdraw monitor broadcast the
+release and, 30 s later, logged ERROR "still unverifiable — needs review"
+while the row stayed `releasing`; the next poll confirmed the receipt and
+completed it. The tx had simply been mined below
+`BRIDGE_RELEASE_CONFIRMATIONS` depth — a normal delay, not an incident.
+
+`_release_nonce_outcome` now splits the nonce view into `nonce_consumed`
+(the nonce was taken without a qualifying receipt — a real anomaly that
+keeps ERROR, per ETH-15's documented intent) and `nonce_pending` (the tx
+sits in the pending pool — routine). In `_resume_unfinished_releases`, a
+`chain_view`/`nonce_pending` "unknown" younger than
+`ETH_RELEASE_ABSENCE_GRACE_SECONDS` logs at INFO with the reason and age;
+`verify_error`, `nonce_consumed` and aged rows keep ERROR, and the ERROR
+line now names the reason. The sell-escrow inflight check applies the same
+split at WARNING (its unknown path does persist `needs_review`). Log level
+and log content only — no outcome, status, refund or parking decision
+moved. Watcher note: `AITBCJournalErrors` counts `[ERROR]` lines per unit,
+so routine young-release delays no longer feed it; real anomalies do.
+
+### ETH-JOIN: settlement join hardening — retryable order_funded refusals, order_refund ref_id split, flag-off 503 (2026-10-15)
+
+Pre-enable review of the ETH-19 sell-lock ⇄ settlement join (report-only
+pass, then this fix pass) found three places where a caller-visible or
+transient condition could strand escrowed AIT or corrupt an unrelated row.
+All three are fixed while the feature is still dark on every host.
+
+- A non-terminal `order_funded` refusal (5xx, 401/403, the flag-off 503)
+  no longer writes a `lock:<tx_hash>` monitor mark — the lock stays in the
+  escrow scan and retries next poll, counted under
+  `stats["http_refused"]` with a WARNING line per refusal. Previously the
+  mark was written unconditionally (`outcome="http_500"`), so one
+  transient refusal permanently skipped the lock: never funded, never
+  refunded — `orders.backing_tx_hash` stays NULL, so the remainder lane
+  never even sees it. 404/409 keep their terminal refund path; transport
+  errors were already unmarked.
+- `order_refund` `ref_id` convention: the order's own lock-remainder
+  refund keeps `+order_id`; a refund for an inbound lock the order could
+  not take keys on `−order_id`. A stranger's dust lock naming the order
+  can no longer squat the UNIQUE(kind,ref_id) row the owner's remainder
+  refund needs — the same collision also protected a second stray lock,
+  which is still a logged duplicate. No schema or live-data migration:
+  `ref_id` is a signed INTEGER and the CHECK on `kind` is untouched.
+- `POST /api/internal/exchange-settlement` answers 503
+  `{"error": "exchange settlement disabled"}` while the exchange-side flag
+  is off — 404 was indistinguishable from "order not found" and mapped to
+  a lock refund. The supported rollout order (exchange flag first, wallet
+  flag second) is now in `docs/apps/exchange/exchange.md`; with both
+  flags off nothing changes — the monitor does not post at all.
+
+Adjacent hardening in the same diff: `_set_status_and_mirror` skips the
+tape mirror for `kind='order_refund'` — refund rows have no trade row and
+`ref_id` shares the order/trade integer space, so mirroring one could post
+`trade_state` onto an unrelated trade (or 404-pointlessly every poll).
+
+Commits: `0d77eec16` (wallet monitor + schema comment + tests),
+`6ff2adfac` (exchange endpoint + flag-off test). `exchange.md` rollout
+ordering lands in the accompanying docs commit.
+
+
+### CLI-1: exchange-settlement CLI gaps — node list/set-payout, order fund, settlements view (2026-10-15)
+
+The trading CLI covered orders and bridge basics but none of the
+settlement surfaces that `EXCHANGE_SETTLEMENT_ENABLED` (still dark on
+every host) introduces. Five additive pieces close the gap; flag-off
+behaviour is byte-identical everywhere.
+
+- `aitbc exchange node list` — the existing `GET /api/exchange/nodes`
+  had no CLI counterpart. Read-only, no wallet or signature.
+- `aitbc exchange node set-payout --eth-address` — signs the
+  `exchange_set_payout` envelope against `POST /api/exchange/nodes/payout`,
+  mirroring `node register` (account nonce from `my-orders`, island
+  chain_id). The address is EIP-55-checksummed before signing because
+  the exchange refuses anything else.
+- `GET /api/exchange/my-orders` now attaches the `funding` block
+  (escrow, `required_ait`, `payload`) to rows that are `open` AND
+  `funded_state='unfunded'` — only while the settlement flag is on.
+  The block previously existed only in the place-order response, so a
+  node that lost it had no way to re-read the lock target. Shapes are
+  extracted into a shared read-only `_funding_block` used by both the
+  place path and my-orders; no schema change.
+- `aitbc exchange order fund <id> [--print]` — resolves the order's
+  funding block and sends the escrow-lock TRANSFER with payload
+  `{"sell_quote": <id>}` through the normal transaction-signing path.
+  `--print` emits the equivalent `aitbc transactions send` line and
+  broadcasts nothing. Refuses BUY orders (ETH prepay is out of scope),
+  funded/expired/cancelled rows, and flag-off exchanges. Implemented
+  and tested against mocks only — the help text says so; a real AIT
+  transfer is an operator-named move.
+- `GET /v1/bridge/settlements` + `aitbc wallet bridge settlements` —
+  the `exchange_settlements` ledger (trade / `order_refund` rows,
+  `needs_review`, error text) had no HTTP surface; state/kind filters
+  and bounded limit/offset pagination. The route is **admin-keyed**
+  (`require_admin_api_key`, same stance as `sell/quote`): hub nginx
+  exposes the whole `/v1/bridge` mount publicly and the rows carry
+  diagnostic error text plus release nonces/hashes.
+
+Also fixed: the `order` group help still claimed "unfunded,
+settlement-free". MCP tool modules regenerated — `order fund` and
+`node set-payout` land under `dry_run`+`confirm` guards, `node list`
+is read-only. `docs/api/wallet-openapi.json` regenerated for the new
+route. Out of scope: hub default exchange URL/nginx routing (separate
+operator decision), BUY-side funding, ETH-JOIN review items 4-7.
+
+Commits: `11135740c` (exchange my-orders funding block + tests),
+`8605f6b21` (CLI commands, wallet route/db/tests, MCP regen, openapi).
+
+
+### CLI-2: CLI/MCP tooling gaps — file-info, env-names, exchange verify, MCP optional-arg schema (2026-10-15)
+
+Four tooling gaps reported from the ops/MCP sweep (TOPOLOGY
+2026-10-15-cli-mcp-gaps.md): every one had been worked around with
+ssh+python because the CLI either dumped too much or required too much.
+All additions are read-only; the generic `run-script --interpreter/--arg`
+extension is deferred to the gap log as a separate reviewed item — it
+widens a remote-exec surface.
+
+- `aitbc system file-info --path <f> [--field <name>]` — the safe form
+  of `system file` (which dumps whole content, including a wallet
+  JSON's private_key). Reports size, mtime, owner, mode, type and the
+  JSON top-level key names; deliberately no sha256 — a hash of a short
+  secret file is brute-forceable offline. `--field` prints one scalar
+  top-level field under a hard, case-insensitive denylist (private_key,
+  secret, password, token, mnemonic, seed, key, api_key, `*_key`, and
+  the same names nested in the value); denied names and >200-char
+  values are explicit refusals. The allowlist now resolves the real
+  path — a symlink escaping the allowed prefixes is refused.
+  `/var/lib/aitbc/wallets` and `/etc/aitbc/credentials` are covered;
+  `/root/.aitbc/wallets` is not.
+- `aitbc system env-names --service <unit> [--names K...]` — variable
+  NAMES only from `systemctl show -p EnvironmentFiles` (drop-ins
+  included, `-` optional prefix handled, `/etc/aitbc/<unit>.env`
+  fallback kept); unparsed lines report file+line number, never text;
+  `--names` reports set/unset. `env-set` behaviour unchanged.
+- `aitbc exchange verify` — wraps `scripts/ops/exchange_verify.py`:
+  `sys.executable` argv exec (no shell), `--no-chain` default unless an
+  RPC is given, `--db`/`--bridge-db` must be absolute existing regular
+  files without `..` or symlinks, exit code and FAIL/WARN lines pass
+  through. The script is stdlib-only and opens sqlite `mode=ro`.
+- Generated MCP wrappers annotated every optional CLI option `T | None`
+  but emitted no `= None` default, so FastMCP marked them all required
+  (the sweep passed explicit nulls to work around it). The generator
+  now appends `= None`; all 76 groups regenerated. The three new
+  commands land as read-only MCP tools (`FORCE_READ_ONLY_PATHS`).
+
+Tests: a denied field is proven absent from stdout and logs; `system
+file` dump behaviour unchanged; an omitted MCP optional never reaches
+the command line nor the string "None"; verify argv/passthrough/path
+refusals covered. Spec: tasks/batch-05-build/CLI-2 (director-approved
+with five amendments, all folded in).
+
+Commits: `4b214fdb2` (MCP schema fix + regen + None-skip test),
+`77ebd3aaf` (file-info + env-names + tests + docs), `facb65ebc`
+(exchange verify + tests + docs).
+
+
+### OPS-6: exchange base default is the bare hub origin (2026-10-15)
+
+`hub_exchange_url()` fell back to `hub_service_url("exchange")` —
+`https://<hub>/exchange` — but hub's `/exchange/` prefix is deliberately
+the wallet service's mount (exchange-deposit routes), so every node with
+no explicit `exchange_service_url`/`HUB_EXCHANGE_URL` resolved the
+signed-order surface to the wrong service and `aitbc exchange …` failed
+without `--exchange-url`. The fallback is now the bare hub origin via a
+new `hub_origin()` helper: the signed-order routes publish at their
+natural `/api/*` paths (OPS-4 mounts them there). Explicit
+`HUB_EXCHANGE_URL`/`EXCHANGE_SERVICE_URL`/config values still win —
+nodes carrying the stale explicit `…/exchange` value are fixed by
+OPS-5's per-node config step, not by this change.
+
+Tests: bare-origin default, explicit-env precedence, and the updated
+process-env assertion all pass in `test_hub_url_from_env.py`.
+
+Commits: `b710f2574` (hub.py default + hub_origin + test + scenario doc).
+
+### CLI-3: signed exchange ops resolve the envelope chain-id — /rpc-suffix probe fix + island-creds fallback + `config get <key>` (2026-10-15)
+
+Every signed exchange op (`node register`, `node set-payout`,
+`order place`, `order fund`, `order cancel`) resolved its envelope
+chain_id by probing the node's RPC — `get_chain_id_from_health` tried
+`<base>/rpc/proposer` then `<base>/health` expecting a ROOT base, while
+`get_rpc_endpoint()` and node `blockchain_rpc_url` config hand it
+`/rpc`-suffixed bases (`https://<hub>/rpc`). The probes hit
+`/rpc/rpc/proposer` → 404 → `ChainIdLookupError` on every island host;
+node2's first `set-payout` needed `--chain-id ait-hub.aitbc.bubuit.net`
+to get through. The probe now strips one trailing `/rpc` before building
+its client, so bare and suffixed bases resolve identically — this also
+fixes the same latent failure in the `ai.py`, `agent_sdk.py`,
+`gpu_resources.py` and `market/gpu.py` signing paths that feed
+`resolve_chain_id` the same bases.
+
+`_envelope_chain_id` additionally falls back to the island credentials'
+`island_chain_id` (the required field written and validated at join)
+when no node answers the probe — covers hosts whose only RPC endpoint
+is unreachable. Explicit `--chain-id`/`CHAIN_ID` still win, the strict
+probe still runs for hosts without credentials, and the fail-closed
+abort is last — never a silent default.
+
+`aitbc config get <key>` is now a real subcommand (it was an alias for
+`config show` that ignored the key — OPS-5 had to read yaml via ssh
+grep): prints the stored value of one key, exits nonzero when absent or
+the file is missing, refuses the file-info denylist plus
+passphrase/credential, and keeps bare `config get` as the show alias.
+`--global` reads the global config file. MCP wrapper regenerated for the
+new signature.
+
+Commits: `e64b0b123` (probe normalization + creds fallback + tests),
+`9e7daa873` (config get + tests + MCP regen).
+
+### REPO-1: file-info denylist extension + env-names case + verify DB containment + OPS-4 nginx example (2026-10-15)
+
+`system file-info --field`'s denylist only caught the literal `*_key`
+spellings — `privatekey`, `api-key`, `pass_phrase` and friends all
+slipped through. The check now normalises each candidate (strips `-`
+and `_`, lowercases) and additionally refuses the exact names
+privatekey, apikey, secretkey, passphrase, passwd, credential and
+credentials, plus any name ending in `key` whose prefix is
+private/secret/api/auth/signing/access. `pubkey`, `monkey` and the
+rest of the `*key` tail stay allowed; a denied value still never
+reaches stdout or the log.
+
+`system env-names --names` uppercased each requested name before
+matching, so a lowercase query could never match its own variable —
+environment names are case-sensitive and are now reported exactly as
+given.
+
+`exchange verify`'s help examples pointed at
+`/var/lib/aitbc/exchange.db`; the real path is
+`/var/lib/aitbc/data/exchange/exchange.db`. `--db`/`--bridge-db` now
+must resolve under `/var/lib/aitbc/` on top of the existing
+absolute/no-`..`/no-symlink checks — the wrapper can no longer be
+aimed at arbitrary SQLite files elsewhere on the host.
+
+`examples/nginx/nginx-aitbc.conf.example` gains the OPS-4 signed-order
+block verbatim from the hub vhost: `/api/internal/` 404s, the six
+exact-match `/api/*` exchange locations are method-pinned via
+`limit_except`, rate-limited, capped at 16 kB bodies, and proxy with
+`X-API-Key`/`Authorization` stripped. The file's "every location
+exists in production" claim stays true.
+
+Tests: denylist accept/refuse parametrisation, env-names
+case-sensitivity, verify prefix accept/refuse/boundary cases — the
+system and exchange CLI suites, ruff, mypy ratchet, check-cli-docs,
+check-mcp-cli-drift and check-c901-ratchet all pass.
+
+Commits: `8a0218e8d` (denylist + env-names + verify containment +
+nginx block + tests + MCP regen).
+
+### CLI-3b: `order fund --fee` → DEFAULT_TX_FEE_AIT + `wallet send` confirmation semantics (2026-10-15)
+
+`exchange order fund --fee` defaulted to `Decimal("0.001")` — below the
+chain standard — and now takes `DEFAULT_TX_FEE_AIT`
+(`aitbc.utils.units`) like every other fee path; an explicit `--fee`
+still wins. `wallet send` no longer reads a returned mempool hash as a
+landed transfer (the 15 Oct unsealed tx was indistinguishable from
+success): it prints "submitted, not confirmed" — the same wording lands
+in the shared `_send_transaction_impl` used by `transactions send`,
+`order fund` and `batch` — and its JSON output carries a `status` field
+(`submitted`/`confirmed`). A new `--wait` flag polls `wait_for_tx` for
+the seal: a confirmed send reports the block height, while a send still
+unsealed after 120s exits nonzero naming the hash and the status
+command, since a retry reuses the nonce.
+
+Commits: `bfaa13b44` (order fund fee default → DEFAULT_TX_FEE_AIT +
+tests), `8159a73a4` (wallet send submitted-not-confirmed + --wait +
+shared message).
+
+### CLI-4: `exchange order fund` forwards the wallet password options (2026-10-15)
+
+`order fund` declared `--password/--password-file/--password-stdin` but
+passed none of them to `load_wallet_for_payment`, so an encrypted wallet
+aborted "No wallet password available" before the funding block was read —
+`--print` included (found live on node2 during ETH-19 Phase D1; the D1
+lock went out via `transactions send` instead). The loader cannot return
+an address without decrypting (`_load_wallet` decrypts eagerly and its
+password resolution is unconditional), so the command now reads the
+wallet's plaintext `address` field — or the daemon record — for both
+paths, then resolves the password exactly once right before the broadcast
+and reuses it for `_send_transaction_impl`: `--password-stdin` is
+consumed one time, `--print` on an encrypted wallet needs no password at
+all, and a failed send exits nonzero instead of silently skipping the
+success line. Sender-must-be-order-owner, the funding-block aborts, the
+`{"sell_quote": <id>}` payload and the lock amount are unchanged.
+
+Tests (`TestOrderFundEncryptedWallet`) run a real `_save_wallet`-encrypted
+fixture through real password resolution with only the broadcast mocked:
+`--password-file` reaches the send, wrong and missing passwords fail
+closed, `--print` works with empty stdin, and `--password-stdin` is read
+exactly once. The existing fund tests move from the loader mock to a real
+unencrypted wallet file.
+
+Commits: `f8933199e2` (password forwarding + plaintext address read +
+real encrypted-wallet tests).
+
+### WAL-2: wallet create/restore under the WAL-1 secret standard (2026-10-15)
+
+`wallet create` was the last place a human had to type a wallet secret
+twice on a TTY — a headless agent could only create unencrypted
+(`--no-encrypt`) wallets or pre-seed the keyring. A separate
+`resolve_new_wallet_password()` in `utils/wallet_secret.py` reuses the
+WAL-1 sources, precedence and password-file checks (0600, ownership,
+size), but creation semantics differ from signing: every
+non-interactive source is self-confirming and returned once, only the
+TTY fallback runs the two-prompt confirm loop — and only that path
+writes the keyring, so a file/stdin/env password is never copied into
+another store. Empty values that signing tolerates (`--password ""`,
+empty env var) are refused for a new wallet. `--no-encrypt` is
+unchanged (skips resolution entirely) and now explicitly refuses a
+combined `--password*` flag instead of silently ignoring it.
+
+`wallet restore` previously copied the backup JSON verbatim and
+resolved no password at all (the WAL-2 design note's claim that it
+called `_get_wallet_password` was stale — corrected in the note). It
+now gains `--password-file`/`--password-stdin` — deliberately no
+`--password` argv option: a plaintext backup is then re-encrypted under
+the resolved password after the blob is proven to round-trip to the
+backup's stored `address`, written atomically at mode 0600 with no
+plaintext intermediate. A password flag on an already-encrypted backup
+aborts before any write ("`--password*` applies only to plaintext
+backups"); with no flags both encryption states remain verbatim copies.
+
+Audit note: `genesis init --password` still forwards the secret onto
+the `unified_genesis.py` subprocess argv (deliberately left in WAL-1),
+`genesis reset --password` exposes it on the CLI's own argv (lands in
+env files, not subprocess argv), and `_get_wallet_password`'s private
+getpass survives in `wallet/staking.py`'s re-encrypt fallbacks (dead in
+practice — encrypted wallets always arrive with a resolved password).
+
+Tests: `cli/tests/test_wal2_create_restore_password.py` — 31 cases over
+file/stdin/env/keyring/TTY sources, per-source precedence and leak
+checks, create's flag matrix, and all four restore branches; the
+existing wallet + wallet_secret suites, ruff, mypy ratchet,
+check-cli-docs, check-mcp-cli-drift and check-c901-ratchet all pass.
+
+Commits: `5f6178d52` (resolver + create/restore + tests + MCP regen).
+
+### REPO-2: fee defaults track DEFAULT_TX_FEE_AIT + verifier eth_address severity (2026-10-15)
+
+`transactions send` and `ipfs island subscribe` still defaulted `--fee`
+to the string `"0.001"`, and the `transactions batch` per-entry fallback
+did the same — a tenth of the chain standard fee. All three now import
+and use `DEFAULT_TX_FEE_AIT` (0.01); the options show the default, and
+the batch help/epilog plus the transaction-sending scenario doc stop
+naming the stale value (the doc also claimed batch fee "defaults to
+10.0"). `cli/tests/test_fee_defaults.py` proves default ==
+`DEFAULT_TX_FEE_AIT` and explicit `--fee`/per-entry `fee` wins for all
+three paths. The remaining `0.001` sites are non-signing (bridge
+estimate's fake display data, exchange `min-order-size`, doc examples)
+or explicit opt-in values (the MCP forwarding test); the staking and
+wallet `--fee` options already agree at literal `0.01`.
+
+`scripts/ops/exchange_verify.py` reported a registered `node_registry`
+row without `eth_address` as an unconditional FAIL — but that is an
+expected transitional state while `EXCHANGE_SETTLEMENT_ENABLED` is off
+(a node can register before setting its payout address; the 15 Oct run
+cost a director waiver). The flag lives in the exchange service env,
+unreachable by an offline verifier whose own contract is "no environment
+reads — all endpoints/addresses come from flags", so the script gains
+`--settlement`: passed means the flag is on and the check tightens to
+FAIL only when the node already has orders; unset (or the flag being
+off) means payout is not yet needed and it is a WARN — mirroring the
+service's own unset=off default. `aitbc exchange verify` forwards the
+flag. Fixture-DB tests cover all three cases plus the
+eth_address-present no-op; SQLite stays `mode=ro`.
+
+### ETH-JOIN-2: settlement join-review gaps 4–7 + order_refund squat residual (2026-10-15)
+
+Second pass on the ETH-JOIN report, closing the four low-severity items
+left open by ETH-JOIN (gaps 1–3) plus the residual it documented against
+the `order_refund` ref_id sign split. All monitor-side; no schema change
+and no live deployment — the code ships on the next authorized pull.
+
+- **Gap 4 — normalized lock-hash compares.** `orders.backing_tx_hash` vs
+  observed `tx_hash` was an exact-string equality at two sites: the
+  re-observe check in `_order_lock_outcome` and the sender lookup in
+  `_lock_sender`. An RPC case/prefix respelling would have dropped a
+  funded lock into the refund lane, and on the sender path made
+  `_lock_sender` fall back to `user_address` — refunding a stranger's
+  lock remainder to the order owner. `_norm_tx_hash` (lower, strip `0x`)
+  now normalizes both sides at both sites.
+- **Gap 5 — no-payout trade skips and self-heals.** A trade whose seller
+  had no `seller_eth_address` (order snapshot NULL *and* node_registry
+  NULL) threw inside the ETH-release lane, pinning the settlement row in
+  `needs_review` forever. `_ensure_trade_rows` now skips the trade before
+  a row exists — retried each poll, so a seller who registers a payout
+  address later settles on the next pass. The skip counts as
+  `no_payout_skipped` in the poll summary and logs ERROR at most once
+  per trade per hour (DEBUG between) so it cannot flood the journal.
+- **Gap 6 — unlinked trades get a terminal mark.** Trades with NULL
+  `buy_order_id`/`sell_order_id` logged an ERROR every poll forever with
+  no terminal state. They now take a `unlinked-trade:<id>` monitor mark
+  (detail carries the NULL links, `outcome="no_order_links"`) — one
+  ERROR line at discovery, skipped silently afterwards. Kept the
+  monitor-mark path rather than stamping `failed`: `failed` has no
+  incoming edge in either `_TRADE_STATE_FORWARD` map, and adding one
+  would have changed ETH-JOIN's mirror semantics.
+- **Gap 7 — hash-domain comment.** `orders.tx_hash`/`backing_tx_hash`
+  are 0x-prefixed chain transaction hashes; `envelope_hash` is the
+  0x-less keccak of the signed order envelope — the shared word "hash"
+  now carries an explicit never-compared comment in
+  `simple_exchange/db.py`. Comment only.
+- **Squat residual — owner-priority lock-keyed fallback.** ETH-JOIN's
+  `−order_id` inbound-refund row can still be squatted by a stranger's
+  dust lock: the owner's later under-cover lock then collided on UNIQUE
+  and landed as `duplicate` needing a manual refund. When the
+  `−order_id` slot is held, an *owner*-sender lock (the same
+  `_sender_owns_order` check used for crediting) now falls back to
+  `_lock_refund_ref_id(tx_hash)` — `−(int(hash[:15],16) | 2**59)`,
+  deterministic per lock so a re-scan dedupes, bounded below `−2**59`
+  so it cannot collide with any `±order_id` or trade id. Stranger
+  duplicates stay bounded at one inbound-refund row per order — the
+  dust-spam fee drain stays closed. A UNIQUE collision on the derived
+  id still returns `duplicate` for operator review rather than crashing.
+  Reader audit: `ref_id` is exact-match everywhere (`get_exchange_settlement`
+  callers pass `±order_id` only; the mirror/refund lanes never read
+  `order_refund` ref_ids; `exchange_verify.py`, routes, CLI and MCP are
+  display-only), so the third ref_id class is opaque to every consumer.
+  The `exchange_settlements` schema comment now documents all three
+  classes. A `lock_tx_hash`-keyed column remains the cleaner long-term
+  cut — left as a proposal, not implemented (no schema change was in
+  scope).
+
+Tests: 8 new cases in `test_exchange_settlement_monitor.py` — hash
+normalization at both sites, derived-ref_id range/idempotence over
+multiple hashes, owner-under-cover refund surviving a stranger squat,
+second stranger lock still `duplicate`, re-poll writing no second row,
+unlinked-trade terminal mark, no-payout skip counting and self-healing,
+poll-summary counter. All failed before the source change; the full
+65-test monitor suite, wallet suite, exchange suite, ruff, mypy
+ratchet and check-c901-ratchet pass.
+
+Commits: `8f9ac9f06` (monitor + schema comment + tests),
+`88f0b3812` (exchange hash-convention comment).
+
+### ETH-19B: the internal settlement endpoint accepts its loopback caller (2026-10-15)
+
+`FastAPIRequestAdapter.__init__` never called
+`BaseHTTPRequestHandler.__init__` and never set `self.client_address`, so
+`_raw_peer_ip()` read a missing attribute, returned `""`, and
+`_peer_is_loopback()` failed closed — `POST
+/api/internal/exchange-settlement` answered 403 to every caller,
+including the wallet settlement monitor's `order_funded` post for the
+sealed D1 lock (found live on hub 15 Oct; the monitor correctly left the
+row unmarked and retried each poll). The existing tests missed it
+because they assign `client_address` on a fake handler.
+
+The adapter now sets `client_address` from the ASGI request's client
+(`("", 0)` when absent so the gate still fails closed), and `server.py`
+runs uvicorn with `proxy_headers=False`. Evidence for that choice:
+uvicorn 0.49.0's `ProxyHeadersMiddleware` rewrites `scope["client"]`
+from `X-Forwarded-For` whenever the immediate peer is trusted (default
+`127.0.0.1`, widenable via `FORWARDED_ALLOW_IPS`) — a spoofable value
+for a wire-peer gate; and an in-app ASGI wrapper cannot recover the
+pre-middleware peer because uvicorn applies its middleware outside the
+loaded app. The endpoint's second gate (refuse any request carrying
+`X-Forwarded-For`/`X-Real-IP`) already made the composition safe, but
+the raw peer removes the dependency entirely. The app's only other
+`request.client` consumer is the `_client_ip` rate limiter, which
+prefers nginx's `X-Real-IP` under its own `EXCHANGE_TRUSTED_PROXIES`
+list — identical results with the rewrite off, verified by audit.
+
+New tests in `test_internal_settlement.py` drive the real
+`_dispatch`/adapter path through `TestClient(client=(host, port))`:
+loopback + key + valid `prepaid_credit` → 200 with the deposit row
+applied; loopback without key → 401; `10.1.2.3` → 403;
+`::ffff:127.0.0.1` → 200 (IPv4-mapped loopback); loopback carrying
+`X-Forwarded-For` or `X-Real-IP` → 403; a scope with no client → 403;
+flag off → 503; and TestClient's `("testclient", 50000)` default is
+documented as refused. A per-test fixture refreshes
+`main._HANDLER_POOL` — `test_http_contract`'s real-uvicorn fixture shuts
+it down on teardown, so the new tests are suite-order-proof.
+
+Commits: `106987e87` (adapter client_address + proxy_headers=False +
+real-adapter gate tests). Deploy/restart of the hub exchange is a
+separate gated step — until then the running service still 403s.
+
+
+### WAL-3: the last three non-standard secret paths join WAL-1 (2026-10-15)
+
+Three leftovers closed out the shared wallet-secret standard.
+
+`wallet bridge sell quote` and `sell lock` load the node wallet through
+`_resolve_wallet` but could not take `--password-file`/`--password-stdin`,
+leaving headless agents with only env vars and the keyring. Both commands
+now carry `@wallet_password_options` and forward the trio into
+`_load_wallet`'s lazy resolver — the secret resolves exactly once and an
+unencrypted wallet still never asks. `sell status` never touches a wallet
+file and is unchanged.
+
+`wallet/staking.py`'s liquidity re-save paths still fell back to the
+pre-WAL-1 `_get_wallet_password` (keyring, env, a private two-prompt TTY
+loop) whenever the resolved password was falsy — dead code in practice,
+since an encrypted wallet already failed closed in the resolver. The
+fallback is gone and `_get_wallet_password` itself is deleted, removing
+the last private `getpass` in `commands/`.
+
+`genesis init --password` appended the secret to the
+`unified_genesis.py` subprocess argv (visible in `ps` and shell history)
+and `genesis reset` took `--password` as a bare option. Both commands now
+expose the standard trio — `--password` deprecated with the usual
+warning, plus `--password-file`/`--password-stdin` — and resolve through
+`resolve_new_wallet_password` with the TTY prompt off. `init` hands the
+value to the child by `AITBC_GENESIS_PASSWORD` in its environment
+(child-only, zero filesystem lifetime — the script already writes
+`.genesis_password` 0600, so env adds nothing weaker); the script reads
+the env var when no `--password` argv is given, keeping direct
+invocation working. `init` refuses a `--password*` flag without
+`--create-wallet` — an ignored credential flag is the wrong failure
+mode. `reset` keeps auto-generating when no flag is given.
+
+Tests: `cli/tests/test_wal3_secret_leftovers.py` — 18 cases over real
+encrypted wallets (`_save_wallet`, real resolvers): file/stdin flag
+signing and broadcast for `sell lock`, wrong-password and no-password
+fail-closed, stdin read exactly once, secret absence from output and
+logs, `sell quote` unlock/fail-closed, the staking re-save round-trip
+plus headless fail-closed before submit, genesis init's env-not-argv
+boundary on all three sources, reset's resolved/None hand-off, and the
+script-side `AITBC_GENESIS_PASSWORD` consumption with argv precedence.
+
+Commits: `2d265c090` (sell trio + staking resolver + genesis env
+hand-off + MCP regen + tests).
+
+### ETH-JOIN-3: order_refund dust-lock bound + ref_id guard (2026-10-15)
+
+Closes the two residuals ETH-JOIN-2's report named against the
+owner-lock refund fallback — both are monitor-side in
+`exchange_settlement_monitor.py`, no schema change, and neither alters
+the ETH-JOIN/ETH-JOIN-2 semantics (http_* refusals stay unmarked,
+sign-split + lock-keyed ref_ids, flag-off 503, the one-inbound-refund
+bound per stranger per order).
+
+- **Sub-fee inbound locks create no row.** `_lock_refund` — the single
+  funnel for `remainder=False` refunds — now skips when
+  `lock_ait <= _sweep_fee_ait()`, the same caller-side bound
+  `_refund_stranded_locks` applies to the lock remainder. A lock worth
+  less than its refund sweep stays in escrow instead of draining the
+  shared float one sweep fee at a time. The check precedes both inserts
+  in `_ensure_order_refund`, so a sub-fee owner lock gets neither the
+  `−order_id` row nor the lock-keyed fallback. Outcome `below_fee`
+  returns to `_scan_order_locks`, which deliberately writes no
+  `lock:<hash>` mark — the lock is re-evaluated each poll so a fee
+  change picks it back up, and the notice is rate-limited to INFO once
+  per lock per hour (DEBUG between) behind a bounded, attacker-keyed
+  map. Order 23's 1 AIT lock is far above the bound; its funded-path
+  behaviour is unchanged.
+- **`bad_tx_hash` guard on the fallback.** An empty or non-hex lock hash
+  on the owner-fallback attempt no longer raises out of
+  `_lock_refund_ref_id` — `_ensure_order_refund` returns `bad_tx_hash`,
+  which the scan marks exactly like `duplicate` (terminal, no retry).
+  The ERROR line names the hash problem and never claims a ref_id
+  collision. The normal `−order_id` insert path does not read the hash
+  and needs no guard.
+
+Residual left open (stated, not implemented): an owner can still send
+many *above-fee* locks against their own order — each fallback refund
+costs the shared float one sweep fee at cost parity with the owner's
+lock fee. Bounding that fully takes either the `lock_tx_hash` column
+proposal (one refund row per lock, schema change) or a per-order cap on
+fallback rows; `lock_tx_hash` is the cleaner cut.
+
+Tests: 10 new items in `test_exchange_settlement_monitor.py` — sub-fee
+stranger/owner locks write no row and no mark, just-above-fee refunds
+for both sender classes, the bound following a monkeypatched
+`_sweep_fee_ait`, empty/non-hex/None hash → `bad_tx_hash` through the
+direct path and the scanner mark, and the hourly log rate limit. The
+below-fee and bad-hash cases failed on the pre-change source; the full
+75-test file passes.
+
+### TEST-1: hook interpreter resolution + test-env isolation (2026-10-15)
+
+Six 15-Oct gap-log rows, all repo tooling or test infrastructure — no
+service runtime behaviour changes.
+
+- **Shared repo-python resolver (gap rows 27/52).**
+  `scripts/ci/repo-python.sh` is the single resolver for hook/CI
+  scripts: `$PYTHON` env (validated — must exist and run a trivial
+  import — then trusted), `<checkout>/venv/bin/python`, then the main
+  checkout's venv located through `git rev-parse --git-common-dir`, so a
+  linked worktree still finds the reference venv. No `python3`
+  fallback: a dependency-poor interpreter turned "ran" into "checked
+  nothing" (`python3 -m ruff` absent → empty scan → green-looking skip).
+  `PYTHON=python3` stays the explicit opt-in. Failures exit 1 naming
+  `PYTHON=<interpreter>`. Wired into all eight scripts with the defect
+  class: check-mypy-changed.sh (was a hardcoded `venv/bin/python` —
+  reported bogus type errors on new files), check-c901-ratchet.sh,
+  check_deprecation_cleanup.sh, check-mcp-cli-drift.sh,
+  check-cli-docs.sh, check-except-ratchet.sh, check-openapi-drift.sh,
+  mypy-precommit.sh. Before/after in a venv-less worktree:
+  check-mypy-changed failed a clean new file with "Type errors"; after,
+  real mypy runs and passes it. Surfaced backlog, pre-existing and now
+  finally visible: check-except-ratchet defaulted to python3
+  *everywhere*, so its baseline drifted ~52 files while the gate ran an
+  empty scan — `make except-ratchet`/`make ci` report it now.
+- **MCP drift + generator format (row 36).** The drift check formats
+  via `"$PYTHON" -m ruff` — the pinned venv ruff — instead of a
+  version-skewed PATH ruff (0.16 vs 0.15 produced false 76-file drift);
+  `generate_mcp_cli_tools.py` ruff-formats its own output so a plain
+  regen is drift-clean in one step, and the printed `Run:` hint names
+  the resolved interpreter.
+- **Wallet suite env isolation (rows 54/55).**
+  `apps/wallet/tests/conftest.py` module-top: a guard raises at
+  collection if `aitbc.constants`/`wallet_app.settings`/`ApiKeyStorage`
+  were already bound outside a test scratch (combined runs fail loudly
+  instead of leaking — observed firing on a `tests/unit`-first run
+  where constants had bound `CONFIG_DIR=/etc/aitbc`,
+  `LOG_DIR=/var/log/aitbc`); ambient env Settings/DatabaseConfig parse
+  is popped (DEBUG, APP_*/ENVIRONMENT/NODE_ENV, HOST/PORT, DATABASE_URL
+  family, AITBC_HOME); AITBC_DATA_DIR/CONFIG_DIR/LOG_DIR and
+  API_KEY_STORAGE_PATH are force-assigned to a `tempfile.mkdtemp`
+  scratch cleaned at atexit. 303 wallet tests pass under `env -i` with
+  DEBUG=release, `/nonexistent` marker paths and a postgres
+  DATABASE_URL; nothing touches the markers.
+- **Adapter contract + uvicorn pin (row 56).**
+  `test_adapter_provides_handler_contract_attributes` asserts the real
+  FastAPIRequestAdapter exposes every attribute handlers read off self
+  (client_address, headers, path, command, request, rfile/wfile) —
+  mutation-verified, deleting the client_address line fails it.
+  `test_server_runs_uvicorn_without_proxy_headers` spies uvicorn.run in
+  server.main() and pins `proxy_headers=False`, which TestClient
+  bypasses.
+
+`tests/unit/test_repo_python.py` covers all resolver branches including
+a real linked worktree and a dangling venv symlink.
+
+Commits: `af1b2adaa` (resolver + 8 hook scripts + generator format +
+resolver tests), `d75f144d4` (wallet conftest isolation), `6d0d57b8e`
+(exchange contract/pin tests).
+
+### test(website): WEB-6 — accessibility + phone-width pass
+
+- Layout/phone: .table-wrap scroll regions (focusable, named) around all
+  wide data tables; .endpoint gains overflow-x:auto; 44px minimum tap
+  targets for .btn-primary, .copy-btn, .toggle-switch and form controls.
+- Focus/keyboard: global :focus-visible outline (--primary, 5.37:1);
+  .form-row controls keep a real outline instead of outline:none;
+  .toggle-switch input stays keyboard-focusable (clip, not display:none)
+  with a focus ring on the slider; click-only cards/rows gain role=link +
+  tabindex + Enter activation; deposit/hex copy boxes are role=button with
+  Enter/Space handlers.
+- Names/labels: aria-label on the previously-unlabeled selects and
+  placeholder-only inputs; marketplace toggle labelled; decorative svg
+  aria-hidden; ob-banner moved inside <main>; every <table> gets an
+  aria-label and every <th> a scope; kv row labels become th[scope=row];
+  truncated hashes expose the full value via aria-label/visually-hidden;
+  copy actions announce via a polite live region; live feeds announce
+  changes (throttled, summary only).
+- Contrast/motion (tonal only, same hues): --text-muted #71717a->#83838c
+  (4.09/3.86/3.67 -> 5.26/4.96/4.72 on bg/surface/code), --secondary
+  #8b5cf6->#a27cf8 (4.40 -> 6.01 on surface); form-control and
+  toggle-slider borders move --border -> --text-muted (>=4.7:1);
+  .status-sep uses muted; new prefers-reduced-motion block.
+- Guard: tests/unit/test_website_a11y.py covers labels, names, headings,
+  table semantics, scroll containment, click-handler operability,
+  outline rules and reduced-motion (67 violations on the pre-change
+  tree, 0 after). Commits: `116a20352`, `c4e06bdb1`, `158b65eed`,
+  `1f21a9f4d`, `12cb5c7a5`.
+
+### fix(website): WEB-7 — search page by-address query delimiter (2026-10-15)
+
+- search.html called `/api/blocks/by-address/<addr>&limit=50` — missing
+  `?` glued `limit=50` into the address path segment; the explorer
+  LIKE-matched nothing, so the address-search blocks section was
+  silently always empty. Fixed to `?limit=50`. Live read-only proof:
+  buggy URL returns 0 blocks, fixed URL returns the real set.
+- Guard: test_website_api_contract.py gains
+  test_no_query_delimiter_missing_in_path — any `&` in an extracted
+  path pattern fails (red on the buggy tree, green after). No
+  assertion weakened; allowlist stays empty.
+
+### fix(website): WEB-8 — content accuracy + discoverability audit (2026-10-15)
+
+- Copy fixes: drop stale "Mainnet" claims (index title/description,
+  llms.txt — the site itself disclaims real-world token value);
+  exchange meta "claim 100 free AIT" -> "3 free AIT"
+  (INITIAL_COIN_AMOUNT, agent_stream.py); index join note no longer
+  promises immediate payout while the hub faucet stays paused;
+  llms.txt bridge endpoint corrected to /rpc/bridge/transfers
+  (bridges.js:36 — /v1/bridge/deposits is loopback-only) and auth
+  requirement noted for /v1/jobs + /v1/monitoring/*.
+- sitemap.xml: llms.txt removed (not a canonical indexable page;
+  set now equals the 10 canonical pages exactly).
+- Social meta: og:title/description/type/url/image + twitter:card on
+  all 10 indexable pages, reusing existing title/description text and
+  the shipped favicon.svg.
+- Guard: tests/unit/test_website_discoverability.py — internal links
+  resolve (WEB-4 nginx model), llms.txt entries routable + not
+  robots-disallowed, sitemap == canonical page set, deny-list scan
+  (retired hosts, gitea, RFC1918, 64-hex, 0x+40-hex), social meta
+  presence. Red on pre-change tree (sitemap + social + llms.txt),
+  5/5 green after.
+
+### fix(website): WEB-9 — client-side rendering safety audit + hardening (2026-10-15)
+
+- Audit: enumerated every DOM sink across website/*.js and inline
+  scripts (60 innerHTML writes, insertAdjacentHTML in blocks.js,
+  dynamic href/src setters, storage use). Every data-bearing
+  interpolation resolves to escapeHtml/encodeURIComponent/
+  textContent or a numeric/class constant — no unescaped
+  attacker-controlled sink found; jsdom proofs with hostile stub
+  payloads stayed inert (scratch/web9/, never committed).
+- Hardening: every target="_blank" link (13 static + generated)
+  now carries rel="noopener noreferrer" (8 files).
+- Guard: tests/unit/test_website_client_sinks.py — offline static
+  scan; every markup-template interpolation must provably resolve
+  to an escaping call, constant, or audited allowlist entry
+  (stale entries fail); forbids eval/new Function/document.write/
+  outerHTML; no external-origin includes; _blank requires
+  noopener noreferrer. Red-proof verified by injecting an
+  unescaped field. 5/5 green.
+- Docs: docs/website-csp-proposal.md — report-only CSP draft
+  (default-src 'self', connect-src 'self'), inventories the
+  inline scripts/handlers/styles blocking a strict policy, with
+  an examples/nginx snippet for review. No nginx change here.
+
+### Commit index — commits relocated from the v0.25.9 log (appended there after its tag, 2026-10-14/15)
+
+These `- ` lines were appended to `v0.25.9_change.log` after the v0.25.9
+tag was cut; they cite commits that belong to the v0.25.11 window and
+are relocated here. `### ` sections above carry the narrative; this
+list cites each remaining commit by hash so `fleet-config-check.sh`'s
+changelog-coverage section reports zero.
+
+- `83960271b3` fix(deps): align root requirements with lock, bump fsspec/virtualenv (DEPS-1)
+- `e5cbc50a16` test(deps): pin cli requirement files to the root export
+- `cf8ad44714` fix(cli): single source of truth for the CLI version (DEPS-2 follow-up)
+- `40fd20a3b4` docs(release): DEPS-2 section + commit index for the deps stack
+- `d3f2356be2` fix(ci): accept canonical __version__ import in cli/setup.py version check
+- `434a31ac01` chore(version): align pyproject.toml [project] version with the release line
+- `94e212dc43` docs(release): draft v0.25.11 change log
+- `7a3c057251` docs(release): drop unverifiable provenance claim from v0.25.11 draft
+- `9a8ab55a86` docs(release): refresh v0.25.11 log for the watch-commit chain
+- `c0797723f5` fix(bridge): keep replay-guard fields through the validators/block-header request models
+- `1bf88b27bd` test(bridge): replay-guard fields round-trip through validators/block-header request models
+- `9c16a42739` feat(ops): file-sourced validator keys with mode/owner checks in register_bridge_validators
+- `30aef0a276` feat(ops): compare bridge_validators active sets across chain.db files
+- `4df673a41e` test(bridge): header threshold arithmetic — non-attester sets cannot meet t
+- `4de8ab4709` feat(ops): bridge validator set vs consensus-set threshold checker
+- `e38f7983c7` feat(ops): admin key file gets the same mode/owner/symlink checks as validator files
+- `e9b0a30ad8` feat(ops): emit/consume validator self-signature blobs for custody-safe registration
+- `541cd659a5` test(bridge): prove freshness gate is timestamp-only, fails closed after grace
+- `e78938b237` test(bridge): prove registry accumulates same-epoch POSTs; threshold is settings
+- `65f382616b` feat(ops): add read-only bridge proof dry-run against real chain.db
+- `50111ddd4c` feat(monitoring): bridge validator-set textfile exporter + alerts
+- `fce9f52d7b` fix(bridge): make validator-set freshness epoch-aware, matching its docstring
+- `068ce64ddc` test(bridge): pin replay-guard fields through the request models
+- `3906a18d5b` test(ops): make wrong-owner key-file refusals run under root too
+- `0311246378` test(ops): pass gid to os.chown in wrong-owner fixture fix
+- `25077ddfd3` docs(ops): document bridge lock pause/cap defaults + bridge-set exporter; fix deploy env example path
+- `30e4c598d3` fix(monitoring): dedicated bridge-set.env in unit + docs; neutral blockchain.env.example seed
+- `9b2f911196` refactor(coordinator): remove dead SETTLEMENT_PRIVATE_KEY signer and startup gate
+- `3245cb90ee` fix(bridge): report validator_count for latest epoch only
+- `02d05dd528` test(bridge): pin validator_count excluding inactive latest-epoch rows
+- `f7df5b478b` docs(governance): state that votes are advisory (V-7) at every vote surface
+- `ef9807ed6c` feat(ops): read-only escrow reconciliation proof (SD-1)
+- `0c51568cb4` refactor(coordinator): freeze 001 baseline migration as explicit DDL (B-8)
+- `65cb2067da` fix(ops): tolerate pre-billed_legs escrow schema in SD-1 proof
+- `759cac2f3f` ci(c901): re-baseline complexity ratchet and wire it into pre-push
+- `f078b6f30c` test(coordinator): semantic schema conformance + downgrade guard for frozen 001 (B-8)
+- `c9d20847f5` fix(rpc): log expected account 404s at INFO, keep other 4xx at WARNING
+- `8048de9c0e` test(coordinator): B-8 follow-on proofs + fix c3a91f7e5b02 sqlite downgrade
+- `7c832822b3` docs(joining): seed bridge_validators as a fresh-node bring-up step (B43 #6)
+- `de042656b3` docs(alembic): correct stale _index_or_constraint_exists docstring (B2a)
+- `6b718fc801` fix(ops): stop polling /rpc/transaction/None; validate executor list duplicates
+- `f74210fd4e` fix(rpc): emit authority-parameter advisory once per process per parameter
+- `c7cdab6f62` fix(rpc): log pending-tx hash 404s at INFO like expected account 404s
+- `1449386402` chore(deps): bump markdown-it-py 4.1.0 -> 4.2.0 in poetry.lock (B2b)
+- `95c0739e87` docs(monitoring): fix alert-path drift — watcher unit origin, BridgeSet severity, remote_write, RpcErrorsSpiking expr
+- `d0dbd63b37` feat(consensus): v13 governance binding — EXECUTE applies sealed PROPOSE payload (inert)
+- `50d3150c6f` test(contracts): BR-1 owner-path, 2-of-3 Safe owner, deposit/withdraw round-trip
+- `aeb2582410` fix(alembic): f53990f9d6cc downgrade drops dependent indexes first (B3)
+- `238a5c7840` docs(ops): manual escrow refund runbook (B4)
+- `487b0420fc` docs(ops): correct _reconcile_refund_state line cite in refund runbook
+- `fc01e75851` test(alembic): whole-chain downgrade/upgrade round-trip sweep (B3, slow)
+- `8cb5a7fd23` feat(monitoring): C10 state-sync divergence alerts on hub rules
+- `6eb34e623a` feat(ops): read-only side-table digest probe (V-3 fleet check)
+- `43df11d59e` feat(ops): verify-genesis-root.py — prove a genesis file before trusting it
+- `f9a13e9aac` feat(ops): read-only bridge-leaf recomputation audit (V-4 measurement)
+- `23d6923b15` fix(payments): hashless release claim marks settlement_failed, not released
+- `718cb323d9` style: ruff format drift sweep — 19 files (C13)
+- `3bd39e6b60` feat(scripts): bridge-wallet-reconcile — BR-6 ledger-side audit pass
+- `890893e989` test(consensus): v13 binding adversarial tests + already-executed rejection
+- `72dd0b8ffd` test: un-stale four suites after deliberate changes (C14)
+- `a92d63d490` test+docs: un-stale five more suites / close env-doc gaps (C14)
+- `2784734447` feat(ops): snapshot manifest generator (V-5 attested-snapshot step 1)
+- `1a58eddffd` build(make): test-migrations-slow target for the slow alembic sweep
+- `ca0500d7ee` fix(ops): side-root-probe and bridge-leaf-audit open the db mode=ro without immutable
+- `afdcf2b7e7` feat(bridge): fail-closed per-lock cap in production (BR-3, BR-4)
+- `d337248034` feat(blockchain-node): verify genesis claims before writing block 0 (V-5)
+- `5c58191259` docs(joining): genesis.json is verified at bootstrap; transplant is the fallback (V-5)
+- `b959711173` feat(consensus): v13 binding shadow counters (v13_would_reject_*, branch only)
+- `5cbd65e666` feat(ops): read-only bridge mainnet preflight (BR-5)
+- `70c54a2738` fix(monitoring): BridgeSetCannotMeetThreshold critical; fix stale paused comments (BR-2)
+- `8c1459529a` test(consensus): enumerate sender-authority coverage for every tx type (V-8)
+- `4fac4085ef` feat(contracts): BR-1 deploy runbook + deploy script hands ownership to Safe
+- `462ccac9c8` feat(ops): rebuild-escrows --plan write-phase dry run; mode=ro on live-db readers
+- `ed431c89d9` fix(ops): write-plan still lists classes under an abort (review-only)
+- `0ef22b7056` fix(ops): shorten job ids in the write-plan report-only list
+- `521fa884c5` revert(payments): drop TEE-gate hunk from 23d6923b1 — ship S-10 fix only (B9 split)
+- `c422589ff5` feat(monitoring): severity floor for alert pushes + daily warning digest (SD-2)
+- `8206c3f64c` feat(ops): side-root-probe --canonical mode with V-3 activation rules
+- `f78929cc9c` feat(ops): outbound-figure collector spec for BR-6 (B13)
+- `b2368b02ac` feat(ops): bridge-leaf-audit --boundary grandfathering classification (V-4)
+- `32a34a98db` feat(ops): escrow residue dry-run tool + EscrowResidueStale alert (S-11)
+- `2ef76dc1db` test(ops): FIX-1 give digest scheme test a response-shaped urlopen mock
+- `d4eb7341dd` feat(monitoring): OPS-2 deployed-rules drift check + copy/reload doc line
+- `6a21a451a1` feat(ops): rebuild-escrows --plan records known R2 anomaly instead of aborting
+- `05ee3b7e01` feat(ops): classify residue rows by sealed legs (S-12)
+- `80694ae85b` feat(ops): side-root-probe --canonical normalize+exclude rules (V-3)
+- `86022a6c02` docs(decisions): V-1 live-exercise waiver list — 22 types + replay test per type
+- `75f12a34b9` feat(ops): bridge-leaf-audit default boundary 30000 + V-4 activation design doc
+- `4642967ff2` fix(monitoring): EscrowResidueStale watches only fee-leg rows (S-13)
+- `2c6707d8d7` test(v9): fixture replay for all 22 waived types (V-1 close condition)
+- `01e21d8745` docs: mark pre-rotation validator lists as historical (DOC-1)
+- `d9bd70a25d` docs(testing): explain the missing pytest summary line under a second -q (DOC-2)
+- `f54decccce` test(v9): pin every unsigned protocol-transfer emission as unsealable at v9 (BNT-1)
+- `9030f969ed` refactor(ops): one shared classify() for the residue tool and exporter (S-15)
+- `922acc03cd` feat(monitoring): attestation-arrival textfile exporter and warning rules (MON-1)
+- `3e0949c009` test(ops): B13 bridge_outbound migration dry-run harness + fixtures (BR-7)
+- `c03ddbc662` feat(rpc): retire protocol-transfer surfaces that cannot seal at v9 (BNT-2)
+- `d4f2662c93` test(monitoring): expect BridgeSetCannotMeetThreshold as critical in promtool fixture (FIX-2)
+- `3bc8dff704` feat(ops): V-3 committed set = all 13 apply-written tables + shadow design
+- `083e6aa82d` feat(ops): flag-gated escrow write-phase tool (SD-1)
+- `26e97a54b6` docs(design): escrow anomaly remedy options paper (SD-6)
+- `12a2a7d6ac` feat(cli): clear message for BNT-2-retired RPC surfaces + docs marks (BNT-3)
+- `9e4bd3a394` feat(consensus): V-3 side-table root shadow hook (compare-only, flag-gated)
+- `313b741d8a` feat(consensus): V-4 bridge-lock missing-data guard, dry-run mode only
+- `f59d6f209b` fix(ops): repeatable --env-file for bridge mainnet preflight (BR-8)
+- `6ce99e9295` feat(consensus): V-4 guard — exception containment + malformed-input tests
+- `4e75284316` docs(decisions): record the 12 Oct operator decisions (BR-8)
+- `d37492c890` feat(consensus): V-3 shadow — interval + retention knobs, cost measured
+- `65d27db74d` docs(design): key custody proposal — plaintext key inventory + offline copy plan (K-4)
+- `b4e1a98b58` merge: V-4 bridge-lock guard (dry-run hardened) for shared activation
+- `3016e2c70c` merge: V-3 side-table root shadow for shared activation
+- `95499c2a78` merge: V-2 v13 governance binding for shared activation
+- `ce99ea30c5` feat(consensus): ACT-1 shared activation at height 46,100 (V-2 + V-3 + V-4)
+- `6cd5c14f57` docs(design): node-held wallet access for agents — ops wallet + signer wrapper (SEC-1)
+- `e3d4ee8e18` Merge remote-tracking branch 'origin/main' into HEAD
+- `0bbb4d0dc4` feat(ops-signer): flag-gated unix-socket signer with allow-list + caps (SEC-2)
+- `0938c6c88b` feat(ops): snapshot-manifest sign/verify tooling + trusted signer constant (V-5)
+- `56997c21b8` feat(contracts): BR-9 Sepolia rehearsal tooling — scripted 2-of-3 Safe flow
+- `44e3fa9e6a` fix(contracts): BR-9 rehearsal — Array.map getAddress footgun + signer3 fee recipient
+- `df8c6a70ef` fix(contracts): bind deploy-bridge factory to the resolved deployer
+- `c0d1cf7315` fix(contracts): submit Safe execTransaction from a funded executor kit
+- `0e1c41e802` feat(ops): BR-12 post-activation audit script + SEC-3 checklist + runbook fixes
+- `016f149573` docs(contracts): record the 2026-10-13 Sepolia rehearsal run (BR-9 phase B)
+- `78fb32bf18` perf(ops): post-activation audit — 25-block attestation lookback
+- `846857f9f5` fix(ops): BR-12 audit — distinguish unverifiable locks, JSON alerts.log
+- `45f41ce9a8` fix(contracts): BR-11 rehearsal tooling hardening per BR-10 review
+- `d092401015` feat(website): dashboards read live public APIs with honest states
+- `8e4c4d24a0` test(escrow): count the residue exporter's series in the rules-coverage test (DEV-2)
+- `de7c90c321` docs(architecture): rewrite 1_system-flow.md against live fleet (DEV-4)
+- `6dffbbc800` docs(architecture): system-flow chain facts + verification-gate marking; fix dump_mcp_tools port map
+- `24edde3841` fix(market): redact customer and rental fields from the public jobs feed
+- `0d7fb51f9a` feat(cli,mcp): add --since/--grep filters to system logs and get_service_logs
+- `0891b332c1` feat(cli,mcp): add --no-deploy/--check with SHA report to aitbc update
+- `b172fbe597` docs(architecture): drop version string from system-flow verification note
+- `4552b41873` fix(api-gateway): parametrize uvicorn bind host via API_GATEWAY_BIND_HOST
+- `d46dc30781` fix(blockchain-p2p): parametrize gossip relay bind host via P2P_BIND_HOST
+- `5c004f17be` docs(ops): backup & restore runbook from BK-1 drill
+- `c41ad91cee` feat(ops): offsite-pull-backups script + user timer (BK-2)
+- `33c09e453e` fix(agent-coordinator): gate consensus/ai routers and anonymous /health detail (SEC-8)
+- `2397f7d884` docs(ops): v14 activation runbook + aux-root cross_chain_transfer independence test (ACT-2)
+- `9abd61e761` feat(ops): BK-4 pull logging/marker/status + MON-2 backup freshness alerts
+- `1a0367224f` feat(ops): secret_scan.py repo secret-pattern scanner (SEC-10)
+- `eeac63e1d0` chore(deps): bump pyjwt 2.13.0 -> 2.15.0 (SEC-13)
+- `5628bcfc64` chore(deps): bump urllib3 2.7.0 -> 2.8.0 (SEC-13)
+- `7df8c87e54` chore(deps): bump multidict 6.7.1 -> 6.9.1 (SEC-13)
+- `4117829ed5` chore(deps): bump werkzeug 3.1.8 -> 3.1.9 (SEC-13)
+- `dc74e4ce3c` chore(deps): bump zk-circuits brace-expansion 2.1.4 -> 2.1.7 (SEC-13)
+- `8c791e22dd` chore(gitignore): ignore keys/ and wallets/ dirs (SEC-14)
+- `d8f8ac6a9f` fix(logs): create /var/log/aitbc files 0640 aitbc:adm (SEC-14)
+- `d2f69e5262` fix(ops-signer): systemd-creds decrypt fallback for LXC hosts (SEC-3b)
+- `2da5feafd8` fix(ops-signer): survive restart by clearing stale socket (SEC-3c)
+- `62ddff8ae8` test(ops-signer): wait for listener readiness, not socket file (SEC-3c)
+- `75a0c51237` fix(logrotate): rotate flat aitbc logs via copytruncate, exclude self-rotating service logs (LOG-1)
+- `3d72b5cc54` fix(logrotate): size-trigger flat logs so alerts.log stays handler-managed (LOG-1b)
+- `05939e8020` docs(ops): self-hosted ntfy staging runbook for a staging container (SD-2a)
+- `63fef9f92e` chore(docs): move ntfy staging docs out of the repo (SD-2a)
+- `ae50febd97` feat(monitoring): ntfy publish format for watcher, digest and heartbeat (SD-2c)
+- `9609231088` docs(bridge): per-node Sepolia wallets, buy/sell scenario, read-only balance script (ETH-1)
+- `821321fc15` docs(ops): keep live wallet dir untouched in Sepolia key recipe (ETH-1-fix)
+- `02f4afb665` docs(scenarios): node0 cannot reach hub wallet daemon — real deposit paths (ETH-1)
+- `e35538589d` feat(cli): aitbc eth transfers — read-only Sepolia transfer log (ETH-6)
+- `2cd13f036c` docs(design): escrowed AIT->ETH sell flow (ETH-7, design only)
+- `0123864d70` docs(design): hub trade exchange page (ETH-8, design only)
+- `4a03239529` docs(design): wallet-sovereignty check in ETH-7/ETH-8 (13 Oct rule)
+- `3ab0b10580` docs(design): ETH-7b — trust window + operator decisions list
+- `8d1d2ed178` fix(bridge): kill duplicate-release race in withdraw monitor (ETH-9)
+- `fa160b7342` docs(design): ETH-7c — record operator decision (a) on escrow classification
+- `83136d6057` fix(bridge): harden release outcome verification (ETH-9b)
+- `a22794e63a` feat(website): ETH-11 phase 1 — read-only order book + trade tape on exchange page
+- `1edb2d2c09` fix(examples): exchange-api zone split + 429 status — match deployed conf
+- `8f18edcaf6` feat(bridge): ETH-10 phase 1 — keyed-escrow AIT->ETH sell flow
+- `e6646db9ef` fix(bridge): ETH-10 review — serialize escrow sweeps, fee float, lock binding
+- `5b2630d95e` fix(bridge): ETH-10 round 2 — terminal sweep review status, fee-deficit marker split
+- `cf40650aef` refactor(bridge): ETH-10 follow-up — monitor decomposition, handler table, nosec annotations
+- `c0dbd1fa9f` chore(ci): C901 baseline entry for bridge_routes.py — bridge_sell_quote held at 17
+- `e928a8a806` fix(bridge): sell lock resolves chain id strictly — no silent default
+- `f59864dba6` feat(cli): WAL-1 unified wallet-secret input for all signing commands
+- `8869c8be20` fix(cli): WAL-1 F1-F3 — MCP stdin surface, flag-over-env precedence
+- `505893e2d2` fix(cli): WAL-1 — split resolve_wallet_password source scan for C901
+- `4e01a537d0` fix(deps): align cli requirement pins with root (SEC-17)
+- `7b2baade23` feat(tooling): OAPI-1 — openapi error scan follows same-module private helpers
+- `e222d33af1` refactor(bridge): OAPI-1 — split bridge_sell_quote into validation and rate-limit helpers
+- `9341661aab` fix(bridge): receipt-gate ETH releases + estimate gas + withdraw_admin recovery (ETH-14)
+- `8bdf203622` fix(bridge): absence-grace before refunding an unseen release (ETH-14b)
+- `5b6681ce4b` fix(bridge): never emit a keyed RPC URL; systemd env precedence; grace log levels (ETH-15)
+- `c523d88e37` docs(ops): withdraw-release runbook — env loading, archive endpoints, ETH-15 log entry
+- `bbde1ad1d2` fix(logging): keep the httpx 4xx/5xx signal while dropping URL lines (ETH-15)
+- `6ef1cc71a6` fix(deps): pin venv interpreter in update.sh, repair copy-mode shebangs, unshadow CLI version (DEPS-2)
+- `9908a71dab` test(cli): TEST-1 -- isolate CLI subprocess env; stop cross-suite env leaks
+- `91ff60adec` test(pytest): TEST-1 -- scope retries to flaky-marked tests with named causes
+- `c48dad3f89` docs(design): ETH-8 revision — open decisions + post-ETH-14 settlement reality
+- `cd76706bd7` docs(design): ETH-8 — record operator decisions (14 Oct)
+- `2148179a10` docs(release): SEC-18 section + commit index for the wallet 503 fixes
+- `bd88adf7d3` docs(release): correct the SEC-18 commit SHAs after the second rebase
+- `879fa3a9cd` docs(release): commit index catches up — cite every post-tag commit
+- `00447e7c67` docs(design): ETH-7 revision — as-built reality after ETH-10/ETH-14
+- `1ac6eec1e8` test(signing): DEPS-3 known-vector guards for the eth-* family
+- `4be93665d6` docs(release): DEPS-3 changelog — replica validation + vector guards
+- `40eb639b4b` docs(test): consistent wording on the vector key's provenance
+- `f3260ea1f1` fix(bridge): default block-scoped pre-registered transactions on (CFG-1)
+- `cb3d697fcc` fix(security): dependency-scan.sh stops reinstalling safety, uses throwaway tools venv (SEC-19)
+- `5afb8733d3` test(security): placeholder fleet literals so the no-fleet guard passes
+- `2706722b71` test(consistency): skip git-metadata tests on exports; probe endpoint reachability
+- `a01dcec217` docs(test): record the TEST-1 rerun policy and the .git scratch rule
+- `090ea8820b` docs(release): single version reality in the releases README
+- `be4eeebb5f` test(migrations): pin sweep timeout at 1800s, drop the flaky rerun
+- `c2b963f5b` feat(bridge): ETH-13 sell-lock operator command — sell_admin + audit columns (ETH-13)
+- `4ada8732f` feat(bridge): ETH-13 sell_admin host gates — root/hub-only + ledger presence (ETH-13)
+- `68a55381fc` fix(bridge): ETH-18 — a young pending release logs below ERROR, not 'needs review'
+- `f91fbe281` feat(exchange): ETH-11 phase 2 (db) — node registry, order nonces, signed-order columns
+- `100722997` feat(exchange): ETH-11 phase 2 (handlers) — signed orders, registration, cancel, abuse limits
+- `619083069` feat(cli): ETH-11 phase 2 — signed hub orders + node registration commands
+- `655974bba` test(exchange): raise phase-2 rate-limit windows for module-identity isolation
+- `0e307921d` feat(exchange): trusted-proxy client IP + env-configurable watchlist knobs
+- `05a174cd2` docs(release): commit index catches up — cite every post-tag commit
+- `8e6def6f4` fix(bridge): default block-scoped pre-registered transactions on (CFG-1)
+- `69f36cc85` docs(release): CFG-1 entry — block-scoped preregistration default flip
+- `2356c02f6` fix(security): dependency-scan.sh stops reinstalling safety, uses throwaway tools venv (SEC-19)
+- `826aab0e2` docs(release): SEC-19 changelog — dependency-scan.sh tool isolation
+- `b984065ff` test(security): placeholder fleet literals so the no-fleet guard passes
+- `9162b3f40` test(consistency): skip git-metadata tests on exports; probe endpoint reachability
+- `9a79ffedc` docs(test): record the TEST-1 rerun policy and the .git scratch rule
+- `55f59a939` docs(release): single version reality in the releases README
+- `02fc71068` docs(release): TEST-2(B) changelog note + commit index catch-up
+- `52296b3f0` test(migrations): pin sweep timeout at 1800s, drop the flaky rerun
+- `01ea6e271` docs(release): cite the sweep-timeout pin + drop its flaky rerun note
+- `c7d640785` fix(bridge): redact keyed RPC URLs in ethereum_rpc log lines (ETH-15 residual)
+- `b43601be1` feat(bridge): BR-6/B13 — rotation-aware bridge reconcile (report-only)
+- `d6754fae5` feat(bridge): ETH-13 sell-lock operator command — sell_admin + audit columns
+- `1dd0242c5` docs(ops): sell-escrow runbook gains the ETH-13 operator command; changelog
+- `22877b900` feat(bridge): ETH-13 sell_admin host gates — root/hub-only + ledger presence
+- `c3ce571f3` docs(ops): ETH-13 changelog cites host-gates commit; runbook gains gate rules
+- `8b880cd11` docs(ops): sell_admin host gates are a guard rail, not a security boundary
+- `184a39b5f` fix(bridge): ETH-18 a young pending release logs below ERROR, not 'needs review'
+- `8b0b8d679` docs(release): ETH-18 changelog — young release delay logs below ERROR
+- `5a80f0ae5` docs(exchange): ETH-11 phase 2 status, scenario 59 addendum, changelog
+- `115ca9ddb` docs(scenarios): scenario 33 — signed order envelope is the live POST contract
+- `3b5ff6770` feat(exchange): ETH-8 phase 3 (C1, dark) — prepaid ledger, settlement schemas
+- `333ab2f54` feat(exchange): ETH-8 phase 3 (C2, dark) — exchange_set_payout verb
+- `cfa161e92` fix(exchange): ETH-8 phase 3 review notes — payout blocklist, status vocab, Decimal reserve
+- `71af575ae` feat(exchange): ETH-8 phase 3 (C3, dark) — funding gates and prepaid debit lifecycle
+- `74c111ddb` feat(exchange): ETH-8 phase 3 (C4, dark) — internal settlement endpoint, cumulative commits, per-fill fee delta
+- `48907c3fd` fix(exchange): ETH-8 phase 3 C4 review — canonicalize prepaid node, registered-only, refuse proxy stamps
+- `5f87cd6f4` feat(wallet): ETH-8 phase 3 (C5, dark) — exchange settlement monitor
+- `a29a87530` fix(wallet): ETH-8 phase 3 C5 review — standalone tag intercept, lock owner, fee/dust skips, ETH nonce lock
+- `715e8e1b2` fix(exchange): ETH-19 C6 — funding-destination env guard + bridge-store readiness fix
+- `0f105d7e6` feat(ops): ETH-19 C7 — exchange_verify.py read-only book checker
+- `60f864368` docs(exchange): ETH-19 C8 — phase-3 docs, CLI funding hints, scenario 59 E
+- `95eb8e948` refactor: split C901-complex functions in ETH-8 phase-3 paths
+- `3aab495b1` docs(release): commit index catches up post-queue — cite CFG-1/SEC-19/TEST-2/ETH-13/ETH-18/ETH-15/BR-6/ETH-11 tail + ETH-8 phase 3 stack
+- `0d77eec16d` fix(bridge): ETH-JOIN — order_funded refusals stay unmarked; order_refund ref_id split
+- `6ff2adfac9` fix(exchange): ETH-JOIN — flag-off internal settlement endpoint answers 503, not 404
+- `11135740c4` feat(exchange): CLI-1 — my-orders carries funding block on unfunded rows
+- `8605f6b215` feat(cli): CLI-1 — node list/set-payout/order fund/wallet bridge settlements
+- `4b214fdb29` fix(mcp): CLI-2 — optional generated-tool params get a None default
+- `77ebd3aafc` feat(cli): CLI-2 — system file-info + env-names, the two safe reads
+- `facb65ebc3` feat(cli): CLI-2 — aitbc exchange verify, read-only book-checker wrapper
+- `b710f2574d` fix(cli): OPS-6 — exchange base default is the bare hub origin
+- `1c51df308c` docs(release): OPS-6 changelog + commit index
+- `f0bc462820` fix(wallet): skip sell escrow slot in file import
+- `e64b0b1230` fix(cli): CLI-3 — envelope chain-id resolves on /rpc-suffixed bases + island creds fallback
+- `9e7daa8730` feat(cli): CLI-3 — aitbc config get <key> prints a stored value
+- `8a0218e8d1` feat(cli): REPO-1 — file-info denylist extension, env-names case, verify DB containment, OPS-4 nginx example
+- `bfaa13b440` fix(cli): CLI-3a — order fund --fee defaults to DEFAULT_TX_FEE_AIT (0.01)
+- `8159a73a40` fix(cli): CLI-3a — wallet send reports submitted-not-confirmed; --wait seals
+- `f8933199e2` fix(cli): CLI-4 — order fund forwards wallet password options, real encrypted-wallet tests
+- `31d35e687b` docs(release): CLI-3b changelog section split
+- `11d50f02ec` docs(release): CLI-4 changelog + commit index
+- `5f6178d52c` feat(cli): WAL-2 — wallet create/restore resolve passwords via the WAL-1 sources
+- `33dad768d8` docs(release): WAL-2 changelog + commit index
+- `a0b3dd3c14` fix(cli): REPO-2 — send/subscribe/batch --fee defaults track DEFAULT_TX_FEE_AIT
+- `87b830895b` fix(ops): REPO-2 — exchange_verify eth_address severity is settlement-conditional
+- `031b3afdde` docs(release): REPO-2 changelog + commit index
+- `8f9ac9f06a` fix(bridge): ETH-JOIN-2 — settlement join-review gaps 4-6 and order_refund squat residual
+- `88f0b3812d` docs(exchange): ETH-JOIN-2 gap 7 — hash-column naming convention note
+- `cee0b4ff4c` docs(release): ETH-JOIN-2 — settlement join-review gap closures
+- `106987e87a` fix(exchange): ETH-19B — internal settlement peer gate gets the real socket peer
+- `3df71df89e` docs(release): ETH-19B changelog + commit index
+- `2d265c090` feat(cli): WAL-3 — sell trio, staking resolver, genesis env hand-off
+- `a713c3f8c0` docs(release): WAL-3 changelog + commit index
+- `af1b2adaaa` fix(ci): TEST-1 — shared worktree-aware repo-python resolver for hooks
+- `d75f144d4f` test(wallet): TEST-1 — conftest env isolation + ambient scrub
+- `6d0d57b8eb` test(exchange): TEST-1 — adapter attribute contract + proxy_headers pin
