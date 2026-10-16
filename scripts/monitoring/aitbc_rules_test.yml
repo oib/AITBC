@@ -1356,3 +1356,86 @@ tests:
         exp_samples:
           - labels: 'ALERTS{alertname="OffsitePullStale", alertstate="firing", host="ide", job="node", severity="warning"}'
             value: 1
+
+  # MSG-6: messaging-index operability rules.
+  #
+  # MessagingIndexLag: gauge flat then jumps past 50 at t=10m; for:10m fires
+  # once it has held past t=20m. A node at lag 0 never fires.
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_messaging_index_lag_blocks{instance="node1:9009", job="blockchain-node", chain_id="aitbc-main"}'
+        values: '0x20 60x40'
+      - series: 'aitbc_messaging_index_lag_blocks{instance="node2:9009", job="blockchain-node", chain_id="aitbc-main"}'
+        values: '0x60'
+    promql_expr_test:
+      - expr: ALERTS{alertname="MessagingIndexLag", alertstate="firing"}
+        eval_time: 19m30s
+        exp_samples: []
+      - expr: ALERTS{alertname="MessagingIndexLag", alertstate="firing"}
+        eval_time: 21m
+        exp_samples:
+          - labels: 'ALERTS{alertname="MessagingIndexLag", alertstate="firing", chain_id="aitbc-main", instance="node1:9009", job="blockchain-node", severity="info"}'
+            value: 1
+
+  # MessagingIndexDigestMismatch: same chain and checkpoint, two different
+  # digests across nodes -> critical fires. The agreeing pair (same digest)
+  # contributes one digest and never fires.
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_messaging_index_digest{instance="node1:9009", job="blockchain-node", chain_id="aitbc-main", checkpoint="1000", digest="aaaaaaaa"}'
+        values: '1x20'
+      - series: 'aitbc_messaging_index_digest{instance="node2:9009", job="blockchain-node", chain_id="aitbc-main", checkpoint="1000", digest="bbbbbbbb"}'
+        values: '1x20'
+      - series: 'aitbc_messaging_index_digest{instance="hub:9009", job="blockchain-node", chain_id="aitbc-main", checkpoint="1000", digest="aaaaaaaa"}'
+        values: '1x20'
+      - series: 'aitbc_messaging_index_digest{instance="node1:9009", job="blockchain-node", chain_id="aitbc-main", checkpoint="2000", digest="cccccccc"}'
+        values: '1x20'
+      - series: 'aitbc_messaging_index_digest{instance="node2:9009", job="blockchain-node", chain_id="aitbc-main", checkpoint="2000", digest="cccccccc"}'
+        values: '1x20'
+    promql_expr_test:
+      - expr: ALERTS{alertname="MessagingIndexDigestMismatch", alertstate="firing"}
+        eval_time: 4m
+        exp_samples: []
+      - expr: ALERTS{alertname="MessagingIndexDigestMismatch", alertstate="firing"}
+        eval_time: 6m
+        exp_samples:
+          - labels: 'ALERTS{alertname="MessagingIndexDigestMismatch", alertstate="firing", chain_id="aitbc-main", checkpoint="1000", severity="critical"}'
+            value: 1
+
+  # MessagingReadErrors: counter steps at ~4/s past t=10m -> rate >0.1
+  # holds -> for:15m fires near t=25m. A quiet route never fires.
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_messaging_read_errors_total{instance="node1:9009", job="blockchain-node", route="messages"}'
+        values: '0x20 4x40'
+      - series: 'aitbc_messaging_read_errors_total{instance="node1:9009", job="blockchain-node", route="topics"}'
+        values: '0x60'
+    promql_expr_test:
+      - expr: ALERTS{alertname="MessagingReadErrors", alertstate="firing"}
+        eval_time: 24m
+        exp_samples: []
+      - expr: ALERTS{alertname="MessagingReadErrors", alertstate="firing"}
+        eval_time: 26m
+        exp_samples:
+          - labels: 'ALERTS{alertname="MessagingReadErrors", alertstate="firing", instance="node1:9009", job="blockchain-node", route="messages", severity="info"}'
+            value: 1
+
+  # MessagingVolumeSpike: gauge grows +1/5m for 6h (12/h baseline), flat
+  # for 1h, then +20/5m (~240/h) for 1h -> over the 50/h floor and 3x the
+  # trailing rate; for:15m fires in the last stretch. Steady growth on the
+  # second series never fires.
+  - interval: 5m
+    input_series:
+      - series: 'aitbc_messaging_messages_total{instance="node1:9009", job="blockchain-node", chain_id="aitbc-main"}'
+        values: '0+1x72 72+0x12 72+20x12'
+      - series: 'aitbc_messaging_messages_total{instance="node2:9009", job="blockchain-node", chain_id="aitbc-main"}'
+        values: '0+1x96'
+    promql_expr_test:
+      - expr: ALERTS{alertname="MessagingVolumeSpike", alertstate="firing"}
+        eval_time: 7h
+        exp_samples: []
+      - expr: ALERTS{alertname="MessagingVolumeSpike", alertstate="firing"}
+        eval_time: 7h45m
+        exp_samples:
+          - labels: 'ALERTS{alertname="MessagingVolumeSpike", alertstate="firing", chain_id="aitbc-main", instance="node1:9009", job="blockchain-node", severity="info"}'
+            value: 1

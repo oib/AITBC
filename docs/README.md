@@ -90,6 +90,9 @@ Operator procedures for the live fleet:
   docs-only proposal for surfacing the hub checkout commit to the site
   footer via a gitignored file written by an operator-installed
   post-merge hook (not implemented).
+- [Messaging operability](ops/messaging-operability.md) — the
+  `aitbc_messaging_*` metrics, the checkpoint index digest, what each
+  alert means and the first read-only commands for it (MSG-6).
 
 ## Security
 

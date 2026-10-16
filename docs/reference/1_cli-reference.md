@@ -130,6 +130,10 @@ aitbc messaging send --wallet <name> --message <text> --reply-to <64-hex> --conf
 aitbc messaging list --topic <slug>
 aitbc messaging topics
 aitbc messaging show <64-hex tx_hash>
+
+# Read-only operability snapshot: index height, lag, totals, checkpoint digest
+aitbc messaging stats
+aitbc messaging state
 ```
 
 ### 6. network
