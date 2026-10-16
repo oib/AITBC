@@ -536,6 +536,8 @@ async def query_transactions(
     chain_id: str | None = None,
     address: str | None = None,
     job_id: str | None = None,
+    sender: str | None = None,
+    recipient: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     resolved_chain_id = get_chain_id(chain_id)
@@ -556,6 +558,16 @@ async def query_transactions(
 
             spellings = address_spellings(address)
             query = query.where(col(Transaction.sender).in_(spellings) | col(Transaction.recipient).in_(spellings))
+
+        if sender:
+            from ..base_models import address_spellings
+
+            query = query.where(col(Transaction.sender).in_(address_spellings(sender)))
+
+        if recipient:
+            from ..base_models import address_spellings
+
+            query = query.where(col(Transaction.recipient).in_(address_spellings(recipient)))
 
         if job_id is not None:
             # Filter in SQL, not in Python: the other payload filters below load every
