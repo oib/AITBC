@@ -319,7 +319,7 @@ class BridgeMonitor:
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/head", timeout=5)
             if resp.status_code == 200:
                 return int(resp.json().get("height", 0))
-        except (httpx.HTTPError, TypeError, ValueError) as e:
+        except (httpx.HTTPError, AttributeError, TypeError, ValueError) as e:
             logger.warning("head height fetch failed: %s", e)
         return None
 
@@ -821,7 +821,7 @@ class BridgeMonitor:
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{address}", timeout=5)
             if resp.status_code == 200:
                 return int(resp.json().get("nonce", 0))
-        except (httpx.HTTPError, TypeError, ValueError) as e:
+        except (httpx.HTTPError, AttributeError, TypeError, ValueError) as e:
             logger.warning("account nonce fetch failed for %s: %s", address, e)
         return None
 
@@ -936,7 +936,7 @@ class BridgeMonitor:
             resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/account/{self.genesis_wallet_address}", timeout=5)
             if resp.status_code == 200:
                 return int(resp.json().get("balance", 0))
-        except (httpx.HTTPError, TypeError, ValueError) as e:
+        except (httpx.HTTPError, AttributeError, TypeError, ValueError) as e:
             logger.warning("payout balance fetch failed: %s", e)
         return None
 

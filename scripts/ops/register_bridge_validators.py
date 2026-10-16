@@ -299,7 +299,7 @@ def _load_validator_blobs(paths: list[str], chain_id: str) -> list[dict[str, str
     for path in paths:
         try:
             blob = _json.loads(Path(path).read_text())
-        except (OSError, ValueError) as exc:
+        except (OSError, RecursionError, ValueError) as exc:
             _die(f"validator blob {path!r} could not be read: {exc}")
         for field in ("chain_id", "address", "public_key", "signature"):
             if not blob.get(field):
