@@ -28,8 +28,16 @@ from typing import Any
 # explicitly keeps the rule stable even if a Unicode update reclassifies one.
 # The C1 control range U+0080-U+009F is category Cc — the MSG-FIX-2 admission
 # surface neutralised them and they are kept here so this rule never regresses.
+# MSG-FIX-3 (operator pick: option b): the supplementary variation selectors
+# U+E0100-U+E01EF are category Mn, not Cf, and can carry hidden text; the
+# filler code points U+3164, U+115F, U+1160, U+FFA0 and U+2800 render as
+# blank space so a post made only of them looks empty. The BMP variation
+# selectors U+FE00-U+FE0F stay untouched — emoji need them.
 _EXTRA_CODEPOINTS = frozenset(
-    {0x061C, 0x180E} | set(range(0x0080, 0x00A0)) | set(range(0xE0000, 0xE0080))
+    {0x061C, 0x180E, 0x3164, 0x115F, 0x1160, 0xFFA0, 0x2800}
+    | set(range(0x0080, 0x00A0))
+    | set(range(0xE0000, 0xE0080))
+    | set(range(0xE0100, 0xE01F0))
 )
 
 
