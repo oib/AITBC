@@ -75,17 +75,26 @@ The script asserts post-deploy state before recording anything:
 The Sepolia rehearsal found three failure modes, all fixed in the tooling
 (`contracts/scripts/rehearsal/`). They are operator-day checks, not optional:
 
-1. **Pin the Safe nonce immediately before every execution.** Re-read
-   `nonce()` on the Safe, build the signature set against that value, and
-   submit at once. A nonce that moved between the read and the exec
-   reverts `GS026` — never sign against a cached nonce.
+1. **Pin the Safe nonce to the expected value and refuse on timeout.**
+   Track the expected nonce from your own sealed execs (the driver does
+   this as `nextSafeNonce`) and pass it explicitly — `signAndExecute`
+   in `contracts/scripts/rehearsal/lib.js` takes `expectedNonce`, polls
+   `getNonce()` for it (`noncePollAttempts = 20` at `noncePollIntervalMs =
+   1500`), and throws rather than sign if the replica never reports it.
+   The pinned nonce goes into the Safe transaction as `options.nonce`, so
+   a stale replica can only stall the run, never produce a `GS026`
+   signature set. Never sign against an unchecked read — ETH-3's `GS026`
+   was exactly a lagging replica answering with the previous nonce.
 2. **Bound every `eth_getLogs` scan.** Public RPCs cap the range and prune
    history; scan in bounded windows from a known head, and use an archive
    endpoint for anything old. An unbounded scan silently returns partial
    or empty results.
-3. **Read post-transaction state from the receipt, not a fresh `eth_call`.**
-   A `latest`-block read immediately after `sendTransaction` can hit a
-   node that has not indexed the block — assert on
+3. **Read post-transaction state pinned to the receipt block, and poll
+   for it.** A `latest`-block read immediately after `sendTransaction`
+   can hit a node that has not indexed the block. The tooling reads with
+   `blockTag` pinned to the sealed receipt's block (ETH-3d) and retries
+   until the replica reports that block — `pollRead` in `lib.js`
+   (`attempts = 20`, `intervalMs = 1500`). Assert on
    `receipt.status`/logs first, then read back.
 
 ## Configuration preflight
