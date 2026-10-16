@@ -45,9 +45,22 @@ MSG_NAMESPACE = "aitbc_msg"
 #: Envelope schema version. Readers ignore any other value.
 MSG_VERSION = 1
 
-#: v1 kinds. ``announce`` was deliberately dropped in review — nothing in the
-#: protocol marks a post as official.
-MSG_KINDS = frozenset({"post", "reply"})
+#: v1 content kinds. ``announce`` was deliberately dropped in review —
+#: nothing in the protocol marks a post as official.
+POST_KINDS = frozenset({"post", "reply"})
+
+#: v1 moderation kinds (MSG-2). ``lock``/``unlock`` take an optional
+#: ``target`` (absent = whole topic); the rest require one.
+MOD_ACTION_KINDS = frozenset({"hide", "unhide", "pin", "unpin", "lock", "unlock", "mod_grant", "mod_revoke"})
+
+#: All non-content kinds: the moderation set plus ``vote``.
+ACTION_KINDS = MOD_ACTION_KINDS | frozenset({"vote"})
+
+#: Every recognised v1 kind.
+MSG_KINDS = POST_KINDS | ACTION_KINDS
+
+#: Legal ``vote`` values: +1 up, -1 down, 0 retract (MSG-2).
+VOTE_VALUES = frozenset({-1, 0, 1})
 
 #: Caps. The body cap is on UTF-8 *bytes*, not characters, and is effectively
 #: raise-only: lowering it would invalidate already-sealed messages.
@@ -169,12 +182,48 @@ def _parent_error(kind: str, parent: Any) -> str | None:
     return None
 
 
+_TARGET_KINDS = frozenset({"vote", "hide", "unhide", "pin", "unpin"})
+
+
+def _target_error(kind: str, target: Any) -> str | None:
+    """``target`` is required for vote/hide/unhide/pin/unpin, optional on
+    lock/unlock (absent = whole topic), ignored elsewhere."""
+    if kind in _TARGET_KINDS:
+        if not isinstance(target, str) or not _TX_HASH_RE.fullmatch(target):
+            return "aitbc_msg.target must be the target message's 64-hex tx_hash"
+    elif kind in {"lock", "unlock"} and target is not None:
+        if not isinstance(target, str) or not _TX_HASH_RE.fullmatch(target):
+            return "aitbc_msg.target must be the locked thread root's 64-hex tx_hash"
+    return None
+
+
+def _value_error(kind: str, value: Any) -> str | None:
+    if kind != "vote":
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value not in VOTE_VALUES:
+        return "aitbc_msg.value must be one of -1, 0, +1 (integer)"
+    return None
+
+
+def _grantee_error(kind: str, grantee: Any) -> str | None:
+    if kind not in {"mod_grant", "mod_revoke"}:
+        return None
+    if not isinstance(grantee, str):
+        return "aitbc_msg.grantee must be the moderator address"
+    try:
+        canonical_address(grantee, strict=True)
+    except Exception:
+        return "aitbc_msg.grantee must be a 0x moderator address"
+    return None
+
+
 def envelope_error(envelope: Any, *, sender: str) -> str | None:
     """The one validity predicate. ``None`` means valid; otherwise the reason.
 
     Enforced identically at admission, gossip ingest and index read — an
     envelope that fails here is junk no matter how it got sealed. Extra keys
-    (in the envelope or beside ``aitbc_msg``) are ignored.
+    (in the envelope or beside ``aitbc_msg``) are ignored. Per-kind field
+    rules apply after the shared ``v``/``kind`` checks (MSG-2).
     """
     if not isinstance(envelope, dict):
         return "aitbc_msg must be an object"
@@ -186,11 +235,15 @@ def envelope_error(envelope: Any, *, sender: str) -> str | None:
     # isinstance first: `dict not in frozenset` raises TypeError (unhashable).
     if not isinstance(kind, str) or kind not in MSG_KINDS:
         return f"unsupported aitbc_msg.kind (want one of {sorted(MSG_KINDS)})"
+    common = _topic_error(envelope.get("topic")) or _author_error(envelope.get("agent_address"), sender)
+    if common is not None:
+        return common
+    if kind in POST_KINDS:
+        return _body_error(envelope.get("body")) or _parent_error(kind, envelope.get("parent"))
     return (
-        _topic_error(envelope.get("topic"))
-        or _body_error(envelope.get("body"))
-        or _author_error(envelope.get("agent_address"), sender)
-        or _parent_error(kind, envelope.get("parent"))
+        _target_error(kind, envelope.get("target"))
+        or _value_error(kind, envelope.get("value"))
+        or _grantee_error(kind, envelope.get("grantee"))
     )
 
 
@@ -198,15 +251,19 @@ def build_envelope(
     *,
     kind: str,
     topic: str,
-    body: str,
+    body: str | None = None,
     agent_address: str,
     parent: str | None = None,
+    target: str | None = None,
+    value: int | None = None,
+    grantee: str | None = None,
 ) -> dict[str, Any]:
     """Build a validated ``aitbc_msg`` envelope for signing.
 
     Normalises ``topic`` first; ``ValueError`` carries the same predicate
     message the node would reject with, so a locally-invalid envelope fails
-    before it is ever signed.
+    before it is ever signed. ``body`` is required on post/reply; ``target``,
+    ``value`` and ``grantee`` apply to the MSG-2 action kinds.
     """
     canonical_topic = normalize_topic(topic)
     if canonical_topic is None:
@@ -217,11 +274,19 @@ def build_envelope(
         "v": MSG_VERSION,
         "kind": kind,
         "topic": canonical_topic,
-        "body": body,
         "agent_address": agent_address,
     }
-    if parent is not None:
-        envelope["parent"] = parent
+    if kind in POST_KINDS:
+        envelope["body"] = body
+        if parent is not None:
+            envelope["parent"] = parent
+    if kind in _TARGET_KINDS or kind in {"lock", "unlock"}:
+        if target is not None:
+            envelope["target"] = target
+    if kind == "vote":
+        envelope["value"] = value
+    if kind in {"mod_grant", "mod_revoke"}:
+        envelope["grantee"] = grantee
     error = envelope_error(envelope, sender=agent_address)
     if error is not None:
         raise ValueError(error)

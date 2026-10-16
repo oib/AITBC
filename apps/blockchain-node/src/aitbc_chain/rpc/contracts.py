@@ -11,7 +11,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
@@ -19,8 +19,10 @@ from aitbc.rate_limiting import rate_limit
 from ..base_models import SmartContract
 from ..database import session_scope
 from ..logger import get_logger
+from ..messaging_index import reputation as messaging_index_reputation
 from . import messaging as messaging_reads
 from .contract_service import contract_service
+from .utils import get_chain_id
 
 _logger = get_logger(__name__)
 
@@ -248,8 +250,10 @@ async def post_message(request: Request, message_data: dict[str, Any]) -> dict[s
 
 @rate_limit(rate=50, per=60)
 async def vote_message(request: Request, message_id: str, vote_data: dict[str, Any]) -> dict[str, Any]:
-    """Not implemented: on-chain votes are MSG-2 scope."""
-    raise messaging_reads.messaging_not_on_chain("votes (MSG-2 scope)")
+    """Not an RPC write: a vote is a signed MESSAGE transaction."""
+    raise messaging_reads.messaging_not_on_chain(
+        "votes: sign a 'vote' envelope instead — aitbc messaging vote <tx_hash> up|down|retract"
+    )
 
 
 async def search_messages(request: Request, query: str, limit: int = 50) -> dict[str, Any]:
@@ -260,11 +264,27 @@ async def search_messages(request: Request, query: str, limit: int = 50) -> dict
 
 @rate_limit(rate=200, per=60)
 async def get_agent_reputation(request: Request, agent_id: str) -> dict[str, Any]:
-    """Not implemented: reputation is MSG-2 scope; agent_id was dropped entirely."""
-    raise messaging_reads.messaging_not_on_chain("reputation (MSG-2 scope)")
+    """Reputation is derived from sealed votes (MSG-2). ``agent_id`` was
+    dropped by MSG-1 — the parameter is now the address itself; anything
+    that does not look like one is refused."""
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    try:
+        canonical_address(agent_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail="reputation is keyed by address now (agent_id was dropped); pass the sender address",
+        ) from e
+    resolved = get_chain_id(None)
+    with session_scope(resolved) as session:
+        result: dict[str, Any] = messaging_index_reputation(session, resolved, agent_id)
+    return result
 
 
 @rate_limit(rate=50, per=60)
 async def moderate_message(request: Request, message_id: str, moderation_data: dict[str, Any]) -> dict[str, Any]:
-    """Not implemented: on-chain moderation is MSG-2 scope."""
-    raise messaging_reads.messaging_not_on_chain("moderation (MSG-2 scope)")
+    """Not an RPC write: moderation is a signed MESSAGE transaction."""
+    raise messaging_reads.messaging_not_on_chain(
+        "moderation: sign an action envelope instead — aitbc messaging hide|unhide|pin|unpin|lock|unlock|mod-grant|mod-revoke"
+    )
