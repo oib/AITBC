@@ -435,6 +435,11 @@ def create_app() -> FastAPI:
 
     @metrics_router.get("/metrics", response_class=PlainTextResponse, tags=["metrics"], summary="Prometheus metrics")
     async def metrics() -> PlainTextResponse:
+        # MSG-6: refresh the derived messaging-index gauges lazily at scrape
+        # time. Never raises — collect_all logs and skips a broken chain.
+        from .messaging_metrics import collect_all
+
+        collect_all([c.strip() for c in settings.supported_chains.split(",") if c.strip()])
         default_metrics = generate_latest()
         legacy_metrics = metrics_registry.render_prometheus().encode()
         if legacy_metrics.strip():
