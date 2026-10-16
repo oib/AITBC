@@ -886,6 +886,12 @@ reported, not ignored.
 ### O-7
 - docs(ops): bridge funding-source migration plan — separate the BRIDGE_FUNDING_SOURCES sender wallet from the hot treasury/proposer key before mainnet (plan only, nothing executed)
 - docs(ops): correct the plan's "0x02B8 key still loaded" finding — read-only env check on hub 16 Oct shows PROPOSER_KEY/VALIDATOR_KEYS hold only 0x2aD5… in both env files; the journal proposer=0x02B8 line is the genesis label. Step 9 marked no-action-needed with the check documented as Phase 0
+- O-7 testnet cutover 16 Oct (operator: "convert all tasks to testnet"):
+  F=rehearsal signer3 0x7bD5…91D2, BRIDGE_FUNDING_SOURCES=F,0x02b8… overlap
+  on hub; monitor restarted; 0.001 ETH top-up from F recorded FUNDING and
+  a signer1 canary correctly FAILED (missing recipient). Repo copies
+  updated (plan doc status, canary runbook, decisions O-7 row); shrink to
+  F alone and the mainnet pass remain open.
 
 ### MSG-CLI-HASH-1
 - fix(cli): all `aitbc messaging` commands accept bare or 0x-prefixed 64-hex tx hashes — normalized once to bare at parse; read routes use the 0x-prefixed form
