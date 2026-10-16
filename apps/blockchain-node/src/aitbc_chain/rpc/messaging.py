@@ -27,8 +27,11 @@ from ..messaging_index import (
     get_message,
     list_messages,
     list_topics,
+    message_votes,
     parse_cursor,
+    reputation,
     state,
+    topic_moderation,
 )
 from .utils import get_chain_id
 
@@ -78,9 +81,15 @@ async def messaging_messages(
     limit: int = 50,
     offset: int = 0,
     cursor: str | None = None,
+    include_hidden: bool = False,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
-    """Page messages newest-first. ``cursor`` takes a previous next_cursor."""
+    """Page messages newest-first. ``cursor`` takes a previous next_cursor.
+
+    ``include_hidden=1`` returns hidden/after-lock rows flagged
+    (``hidden``/``hidden_by``/``after_lock``) with the body withheld —
+    moderation is a read-side filter, the bytes stay on-chain (MSG-2 §3).
+    """
     if offset < 0 or offset > MAX_OFFSET:
         raise HTTPException(status_code=400, detail=f"offset must be 0..{MAX_OFFSET}")
     _check_cursor(cursor)
@@ -99,7 +108,38 @@ async def messaging_messages(
             limit=_clamp_limit(limit),
             offset=offset,
             cursor=cursor,
+            include_hidden=include_hidden,
         )
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_votes(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Standing votes for one message (exact SQL aggregate, MSG-2)."""
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        return message_votes(session, resolved, tx_hash)
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_moderation(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Derived moderator set, locks and recent actions for a topic (MSG-2)."""
+    canonical = normalize_topic(slug)
+    if canonical is None:
+        raise HTTPException(status_code=400, detail=f"topic '{slug}' is not a valid slug")
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        result = topic_moderation(session, resolved, canonical)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No topic '{canonical}'")
+    return result
+
+
+@rate_limit(rate=200, per=60)
+async def messaging_reputation(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Integer reputation derived from sealed votes (display-only, MSG-2)."""
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        return reputation(session, resolved, address)
 
 
 @rate_limit(rate=200, per=60)
