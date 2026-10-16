@@ -1169,3 +1169,7 @@ probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
 ### FOLLOWER-RPC-5
 
 - docs(ops): correct `messaging-nginx-limits.md` — followers do run nginx on `:80` in front of `:8202`; node0/node1/node2 now bind `127.0.0.1:8202` (peer gossip repointed to the nginx path first), so only hub1 still accepts direct `:8202` connections pending its own row.
+
+### FOLLOWER-RPC-6
+
+- docs(ops): hub1 rpc now binds `127.0.0.1:8202` behind its nginx (set in `node.env`, one `aitbc-blockchain-rpc` restart; direct-port refusal verified from `192.168.100.1`). No `0.0.0.0:8202` remains in the fleet — the XFF-spoof caveat in `messaging-nginx-limits.md` is closed fleet-wide.
