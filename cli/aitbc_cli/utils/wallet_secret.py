@@ -124,7 +124,7 @@ def _wallet_is_unencrypted(wallet_name: str, wallet_path: Path | None = None) ->
 
         data = json.loads(Path(path).read_text())
         return not data.get("encrypted") and not data.get("encrypted_private_key")
-    except (OSError, ValueError):
+    except (OSError, RecursionError, ValueError):
         return False
 
 

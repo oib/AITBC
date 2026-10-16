@@ -577,7 +577,7 @@ class RemoteAttestationService:
                     continue
                 try:
                     vcanon = canonical_address(validator)
-                except (TypeError, ValueError):
+                except (AttributeError, TypeError, ValueError):
                     vcanon = ""
                 if vcanon and vcanon in expected_remote:
                     answered.add(vcanon)

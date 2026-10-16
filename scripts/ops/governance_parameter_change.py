@@ -106,7 +106,7 @@ def _rpc_post(base: str, path: str, body: dict) -> tuple[int, dict | str]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read().decode())
-        except (OSError, UnicodeDecodeError, ValueError):
+        except (OSError, RecursionError, UnicodeDecodeError, ValueError):
             return e.code, ""
 
 
