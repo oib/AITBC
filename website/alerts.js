@@ -239,9 +239,42 @@ async function loadAlerts() {
     await Promise.all([loadJournal(), loadJournalCounts()]);
 }
 
+// Service health check — same up/down probe the marketplace card ran,
+// now fronting the alerts/journal status view.
+async function checkServiceHealth() {
+    const services = [
+        { name: 'marketplace', url: '/v1/market/status' },
+        { name: 'explorer', url: '/explorer-api/api/chain/head' },
+        { name: 'coordinator', url: '/c/health' },
+    ];
+
+    for (const svc of services) {
+        const start = performance.now();
+        try {
+            const response = await fetch(svc.url, { method: 'GET' });
+            const latency = Math.round(performance.now() - start);
+            const up = response.ok;
+            updateHealthItem(svc.name, up, latency);
+        } catch (e) {
+            updateHealthItem(svc.name, false, 0);
+        }
+    }
+}
+
+function updateHealthItem(name, up, latency) {
+    const item = document.querySelector(`.health-item[data-service="${name}"]`);
+    if (!item) return;
+    const statusEl = item.querySelector('.health-status');
+    const latencyEl = item.querySelector('.health-latency');
+    statusEl.className = 'health-status ' + (up ? 'up' : 'down');
+    latencyEl.textContent = up ? `${latency}ms` : 'DOWN';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('journal-unit').addEventListener('change', loadJournal);
     document.getElementById('journal-priority').addEventListener('change', loadJournal);
+    checkServiceHealth();
+    setInterval(checkServiceHealth, REFRESH_MS);
     loadAlerts();
     setInterval(loadAlerts, REFRESH_MS);
 });

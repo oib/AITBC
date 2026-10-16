@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/alerts.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=da7a0211f0e82881">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=6d6a8c14238ba6cd">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=da7a0211f0e82881">
+    <link rel="stylesheet" href="/style.css?v=6d6a8c14238ba6cd">
 
     <!-- External libraries -->
-    <script src="config.js?v=da7a0211f0e82881" defer></script>
-    <script src="alerts.js?v=da7a0211f0e82881" defer></script>
-    <script src="status.js?v=da7a0211f0e82881" defer></script>
+    <script src="config.js?v=6d6a8c14238ba6cd" defer></script>
+    <script src="alerts.js?v=6d6a8c14238ba6cd" defer></script>
+    <script src="status.js?v=6d6a8c14238ba6cd" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -54,6 +54,28 @@
 
         <div class="card">
             <div id="monitor-strip" class="monitor-strip">Checking monitor status...</div>
+        </div>
+
+        <!-- Service Health -->
+        <div class="card">
+            <h2>Service Health</h2>
+            <div class="health-grid" id="health-grid">
+                <div class="health-item" data-service="marketplace">
+                    <div class="health-status loading"></div>
+                    <div class="health-name">Marketplace API</div>
+                    <div class="health-latency">--</div>
+                </div>
+                <div class="health-item" data-service="explorer">
+                    <div class="health-status loading"></div>
+                    <div class="health-name">Explorer API</div>
+                    <div class="health-latency">--</div>
+                </div>
+                <div class="health-item" data-service="coordinator">
+                    <div class="health-status loading"></div>
+                    <div class="health-name">Coordinator API</div>
+                    <div class="health-latency">--</div>
+                </div>
+            </div>
         </div>
 
         <div class="card">
