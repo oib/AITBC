@@ -39,14 +39,20 @@ diffs=0
 for name in $rule_files; do
     base="$(basename "$name")"
     repo_file="$REPO_DIR/$base"
-    deployed="$DEPLOYED_DIR/$name"
-    if [ ! -f "$deployed" ]; then
-        echo "$base (missing)"
-        diffs=1
+    # Entries may be absolute paths (node0 lists /etc/prometheus/alerts.yml);
+    # join only relative names onto the deployed dir.
+    case "$name" in
+        /*) deployed="$name" ;;
+        *)  deployed="$DEPLOYED_DIR/$name" ;;
+    esac
+    if [ ! -f "$repo_file" ]; then
+        # Host-local rule files with no repo counterpart are legitimate —
+        # deploy-rules.sh skips them; flagging them here is not drift.
+        echo "$base (skipped — no repo file)" >&2
         continue
     fi
-    if [ ! -f "$repo_file" ]; then
-        echo "$base (no repo file)"
+    if [ ! -f "$deployed" ]; then
+        echo "$base (missing)"
         diffs=1
         continue
     fi
