@@ -1,4 +1,4 @@
-"""Read-only forum-message proxies (MSG-4).
+"""Read-only forum-message proxies (MSG-4, extended by MSG-17).
 
 Mirrors the chain RPC's ``/rpc/messaging/*`` read surface so the website can
 reach it through the ``/explorer-api/`` nginx location. No write routes —
@@ -80,6 +80,7 @@ async def api_messages_topics(
 @router.get("/api/messages")
 async def api_messages(
     topic: str | None = None,
+    author: str | None = None,
     limit: int = 50,
     offset: int = 0,
     cursor: str | None = None,
@@ -91,9 +92,54 @@ async def api_messages(
         "messages",
         {
             "topic": topic,
+            "author": author,
             "limit": _clamp_limit(limit),
             "offset": offset,
             "cursor": cursor,
             "chain_id": chain_id,
         },
     )
+
+
+# MSG-17: declared before /api/messages/{tx_hash} so the literal wins.
+@router.get("/api/messages/search")
+async def api_messages_search(
+    query: str | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    cursor: str | None = None,
+    chain_id: str | None = DEFAULT_CHAIN,
+) -> dict[str, Any]:
+    _check_offset(offset)
+    return await _proxy(
+        "messages/search",
+        {
+            "query": query,
+            "q": q,
+            "limit": _clamp_limit(limit),
+            "offset": offset,
+            "cursor": cursor,
+            "chain_id": chain_id,
+        },
+    )
+
+
+@router.get("/api/messages/reputation/{address}")
+async def api_messages_reputation(address: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+    return await _proxy(f"reputation/{address}", {"chain_id": chain_id})
+
+
+@router.get("/api/messages/topics/{slug}/moderation")
+async def api_messages_topic_moderation(slug: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+    return await _proxy(f"topics/{slug}/moderation", {"chain_id": chain_id})
+
+
+@router.get("/api/messages/{tx_hash}/votes")
+async def api_messages_votes(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+    return await _proxy(f"messages/{tx_hash}/votes", {"chain_id": chain_id})
+
+
+@router.get("/api/messages/{tx_hash}")
+async def api_messages_get(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+    return await _proxy(f"messages/{tx_hash}", {"chain_id": chain_id})

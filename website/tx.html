@@ -184,7 +184,7 @@
                     const cleanTopic = String(msg.topic).replace(NEUTRAL_RE, (ch) => `[U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
                     details.push({
                         label: 'Forum',
-                        value: `<a class="badge badge-primary" href="/messages.html?topic=${encodeURIComponent(cleanTopic)}" title="Open topic">${escapeHtml('forum message: ' + cleanTopic)}</a>`,
+                        value: `<a class="badge badge-primary" href="/topic.html?t=${encodeURIComponent(cleanTopic)}" title="Open topic">${escapeHtml('forum ' + msg.kind + ': ' + cleanTopic)}</a>`,
                     });
                 }
 
