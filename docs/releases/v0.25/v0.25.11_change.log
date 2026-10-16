@@ -1,8 +1,8 @@
-# v0.25.11 — authority monitoring from chain parameters, ops-tool gates, census tooling
+# v0.25.11 — on-chain messaging (votes, moderation, DMs, agent SDK), bridge ledger/ops hardening, authority monitoring, website status pages
 
-**Baseline**: `v0.25.10` tagged at `6fc1ed373b` (2026-10-07). Sections below cover `v0.25.10..HEAD` — commits accrued on `main` after the tag, per the release-tag policy (`AGENTS.md`: the version's changelog is finalised in the tagged commit; later entries go to the next version's log).
-**Date**: 2026-10-07.
-**Tag**: `v0.25.11` (pending).
+**Baseline**: `v0.25.10` tagged at `6fc1ed373b` (2026-10-07). Sections below cover `v0.25.10..51c485eb4` — 551 commits accrued on `main` after the tag, per the release-tag policy (`AGENTS.md`: the version's changelog is finalised in the tagged commit; later entries go to the next version's log).
+**Date**: 2026-10-16.
+**Tag**: `v0.25.11`.
 
 ### Monitoring: authority watch list derived from live chain parameters
 
