@@ -818,6 +818,28 @@ class TestIndex:
         assert replies["re:up"]["parent_resolved"] is True
         assert replies["re:mixed"]["parent_resolved"] is True
 
+    def test_uppercase_finds_row_in_both_lookup_paths(self, session):
+        """MSG-FIX-3 item 1 (premise failed — see report): the
+        parent-resolution batch lookup and get_message both find a stored
+        row via uppercase input, through _tx_hash_bare normalization."""
+        _block(session, 1)
+        parent_h = f"{0xABC:064x}"
+        session.add(_tx_row(1, 0xABC, payload={"aitbc_msg": _env(body="parent post")}))
+        session.add(
+            _tx_row(
+                1,
+                2,
+                payload={"aitbc_msg": _env(kind="reply", body="re", parent=parent_h.upper())},
+            )
+        )
+        session.commit()
+        # get_message path
+        assert get_message(session, CHAIN, parent_h.upper())["body"] == "parent post"
+        # _resolve_parents path (drives list views)
+        out = list_messages(session, CHAIN)
+        reply = next(m for m in out["messages"] if m["kind"] == "reply")
+        assert reply["parent_resolved"] is True
+
     def test_topics_aggregation_excludes_junk(self, seeded):
         out = list_topics(seeded, CHAIN)
         assert out["total_topics"] == 1
