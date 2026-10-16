@@ -729,3 +729,22 @@ reported, not ignored.
 - docs/design/msg2-votes-moderation.md: lock/unlock visibility rule
   stated exactly and marked 'confirm intended'; the §4 partition
   description now matches the code.
+
+### MSG-2d — stored-hash normalization fix (live vote proved the gap)
+
+- The chain stores ``tx_hash`` ``0x``-prefixed while envelope
+  ``target``/``parent`` fields are bare 64-hex (codec shape). Every
+  derivation join compared the two forms literally, so votes, hide/pin,
+  thread locks, reply ``parent_resolved`` and reputation silently
+  matched nothing against production rows — caught live when the first
+  MSG-2 vote sealed at block 49245 and read back as score 0. All suites
+  passed because fixtures stored bare hashes on both sides.
+- ``messaging_index`` now normalizes through ``_bare_hash``/``
+  _tx_hash_bare`` (substr(-64) works for both stored forms); the affected
+  joins are parent resolution, ``get_message`` (now accepts both forms),
+  standing votes, score fields, hidden/pinned/after-lock views, locked
+  subtree walks and reputation.
+- Tests: new ``TestPrefixedStorage`` class (6) seeds ``0x``-prefixed
+  ``tx_hash`` rows with bare env fields and re-proves parent resolution,
+  both-form lookups, vote scoring, hide/pin, locked-subtree walks and
+  reputation. The live vote at 0x782b…03cc reads correctly once deployed.

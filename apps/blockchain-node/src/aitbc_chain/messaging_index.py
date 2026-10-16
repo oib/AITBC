@@ -97,6 +97,23 @@ def _env_text(path: str):
     return cast(_env_json(path), LargeBinary)
 
 
+def _bare_hash(value: str | None) -> str:
+    """Lowercase hash text with any ``0x`` prefix stripped.
+
+    Envelope ``target``/``parent`` fields are bare 64-hex (the codec
+    requires exactly 64 chars) while the stored ``tx_hash`` column is
+    ``0x``-prefixed. Every join between the two normalizes through here.
+    """
+    v = (value or "").lower()
+    return v[2:] if v.startswith("0x") else v
+
+
+def _tx_hash_bare():
+    """``tx_hash`` normalized to bare lowercase hex, for joins against
+    bare-hex envelope fields."""
+    return func.lower(func.substr(col(Transaction.tx_hash), -64))
+
+
 def _decode_env_bytes(raw: Any) -> Any:
     """Strict UTF-8 decode of a BLOB-selected envelope field.
 
@@ -395,19 +412,17 @@ def _resolve_parents(session, chain_id: str, items: list[dict[str, Any]]) -> Non
     forum message (any kind). Unresolvable parents stay indexed — the flag is
     what the reader shows, not a drop.
     """
-    parents = {m["parent"].lower() for m in items if m.get("parent")}
+    parents = {_bare_hash(m["parent"]) for m in items if m.get("parent")}
     if not parents:
         return
     resolved: set[str] = set()
-    stmt = _candidate_select(chain_id).where(
-        func.lower(col(Transaction.tx_hash)).in_(parents), _env_json("kind").in_(sorted(POST_KINDS))
-    )
+    stmt = _candidate_select(chain_id).where(_tx_hash_bare().in_(parents), _env_json("kind").in_(sorted(POST_KINDS)))
     for row in session.exec(stmt).all():
         if _row_error(row) is None:
-            resolved.add(row.tx_hash.lower())
+            resolved.add(_bare_hash(row.tx_hash))
     for m in items:
         if m.get("parent"):
-            m["parent_resolved"] = m["parent"].lower() in resolved
+            m["parent_resolved"] = _bare_hash(m["parent"]) in resolved
 
 
 def _view(row: Any, block_times: dict[int, Any]) -> dict[str, Any]:
@@ -498,9 +513,7 @@ def get_message(session, chain_id: str, tx_hash: str, *, include_hidden: bool = 
     ``body: null``; the body stays fetchable as the raw transaction, per §3
     of the design note.
     """
-    stmt = _candidate_select(chain_id).where(
-        col(Transaction.tx_hash) == tx_hash.lower(), _env_json("kind").in_(sorted(POST_KINDS))
-    )
+    stmt = _candidate_select(chain_id).where(_tx_hash_bare() == _bare_hash(tx_hash), _env_json("kind").in_(sorted(POST_KINDS)))
     row = session.exec(stmt).first()
     if row is None or _row_error(row) is not None:
         return None
@@ -916,10 +929,10 @@ def _locked_descendants(
     for row in _iter_valid_asc(session, stmt):
         parent = _decode_env_bytes(row.env_parent)
         if isinstance(parent, str):
-            children.setdefault(parent.lower(), []).append(str(row.tx_hash).lower())
+            children.setdefault(_bare_hash(parent), []).append(_bare_hash(row.tx_hash))
     out: dict[str, tuple[int, str]] = {}
     for root, lock_pos in locked_roots.items():
-        _walk_locked_subtree(children, root.lower(), lock_pos, out)
+        _walk_locked_subtree(children, _bare_hash(root), lock_pos, out)
     return out
 
 
@@ -1055,7 +1068,7 @@ def _standing_votes(session, chain_id: str, *, targets: list[str] | None = None,
     )
     stmt = sa_select(inner).where(inner.c.rn == 1, inner.c.v_value != 0)
     if targets:
-        stmt = stmt.where(inner.c.v_target.in_([t.lower() for t in targets]))
+        stmt = stmt.where(inner.c.v_target.in_([_bare_hash(t) for t in targets]))
     if topic is not None:
         stmt = stmt.where(inner.c.env_topic == cast(topic.encode(), LargeBinary))
     out: list[tuple[str, str, int, str]] = []
@@ -1077,12 +1090,12 @@ def _score_fields(session, chain_id: str, items: list[dict[str, Any]]) -> None:
     targets = [m["tx_hash"] for m in items]
     votes = _standing_votes(session, chain_id, targets=targets)
     per: dict[str, list[int]] = {}
-    topic_of = {str(m["tx_hash"]).lower(): str(m.get("topic")) for m in items}
+    topic_of = {_bare_hash(m["tx_hash"]): str(m.get("topic")) for m in items}
     for _signer, target, v, vtopic in votes:
         if vtopic == topic_of.get(target):
             per.setdefault(target, []).append(v)
     for m in items:
-        vals = per.get(str(m["tx_hash"]).lower(), [])
+        vals = per.get(_bare_hash(m["tx_hash"]), [])
         up = sum(1 for v in vals if v > 0)
         down = sum(1 for v in vals if v < 0)
         m["score"] = up - down
@@ -1115,18 +1128,19 @@ def _moderation_fields(
     pins: list[dict[str, Any]] = []
     for m in items:
         pos = (int(m["block_height"]), str(m["tx_hash"]).lower())
-        h = hidden.get(str(m["tx_hash"]).lower())
+        mkey = _bare_hash(m["tx_hash"])
+        h = hidden.get(mkey)
         m["hidden"] = h is not None
         m["hidden_by"] = {"action_tx_hash": h[0], "moderator": h[1], "block_height": h[2][0]} if h else None
         after_lock = (st.topic_lock is not None and st.topic_lock[0] == "lock" and pos > st.topic_lock[3]) or (
-            str(m["tx_hash"]).lower() in descendants and pos > descendants[str(m["tx_hash"]).lower()]
+            mkey in descendants and pos > descendants[mkey]
         )
         m["after_lock"] = bool(after_lock)
-        p = pinned.get(str(m["tx_hash"]).lower())
+        p = pinned.get(mkey)
         m["pinned"] = p is not None
         m["pinned_by"] = {"action_tx_hash": p[0], "moderator": p[1], "block_height": p[2][0]} if p else None
         if m.get("parent"):
-            m["parent_hidden"] = str(m["parent"]).lower() in hidden
+            m["parent_hidden"] = _bare_hash(m["parent"]) in hidden
         suppress = m["hidden"] or m["after_lock"]
         if suppress and not include_hidden:
             continue
@@ -1207,7 +1221,7 @@ def reputation(session, chain_id: str, address: str) -> dict[str, Any]:
     votes: list[tuple[str, str, int, str]] = []
     for i in range(0, len(targets) or 1, _VOTE_TARGET_CHUNK):
         votes.extend(_standing_votes(session, chain_id, targets=targets[i : i + _VOTE_TARGET_CHUNK] or ["\x00"]))
-    topic_of = {str(r.tx_hash).lower(): _decode_env_bytes(r.env_topic) for r in authored}
+    topic_of = {_bare_hash(r.tx_hash): _decode_env_bytes(r.env_topic) for r in authored}
     per: dict[str, list[tuple[str, int]]] = {}
     for signer, target, v, vtopic in votes:
         if vtopic == topic_of.get(target):
@@ -1215,7 +1229,7 @@ def reputation(session, chain_id: str, address: str) -> dict[str, Any]:
     total = 0
     counted = 0
     for r in authored:
-        vals = [(s, v) for s, v in per.get(str(r.tx_hash).lower(), []) if s != address.lower()]
+        vals = [(s, v) for s, v in per.get(_bare_hash(r.tx_hash), []) if s != address.lower()]
         if not vals:
             continue
         counted += 1
