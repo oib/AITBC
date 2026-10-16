@@ -1049,8 +1049,7 @@ database).
   aggregates). `ct` capped at 4096 base64 chars; strict decode.
 - Index (`messaging_index.py`): single `is_dm_row` helper; candidate
   SQL excludes the `dm` slug from every non-DM branch so legacy squats
-  are hidden; DM rows never surface in listings/topics/state/search;
-  `dm_inbox` + `latest_dm_key` serve ciphertext only, `_scan_valid`
+KEEP
   paging means invalid rows can never hide a valid key.
 - RPC: `GET /rpc/messaging/dm-keys/{address}` (404 when none) and
   `GET /rpc/messaging/dm/{address}` (cursor-paged inbox).
@@ -1069,3 +1068,14 @@ database).
 - Pre-rollout chain check: 15 sealed MESSAGE txs on live main; zero
   carry a `dm` topic or DM field — the reserved-slug rule lands on a
   clean slate. Deployment itself stays separately gated.
+
+### DATA-LAYOUT-2: bridge ledger default flips to DATA_DIR/data/bridge_deposits.db
+
+Every consumer's unset default is now <data dir>/data/bridge_deposits.db —
+matching the Phase-3 fleet layout where BRIDGE_DEPOSITS_DB is set in
+blockchain.env on all five hosts (behaviour unchanged while the override
+is set). A host that ever loses the variable now resolves the moved
+location instead of silently recreating an empty ledger at the top level.
+init_db in the monitor and wallet logs a WARNING when its resolved path
+is outside DATA_DIR/data. Doc/help examples and the fleet-config-check
+probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
