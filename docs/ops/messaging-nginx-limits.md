@@ -1,9 +1,12 @@
-# Rate-limiting the messaging RPC surface — nginx proposal
+# Rate-limiting the messaging RPC surface — nginx limit
 
-Status: **proposal only** (15 Oct 2026). No nginx file was edited; applying
-this is a separate operator-named action. This document records the
-MSG-FIX-1 F4 verification findings and proposes a complementary
-nginx-layer limit for the messaging read endpoints.
+Status: **applied on hub 16 Oct 2026** (zone + both `/rpc/messaging/`-family
+locations, deployed as `/etc/nginx/conf.d/aitbc-messaging-limits.conf`;
+explorer-api side applied the same day — see the companion document).
+Follower nodes have no nginx in front of `:8202` — the `0.0.0.0`-bind
+bypass caveat below still stands for them. This document records the
+MSG-FIX-1 F4 verification findings and the nginx-layer limit now live
+for the messaging read endpoints.
 
 ## What is already in place
 
@@ -57,10 +60,10 @@ The durable fixes, in preference order:
    there.
 
 Companion document: [messaging-explorer-nginx.md](messaging-explorer-nginx.md)
-proposes the same zone applied to the MSG-4 explorer proxies
+applies the same zone to the MSG-4 explorer proxies
 (`/explorer-api/api/messages*`).
 
-## Proposed nginx limit (operator action — not yet applied)
+## nginx limit (applied on hub 16 Oct 2026)
 
 Two zones keyed on `$binary_remote_addr`, applied to the messaging read
 locations. Rates are above the in-app limit (200/60s ≈ 3.33 r/s) so nginx
@@ -105,9 +108,9 @@ Notes:
 - `proxy_set_header X-Real-IP $remote_addr` **must** stay — it is what
   makes the in-app limiter's first-preference header trustworthy.
 
-## What a restart/apply changes on a live node
+## What the apply changed on a live node
 
-Applying this proposal requires `nginx -t` + `systemctl reload nginx`
+Applying this limit required `nginx -t` + `systemctl reload nginx`
 (operator-named). It changes no consensus, state, or RPC behaviour: only
 requests beyond `rate=5r/s + burst=20` on the two messaging prefixes get
 `429` earlier, at the edge. The in-app 200/60s limiter continues to apply
