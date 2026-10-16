@@ -959,6 +959,7 @@ reported, not ignored.
 - scripts/maintenance/aitbc-backup.sh: new svc_* sweep backs up live SQLite DBs outside data/ (bridge_deposits.db on all hosts, ops-signer-ledger.db on hub, hermes/*.db on node2) via sqlite3 .backup on a -readonly source; chain_* artifact names unchanged.
 
 ### KEYTRACE-1
+- KEYTRACE-1 resolved (16 Oct): the five key-bearing backup files deleted on the operator's named line (hub bridge-monitor env .bak x2, node0/node2 stale validator/proposer env backups, hub energy-rate script orphan); absence re-verified on all three hosts. Operator confirms a custodied 0x02B8 backup exists — balance is held, not stranded; treasury home remains an O-7/v1 decision.
 
 - fix(docs): KEYTRACE-1 item 3 reworded — custody unconfirmed; the "held,
   not lost" reading overstated the evidence (no backup named). Fix-forward.
