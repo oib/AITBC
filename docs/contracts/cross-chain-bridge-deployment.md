@@ -109,6 +109,7 @@ pins, staleness gate, payout cap) in two profiles:
 |---|---|---|---|
 | Constructor & fee recipient | `constructor(address _feeRecipient)` only; script refuses deployer-as-recipient and asserts owner=Safe, paused, no validators/tokens | Local dry run + BR-9 Sepolia deploy + ETH-3 | Mainnet fee recipient undecided (operator) |
 | Validator set | `addValidator`/`removeValidator` are `onlyOwner` → Safe-managed flat list; `weight` is stored but each confirmation counts 1; per-chain `chainValidators` is a separate list | ETH-3 exercised owner calls through the Safe | Mainnet validator list undecided; BR-2/BR-3's chain-held validator set is **not** what this contract does — a param-driven set is a contract change |
+| Confirmation binding | `confirmBridge` counts each confirmer and lets each overwrite `request.lockTxHash` — threshold can be reached on *different* lock hashes (defect 3 below) | Read on `origin/main`, untested | Honest-validator assumption; fix is an audit decision |
 | Supported tokens | None at deploy; Safe calls `addSupportedToken` (bridgeLimit, feePercentage ≤ MAX_FEE 5%, whitelist flag) | Post-deploy assert probes `supportedTokens(Safe)` | Token list + per-token `bridgeLimit` undecided (operator) |
 | Lock cap | Per-token `bridgeLimit` via `withinBridgeLimit`; `MAX_BRIDGE_AMOUNT` (1M) is declared but **never enforced** — see defects below | n/a | Cap values undecided; dead constant reported |
 | Pause / emergencyWithdraw | `pause`/`unpause`/`emergencyPause`/`emergencyWithdraw` all `onlyOwner` → Safe; emergencyWithdraw sweeps to `owner()` (the Safe) | ETH-3 ran both end-to-end through the Safe on Sepolia | Mainnet pause drill not scheduled |
@@ -145,6 +146,18 @@ pins, staleness gate, payout cap) in two profiles:
 - `validators[].weight` is stored but never used in confirmation
   counting (`confirmBridge` line ~259 increments by 1) — weighted
   validators are a contract change if mainnet wants them.
+- `confirmBridge` (lines ~258–260): every confirmer counts toward the
+  threshold AND overwrites `request.lockTxHash` with the hash *they*
+  signed — nothing checks that confirmers agree on the same lock hash.
+  Each signature is bound to `(requestId, lockTxHash, chainid)`, so each
+  validator is bound to the hash it chose, but the validators are not
+  bound to each other: the 2-of-3 threshold can be reached on two
+  different lock hashes, with the last confirmer's value winning the
+  stored field. This relies on validators being honest and agreeing.
+  Proposed fix (not applied — audit decision): require the supplied
+  `lockTxHash` to equal the first confirmation's stored value
+  (`request.confirmations == 0 || request.lockTxHash == lockTxHash`),
+  or track confirmations per hash.
 
 ## Recovery notes
 
