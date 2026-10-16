@@ -612,3 +612,53 @@ class TestReputationChunking:
         assert rep["messages_authored"] == 0
         assert rep["reputation"] == 0
         assert rep["messages_counted"] == 0
+
+
+class TestWrongTopicVotePartition:
+    """MSG-2b item 2: the standing-vote window partitions by
+    (voter, target, claimed topic) — a wrong-topic vote is a sealed no-op
+    and can never retract the voter's valid vote."""
+
+    def _post(self, session):
+        return _tx(session, 10, 0x10, ALICE, _env("post", sender=ALICE, body="hi"))
+
+    def test_wrong_topic_does_not_displace_valid(self, session):
+        post = self._post(session)
+        _tx(session, 11, 0x20, BOB, _env("vote", sender=BOB, target=post, value=1))
+        _tx(session, 12, 0x30, BOB, _env("vote", topic="other", sender=BOB, target=post, value=-1))
+        out = message_votes(session, CHAIN, post)
+        assert [(v["voter"], v["value"]) for v in out["votes"]] == [(BOB.lower(), 1)]
+        assert get_message(session, CHAIN, post)["score"] == 1
+
+    def test_right_topic_retract_still_works(self, session):
+        post = self._post(session)
+        _tx(session, 11, 0x20, BOB, _env("vote", sender=BOB, target=post, value=1))
+        _tx(session, 12, 0x30, BOB, _env("vote", topic="other", sender=BOB, target=post, value=-1))
+        _tx(session, 13, 0x40, BOB, _env("vote", sender=BOB, target=post, value=0))
+        out = message_votes(session, CHAIN, post)
+        assert out["votes"] == []
+        assert get_message(session, CHAIN, post)["voter_count"] == 0
+
+    def test_right_topic_last_wins_after_wrong_topic(self, session):
+        post = self._post(session)
+        _tx(session, 11, 0x20, BOB, _env("vote", sender=BOB, target=post, value=1))
+        _tx(session, 12, 0x30, BOB, _env("vote", topic="other", sender=BOB, target=post, value=-1))
+        _tx(session, 13, 0x40, BOB, _env("vote", sender=BOB, target=post, value=-1))
+        out = message_votes(session, CHAIN, post)
+        assert [(v["voter"], v["value"]) for v in out["votes"]] == [(BOB.lower(), -1)]
+        assert get_message(session, CHAIN, post)["score"] == -1
+
+    def test_surfaces_agree(self, session):
+        """message_votes, _score_fields (via list/get views) and reputation
+        must all report the same standing vote."""
+        post = self._post(session)
+        other = _tx(session, 10, 0x11, ALICE, _env("post", sender=ALICE, body="m2"))
+        _tx(session, 11, 0x20, BOB, _env("vote", sender=BOB, target=post, value=1))
+        _tx(session, 12, 0x30, BOB, _env("vote", topic="other", sender=BOB, target=post, value=-1))
+        _tx(session, 13, 0x40, CAROL, _env("vote", sender=CAROL, target=other, value=-1))
+        mv = message_votes(session, CHAIN, post)
+        assert [(v["voter"], v["value"]) for v in mv["votes"]] == [(BOB.lower(), 1)]
+        listed = {m["tx_hash"]: m for m in list_messages(session, CHAIN, topic="dev")["messages"]}
+        assert listed[post]["score"] == 1 and listed[other]["score"] == -1
+        rep = reputation(session, CHAIN, ALICE)
+        assert rep["reputation"] == 1 - 1 == 0
