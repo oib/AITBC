@@ -88,10 +88,10 @@ def _action_state_matches(kind: str, data: Any, *, sender: str | None, value: in
         return False
     if kind == "vote":
         sender_l = (sender or "").lower()
-        for v in data.get("votes") or []:
-            if str(v.get("voter", "")).lower() == sender_l and v.get("value") == value:
-                return True
-        return False
+        if value == 0:
+            # A retract removes the signer from the standing votes — absence is the match.
+            return sender_l not in {str(v.get("voter", "")).lower() for v in data.get("votes") or []}
+        return any(str(v.get("voter", "")).lower() == sender_l and v.get("value") == value for v in data.get("votes") or [])
     mods = {str(m).lower() for m in data.get("moderators") or []}
     grantee_l = (grantee or "").lower()
     if kind == "mod_grant":
@@ -145,7 +145,18 @@ def _sealed_block(data: Any, want: str, is_action: bool) -> Any:
     return None
 
 
+_MODERATOR_GATED_KINDS = _TX_ACTION_KINDS | {"mod_grant", "mod_revoke"}
+_CAPPED_WAIT_SECONDS = 30.0
+_MODERATION_ACTIONS_CAP = 100
 _UNREACHABLE = object()
+
+
+def _topic_moderators_probe(rpc_url: str, topic: str) -> set[str] | None:
+    """Lowercased moderator set for a topic, or ``None`` when the read failed."""
+    data = _poll_read(f"{rpc_url.rstrip('/')}/rpc/messaging/topics/{topic}/moderation")
+    if not isinstance(data, dict):
+        return None
+    return {str(m).lower() for m in data.get("moderators") or []}
 
 
 def _poll_read(route: str) -> Any:
@@ -164,6 +175,57 @@ def _poll_read(route: str) -> Any:
         return None
 
 
+def _presend_expectations(
+    rpc_url: str, kind: str, topic: str, target: str | None, *, sender: str, value: int | None, grantee: str | None
+) -> tuple[bool, bool]:
+    """One-shot reads for the post-submit wait: ``(pre_matched, expect_listed)``.
+
+    ``pre_matched`` — the state kinds already read as expected (a retract
+    with no standing vote counts). ``expect_listed=False`` — a
+    moderator-gated kind signed by a non-moderator seals but never takes
+    effect, so the wait must not poll for it. ``None`` moderator reads
+    leave ``expect_listed`` True (degrade to waiting, not to skipping).
+    """
+    if kind in _STATE_ACTION_KINDS and _action_state_probe(
+        rpc_url, kind, topic, target, sender=sender, value=value, grantee=grantee
+    ):
+        return True, True
+    if kind in _MODERATOR_GATED_KINDS:
+        mods = _topic_moderators_probe(rpc_url, topic)
+        if mods is not None and sender.lower() not in mods:
+            return False, False
+    return False, True
+
+
+def _wait_confirmed(
+    data: Any,
+    want: str,
+    *,
+    is_action: bool,
+    state_kind: bool,
+    kind: str,
+    topic: str,
+    tx_hash: str,
+    sender: str | None,
+    value: int | None,
+    grantee: str | None,
+) -> bool:
+    """Print the success line and return True when this poll body confirms the tx."""
+    if state_kind:
+        if not _action_state_matches(kind, data, sender=sender, value=value, grantee=grantee):
+            return False
+        if kind == "vote" and value == 0:
+            success(f"vote retracted — signer absent from standing votes on '{topic}' (tx {tx_hash})")
+        else:
+            success(f"'{kind}' reads as expected on topic '{topic}' (tx {tx_hash})")
+        return True
+    block = _sealed_block(data, want, is_action)
+    if block is None:
+        return False
+    success(f"Sealed at block {block}")
+    return True
+
+
 def _wait_for_seal(
     ctx,
     rpc_url: str,
@@ -177,6 +239,7 @@ def _wait_for_seal(
     sender: str | None = None,
     value: int | None = None,
     grantee: str | None = None,
+    expect_listed: bool = True,
 ) -> None:
     """Poll the messaging read route until the tx is indexed or ``timeout`` passes.
 
@@ -186,13 +249,18 @@ def _wait_for_seal(
     on a healthy submission — seen live in MSG-3d. Posts and replies are
     detected at ``/rpc/messaging/messages/{tx_hash}``. Actions have no
     per-hash route: the six moderation kinds are detected by tx hash in
-    the topic's moderation ``actions`` list, while ``vote`` and
-    ``mod_grant``/``mod_revoke`` never appear there and are detected by
-    their resulting *state* instead (reported as "reads as expected", not
-    "sealed"). Plain ``requests`` keeps expected 404s away from the
-    client's retry/breaker machinery (same pattern as
-    ``utils.gpu_onchain.wait_for_tx``). Timeout degrades to a printed hint
-    — the transaction was already submitted, so this must not abort.
+    the topic's moderation ``actions`` list (which only ever lists
+    moderator-signed rows, so ``expect_listed=False`` from a non-moderator
+    signer exits at once), while ``vote`` and ``mod_grant``/``mod_revoke``
+    never appear there and are detected by their resulting *state*
+    instead (reported as "reads as expected", not "sealed"; a retract is
+    the signer's *absence* from standing votes). The ``actions`` list is
+    capped at 100 entries, so when it reads full the hash match gets a
+    short bound — a fresh hash may already have scrolled out. Plain
+    ``requests`` keeps expected 404s away from the client's retry/breaker
+    machinery (same pattern as ``utils.gpu_onchain.wait_for_tx``).
+    Timeout degrades to a printed hint — the transaction was already
+    submitted, so this must not abort.
     """
     base = rpc_url.rstrip("/")
     want = tx_hash.lower().removeprefix("0x")
@@ -207,22 +275,43 @@ def _wait_for_seal(
             f"verify via /rpc/messaging/topics/{topic}/moderation"
         )
         return
-    deadline = time.monotonic() + timeout
+    if is_action and not expect_listed:
+        warning(
+            f"Transaction {tx_hash} submitted; '{kind}' is recorded but not effective for a non-moderator — "
+            "verify with the raw transaction"
+        )
+        return
+    start = time.monotonic()
+    deadline = start + timeout
+    cap_deadline: float | None = None
     saw_response = False
-    while time.monotonic() < deadline:
+    while time.monotonic() < deadline and (cap_deadline is None or time.monotonic() < cap_deadline):
         data = _poll_read(route)
         if data is not _UNREACHABLE:
             # Any HTTP response — including an expected 404 — counts as the
             # RPC answering; 404 simply means "not indexed yet".
             saw_response = True
-            if state_kind and _action_state_matches(kind or "", data, sender=sender, value=value, grantee=grantee):
-                success(f"'{kind}' reads as expected on topic '{topic}' (tx {tx_hash})")
+            if _wait_confirmed(
+                data,
+                want,
+                is_action=is_action,
+                state_kind=state_kind,
+                kind=kind or "",
+                topic=topic,
+                tx_hash=tx_hash,
+                sender=sender,
+                value=value,
+                grantee=grantee,
+            ):
                 return
-            if not state_kind:
-                block = _sealed_block(data, want, is_action)
-                if block is not None:
-                    success(f"Sealed at block {block}")
-                    return
+            if (
+                is_action
+                and not state_kind
+                and cap_deadline is None
+                and isinstance(data, dict)
+                and len(data.get("actions") or []) >= _MODERATION_ACTIONS_CAP
+            ):
+                cap_deadline = start + _CAPPED_WAIT_SECONDS
         time.sleep(_WAIT_POLL_SECONDS)
     hint = _wait_hint(is_action, kind, topic, target, tx_hash)
     if saw_response:
@@ -270,7 +359,7 @@ def messaging():
 @click.option(
     "--wait/--no-wait",
     default=True,
-    help="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash",
+    help="With --confirm: poll /rpc/messaging/messages/<hash> until the post is indexed (default: --wait); --no-wait prints only the submitted hash",
 )
 @click.option("--wait-timeout", type=float, default=180.0, show_default=True, help="Seconds --wait polls for")
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL")
@@ -584,9 +673,9 @@ def _submit_action(
         allow_unencrypted=True,
         ctx=ctx,
     )
-    pre_matched = False
-    if wait and kind in _STATE_ACTION_KINDS:
-        pre_matched = _action_state_probe(
+    pre_matched, expect_listed = (False, True)
+    if wait:
+        pre_matched, expect_listed = _presend_expectations(
             resolved_rpc, kind, topic, target, sender=sender_address, value=value, grantee=grantee
         )
     click.echo(_PERMANENCE_WARNING, err=True)
@@ -609,7 +698,10 @@ def _submit_action(
     )
     if wait:
         if pre_matched:
-            info(f"'{kind}' state already reads as expected on '{topic}' (matched before this send) — not waiting")
+            if kind == "vote" and value == 0:
+                info(f"retract found no standing vote from this signer on '{topic}' — nothing to retract; not waiting")
+            else:
+                info(f"'{kind}' state already reads as expected on '{topic}' (matched before this send) — not waiting")
         else:
             _wait_for_seal(
                 ctx,
@@ -623,6 +715,7 @@ def _submit_action(
                 sender=sender_address,
                 value=value,
                 grantee=grantee,
+                expect_listed=expect_listed,
             )
 
 
@@ -635,7 +728,7 @@ def _action_options(f):
     f = click.option(
         "--wait/--no-wait",
         default=True,
-        help="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash",
+        help="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash",
     )(f)
     f = click.option("--wait-timeout", type=float, default=180.0, show_default=True)(f)
     f = click.option("--rpc-url", default=None, help="Blockchain RPC URL")(f)
