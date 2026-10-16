@@ -43,8 +43,11 @@ for name in $rule_files; do
     repo_file="$REPO_DIR/$base"
     deployed="$DEPLOYED_DIR/$name"
     if [ ! -f "$repo_file" ]; then
-        echo "deploy-rules: no repo file for $base" >&2
-        exit 1
+        # Host-local rule files with no repo counterpart exist (e.g. node0's
+        # alerts.yml). check-rules-deployed.sh flags them as drift; deploying
+        # the files that DO have a repo source must not be blocked by them.
+        echo "$base (skipped — no repo file)" >&2
+        continue
     fi
     if command -v promtool >/dev/null 2>&1; then
         if ! promtool check rules "$repo_file" >/dev/null; then
