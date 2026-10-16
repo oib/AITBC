@@ -9,6 +9,8 @@
 # that differ or are missing, exits 1 on any difference, 0 if all match.
 #
 # Deploy step for operators (this script never writes):
+#   scripts/monitoring/deploy-rules.sh    # copy + promtool check + reload
+# or by hand:
 #   1. cp scripts/monitoring/<name>.yml /etc/prometheus/<name>.yml
 #   2. promtool check rules /etc/prometheus/<name>.yml
 #   3. systemctl reload prometheus        # authorized reloads only
