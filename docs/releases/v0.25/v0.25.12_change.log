@@ -24,3 +24,13 @@
   current-topology section (five hosts, four validators, 3-of-4
   attestations with PBFT off, KR-5 rotation, v10–v14 heights, Sepolia-only
   bridge) ahead of the August history it used to present as live.
+
+### docs(release): relocate post-tag entries from the v0.25.9 log to v0.25.11
+
+- `f35a3df1` — the v0.25.9 tag froze its log, but 30 `### ` sections and a
+  283-line commit index (2026-10-14/15 work, all inside the v0.25.11
+  window) had been appended to it afterwards. They move to
+  `v0.25.11_change.log`: sections appended in order, the hash list under a
+  new `### Commit index` section so the coverage check still resolves
+  every hash. `v0.25.9_change.log` matches its tag again except the
+  retained internal-host-token scrub.
