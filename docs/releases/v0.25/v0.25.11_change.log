@@ -960,6 +960,8 @@ reported, not ignored.
 
 ### KEYTRACE-1
 
+- fix(docs): KEYTRACE-1 item 3 reworded — custody unconfirmed; the "held,
+  not lost" reading overstated the evidence (no backup named). Fix-forward.
 - TOPOLOGY/2026-10-16-keytrace.md (new): read-only fleet backup inventory —
   five key-bearing env backups named (bridge-monitor payout-key backups on
   hub, stale VALIDATOR_KEYS/PROPOSER_KEY backups on node0/node2) with
@@ -968,6 +970,9 @@ reported, not ignored.
   verdict historical.
 
 ### MSG-17
+- fix(explorer): path segments validated — tx_hash/address/slug in the
+  messaging proxies must match the upstream shapes; `..`/`%2E%2E`/`%3F`
+  and malformed segments get a 4xx without reaching the RPC.
 - feat(explorer): author and topic pages (author.html?a=, topic.html?t=), message body search folded into search.html, tx-view forum badge → topic page with kind; explorer-api gains proxied /api/messages/search, /{tx_hash}, /{tx_hash}/votes, /reputation/{address}, /topics/{slug}/moderation and author filter — all upstream index routes, DOM-API rendering only, noindex everywhere; stale unmoderated-label test pin repaired for the MSG-19 published wording.
 
 ### DATA-LAYOUT (Phase 2): BRIDGE_DEPOSITS_DB env override in every ledger consumer

@@ -11,6 +11,7 @@ the same 400 wording; cursor validation stays upstream so cursor semantics have
 a single implementation.
 """
 
+import re
 from typing import Any
 
 import httpx
@@ -36,6 +37,34 @@ def _clamp_limit(limit: int) -> int:
 def _check_offset(offset: int) -> None:
     if offset < 0 or offset > MAX_OFFSET:
         raise HTTPException(status_code=400, detail=f"offset must be 0..{MAX_OFFSET}")
+
+
+# Path segments are interpolated into the upstream URL — an unvalidated
+# segment could climb with `..` or smuggle a query with `?`. Each value must
+# match the shape the upstream handler expects; anything else is a 400 here
+# and never reaches the RPC. Patterns mirror aitbc.messaging.normalize_topic
+# (canonical slug charset) and the chain's hex-hash/address formats.
+_TX_HASH_RE = re.compile(r"(?:0x)?[0-9a-fA-F]{64}")
+_ADDRESS_RE = re.compile(r"0x[0-9a-fA-F]{40}")
+_SLUG_RE = re.compile(r"[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?")
+
+
+def _check_tx_hash(tx_hash: str) -> str:
+    if not _TX_HASH_RE.fullmatch(tx_hash):
+        raise HTTPException(status_code=400, detail=f"'{tx_hash}' is not a transaction hash")
+    return tx_hash
+
+
+def _check_address(address: str) -> str:
+    if not _ADDRESS_RE.fullmatch(address):
+        raise HTTPException(status_code=400, detail=f"'{address}' is not an address")
+    return address
+
+
+def _check_slug(slug: str) -> str:
+    if not (1 <= len(slug) <= 64) or not _SLUG_RE.fullmatch(slug):
+        raise HTTPException(status_code=400, detail=f"topic '{slug}' is not a valid slug")
+    return slug
 
 
 async def _proxy(subpath: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -127,19 +156,19 @@ async def api_messages_search(
 
 @router.get("/api/messages/reputation/{address}")
 async def api_messages_reputation(address: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
-    return await _proxy(f"reputation/{address}", {"chain_id": chain_id})
+    return await _proxy(f"reputation/{_check_address(address)}", {"chain_id": chain_id})
 
 
 @router.get("/api/messages/topics/{slug}/moderation")
 async def api_messages_topic_moderation(slug: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
-    return await _proxy(f"topics/{slug}/moderation", {"chain_id": chain_id})
+    return await _proxy(f"topics/{_check_slug(slug)}/moderation", {"chain_id": chain_id})
 
 
 @router.get("/api/messages/{tx_hash}/votes")
 async def api_messages_votes(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
-    return await _proxy(f"messages/{tx_hash}/votes", {"chain_id": chain_id})
+    return await _proxy(f"messages/{_check_tx_hash(tx_hash)}/votes", {"chain_id": chain_id})
 
 
 @router.get("/api/messages/{tx_hash}")
 async def api_messages_get(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
-    return await _proxy(f"messages/{tx_hash}", {"chain_id": chain_id})
+    return await _proxy(f"messages/{_check_tx_hash(tx_hash)}", {"chain_id": chain_id})
