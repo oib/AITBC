@@ -713,3 +713,19 @@ reported, not ignored.
 - docs/ops/messaging-nginx-limits.md + messaging-explorer-nginx.md: status
   wording updated proposal -> applied on hub 16 Oct 2026; follower 0.0.0.0:8202
   bypass caveat kept.
+
+### MSG-2b — messaging index follow-ups
+
+- reputation(): the authored-message target list is chunked at 500
+  literals per statement and standing-vote rows merged — exact results
+  for prolific authors instead of a 500 at SQLite's variable limit.
+- _standing_votes: the claimed topic joins the window partition
+  (voter, target, topic), so a wrong-topic vote is a true sealed
+  no-op and can no longer silently retract a valid vote.
+- New bounded in-process cache (LRU 256, thread-safe, deep copies)
+  for moderation_state and locked-descendant maps, keyed by
+  (chain_id, topic, index height, head block hash) — a replaced head
+  block at the same height can never serve stale state.
+- docs/design/msg2-votes-moderation.md: lock/unlock visibility rule
+  stated exactly and marked 'confirm intended'; the §4 partition
+  description now matches the code.
