@@ -79,7 +79,9 @@ def _load_depositor_map(ledger: Path | None) -> dict[str, str]:
         return {}
     con = sqlite3.connect(f"file:{ledger}?mode=ro", uri=True)
     try:
-        rows = con.execute("SELECT from_address, tx_hash FROM eth_deposits WHERE from_address IS NOT NULL").fetchall()
+        cols = {r[1] for r in con.execute("PRAGMA table_info(eth_deposits)")}
+        tx_expr = "tx_hash" if "tx_hash" in cols else "NULL"
+        rows = con.execute(f"SELECT from_address, {tx_expr} FROM eth_deposits WHERE from_address IS NOT NULL").fetchall()  # nosec B608
     finally:
         con.close()
     return {str(a).lower(): str(t) for a, t in rows}
