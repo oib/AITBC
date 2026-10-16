@@ -838,6 +838,58 @@ class TestNginxSecurityHeaders(unittest.TestCase):
         self.assertEqual([], bad, "self-headered location missing headers:\n" + "\n".join(bad))
 
 
+class TestMessagingRateLimit(unittest.TestCase):
+    """NGINX-MSG-1: the hub's messaging_rpc zone (applied 16 Oct 2026 as
+    /etc/nginx/conf.d/aitbc-messaging-limits.conf) is mirrored here so a
+    config sync that drops the limit fails loudly — same drift class as
+    WEB-FIX-3's shadowed-headers regression."""
+
+    # The five live locations drawing on the shared messaging_rpc bucket.
+    MESSAGING_LOCATIONS = (
+        "/rpc/messaging/",
+        "/rpc/contracts/messaging/",
+        "/explorer-api/api/messages",
+        "/explorer-api/api/messages/topics",
+        "/explorer-api/api/messages/state",
+    )
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.raw = NGINX_CONF.read_text(encoding="utf-8")
+        cls.locs, _ = parse_nginx(cls.raw)
+
+    def test_messaging_zone_is_declared(self) -> None:
+        # The zone line is commented in the example (it ships as a conf.d
+        # file on the deploy) — match the raw text, not the parsed model.
+        self.assertRegex(
+            self.raw,
+            r"limit_req_zone\s+\$binary_remote_addr\s+zone=messaging_rpc:10m\s+rate=5r/s",
+            "messaging_rpc limit_req_zone declaration missing or changed",
+        )
+
+    def test_every_messaging_location_is_limited(self) -> None:
+        bad = []
+        for pattern in self.MESSAGING_LOCATIONS:
+            loc = next(
+                (lc for lc in self.locs if lc.pattern == pattern),
+                None,
+            )
+            if loc is None:
+                bad.append(f"{pattern}: location missing")
+                continue
+            if "limit_req zone=messaging_rpc burst=20 nodelay;" not in loc.body:
+                bad.append(f"{pattern}: missing `limit_req zone=messaging_rpc burst=20 nodelay`")
+            if "limit_req_status 429;" not in loc.body:
+                bad.append(f"{pattern}: missing `limit_req_status 429`")
+        self.assertEqual([], bad, "messaging location without the shared rate limit:\n" + "\n".join(bad))
+
+    def test_no_messaging_location_without_limit(self) -> None:
+        # Any *new* location whose pattern serves a messaging path must also
+        # be limited — guards against adding a variant that bypasses the zone.
+        bad = [lc.pattern for lc in self.locs if "messaging" in lc.pattern and "limit_req zone=messaging_rpc" not in lc.body]
+        self.assertEqual([], bad, "messaging location bypasses messaging_rpc zone:\n" + "\n".join(bad))
+
+
 if __name__ == "__main__":
     print(_fmt(analyze()))
     print(f"\nconfig: {NGINX_CONF}")

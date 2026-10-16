@@ -409,6 +409,43 @@ server {
     }
 
 # HTTP RPC routes (subscribe, heartbeat, blocks, head, etc.)
+    # /rpc/messaging/* and the explorer-api messages surface share the
+    # messaging_rpc zone (see the http-context block at the bottom — deployed
+    # as /etc/nginx/conf.d/aitbc-messaging-limits.conf). One
+    # $binary_remote_addr bucket across both surfaces; applied on the hub
+    # 16 Oct 2026 per docs/ops/messaging-nginx-limits.md.
+    location /rpc/messaging/ {
+        limit_req zone=messaging_rpc burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://blockchain_rpc;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    location /rpc/contracts/messaging/ {
+        limit_req zone=messaging_rpc burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://blockchain_rpc;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
     location /rpc/ {
         proxy_pass http://blockchain_rpc/rpc/;
         proxy_set_header Host $host;
@@ -454,6 +491,47 @@ server {
     }
 
     # ── Blockchain Explorer API ────────────────────────────────
+
+    # Exact-match messaging reads share the messaging_rpc zone (see the
+    # /rpc/messaging/ blocks above and the http-context zone declaration).
+    location = /explorer-api/api/messages {
+        limit_req zone=messaging_rpc burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://blockchain_explorer/api/messages;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    location = /explorer-api/api/messages/topics {
+        limit_req zone=messaging_rpc burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://blockchain_explorer/api/messages/topics;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    location = /explorer-api/api/messages/state {
+        limit_req zone=messaging_rpc burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://blockchain_explorer/api/messages/state;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
 
     location /explorer-api/ {
         proxy_pass http://blockchain_explorer/;
@@ -879,5 +957,12 @@ server {
 #
 # limit_req_zone $binary_remote_addr zone=exchange_api:10m rate=60r/m;
 # limit_req_status 429;
+#
+# ── http context: messaging read-surface rate zone (MSG-4 / MSG-FIX-1 F4) ──
+# Deployed on the hub as /etc/nginx/conf.d/aitbc-messaging-limits.conf
+# (applied 16 Oct 2026). The /rpc/messaging/, /rpc/contracts/messaging/ and
+# /explorer-api/api/messages* locations above all draw from this one bucket.
+#
+# limit_req_zone $binary_remote_addr zone=messaging_rpc:10m rate=5r/s;
 # proxy_cache_path /var/cache/nginx/exchange-api levels=1:2
 #                  keys_zone=exchange_api_cache:10m max_size=50m inactive=60s;
