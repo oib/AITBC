@@ -835,3 +835,9 @@ reported, not ignored.
   malformed); dm_key rotation keeps old private keys or old inbox
   rows go unreadable; "dm" slug squatting guard — admission refuses
   the slug on non-dm kinds, index hides any that pre-date the rule.
+
+### MSG-CLI-WAIT
+- `messaging send`/action commands: the default `--wait` seal poll moved off the generic `/rpc/transaction/{hash}` route (which 404s for MESSAGE txs even sealed — tripped the client circuit breaker live in MSG-3d) onto messaging read routes via plain `requests`: posts/replies detected at `/rpc/messaging/messages/{hash}`, actions via the topic moderation `actions` list. Timeout now prints a "submitted, verify with …" hint and exits 0; a silent RPC is distinguished from a 404 storm. 5 new tests in `test_messaging_wait.py`. MCP messaging wrappers regenerated (help text only).
+
+### MSG-CLI-WAIT (fix 2)
+- vote/mod_grant/mod_revoke never appear in the moderation `actions` list, so the fix-1 wait polled the full timeout and hinted the wrong route. They now detect by *state* — vote via the target's `/votes` route (signer+value), grant/revoke via the topic `moderators` list — and report "reads as expected" rather than "sealed". A pre-send probe reports "already reads as expected" instead of claiming a seal when state predates submission; unknown kinds print a verify-hint immediately without waiting. 8 new tests (per-kind routes, wrong-value/still-present keep polling, unknown kind, pre-send probe, command-level pre-match).
