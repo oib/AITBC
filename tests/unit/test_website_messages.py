@@ -47,6 +47,8 @@ class TestMessagesStatic(unittest.TestCase):
 
     def test_sanitizer_covers_pinned_ranges(self) -> None:
         src = MSG_JS.read_text(encoding="utf-8")
+        self.assertIn("\\u0080-\\u009F", src)  # C1 controls
+        self.assertIn("\\u061C", src)  # Arabic Letter Mark (bidi formatting)
         self.assertIn("\\u200B-\\u200F", src)
         self.assertIn("\\u202A-\\u202E", src)
         self.assertIn("\\u2066-\\u2069", src)
@@ -97,6 +99,23 @@ window.fetch = ((u, opts) => {
       body: 'x'.repeat(4096),
       parent: null, timestamp: '2026-10-15T22:32:00Z', fee: 360000,
     },
+    {
+      // MSG-FIX-2: U+061C Arabic Letter Mark — bidi formatting outside the
+      // original override/isolate ranges.
+      message_id: 'h4', tx_hash: '0x' + '34'.repeat(32), block_height: 48868,
+      author: '0x' + 'cd'.repeat(20), sender: '0x' + 'cd'.repeat(20),
+      topic: 'msg-fix', kind: 'post',
+      body: 'mark \u061Chere',
+      parent: null, timestamp: '2026-10-15T22:33:00Z', fee: 360000,
+    },
+    {
+      // MSG-FIX-2: C1 controls (U+0080–U+009F) — invisible in browsers.
+      message_id: 'h5', tx_hash: '0x' + '56'.repeat(32), block_height: 48869,
+      author: '0x' + 'cd'.repeat(20), sender: '0x' + 'cd'.repeat(20),
+      topic: 'msg-fix', kind: 'post',
+      body: 'c1 \u0085hidden\u0088 byte \u009Bhere',
+      parent: null, timestamp: '2026-10-15T22:34:00Z', fee: 360000,
+    },
   ];
   const TOPICS = {success: true, chain_id: 'ait-fixture', index_height: 48867,
                   topics: [{topic: 'msg-fix', message_count: 2, last_block_height: 48866,
@@ -124,7 +143,7 @@ _PROBE_JS = r"""
     xss: window.__xss || 0,
     items, scripts, imgs,
     bodies,
-    hasPlaceholder: bodies.some(b => /\[U\+20(2E|0B)\]|\[U\+FEFF\]|\[U\+200[DEF]\]/.test(b)),
+    hasPlaceholder: bodies.some(b => /\[U\+20(2E|0B)\]|\[U\+FEFF\]|\[U\+200[DEF]\]|\[U\+061C\]|\[U\+00[89][0-9A-F]\]/.test(b)),
     topicBtns,
     copyBtns: document.querySelectorAll('#messages-container .copy-btn').length,
   });
@@ -143,7 +162,7 @@ class TestMessagesBrowser(TestCopyControlBrowser):
     def test_hostile_content_renders_inert(self) -> None:
         r = self._read()
         self.assertNotIn("err", r, r.get("err"))
-        self.assertEqual(3, r["items"], "all three hostile fixture messages render")
+        self.assertEqual(5, r["items"], "all five hostile fixture messages render")
         self.assertEqual(0, r["xss"], "no chain-supplied script/onerror may execute")
         self.assertEqual(0, r["scripts"], "no <script> element injected from chain text")
         self.assertEqual(0, r["imgs"], "no <img> element injected from chain text")
@@ -160,7 +179,7 @@ class TestMessagesBrowser(TestCopyControlBrowser):
         r = self._read()
         self.assertNotIn("err", r, r.get("err"))
         # per message: author address + tx hash = 2 controls
-        self.assertEqual(6, r["copyBtns"])
+        self.assertEqual(10, r["copyBtns"])
 
 
 if __name__ == "__main__":
