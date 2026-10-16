@@ -63,3 +63,13 @@
   suites pass. Left standing: braces and sprintf-js advisories have no
   patched release upstream; the python-jose alert references
   apps/ai-service, a manifest that no longer exists on main.
+
+### MON-ALERT-1: ChainHeadMetricMissing scope fix
+
+- `79e48855` — the missing-gauge alert matched `up{job="blockchain-node"}`
+  (:9009) but the gauge lives on the blockchain-rpc job (:8202), so it fired
+  for every literal blockchain-node target since deploy. Now matches
+  `up{job=~"(.*-)?blockchain-rpc"}` and joins `on(instance, node)` —
+  the node external_label disambiguates identical remote-written instance
+  strings; hub-local series match the empty node value. Rule tests moved to
+  live label shapes; monitoring-setup.md documents the scoping.
