@@ -107,8 +107,9 @@ done  # diff against the window-verdict capture; plain canary must add no
   include a dust send in the canary only if you want to see it; it costs
   gas for a known-outcome row.
 - Funding whitelist is live since 2026-09-30: `BRIDGE_FUNDING_SOURCES`
-  on hub = `0x02b8…` (treasury key reused per O-7 — operator decision
-  30 Sep). A send **from** that address records `FUNDING`, no payout,
+  on hub = `0x7bD5…91D2,0x02b8…` — testnet F (rehearsal signer3) added
+  first in the overlap cutover 16 Oct (O-7, operator decision); the
+  treasury address stays listed until the shrink step. A send **from** that address records `FUNDING`, no payout,
   no alert; every other inflow keeps the deposit path. The match is
   lowercased on both sides — a canary sender differing from the
   treasury only by case still records `FUNDING` and never pays out;
