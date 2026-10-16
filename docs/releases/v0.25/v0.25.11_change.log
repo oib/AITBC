@@ -901,3 +901,20 @@ reported, not ignored.
 
 ### MSG-19-contact-set
 - docs(policy): contact filled via CONTACT_EMAIL (andreas.fleckl@bubuit.net) — policy status draft -> published; runbook points at the env value
+
+### BR-6b
+
+- B13 outbound ledger implemented: `bridge_outbound` (tx_hash PK,
+  to_address, value_eth, gas_wei, block_height, kind, matched_deposit_tx,
+  note) now bootstraps from both writers of the shared DB file
+  (`bridge_monitor/storage.py` + `wallet_app/bridge/bridge_db.py`).
+- The monitor scan records every send from the bridge wallet instead of
+  only skipping it: release-leg hash in `eth_withdrawals` → `withdrawal`,
+  self-send → `self_send` (gas-only), `to` a recorded depositor → `refund`
+  (with `matched_deposit_tx`), `to` a funding source → `withdrawal`,
+  else `unidentified`. `record_outbound` dedupes on tx_hash; a receipt
+  fetch failure writes the row ungassed rather than losing the leg.
+- `bridge_wallet_reconcile.py` now derives outbound terms from
+  `bridge_outbound` when the table exists (`--onchain` supplies the wallet
+  balance only); pre-migration DBs keep the operator-supplied path.
+- Live migration stays operator-gated per the runbook.

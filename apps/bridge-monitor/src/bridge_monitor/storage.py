@@ -157,6 +157,25 @@ def init_db() -> None:
             )
         """)
 
+        # B13/BR-6: outbound ETH legs (refunds, withdrawals, gas) — additive
+        # table written at the ``from == bridge_eth_address`` scan branch so
+        # the reconcile can close the books from the ledger alone instead of
+        # an operator-supplied --onchain document. See
+        # docs/ops/bridge-outbound-ledger-migration-runbook.md.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bridge_outbound (
+                tx_hash       TEXT PRIMARY KEY,
+                to_address    TEXT NOT NULL,
+                value_eth     NUMERIC NOT NULL,
+                gas_wei       INTEGER,
+                block_height  INTEGER NOT NULL,
+                kind          TEXT NOT NULL,
+                matched_deposit_tx TEXT,
+                note          TEXT,
+                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_eth_deposits_tx_hash ON eth_deposits(tx_hash)
         """)
@@ -437,6 +456,94 @@ def get_submitted_deposits() -> list[dict[str, Any]]:
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+def record_outbound(
+    tx_hash: str,
+    to_address: str,
+    value_wei: int,
+    block_height: int,
+    kind: str,
+    gas_wei: int | None = None,
+    matched_deposit_tx: str | None = None,
+    note: str | None = None,
+) -> bool:
+    """Ledger one outbound ETH leg sent from the bridge wallet (B13).
+
+    ``kind`` is ``refund`` | ``withdrawal`` | ``unidentified``; ``value_eth``
+    is stored as a decimal ETH string like ``eth_deposits.amount_eth``.
+    INSERT OR IGNORE on the tx-hash PRIMARY KEY makes a re-scan of the same
+    block harmless. Returns True when a row was written.
+    """
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO bridge_outbound
+            (tx_hash, to_address, value_eth, gas_wei, block_height, kind, matched_deposit_tx, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                tx_hash,
+                to_address,
+                str(Decimal(value_wei) / Decimal(10**18)),
+                gas_wei,
+                block_height,
+                kind,
+                matched_deposit_tx,
+                note,
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def depositor_tx_hashes() -> dict[str, str]:
+    """Lowercased ``from_address`` -> ``tx_hash`` of every recorded deposit.
+
+    The refund-recipient set for outbound classification: a send from the
+    bridge wallet back to a recorded depositor is a refund, and the deposit
+    tx hash is the match evidence.
+    """
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT from_address, tx_hash FROM eth_deposits")
+        return {str(addr).lower(): str(tx) for addr, tx in cursor.fetchall()}
+
+
+def release_tx_hashes() -> set[str]:
+    """Lowercased ``eth_tx_hash`` values in ``eth_withdrawals`` (sell/release
+    legs). Empty when the wallet side has not bootstrapped that table yet.
+    """
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT eth_tx_hash FROM eth_withdrawals WHERE eth_tx_hash IS NOT NULL")
+        except sqlite3.OperationalError:
+            return set()
+        return {str(row[0]).lower() for row in cursor.fetchall()}
+
+
+def outbound_totals_wei() -> dict[str, int]:
+    """Ledger-derived outbound terms for the reconcile (design section 5)."""
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT kind, SUM(CAST(value_eth AS REAL)), SUM(gas_wei) FROM bridge_outbound GROUP BY kind")
+        except sqlite3.OperationalError:
+            return {"refund": 0, "withdrawal": 0, "unidentified": 0, "gas_wei": 0}
+        terms: dict[str, int] = {"refund": 0, "withdrawal": 0, "unidentified": 0}
+        gas_total = 0
+        for kind, value_eth, gas_wei in cursor.fetchall():
+            kind = str(kind)
+            # self_send rows return their value to the same wallet — only
+            # their gas is outbound. Unknown kinds still count (a hand-written
+            # kind must not be silently dropped from the books).
+            if kind != "self_send":
+                terms[kind] = int(Decimal(str(value_eth or 0)) * Decimal(10**18))
+            gas_total += int(gas_wei or 0)
+        terms["gas_wei"] = gas_total
+        return terms
 
 
 def get_cursor(key: str = "last_processed_block") -> int | None:
