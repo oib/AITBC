@@ -21,7 +21,10 @@ from .storage import (
     get_deposit,
     get_deposits_for_retry,
     get_submitted_deposits,
+    depositor_tx_hashes,
     init_db,
+    record_outbound,
+    release_tx_hashes,
     set_cursor,
     sum_committed_ait,
     update_deposit,
@@ -1006,6 +1009,53 @@ class BridgeMonitor:
         except Exception as e:
             logger.warning("ETH float check failed: %s", e)
 
+    def _record_outbound(self, w3, tx, block_num: int) -> None:
+        """Ledger a send *from* the bridge wallet into bridge_outbound (B13).
+
+        Kind, by strongest evidence first: the tx hash itself appearing in
+        the wallet's ``eth_withdrawals`` (release leg) -> ``withdrawal``;
+        ``to`` a recorded depositor -> ``refund`` (matched_deposit_tx set);
+        ``to`` a funding source -> ``withdrawal`` (float return); a send to
+        the wallet itself -> ``self_send`` (only gas is lost — the value
+        returns, so it must not count as outbound). Anything else is
+        ``unidentified`` — the reconcile reads that as untrusted.
+        A receipt failure records the row ungassed rather than losing the
+        leg; ``record_outbound`` dedupes on tx_hash so re-scans are safe.
+        """
+        tx_hash = tx.hash.hex()
+        to_address = (tx.get("to") or "").lower()
+        value_wei = int(tx.get("value", 0) or 0)
+        gas_wei: int | None = None
+        note: str | None = None
+        try:
+            receipt = w3.eth.get_transaction_receipt(tx.hash)
+            if receipt is not None:
+                gas_wei = int(receipt["gasUsed"]) * int(receipt["effectiveGasPrice"])
+                if int(receipt.get("status", 1)) == 0:
+                    note = "tx failed — gas burned, no value moved"
+        except Exception as e:
+            note = f"receipt unavailable: {e}"
+
+        depositors = depositor_tx_hashes()
+        matched: str | None = None
+        if tx_hash.lower() in release_tx_hashes():
+            kind = "withdrawal"
+        elif to_address == self.bridge_eth_address:
+            kind = "self_send"
+        elif to_address in depositors:
+            kind, matched = "refund", depositors[to_address]
+        elif to_address in self.funding_sources:
+            kind = "withdrawal"
+            note = (note + "; " if note else "") + "float return to funding source"
+        else:
+            kind = "unidentified"
+            logger.warning("Outbound send %s -> %s matched nothing (unidentified)", tx_hash, to_address)
+        written = record_outbound(
+            tx_hash, to_address, value_wei, block_num, kind, gas_wei, matched_deposit_tx=matched, note=note
+        )
+        if written:
+            logger.info("Outbound %s recorded: %s -> %s", kind, tx_hash, to_address)
+
     def poll_ethereum(self) -> None:
         """Poll Ethereum for new transactions to bridge address."""
         try:
@@ -1037,10 +1087,13 @@ class BridgeMonitor:
                 for tx in block["transactions"]:
                     from_address = tx.get("from", "")
                     if from_address and from_address.lower() == self.bridge_eth_address:
-                        # Self-sends and the bridge's own outbound sends are
-                        # never deposits — otherwise the wallet key holder
-                        # could mint AIT payouts for the price of gas.
-                        logger.debug("Skipping own tx %s", tx.hash.hex())
+                        # The bridge's own outbound sends are never deposits —
+                        # otherwise the wallet key holder could mint AIT
+                        # payouts for the price of gas. They are ledgered as
+                        # bridge_outbound rows (B13): refund to a known
+                        # depositor, release-leg or funding return as
+                        # withdrawal, anything else unidentified.
+                        self._record_outbound(w3, tx, block_num)
                         continue
                     to_address = tx.get("to", "")
                     if to_address and to_address.lower() == self.bridge_eth_address:

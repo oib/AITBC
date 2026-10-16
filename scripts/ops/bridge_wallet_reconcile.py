@@ -68,6 +68,31 @@ def load_inflows(ledger: Path) -> dict[str, tuple[int, Decimal]]:
     return {k: (v[0], v[1]) for k, v in out.items()}
 
 
+def load_outbound(ledger: Path) -> dict[str, int] | None:
+    """Ledger-derived outbound terms from bridge_outbound (B13), or None when
+    the table does not exist (pre-migration DB) — caller then stays on the
+    operator-supplied --onchain outbound section."""
+    con = sqlite3.connect(f"file:{ledger}?mode=ro", uri=True)
+    try:
+        exists = con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bridge_outbound'").fetchone()
+        if not exists:
+            return None
+        rows = con.execute(
+            "SELECT kind, SUM(CAST(value_eth AS REAL)), SUM(gas_wei) FROM bridge_outbound GROUP BY kind"
+        ).fetchall()
+    finally:
+        con.close()
+    terms = {"refund": 0, "withdrawal": 0, "unidentified": 0, "gas": 0}
+    for kind, value_eth, gas_wei in rows:
+        kind = str(kind)
+        # self_send rows return their value to the same wallet — only gas
+        # counts as outbound. Unknown kinds still count.
+        if kind != "self_send":
+            terms[kind] = terms.get(kind, 0) + int(Decimal(str(value_eth or 0)) * WEI_PER_ETH)
+        terms["gas"] += int(gas_wei or 0)
+    return terms
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ledger", required=True, type=Path, help="bridge-monitor sqlite (opened read-only)")
@@ -77,22 +102,41 @@ def main(argv: list[str] | None = None) -> int:
 
     onchain = json.loads(args.onchain.read_text(encoding="utf-8"))
     balance_wei = _wei(onchain.get("wallet_balance_wei"), "wallet_balance_wei")
-    outbound = onchain.get("outbound") or {}
-    terms = {
-        "refunds": _wei(outbound.get("refunds_wei", 0), "outbound.refunds_wei"),
-        "withdrawals": _wei(outbound.get("withdrawals_wei", 0), "outbound.withdrawals_wei"),
-        "gas": _wei(outbound.get("gas_wei", 0), "outbound.gas_wei"),
-        "unidentified": _wei(outbound.get("unidentified_wei", 0), "outbound.unidentified_wei"),
-    }
 
     inflows = load_inflows(args.ledger)
+    ledger_terms = load_outbound(args.ledger)
+
+    outbound_source = "--onchain (operator-supplied)"
+    if ledger_terms is None:
+        outbound = onchain.get("outbound") or {}
+        terms = {
+            "refunds": _wei(outbound.get("refunds_wei", 0), "outbound.refunds_wei"),
+            "withdrawals": _wei(outbound.get("withdrawals_wei", 0), "outbound.withdrawals_wei"),
+            "gas": _wei(outbound.get("gas_wei", 0), "outbound.gas_wei"),
+            "unidentified": _wei(outbound.get("unidentified_wei", 0), "outbound.unidentified_wei"),
+        }
+    else:
+        outbound_source = "bridge_outbound ledger rows"
+        terms = {
+            "refunds": ledger_terms.get("refund", 0),
+            "withdrawals": ledger_terms.get("withdrawal", 0),
+            "gas": ledger_terms.get("gas", 0),
+            "unidentified": ledger_terms.get("unidentified", 0),
+        }
 
     print("BRIDGE WALLET RECONCILIATION (BR-6 ledger pass)")
     print("=" * 60)
-    print("NOTE: eth_deposits records inflows only. Refunds, gas and")
-    print("withdrawals have no ledger rows -- outbound figures come from")
-    print("--onchain (operator-supplied chain data). BALANCED means the")
-    print("supplied figures are consistent, not proof of correctness.")
+    if ledger_terms is None:
+        print("NOTE: eth_deposits records inflows only. Refunds, gas and")
+        print("withdrawals have no ledger rows -- outbound figures come from")
+        print("--onchain (operator-supplied chain data). BALANCED means the")
+        print("supplied figures are consistent, not proof of correctness.")
+    else:
+        print("Outbound terms read from the bridge_outbound ledger table (B13);")
+        print("--onchain supplies wallet_balance_wei only. BALANCED means the")
+        print("ledger explains the wallet, not that classification is correct:")
+        print("any unidentified outbound still needs operator review.")
+    print(f"outbound source: {outbound_source}")
     print()
     print(f"{'ledger status':<16}{'rows':>6}{'ETH':>20}")
     print("-" * 42)
@@ -109,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     outbound_wei = sum(terms.values())
     expected_wei = inflow_wei - outbound_wei
 
-    print("outbound (operator-supplied, wei):")
+    print(f"outbound ({outbound_source}, wei):")
     for name, wei in terms.items():
         print(f"  {name:<14}{wei:>22}")
     print()
