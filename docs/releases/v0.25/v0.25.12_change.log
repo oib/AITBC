@@ -48,5 +48,8 @@
   copy after, reloads prometheus only once everything validates;
   `--no-reload` for staged deploys. Fleet deploys become copy → check →
   reload in one step instead of three.
+- `a5069051` — deploy-rules.sh skip fix: a host-local rule file with no
+  repo counterpart (node0's alerts.yml) warned-and-skips instead of
+  refusing the whole deploy; the drift check still reports it separately.
 - `d9ff3f18` — STATUS.md: the v0.25.5 row moves back between v0.25.4 and
   v0.25.6; it had drifted to the bottom of the v0.25 block.
