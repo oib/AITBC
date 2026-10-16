@@ -17,6 +17,12 @@ groups:
       # settled volume, 1,800,000 (0.05 AIT) about 5 AIT; one escrow larger than that
       # needs a larger float before it settles. The two rules exclude each other, so one
       # alert fires at a time.
+      # SD-5 (2026-10-16): this is a capability guard, not a burn gauge — the
+      # authority account has signed nothing since the 7 Oct rotation (the
+      # coordinator's dead SETTLEMENT_PRIVATE_KEY was removed in 9b2f911196;
+      # node-side /rpc/escrow/settle still signs with it, and ETH-10/ETH-19
+      # sell/settle flows pay their own TRANSFER fees from the escrow account).
+      # The account that actually burns is watched as sell_escrow below.
       - alert: AuthorityFloatLow
         expr: |
           aitbc_authority_balance_units{role="escrow_settlement"} < 9000000
@@ -172,6 +178,36 @@ groups:
         annotations:
           summary: "Retired proposer account moved ({{ $labels.address }})"
           description: "Retired proposer {{ $labels.address }} holds a large residue and still names legacy genesis/admin roles; a falling balance or moving nonce means the custodied key signed a transaction — check whether it was expected."
+
+      # The sell-escrow operational account (AIT_SELL_ESCROW) pays its own
+      # TRANSFER fee — a flat 360,000 units — on every settle/refund leg it
+      # signs for the ETH-10/ETH-19 sell flow. It is not a chain parameter,
+      # so the watch arrives as an AITBC_WATCH_ACCOUNTS extra named
+      # sell_escrow (operator wiring; the address moves when the key
+      # rotates). An account below the fee cannot sign the refund leg of an
+      # orphan lock — the escrowed AIT stays locked until it is topped up.
+      # Warn below ten transfers, critical below two; bands exclude each
+      # other. The rules are inert until the env entry exists (no series, no
+      # alert).
+      - alert: SellEscrowFloatLow
+        expr: |
+          aitbc_authority_balance_units{role="sell_escrow"} < 3600000
+          and aitbc_authority_balance_units{role="sell_escrow"} >= 720000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sell escrow float is low ({{ $labels.address }})"
+          description: "Sell escrow {{ $labels.address }} holds {{ $value | humanize }} units — fewer than ten settle/refund TRANSFER fees (360,000 each). Top it up before an orphan-lock refund needs it."
+
+      - alert: SellEscrowFloatCritical
+        expr: aitbc_authority_balance_units{role="sell_escrow"} < 720000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sell escrow float is nearly gone ({{ $labels.address }})"
+          description: "Sell escrow {{ $labels.address }} holds {{ $value | humanize }} units — fewer than two settle/refund TRANSFER fees. The next leg it must sign will be refused at admission until funded."
 
   - name: aitbc-native-energy-rate
     rules:
