@@ -100,7 +100,7 @@ bcrypt = "4.3.0"
 eth-utils = "6.0.0"
 eth-keys = "0.8.0"
 eth-hash = "0.8.0"
-mcp = "2.1.1"
+mcp = "2.2.0"
 networkx = "3.4.2"
 ping3 = "5.1.5"
 # Optional search / sqlcipher / security extras
