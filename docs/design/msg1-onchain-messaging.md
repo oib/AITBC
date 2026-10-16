@@ -387,3 +387,5 @@ amendment 10).
   ban/moderator tables — all currently in-memory mutations; become 501
   until designed as signed-tx kinds. (MSG-2 Phase 0 design:
   [msg2-votes-moderation.md](msg2-votes-moderation.md).)
+- **MSG-8 parking**: encrypted direct messages — Phase 0 design:
+  [msg8-direct-messages.md](msg8-direct-messages.md).
