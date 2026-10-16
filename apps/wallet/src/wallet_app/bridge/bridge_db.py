@@ -3,6 +3,7 @@ ETH-AIT Bridge Database
 SQLite database for tracking ETH deposits and AIT minting operations.
 """
 
+import logging
 import os
 import sqlite3
 from datetime import datetime
@@ -11,6 +12,7 @@ from typing import Any
 
 DB_PATH = (os.getenv("BRIDGE_DEPOSITS_DB") or "").strip() or os.path.join(
     os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc")),
+    "data",
     "bridge_deposits.db",
 )
 
@@ -57,6 +59,15 @@ def _add_column_if_not_exists(conn, table, column, col_type):
 
 def init_db() -> None:
     """Initialize the bridge database with required tables."""
+    canonical_dir = os.path.realpath(
+        os.path.join(os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc")), "data")
+    )
+    if not os.path.realpath(DB_PATH).startswith(canonical_dir + os.sep):
+        logging.getLogger(__name__).warning(
+            "bridge ledger path %s is outside %s — expected under DATA_DIR/data; check BRIDGE_DEPOSITS_DB",
+            DB_PATH,
+            canonical_dir,
+        )
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = _connect_db()
     cursor = conn.cursor()
