@@ -830,7 +830,7 @@ else
     for h in $HOSTS; do
         probe=$(sshr "${RESOLVED[$h]:-$h}" \
             "systemctl is-active aitbc-bridge-monitor 2>/dev/null; \
-             python3 -c 'import sqlite3; c=sqlite3.connect(\"file:/var/lib/aitbc/bridge_deposits.db?mode=ro\",uri=True); d=dict(c.execute(\"SELECT key,value FROM bridge_cursor\")); print(d.get(\"last_processed_block\",\"\"))' 2>/dev/null" \
+             python3 -c 'import sqlite3; c=sqlite3.connect(\"file:${BRIDGE_DEPOSITS_DB:-/var/lib/aitbc/bridge_deposits.db}?mode=ro\",uri=True); d=dict(c.execute(\"SELECT key,value FROM bridge_cursor\")); print(d.get(\"last_processed_block\",\"\"))' 2>/dev/null" \
             || echo "UNREACHABLE")
         if [ "$probe" = "UNREACHABLE" ]; then
             bridge_bad=1; printf "  %-14s UNREACHABLE\n" "$h"; continue
