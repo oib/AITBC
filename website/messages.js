@@ -13,10 +13,11 @@
     const API = (window.AITBC_CONFIG && window.AITBC_CONFIG.explorerApiUrl) || '/explorer-api';
     const PAGE_LIMIT = 50;
 
-    // Bidi overrides/isolates (U+202A-U+202E, U+2066-U+2069) and zero-width
-    // characters (U+200B-U+200F, U+FEFF) — invisible or reordering codepoints
-    // that can make rendered text lie about its bytes.
-    const NEUTRAL_RE = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+    // Bidi overrides/isolates (U+202A-U+202E, U+2066-U+2069, U+061C), zero-width
+    // characters (U+200B-U+200F, U+FEFF) and C1 controls (U+0080-U+009F) —
+    // invisible or reordering codepoints that can make rendered text lie
+    // about its bytes.
+    const NEUTRAL_RE = /[\u0080-\u009F\u061C\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 
     function sanitizeChainText(s) {
         return String(s).replace(NEUTRAL_RE, (ch) => `[U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
@@ -123,7 +124,7 @@
                 hashLine.insertAdjacentHTML('beforeend', aitbcCopyBtn(m.tx_hash, 'transaction hash'));
             }
             if (m.parent) {
-                const parent = el('span', 'msg-parent', `reply to ${m.parent.substring(0, 18)}…`);
+                const parent = el('span', 'msg-parent', `reply to ${String(m.parent).substring(0, 18)}…`);
                 parent.title = sanitizeChainText(m.parent);
                 hashLine.appendChild(parent);
             }
