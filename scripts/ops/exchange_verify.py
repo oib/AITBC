@@ -638,7 +638,7 @@ def main() -> int:
     )
     ap.add_argument(
         "--bridge-db",
-        default=os.environ.get("BRIDGE_DEPOSITS_DB"),
+        default=(os.environ.get("BRIDGE_DEPOSITS_DB") or "").strip() or None,
         help="bridge_deposits.db path — enables the prepay cross-check (default: BRIDGE_DEPOSITS_DB env var)",
     )
     ap.add_argument("--rpc-url", default=DEFAULT_ETH_RPC, help="Sepolia JSON-RPC endpoint")

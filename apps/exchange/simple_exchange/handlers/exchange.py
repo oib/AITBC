@@ -2402,7 +2402,7 @@ def _check_bridge_storage() -> None:
     """
     from aitbc.constants import DATA_DIR
 
-    path = Path(os.getenv("BRIDGE_DEPOSITS_DB") or Path(DATA_DIR) / "bridge_deposits.db")
+    path = Path((os.getenv("BRIDGE_DEPOSITS_DB") or "").strip() or Path(DATA_DIR) / "bridge_deposits.db")
     if not path.exists():
         raise RuntimeError("bridge deposits database not initialized")
     conn = sqlite3.connect(path)
