@@ -334,17 +334,17 @@ def _resolve_parents(session, chain_id: str, items: list[dict[str, Any]]) -> Non
     forum message (any kind). Unresolvable parents stay indexed — the flag is
     what the reader shows, not a drop.
     """
-    parents = {m["parent"] for m in items if m.get("parent")}
+    parents = {m["parent"].lower() for m in items if m.get("parent")}
     if not parents:
         return
     resolved: set[str] = set()
-    stmt = _candidate_select(chain_id).where(col(Transaction.tx_hash).in_(parents))
+    stmt = _candidate_select(chain_id).where(func.lower(col(Transaction.tx_hash)).in_(parents))
     for row in session.exec(stmt).all():
         if _row_error(row) is None:
-            resolved.add(row.tx_hash)
+            resolved.add(row.tx_hash.lower())
     for m in items:
         if m.get("parent"):
-            m["parent_resolved"] = m["parent"] in resolved
+            m["parent_resolved"] = m["parent"].lower() in resolved
 
 
 def _view(row: Any, block_times: dict[int, Any]) -> dict[str, Any]:
@@ -402,7 +402,9 @@ def list_messages(
 
 def get_message(session, chain_id: str, tx_hash: str) -> dict[str, Any] | None:
     """One message by its tx_hash; ``None`` when absent or not a valid message."""
-    stmt = _candidate_select(chain_id).where(col(Transaction.tx_hash) == tx_hash)
+    # Stored tx_hash values are lowercase hex; a caller-supplied uppercase or
+    # mixed-case hash names the same row.
+    stmt = _candidate_select(chain_id).where(col(Transaction.tx_hash) == tx_hash.lower())
     row = session.exec(stmt).first()
     if row is None or _row_error(row) is not None:
         return None

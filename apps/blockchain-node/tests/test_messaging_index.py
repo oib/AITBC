@@ -779,6 +779,45 @@ class TestIndex:
         assert get_message(seeded, CHAIN, f"{5:064x}") is None
         assert get_message(seeded, CHAIN, "0" * 64) is None
 
+    def test_get_message_hash_case_insensitive(self, seeded):
+        """A caller-supplied uppercase/mixed-case hash names the same row —
+        stored tx_hash values are lowercase."""
+        h = f"{1:064x}"
+        assert get_message(seeded, CHAIN, h.upper())["body"] == "first"
+        mixed = "".join(c.upper() if i % 2 else c for i, c in enumerate(h))
+        assert get_message(seeded, CHAIN, mixed)["body"] == "first"
+
+    def test_parent_resolves_case_insensitive(self, session):
+        """A reply whose parent hex casing differs from the stored (lowercase)
+        tx_hash still resolves — the predicate admits [0-9a-fA-F]."""
+        _block(session, 1)
+        session.add(_tx_row(1, 0xABC, payload={"aitbc_msg": _env(body="parent post")}))
+        session.add(
+            _tx_row(
+                1,
+                2,
+                payload={"aitbc_msg": _env(kind="reply", body="re:up", parent=f"{0xABC:064x}".upper())},
+            )
+        )
+        session.add(
+            _tx_row(
+                1,
+                3,
+                payload={
+                    "aitbc_msg": _env(
+                        kind="reply",
+                        body="re:mixed",
+                        parent="".join(c.upper() if i % 2 else c for i, c in enumerate(f"{0xABC:064x}")),
+                    )
+                },
+            )
+        )
+        session.commit()
+        out = list_messages(session, CHAIN)
+        replies = {m["body"]: m for m in out["messages"] if m["kind"] == "reply"}
+        assert replies["re:up"]["parent_resolved"] is True
+        assert replies["re:mixed"]["parent_resolved"] is True
+
     def test_topics_aggregation_excludes_junk(self, seeded):
         out = list_topics(seeded, CHAIN)
         assert out["total_topics"] == 1
