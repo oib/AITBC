@@ -210,14 +210,12 @@ async def verify_contract(request: Request, verify_data: dict[str, Any]) -> dict
 # MESSAGE transaction, and votes/moderation/reputation are MSG-2 scope.
 
 
-@rate_limit(rate=200, per=60)
 async def get_messaging_contract_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Forum totals derived from sealed MESSAGE transactions."""
     result: dict[str, Any] = await messaging_reads.messaging_state(request, chain_id=chain_id)
     return result
 
 
-@rate_limit(rate=200, per=60)
 async def get_forum_topics(
     request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"
 ) -> dict[str, Any]:
@@ -232,7 +230,6 @@ async def create_forum_topic(request: Request, topic_data: dict[str, Any]) -> di
     raise messaging_reads.messaging_not_on_chain("topics/create")
 
 
-@rate_limit(rate=200, per=60)
 async def get_topic_messages(
     request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"
 ) -> dict[str, Any]:
@@ -255,7 +252,6 @@ async def vote_message(request: Request, message_id: str, vote_data: dict[str, A
     raise messaging_reads.messaging_not_on_chain("votes (MSG-2 scope)")
 
 
-@rate_limit(rate=200, per=60)
 async def search_messages(request: Request, query: str, limit: int = 50) -> dict[str, Any]:
     """Search forum message bodies (chain-derived, bounded)."""
     found: dict[str, Any] = await messaging_reads.forum_search(request, query=query, limit=limit)

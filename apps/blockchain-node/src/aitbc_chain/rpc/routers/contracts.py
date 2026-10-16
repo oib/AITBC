@@ -99,7 +99,6 @@ async def verify_contract_route(request: Request, verify_data: dict) -> dict[str
 
 
 @router.get("/messaging/state", summary="Get messaging contract state")
-@rate_limit(rate=200, per=60)
 async def get_messaging_contract_state_route(request: Request) -> dict[str, Any]:
     """Get the current state of the messaging contract"""
     if get_messaging_contract_state is None:
@@ -109,7 +108,6 @@ async def get_messaging_contract_state_route(request: Request) -> dict[str, Any]
 
 # Messaging/forum endpoints (grouped under /messaging for better organization)
 @router.get("/messaging/topics", summary="Get forum topics")
-@rate_limit(rate=200, per=60)
 async def get_forum_topics_route(
     request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"
 ) -> dict[str, Any]:
@@ -129,7 +127,6 @@ async def create_forum_topic_route(request: Request, topic_data: dict) -> dict[s
 
 
 @router.get("/messaging/topics/{topic_id}/messages", summary="Get topic messages")
-@rate_limit(rate=200, per=60)
 async def get_topic_messages_route(
     request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"
 ) -> dict[str, Any]:
@@ -158,7 +155,6 @@ async def vote_message_route(request: Request, message_id: str, vote_data: dict)
 
 
 @router.get("/messaging/messages/search", summary="Search messages")
-@rate_limit(rate=200, per=60)
 async def search_messages_route(request: Request, query: str, limit: int = 50) -> dict[str, Any]:
     """Search messages by content"""
     if search_messages is None:
