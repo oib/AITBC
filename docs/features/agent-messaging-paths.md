@@ -92,8 +92,12 @@ aitbc messaging subscribe dev --from-cursor 512:ab12…   # resume
   locally with mandatory `aitbc-dm-v1` header verification. The crypto
   kernel is shared (`aitbc.dm_client`); the CLI `messaging dm` commands
   and the generated `aitbc_messaging_dm_*` MCP tools sit on the same
-  helpers — `dm_send`/`dm_keygen` stay destructive+confirm-gated. No
-  tool returns or accepts DM plaintext through a host other than the
-  caller's. No forward secrecy in Phase 1.
+  helpers — `dm_send`/`dm_keygen` stay destructive+confirm-gated. The
+  generated MCP `dm` tools shell out to `aitbc` on the resolved host
+  (local subprocess, or `ssh` for a remote node): decryption and the
+  wallet/`dm-keys` files live on that host only, while the plaintext body
+  is returned through the MCP server to the MCP client in the tool
+  result — and `dm_send` takes its plaintext `message` as a tool
+  argument. No forward secrecy in Phase 1.
 - Read routes take the `0x`-prefixed tx hash; envelopes carry the bare
   hash. Helpers normalise — do not reintroduce the mismatch.

@@ -14,6 +14,7 @@ read-side filter. Agent-to-agent realtime messaging stays with
 import json
 import re
 import time
+from collections.abc import Sequence
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -1050,7 +1051,8 @@ from aitbc.dm_client import (
     dm_prepare_era as _dm_prepare_era,
     dm_store_load as _dm_store_load,
     dm_store_save as _dm_store_save,  # noqa: F401  (test-suite import surface)
-    open_dm as _open_dm,
+    open_dm as _open_dm,  # noqa: F401  (test-suite import surface)
+    open_dm_with_eras as _open_dm_with_eras,
     seal_dm as _seal_dm,
 )
 
@@ -1063,20 +1065,33 @@ def _dm_key_file(ctx, wallet_name: str) -> Path:
     return _dm_keys_dir(path) / f"{wallet_name}.json"
 
 
-def _dm_current_key(ctx, wallet_name: str) -> tuple[dict[str, Any], Path]:
-    """The newest key era for the wallet, or abort with the fix."""
+def _dm_key_eras(ctx, wallet_name: str) -> tuple[Sequence[dict[str, Any]], Path]:
+    """Every stored key era for the wallet (oldest→newest) + the store path.
+
+    ``dm read`` needs the whole list: ciphertext sealed to a superseded era
+    must still open after a rotation (MSG-8g). The write paths keep
+    ``_dm_current_key`` — they always want the newest era only. (Typed as
+    ``Sequence`` because this module's ``messaging list`` command shadows
+    the ``list`` builtin.)
+    """
     path = _dm_key_file(ctx, wallet_name)
     try:
         store = _dm_store_load(path, strict=True)
     except DmStoreCorruptError as e:
         abort(ctx, str(e), from_exception=e)
     if store["keys"]:
-        return store["keys"][-1], path
+        return store["keys"], path
     abort(
         ctx,
         f"No DM key for wallet '{wallet_name}' — run `aitbc messaging dm keygen --wallet {wallet_name} --confirm` first",
     )
     raise AssertionError  # unreachable
+
+
+def _dm_current_key(ctx, wallet_name: str) -> tuple[dict[str, Any], Path]:
+    """The newest key era for the wallet, or abort with the fix."""
+    keys, path = _dm_key_eras(ctx, wallet_name)
+    return keys[-1], path
 
 
 @messaging.group("dm")
@@ -1284,7 +1299,7 @@ def dm_inbox_cmd(ctx, wallet_name, limit, cursor, rpc_url):
 def dm_read(ctx, tx_hash, wallet_name, rpc_url):
     """Fetch and decrypt one DM addressed to this wallet."""
     address = _wallet_address(ctx, wallet_name)
-    key, _path = _dm_current_key(ctx, wallet_name)
+    eras, _path = _dm_key_eras(ctx, wallet_name)
     rpc = _resolve_transaction_rpc_url(rpc_url)
     want = tx_hash.lower()
     row = None
@@ -1306,7 +1321,12 @@ def dm_read(ctx, tx_hash, wallet_name, rpc_url):
         abort(ctx, f"No DM to {address} with tx hash 0x{tx_hash} in the scanned inbox pages")
     row = cast("dict[str, Any]", row)
     try:
-        body = _open_dm(key["secret_key"], row["sender"], address, row["ct"])
+        body = _open_dm_with_eras(
+            [str(k["secret_key"]) for k in eras],
+            str(row["sender"]),
+            address,
+            str(row["ct"]),
+        )
     except ValueError as e:
         abort(ctx, f"Cannot read message: {e}", from_exception=e)
     output(
