@@ -79,7 +79,9 @@ unpublished era); writes are atomic — directory 0700, file written via
 `O_CREAT|O_EXCL` at 0600 then `os.replace`, so the secret never exists on
 disk with a wider mode; a corrupt or non-list store is refused and left
 byte-identical, never overwritten (no backup copies of key-bearing
-files).
+files). Writes are durable — the temp is fsynced before the rename and
+the directory after it — and a stale temp left by a crash is swept on
+the next save rather than wedging the store.
 
 **Key takeover, stated plainly.** Whoever holds the wallet key can
 publish a new `dm_key` and receive all future DMs — the DM key adds no

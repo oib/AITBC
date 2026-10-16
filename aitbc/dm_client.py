@@ -65,25 +65,76 @@ def dm_store_load(path: Path, *, strict: bool = False) -> dict[str, Any]:
     return {"keys": []}
 
 
+_DM_TMP_MAX_AGE_S = 600
+
+
+def _sweep_dm_store_tmps(path: Path) -> None:
+    """Remove leftover save temps of this store past the safe age.
+
+    Matches the legacy ``<name>.tmp`` and the per-save ``.<name>.*.tmp``.
+    Only regular files owned by the current user and older than
+    ``_DM_TMP_MAX_AGE_S`` are removed, so a concurrent in-flight save is
+    never touched. Best-effort per entry; never follows a symlink."""
+    import os
+    import time
+
+    now = time.time()
+    prefix = "." + path.name + "."
+    legacy = path.name + ".tmp"
+    try:
+        entries = list(os.scandir(path.parent))
+    except OSError:
+        return
+    for entry in entries:
+        if entry.name != legacy and not (entry.name.startswith(prefix) and entry.name.endswith(".tmp")):
+            continue
+        try:
+            if not entry.is_file(follow_symlinks=False):
+                continue
+            st = entry.stat(follow_symlinks=False)
+            if st.st_uid != os.getuid() or now - st.st_mtime < _DM_TMP_MAX_AGE_S:
+                continue
+            Path(entry.path).unlink()
+        except OSError:
+            continue
+
+
 def dm_store_save(path: Path, data: dict[str, Any]) -> None:
     """Persist the key store atomically at mode-600 (X25519 secret keys).
 
-    The directory is created 0700; the payload goes to a same-dir
-    ``<name>.tmp`` opened ``O_CREAT|O_EXCL|O_WRONLY`` at 0o600 — the secret
-    is never on disk with a wider mode, under any umask — then
-    ``os.replace`` puts it in place. No backup copies are made."""
+    The directory is created 0700 and stale save temps are swept (a crash
+    can leave one behind — the legacy fixed ``<name>.tmp`` used to wedge
+    the ``O_EXCL`` open for good). The payload goes to a unique same-dir
+    ``.<name>.<random>.tmp`` created ``O_EXCL`` at 0600 — the secret is
+    never on disk with a wider mode, under any umask — fsynced, then
+    ``os.replace`` puts it in place and the directory is fsynced so the
+    rename itself is durable. No backup copies are made."""
     import os
+    import tempfile
 
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    _sweep_dm_store_tmps(path)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix="." + path.name + ".", suffix=".tmp")
+    tmp_path = Path(tmp)
     try:
+        os.fchmod(fd, 0o600)  # mkstemp already creates 0600; belt and braces
         with os.fdopen(fd, "w") as f:
             f.write(json.dumps(data, indent=2))
-        os.replace(tmp, path)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+        # Some filesystems refuse a directory fsync; tolerate it.
+        try:
+            dfd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(dfd)
+            finally:
+                os.close(dfd)
+        except OSError:
+            pass
     except BaseException:
         try:
-            tmp.unlink()
+            tmp_path.unlink()
         except OSError:
             pass
         raise

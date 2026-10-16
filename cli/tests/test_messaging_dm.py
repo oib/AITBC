@@ -152,7 +152,7 @@ class TestStoreHardening:
             dm_store_load(path, strict=True)
         assert path.read_bytes() == before
 
-    @pytest.mark.parametrize("umask", [0o022, 0o000])
+    @pytest.mark.parametrize("umask", [0o022, 0o000, 0o077])
     def test_modes_under_umask(self, tmp_path, umask):
         old = os.umask(umask)
         try:
@@ -168,6 +168,152 @@ class TestStoreHardening:
         dm_store_save(path, {"keys": []})
         dm_store_save(path, {"keys": [{"x": 1}]})
         assert [p.name for p in tmp_path.iterdir()] == ["w.json"]
+
+    # ------------------------------------------------------------- MSG-8f
+
+    def test_stale_legacy_tmp_swept_and_save_succeeds(self, tmp_path):
+        import time
+
+        path = tmp_path / "w.json"
+        stale = tmp_path / "w.json.tmp"
+        stale.write_text("crash leftover")
+        old = time.time() - 3600
+        os.utime(stale, (old, old))
+        dm_store_save(path, {"keys": [{"x": 1}]})
+        assert not stale.exists()
+        assert dm_store_load(path, strict=True) == {"keys": [{"x": 1}]}
+
+    def test_fresh_legacy_tmp_untouched(self, tmp_path):
+        path = tmp_path / "w.json"
+        fresh = tmp_path / "w.json.tmp"
+        fresh.write_text("in-flight?")
+        dm_store_save(path, {"keys": []})
+        assert fresh.exists() and fresh.read_text() == "in-flight?"
+
+    def test_stale_unique_tmp_swept(self, tmp_path):
+        import time
+
+        path = tmp_path / "w.json"
+        stale = tmp_path / ".w.json.abc123.tmp"
+        stale.write_text("crash leftover")
+        old = time.time() - 3600
+        os.utime(stale, (old, old))
+        dm_store_save(path, {"keys": []})
+        assert not stale.exists()
+
+    def test_symlink_and_dir_decoys_never_touched(self, tmp_path):
+        import time
+
+        path = tmp_path / "w.json"
+        link = tmp_path / "w.json.tmp"
+        link.symlink_to(tmp_path / "w.json")
+        decoy_dir = tmp_path / ".w.json.dir.tmp"
+        decoy_dir.mkdir()
+        old = time.time() - 3600
+        os.utime(link, (old, old), follow_symlinks=False)
+        os.utime(decoy_dir, (old, old))
+        dm_store_save(path, {"keys": [{"x": 1}]})
+        assert link.is_symlink() and decoy_dir.is_dir()
+
+    def test_other_names_in_dir_untouched(self, tmp_path):
+        import time
+
+        other = tmp_path / "other.json.tmp"
+        other.write_text("not ours")
+        old = time.time() - 3600
+        os.utime(other, (old, old))
+        dm_store_save(tmp_path / "w.json", {"keys": []})
+        assert other.exists()
+
+    def test_fsync_order_file_then_replace_then_dir(self, tmp_path, monkeypatch):
+        calls = []
+
+        def fake_fsync(fd):
+            st = os.fstat(fd)
+            target = os.readlink(f"/proc/self/fd/{fd}") if os.path.exists(f"/proc/self/fd/{fd}") else None
+            calls.append(("fsync", st.st_mode & 0o777, target))
+            return real_fsync(fd)
+
+        def fake_replace(src, dst):
+            calls.append(("replace", 0, None))
+            return real_replace(src, dst)
+
+        real_fsync = os.fsync
+        real_replace = os.replace
+        monkeypatch.setattr(os, "fsync", fake_fsync)
+        monkeypatch.setattr(os, "replace", fake_replace)
+        dm_store_save(tmp_path / "w.json", {"keys": []})
+        kinds = [c[0] for c in calls]
+        # exactly: file fsync, replace, dir fsync
+        assert kinds == ["fsync", "replace", "fsync"]
+        assert calls[0][1] == 0o600  # the secret-bearing tmp file
+        assert calls[2][1] == 0o700 and calls[2][2] == str(tmp_path)  # the store dir
+
+    def test_write_failure_leaves_no_tmp_and_prior_file_intact(self, tmp_path, monkeypatch):
+        path = tmp_path / "w.json"
+        dm_store_save(path, {"keys": [{"v": 1}]})
+        before = path.read_bytes()
+
+        class Boom(Exception):
+            pass
+
+        import json
+
+        def boom(*a, **k):
+            raise Boom()
+
+        monkeypatch.setattr(json, "dumps", boom)
+        with pytest.raises(Boom):
+            dm_store_save(path, {"keys": [{"v": 2}]})
+        assert path.read_bytes() == before
+        assert [p.name for p in tmp_path.iterdir()] == ["w.json"]
+
+    def test_replace_failure_leaves_no_tmp_and_prior_file_intact(self, tmp_path, monkeypatch):
+        path = tmp_path / "w.json"
+        dm_store_save(path, {"keys": [{"v": 1}]})
+        before = path.read_bytes()
+
+        class Boom(Exception):
+            pass
+
+        def boom(*a, **k):
+            raise Boom()
+
+        monkeypatch.setattr(os, "replace", boom)
+        with pytest.raises(Boom):
+            dm_store_save(path, {"keys": [{"v": 2}]})
+        assert path.read_bytes() == before
+        assert [p.name for p in tmp_path.iterdir()] == ["w.json"]
+
+    def test_two_saves_use_distinct_tmp_names(self, tmp_path, monkeypatch):
+        import tempfile
+
+        names = []
+        real = tempfile.mkstemp
+
+        def rec(*a, **k):
+            r = real(*a, **k)
+            names.append(r[1])
+            return r
+
+        monkeypatch.setattr(tempfile, "mkstemp", rec)
+        dm_store_save(tmp_path / "w.json", {"keys": []})
+        dm_store_save(tmp_path / "w.json", {"keys": [{"x": 1}]})
+        assert len(names) == 2 and names[0] != names[1]
+        assert all(os.path.basename(n).startswith(".w.json.") and n.endswith(".tmp") for n in names)
+
+    def test_prepare_era_roundtrip_with_stale_tmp(self, tmp_path):
+        import time
+
+        path = tmp_path / "w.json"
+        stale = tmp_path / "w.json.tmp"
+        stale.write_text("crash leftover")
+        old = time.time() - 3600
+        os.utime(stale, (old, old))
+        era, store = dm_prepare_era(path)
+        assert era is not None and not stale.exists()
+        dm_mark_published(path, store, era, "ab" * 32)
+        assert dm_store_load(path, strict=True)["keys"][-1]["published_tx"] == "ab" * 32
 
 
 class TestPrepareEra:
