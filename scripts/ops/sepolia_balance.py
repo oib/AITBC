@@ -28,6 +28,9 @@ from decimal import Decimal
 
 WEI_PER_ETH = Decimal(10) ** 18
 DEFAULT_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com"
+# Public endpoints (publicnode, drpc, 1rpc, blastapi, ...) answer HTTP 403 to
+# urllib's default "Python-urllib/3.x" agent; a descriptive agent is accepted.
+USER_AGENT = "aitbc-sepolia-balance/1.0"
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
@@ -43,7 +46,7 @@ def _post_rpc(rpc_url: str, method: str, params: list, timeout: float) -> str:
     request = urllib.request.Request(
         rpc_url,
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT},
         method="POST",
     )
     try:
