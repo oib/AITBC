@@ -854,3 +854,122 @@ class TestPrefixedStorage:
         _tx0x(session, 3, 0x12, BOB, _env("vote", sender=BOB, target=_bare(post), value=1))
         rep = reputation(session, CHAIN, ALICE)
         assert rep["reputation"] == 1 and rep["messages_counted"] == 1
+
+
+class TestLockIntervals:
+    """MSG-2e rule (b): a row sealed while its topic (or an ancestor thread)
+    was locked keeps ``after_lock`` for good — an unlock only clears rows
+    sealed after it. All rows use the production layout (0x-prefixed stored
+    tx_hash, bare envelope targets)."""
+
+    def _post(self, session, height, n, sender=BOB, topic="dev", body="p"):
+        return _tx0x(session, height, n, sender, _env("post", topic=topic, sender=sender, body=body))
+
+    def test_during_lock_stays_flagged_after_unlock(self, session):
+        p0 = self._post(session, 1, 0x10, sender=ALICE)  # before lock (ALICE founds)
+        _tx0x(session, 2, 0x20, ALICE, _env("lock", sender=ALICE))
+        p1 = self._post(session, 3, 0x11)  # during lock
+        _tx0x(session, 4, 0x21, ALICE, _env("unlock", sender=ALICE))
+        p2 = self._post(session, 5, 0x12)  # after unlock
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        flag = {m["tx_hash"]: m["after_lock"] for m in out["messages"]}
+        assert (flag[p0], flag[p1], flag[p2]) == (False, True, False)
+        default = list_messages(session, CHAIN, topic="dev")
+        ids = [m["tx_hash"] for m in default["messages"]]
+        assert p1 not in ids and p0 in ids and p2 in ids
+        st = moderation_state(session, CHAIN, "dev")
+        assert st.topic_lock[0] == "unlock"  # "locked now" = no
+
+    def test_two_lock_cycles(self, session):
+        self._post(session, 0, 0x1F, sender=ALICE)  # ALICE founds
+        _tx0x(session, 1, 0x20, ALICE, _env("lock", sender=ALICE))
+        p1 = self._post(session, 2, 0x10)  # interval 1
+        _tx0x(session, 3, 0x21, ALICE, _env("unlock", sender=ALICE))
+        p_mid = self._post(session, 4, 0x11)  # between
+        _tx0x(session, 5, 0x22, ALICE, _env("lock", sender=ALICE))
+        p2 = self._post(session, 6, 0x12)  # interval 2
+        _tx0x(session, 7, 0x23, ALICE, _env("unlock", sender=ALICE))
+        p3 = self._post(session, 8, 0x13)  # after
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        flag = {m["tx_hash"]: m["after_lock"] for m in out["messages"]}
+        assert (flag[p1], flag[p_mid], flag[p2], flag[p3]) == (True, False, True, False)
+        st = moderation_state(session, CHAIN, "dev")
+        assert len(st.topic_intervals) == 2 and all(iv[1] is not None for iv in st.topic_intervals)
+
+    def test_second_lock_does_not_move_start(self, session):
+        self._post(session, 0, 0x1F, sender=ALICE)  # ALICE founds
+        _tx0x(session, 1, 0x20, ALICE, _env("lock", sender=ALICE))
+        _tx0x(session, 2, 0x21, ALICE, _env("lock", sender=ALICE))  # still open: no new interval
+        self._post(session, 3, 0x10)
+        st = moderation_state(session, CHAIN, "dev")
+        assert len(st.topic_intervals) == 1
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        assert out["messages"][0]["after_lock"] is True
+
+    def test_unlock_without_lock_is_noop(self, session):
+        self._post(session, 1, 0x10, sender=ALICE)  # ALICE founds
+        _tx0x(session, 2, 0x20, ALICE, _env("unlock", sender=ALICE))
+        self._post(session, 3, 0x11)
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        assert all(m["after_lock"] is False for m in out["messages"])
+        st = moderation_state(session, CHAIN, "dev")
+        assert st.topic_intervals == [] and st.topic_lock[0] == "unlock"
+
+    def test_nonmoderator_lock_creates_no_interval(self, session):
+        p0 = self._post(session, 1, 0x10, sender=ALICE)  # ALICE founds
+        _tx0x(session, 2, 0x20, CAROL, _env("lock", sender=CAROL))  # CAROL is not a moderator
+        p1 = self._post(session, 3, 0x11)
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        flag = {m["tx_hash"]: m["after_lock"] for m in out["messages"]}
+        assert flag[p0] is False and flag[p1] is False
+        st = moderation_state(session, CHAIN, "dev")
+        assert st.topic_intervals == []
+
+    def test_thread_lock_interval(self, session):
+        root = _tx0x(session, 1, 0x10, ALICE, _env("post", sender=ALICE, body="root"))
+        r0 = _tx0x(session, 2, 0x11, BOB, _env("reply", sender=BOB, body="early", parent=_bare(root)))
+        _tx0x(session, 3, 0x20, ALICE, _env("lock", sender=ALICE, target=_bare(root)))
+        r1 = _tx0x(session, 4, 0x12, BOB, _env("reply", sender=BOB, body="inside", parent=_bare(root)))
+        _tx0x(session, 5, 0x21, ALICE, _env("unlock", sender=ALICE, target=_bare(root)))
+        r2 = _tx0x(session, 6, 0x13, BOB, _env("reply", sender=BOB, body="after", parent=_bare(root)))
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        flag = {m["tx_hash"]: m["after_lock"] for m in out["messages"]}
+        assert (flag[root], flag[r0], flag[r1], flag[r2]) == (False, False, True, False)
+        # locked-now is unchanged: thread is unlocked
+        st = moderation_state(session, CHAIN, "dev")
+        assert _bare(root) not in st.thread_locks
+        assert len(st.thread_intervals[_bare(root)]) == 1
+
+    def test_reorder_within_block(self, session):
+        # Same block, action before the post by tx_hash order.
+        for sess in (session, _mk_session()):
+            _tx0x(sess, 1, 0x10, ALICE, _env("post", sender=ALICE, body="root"))
+            _tx0x(sess, 2, 0x20, ALICE, _env("lock", sender=ALICE))
+            _tx0x(sess, 2, 0x11, BOB, _env("post", sender=BOB, body="post"))  # n<0x20: before lock
+            out = list_messages(sess, CHAIN, topic="dev", include_hidden=True)
+            m = out["messages"][-1]
+            assert m["after_lock"] is False  # canonical position precedes the lock
+            sess.close()
+
+    def test_reorg_removing_unlock_reopens_interval(self, session):
+        self._post(session, 0, 0x1F, sender=ALICE)  # ALICE founds
+        _tx0x(session, 1, 0x20, ALICE, _env("lock", sender=ALICE))
+        p1 = self._post(session, 2, 0x10)
+        unl = _tx0x(session, 3, 0x21, ALICE, _env("unlock", sender=ALICE))
+        p2 = self._post(session, 4, 0x11)
+        before = {
+            m["tx_hash"]: m["after_lock"] for m in list_messages(session, CHAIN, topic="dev", include_hidden=True)["messages"]
+        }
+        assert (before[p1], before[p2]) == (True, False)
+        # Reorg: the unlock row disappears → interval open-ended again.
+        row = session.exec(select(Transaction).where(col(Transaction.tx_hash) == unl)).one()
+        session.delete(row)
+        session.commit()
+        import aitbc_chain.messaging_index as mi
+
+        with mi._MOD_CACHE_LOCK:
+            mi._MOD_CACHE.clear()
+        after = {
+            m["tx_hash"]: m["after_lock"] for m in list_messages(session, CHAIN, topic="dev", include_hidden=True)["messages"]
+        }
+        assert (after[p1], after[p2]) == (True, True)
