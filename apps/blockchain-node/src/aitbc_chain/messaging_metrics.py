@@ -115,20 +115,31 @@ def _digest_record(row: Any) -> dict[str, Any]:
     }
 
 
-def checkpoint_digest(session, chain_id: str, checkpoint: int) -> str:
-    """SHA-256 over the valid messaging envelopes sealed at or below
-    ``checkpoint``, in canonical (block_height, tx_hash) order.
+def _block_hash_at_height(session, chain_id: str, height: int) -> str | None:
+    """Hash of the block stored at ``height`` for the chain, or None."""
+    row = session.exec(select(col(Block.hash)).where(col(Block.chain_id) == chain_id, col(Block.height) == height)).first()
+    if row is None:
+        return None
+    return str(row[0] if isinstance(row, tuple) else row)
 
-    Cached per (chain, checkpoint, index-head-hash) — rows below the
-    checkpoint can only change if a fork healed under it, which also
-    changes the head hash and therefore the key. The result is a pure
-    function of sealed rows: insertion order and rowids never enter.
+
+def _digest_key_hash(session, chain_id: str, checkpoint: int) -> str:
+    """Cache-key component: the hash of the block AT the checkpoint height.
+
+    Rows at or below the checkpoint can only change if a fork heals under
+    it, which replaces that block and its hash — so this key survives new
+    blocks above the checkpoint and misses exactly when it must. When no
+    block row exists at the checkpoint height (e.g. checkpoint 0 on a
+    chain whose first stored block is higher) fall back to the index head
+    hash: correct, only uncached across blocks.
     """
-    height, head_hash = _index_head(session, chain_id)
-    key = ("digest", chain_id, "", checkpoint, head_hash)
-    hit = _mod_cache_get(key)
-    if hit is not None:
-        return typing.cast(str, hit)
+    key_hash = _block_hash_at_height(session, chain_id, checkpoint)
+    if key_hash is None:
+        _, key_hash = _index_head(session, chain_id)
+    return key_hash
+
+
+def _scan_digest(session, chain_id: str, checkpoint: int) -> str:
     digest = hashlib.sha256()
     stmt = _asc_select(chain_id)
     # Exclusive bound at the first position of the next checkpoint block:
@@ -142,7 +153,24 @@ def checkpoint_digest(session, chain_id: str, checkpoint: int) -> str:
         count += 1
     result = digest.hexdigest()
     _logger.debug("messaging digest: chain=%s checkpoint=%d rows=%d digest=%s", chain_id, checkpoint, count, result[:12])
-    return typing.cast(str, _mod_cache_put(key, result))
+    return result
+
+
+def checkpoint_digest(session, chain_id: str, checkpoint: int) -> str:
+    """SHA-256 over the valid messaging envelopes sealed at or below
+    ``checkpoint``, in canonical (block_height, tx_hash) order.
+
+    Cached per (chain, checkpoint, hash-of-the-checkpoint-block) — rows
+    below the checkpoint can only change if a fork healed under it, which
+    replaces that block and its hash; a new block above the checkpoint
+    does not. The result is a pure function of sealed rows: insertion
+    order and rowids never enter.
+    """
+    key = ("digest", chain_id, "", checkpoint, _digest_key_hash(session, chain_id, checkpoint))
+    hit = _mod_cache_get(key)
+    if hit is not None:
+        return typing.cast(str, hit)
+    return typing.cast(str, _mod_cache_put(key, _scan_digest(session, chain_id, checkpoint)))
 
 
 def collect_gauges(session, chain_id: str) -> dict[str, Any]:
