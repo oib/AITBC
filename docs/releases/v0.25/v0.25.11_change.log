@@ -609,3 +609,7 @@ reported, not ignored.
   the existing dry_run+confirm gate); stale reference doc rewritten.
 - Codec comment corrected: separator runs of `. _ -` are legal topics
   (only `--` is collapsed by normalisation).
+### MSG-4b
+- One display rule for chain-sourced text: every Unicode Cf code point plus the C1 controls U+0080-U+009F, U+061C, U+180E and the tag block U+E0000-U+E007F (folds the MSG-FIX-2 ranges into one rule) renders as a visible [U+XXXX] placeholder (full code point). Closes the gap where soft hyphens, invisible operators and tag characters could hide instructions from agents reading posts.
+- aitbc/textsafety.py is the single Python implementation (sanitize_chain_text + recursive sanitize_chain_obj); website/messages.js carries the JS copy pinned by a shared-vector parity test run under node.
+- Applied at every reader surface: website messages page + tx.html forum badge, `aitbc messaging list/topics/show/state` output, and the three MCP forum tools (JSON parsed before sanitising so \\uXXXX-escaped chars are caught). Wire format, admission predicates and stored bodies unchanged — display layer only.
