@@ -34,3 +34,19 @@
   new `### Commit index` section so the coverage check still resolves
   every hash. `v0.25.9_change.log` matches its tag again except the
   retained internal-host-token scrub.
+
+### CHAIN-STALL-2 + OPS: missing-gauge alert, deploy-rules.sh, STATUS.md order
+
+- `defc3af3` — `ChainHeadMetricMissing` (warning, `aitbc_rules.yml`):
+  `ChainHeadStalled` reads `aitbc_messaging_chain_head_height`, so a
+  target answering scrapes but exposing no series leaves the stall rule
+  blind. Fires when `up{job="blockchain-node"} == 1` but the gauge is
+  absent for 10m; promtool cases cover reporting/blind/dead instances.
+- `12afad17` — `scripts/monitoring/deploy-rules.sh`: the write side of
+  `check-rules-deployed.sh`. Derives the rule-file list from
+  prometheus.yml, promtool-checks the repo copy before and the deployed
+  copy after, reloads prometheus only once everything validates;
+  `--no-reload` for staged deploys. Fleet deploys become copy → check →
+  reload in one step instead of three.
+- `d9ff3f18` — STATUS.md: the v0.25.5 row moves back between v0.25.4 and
+  v0.25.6; it had drifted to the bottom of the v0.25 block.
