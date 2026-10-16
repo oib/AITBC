@@ -213,3 +213,70 @@ class TestCollectGauges:
         assert snap["checkpoint_height"] == checkpoint_for(4)
         assert len(snap["checkpoint_digest"]) == 64
         int(snap["checkpoint_digest"], 16)  # valid hex
+
+
+class TestDigestCacheKey:
+    """MSG-6b item 1: the key is the hash of the block AT the checkpoint,
+    so a new block above it must not force a rescan."""
+
+    def _counting_scan(self, monkeypatch):
+        import aitbc_chain.messaging_metrics as mm
+        from aitbc_chain.messaging_index import _MOD_CACHE
+
+        _MOD_CACHE.clear()  # process-global across tests
+        calls = {"n": 0}
+        real = mm._iter_valid_asc
+
+        def wrapper(session, stmt, **kw):
+            calls["n"] += 1
+            return real(session, stmt, **kw)
+
+        monkeypatch.setattr(mm, "_iter_valid_asc", wrapper)
+        return calls
+
+    def test_block_above_checkpoint_reuses_scan(self, session, monkeypatch):
+        calls = self._counting_scan(monkeypatch)
+        _seed_forum(session)  # heights 1-4, checkpoint 4
+        assert checkpoint_digest(session, CHAIN, 4)
+        assert calls["n"] == 1
+        # A new block above the checkpoint: the key is unchanged.
+        _block(session, 5)
+        session.commit()
+        assert checkpoint_digest(session, CHAIN, 4)
+        assert calls["n"] == 1  # no rescan
+
+    def test_checkpoint_block_replacement_rescans(self, session, monkeypatch):
+        calls = self._counting_scan(monkeypatch)
+        _seed_forum(session)
+        assert checkpoint_digest(session, CHAIN, 4)
+        # Replace the block AT the checkpoint: new hash -> new key.
+        head = session.exec(select(Block).where(col(Block.chain_id) == CHAIN, col(Block.height) == 4)).first()
+        head.hash = "b" * 64
+        session.add(head)
+        session.commit()
+        d = checkpoint_digest(session, CHAIN, 4)
+        assert calls["n"] == 2  # rescanned
+        import aitbc_chain.messaging_metrics as mm
+
+        assert d == mm._scan_digest(session, CHAIN, 4)  # equals fresh compute
+
+    def test_no_checkpoint_block_falls_back_to_head(self, session, monkeypatch):
+        calls = self._counting_scan(monkeypatch)
+        _seed_forum(session)
+        # Checkpoint 10 has no block row (head is 4): fallback keys on head.
+        assert checkpoint_digest(session, CHAIN, 10)
+        assert calls["n"] == 1
+        assert checkpoint_digest(session, CHAIN, 10)
+        assert calls["n"] == 1  # cached under the same head
+        _block(session, 5)
+        session.commit()
+        assert checkpoint_digest(session, CHAIN, 10)
+        assert calls["n"] == 2  # head moved -> fallback key changed -> rescan
+
+    def test_digest_value_unchanged(self, session):
+        """Same rows, same canonical order, same record format, same hex —
+        the MSG-6 digest value is byte-identical after the key change."""
+        _seed_forum(session)
+        import aitbc_chain.messaging_metrics as mm
+
+        assert checkpoint_digest(session, CHAIN, 4) == mm._scan_digest(session, CHAIN, 4)
