@@ -2,141 +2,171 @@
 
 Release candidate: **`0a4d4ab92`** (MSG-8 Phase 1 + MSG-8e + MSG-15 +
 BR-6c + wallet/exchange path changes). One maintenance wave, one pull per
-host, one combined verification. This document is the plan only — every
-restart below is a named, operator-gated line; nothing here is executed by
-this task.
+host, one combined verification. This document is the plan only — rollout
+decisions and any restart stay operator-named.
 
-## Operator checklist (required restart lines)
+*Corrected by MSG-10b: running baselines per unit (reflog ×
+`ActiveEnterTimestamp`), minimal restart set, authorization classes
+quoted from the ledger, per-unit rollback targets.*
 
-Standing authorisation scope (per workspace `AGENTS.md`): checkouts may be
-pulled/fast-forwarded routinely. **Service restarts are not covered by any
-standing authorisation** — the 22 restart lines below each need explicit
-go-ahead at execution time.
+## Running baselines (re-read 16 Oct ~16:15 CEST)
 
-| # | host  | restart lines required |
-|---|-------|------------------------|
-| 1 | node0 | node, rpc, explorer, wallet |
-| 2 | node1 | node, rpc, explorer, wallet |
-| 3 | node2 | node, rpc, explorer, wallet |
-| 4 | hub1  | node, rpc, explorer, wallet |
-| 5 | hub   | node, rpc, explorer, wallet, exchange, bridge-monitor |
+The running SHA of a unit is the reflog entry in effect at its
+`ActiveEnterTimestamp`, **not** the current checkout. Checkouts: node2 at
+`0a4d4ab92`, the other four at `15729e572` — several units were restarted
+onto newer code during the audit window.
 
-Total: **22 restarts, 5 pulls, 1 website re-render** (static, no service).
+| unit | node0 | node1 | node2 | hub | hub1 |
+|---|---|---|---|---|---|
+| `aitbc-blockchain-node` | `15729e572` 15:49 | `15729e572` 15:57 | `0a4d4ab92` 15:59 ✓ | `1bafeea3e` 07:27 | `1bafeea3e` 07:27 |
+| `aitbc-blockchain-rpc` | `15729e572` 16:06 | `2f1dd9a65` 14:19 | `2f1dd9a65` 14:19 | `2f1dd9a65` 14:21 | `2f1dd9a65` 14:20 |
+| `aitbc-blockchain-explorer` | `9100f875a` 11:13 | `1ada65b32` 09:23 | `1ada65b32` 09:25 | `d0e49ad1d` 01:50 | `bd10f1606` 08:58 |
+| `aitbc-wallet` | `2f1dd9a65` 14:38 | `2f1dd9a65` 14:38 | `2f1dd9a65` 14:38 | `2f1dd9a65` 14:37 | `2f1dd9a65` 14:38 |
+| `aitbc-exchange` | — | — | — | `2f1dd9a65` 14:37 | — |
+| `aitbc-bridge-monitor` | — | — | — | `ec4acd1cb` 14:42 | — |
 
-**Restart comparison — combined vs. piecemeal:** the delta carries two
-independent deployable sets — the messaging series (node + rpc +
-explorer = 15 restarts) and the bridge/wallet path changes (wallet ×5 +
-exchange + bridge-monitor = 7 restarts). Deployed separately that is the
-same 22 restarts but across **two** pull waves, two checkout flips per
-host, and two verification rounds — plus a window where messaging code
-and bridge code disagree across the fleet. Combined saves a full wave and
-removes that intermediate state; restart count itself is unchanged
-because the sets are disjoint.
+`15729e572` already contains MSG-8 Phase 1 (`18740325e`); `2f1dd9a65` does
+not — the running rpc on four hosts cannot yet serve the DM routes, and
+the running node processes on hub and hub1 predate the MSG-8 predicate.
 
-## Preconditions (verify before step 1)
+## Required / optional / none (per-unit import diff vs `0a4d4ab92`)
 
-- `origin/main` still = `0a4d4ab92`; if it moved, re-run the delta audit
-  or confirm the new commits are additive before proceeding.
-- All five hosts healthy: `systemctl is-active` green on the units above,
-  head agreement ±1 across `/rpc/head`, no active alert log entries.
-- `BRIDGE_DEPOSITS_DB` present in `blockchain.env` (already true).
-- No `dm_key`/`dm` envelopes may be submitted during the rollout — hold
-  until every host runs the candidate (see DM gate below).
+**Required — 11 restarts:**
+
+| unit | hosts | why |
+|---|---|---|
+| `aitbc-blockchain-node` | hub, hub1 | `1bafeea3e..0a4d4ab92` touches `aitbc/messaging.py` (predicate), `messaging_index.py`, `rpc/transactions.py` — MSG-8 admission/index. **Validators: named batch go.** |
+| `aitbc-blockchain-rpc` | node1, node2, hub, hub1 | `2f1dd9a65..0a4d4ab92` adds the `/rpc/messaging/dm*` routes + index changes. Serial rpc-only restarts — **standing class.** |
+| `aitbc-blockchain-explorer` | all five | every explorer SHA predates `routers/messages.py` (MSG-17 routes). Not in the standing classes — **named line per host** (EXPLORER-RESTART-1 precedent: serial, verify each). |
+
+**Optional — pick up at the next natural restart (0 required):**
+`aitbc-wallet` ×5, `aitbc-exchange`, `aitbc-bridge-monitor`. Their diffs
+(`bridge_db.py`, `exchange.py`, `bridge_monitor/{main,storage}.py`) are
+the DATA-LAYOUT-2 default flip + a warning log — runtime-identical where
+`BRIDGE_DEPOSITS_DB` is set in the env, and it is set fleet-wide
+(`/etc/aitbc/blockchain.env`, verified on all hosts).
+
+**None:** `aitbc-blockchain-node` on node0/node1 (running `15729e572` —
+`15729e572..0a4d4ab92` touches only client-side `aitbc/messaging_client.py`
++ `aitbc/dm_client.py`, which nothing under `apps/` imports), node2
+(already on `0a4d4ab92`); `aitbc-blockchain-rpc` on node0 (`15729e572`,
+same reasoning); coordinator-api, agent-coordinator, event-bridge,
+monitoring (no files in delta); CLI/SDK/MCP and
+`scripts/ops/bridge_outbound_collect.py` (no service or timer runs it —
+pull-only, picks up at next invocation); website (re-render only).
+
+**Count: 11 required restarts, down from the 22 in the first plan**
+(−5 wallet, −1 exchange, −1 bridge-monitor as pull-only; −2 node and −1
+rpc that are already current).
+
+## Authorization classes
+
+Quoted from `TOPOLOGY/2026-10-16-morning-pull-restart-ledger.md` and
+`AGENTS.md`:
+
+- **Pulls** — covered: "the standing pull authorization" (workspace
+  AGENTS.md: nodes pull/fast-forward routinely).
+- **Serial rpc-only restarts after rpc-code pulls** — standing class:
+  "falls in the standing serial rpc-restart class" (ledger, 09:02–09:06).
+- **Follower restarts one at a time** — standing.
+- **Monitoring reloads/restarts** — standing.
+- **Validator node-process restarts** — "need a named batch"
+  (ledger, 07:25–07:27 row): one go per named batch.
+- **Explorer restarts** — no standing class; EXPLORER-RESTART-1 was a
+  named line ("node0, then node1, then node2, serial, director verifies
+  each before the next"). Treat as named-per-host.
+
+Restart lines sorted by class:
+
+| class | lines | authorization needed |
+|---|---|---|
+| covered — serial rpc restarts | rpc: node1 → node2 → hub1 → hub (serial, one at a time) | none — standing |
+| covered — pull | `git merge --ff-only 0a4d4ab92` ×5 | none — standing |
+| needs named batch go | node: hub1 + hub (validator batch) | one go naming both |
+| needs named line per host | explorer ×5 (serial, verify each) | named line(s) |
 
 ## Sequence
 
 **Step 0 — pull (all hosts, any order).**
-`cd /opt/aitbc && git fetch origin && git merge --ff-only 0a4d4ab92`.
-Checkout ≠ running code; no service impact. This mixed state is already
-live on node2 and verified harmless.
+`cd /opt/aitbc && git fetch origin && git merge --ff-only 0a4d4ab92`
+(on node2: checkout already there — confirm with `git rev-parse HEAD`).
 
-Per-host steps below run **one follower at a time**; do not start the next
-host until the previous one's checks pass. Follower order: node0 → node1
-→ node2 → hub1. **Proposer (hub) last.**
+**Step 1 — rpc on the four stale hosts, serial:**
+node1 → node2 → hub1 → hub, one at a time.
+Checks each: `MainPID`/`ActiveEnterTimestamp` new; `GET /rpc/head` ok;
+`/rpc/messaging/stats` lag → 0; `/rpc/messaging/dm-keys/{addr}` 404
+cleanly (endpoint live). Standing class — no additional lines needed.
 
-**Step N.a — restart `aitbc-blockchain-node`.**
-`systemctl restart aitbc-blockchain-node`. Expect ~90 s before first
-proposal/follower resync — do not alarm inside that window.
-Checks: `MainPID` changed; `ActiveEnterTimestamp` new; `journalctl -u`
-shows no crash loop; follower re-catches head within ~2 min
-(`/rpc/head` on the host vs hub's head — allow ±1 while catching up).
+**Step 2 — explorer on all five, serial, verify each:**
+node0 → node1 → node2 → hub1 → hub (order can follow the
+EXPLORER-RESTART-1 precedent). Checks: `MainPID` new; `/messages` API
+returns rows. Needs the named line(s).
 
-**Step N.b — restart `aitbc-blockchain-rpc`.**
-Checks: `MainPID`/`ActiveEnterTimestamp` new; `GET /rpc/head` returns;
-`GET /rpc/messaging/stats` reports `index_height` catching up to head
-with `index_lag_blocks → 0`; `/rpc/messaging/dm-keys/{addr}` 404s
-cleanly on an empty address (endpoint live, not 500).
+**Step 3 — validator node batch (hub1 + hub), named go.**
+hub1 first (demoted follower, lowest risk), verify, then hub (proposer —
+block production pauses for the restart; expect ~90 s before first
+proposal — observed in devnet, do not alarm inside that window).
+Checks each: `MainPID` new; head resumes/catches up vs the fleet ±1;
+no crash loop.
 
-**Step N.c — restart `aitbc-blockchain-explorer`.**
-Checks: `MainPID` new; explorer `/messages` page/API returns rows.
+**Step 4 — fleet verification.**
+Head-hash agreement all hosts; `messaging/stats` totals equal on
+fully-upgraded pairs; dm-routes live on all rpc; alert log clean.
+The `dm_key`/`dm` gate holds structurally until hub's node is upgraded
+(proposer admits the kinds) — DM traffic stays parked until step 4
+verifies all hosts on candidate.
 
-**Step N.d — restart `aitbc-wallet`.**
-Checks: `MainPID` new; wallet status endpoint healthy.
-
-**Digest check (after N.a–N.d):** `checkpoint_digest` from
-`/rpc/messaging/stats` should match hub's once both are on the candidate —
-compare only between fully-upgraded pairs (mixed-code digests can
-legitimately differ; see progress doc matrix). Head hashes across all
-hosts must agree regardless.
-
-**Step 5 — hub (proposer), same order plus:**
-- `aitbc-exchange` restart — check status endpoint.
-- `aitbc-bridge-monitor` restart — check `bridge_monitor.admin status`
-  heartbeat and that outbound collection resumed next cycle.
-- Re-render website: `scripts/ops/render-website.sh` (static; no service).
-
-**Step 6 — fleet verification.**
-Head agreement all hosts; `messaging/stats` identical totals on the two
-highest-value pairs (hub vs each follower); a read pass of the messaging
-endpoints; alert log review. Only after this may `dm_key` publication be
-scheduled — DM envelopes can only seal once the proposer admits them
-(hub is last), so the gate holds structurally until step 5 completes.
-
-## Stop conditions (any → halt, do not continue to next host)
+## Stop conditions (any → halt)
 
 - Node process crash-loops or fails to re-catch head within ~5 min.
-- `index_lag_blocks` non-decreasing after rpc restart (> ~10 min).
-- Head hash divergence vs hub after catch-up (fork suspicion).
-- Alert log entries attributable to the restart.
-- Any `dm`-kind envelope observed in the index during the rollout
-  (premature DM traffic — pause and reassess the gate).
+- `index_lag_blocks` non-decreasing > ~10 min after an rpc restart.
+- Head-hash divergence after catch-up (fork suspicion).
+- Alert-log entries attributable to a restart.
+- Any `dm`-kind envelope in the index before step 4 (premature gate
+  breach — pause and reassess).
 
-## Rollback (per step)
+## Rollback (per unit)
 
-All index tables are additive-derived; there are no migrations — rollback
-is checkout-revert + restart, no data surgery:
+Checkouts on live hosts track `main`; do **not** leave them detached —
+`git checkout <sha>` would break the next `merge --ff-only`. Roll a unit
+back by returning the checkout to that unit's **previous running SHA**
+and restarting only that unit:
 
-1. `cd /opt/aitbc && git checkout 15729e572` (previous running SHA).
-2. Restart the same units on that host in the same order.
-3. Re-run that host's checks. If a *completed* host must roll back after
-   later hosts upgraded, roll back later hosts first.
-4. If `dm`/`dm_key` envelopes were ever sealed before rollback (only
-   possible after step 5 + a gate breach), old index code will surface
-   them in forum aggregates — cosmetic mislabel, not corruption; the
-   correct fix is re-upgrade, not data edits.
+| unit → previous running SHA | hosts | command shape |
+|---|---|---|
+| node → `1bafeea3e` | hub, hub1 | `git merge --ff-only` can't go back — use `git reset --hard 1bafeea3e` (live nodes never commit; branch stays on `main`), restart `aitbc-blockchain-node`, verify, then `git fetch origin && git reset --hard origin/main` (or `merge --ff-only`) to re-join `main` before the next pull |
+| rpc → `2f1dd9a65` | node1, node2, hub, hub1 | same checkout dance, restart `aitbc-blockchain-rpc` only — **an rpc rollback needs no node restart** (the node process never depended on rpc code) |
+| explorer → its own previous SHA | node0 `9100f875a`, node1/node2 `1ada65b32`, hub `d0e49ad1d`, hub1 `bd10f1606` | same, restart `aitbc-blockchain-explorer` only |
+
+If `dm`/`dm_key` envelopes were sealed before a rollback (only possible
+after hub's node is upgraded + gate breach), old index code surfaces them
+in forum aggregates — cosmetic mislabel, not corruption; re-upgrade, do
+not edit data.
 
 ## Risk register
 
 | risk | residual | owner | mitigation |
 |---|---|---|---|
-| ~90 s dead window on each node restart (devnet-observed) | low | operator | expected; monitor `ActiveEnterTimestamp`, don't double-restart |
-| Old index mislabels `dm` rows after a post-DM rollback | low | operator | DM gate: no `dm_key` publish until all hosts on candidate; rollback = re-upgrade path |
-| Digest mismatch alarms during mixed-code window | low | operator | compare digests only between fully-upgraded pairs |
-| Explorer read errors against index mid-upgrade | low | — | devnet showed additive index reads; restart explorer after node+rpc per host |
-| Bridge-monitor restart gap misses a deposit poll | low | operator | collector is ledger-first/idempotent; verify heartbeat post-restart |
-| `checkpoint_digest` stays at empty-hash sentinel | open | follow-up row | observed in devnet (checkpoint_height 0); confirm arming threshold on fleet before relying on it in step-6 checks |
+| ~90 s dead window on hub node restart (devnet-observed; production pauses block production) | medium | operator | hub last inside the batch; monitor `ActiveEnterTimestamp`; don't double-restart |
+| Old index mislabels `dm` rows after a post-DM rollback | low | operator | DM gate until step 4; rollback = re-upgrade |
+| Digest mismatch alarms mid-rollout | low | operator | compare digests only between fully-upgraded pairs |
+| Explorer read errors mid-upgrade | low | — | additive index reads; explorer serial after rpc |
+| MSG-8f absent from candidate: stale `<name>.tmp` wedge in `dm_store_save` + no `fsync` — a crash between temp create and rename blocks later saves with `FileExistsError` | open | future DM row | parked deliberately; fails safe (nothing lost/published); fix = drop `O_EXCL` or unlink stale temp + `fsync` before `os.replace` |
+| `checkpoint_digest` stays at empty-hash sentinel (`checkpoint_height: 0`) | open | follow-up row | observed in devnet; confirm arming threshold on the fleet before relying on it in step-4 checks |
 
-## Recommendation: **go-with-conditions**
+## Recommendation: **go-with-conditions** (unchanged)
 
-Evidence: both upgrade orders rehearsed end-to-end on a scratch devnet at
-the exact O→N pair; zero lost messages; index continuous through both
-restart orders; `--wait` verified on both code versions; the riskiest
-cell (new rpc serving a still-running old node) verified live; no
-migrations, no env additions, no consensus/state_root changes. The fleet
-already tolerates the checkout/process split.
+Evidence stands: both upgrade orders rehearsed end-to-end on a scratch
+devnet at the exact O→N pair; zero lost messages; index continuous; the
+riskiest cell (new rpc serving a running old node) verified live; no
+migrations, no env additions, no consensus/`state_root` changes. The
+corrected baseline reduces the blast radius (11 restarts, only one
+validator-batch go) without weakening the gates.
 
-Conditions: (a) restarts happen per the named lines above — nothing
-implicit; (b) one host fully verified before the next starts; (c) hub
-strictly last; (d) the `dm_key` gate holds until step 6; (e) if
-`origin/main` moved past `0a4d4ab92` before execution, re-validate the
-delta first.
+Conditions: (a) pulls + serial rpc restarts under standing classes;
+explorer per-host lines and the validator node batch named as above;
+(b) one unit fully verified before the next on each host; (c) hub's node
+strictly last; (d) the `dm_key` gate holds until step 4; (e) re-verify
+the running-SHA table at execution time — the fleet restarted several
+units during this audit; if any running SHA moved, recompute that row's
+diff before naming it.
