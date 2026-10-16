@@ -48,13 +48,15 @@ CREATE TABLE IF NOT EXISTS bridge_outbound (
 - [ ] Typed operator line naming this migration, the host, and the restart.
 - [ ] Hub on the intended deploy commit (`git -C /opt/aitbc rev-parse HEAD`).
 - [ ] `aitbc-backup.service` ran since the last ledger write; the fresh
-      `/var/backups/aitbc/<ts>/` directory lists `bridge_deposits.db`.
+      `/var/backups/aitbc/<ts>/` directory lists `chain_bridge_deposits.db.gz`
+      (the ledger moved under `data/` — the main sweep backs it up via
+      `.dump`; older backups name it `svc_bridge_deposits.db.gz`).
       If the last backup predates recent deposit traffic, trigger the job
       deliberately — do not copy the live file by hand (a hot sqlite copy
       can carry a partial page; the backup job does it safely).
 - [ ] Confirm the DB path from the unit, never an env file:
       `systemctl cat aitbc-bridge-monitor | grep -iE 'data|db'`
-      (default `/var/lib/aitbc/bridge_deposits.db` via
+      (default `/var/lib/aitbc/data/bridge_deposits.db` via
       `AITBC_DATA_DIR`→`DATA_DIR`→`/var/lib/aitbc`).
 - [ ] `sqlite3 "file:<db>?mode=ro" "PRAGMA table_info(bridge_outbound)"`
       returns empty — table absent (else the migration already ran).
@@ -134,12 +136,13 @@ Every consumer of the ledger — `bridge_monitor.storage`, the wallet's
 `bridge_db` helpers (routes, settlement and withdraw monitors all funnel
 through it), the exchange readiness check, `exchange_verify.py`/`aitbc
 exchange verify --bridge-db`, and `fleet-config-check.sh` — honours the
-`BRIDGE_DEPOSITS_DB` env var. Unset, each resolves exactly the default it
-always did (`<data dir>/bridge_deposits.db`); explicit `--ledger`/`--db`
-flags still win over the variable. An empty or whitespace-only value is
-treated as unset — a bare `BRIDGE_DEPOSITS_DB=` in an EnvironmentFile never
-opens `sqlite3.connect('')` (which would silently create a private
-temporary database).
+`BRIDGE_DEPOSITS_DB` env var. Unset, every consumer resolves
+`<data dir>/data/bridge_deposits.db` (the default moved under `data/` in
+DATA-LAYOUT-2; on hosts where the variable is set, behaviour is unchanged).
+Explicit `--ledger`/`--db` flags still win over the variable. An empty or
+whitespace-only value is treated as unset — a bare `BRIDGE_DEPOSITS_DB=`
+in an EnvironmentFile never opens `sqlite3.connect('')` (which would
+silently create a private temporary database).
 
 Set it for **every** consumer on a host or for **none**. `sqlite3.connect()`
 creates an empty file at a missing path, so a consumer left on the old path
@@ -181,7 +184,7 @@ shipped. One reviewed transaction; nothing else writes.
       confirm the newest `/var/backups/aitbc/<ts>/` lists a bridge-ledger
       artifact (BACKUP-1 sweeps DATA_DIR-root DBs since `c2c604339`).
 - [ ] `bridge_outbound` is empty or contains none of the five tx_hashes:
-      `sqlite3 "file:/var/lib/aitbc/bridge_deposits.db?mode=ro"
+      `sqlite3 "file:/var/lib/aitbc/data/bridge_deposits.db?mode=ro"
       "SELECT tx_hash FROM bridge_outbound"`.
 - [ ] The row set reviewed from a regenerated `--emit-rows` output (tx
       list from Blockscout `txlist` for the bridge wallet, mode=ro
