@@ -511,17 +511,41 @@ def depositor_tx_hashes() -> dict[str, str]:
         return {str(addr).lower(): str(tx) for addr, tx in cursor.fetchall()}
 
 
-def release_tx_hashes() -> set[str]:
-    """Lowercased ``eth_tx_hash`` values in ``eth_withdrawals`` (sell/release
-    legs). Empty when the wallet side has not bootstrapped that table yet.
+# Fixed literals only — never user input — so the f-string below is safe.
+_RELEASE_SOURCES = (
+    ("eth_withdrawals", ""),
+    ("bridge_sell_locks", "bridge_sell_locks release"),
+    ("exchange_settlements", "exchange_settlements release"),
+)
+
+
+def release_sources() -> dict[str, str]:
+    """Lowercased ``eth_tx_hash`` -> source label for each release-leg table.
+
+    Sell locks and exchange settlements drive payouts too; a send whose hash
+    appears there is a ``withdrawal`` with the source named, not unidentified.
+    Each table may be absent (the wallet side bootstraps them) — missing is
+    just fewer rows, never an error.
     """
+    out: dict[str, str] = {}
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT eth_tx_hash FROM eth_withdrawals WHERE eth_tx_hash IS NOT NULL")
-        except sqlite3.OperationalError:
-            return set()
-        return {str(row[0]).lower() for row in cursor.fetchall()}
+        for table, label in _RELEASE_SOURCES:
+            try:
+                cursor.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL")
+            except sqlite3.OperationalError:
+                continue
+            for (h,) in cursor.fetchall():
+                out.setdefault(str(h).lower(), label)
+    return out
+
+
+def release_tx_hashes() -> set[str]:
+    """Lowercased ``eth_tx_hash`` values across all release-leg tables
+    (``eth_withdrawals``, ``bridge_sell_locks``, ``exchange_settlements``).
+    Empty where the wallet side has not bootstrapped a table yet.
+    """
+    return set(release_sources())
 
 
 def outbound_totals_wei() -> dict[str, int]:

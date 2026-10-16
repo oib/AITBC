@@ -1242,3 +1242,48 @@ class TestOutboundLedger:
         assert terms["withdrawal"] == 2 * 10**17
         assert terms["self_send"] if "self_send" in terms else True
         assert terms["gas_wei"] == 3500
+
+    def _create_release_table(self, name: str, hashes: list[str | None]) -> None:
+        import sqlite3
+        from bridge_monitor import storage
+
+        with sqlite3.connect(storage.DB_PATH) as con:
+            con.execute(f"CREATE TABLE IF NOT EXISTS {name} (id TEXT, eth_tx_hash TEXT)")
+            for i, h in enumerate(hashes):
+                con.execute(f"INSERT INTO {name} VALUES ('r{i}', ?)", (h,))
+
+    def test_sell_lock_release_is_withdrawal_with_note(self, monitor):
+        monitor.funding_sources = set()
+        self._create_release_table("bridge_sell_locks", ["0xout_sell", None])
+        monitor._record_outbound(self._w3(), self._tx("0xout_sell", "0x" + "e" * 40, 5 * 10**17), 61)
+        row = self._outbound_rows()[0]
+        assert row[4] == "withdrawal" and "bridge_sell_locks release" in (row[6] or "")
+
+    def test_settlement_release_is_withdrawal_with_note(self, monitor):
+        monitor.funding_sources = set()
+        self._create_release_table("exchange_settlements", ["0xout_settle"])
+        monitor._record_outbound(self._w3(), self._tx("0xout_settle", "0x" + "e" * 40, 5 * 10**17), 62)
+        row = self._outbound_rows()[0]
+        assert row[4] == "withdrawal" and "exchange_settlements release" in (row[6] or "")
+
+    def test_withdrawal_from_eth_withdrawals_has_no_source_note(self, monitor):
+        monitor.funding_sources = set()
+        self._create_release_table("eth_withdrawals", ["0xout_w"])
+        monitor._record_outbound(self._w3(), self._tx("0xout_w", "0x" + "e" * 40, 5 * 10**17), 63)
+        row = self._outbound_rows()[0]
+        assert row[4] == "withdrawal" and not row[6]
+
+    def test_missing_release_tables_do_not_break_classification(self, monitor):
+        # Fixture DB has none of the three tables — classification must still work.
+        monitor.funding_sources = set()
+        monitor._record_outbound(self._w3(), self._tx("0xout_x", "0x" + "9" * 40, 10**17), 64)
+        assert self._outbound_rows()[0][4] == "unidentified"
+
+    def test_failed_send_keeps_both_notes(self, monitor):
+        monitor.funding_sources = set()
+        self._create_release_table("exchange_settlements", ["0xout_fail2"])
+        monitor._record_outbound(self._w3(status=0), self._tx("0xout_fail2", "0x" + "e" * 40, 5 * 10**17), 65)
+        row = self._outbound_rows()[0]
+        assert row[4] == "withdrawal"
+        assert "failed" in row[6] and "exchange_settlements release" in row[6]
+        assert float(row[2]) == 0.0

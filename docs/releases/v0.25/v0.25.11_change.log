@@ -1029,3 +1029,12 @@ database).
   after the RPC call. Rows a pre-restart node sends back unmatched are dropped
   with a one-line note that `limit` applied before the filter and the list may
   be incomplete. No node change; server-side params unchanged.
+
+### BR-6c — monitor classifies sell-lock/settlement releases
+
+- `release_sources()` maps each release-leg `eth_tx_hash` to its table
+  (`eth_withdrawals`, `bridge_sell_locks`, `exchange_settlements`);
+  `release_tx_hashes()` now covers all three. Missing tables tolerated.
+- `_record_outbound` records those sends as `withdrawal` with the source
+  named in `note` (appended to a failed-send note with `; `) instead of
+  `unidentified`. Deploy = next pull + bridge-monitor restart.
