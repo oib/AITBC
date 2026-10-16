@@ -281,4 +281,4 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
 
 
 # Register all subcommands
-from . import basic, bridge, eth_send, misc, multisig, staking  # noqa: E402
+from . import basic, bridge, eth_balance, eth_send, misc, multisig, staking  # noqa: E402
