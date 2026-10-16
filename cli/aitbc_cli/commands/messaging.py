@@ -385,19 +385,23 @@ def _submit_action(
 
     if not confirm:
         click.echo("DRY RUN — nothing signed, nothing sent. Re-run with --confirm to sign and submit once:", err=True)
+        # `topic` may be chain-resolved (when it came from the target row
+        # rather than the user's flag) — sanitise the whole echo.
         output(
-            {
-                "wallet": wallet_name,
-                "sender": sender_address,
-                "topic": topic,
-                "kind": kind,
-                "target": target,
-                "value": value,
-                "grantee": grantee,
-                "fee_ait": str(fee),
-                "envelope": envelope,
-                "would_be_effective_now": _effectiveness_now(_rpc_client(resolved_rpc), kind, topic, sender_address),
-            },
+            sanitize_chain_obj(
+                {
+                    "wallet": wallet_name,
+                    "sender": sender_address,
+                    "topic": topic,
+                    "kind": kind,
+                    "target": target,
+                    "value": value,
+                    "grantee": grantee,
+                    "fee_ait": str(fee),
+                    "envelope": envelope,
+                    "would_be_effective_now": _effectiveness_now(_rpc_client(resolved_rpc), kind, topic, sender_address),
+                }
+            ),
             (ctx.obj or {}).get("output_format", "table"),
             title=f"{kind} dry run",
         )
@@ -425,7 +429,7 @@ def _submit_action(
     if not tx_hash:
         raise SystemExit(1)
     output(
-        {"tx_hash": tx_hash, "topic": topic, "kind": kind, "author": sender_address},
+        sanitize_chain_obj({"tx_hash": tx_hash, "topic": topic, "kind": kind, "author": sender_address}),
         (ctx.obj or {}).get("output_format", "table"),
         title=f"{kind} submitted",
     )
@@ -691,7 +695,7 @@ def reputation(ctx, address, rpc_url):
     rpc = _resolve_transaction_rpc_url(rpc_url)
     try:
         result = _rpc_client(rpc).get(f"/rpc/messaging/reputation/{address}")
-        output(result, (ctx.obj or {}).get("output_format", "table"), title="Reputation")
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Reputation")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
@@ -711,7 +715,7 @@ def moderators(ctx, topic, rpc_url):
     rpc = _resolve_transaction_rpc_url(rpc_url)
     try:
         result = _rpc_client(rpc).get(f"/rpc/messaging/topics/{topic}/moderation")
-        output(result, (ctx.obj or {}).get("output_format", "table"), title=f"Moderation: {topic}")
+        output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title=f"Moderation: {topic}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
