@@ -1022,3 +1022,10 @@ database).
 - Live caveat: the new RPC parameters reach nodes only at the next
   aitbc-blockchain-rpc restart — until then `--sender/--recipient` are
   sent but ignored server-side.
+
+### CLI-SENDER-1b — search verifies sender/recipient rows client-side
+
+- `transactions search` checks every returned row against --sender/--recipient
+  after the RPC call. Rows a pre-restart node sends back unmatched are dropped
+  with a one-line note that `limit` applied before the filter and the list may
+  be incomplete. No node change; server-side params unchanged.
