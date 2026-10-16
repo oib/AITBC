@@ -1032,7 +1032,8 @@ class BridgeMonitor:
             if receipt is not None:
                 gas_wei = int(receipt["gasUsed"]) * int(receipt["effectiveGasPrice"])
                 if int(receipt.get("status", 1)) == 0:
-                    note = "tx failed — gas burned, no value moved"
+                    note = f"tx failed — gas burned, intended {value_wei} wei not moved"
+                    value_wei = 0  # a reverted send moves no value; only gas is outbound
         except Exception as e:
             note = f"receipt unavailable: {e}"
 

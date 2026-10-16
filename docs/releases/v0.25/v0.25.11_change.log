@@ -929,3 +929,16 @@ reported, not ignored.
   `bridge_outbound` when the table exists (`--onchain` supplies the wallet
   balance only); pre-migration DBs keep the operator-supplied path.
 - Live migration stays operator-gated per the runbook.
+
+### BR-6c
+
+- Failed-send fix: a reverted outbound send no longer records its intended
+  value in `bridge_outbound.value_eth` — `0` is written and the note keeps
+  the intended amount; only gas counts (parity with `classify()`).
+- `bridge_outbound_collect.py --emit-rows FILE` writes classified
+  `bridge_outbound` row dicts (release-hash → self_send → depositor →
+  funding → unidentified; `--self-address` enables self_send), matching
+  the live writer's order — the BR-6 historical-backfill path.
+- Known split documented: collect folds funding-returns into refunds and
+  self-sends into unidentified; the ledger records `withdrawal` /
+  `self_send`. Net outbound is identical.
