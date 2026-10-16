@@ -986,7 +986,10 @@ that misses the override would silently create an empty ledger at the old
 path. tests/ops/test_bridge_deposits_db_env.py pins all consumers to one
 table for the future default flip (DATA-LAYOUT-2). No host, service, env
 file or database touched; takes effect fleet-wide only where the var is
-later set.
+later set. Follow-up: an empty or whitespace-only BRIDGE_DEPOSITS_DB is
+treated as unset in every consumer — a bare `BRIDGE_DEPOSITS_DB=` no longer
+reaches sqlite3.connect('') (which silently opens a private temporary
+database).
 
 ### BR-6d
 
