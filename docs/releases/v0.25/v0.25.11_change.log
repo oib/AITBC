@@ -904,6 +904,10 @@ reported, not ignored.
   readable without the journal, and `scripts/ops/bridge-admin.sh` wraps
   the module so it runs from any cwd without a hand-set PYTHONPATH —
   doc invocations updated to the wrapper.
+- O-7 testnet shrink 16 Oct 12:43 CEST: BRIDGE_FUNDING_SOURCES=F alone
+  (0x02b8… removed, env backed up, monitor restarted clean); BR-1 Sepolia
+  explorer verification — bridge 0xfbDd…/Safe 0xdd32…/AIToken 0x87fC… all
+  confirmed contracts on Blockscout, initiateBridge tx status ok.
 
 ### MSG-CLI-HASH-1
 - fix(cli): all `aitbc messaging` commands accept bare or 0x-prefixed 64-hex tx hashes — normalized once to bare at parse; read routes use the 0x-prefixed form
