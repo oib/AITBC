@@ -585,3 +585,27 @@ reported, not ignored.
 ### MSG-2 Phase 0 — director amendments folded in
 
 - msg2-votes-moderation.md updated per director review: revokes that would empty the moderator set are ineffective; uniform broadcast rule + Phase-1 live-topic/founder report required before activation; authority derivation is a fixpoint over moderator-signed rows (no silent truncation); standing-vote aggregates computed exactly in SQL; pinned messages moved to a separate response list (cursor monotonicity); locks never block moderation actions and apply at their sealed position; subtree-lock walk bounded (512); reputation is display-only and never feeds authority; tx-hash tiebreak grindability stated and accepted.
+
+
+### MSG-FIX-2 — messaging polish nits from the line-by-line read
+
+- Index: `_resolve_parents` and `get_message` now compare tx_hash
+  case-insensitively — the predicate admits `[0-9a-fA-F]` but stored
+  hashes are lowercase, so an uppercase/mixed-case parent or lookup hash
+  never resolved. Predicate and sealed payloads unchanged.
+- Rate limits: delegating layers carried the same `@rate_limit(200,60)`
+  as the handlers they call — `/rpc/messaging/*` double-counted and the
+  legacy `/rpc/contracts/messaging/*` aliases triple-counted each
+  request. Route/delegator decorators dropped; handlers keep theirs.
+- website/messages.js: `NEUTRAL_RE` now also neutralises U+061C (Arabic
+  Letter Mark) and C1 controls U+0080–U+009F as `[U+XXXX]`; `m.parent`
+  is `String()`-guarded before substring.
+- website/tx.html: forum badge now requires a plausible envelope
+  (v=1, kind post|reply, topic string), not merely the namespace key.
+- CLI: `aitbc messaging send` is a dry run by default — prints wallet,
+  sender, topic, kind, body bytes and fee, signs nothing; `--confirm`
+  signs and submits once (same shape as `wallet eth-send`). `--reply-to`
+  is lowercased pre-sign. MCP wrapper regenerated (`confirm_opt` beside
+  the existing dry_run+confirm gate); stale reference doc rewritten.
+- Codec comment corrected: separator runs of `. _ -` are legal topics
+  (only `--` is collapsed by normalisation).
