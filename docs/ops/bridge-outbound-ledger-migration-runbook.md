@@ -1,8 +1,12 @@
 # Bridge outbound-ledger migration — live runbook (BR-6 phase C)
 
-> **Status: NOT AUTHORIZED.** This runbook describes the live migration
-> only. Executing it requires a typed operator line; the 12 Oct operator
-> decision keeps it closed — revisit with BR-1 or before mainnet.
+> **Status: EXECUTED 16 Oct 2026 on hub** (operator line, same day). Hub
+> pulled to `818f237ad`, `aitbc-bridge-monitor` restarted at 12:21 UTC+2;
+> `bridge_outbound` verified live (nine columns, 0 rows, `eth_deposits`
+> unchanged at 9). Backup: `/var/backups/aitbc/20261016_122023/`
+> (`bridge_deposits.db` captured via sqlite `.backup` — the daily job does
+> not cover the DATA_DIR-root ledger file). Table fills on the next
+> outbound send; historical legs remain in the BR-6 decomposed report.
 
 ## What the migration is
 
