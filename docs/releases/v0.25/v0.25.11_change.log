@@ -800,3 +800,18 @@ reported, not ignored.
   during-lock permanence, two cycles, second-lock no-move, unlock-noop,
   non-moderator no-interval, thread intervals, same-block reorder,
   reorg re-opens the interval.
+
+
+### MSG-2e (fix 2) — nested thread locks accumulate intervals
+
+- ``_walk_locked_subtree`` stamped ``out[child] = intervals``, so a
+  descendant reachable from several locked roots kept only the last
+  root's intervals — a reply under an unlocked B dropped the still-open
+  interval of ancestor A and read ``after_lock: false``. Descendants now
+  accumulate (``setdefault().extend()``) with per-child copies, so no
+  shared mutable lists can corrupt the read cache. LOCK_WALK_LIMIT stays
+  a per-root walk bound; a shared descendant counts toward each root's
+  budget and carries every reaching root's intervals.
+- Tests: three more in ``TestLockIntervals`` — nested A-locked/B-unlocked
+  keeping C flagged, the same with B locked first (dict-order
+  independence), and the per-root walk bound with a shared descendant.
