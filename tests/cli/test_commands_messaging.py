@@ -206,6 +206,32 @@ class TestMessagingCommands:
         assert result.exit_code == 0, result.output
         assert mock_client.get.call_args[0][0] == f"/rpc/messaging/messages/{h}"
 
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_list_sanitises_invisible_chars(self, mock_http_class, runner, mock_blockchain_rpc):
+        """MSG-4b: chain text reaching the agent via CLI must show format
+        characters (incl. the tag block) as visible [U+XXXX] placeholders."""
+        tag = chr(0xE0001)
+        body = f"hi{chr(0x200B)}there{tag}soft{chr(0x00AD)}hy"
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"messages": [{"body": body, "topic": "msg-fix"}], "count": 1}
+        result = runner.invoke(messaging_mod.messaging, ["list"])
+        assert result.exit_code == 0, result.output
+        assert "[U+200B]" in result.output
+        assert "[U+E0001]" in result.output
+        assert "[U+00AD]" in result.output
+        assert tag not in result.output
+        assert chr(0x200B) not in result.output
+
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_topics_sanitises_invisible_chars(self, mock_http_class, runner, mock_blockchain_rpc):
+        tag = chr(0xE0002)
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"topics": [{"topic": f"top{tag}ic"}], "count": 1}
+        result = runner.invoke(messaging_mod.messaging, ["topics"])
+        assert result.exit_code == 0, result.output
+        assert "[U+E0002]" in result.output
+        assert tag not in result.output
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
