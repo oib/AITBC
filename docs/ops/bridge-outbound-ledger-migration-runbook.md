@@ -36,11 +36,11 @@ CREATE TABLE IF NOT EXISTS bridge_outbound (
 
 ## Preconditions
 
-- [ ] The code carrying the table exists: as of `a63e5a72f`,
-      `bridge_monitor/storage.py` `init_db()` holds no `bridge_outbound`
-      DDL and `record_outbound` is nowhere in the tree (git grep finds
-      neither). This runbook cannot run until a reviewed commit carries
-      them — record that commit's SHA; step 3 pulls exactly that commit.
+- [ ] The code carrying the table exists: landed in `4abfe62cf`
+      (`bridge_monitor/storage.py` `init_db()` + `record_outbound`,
+      `wallet_app/bridge/bridge_db.py`, the scan-side writer in
+      `main.py`, and the reconcile extension). Step 3 pulls exactly that
+      commit (or a later reviewed one — record its SHA).
 - [ ] Typed operator line naming this migration, the host, and the restart.
 - [ ] Hub on the intended deploy commit (`git -C /opt/aitbc rev-parse HEAD`).
 - [ ] `aitbc-backup.service` ran since the last ledger write; the fresh
