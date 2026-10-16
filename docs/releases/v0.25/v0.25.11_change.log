@@ -957,3 +957,12 @@ reported, not ignored.
 ### BACKUP-1
 
 - scripts/maintenance/aitbc-backup.sh: new svc_* sweep backs up live SQLite DBs outside data/ (bridge_deposits.db on all hosts, ops-signer-ledger.db on hub, hermes/*.db on node2) via sqlite3 .backup on a -readonly source; chain_* artifact names unchanged.
+
+### KEYTRACE-1
+
+- TOPOLOGY/2026-10-16-keytrace.md (new): read-only fleet backup inventory —
+  five key-bearing env backups named (bridge-monitor payout-key backups on
+  hub, stale VALIDATOR_KEYS/PROPOSER_KEY backups on node0/node2) with
+  per-file delete/keep recommendations; plus the 0x02B8 treasury signing
+  trace: nonce 90 stable, last send 7 Oct, no wallet file holds the key —
+  verdict historical.
