@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS bridge_outbound (
     value_eth     NUMERIC NOT NULL,
     gas_wei       INTEGER,
     block_height  INTEGER NOT NULL,
-    kind          TEXT NOT NULL,            -- refund | withdrawal | unidentified
+    kind          TEXT NOT NULL,            -- refund | withdrawal | self_send | unidentified
     matched_deposit_tx TEXT,
     note          TEXT,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
