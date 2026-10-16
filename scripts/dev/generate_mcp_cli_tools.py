@@ -277,6 +277,9 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     ("market", "ratings"),
     ("wallet", "rewards"),
     ("wallet", "staking-info"),
+    # eth-balance is a pure read (no signing/decryption) — the leaf token
+    # "eth_balance" is not in SAFE_LEAF_TOKENS, so force it read-only.
+    ("wallet", "eth-balance"),
     ("wallet", "transactions"),
     ("wallet", "address"),
     ("wallet", "info"),
