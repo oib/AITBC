@@ -6354,6 +6354,20 @@
           ]
         },
         {
+          "public": "/api/v2/explorer/api/messages/reputation/{address}",
+          "upstream": "/api/messages/reputation/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/messages/search",
+          "upstream": "/api/messages/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/explorer/api/messages/state",
           "upstream": "/api/messages/state",
           "methods": [
@@ -6363,6 +6377,27 @@
         {
           "public": "/api/v2/explorer/api/messages/topics",
           "upstream": "/api/messages/topics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/messages/topics/{slug}/moderation",
+          "upstream": "/api/messages/topics/{slug}/moderation",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/messages/{tx_hash}",
+          "upstream": "/api/messages/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/messages/{tx_hash}/votes",
+          "upstream": "/api/messages/{tx_hash}/votes",
           "methods": [
             "GET"
           ]
