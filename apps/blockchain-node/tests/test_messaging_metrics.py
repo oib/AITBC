@@ -411,3 +411,78 @@ class TestDigestGaugeLifecycle:
         mm.digest_gauge.labels("ghost-chain", "0", "f" * 64).set(1)
         mm.collect_all([CHAIN])
         assert ("ghost-chain", "0", "f" * 64) in self._labels(mm)
+
+
+class TestReadErrorSemantics:
+    """MSG-6b item 4: 4xx counts as client error, only 5xx/unhandled as
+    read errors."""
+
+    def _sample(self, name, route):
+        from prometheus_client import REGISTRY
+
+        return REGISTRY.get_sample_value(name, {"route": route}) or 0.0
+
+    def test_http_exception_split(self):
+        import asyncio
+
+        from fastapi import HTTPException
+
+        from aitbc_chain.rpc.messaging import _observed
+
+        async def raise_(status):
+            raise HTTPException(status_code=status, detail="x")
+
+        async def raise_unhandled():
+            raise RuntimeError("boom")
+
+        route = "test404"
+        before_err = self._sample("aitbc_messaging_read_errors_total", route)
+        before_cli = self._sample("aitbc_messaging_read_client_errors_total", route)
+        for fn in (
+            _observed(route)(lambda: raise_(404)),
+            _observed(route)(lambda: raise_(400)),
+        ):
+            try:
+                asyncio.run(fn())
+            except HTTPException:
+                pass
+        assert self._sample("aitbc_messaging_read_errors_total", route) == before_err
+        assert self._sample("aitbc_messaging_read_client_errors_total", route) == before_cli + 2
+
+        for fn in (
+            _observed(route)(lambda: raise_(500)),
+            _observed(route)(raise_unhandled),
+        ):
+            try:
+                asyncio.run(fn())
+            except Exception:
+                pass
+        assert self._sample("aitbc_messaging_read_errors_total", route) == before_err + 2
+        assert self._sample("aitbc_messaging_read_client_errors_total", route) == before_cli + 2
+
+    def test_message_get_404_is_client_error(self, session, monkeypatch):
+        """The routine path: a missing message increments only the client
+        counter, never the alert-fed error counter."""
+        import asyncio
+
+        from fastapi import HTTPException
+
+        from aitbc_chain import database
+        from contextlib import contextmanager
+
+        @contextmanager
+        def fake_scope(chain_id):
+            yield session
+
+        monkeypatch.setattr(database, "session_scope", fake_scope)
+        import aitbc_chain.rpc.messaging as rpcm
+
+        monkeypatch.setattr(rpcm, "session_scope", fake_scope)
+        from unittest.mock import MagicMock
+
+        before_err = self._sample("aitbc_messaging_read_errors_total", "get")
+        before_cli = self._sample("aitbc_messaging_read_client_errors_total", "get")
+        with __import__("pytest").raises(HTTPException):
+            asyncio.run(rpcm.messaging_get(MagicMock(), "0" * 64))
+        assert self._sample("aitbc_messaging_read_errors_total", "get") == before_err
+        assert self._sample("aitbc_messaging_read_client_errors_total", "get") == before_cli + 1
