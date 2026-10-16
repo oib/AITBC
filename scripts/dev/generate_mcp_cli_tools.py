@@ -288,6 +288,9 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     ("blockchain", "monitor"),
     ("node", "list"),
     ("node", "info"),
+    # messaging subscribe is cursor polling on read routes — unlike
+    # `agent subscribe`, which mutates coordinator subscription state.
+    ("messaging", "subscribe"),
     ("node", "monitor"),
     ("system", "status"),
     ("system", "show"),
