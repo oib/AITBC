@@ -195,10 +195,11 @@ def test_message_votes_proxies(client):
 
 
 def test_reputation_proxies(client):
-    r = client.get("/api/messages/reputation/0x1234")
+    addr = "0x" + "12" * 20
+    r = client.get(f"/api/messages/reputation/{addr}")
     assert r.status_code == 200
     url, _ = _FakeClient.calls[-1]
-    assert url.endswith("/rpc/messaging/reputation/0x1234")
+    assert url.endswith(f"/rpc/messaging/reputation/{addr}")
 
 
 def test_topic_moderation_proxies(client):
@@ -213,3 +214,64 @@ def test_search_404_detail_passes_through(client):
     r = client.get("/api/messages/" + "0x" + "00" * 32)
     assert r.status_code == 404
     assert r.json()["detail"] == "not found"
+
+
+# --- path-segment validation (MSG-17 follow-up) ---
+#
+# Path params land in the upstream URL. `..`, `?`, or a segment that does not
+# match the upstream's expected shape must be a 4xx here and never reach the
+# RPC (_FakeClient.calls stays empty).
+
+
+@pytest.mark.parametrize("seg", ["%2E%2E", "a%3Fb", "x/x", "nothex"])
+def test_tx_hash_segment_rejected(client, seg):
+    r = client.get(f"/api/messages/{seg}")
+    assert r.status_code in (400, 404, 422)
+    assert not _FakeClient.calls
+
+
+@pytest.mark.parametrize("seg", ["%2E%2E", "a%3Fb", "x/x", "nothex"])
+def test_tx_hash_votes_segment_rejected(client, seg):
+    r = client.get(f"/api/messages/{seg}/votes")
+    assert r.status_code in (400, 404, 422)
+    assert not _FakeClient.calls
+
+
+@pytest.mark.parametrize("seg", ["%2E%2E", "a%3Fb", "x/x", "0x123"])
+def test_address_segment_rejected(client, seg):
+    r = client.get(f"/api/messages/reputation/{seg}")
+    assert r.status_code in (400, 404, 422)
+    assert not _FakeClient.calls
+
+
+@pytest.mark.parametrize("seg", ["%2E%2E", "a%3Fb", "x/x", ".hidden", "-lead", "trail-"])
+def test_slug_segment_rejected(client, seg):
+    r = client.get(f"/api/messages/topics/{seg}/moderation")
+    assert r.status_code in (400, 404, 422)
+    assert not _FakeClient.calls
+
+
+def test_valid_segments_still_proxy(client):
+    h = "0x" + "ab" * 32
+    for path in (
+        f"/api/messages/{h}",
+        f"/api/messages/{h}/votes",
+        "/api/messages/reputation/" + "0x" + "cd" * 20,
+        "/api/messages/topics/msg-fix/moderation",
+    ):
+        assert client.get(path).status_code == 200, path
+
+
+def test_literal_dotdot_never_climbs_upstream(client):
+    """Client-side normalization may fold a raw `..` before the router sees
+    it, landing on a neighbouring route — the invariant is that nothing is
+    proxied outside the /rpc/messaging/ namespace."""
+    for path in (
+        "/api/messages/..",
+        "/api/messages/../votes",
+        "/api/messages/reputation/..",
+        "/api/messages/topics/../moderation",
+    ):
+        client.get(path)
+    for url, _ in _FakeClient.calls:
+        assert "/rpc/messaging/" in url, url
