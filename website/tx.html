@@ -170,8 +170,13 @@
 
                 // MSG-4: forum posts surface a badge linking to their topic;
                 // non-forum MESSAGE rows (e.g. bridge internals) show nothing.
+                // The badge requires a plausible envelope shape, not merely the
+                // namespace key — a stray {aitbc_msg: {...}} sibling stays inert.
                 const msg = data.payload && typeof data.payload === 'object' ? data.payload.aitbc_msg : null;
-                if (data.type === 'MESSAGE' && msg && msg.topic) {
+                const forumLike = msg && typeof msg === 'object' && msg.v === 1
+                    && (msg.kind === 'post' || msg.kind === 'reply')
+                    && typeof msg.topic === 'string';
+                if (data.type === 'MESSAGE' && forumLike) {
                     details.push({
                         label: 'Forum',
                         value: `<a class="badge badge-primary" href="/messages.html?topic=${encodeURIComponent(String(msg.topic))}" title="Open topic">${escapeHtml('forum message: ' + String(msg.topic))}</a>`,
