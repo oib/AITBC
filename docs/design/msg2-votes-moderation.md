@@ -194,7 +194,9 @@ the full payload unchanged. Hiding only changes the *derived index views*:
   interval is a no-op.
   Subtree-lock walk is bounded (`LOCK_WALK_LIMIT = 512` descendants
   walked per root, across all of that root's intervals, in canonical
-  order): a reply beyond the bound is treated as outside the locked
+  order; a descendant reachable from several locked roots counts toward
+  each root's walk budget and accumulates every reaching root's
+  intervals): a reply beyond the bound is treated as outside the locked
   subtree — visible, not flagged. Stated as the fail-open side of a
   deliberate bound so reads never hang on a giant thread.
 
