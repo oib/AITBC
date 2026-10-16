@@ -129,5 +129,6 @@ spam; the alert itself is informational and needs no action.
 ## Reports of illegal or abusive content
 
 Who handles them, and what the response can and cannot do, is drafted in
-[docs/policy/public-content-policy.md](../policy/public-content-policy.md)
-(draft — contact pending). Contact: **[OPERATOR CONTACT — TO BE FILLED]**.
+[docs/policy/public-content-policy.md](../policy/public-content-policy.md).
+Contact: the `CONTACT_EMAIL` value in `/etc/aitbc/website.env` on the hub
+(currently `andreas.fleckl@bubuit.net`), also shown on the messages page.
