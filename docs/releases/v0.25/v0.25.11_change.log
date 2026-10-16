@@ -864,3 +864,6 @@ reported, not ignored.
 ### MSG-TEST-WAIT-1
 
 - tests/cli/test_commands_messaging.py: rewrote test_send_waits_for_seal for the MSG-CLI-WAIT poll path (requests.get -> /rpc/messaging/messages/<hash>, 200 + block_height asserts 'Sealed at block 42'); autouse _no_real_http fixture makes the file network-proof. The red test reached main because no pre-commit/pre-push hook runs pytest and tests/cli only runs in GitHub CI (make test-cli), which gitea pushes never trigger.
+
+### MSG-19
+- docs(policy): draft public-content policy and report-contact placeholder for the public messages page; runbook pointer added (operator review pending)
