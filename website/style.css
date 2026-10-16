@@ -1861,11 +1861,9 @@ a.btn-secondary {
 }
 
 /* ── Alerts page ── */
-.monitor-strip { font-size: 0.85rem; }
 .mon-ok { color: var(--success); }
 .mon-warn { color: #f59e0b; }
 .mon-bad { color: #ef4444; }
-.mon-sep { color: var(--text-muted); margin: 0 0.6rem; }
 .alerts-subtitle {
     color: var(--text-muted);
     font-size: 0.8rem;
