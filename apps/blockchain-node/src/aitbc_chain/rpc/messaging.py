@@ -91,8 +91,16 @@ async def messaging_stats(request: Request, chain_id: str | None = None) -> dict
     totals, and the checkpoint digest of the derived index for cross-node
     comparison."""
     resolved = get_chain_id(chain_id)
-    with session_scope(resolved) as session:
-        result = collect_gauges(session, resolved)
+
+    def _collect() -> dict[str, Any]:
+        # Off the event loop like the /metrics hook: a cold checkpoint
+        # digest over ~100k envelopes takes tens of seconds.
+        with session_scope(resolved) as session:
+            return collect_gauges(session, resolved)
+
+    from starlette.concurrency import run_in_threadpool
+
+    result = await run_in_threadpool(_collect)
     result["success"] = True
     return result
 
