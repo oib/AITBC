@@ -35,6 +35,7 @@ docs/
 ├── meta/
 ├── mining/
 ├── ops/
+├── policy/
 ├── reference/
 ├── releases/
 ├── scenarios/
@@ -58,8 +59,8 @@ docs/
 
 ## Directory stats
 
-- **Top-level directories**: 33
-- **Markdown files under docs/**: 890
+- **Top-level directories**: 34
+- **Markdown files under docs/**: 891
 
 | Directory | Files | Description |
 |---|---|---|
@@ -88,6 +89,7 @@ docs/
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 27 | Operational runbooks and key handling |
+| [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 19 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 62 | End-to-end usage scenarios |

@@ -43,6 +43,7 @@ DESCRIPTIONS = {
     "meta": "Documentation standards, template, and compliance",
     "mining": "Mining operations and GPU provider docs",
     "ops": "Operational runbooks and key handling",
+    "policy": "Operator-approved policies (content, terms)",
     "reference": "Quick lookup: ports, glossary, FAQ",
     "releases": "Release notes, changelogs, and status",
     "scenarios": "End-to-end usage scenarios",
