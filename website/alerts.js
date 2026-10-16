@@ -248,7 +248,7 @@ async function checkServiceHealth() {
             const response = await fetch(svc.url, { method: 'GET' });
             const latency = Math.round(performance.now() - start);
             const up = response.ok;
-            updateHealthItem(svc.name, up, latency);
+            updateHealthItem(svc.name, up, `${latency}ms`);
         } catch (e) {
             updateHealthItem(svc.name, false, 0);
         }
@@ -261,7 +261,7 @@ function updateHealthItem(name, up, latency) {
     const statusEl = item.querySelector('.health-status');
     const latencyEl = item.querySelector('.health-latency');
     statusEl.className = 'health-status ' + (up ? 'up' : 'down');
-    latencyEl.textContent = up ? `${latency}ms` : 'DOWN';
+    latencyEl.textContent = up ? latency : (latency || 'DOWN');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
