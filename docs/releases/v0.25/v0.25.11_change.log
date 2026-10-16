@@ -1165,3 +1165,7 @@ probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
 - Design doc `msg8-direct-messages.md` gained the key-file safety rules.
   Tests: 15 new across CLI + SDK (crash simulations, mode assertions
   under umask 022/000, byte-identical corrupt files, retry reuse).
+
+### FOLLOWER-RPC-5
+
+- docs(ops): correct `messaging-nginx-limits.md` — followers do run nginx on `:80` in front of `:8202`; node0/node1/node2 now bind `127.0.0.1:8202` (peer gossip repointed to the nginx path first), so only hub1 still accepts direct `:8202` connections pending its own row.
