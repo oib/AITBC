@@ -20,7 +20,7 @@ from typing import Any
 # namespaced var is what test isolation and service env files set, so a suite
 # must bind the scratch dir, not the live deposits file.
 DATA_DIR = os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc"))
-DB_PATH = os.path.join(DATA_DIR, "bridge_deposits.db")
+DB_PATH = os.getenv("BRIDGE_DEPOSITS_DB", os.path.join(DATA_DIR, "bridge_deposits.db"))
 
 
 class BridgeDepositStatus(StrEnum):
