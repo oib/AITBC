@@ -208,7 +208,10 @@ the full payload unchanged. Hiding only changes the *derived index views*:
 - **Vote/score aggregates are exact, never scan-bounded** (director
   amendment — same class of bug as F2): the standing vote per
   `(signer, target)` is computed in SQL — a `ROW_NUMBER() OVER
-  (PARTITION BY signer, target ORDER BY block_height DESC, tx_hash DESC)`
+  (PARTITION BY signer, target, topic ORDER BY block_height DESC, tx_hash DESC)`
+  — the claimed topic is in the partition, so a wrong-topic vote (a sealed
+  no-op per the rule above) occupies its own partition and can never
+  displace the voter's valid vote on the same target
   window over the topic's valid `vote` rows (SQLite ≥3.25; a MAX-join
   equivalent exists if ever needed), then `sum`/`count` over the rn=1
   survivors. A bounded Python scan that silently understates a score is
