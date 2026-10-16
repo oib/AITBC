@@ -169,6 +169,36 @@ else
     warn "Chain DB dir not found at ${CHAIN_DB_DIR}, skipping"
 fi
 
+# ── Service SQLite DBs outside data/ (BACKUP-1) ──────────────────────────────
+# bridge_deposits.db, ops-signer-ledger.db, hermes/*.db and friends live under
+# /var/lib/aitbc outside the CHAIN_DB_DIR sweep, so hot ledger rows were
+# unbacked until someone ran .backup by hand. Sweep them as svc_* artifacts.
+# .backup (not .dump): hermes/state.db is ~230 MB and a binary copy is far
+# cheaper; the source is opened -readonly so this can never create or write a
+# database. 0-byte files are skipped, not failed.
+SVC_DB_DIR="${SVC_DB_DIR:-/var/lib/aitbc}"
+if [ -d "$SVC_DB_DIR" ]; then
+    log "Backing up service SQLite databases outside data/..."
+    find "$SVC_DB_DIR" -maxdepth 2 -name "*.db" -type f \
+        -not -path "*/data/*" -not -path "*/backups/*" -not -path "*/fork-export/*" \
+        -not -name "*.bak.*" | while read -r dbfile; do
+        if [ ! -s "$dbfile" ]; then
+            log "SQLite svc $(basename "$dbfile"): skipped (0 bytes)"
+            continue
+        fi
+        rel="${dbfile#"${SVC_DB_DIR}"/}"
+        dest="${BACKUP_DIR}/svc_$(echo "$rel" | tr '/' '_')"
+        if sqlite3 -readonly "$dbfile" ".backup '${dest}'" 2>/dev/null \
+            && gzip -f "$dest"; then
+            chmod 600 "${dest}.gz"
+            log "SQLite svc $(basename "$dbfile"): OK ($(du -sh "${dest}.gz" | cut -f1))"
+        else
+            rm -f "$dest" "${dest}.gz"
+            error "SQLite svc $(basename "$dbfile") FAILED"
+        fi
+    done
+fi
+
 # ── Keystore ──────────────────────────────────────────────────────────────────
 KEYSTORE_DIR="${KEYSTORE_DIR:-/var/lib/aitbc/keystore}"
 if [ -d "$KEYSTORE_DIR" ]; then
