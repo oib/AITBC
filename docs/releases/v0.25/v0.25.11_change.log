@@ -815,3 +815,12 @@ reported, not ignored.
 - Tests: three more in ``TestLockIntervals`` — nested A-locked/B-unlocked
   keeping C flagged, the same with B locked first (dict-order
   independence), and the per-root walk bound with a shared descendant.
+
+### MSG-8b
+
+- docs/design/msg8-direct-messages.md amended for review: SealedBox
+  (library-derived nonce, no nonce field), mandatory authenticated
+  inner header (closes ciphertext rebinding), crypto fields as
+  top-level envelope keys (ct <= 4096 b64, plaintext ~2920 B), dm
+  slug reserved in listings/totals/moderation, sender-copy = local
+  plaintext (a), no dm_key chaining (wallet stays sole root).
