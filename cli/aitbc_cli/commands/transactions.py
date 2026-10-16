@@ -630,6 +630,33 @@ def search(address: str, sender: str, recipient: str, limit: int, use_explorer: 
         try:
             http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=30)
             transactions = http_client.get_json("/rpc/transactions", params={**filters, "limit": limit})
+            if not isinstance(transactions, list):
+                error("Unexpected response shape from /rpc/transactions (expected a JSON array).")
+                return
+
+            # A node that has not been restarted since sender/recipient landed
+            # silently ignores those params and returns either-side rows —
+            # verify locally rather than present a wrong answer confidently.
+            def _matches(row: object, key: str, want: str) -> bool:
+                if not isinstance(row, dict):
+                    return False
+                return str(row.get(key, "")).lower() == want.lower()
+
+            if sender or recipient:
+                kept = [
+                    r
+                    for r in transactions
+                    if (not sender or _matches(r, "sender", sender)) and (not recipient or _matches(r, "recipient", recipient))
+                ]
+                dropped = len(transactions) - len(kept)
+                if dropped:
+                    warning(
+                        f"node returned {dropped} rows that did not match the filter "
+                        "(rpc not yet restarted with the sender/recipient filter?); "
+                        "results were filtered locally, and `limit` applied before "
+                        "the filter, so the list may be incomplete"
+                    )
+                transactions = kept
             names = "+".join(filters)
             success(f"Found {len(transactions)} transactions matching {names} (via RPC)")
             click.echo(json.dumps(transactions, indent=2))
