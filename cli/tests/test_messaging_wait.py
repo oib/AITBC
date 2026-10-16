@@ -221,3 +221,115 @@ def test_action_wait_timeout_hints_moderation_route():
     assert successes == []
     assert len(warnings) == 1
     assert "/rpc/messaging/topics/dev/moderation" in warnings[0]
+
+
+def test_retract_wait_matches_when_signer_absent():
+    """A retract removes the signer — absence from standing votes is the match."""
+    with_voter = {"votes": [{"voter": VOTER.lower(), "value": 1}], "count": 1}
+    without = {"votes": [], "count": 0}
+    urls, warnings, successes = _run(
+        is_action=True,
+        kind="vote",
+        target=TARGET,
+        sender=VOTER,
+        value=0,
+        side_effect=[_resp(200, with_voter), _resp(200, without)],
+    )
+    assert urls == [f"http://rpc/rpc/messaging/messages/0x{TARGET}/votes"] * 2
+    assert successes == [f"vote retracted — signer absent from standing votes on 'dev' (tx {TX})"]
+    assert warnings == []
+
+
+def test_retract_with_no_prior_vote_is_pre_matched():
+    from aitbc_cli.commands.messaging import _action_state_probe
+
+    empty = {"votes": [{"voter": "0x9999", "value": 1}]}
+    with patch("requests.get", MagicMock(return_value=_resp(200, empty))):
+        assert _action_state_probe("http://rpc", "vote", "dev", TARGET, sender=VOTER, value=0, grantee=None) is True
+
+
+def test_nonmoderator_action_returns_immediately():
+    from aitbc_cli.commands.messaging import _wait_for_seal
+
+    get = MagicMock()
+    warnings: list[str] = []
+    with (
+        patch("requests.get", get),
+        patch(f"{MOD}.warning", side_effect=warnings.append),
+    ):
+        _wait_for_seal(None, "http://rpc", TX, 180.0, topic="dev", is_action=True, kind="hide", expect_listed=False)
+    get.assert_not_called()
+    assert len(warnings) == 1
+    assert "not effective for a non-moderator" in warnings[0]
+
+
+def test_full_actions_list_caps_wait_at_short_bound():
+    """A 100-entry actions list caps the hash wait at the short bound, not the timeout."""
+    import itertools
+
+    full = {"actions": [{"tx_hash": f"0x{i:064x}", "block_height": 1} for i in range(100)]}
+    clock = itertools.count(step=20)  # each monotonic() call jumps 20s
+    from aitbc_cli.commands.messaging import _wait_for_seal
+
+    get = MagicMock(side_effect=_forever(_resp(200, full)))
+    warnings: list[str] = []
+    successes: list[str] = []
+    with (
+        patch("requests.get", get),
+        patch(f"{MOD}._WAIT_POLL_SECONDS", 0),
+        patch("time.monotonic", side_effect=lambda: next(clock) * 1.0),
+        patch(f"{MOD}.warning", side_effect=warnings.append),
+        patch(f"{MOD}.success", side_effect=successes.append),
+    ):
+        _wait_for_seal(None, "http://rpc", TX, 180.0, topic="dev", is_action=True, kind="hide")
+    assert successes == []
+    # Stops at the 30s cap, not the 180s timeout: only a couple of polls.
+    assert len(get.call_args_list) <= 3
+    assert len(warnings) == 1
+    assert "not confirmed" in warnings[0]
+
+
+def test_retract_pre_matched_command_says_nothing_to_retract():
+    from click.testing import CliRunner
+
+    from aitbc_cli.commands.messaging import messaging
+
+    client = MagicMock()
+    client.get.side_effect = lambda url: {"tx_hash": TARGET, "topic": "dev", "author": "0xaaaa"}
+    infos: list[str] = []
+    with (
+        patch(f"{MOD}._wallet_address", return_value=VOTER),
+        patch(f"{MOD}._resolve_transaction_rpc_url", return_value="http://rpc"),
+        patch(f"{MOD}._rpc_client", return_value=client),
+        patch(f"{MOD}.resolve_wallet_password", return_value="pw"),
+        patch(f"{MOD}._send_transaction_impl", return_value=TX),
+        patch(f"{MOD}._action_state_probe", return_value=True),
+        patch(f"{MOD}._wait_for_seal") as wait_mock,
+        patch(f"{MOD}.info", side_effect=infos.append),
+    ):
+        result = CliRunner().invoke(messaging, ["vote", TARGET, "retract", "--wallet", "w", "--confirm"])
+    assert result.exit_code == 0, result.output
+    wait_mock.assert_not_called()
+    assert any("nothing to retract" in m for m in infos)
+
+
+def test_nonmoderator_hide_command_warns_not_waits():
+    from click.testing import CliRunner
+
+    from aitbc_cli.commands.messaging import messaging
+
+    client = MagicMock()
+    client.get.side_effect = lambda url: {"tx_hash": TARGET, "topic": "dev", "author": "0xaaaa"}
+    warnings: list[str] = []
+    with (
+        patch(f"{MOD}._wallet_address", return_value=VOTER),
+        patch(f"{MOD}._resolve_transaction_rpc_url", return_value="http://rpc"),
+        patch(f"{MOD}._rpc_client", return_value=client),
+        patch(f"{MOD}.resolve_wallet_password", return_value="pw"),
+        patch(f"{MOD}._send_transaction_impl", return_value=TX),
+        patch(f"{MOD}._topic_moderators_probe", return_value={"0xother"}),
+        patch(f"{MOD}.warning", side_effect=warnings.append),
+    ):
+        result = CliRunner().invoke(messaging, ["hide", TARGET, "--wallet", "w", "--confirm"])
+    assert result.exit_code == 0, result.output
+    assert any("not effective for a non-moderator" in m for m in warnings)

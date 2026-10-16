@@ -38,7 +38,7 @@ def aitbc_messaging_hide(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -150,7 +150,7 @@ def aitbc_messaging_lock(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -223,7 +223,7 @@ def aitbc_messaging_mod_grant(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -295,7 +295,7 @@ def aitbc_messaging_mod_revoke(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -416,7 +416,7 @@ def aitbc_messaging_pin(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -537,7 +537,7 @@ def aitbc_messaging_send(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll /rpc/messaging/messages/<hash> until the post is indexed (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
@@ -788,7 +788,7 @@ def aitbc_messaging_unhide(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -860,7 +860,7 @@ def aitbc_messaging_unlock(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -933,7 +933,7 @@ def aitbc_messaging_unpin(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
@@ -1006,7 +1006,7 @@ def aitbc_messaging_vote(
     wait: Annotated[
         bool | None,
         Field(
-            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+            description="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash"
         ),
     ] = None,
     confirm_opt: Annotated[
