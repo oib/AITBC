@@ -890,3 +890,6 @@ reported, not ignored.
 
 ### MSG-19-contact-env
 - feat(website): report-abuse sentence on messages.html rendered from CONTACT_EMAIL in /etc/aitbc/website.env via render-website.sh — empty region while unset
+
+### MSG-19-contact-set
+- docs(policy): contact filled via CONTACT_EMAIL (andreas.fleckl@bubuit.net) — policy status draft -> published; runbook points at the env value
