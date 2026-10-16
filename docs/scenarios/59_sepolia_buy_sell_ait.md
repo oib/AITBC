@@ -146,7 +146,7 @@ within ~2 AITBC blocks. End-to-end: **1–5 minutes** typical.
 
 ```bash
 # ledger row on hub (operator):
-ssh hub 'cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin \
+ssh hub 'cd /opt/aitbc && scripts/ops/bridge-admin.sh \
   status <eth_tx_hash>'
 #   expect: status completed, ait_tx_hash set
 

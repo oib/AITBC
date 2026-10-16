@@ -3,8 +3,13 @@
 
     python -m bridge_monitor.admin <command> [--env-file PATH]
 
+(or `scripts/ops/bridge-admin.sh <command>`, which sets PYTHONPATH itself)
+
 Commands:
     status <tx_hash>                 show the ledger row
+    list [--status S] [--limit N]    recent ledger rows, newest first
+                                     (e.g. --status funding shows FUNDING
+                                     rows — otherwise journal-only)
     write-off <tx_hash> --reason STR terminal write-off; the reason is
                                      required and lands in error_message
     abandon-and-resign <tx_hash>     abandon a stuck SUBMITTED payout —
@@ -73,9 +78,11 @@ def write_off_denial_reason(d: dict, allow_recipient: bool) -> str | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="bridge_monitor.admin")
-    parser.add_argument("command", choices=["status", "write-off", "abandon-and-resign", "manual-payout"])
+    parser.add_argument("command", choices=["status", "list", "write-off", "abandon-and-resign", "manual-payout"])
     parser.add_argument("args", nargs="*", help="command arguments")
     parser.add_argument("--reason", default=None, help="required for write-off")
+    parser.add_argument("--status", default=None, help="list: filter to this row status (e.g. funding, failed)")
+    parser.add_argument("--limit", type=int, default=50, help="list: max rows (default 50)")
     parser.add_argument(
         "--unpaid-with-recipient",
         action="store_true",
@@ -93,9 +100,28 @@ def main() -> int:
     # an operator can point at a copied DB for inspection. init_db() runs
     # the additive migrations so a ledger older than the code still reads.
     from .main import BridgeMonitor
-    from .storage import BridgeDepositStatus, create_deposit, get_deposit, init_db, update_deposit
+    from .storage import BridgeDepositStatus, create_deposit, get_deposit, get_deposits, init_db, update_deposit
 
     init_db()
+
+    def cmd_list(status: str | None, limit: int) -> int:
+        filt = None
+        if status is not None:
+            try:
+                filt = BridgeDepositStatus(status.lower())
+            except ValueError:
+                print(f"unknown status {status!r} — one of: {', '.join(s.value for s in BridgeDepositStatus)}")
+                return 2
+        rows = get_deposits(status=filt, limit=limit)
+        for d in rows:
+            print(
+                f"{d.get('created_at', '')}  {d.get('status', ''):<15} "
+                f"{d.get('eth_tx_hash', '')}  {d.get('eth_from_address', '')}  "
+                f"{d.get('eth_amount', '')} ETH" + (f"  err={d['error_message']}" if d.get("error_message") else "")
+            )
+        if not rows:
+            print("no rows" + (f" with status {filt.value}" if filt else ""))
+        return 0
 
     def cmd_status(tx_hash: str) -> int:
         d = get_deposit(tx_hash)
@@ -154,6 +180,8 @@ def main() -> int:
 
     if ns.command == "status":
         return cmd_status(ns.args[0]) if ns.args else parser.error("status needs <tx_hash>")
+    if ns.command == "list":
+        return cmd_list(ns.status, ns.limit)
     if ns.command == "write-off":
         if not ns.args:
             parser.error("write-off needs <tx_hash>")

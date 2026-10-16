@@ -57,7 +57,7 @@ Expected sequence (new code paths):
 ## 3. Verify ledger + chain (agent)
 
 ```bash
-ssh hub 'cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin status <eth_tx_hash>'
+ssh hub 'cd /opt/aitbc && scripts/ops/bridge-admin.sh status <eth_tx_hash>'
 # expect: status completed, ait_tx_hash set, signed_tx cleared/kept per path
 
 # payout sealed on-chain, all hosts agree
