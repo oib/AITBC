@@ -50,7 +50,14 @@ _logger = get_logger(__name__)
 CHECKPOINT_INTERVAL = 1000
 
 reads_total = Counter("aitbc_messaging_reads_total", "Successful /rpc/messaging/* reads", ["route"])
-read_errors_total = Counter("aitbc_messaging_read_errors_total", "Failed /rpc/messaging/* reads (4xx and 5xx)", ["route"])
+read_errors_total = Counter(
+    "aitbc_messaging_read_errors_total", "Failed /rpc/messaging/* reads (5xx and unhandled exceptions)", ["route"]
+)
+read_client_errors_total = Counter(
+    "aitbc_messaging_read_client_errors_total",
+    "Rejected /rpc/messaging/* reads (4xx: bad cursor, bad slug, not found, rate limit)",
+    ["route"],
+)
 rejected_total = Counter(
     "aitbc_messaging_rejected_total", "aitbc_msg envelopes refused at admission, by coarse reason", ["reason"]
 )
@@ -101,6 +108,10 @@ def note_read(route: str) -> None:
 
 def note_read_error(route: str) -> None:
     read_errors_total.labels(route).inc()
+
+
+def note_read_client_error(route: str) -> None:
+    read_client_errors_total.labels(route).inc()
 
 
 def checkpoint_for(index_height: int) -> int:
