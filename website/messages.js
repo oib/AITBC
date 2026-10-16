@@ -18,8 +18,12 @@
     // operators — plus the C1 controls (U+0080-U+009F, category Cc), U+061C,
     // U+180E and the astral tag block U+E0000-U+E007F, which can carry hidden
     // text to agents reading bodies.
+    // MSG-FIX-3 (operator pick: option b): the supplementary variation
+    // selectors U+E0100-U+E01EF (category Mn, hidden-text capable) and the
+    // blank-rendering fillers U+3164, U+115F, U+1160, U+FFA0, U+2800. The BMP
+    // variation selectors U+FE00-U+FE0F stay untouched — emoji need them.
     // Mirrors aitbc/textsafety.py; parity pinned by tests/unit/test_textsafety.py.
-    const NEUTRAL_RE = /[\u0080-\u009F\p{Cf}\u061C\u180E\u{E0000}-\u{E007F}]/gu;
+    const NEUTRAL_RE = /[\u0080-\u009F\p{Cf}\u061C\u180E\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}\u3164\u115F\u1160\uFFA0\u2800]/gu;
 
     function sanitizeChainText(s) {
         return String(s).replace(NEUTRAL_RE, (ch) => `[U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]`);
