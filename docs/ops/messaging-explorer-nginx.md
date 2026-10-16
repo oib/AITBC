@@ -1,7 +1,8 @@
-# Rate-limiting the explorer messaging read surface — nginx proposal
+# Rate-limiting the explorer messaging read surface — nginx limit
 
-Status: **proposal only** (16 Oct 2026). No nginx file was edited; applying
-this is a separate operator-named action. Companion to
+Status: **applied on hub 16 Oct 2026** — the three exact-match locations and
+the shared `messaging_rpc` zone are live; verified `429` on burst across both
+surfaces. Companion to
 `docs/ops/messaging-nginx-limits.md`, which covers the `/rpc/messaging/*`
 locations — this document covers the MSG-4 read proxies.
 
@@ -25,14 +26,14 @@ in-app rate limiter on the new routes — the upstream RPC keeps its own
 terminates at the chain layer. The unprotected segment is explorer itself:
 an unbounded client fans requests into one upstream connection pool.
 
-## Proposed config (operator action — not applied)
+## Config (applied on hub 16 Oct 2026)
 
 Reuse the zone defined in `docs/ops/messaging-nginx-limits.md` rather than
 introducing a second one — the same client abusing either surface is the
 same `$binary_remote_addr` key:
 
 ```nginx
-# http context, already proposed in messaging-nginx-limits.md:
+# http context, deployed as /etc/nginx/conf.d/aitbc-messaging-limits.conf:
 # limit_req_zone $binary_remote_addr zone=messaging_rpc:10m rate=5r/s;
 
 # inside the server block, BEFORE the generic /explorer-api/ location
@@ -59,8 +60,7 @@ location = /explorer-api/api/messages/state { limit_req zone=messaging_rpc burst
 
 Exact-match `location =` is deliberate: the rest of `/explorer-api/` keeps
 its existing, wider allowance — only the new unbounded-read routes take the
-messaging zone. If `messaging_rpc` is not yet deployed, this block waits on
-it; the routes are still functional, just unthrottled (same as today).
+messaging zone.
 
 A shared `limit_req` zone across both surfaces means a client at 200/60 s on
 `/rpc/messaging/` has already exhausted budget for `/explorer-api/api/messages/`
