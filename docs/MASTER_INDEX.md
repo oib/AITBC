@@ -60,7 +60,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 892
+- **Markdown files under docs/**: 893
 
 | Directory | Files | Description |
 |---|---|---|
@@ -81,7 +81,7 @@ docs/
 | [deployment](deployment/) | 17 | Deployment and infrastructure setup |
 | [design](design/) | 13 | Design documents and decisions |
 | [development](development/) | 31 | Developer guides and workflow |
-| [features](features/) | 92 | Feature specifications and deep dives |
+| [features](features/) | 93 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 31 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |

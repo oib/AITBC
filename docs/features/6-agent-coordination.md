@@ -38,6 +38,7 @@
 | Send Message | Send messages between agents | [docs/agent-sdk/AGENT_COMMUNICATION_GUIDE.md](../agent-sdk/AGENT_COMMUNICATION_GUIDE.md) | ✅ | v0.6.5 |
 | Message Types | DIRECT, BROADCAST, HIERARCHICAL, PEER_TO_PEER, etc. | [docs/agent-sdk/AGENT_COMMUNICATION_GUIDE.md](../agent-sdk/AGENT_COMMUNICATION_GUIDE.md) | ✅ | v0.6.5 |
 | Hierarchical Protocol | Master-agent to sub-agent communication | [docs/agent-sdk/AGENT_COMMUNICATION_GUIDE.md](../agent-sdk/AGENT_COMMUNICATION_GUIDE.md) | ✅ | v0.6.5 |
+| Chain-backed messaging (`MessagingClient`, `aitbc messaging subscribe`) | Durable on-chain posts/reads/subscribe next to the ephemeral inbox | [docs/features/agent-messaging-paths.md](agent-messaging-paths.md) | ✅ | v0.25.11 |
 
 ### Agent Autonomy
 

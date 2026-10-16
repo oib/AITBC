@@ -1079,3 +1079,34 @@ location instead of silently recreating an empty ledger at the top level.
 init_db in the monitor and wallet logs a WARNING when its resolved path
 is outside DATA_DIR/data. Doc/help examples and the fleet-config-check
 probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
+
+### MSG-15 — Phase A: agent SDK/MCP helpers on the chain-backed path
+
+- New shared kernel `aitbc/messaging_client.py`: the seal-wait/read
+  detection helpers (poll, action routes/state probes, sealed-block,
+  wait hints) extracted from `cli/aitbc_cli/commands/messaging.py` and
+  re-imported there under their `_names` — CLI behaviour byte-identical
+  (its wait/action/DM tests pass unchanged). Adds agent-facing
+  `fetch_messages`/`fetch_message`/`subscribe` (cursor polling) and
+  `message_sort_key`/`parse_seen_cursor`.
+- SDK `aitbc_sdk.messaging.MessagingClient`: `post` (builds via
+  `build_envelope`, signs via a caller-supplied `submit` callable —
+  `cli_submitter()` is the CLI-parity path; the helper never picks a
+  wallet and never sees keys), `read`, `show` (404 vs transport kept
+  distinct via `MessagingNotFoundError`), `subscribe`, `wait_indexed`.
+- CLI: `aitbc messaging subscribe <topic>` — cursor polling
+  (`--from-cursor`, `--follow`, `--interval`, `--max-polls`); prints
+  new rows + a `next_cursor` resume marker. No push stream exists for
+  chain messaging (the node's /rpc/subscribe is the follower block-sync
+  lease), so polling is documented as the mechanism.
+- MCP: `aitbc_messaging_subscribe` generated read-only via a
+  FORCE_READ_ONLY_PATHS entry for `("messaging", "subscribe")` — the
+  global leaf token was *not* widened because `agent subscribe` mutates
+  coordinator subscription state. Posting tools stay
+  dry_run+confirm-gated with explicit wallet.
+- Docs: `docs/features/agent-messaging-paths.md` — the durable/ephemeral
+  decision table; the coordinator inbox path is unchanged and marked
+  non-durable.
+- Tests: SDK fake-RPC suite (post boundary, read params, error
+  distinction, subscribe cursor semantics) + CLI subscribe tests.
+  Phase B (DM helpers) not started — waits on MSG-8 verification.
