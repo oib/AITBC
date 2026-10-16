@@ -867,3 +867,6 @@ reported, not ignored.
 
 ### MSG-19
 - docs(policy): draft public-content policy and report-contact placeholder for the public messages page; runbook pointer added (operator review pending)
+
+### O-7
+- docs(ops): bridge funding-source migration plan — separate the BRIDGE_FUNDING_SOURCES sender wallet from the hot treasury/proposer key before mainnet (plan only, nothing executed)
