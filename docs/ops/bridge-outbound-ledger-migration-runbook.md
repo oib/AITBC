@@ -154,7 +154,17 @@ bridge-monitor env). Address material needed by verification comes from
 `cli/aitbc_cli/commands/eth.py` `DEFAULT_WALLETS` /
 `docs/ops/node-sepolia-wallets.md` — public address data only.
 
-## Appendix — historical backfill (prepared 16 Oct, not run; waits for the operator's typed line)
+## Appendix — historical backfill (EXECUTED 16 Oct 2026)
+
+Executed on the operator's typed line ("BR-6c backfill insert"), all
+preconditions green: fresh `svc_bridge_deposits.db.gz` artifact from
+`aitbc-backup`, `bridge_outbound` empty, `eth_deposits` = 9, regenerated
+`--emit-rows` output identical to the staged five. The writer inserted
+all five rows via `record_outbound`; post-checks: `bridge_outbound` = 5,
+`eth_deposits` still 9, monitor active, scratch-copy reconcile reports
+the named `DEFICIT 52335372406592269 wei` (expected — see below), two
+value-bearing rows stay `unidentified` by design. The procedure below is
+kept as the record of what ran.
 
 Backfills the five outbound sends the monitor made *before* the writer
 shipped. One reviewed transaction; nothing else writes.
