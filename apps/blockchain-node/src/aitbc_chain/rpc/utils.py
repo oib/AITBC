@@ -137,7 +137,11 @@ def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
         # Same envelope gate as REST admission — a broken forum claim is junk.
         from ..messaging_index import admission_error
 
-        if admission_error(tx_data.get("payload"), sender or ""):
+        message_error = admission_error(tx_data.get("payload"), sender or "")
+        if message_error:
+            from ..messaging_metrics import note_admission_rejected
+
+            note_admission_rejected(message_error)
             return "invalid_aitbc_msg"
     return None
 
