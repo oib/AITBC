@@ -68,21 +68,21 @@ class TestGaugeConsistencyUnderConcurrency:
                 while not stop.is_set():
                     for i in range(200):
                         pool.remove(f"0x00{i:06x}", chain_id=chain)
-            except BaseException as e:
+            except BaseException as e:  # noqa: BLE001 -- record, assert later
                 errors.append(e)
 
         def drainer() -> None:
             try:
                 while not stop.is_set():
                     pool.drain(5, 10**9, chain_id=chain)
-            except BaseException as e:
+            except BaseException as e:  # noqa: BLE001 -- record, assert later
                 errors.append(e)
 
         def evictor() -> None:
             try:
                 while not stop.is_set():
                     pool.evict_expired(0.001)
-            except BaseException as e:
+            except BaseException as e:  # noqa: BLE001 -- record, assert later
                 errors.append(e)
 
         # Distinct senders and disjoint nonce ranges keep the adds free of the
@@ -149,8 +149,8 @@ class TestSyncLagOnRemoteFailure:
         ):
             try:
                 _run(sm._tick(chain))
-            except Exception:
-                pass  # the gauge writes happen before any downstream failure
+            except Exception:  # noqa: BLE001,S110 -- the gauge writes happen before any downstream failure
+                pass
 
     def test_dead_peer_drops_lag_and_marks_unreachable(self, monkeypatch):
         from aitbc_chain.config import settings
@@ -233,8 +233,8 @@ class TestMempoolChainLabelCardinality:
             # __wrapped__ bypasses the rate_limit decorator so the probe
             # exercises the route body directly regardless of env.
             _run(tx_routes.submit_market_transaction.__wrapped__(request, tx))
-        except Exception:
-            pass  # the invariant is the pool/label, not the return path
+        except Exception:  # noqa: BLE001,S110 -- the invariant is the pool/label, not the return path
+            pass
 
         assert pool.size(chain_id=chain) == 0
         assert _metric_value("blockchain_mempool_pending_count", chain) is None

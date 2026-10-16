@@ -24,7 +24,8 @@ logger = get_logger(__name__)
 
 from ...auth import AuthManager
 
-from . import get_chain_id, get_market_wallet, get_next_nonce, market
+from ._group import market
+from . import get_chain_id, get_market_wallet, get_next_nonce
 from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
 
 
@@ -273,7 +274,8 @@ def _run_ollama(
     )
     info("Running inference...")
     t_start = datetime.now()
-    with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310 - URL validated
+    # URL validated
+    with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
         resp_data = json.loads(resp.read())
     elapsed = (datetime.now() - t_start).total_seconds()
 
@@ -421,7 +423,8 @@ def _run_whisper(
         data=body,
         headers={"Content-Type": f"multipart/form-data; boundary={boundary.decode()}"},
     )
-    with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310 - endpoint scheme validated
+    # endpoint scheme validated
+    with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
         resp_data = json.loads(resp.read())
 
     elapsed = (datetime.now() - t_start).total_seconds()
@@ -589,7 +592,8 @@ def _run_ffmpeg(
         data=body,
         headers={"Content-Type": f"multipart/form-data; boundary={boundary.decode()}"},
     )
-    with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310 - endpoint scheme validated
+    # endpoint scheme validated
+    with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310
         resp_data = json.loads(resp.read())
 
     elapsed = (datetime.now() - t_start).total_seconds()

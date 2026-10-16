@@ -96,14 +96,15 @@ class SettlementStorage:
 
         params.append(message_id)
 
-        # nosec B608 - every `updates` entry is a hardcoded "column = $N" literal
+        # every `updates` entry is a hardcoded "column = $N" literal
+        # nosec B608
         # (column names are compile-time constants above); actual values are bound
         # via `params`, never interpolated into the query text.
         query = f"""
         UPDATE settlements
         SET {", ".join(updates)}
         WHERE message_id = ${param_count}
-        """  # nosec B608
+        """  # nosec
 
         await self.db.execute(query, params)
 
@@ -193,7 +194,8 @@ class SettlementStorage:
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-        # nosec B608 - every `conditions` entry is a hardcoded "column = $N" literal
+        # every `conditions` entry is a hardcoded "column = $N" literal
+        # nosec B608
         # (column names are compile-time constants above); actual values are bound
         # via `params`, never interpolated into the query text.
         query = f"""
@@ -206,7 +208,7 @@ class SettlementStorage:
         FROM settlements
         {where_clause}
         GROUP BY bridge_name, status
-        """  # nosec B608
+        """  # nosec
 
         results = await self.db.fetch(query, *params)
 

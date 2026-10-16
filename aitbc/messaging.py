@@ -187,7 +187,7 @@ def _author_error(agent_address: Any, sender: Any) -> str | None:
     try:
         if canonical_address(agent_address) != canonical_address(sender):
             return "aitbc_msg.agent_address must equal the transaction signer"
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return "aitbc_msg.agent_address must equal the transaction signer"
     return None
 
@@ -231,7 +231,7 @@ def _grantee_error(kind: str, grantee: Any) -> str | None:
         return "aitbc_msg.grantee must be the moderator address"
     try:
         canonical_address(grantee, strict=True)
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return "aitbc_msg.grantee must be a 0x moderator address"
     return None
 
@@ -255,7 +255,7 @@ def _dm_error(envelope: dict[str, Any]) -> str | None:
         return "aitbc_msg.to must be the recipient's 0x address"
     try:
         canonical_address(to, strict=True)
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return "aitbc_msg.to must be the recipient's 0x address"
     ct = envelope.get("ct")
     if not isinstance(ct, str) or len(ct.encode("ascii", "ignore")) > MAX_DM_CT_B64_BYTES:

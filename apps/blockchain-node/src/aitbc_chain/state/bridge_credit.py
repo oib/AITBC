@@ -34,7 +34,7 @@ def _payload_dict(tx_data: dict[str, Any]) -> dict[str, Any]:
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
-        except Exception:
+        except ValueError:
             return {}
     return payload if isinstance(payload, dict) else {}
 
@@ -131,7 +131,7 @@ def verify_bridge_lock_signature(tx_data: dict[str, Any], tx_hash: str, authorit
         return False
     try:
         return canonical_address(recovered) == canonical_address(authority)
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return False
 
 
@@ -166,7 +166,7 @@ def validate_bridge_refund_lock(lock: dict[str, Any] | None, tx_data: dict[str, 
     try:
         if canonical_address(str(lock.get("sender") or "")) != canonical_address(str(recipient)):
             return "BRIDGE_REFUND recipient does not match the BRIDGE_LOCK sender"
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return "BRIDGE_REFUND recipient does not match the BRIDGE_LOCK sender"
     lock_amt = lock.get("amount")
     if lock_amt is None or amount is None:
@@ -174,7 +174,7 @@ def validate_bridge_refund_lock(lock: dict[str, Any] | None, tx_data: dict[str, 
     try:
         if int(lock_amt) != int(amount):
             return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
-    except (TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError):
         return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
     return None
 
@@ -211,7 +211,7 @@ def verify_bridge_credit_signature(tx_data: dict[str, Any], tx_hash: str, author
         return False
     try:
         return canonical_address(recovered) == canonical_address(authority)
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return False
 
 

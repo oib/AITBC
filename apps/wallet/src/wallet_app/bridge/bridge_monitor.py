@@ -362,7 +362,7 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
         except ValueError:
             logger.warning("Deposit already exists for tx %s", tx_hash)
             return False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - record containment — a bad deposit row logs and skips
             logger.error("Error recording exchange-prepay deposit %s: %s", tx_hash, e)
             return False
 

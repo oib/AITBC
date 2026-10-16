@@ -141,7 +141,7 @@ async def _proposer_pending_hashes() -> set[str] | None:
         # answer to "is my leg still pending": fail closed like any other
         # unreadable probe.
         return {compute_tx_hash(tx) for tx in txs}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - any RPC/parse failure alike: probe reports unreadable
         _logger.warning("settlement sweeper: proposer mempool probe failed: %s", e)
         return None
 
@@ -391,7 +391,7 @@ async def _proposer_pending_txs() -> list[dict] | None:
         # Missing or mistyped "transactions" on a well-formed count is not an
         # empty mempool — it is an answer we cannot read; defer (C19).
         return txs if isinstance(txs, list) else None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - any RPC/parse failure alike: probe reports unreadable
         _logger.warning("fee-sweep pass: proposer mempool probe failed: %s", e)
         return None
 
@@ -701,7 +701,7 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
                 )
                 stats["error"] += 1
             break  # at most one submission per pass
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - pass containment: one bad pass must not kill the sweeper
         _logger.warning("ESCROW_FEE_SWEEP pass failed: %s", e)
         stats["error"] += 1
     _count_fee_pass(stats)
@@ -718,8 +718,8 @@ def _count_fee_pass(stats: dict[str, int]) -> None:
         for result, n in stats.items():
             if n:
                 escrow_fee_sweep_pass_total.labels(result=result).inc(n)
-    except Exception:  # metrics must never break the pass
-        pass
+    except Exception as e:  # noqa: BLE001 - metrics must never break the pass
+        _logger.debug("fee-sweep metrics emit failed: %s", e)
 
 
 # --------------------------------------------------------------------------
@@ -1017,7 +1017,7 @@ async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:
                 )
                 stats["error"] += 1
             break  # at most one submission per pass
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - pass containment: one bad pass must not kill the sweeper
         _logger.warning("ESCROW change pass failed: %s", e)
         stats["error"] += 1
     _count_change_pass(stats)
@@ -1033,8 +1033,8 @@ def _count_change_pass(stats: dict[str, int]) -> None:
         for result, n in stats.items():
             if n:
                 escrow_change_pass_total.labels(result=result).inc(n)
-    except Exception:  # metrics must never break the pass
-        pass
+    except Exception as e:  # noqa: BLE001 - metrics must never break the pass
+        _logger.debug("change-pass metrics emit failed: %s", e)
 
 
 async def _sweep_once() -> dict[str, int]:
@@ -1067,8 +1067,7 @@ async def _sweep_settlement_marks_forever() -> None:
             await _sweep_once()
         except asyncio.CancelledError:
             raise
-        except Exception as e:
-            # A sweep failure must never end the loop; the next tick retries.
+        except Exception as e:  # noqa: BLE001 - a sweep failure must never end the loop
             _logger.warning("Settlement-mark sweep failed: %s", e)
 
 

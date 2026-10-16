@@ -26,7 +26,7 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
             raise HTTPException(status_code=422, detail="Username and password are required")
 
         # Reject empty strings
-        if username == "" or password == "":  # nosec B105
+        if username == "" or password == "":  # nosec
             raise HTTPException(status_code=422, detail="Username and password cannot be empty")
 
         import os

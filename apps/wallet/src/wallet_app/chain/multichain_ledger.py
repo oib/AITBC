@@ -145,7 +145,8 @@ class MultiChainLedgerAdapter:
             with lock:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"\n                    SELECT wallet_id FROM wallet_metadata_{chain_id} WHERE wallet_id = ?\n                ",  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    f"\n                    SELECT wallet_id FROM wallet_metadata_{chain_id} WHERE wallet_id = ?\n                ",  # nosec
                     (wallet_id,),
                 )
                 if cursor.fetchone():
@@ -154,7 +155,8 @@ class MultiChainLedgerAdapter:
                 now = datetime.now().isoformat()
                 metadata_json = json.dumps(metadata or {})
                 cursor.execute(
-                    f"\n                    INSERT INTO wallet_metadata_{chain_id} \n                    (wallet_id, public_key, address, metadata, created_at, updated_at)\n                    VALUES (?, ?, ?, ?, ?, ?)\n                ",  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    f"\n                    INSERT INTO wallet_metadata_{chain_id} \n                    (wallet_id, public_key, address, metadata, created_at, updated_at)\n                    VALUES (?, ?, ?, ?, ?, ?)\n                ",  # nosec
                     (wallet_id, public_key, address, metadata_json, now, now),
                 )
                 self.record_event(
@@ -179,7 +181,8 @@ class MultiChainLedgerAdapter:
             with lock:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"\n                    SELECT wallet_id, public_key, address, metadata, created_at, updated_at\n                    FROM wallet_metadata_{chain_id} WHERE wallet_id = ?\n                ",  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    f"\n                    SELECT wallet_id, public_key, address, metadata, created_at, updated_at\n                    FROM wallet_metadata_{chain_id} WHERE wallet_id = ?\n                ",  # nosec
                     (wallet_id,),
                 )
                 row = cursor.fetchone()
@@ -211,7 +214,8 @@ class MultiChainLedgerAdapter:
             with lock:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"\n                    SELECT wallet_id, public_key, address, metadata, created_at, updated_at\n                    FROM wallet_metadata_{chain_id} ORDER BY created_at DESC\n                "  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    f"\n                    SELECT wallet_id, public_key, address, metadata, created_at, updated_at\n                    FROM wallet_metadata_{chain_id} ORDER BY created_at DESC\n                "  # nosec
                 )
                 wallets = []
                 for row in cursor.fetchall():
@@ -244,7 +248,8 @@ class MultiChainLedgerAdapter:
             with lock:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"\n                    INSERT INTO ledger_events_{chain_id} \n                    (wallet_id, event_type, timestamp, data, success)\n                    VALUES (?, ?, ?, ?, ?)\n                ",  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    f"\n                    INSERT INTO ledger_events_{chain_id} \n                    (wallet_id, event_type, timestamp, data, success)\n                    VALUES (?, ?, ?, ?, ?)\n                ",  # nosec
                     (wallet_id, event_type, datetime.now().isoformat(), json.dumps(data), success),
                 )
                 conn.commit()
@@ -268,12 +273,14 @@ class MultiChainLedgerAdapter:
                 cursor = conn.cursor()
                 if event_type:
                     cursor.execute(
-                        f"\n                        SELECT wallet_id, event_type, timestamp, data, success\n                        FROM ledger_events_{chain_id} \n                        WHERE wallet_id = ? AND event_type = ?\n                        ORDER BY timestamp DESC LIMIT ?\n                    ",  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                        # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                        f"\n                        SELECT wallet_id, event_type, timestamp, data, success\n                        FROM ledger_events_{chain_id} \n                        WHERE wallet_id = ? AND event_type = ?\n                        ORDER BY timestamp DESC LIMIT ?\n                    ",  # nosec
                         (wallet_id, event_type, limit),
                     )
                 else:
                     cursor.execute(
-                        f"\n                        SELECT wallet_id, event_type, timestamp, data, success\n                        FROM ledger_events_{chain_id} \n                        WHERE wallet_id = ?\n                        ORDER BY timestamp DESC LIMIT ?\n                    ",  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                        # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                        f"\n                        SELECT wallet_id, event_type, timestamp, data, success\n                        FROM ledger_events_{chain_id} \n                        WHERE wallet_id = ?\n                        ORDER BY timestamp DESC LIMIT ?\n                    ",  # nosec
                         (wallet_id, limit),
                     )
                 events = []
@@ -305,14 +312,17 @@ class MultiChainLedgerAdapter:
             lock = self._get_lock(chain_id)
             with lock:
                 cursor = conn.cursor()
-                cursor.execute(f"SELECT COUNT(*) FROM wallet_metadata_{chain_id}")  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                cursor.execute(f"SELECT COUNT(*) FROM wallet_metadata_{chain_id}")  # nosec B608
                 wallet_count = cursor.fetchone()[0]
                 cursor.execute(
-                    f"\n                    SELECT event_type, COUNT(*) FROM ledger_events_{chain_id} \n                    GROUP BY event_type\n                "  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    f"\n                    SELECT event_type, COUNT(*) FROM ledger_events_{chain_id} \n                    GROUP BY event_type\n                "  # nosec
                 )
                 event_counts = dict(cursor.fetchall())
                 cursor.execute(
-                    f"\n                    SELECT COUNT(*) FROM ledger_events_{chain_id} \n                    WHERE timestamp > datetime('now', '-1 hour')\n                "  # nosec B608 - chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
+                    f"\n                    SELECT COUNT(*) FROM ledger_events_{chain_id} \n                    WHERE timestamp > datetime('now', '-1 hour')\n                "  # nosec
                 )
                 recent_activity = cursor.fetchone()[0]
                 return {

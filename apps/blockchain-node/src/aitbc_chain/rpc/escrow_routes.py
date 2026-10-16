@@ -185,7 +185,8 @@ async def _resolve_chain_account(address: str) -> str | None:
     """
     try:
         return _to_canonical(address)
-    except Exception:  # nosec B110 - intentional silent failure
+    # intentional silent failure
+    except Exception:  # nosec B110
         pass
     return None
 
@@ -857,7 +858,7 @@ async def _find_existing_fee_sweep(job_id: str) -> str | None:
             if (tx.get("payload") or {}).get("job_id") == job_id:
                 settled_hash = tx.get("tx_hash")
                 return str(settled_hash) if settled_hash else None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - probe containment: lookup failure must not fail the release
         _logger.warning("ESCROW_FEE_SWEEP: settled-sweep lookup failed for job_id=%s: %s", job_id, e)
     return None
 
@@ -872,7 +873,7 @@ async def _escrow_custody_balance(job_id: str) -> int | None:
         r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{_escrow_address(job_id)}")
         if r.status_code == 200:
             return int(r.json().get("balance", 0))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - probe containment: unproven balance means skip, never guess
         _logger.warning("ESCROW_FEE_SWEEP: custody balance lookup failed for job_id=%s: %s", job_id, e)
     return None
 
@@ -953,7 +954,7 @@ async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int
             resp.text[:200],
         )
         escrow_fee_sweep_total.labels(result="rejected").inc()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - submission failure must not fail the release; sweep retries
         _logger.error(
             "ESCROW_FEE_SWEEP TX submission failed for job_id=%s residue=%s — release stands, sweep "
             "retries on the next settlement call: %s",
@@ -985,7 +986,7 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
 
     try:
         legs = settlement_legs_from_chain(session, job_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - lookup failure defers the retry, never raises into release
         _logger.warning("ESCROW_FEE_SWEEP retry: sealed-leg lookup failed for job_id=%s: %s", job_id, e)
         legs = None
     if not legs:

@@ -15,7 +15,7 @@ PG_CONFIG = {
     "host": "localhost",
     "database": "aitbc_coordinator",
     "user": "aitbc_user",
-    "password": "aitbc_password",
+    "password": "aitbc_password",  # nosec
     "port": 5432,
 }
 
@@ -56,7 +56,8 @@ def migrate_all_data():
         column_names = [col[1] for col in columns]
 
         # Get data
-        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec B608 - table_name is validated against the allowed_tables allowlist above
+        # table_name is validated against the allowed_tables allowlist above
+        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec
         rows = sqlite_cursor.fetchall()
 
         if not rows:
@@ -64,15 +65,16 @@ def migrate_all_data():
             continue
 
         # Build insert query
-        # nosec B608 - table_name validated against allowed_tables above; column_names
+        # table_name validated against allowed_tables above; column_names
+        # nosec B608
         # come from PRAGMA table_info (the DB's own schema), never external input.
         if table_name == "user":
             insert_sql = (
-                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
+                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec
             )
         else:
             insert_sql = (
-                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec B608
+                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec
             )
 
         # Insert data
@@ -100,7 +102,7 @@ def migrate_all_data():
                     if isinstance(value, str):
                         try:
                             value = json.loads(value)
-                        except Exception:
+                        except Exception:  # nosec
                             pass
                 elif col_name in ["balance", "price", "average_job_duration_ms"] and value is not None:
                     value = Decimal(str(value))

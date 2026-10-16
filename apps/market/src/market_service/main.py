@@ -977,7 +977,7 @@ async def list_market_jobs(
                     continue
                 try:
                     matches = canonical_address(claimed) == canonical_address(signer)
-                except Exception:
+                except (AttributeError, TypeError, ValueError):
                     matches = False
                 if not matches:
                     return JSONResponse(status_code=403, content={"error": "address filter does not match signer"})
@@ -1749,7 +1749,8 @@ if __name__ == "__main__":
 
     # Allow configuration via environment variable for multi-node deployments
     # Default to 0.0.0.0 to accept connections from other nodes
-    host = market_getenv("MARKET_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    host = market_getenv("MARKET_BIND_HOST", "0.0.0.0")  # nosec B104
     port = int(market_getenv("MARKET_BIND_PORT", "8102"))
 
     uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)

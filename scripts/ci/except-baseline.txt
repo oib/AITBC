@@ -29,7 +29,7 @@
       2 aitbc/training_setup/cli.py
       3 aitbc/training_setup/environment.py
       3 aitbc/training_setup/messaging.py
-      2 aitbc/training_setup/stage_runner.py
+      1 aitbc/training_setup/stage_runner.py
       1 aitbc/utils/time_utils.py
       1 aitbc/wallet/confidential.py
       9 apps/agent-coordinator/src/agent_app/ai/advanced_ai.py
@@ -134,7 +134,6 @@
       1 apps/blockchain-node/src/aitbc_chain/sync_validator.py
       2 apps/blockchain-node/tests/conftest.py
       1 apps/blockchain-node/tests/test_gossip_broadcast.py
-      4 apps/bridge-monitor/src/bridge_monitor/main.py
       1 apps/coordinator-api/alembic/env.py
      11 apps/coordinator-api/examples/agent_identity_sdk_example.py
       3 apps/coordinator-api/migrations/003_data_migration.py
@@ -150,7 +149,7 @@
       1 apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py
       4 apps/coordinator-api/src/coordinator_api/agent_identity/registry.py
       1 apps/coordinator-api/src/coordinator_api/agent_identity/sdk/client.py
-     13 apps/coordinator-api/src/coordinator_api/agent_identity/sdk/communication.py
+     12 apps/coordinator-api/src/coordinator_api/agent_identity/sdk/communication.py
       6 apps/coordinator-api/src/coordinator_api/agent_identity/wallet_adapter_enhanced.py
       4 apps/coordinator-api/src/coordinator_api/contexts/advanced_ai/routers/adaptive_learning_health.py
       2 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/agent_integration_router.py
@@ -251,7 +250,7 @@
       2 apps/edge/src/aitbc_edge/main.py
       2 apps/edge/src/aitbc_edge/services/gpu_service.py
       2 apps/exchange/simple_exchange/config.py
-      5 apps/exchange/simple_exchange/db.py
+      3 apps/exchange/simple_exchange/db.py
       6 apps/exchange/simple_exchange/handlers/bridge.py
       5 apps/exchange/simple_exchange/handlers/exchange.py
       6 apps/ffmpeg/main.py
@@ -302,7 +301,7 @@
       7 apps/wallet/src/wallet_app/bridge/bridge_monitor.py
       2 apps/wallet/src/wallet_app/bridge/bridge_routes.py
       7 apps/wallet/src/wallet_app/bridge/bridge_withdraw_monitor.py
-      7 apps/wallet/src/wallet_app/bridge/price_api.py
+      4 apps/wallet/src/wallet_app/bridge/price_api.py
      16 apps/wallet/src/wallet_app/chain/chain_aware_wallet_service.py
       6 apps/wallet/src/wallet_app/chain/manager.py
       8 apps/wallet/src/wallet_app/chain/multichain_ledger.py
@@ -349,7 +348,7 @@
 
       4 cli/aitbc_cli/commands/grant.py
       3 cli/aitbc_cli/commands/http.py
-      7 cli/aitbc_cli/commands/ipfs.py
+      6 cli/aitbc_cli/commands/ipfs.py
       4 cli/aitbc_cli/commands/market/__init__.py
      10 cli/aitbc_cli/commands/market/escrow.py
       1 cli/aitbc_cli/commands/market/exchange.py
@@ -374,8 +373,8 @@
       4 cli/aitbc_cli/commands/system.py
       6 cli/aitbc_cli/commands/tee.py
      20 cli/aitbc_cli/commands/trade.py
-      8 cli/aitbc_cli/commands/transactions.py
-      3 cli/aitbc_cli/commands/wallet/__init__.py
+      7 cli/aitbc_cli/commands/transactions.py
+      1 cli/aitbc_cli/commands/wallet/__init__.py
       7 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/bridge.py
       3 cli/aitbc_cli/commands/wallet/misc.py
@@ -449,7 +448,7 @@
       1 scripts/migration/migrate_plugin_to_market.py
       4 scripts/migration/scale_balances_3600x.py
       1 scripts/monitoring/monitor-prs.py
-      4 scripts/ops/key-audit.py
+      3 scripts/ops/key-audit.py
       1 scripts/ops/register_bridge_validators.py
       1 scripts/quality/fix_bare_except.py
      15 scripts/security/security_audit.py

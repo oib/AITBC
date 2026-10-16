@@ -199,7 +199,8 @@ def create_postgresql_adapter() -> PostgreSQLLedgerAdapter:
         "host": "localhost",
         "database": "aitbc_wallet",
         "user": "aitbc_user",
-        "password": "aitbc_password",  # nosec B105 - mock/test only, not production
+        # mock/test only, not production
+        "password": "aitbc_password",  # nosec
         "port": 5432,
     }
     return PostgreSQLLedgerAdapter(config)

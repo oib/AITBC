@@ -368,6 +368,17 @@ def _serve(srv: OpsSignerServer) -> threading.Thread:
     return t
 
 
+def _server(cfg: Config, peer: tuple[int, int, int] = OPS_PEER) -> OpsSignerServer:
+    """Server with injected peercred + gid lookups.
+
+    Real SO_PEERCRED would hand the server the *test process's* uid/gid, so a
+    test that never opted into authorization would silently exercise the
+    denial path instead of the one it means to (that is how the stale-socket
+    test ended up asserting the refusal path and reading an RST).
+    """
+    return OpsSignerServer(cfg, creds_fn=lambda _c: peer, group_gid_fn=lambda _n: 4242)
+
+
 def test_stale_socket_is_replaced_on_start(tmp_path: Path):
     cfg = _sock_cfg(tmp_path)
     stale = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -375,7 +386,7 @@ def test_stale_socket_is_replaced_on_start(tmp_path: Path):
     stale.close()  # bound, closed, file left behind -- the restart bug
     assert Path(cfg.socket_path).exists()
 
-    srv = OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242)
+    srv = _server(cfg)
     t = _serve(srv)
     try:
         _wait_sock(Path(cfg.socket_path))
@@ -391,7 +402,7 @@ def test_regular_file_at_socket_path_refused_and_kept(tmp_path: Path):
     f = Path(cfg.socket_path)
     f.write_text("not a socket")
     with pytest.raises(RuntimeError, match="not a socket"):
-        OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242).serve_forever()
+        _server(cfg).serve_forever()
     assert f.exists() and f.read_text() == "not a socket"  # never deleted
 
 
@@ -403,7 +414,7 @@ def test_live_listener_refuses_second_instance(tmp_path: Path, caplog):
     try:
         with caplog.at_level(logging.ERROR):
             with pytest.raises(RuntimeError, match="live listener"):
-                OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242).serve_forever()
+                _server(cfg).serve_forever()
         assert "not starting" in caplog.text and "live listener" in caplog.text
     finally:
         listener.close()
@@ -412,7 +423,7 @@ def test_live_listener_refuses_second_instance(tmp_path: Path, caplog):
 
 def test_clean_shutdown_removes_socket(tmp_path: Path):
     cfg = _sock_cfg(tmp_path)
-    srv = OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242)
+    srv = _server(cfg)
     t = _serve(srv)
     _wait_sock(Path(cfg.socket_path))
     srv.stop()
@@ -424,10 +435,28 @@ def test_clean_shutdown_removes_socket(tmp_path: Path):
 def test_two_sequential_start_stop_cycles(tmp_path: Path):
     cfg = _sock_cfg(tmp_path)
     for _ in range(2):
-        srv = OpsSignerServer(cfg, group_gid_fn=lambda _n: 4242)
+        srv = _server(cfg)
         t = _serve(srv)
         _wait_sock(Path(cfg.socket_path))
         srv.stop()
         t.join(timeout=5)
         assert not t.is_alive()
         assert not Path(cfg.socket_path).exists()
+
+
+def test_unauthorized_peer_gets_refusal_reply_not_rst(tmp_path: Path):
+    """Wire-level denial: a peer outside the group must receive the documented
+    JSON refusal over a clean FIN. Closing the socket with the client's
+    request still unread produces an RST that discards the refusal — the
+    client should never see ConnectionResetError here."""
+    cfg = _sock_cfg(tmp_path)
+    srv = _server(cfg, peer=OUTSIDER_PEER)
+    t = _serve(srv)
+    try:
+        _wait_sock(Path(cfg.socket_path))
+        reply = request(cfg.socket_path, req())  # raises ConnectionResetError on RST
+        assert reply == {"ok": False, "result": "refused", "reason": "peer_not_in_group"}
+    finally:
+        srv.stop()
+        t.join(timeout=5)
+    assert not t.is_alive()
