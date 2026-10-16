@@ -1007,3 +1007,18 @@ database).
   downgrade by tx_hash. Expected post-insert verdict: named ~0.052 ETH
   deficit (pre-rotation old-wallet outflows), two rows stay
   `unidentified` by design.
+
+### CLI-SENDER-1 — sender/recipient filters on /rpc/transactions + aitbc transactions search
+
+- `/rpc/transactions` accepts `sender` and `recipient` parameters —
+  same spelling handling as `address` (checksum + lowercase), combinable;
+  all supplied filters hold. `address` semantics unchanged.
+- `aitbc transactions search` now works over RPC (was explorer-only):
+  `--sender`, `--recipient`, `--address` (at least one required),
+  `--rpc-url`. The explorer path refuses `--sender/--recipient` with a
+  clear message rather than returning either-side rows.
+- MCP wrapper regenerated (`aitbc_transactions_search`); the published
+  blockchain-node OpenAPI spec updated.
+- Live caveat: the new RPC parameters reach nodes only at the next
+  aitbc-blockchain-rpc restart — until then `--sender/--recipient` are
+  sent but ignored server-side.
