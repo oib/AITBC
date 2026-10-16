@@ -95,8 +95,9 @@ offline CLI keystore. The monitor only needs the *address*.
    allowlist loaded; `/v1/bridge/...` status routes still answer.
 6. **[operator]** Send a small top-up **from F**; check the ledger
    records a `FUNDING` row (deduplicated, no payout):
-   `venv/bin/python -m bridge_monitor.admin status <tx_hash>` and the
-   ledger list — the row's `status` must be `FUNDING`, not
+   `scripts/ops/bridge-admin.sh status <tx_hash>` and
+   `scripts/ops/bridge-admin.sh list --status funding` — the row's
+   `status` must be `FUNDING`, not
    `FAILED`/`SUBMITTED`.
 7. **[operator]** Send the next deposit canary **from a different
    address than F** — the canary must exercise the deposit path, and the
@@ -142,7 +143,7 @@ The bridge monitor watches an Ethereum-side RPC; rehearse on Sepolia:
 
 ```bash
 # on hub, dry — print what the monitor would classify
-cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin status <known_deposit_tx>
+cd /opt/aitbc && scripts/ops/bridge-admin.sh status <known_deposit_tx>
 # propose env change against a Sepolia-funded throwaway sender S:
 BRIDGE_FUNDING_SOURCES=S  (in a staging env, never live)
 # send a small Sepolia ETH tx S->bridge deposit address; then check:

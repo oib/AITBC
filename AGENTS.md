@@ -127,8 +127,9 @@ two sends from the same account is how double payments happen. Operator
 actions use the monitor's own commands, never a raw RPC submit:
 
 ```bash
-cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin <command>
+cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
 #   status <tx_hash>                inspect a ledger row
+#   list [--status S] [--limit N]   recent rows (incl. FUNDING/FAILED)
 #   manual-payout <to> <amount>     manual payout, same ledger-first path
 #   abandon-and-resign <tx_hash>    abandon a stuck SUBMITTED payout —
 #                                   refuses unless the account nonce has

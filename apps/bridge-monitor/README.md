@@ -31,8 +31,9 @@ Every payout goes through a ledger row — never send ad-hoc from the payout
 account. Operator actions:
 
 ```bash
-cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin <command>
+cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
 #   status <tx_hash>                inspect a ledger row
+#   list [--status S] [--limit N]   recent rows (incl. FUNDING/FAILED), newest first
 #   manual-payout <to> <amount>     manual payout, ledger-first (uncapped by design)
 #   abandon-and-resign <tx_hash>    re-queue a stuck SUBMITTED payout —
 #                                   refuses unless the account nonce has passed
