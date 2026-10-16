@@ -882,3 +882,6 @@ reported, not ignored.
 
 ### MSG-19-publish
 - feat(website): publish the policy block on the messages page — "User content, moderated only by topic moderators"; no contact sentence until the operator fills one
+
+### MSG-19-contact-env
+- feat(website): report-abuse sentence on messages.html rendered from CONTACT_EMAIL in /etc/aitbc/website.env via render-website.sh — empty region while unset
