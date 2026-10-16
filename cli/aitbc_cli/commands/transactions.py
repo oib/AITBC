@@ -594,14 +594,26 @@ def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: st
 
   aitbc transactions search --address 0x...
 
+  aitbc transactions search --sender 0x... --limit 50
+
   aitbc transactions search --address 0x... --limit 50 --use-explorer"""
 )
-@click.option("--address", "address", required=True, help="Blockchain address to fund.")
+@click.option("--address", "address", help="Blockchain address on either side of the transaction.")
+@click.option("--sender", "sender", help="Return only transactions sent by this address.")
+@click.option("--recipient", "recipient", help="Return only transactions received by this address.")
 @click.option("--limit", default=100, help="Number of transactions to return")
 @click.option("--use-explorer", is_flag=True, help="Use Explorer API instead of RPC")
-def search(address: str, limit: int, use_explorer: bool):
-    """Search transactions by address or node ID."""
+@click.option("--rpc-url", default=None, help="Blockchain RPC base URL (overrides config)")
+def search(address: str, sender: str, recipient: str, limit: int, use_explorer: bool, rpc_url: str):
+    """Search transactions by address, sender, or recipient."""
+    if not address and not sender and not recipient:
+        error("Provide at least one of --address, --sender or --recipient.")
+        return
+    filters = {k: v for k, v in {"address": address, "sender": sender, "recipient": recipient}.items() if v}
     if use_explorer:
+        if sender or recipient:
+            error("The Explorer API cannot filter by sender or recipient. Omit --use-explorer to use the RPC path.")
+            return
         try:
             config = get_config()
             http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
@@ -615,5 +627,13 @@ def search(address: str, limit: int, use_explorer: bool):
         except Exception as e:
             error(f"Error searching transactions: {e}")
     else:
-        # Fallback to RPC method if available
-        error("Transaction search via RPC not implemented. Use --use-explorer flag to use Explorer API.")
+        try:
+            http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=30)
+            transactions = http_client.get_json("/rpc/transactions", params={**filters, "limit": limit})
+            names = "+".join(filters)
+            success(f"Found {len(transactions)} transactions matching {names} (via RPC)")
+            click.echo(json.dumps(transactions, indent=2))
+        except NetworkError as e:
+            error(f"RPC unavailable: {e}")
+        except Exception as e:
+            error(f"Error searching transactions: {e}")
