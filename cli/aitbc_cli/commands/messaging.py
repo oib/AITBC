@@ -22,7 +22,6 @@ import click
 
 from aitbc.messaging import (
     BROADCAST_TOPIC,
-    DM_CONTEXT,
     DM_TOPIC,
     MAX_MESSAGE_BODY_BYTES,
     MIN_SEARCH_CHARS,
@@ -1040,9 +1039,18 @@ def state(ctx, rpc_url):
 # stays out of the wallet file format entirely.
 
 
-def _dm_keys_dir(wallet_path: Path) -> Path:
-    """``<wallets_dir>/../dm-keys`` — alongside the wallet directory."""
-    return wallet_path.parent.parent / "dm-keys"
+# Crypto + key-store kernel lives in ``aitbc.dm_client`` (shared with the
+# SDK); re-imported under the historical ``_names`` so test patch points
+# and import sites keep working.
+from aitbc.dm_client import (
+    dm_keys_dir as _dm_keys_dir,
+    dm_max_plaintext_bytes as _dm_max_plaintext_bytes,
+    dm_store_load as _dm_store_load,
+    dm_store_save as _dm_store_save,
+    generate_key_era as _dm_generate_key_era,
+    open_dm as _open_dm,
+    seal_dm as _seal_dm,
+)
 
 
 def _dm_key_file(ctx, wallet_name: str) -> Path:
@@ -1051,25 +1059,6 @@ def _dm_key_file(ctx, wallet_name: str) -> Path:
         abort(ctx, wallet_not_found_message(report))
     path = cast(Path, report.path)
     return _dm_keys_dir(path) / f"{wallet_name}.json"
-
-
-def _dm_store_load(path: Path) -> dict[str, Any]:
-    try:
-        data = json.loads(path.read_text())
-    except FileNotFoundError:
-        return {"keys": []}
-    except Exception:
-        return {"keys": []}
-    # `list` is shadowed by the Click command above — use the builtins name.
-    import builtins
-
-    return data if isinstance(data, dict) and isinstance(data.get("keys"), builtins.list) else {"keys": []}
-
-
-def _dm_store_save(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2))
-    path.chmod(0o600)
 
 
 def _dm_current_key(ctx, wallet_name: str) -> tuple[dict[str, Any], Path]:
@@ -1083,75 +1072,6 @@ def _dm_current_key(ctx, wallet_name: str) -> tuple[dict[str, Any], Path]:
         f"No DM key for wallet '{wallet_name}' — run `aitbc messaging dm keygen --wallet {wallet_name} --confirm` first",
     )
     raise AssertionError  # unreachable
-
-
-def _seal_dm(recipient_pub_b64: str, sender: str, recipient: str, body: str) -> str:
-    import base64
-
-    from nacl.public import PublicKey, SealedBox
-
-    plaintext = f"{DM_CONTEXT}\n{sender}\n{recipient}\n{body}".encode()
-    box = SealedBox(PublicKey(base64.b64decode(recipient_pub_b64, validate=True)))
-    return base64.b64encode(box.encrypt(plaintext)).decode("ascii")
-
-
-def _open_dm(secret_b64: str, sender: str, recipient: str, ct_b64: str) -> str:
-    """Decrypt + verify the authenticated inner header. Raises ValueError on
-    any failure — never returns unverified plaintext."""
-    import base64
-    import binascii
-
-    from nacl.exceptions import CryptoError
-    from nacl.public import PrivateKey, SealedBox
-
-    try:
-        ct = base64.b64decode(ct_b64.encode("ascii"), validate=True)
-    except (binascii.Error, UnicodeEncodeError, ValueError) as e:
-        raise ValueError("ciphertext is not strict base64") from e
-    try:
-        plain = SealedBox(PrivateKey(base64.b64decode(secret_b64, validate=True))).decrypt(ct)
-    except CryptoError as e:
-        raise ValueError("decryption failed — wrong key or tampered ciphertext") from e
-    try:
-        text = plain.decode("utf-8")
-    except UnicodeDecodeError as e:
-        raise ValueError("decrypted payload is not UTF-8") from e
-    return _dm_check_header(text, sender, recipient)
-
-
-def _dm_check_header(text: str, sender: str, recipient: str) -> str:
-    """Verify the ``aitbc-dm-v1`` inner header and return the body, or raise.
-
-    The header ties plaintext to both identities: header sender must equal
-    the transaction signer, header recipient must equal this wallet. Any
-    mismatch rejects — never a guess."""
-    from aitbc.crypto.signature_recovery import canonical_address
-
-    parts = text.split("\n", 3)
-    if len(parts) != 4:
-        raise ValueError("decrypted payload lacks the aitbc-dm-v1 header")
-    context, h_sender, h_recipient, body = parts
-    if context != DM_CONTEXT:
-        raise ValueError("decrypted payload has the wrong context string")
-    try:
-        if canonical_address(h_sender) != canonical_address(sender):
-            raise ValueError("header sender does not match the transaction signer")
-        if canonical_address(h_recipient) != canonical_address(recipient):
-            raise ValueError("header recipient is not this wallet")
-    except ValueError:
-        raise
-    except Exception as e:
-        raise ValueError("malformed address in the decrypted header") from e
-    if not body:
-        raise ValueError("decrypted payload has an empty body")
-    return body
-
-
-def _dm_max_plaintext_bytes() -> int:
-    """Room for the message after the sealed-box overhead + inner header."""
-    # 4096 base64 chars = 3072 raw bytes; SealedBox adds 48 B; the header is
-    # context + 2 newlines + two 42-char addresses + 1 newline ≈ 106 B.
-    return 3072 - 48 - (len(DM_CONTEXT) + 3 + 84)
 
 
 @messaging.group("dm")
@@ -1182,10 +1102,6 @@ def dm_keygen(ctx, wallet_name, fee, confirm, rotate, rpc_url, password, passwor
     DRY RUN by default. With --confirm: a new X25519 keypair is stored in the
     mode-600 dm-keys file and a ``dm_key`` envelope is signed and submitted.
     """
-    import base64
-
-    from nacl.public import PrivateKey
-
     path = _dm_key_file(ctx, wallet_name)
     store = _dm_store_load(path)
     if store["keys"] and not rotate:
@@ -1193,9 +1109,8 @@ def dm_keygen(ctx, wallet_name, fee, confirm, rotate, rpc_url, password, passwor
         click.echo(f"DM key already exists for '{wallet_name}' (enc_pubkey {pub}); use --rotate to publish a new one")
         era = None
     else:
-        sk = PrivateKey.generate()
-        pub = base64.b64encode(bytes(sk.public_key)).decode("ascii")
-        era = {"enc_pubkey": pub, "secret_key": base64.b64encode(bytes(sk)).decode("ascii"), "published_tx": None}
+        era = _dm_generate_key_era()
+        pub = era["enc_pubkey"]
     sender_address = _wallet_address(ctx, wallet_name)
     resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
     envelope = build_envelope(kind="dm_key", topic=DM_TOPIC, agent_address=sender_address, enc_pubkey=pub)
