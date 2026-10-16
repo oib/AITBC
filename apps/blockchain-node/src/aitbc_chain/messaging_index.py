@@ -951,8 +951,13 @@ def _standing_votes(session, chain_id: str, *, targets: list[str] | None = None,
     voter = func.lower(col(Transaction.sender)).label("voter")
     v_target = func.lower(_env_json("target")).label("v_target")
     v_value = _env_json("value").label("v_value")
+    # A vote only counts in the topic it claims; a wrong-topic vote is a
+    # sealed no-op (§4). Partitioning by the claimed topic as well keeps
+    # such a row in its own partition — it can never take the newest slot
+    # and silently retract the voter's valid vote on the same target.
+    v_topic = _env_text("topic")
     rn = func.row_number().over(
-        partition_by=(voter, v_target),
+        partition_by=(voter, v_target, v_topic),
         order_by=(col(Transaction.block_height).desc(), col(Transaction.tx_hash).desc()),
     )
     inner = (
@@ -964,7 +969,7 @@ def _standing_votes(session, chain_id: str, *, targets: list[str] | None = None,
             v_target,
             v_value,
             _env_text("kind").label("env_kind"),
-            _env_text("topic").label("env_topic"),
+            v_topic.label("env_topic"),
             _env_text("parent").label("env_parent"),
             _env_text("agent_address").label("env_agent_address"),
             _env_text("body").label("env_body"),
