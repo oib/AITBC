@@ -162,9 +162,14 @@ preconditions green: fresh `svc_bridge_deposits.db.gz` artifact from
 `--emit-rows` output identical to the staged five. The writer inserted
 all five rows via `record_outbound`; post-checks: `bridge_outbound` = 5,
 `eth_deposits` still 9, monitor active, scratch-copy reconcile reports
-the named `DEFICIT 52335372406592269 wei` (expected — see below), two
-value-bearing rows stay `unidentified` by design. The procedure below is
-kept as the record of what ran.
+the named `DEFICIT 52335372406592269 wei` (expected — see below).
+Post-insert, on the operator's reviewed relabel line, the two rows the
+collector had emitted as `unidentified` were corrected to `withdrawal`
+with notes naming their evidence (`0xdaf4b9cf` → "bridge_sell_locks
+release", `0xcbf5a1a8` → "exchange_settlements release" — verified by
+read-only joins into those tables). Only the failed send `0x914463b7`
+stays `unidentified`. The procedure below is kept as the record of what
+ran.
 
 Backfills the five outbound sends the monitor made *before* the writer
 shipped. One reviewed transaction; nothing else writes.
@@ -246,9 +251,12 @@ Expected verdict after insert: **DEFICIT ~0.052 ETH**, the already-
 decomposed pre-rotation old-wallet outflows (`52335372406592269` wei in
 the rotation fixture) — the five new rows explain 0.00184 ETH of named
 outbound; the rest is the OLD wallet's history which a backfill of the
-current wallet's txlist cannot cover. Two rows stay `unidentified`
-(~0.000166 ETH to `0xcf17…`, node2's Sepolia wallet) — left unclassified
-deliberately; the operator rules on them, the coder does not reclassify.
+current wallet's txlist cannot cover. Of the five inserted rows, only
+`0x914463b7` (the failed send, gas burned only) stays `unidentified`.
+The other two rows the collector could not classify (~0.000166 ETH to
+`0xcf17…`, node2's Sepolia wallet) were relabeled `withdrawal` on the
+operator's line after read-only joins matched them to
+`bridge_sell_locks` and `exchange_settlements`.
 
 ### Downgrade
 
