@@ -127,15 +127,20 @@ verifies all hosts on candidate.
 
 ## Rollback (per unit)
 
-Checkouts on live hosts track `main`; do **not** leave them detached —
-`git checkout <sha>` would break the next `merge --ff-only`. Roll a unit
-back by returning the checkout to that unit's **previous running SHA**
-and restarting only that unit:
+Checkouts on live hosts track `main`. Roll a unit back by detaching the
+checkout onto that unit's **previous running SHA** and restarting only
+that unit — use `git checkout --detach <sha>`, which refuses to run over
+conflicting local changes (hub's checkout carries a local edit to
+`website/messages.html`; `reset --hard` is reserved for the IDE clone
+and must not run on a live checkout). After the rollback verify, return
+the checkout to `main` before any next pull: `git checkout main &&
+git merge --ff-only origin/main`. A detached checkout only breaks pulls
+if you forget that return step — include it in the rollback line itself.
 
 | unit → previous running SHA | hosts | command shape |
 |---|---|---|
-| node → `1bafeea3e` | hub, hub1 | `git merge --ff-only` can't go back — use `git reset --hard 1bafeea3e` (live nodes never commit; branch stays on `main`), restart `aitbc-blockchain-node`, verify, then `git fetch origin && git reset --hard origin/main` (or `merge --ff-only`) to re-join `main` before the next pull |
-| rpc → `2f1dd9a65` | node1, node2, hub, hub1 | same checkout dance, restart `aitbc-blockchain-rpc` only — **an rpc rollback needs no node restart** (the node process never depended on rpc code) |
+| node → `1bafeea3e` | hub, hub1 | `git checkout --detach 1bafeea3e`, restart `aitbc-blockchain-node`, verify, then `git checkout main && git merge --ff-only origin/main` |
+| rpc → `2f1dd9a65` | node1, node2, hub, hub1 | same detach/return shape, restart `aitbc-blockchain-rpc` only — **an rpc rollback needs no node restart** (the node process never depended on rpc code) |
 | explorer → its own previous SHA | node0 `9100f875a`, node1/node2 `1ada65b32`, hub `d0e49ad1d`, hub1 `bd10f1606` | same, restart `aitbc-blockchain-explorer` only |
 
 If `dm`/`dm_key` envelopes were sealed before a rollback (only possible
