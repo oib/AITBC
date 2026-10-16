@@ -1494,3 +1494,34 @@ tests:
             exp_annotations:
               summary: "Chain head on aitbc-main has not advanced for 15 minutes on stuck:8202"
               description: "aitbc_messaging_chain_head_height on stuck:8202 has stayed at 500 for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
+
+  # ChainHeadMetricMissing (CHAIN-STALL-2). ok answers scrapes and exposes the
+  # gauge; blind answers scrapes but exposes none (collect crashed or the
+  # metrics family vanished); dead is down — ServiceDown's territory, not
+  # this rule's.
+  - interval: 1m
+    input_series:
+      - series: 'up{instance="ok:8202", job="blockchain-node"}'
+        values: '1x20'
+      - series: 'up{instance="blind:8202", job="blockchain-node"}'
+        values: '1x20'
+      - series: 'up{instance="dead:8202", job="blockchain-node"}'
+        values: '0x20'
+      - series: 'aitbc_messaging_chain_head_height{chain_id="aitbc-main", instance="ok:8202", job="blockchain-node"}'
+        values: '100+1x20'
+
+    alert_rule_test:
+      # blind has been up-without-gauge since t=0; the 10m hold ends at t=10m.
+      - eval_time: 9m
+        alertname: ChainHeadMetricMissing
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: ChainHeadMetricMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: blind:8202
+              job: blockchain-node
+            exp_annotations:
+              summary: "chain-head metric missing on blind:8202"
+              description: "blind:8202 answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height, so ChainHeadStalled cannot see a stall there. Check for 'messaging metrics: collect failed' in the rpc journal and that the metrics endpoint still serves the messaging family."
