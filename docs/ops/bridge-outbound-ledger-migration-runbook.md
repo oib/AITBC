@@ -171,7 +171,9 @@ collector had emitted as `unidentified` were corrected to `withdrawal`
 with notes naming their evidence (`0xdaf4b9cf` → "bridge_sell_locks
 release", `0xcbf5a1a8` → "exchange_settlements release" — verified by
 read-only joins into those tables). Only the failed send `0x914463b7`
-stays `unidentified`. The procedure below is kept as the record of what
+stays `unidentified`. (BR-6c later taught the collector the same
+three-table lookup, so a future re-run emits these correctly.) The
+procedure below is kept as the record of what
 ran.
 
 Backfills the five outbound sends the monitor made *before* the writer
