@@ -35,7 +35,12 @@ def aitbc_messaging_hide(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -142,7 +147,12 @@ def aitbc_messaging_lock(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -210,7 +220,12 @@ def aitbc_messaging_mod_grant(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -277,7 +292,12 @@ def aitbc_messaging_mod_revoke(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -393,7 +413,12 @@ def aitbc_messaging_pin(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -510,7 +535,10 @@ def aitbc_messaging_send(
         bool | None, Field(description="Sign and submit once (default: dry run — prints the post, signs nothing)")
     ] = None,
     wait: Annotated[
-        bool | None, Field(description="With --confirm: poll until the transaction is sealed (default: wait)")
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
     ] = None,
     wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
@@ -757,7 +785,12 @@ def aitbc_messaging_unhide(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -824,7 +857,12 @@ def aitbc_messaging_unlock(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -892,7 +930,12 @@ def aitbc_messaging_unpin(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
@@ -960,7 +1003,12 @@ def aitbc_messaging_vote(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
-    wait: Annotated[bool | None, Field(description="With --confirm: poll until sealed (default: wait)")] = None,
+    wait: Annotated[
+        bool | None,
+        Field(
+            description="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash"
+        ),
+    ] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
