@@ -55,6 +55,8 @@ def _make_job_and_payment(
         payment_status=payment_status,
         completed_at=completed_at,
         receipt=receipt,
+        # A receipt of record needs a receipt_id (SEC-20): without one the gate sees no receipt.
+        receipt_id=f"r-{job_id}" if receipt else None,
     )
     meta = {}
     if window_seconds > 0:

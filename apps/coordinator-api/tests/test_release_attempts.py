@@ -248,6 +248,7 @@ class TestLockNotSealedRetry:
         )
         job = payment_session.get(Job, job_id)
         job.receipt = {"computation_correct": True, "zk_status": "not_required"}
+        job.receipt_id = f"r-{job.id}"  # SEC-20: a receipt of record needs a receipt_id
         payment_session.add(job)
         payment_session.commit()
 
@@ -309,6 +310,7 @@ def _held_completed_payment(payment_session, job_id, payment_id, meta=None):
     )
     job = payment_session.get(Job, job_id)
     job.receipt = {"computation_correct": True, "zk_status": "not_required"}
+    job.receipt_id = f"r-{job.id}"  # SEC-20: a receipt of record needs a receipt_id
     payment_session.add(job)
     payment_session.commit()
 
