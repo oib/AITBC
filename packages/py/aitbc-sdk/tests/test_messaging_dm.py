@@ -178,3 +178,66 @@ class TestDmRead:
             c.dm_read("ab" * 32, address=BOB)
         with pytest.raises(AITBCError, match="address|wallet"):
             c.dm_read("ab" * 32, secret_key="x")
+
+
+# ------------------------------------------------------------------ MSG-8e
+# Store hardening on the SDK path: persist-before-publish, atomic modes,
+# corrupt store refused, crash keeps the secret on disk.
+
+import os
+
+
+class TestPublishKeyHardening:
+    def test_secret_on_disk_before_submit_runs(self, tmp_path):
+        path = tmp_path / "alice.json"
+        seen = {}
+
+        def submit(wallet, envelope, fee):
+            # At submit time the era is already persisted, unpublished.
+            store = dm_store_load(path, strict=True)
+            seen["era"] = store["keys"][-1]
+            return "ab" * 32
+
+        _client().dm_publish_key(wallet="alice", agent_address=ALICE, keys_path=path, submit=submit)
+        assert seen["era"]["secret_key"]
+        assert seen["era"]["published_tx"] is None
+
+    def test_failed_submit_keeps_era_and_retry_reuses_it(self, tmp_path):
+        path = tmp_path / "alice.json"
+        c = _client()
+
+        def boom(*a):
+            raise AITBCError("simulated crash in send")
+
+        with pytest.raises(AITBCError, match="simulated crash"):
+            c.dm_publish_key(wallet="alice", agent_address=ALICE, keys_path=path, submit=boom)
+        on_disk = dm_store_load(path, strict=True)
+        assert len(on_disk["keys"]) == 1
+        assert on_disk["keys"][0]["secret_key"] and on_disk["keys"][0]["published_tx"] is None
+
+        calls, submit = _capture_submit()
+        out = c.dm_publish_key(wallet="alice", agent_address=ALICE, keys_path=path, submit=submit)
+        assert out["enc_pubkey"] == on_disk["keys"][0]["enc_pubkey"]  # same era retried
+        assert len(dm_store_load(path, strict=True)["keys"]) == 1
+        assert len(calls) == 1
+
+    def test_corrupt_store_refused_byte_identical(self, tmp_path):
+        path = tmp_path / "alice.json"
+        path.write_bytes(b"{not json")
+        before = path.read_bytes()
+        with pytest.raises(AITBCError, match="unreadable|malformed"):
+            _client().dm_publish_key(wallet="alice", agent_address=ALICE, keys_path=path, submit=lambda *a: "t")
+        assert path.read_bytes() == before
+
+    @pytest.mark.parametrize("umask", [0o022, 0o000])
+    def test_modes_under_umask(self, tmp_path, umask):
+        old = os.umask(umask)
+        try:
+            path = tmp_path / "fresh" / "alice.json"
+            _, submit = _capture_submit()
+            _client().dm_publish_key(wallet="alice", agent_address=ALICE, keys_path=path, submit=submit)
+            assert (path.stat().st_mode & 0o777) == 0o600
+            assert (path.parent.stat().st_mode & 0o777) == 0o700
+            assert [p.name for p in path.parent.iterdir()] == ["alice.json"]
+        finally:
+            os.umask(old)
