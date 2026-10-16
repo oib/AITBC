@@ -855,3 +855,8 @@ reported, not ignored.
 
 ### MSG-CLI-WAIT (fix 2)
 - vote/mod_grant/mod_revoke never appear in the moderation `actions` list, so the fix-1 wait polled the full timeout and hinted the wrong route. They now detect by *state* — vote via the target's `/votes` route (signer+value), grant/revoke via the topic `moderators` list — and report "reads as expected" rather than "sealed". A pre-send probe reports "already reads as expected" instead of claiming a seal when state predates submission; unknown kinds print a verify-hint immediately without waiting. 8 new tests (per-kind routes, wrong-value/still-present keep polling, unknown kind, pre-send probe, command-level pre-match).
+
+### MSG-CLI-WAITc
+- Retract (`vote` value 0): matched by the signer's *absence* from the target's standing votes ("vote retracted — signer absent"), so it no longer burns the full --wait-timeout; a retract with no standing vote is pre-matched and reports "nothing to retract" instead of claiming a seal.
+- Non-moderator moderation sends: `_presend_expectations` reads the topic moderators once before submit; a non-moderator signer gets "submitted; recorded but not effective for a non-moderator" at once — no 180 s hash wait (the `actions` list only ever holds moderator-signed rows). Applies to all eight moderator-gated kinds.
+- Moderation hash waits now cap at 30 s when the `actions` list reads at its 100-entry cap (a fresh hash can have scrolled out). `--wait` help names each detection route. 6 new tests; `_wait_confirmed`/`_poll_read` helpers keep C901 flat.
