@@ -53,6 +53,9 @@ Operator procedures for the live fleet:
 - [Node Sepolia wallets](ops/node-sepolia-wallets.md) — per-host Sepolia
   key custody (address-only output, 0600 wallet files), faucet funding,
   and the read-only balance check.
+- [Messaging-series rollout](ops/messaging-series-rollout.md) — the
+  combined rollout plan for the messaging series candidate: per-host
+  restart order, checks, stop conditions, and rollback.
 - [V-5 replay inventory](ops/v5-replay-inventory.md) — checkpoint-replay
   plan, verified inputs, and the known height-11 divergence.
 - [Escrow routing](ops/escrow-routing.md) — escrow operations must reach
