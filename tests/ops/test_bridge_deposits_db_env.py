@@ -147,6 +147,21 @@ def test_unset_env_resolves_existing_default(tmp_path, monkeypatch):
             assert resolved == os.path.join("/var/lib/aitbc", DEFAULT_NAME), c.label
 
 
+@pytest.mark.parametrize("blank", ["", "   ", " \t "])
+def test_blank_env_is_treated_as_unset(tmp_path, monkeypatch, blank):
+    """A bare ``BRIDGE_DEPOSITS_DB=`` (or whitespace) in an EnvironmentFile
+    must not reach ``sqlite3.connect('')`` — that opens a private temporary
+    database, a split-brain with no error. Blank is unset."""
+    ex_dir = tmp_path / "exdata-blank"
+    _mk_ledger(ex_dir / DEFAULT_NAME)
+    for c in CONSUMERS:
+        resolved = _resolve(c, monkeypatch, blank, str(ex_dir))
+        if c.kind == "exchange":
+            assert resolved == str(ex_dir / DEFAULT_NAME), c.label
+        else:
+            assert resolved == os.path.join("/var/lib/aitbc", DEFAULT_NAME), c.label
+
+
 def test_unset_default_is_unchanged_from_pre_override_layout(tmp_path, monkeypatch):
     """The pre-override default for every consumer was
     ``<data dir>/bridge_deposits.db`` — top-level, not under ``data/``.
