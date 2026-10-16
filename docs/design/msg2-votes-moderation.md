@@ -186,13 +186,17 @@ the full payload unchanged. Hiding only changes the *derived index views*:
   ones are unaffected. A lock never blocks `unlock`, `mod_grant`,
   `mod_revoke`, or any moderation action — moderation actions always apply
   regardless of lock state. Votes on locked content still count.
-  Unlock scope: rows sealed while a topic is locked are hidden only while
-  the lock is the latest effective lock/unlock; after an unlock they
-  appear again. — *confirm intended* (operator, MSG-2b)
-  Subtree-lock walk is bounded (`LOCK_WALK_LIMIT = 512` descendants in
-  canonical order): a reply beyond the bound is treated as outside the
-  locked subtree — visible, not flagged. Stated as the fail-open side of
-  a deliberate bound so reads never hang on a giant thread.
+  Unlock scope (operator decision, rule (b)): a row sealed while its
+  topic (or an ancestor thread) was locked keeps `after_lock = true`
+  permanently — an unlock clears only rows sealed after it, and rows
+  sealed before any lock are never flagged. A second `lock` while an
+  interval is open does not move its start; an `unlock` with no open
+  interval is a no-op.
+  Subtree-lock walk is bounded (`LOCK_WALK_LIMIT = 512` descendants
+  walked per root, across all of that root's intervals, in canonical
+  order): a reply beyond the bound is treated as outside the locked
+  subtree — visible, not flagged. Stated as the fail-open side of a
+  deliberate bound so reads never hang on a giant thread.
 
 ## (4) Votes — one per signer, last wins
 

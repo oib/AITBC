@@ -783,3 +783,20 @@ reported, not ignored.
   ciphertext-only index, client-side decryption, ~3900 B plaintext cap
   under the 4 KiB body cap. No forward secrecy; Phase 1 requires
   operator authorization plus independent crypto review.
+### MSG-2e — lock scope rule (b): sealed-while-locked rows stay flagged
+
+- ``after_lock`` is now interval-based: a row sealed while its topic (or
+  an ancestor thread) was locked stays flagged after the unlock — an
+  unlock clears only rows sealed after it. ``_ModState`` gains
+  ``topic_intervals``/``thread_intervals`` ([start, end|None]); a second
+  ``lock`` while open does not move the start, an ``unlock`` with no
+  open interval is a no-op, and ineffective actions create no interval.
+  "Locked now" routes (``locked``/``locked_by``, ``topic_lock``) are
+  unchanged; LOCK_WALK_LIMIT still bounds descendants walked per root
+  across all of that root's intervals.
+- Design note: the "rows appear again after unlock" sentence replaced
+  with rule (b); *confirm intended* marker removed.
+- Tests: ``TestLockIntervals`` (8) in the production hash layout —
+  during-lock permanence, two cycles, second-lock no-move, unlock-noop,
+  non-moderator no-interval, thread intervals, same-block reorder,
+  reorg re-opens the interval.
