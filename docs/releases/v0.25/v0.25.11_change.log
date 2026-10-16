@@ -843,5 +843,15 @@ reported, not ignored.
 
 - Digest cache keyed on the checkpoint-block hash, not the moving index head (one scan per checkpoint, plus one per heal under it); single-flight per key so concurrent scrapes share one cold scan; digest gauge no longer goes absent mid-scan (set-then-prune); routine 4xx split into `aitbc_messaging_read_client_errors_total` (unalerted) so only 5xx/unhandled feed MessagingReadErrors; runbook gains the rollout-mismatch caveat.
 
+### MSG-8c
+
+- docs/design/msg8-direct-messages.md folds in the independent
+  pre-read: bidirectional dm-slug rule (topic=="dm" iff kind=="dm",
+  single owner helper in messaging_index.py), parse edges (non-UTF-8
+  and empty body hard-reject), ciphertext-length in the public list
+  (no padding in Phase 1), defence-in-depth envelope check, ephemeral
+  key non-reuse, key-file accumulation + TOFU window notes, eight
+  added tests. F3/F11 recorded as considered-not-adopted.
+
 ### MSG-CLI-WAIT (fix 2)
 - vote/mod_grant/mod_revoke never appear in the moderation `actions` list, so the fix-1 wait polled the full timeout and hinted the wrong route. They now detect by *state* — vote via the target's `/votes` route (signer+value), grant/revoke via the topic `moderators` list — and report "reads as expected" rather than "sealed". A pre-send probe reports "already reads as expected" instead of claiming a seal when state predates submission; unknown kinds print a verify-hint immediately without waiting. 8 new tests (per-kind routes, wrong-value/still-present keep polling, unknown kind, pre-send probe, command-level pre-match).
