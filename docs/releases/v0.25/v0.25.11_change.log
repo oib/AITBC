@@ -664,3 +664,16 @@ reported, not ignored.
 - scripts/monitoring/aitbc_rules_test.yml + monitoring-setup.md updated;
   promtool test rules passes. No rules installed on any host; no top-up
   needed (see tasks/progress/SD-5.md).
+
+
+### BR-1
+
+- docs/contracts/cross-chain-bridge-deployment.md: mainnet readiness
+  package folded into the deploy runbook — ETH-3 lessons as numbered
+  pre-flight checks (Safe nonce pin, bounded eth_getLogs scans,
+  receipt-based post-tx reads), bridge_mainnet_preflight.py profile
+  explainer (mainnet profile fails on today's Sepolia env by design), a
+  rehearsal-vs-mainnet gap list, a go/no-go table with operator-only
+  preconditions marked, and two reported defects (MAX_BRIDGE_AMOUNT
+  never enforced; validator weight unused). No Solidity changed; BR-1
+  stays parked until a mainnet decision.
