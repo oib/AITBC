@@ -92,6 +92,11 @@ tests:
       # back up at t=11m — the bond_slash timeline.
       - series: 'aitbc_authority_balance_units{role="governance_proposer", address="0xP"}'
         values: '3600000x8 1500000x7 500000x7 3600000x10'
+      # Sell escrow (AIT_SELL_ESCROW account, watched as an AITBC_WATCH_ACCOUNTS
+      # extra): healthy at its real balance, drops into the low band at t=4m,
+      # critical at t=7.5m, topped up at t=11m — the bond_slash timeline.
+      - series: 'aitbc_authority_balance_units{role="sell_escrow", address="0xE"}'
+        values: '178560000x8 2000000x7 400000x7 3600000x10'
       # Hub validator float and retired proposer residue: flat, then the
       # balance falls at t=5.5m and the nonce moves at t=8.5m — same shape as
       # the bridge authority series; the moved-watch fires on the drop.
@@ -319,6 +324,49 @@ tests:
         exp_alerts: []
       - eval_time: 14m
         alertname: GovernanceProposerFloatCritical
+        exp_alerts: []
+
+      # Sell escrow: healthy at 178,560,000 (its live balance); 2,000,000 is in
+      # the low band (below ten fees) from t=4m and fires at t=6.5m; 400,000
+      # from t=7.5m fires critical at ~9.5m and resolves low; the top-up to
+      # 3,600,000 at t=11m clears both.
+      - eval_time: 3m
+        alertname: SellEscrowFloatLow
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: SellEscrowFloatCritical
+        exp_alerts: []
+      - eval_time: 6m30s
+        alertname: SellEscrowFloatLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              role: sell_escrow
+              address: 0xE
+            exp_annotations:
+              summary: "Sell escrow float is low (0xE)"
+              description: "Sell escrow 0xE holds 2M units — fewer than ten settle/refund TRANSFER fees (360,000 each). Top it up before an orphan-lock refund needs it."
+      - eval_time: 6m30s
+        alertname: SellEscrowFloatCritical
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: SellEscrowFloatCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              role: sell_escrow
+              address: 0xE
+            exp_annotations:
+              summary: "Sell escrow float is nearly gone (0xE)"
+              description: "Sell escrow 0xE holds 400k units — fewer than two settle/refund TRANSFER fees. The next leg it must sign will be refused at admission until funded."
+      - eval_time: 11m
+        alertname: SellEscrowFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: SellEscrowFloatLow
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: SellEscrowFloatCritical
         exp_alerts: []
 
       # Moved-watches: flat through t=4m; the balance drop at t=5.5m fires
