@@ -136,7 +136,10 @@ through it), the exchange readiness check, `exchange_verify.py`/`aitbc
 exchange verify --bridge-db`, and `fleet-config-check.sh` — honours the
 `BRIDGE_DEPOSITS_DB` env var. Unset, each resolves exactly the default it
 always did (`<data dir>/bridge_deposits.db`); explicit `--ledger`/`--db`
-flags still win over the variable.
+flags still win over the variable. An empty or whitespace-only value is
+treated as unset — a bare `BRIDGE_DEPOSITS_DB=` in an EnvironmentFile never
+opens `sqlite3.connect('')` (which would silently create a private
+temporary database).
 
 Set it for **every** consumer on a host or for **none**. `sqlite3.connect()`
 creates an empty file at a missing path, so a consumer left on the old path
