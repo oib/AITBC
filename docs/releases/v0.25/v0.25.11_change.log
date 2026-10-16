@@ -682,6 +682,14 @@ reported, not ignored.
   0xfbDd3Dc5… deployed to the existing rehearsal Safe, owner/paused/
   feeRecipient read-backs green, negative checks refused as expected.
   Rehearsal only; BR-1 itself still waits on the mainnet decision.
+- BR-1 gate converted to testnet (operator, 16 Oct): the run-2 bridge
+  0xfbDd3Dc5… is now the testnet deployment — recorded in
+  contracts/deployments-bridge-sepolia.json, rehearsal signers added as
+  validators (weight 1) via 2-of-3 Safe execs, wired on hub as
+  BRIDGE_CONTRACT_ADDRESS, and BRIDGE_FUNDING_SOURCES now lists
+  F=0x7bD56312… (rehearsal signer3) overlapping the old 0x02b8… —
+  0.001 ETH top-up from F recorded as FUNDING by the monitor. Bridge
+  stays paused until a supported token/chain is named.
 
 ### BR-1 defect 3 (operator review)
 
