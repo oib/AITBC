@@ -104,10 +104,19 @@ the durable lever is making admission smarter, not storage cheaper.
 ## Options that need the operator (listed, not decided — MSG-12)
 
 - **Fee schedule**: per-byte fee for MESSAGE bodies (e.g. fee ∝ payload
-  size) — changes the spam unit price; consensus-adjacent, needs a
-  versioned fee rule.
+  size) — changes the spam unit price. Nothing today enforces a MESSAGE
+  minimum fee: admission only bounds `fee >= 0`
+  (`rpc/transactions.py` `TransactionRequest.fee`) and apply only checks
+  `balance >= fee` (`state/pure_state_transition.py`, the
+  `total_cost = fee` branch for MESSAGE). A fee rule would be a new
+  apply-time rule — consensus-adjacent, needs versioning.
 - **Body size cap**: lowering `MAX_MESSAGE_BODY_BYTES` below 4096 —
-  consensus-visible predicate change.
+  admission- and index-visible, not consensus. The cap is enforced at RPC
+  submission (`rpc/transactions.py` calls `admission_error`, which runs
+  `envelope_error`) and again when the index reads rows; block import and
+  apply never check it, so it cannot fork the chain. The real cost: a
+  lowered cap hides already-sealed larger bodies from the derived index
+  and splits the fleet's index views until all nodes run the same build.
 - **Per-sender stake/bond for posting** — bond locked per active poster,
   slashed or burned on rule violations; needs the MSG-2 moderation
   authority question settled first.
