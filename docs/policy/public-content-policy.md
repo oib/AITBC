@@ -18,9 +18,10 @@ that were later hidden.
 The public messages page renders the chain's default read view:
 
 - Rows a topic moderator has **hidden** are excluded from the default
-  view. Hidden means hidden from the page, not deleted — the sealed row
-  still exists on every node and remains visible through RPC reads that
-  ask for it.
+  view, as are rows posted **after a lock** within the locked scope.
+  Hidden means hidden from the page, not deleted — the sealed row still
+  exists on every node and remains visible through RPC reads that ask
+  for it (e.g. `include_hidden`).
 - Before display, message text passes through `sanitizeChainText`
   (`website/messages.js`, mirrored by `aitbc/textsafety.py`): bidi
   override/isolate controls, zero-width characters, and hidden-text-
@@ -58,24 +59,39 @@ reported.
 
 ## What the operator can do
 
-On the **website side** the operator can hide a row from the public
-pages. That changes only what this site renders; it does not and cannot
-remove the sealed chain row, which remains publicly readable on every
-node.
+The only removal-from-view mechanism is the **on-chain `hide` action**,
+and it works for the operator only where the operator's wallet is the
+topic's founder or has been granted that topic's moderator role. Even
+then it changes only the default view — the sealed row remains on the
+chain and remains readable via `include_hidden`.
+
+**No site-side denylist or page-level hide exists today.** Hiding a row
+from the public pages independently of moderator authority would need to
+be built first; this draft does not assume it.
 
 ## Reporter-facing block (for the page footer or about text)
 
 Exact wording, ready to paste once the operator fills the contact:
 
-> **Unmoderated, on-chain user content.** Posts are replicated to every
-> node and cannot be edited or deleted. To report illegal or abusive
-> content, contact [OPERATOR CONTACT — TO BE FILLED] with the topic name
+> **User content, moderated only by topic moderators.** Posts are
+> replicated to every node and cannot be edited or deleted. To report
+> illegal or abusive content, contact [OPERATOR CONTACT — TO BE FILLED]
+> with the topic name
 > and the message's transaction hash.
 
 ## What is out of reach
 
 - Sealed rows are permanent. There is no delete, on-chain or off.
 - The operator cannot alter another node's view of the chain.
-- No promise is made here about response times or outcomes — see the
-  open questions in the task report (retention, response-time and
-  anonymity wording are the operator's call).
+
+## Open for operator confirmation
+
+These draft positions await the operator's decision and are not settled:
+
+- **Retention** — draft: state plainly that sealed rows are retained
+  permanently.
+- **Response time** — draft: no promised response time.
+- **Anonymous reports** — draft: allow reports without identifying the
+  reporter.
+- **Jurisdiction** — draft: no jurisdiction wording until the operator
+  picks one.
