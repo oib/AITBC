@@ -328,6 +328,8 @@ Install is the same manual shape as the authority exporter — copy `aitbc-bridg
 
 Prometheus scrapes only local targets — the shipped `/etc/prometheus/prometheus.yml` sample lists `localhost` jobs only. Remote series still reach the hub: every node's Prometheus pushes to hub over `remote_write` (hub runs `--web.enable-remote-write-receiver`), which is how the public alerts page shows a fleet-wide firing list and how the hub-side rules see follower series. The scrape list itself stays local:
 
+**Alert-state series are not remote-written.** Every follower also evaluates `aitbc_rules.yml` locally, but hub evaluates the same rules over the remote-written raw series — so a follower's own `ALERTS`/`ALERTS_FOR_STATE` output would land on hub with the same labelset and a different `active-since` value, and the receiver rejects it (duplicate-sample 400, which drops the whole batch). Each follower's `write_relabel_configs` therefore drops alert-state series before pushing. node0 is the exception in shape only: it runs host-local alerts (`/etc/prometheus/alerts.yml`) that hub cannot evaluate, so instead of dropping all alert-state it drops only series lacking the marker label `origin="node0-local"` — the relabel joins `__name__;origin` and a missing label produces the trailing-empty match. Shared-rule alert names need no list maintenance; only the marker convention matters.
+
 ```yaml
 global:
   scrape_interval: 15s
