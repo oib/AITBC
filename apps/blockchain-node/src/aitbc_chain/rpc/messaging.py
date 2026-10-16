@@ -22,7 +22,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..database import session_scope
 from ..logger import get_logger
-from ..messaging_metrics import collect_gauges, note_read, note_read_error
+from ..messaging_metrics import collect_gauges, note_read, note_read_client_error, note_read_error
 from ..messaging_index import (
     MAX_OFFSET,
     MAX_READ_LIMIT,
@@ -64,6 +64,12 @@ def _observed(route: str):
         async def wrapper(*args, **kwargs):
             try:
                 result = await fn(*args, **kwargs)
+            except HTTPException as e:
+                if e.status_code >= 500:
+                    note_read_error(route)
+                else:
+                    note_read_client_error(route)  # routine 404/400, no alert
+                raise
             except Exception:
                 note_read_error(route)
                 raise
