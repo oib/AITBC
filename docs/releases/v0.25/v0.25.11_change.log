@@ -860,3 +860,7 @@ reported, not ignored.
 - Retract (`vote` value 0): matched by the signer's *absence* from the target's standing votes ("vote retracted — signer absent"), so it no longer burns the full --wait-timeout; a retract with no standing vote is pre-matched and reports "nothing to retract" instead of claiming a seal.
 - Non-moderator moderation sends: `_presend_expectations` reads the topic moderators once before submit; a non-moderator signer gets "submitted; recorded but not effective for a non-moderator" at once — no 180 s hash wait (the `actions` list only ever holds moderator-signed rows). Applies to all eight moderator-gated kinds.
 - Moderation hash waits now cap at 30 s when the `actions` list reads at its 100-entry cap (a fresh hash can have scrolled out). `--wait` help names each detection route. 6 new tests; `_wait_confirmed`/`_poll_read` helpers keep C901 flat.
+
+### MSG-TEST-WAIT-1
+
+- tests/cli/test_commands_messaging.py: rewrote test_send_waits_for_seal for the MSG-CLI-WAIT poll path (requests.get -> /rpc/messaging/messages/<hash>, 200 + block_height asserts 'Sealed at block 42'); autouse _no_real_http fixture makes the file network-proof. The red test reached main because no pre-commit/pre-push hook runs pytest and tests/cli only runs in GitHub CI (make test-cli), which gitea pushes never trigger.
