@@ -413,3 +413,158 @@ class TestKeygenFlow:
         env = sent[0][1]["payload"]["aitbc_msg"]
         assert env["enc_pubkey"] == era_unpub
         assert len(dm_store_load(key_path, strict=True)["keys"]) == 1
+
+
+# ------------------------------------------------------------------ MSG-8g
+# `dm read` tries every stored key era newest→oldest, so a DM sealed to a
+# superseded key still opens after `dm keygen --rotate`. All keys here are
+# freshly generated throwaways in tmp_path stores.
+
+
+def _read_patches(monkeypatch, key_path, pages):
+    """Route dm read's wallet/store/rpc machinery at throwaway fixtures."""
+    import aitbc_cli.commands.messaging as m
+    from unittest.mock import MagicMock
+
+    http = MagicMock()
+    it = iter(pages)
+    http.get.side_effect = lambda *a, **k: next(it, {"messages": [], "next_cursor": None})
+    monkeypatch.setattr(m, "_dm_key_file", lambda ctx, w: key_path)
+    monkeypatch.setattr(m, "_wallet_address", lambda ctx, w: BOB)
+    monkeypatch.setattr(m, "_resolve_transaction_rpc_url", lambda u: "http://rpc")
+    monkeypatch.setattr(m, "_rpc_client", lambda url: http)
+
+
+def _dm_row(tx, ct, sender=ALICE, height=50):
+    return {"tx_hash": tx, "block_height": height, "sender": sender, "ct": ct}
+
+
+def _read(result_output):
+    import json
+
+    start = result_output.find("{")
+    assert start >= 0, result_output
+    return json.loads(result_output[start:])
+
+
+class TestDmReadEras:
+    def test_rotation_round_trip_opens_old_and_new(self, tmp_path, monkeypatch):
+        from click.testing import CliRunner
+
+        from aitbc.dm_client import generate_key_era
+        from aitbc_cli.commands.messaging import messaging
+
+        era1, era2 = generate_key_era(), generate_key_era()
+        key_path = tmp_path / "bob.json"
+        dm_store_save(key_path, {"keys": [era1, era2]})
+        runner = CliRunner()
+        for pub, body in (
+            (era1["enc_pubkey"], "sealed to the old key"),
+            (era2["enc_pubkey"], "sealed to the new key"),
+        ):
+            tx = "ab" * 32
+            _read_patches(monkeypatch, key_path, [{"messages": [_dm_row(tx, _seal_dm(pub, ALICE, BOB, body))]}])
+            result = runner.invoke(messaging, ["dm", "read", tx, "--wallet", "bob"], obj={"output_format": "json"})
+            assert result.exit_code == 0, result.output
+            payload = _read(result.output)
+            assert payload["body"] == body and payload["to"] == BOB
+
+    def test_unknown_key_reports_tried_count_without_material(self, tmp_path, monkeypatch):
+        from click.testing import CliRunner
+
+        from aitbc.dm_client import generate_key_era
+        from aitbc_cli.commands.messaging import messaging
+
+        era1, era2, stranger = generate_key_era(), generate_key_era(), generate_key_era()
+        key_path = tmp_path / "bob.json"
+        dm_store_save(key_path, {"keys": [era1, era2]})
+        tx = "cd" * 32
+        ct = _seal_dm(stranger["enc_pubkey"], ALICE, BOB, "unreadable")
+        _read_patches(monkeypatch, key_path, [{"messages": [_dm_row(tx, ct)]}])
+        result = CliRunner().invoke(messaging, ["dm", "read", tx, "--wallet", "bob"], obj={"output_format": "json"})
+        assert result.exit_code != 0
+        text = result.output + (result.stderr or "")
+        assert "no stored DM key era" in text and "2" in text
+        for leak in (era1["secret_key"], era2["secret_key"], stranger["secret_key"], ct):
+            assert leak not in text
+
+    def test_header_mismatch_raises_not_era_error(self, tmp_path, monkeypatch):
+        # Sealed to era1 but the header sender is CAROL while the row signer
+        # is ALICE: era1 decrypts, the header check rejects, and the walk must
+        # not end in the "no stored key era" fall-through error.
+        from click.testing import CliRunner
+
+        from aitbc.dm_client import generate_key_era
+        from aitbc_cli.commands.messaging import messaging
+
+        era1, era2 = generate_key_era(), generate_key_era()
+        key_path = tmp_path / "bob.json"
+        dm_store_save(key_path, {"keys": [era1, era2]})
+        tx = "ef" * 32
+        ct = _seal_dm(era1["enc_pubkey"], CAROL, BOB, "rebound")
+        _read_patches(monkeypatch, key_path, [{"messages": [_dm_row(tx, ct)]}])
+        result = CliRunner().invoke(messaging, ["dm", "read", tx, "--wallet", "bob"], obj={"output_format": "json"})
+        assert result.exit_code != 0
+        text = result.output + (result.stderr or "")
+        assert "signer" in text and "no stored DM key era" not in text
+
+    def test_tampered_ciphertext_fails_all_eras(self, tmp_path, monkeypatch):
+        from click.testing import CliRunner
+
+        from aitbc.dm_client import generate_key_era
+        from aitbc_cli.commands.messaging import messaging
+
+        era1, era2 = generate_key_era(), generate_key_era()
+        key_path = tmp_path / "bob.json"
+        dm_store_save(key_path, {"keys": [era1, era2]})
+        raw = bytearray(base64.b64decode(_seal_dm(era1["enc_pubkey"], ALICE, BOB, "hi")))
+        raw[-1] ^= 1
+        tx = "ab" * 32
+        _read_patches(monkeypatch, key_path, [{"messages": [_dm_row(tx, base64.b64encode(bytes(raw)).decode())]}])
+        result = CliRunner().invoke(messaging, ["dm", "read", tx, "--wallet", "bob"], obj={"output_format": "json"})
+        assert result.exit_code != 0
+        assert "no stored DM key era" in (result.output + (result.stderr or ""))
+
+    def test_single_era_store_still_reads(self, tmp_path, monkeypatch):
+        from click.testing import CliRunner
+
+        from aitbc.dm_client import generate_key_era
+        from aitbc_cli.commands.messaging import messaging
+
+        era = generate_key_era()
+        key_path = tmp_path / "bob.json"
+        dm_store_save(key_path, {"keys": [era]})
+        tx = "ab" * 32
+        _read_patches(
+            monkeypatch,
+            key_path,
+            [{"messages": [_dm_row(tx, _seal_dm(era["enc_pubkey"], ALICE, BOB, "one era only"))]}],
+        )
+        result = CliRunner().invoke(messaging, ["dm", "read", tx, "--wallet", "bob"], obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        assert _read(result.output)["body"] == "one era only"
+
+    def test_empty_store_keeps_no_dm_key_error(self, tmp_path, monkeypatch):
+        from click.testing import CliRunner
+
+        from aitbc_cli.commands.messaging import messaging
+
+        key_path = tmp_path / "bob.json"  # missing file → empty store
+        _read_patches(monkeypatch, key_path, [{"messages": [_dm_row("ab" * 32, "whatever")]}])
+        result = CliRunner().invoke(messaging, ["dm", "read", "ab" * 32, "--wallet", "bob"])
+        assert result.exit_code != 0
+        assert "No DM key for wallet" in (result.output + (result.stderr or ""))
+
+    def test_corrupt_store_refused_and_left_byte_identical(self, tmp_path, monkeypatch):
+        from click.testing import CliRunner
+
+        from aitbc_cli.commands.messaging import messaging
+
+        key_path = tmp_path / "bob.json"
+        key_path.write_bytes(b"{not json")
+        before = key_path.read_bytes()
+        _read_patches(monkeypatch, key_path, [{"messages": [_dm_row("ab" * 32, "whatever")]}])
+        result = CliRunner().invoke(messaging, ["dm", "read", "ab" * 32, "--wallet", "bob"])
+        assert result.exit_code != 0
+        assert "unreadable" in (result.output + (result.stderr or ""))
+        assert key_path.read_bytes() == before
