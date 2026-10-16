@@ -10,7 +10,7 @@ PYTHON ?= $(shell \
 	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
 	else command -v python3; fi)
 
-.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance test-migrations-slow live-dry-run openapi openapi-check version-check ci
+.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money bandit typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance test-migrations-slow test-required test-nightly test-suite-parity live-dry-run openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, fail on any finding (the CI lint gate)"
@@ -27,6 +27,9 @@ help:
 	@echo "make no-float-money  check for float money violations"
 	@echo "make live-dry-run    live scenario dry-run"
 	@echo "make test-governance just the governance suite (a bare pytest also covers it)"
+	@echo "make test-required   the required PR gate: every fast-classified suite, one pytest run"
+	@echo "make test-nightly    the scheduled sweep: fast + nightly suites, manual dirs excluded"
+	@echo "make test-suite-parity  fail if a testpaths entry is classified for no gate"
 	@echo "make test-migrations-slow  the ~15 min whole-chain alembic downgrade/upgrade sweep"
 	@echo "make openapi         regenerate docs/api/*-openapi.json from the running apps"
 	@echo "make openapi-check   fail if the committed specs differ from what the apps produce"
@@ -46,6 +49,9 @@ c901-ratchet:
 
 except-ratchet:
 	PYTHON=$(PYTHON) bash scripts/ci/check-except-ratchet.sh
+
+bandit:
+	PYTHON=$(PYTHON) bash scripts/ci/check-bandit.sh
 
 no-float-money:
 	$(PYTHON) scripts/lint/no_float_money.py
@@ -99,28 +105,22 @@ test-governance:
 test-migrations-slow:
 	$(PYTHON) -m pytest apps/coordinator-api/tests/integration/test_migrations.py -m slow -q
 
-# The required gate for suites CI never ran even though testpaths collected
-# them: exchange matching, gateway retries, wallet sends, market and
-# trading money paths, agent-coordinator payout authority, the security AST
-# guards, core, and the property suite. The classification lives in
-# scripts/ci/test_suites.py; `make test-suite-parity` fails if a testpaths
-# entry lands in no gate again.
-test-critical:
-	$(PYTHON) -m pytest -q \
-		apps/exchange/tests \
-		apps/api-gateway/tests \
-		apps/wallet/tests \
-		apps/market/tests \
-		apps/trading/tests \
-		apps/agent-coordinator/tests \
-		apps/bridge-monitor/tests \
-		tests/security \
-		tests/core \
-		tests/property_tests \
-		tests/smoke \
-		tests/unit/test_env_protection.py
-	# ^ explicit file: lives under tests/unit (unit gate) and is named here so the
-	#   critical gate collects it too — it guards the root-conftest env rewrite.
+# The required PR gate — one pytest run over every suite classified `fast`
+# in scripts/ci/test_suites.py, plus the repo-root hygiene modules and the
+# live-service deselects the same file emits. This used to be a hardcoded
+# list (`test-critical`) that silently skipped seven classified-fast suites
+# (the app smoke tests) for a release cycle; deriving the args from the
+# classification makes that drift impossible. The granular targets above
+# (test / test-apps / test-cli / test-governance) stay for local runs.
+# PYTHONPATH reaches aitbc_chain for blockchain-node tests;
+# API_KEY_STORAGE_PATH keeps the auth-module imports off /var/lib/aitbc.
+# The dead-endpoint URLs for CLI tests live in those suites' conftests —
+# a global override would break coordinator/payment tests that expect the
+# conftest defaults.
+test-required:
+	API_KEY_STORAGE_PATH=$${TMPDIR:-/tmp}/aitbc-test-api-keys.json \
+	PYTHONPATH=apps/blockchain-node/src \
+	$(PYTHON) -m pytest -q $(shell $(PYTHON) scripts/ci/test_suites.py fast)
 
 # The scheduled sweep: every offline-safe suite (fast + nightly classes), with
 # manual-only dirs — live fleet, load, browser UI — excluded via --ignore.
@@ -151,4 +151,4 @@ openapi-check:
 version-check:
 	$(PYTHON) scripts/ci/check-version-consistency.py
 
-ci: lint-strict c901-ratchet except-ratchet no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi-check version-check
+ci: lint-strict c901-ratchet except-ratchet no-float-money bandit typecheck test-required test-suite-parity live-dry-run openapi-check version-check

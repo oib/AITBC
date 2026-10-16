@@ -158,7 +158,7 @@ def main() -> int:
     def cmd_manual_payout(to: str, amount: str) -> int:
         try:
             ait_amount = Decimal(amount)
-        except Exception:
+        except ArithmeticError:
             print(f"invalid amount {amount!r}")
             return 2
         if ait_amount <= 0:

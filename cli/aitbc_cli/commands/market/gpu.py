@@ -266,10 +266,6 @@ def buy(
         require_private_key=True,
     )
 
-    if buyer_address is None:
-        error("Could not resolve buyer wallet address")
-        sys.exit(1)
-
     # Verify the buyer address matches the quote.
     if to_canonical(buyer_address) != to_canonical(parsed.buyer):
         error(f"Wallet address {buyer_address} does not match quote buyer {parsed.buyer}")

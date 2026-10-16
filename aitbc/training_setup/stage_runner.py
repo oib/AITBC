@@ -109,7 +109,8 @@ class StageRunner:
                 return {"success": False, "error": str(e)}
         cmd_list = [self.aitbc_cli, *command.cmd.split(), *command.args]
         try:
-            result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=30)  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=30)  # nosec B603
             output = result.stdout + result.stderr
             if result.returncode != command.expected_exit_code:
                 log.error("Command failed with exit code %s", result.returncode)

@@ -79,7 +79,8 @@ def _post_rpc(rpc_url: str, method: str, params: list, timeout: float = 15.0) ->
     body = json.dumps({"jsonrpc": "2.0", "method": method, "params": params, "id": 1}).encode()
     req = urllib.request.Request(rpc_url, data=body, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 -- scheme enforced above
+        # scheme enforced above
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
             payload = json.loads(resp.read().decode())
     except urllib.error.URLError as exc:
         raise RpcError(f"RPC request failed: {exc}") from exc
@@ -95,7 +96,8 @@ def _ait_transfers(ait_rpc: str, address: str, timeout: float = 15.0) -> dict[st
     flattened here). The endpoint has no cursor; limit=0 returns all."""
     url = f"{ait_rpc.rstrip('/')}/rpc/transactions?transaction_type=TRANSFER&address={address}&limit=0"
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:  # nosec B310 -- operator-supplied read URL
+        # operator-supplied read URL
+        with urllib.request.urlopen(url, timeout=timeout) as resp:  # nosec B310
             data = json.loads(resp.read().decode())
     except (urllib.error.URLError, json.JSONDecodeError) as exc:
         raise RpcError(f"AIT transfers fetch failed: {exc}") from exc

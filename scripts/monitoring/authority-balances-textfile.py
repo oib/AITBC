@@ -98,7 +98,8 @@ def fetch_parameters(rpc_url: str, timeout: float = 10.0) -> dict[str, str] | No
     if not base.startswith(("http://", "https://")):
         return None
     try:
-        with urllib.request.urlopen(f"{base}/rpc/state/snapshot", timeout=timeout) as response:  # nosec B310 - operator-configured RPC endpoint, scheme-checked above, fixed path
+        # operator-configured RPC endpoint, scheme-checked above, fixed path
+        with urllib.request.urlopen(f"{base}/rpc/state/snapshot", timeout=timeout) as response:  # nosec B310
             body = json.load(response)
         return {str(p["parameter"]): str(p["value"]) for p in body["chain_parameters"]}
     except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError):
@@ -111,7 +112,8 @@ def read_account(rpc_url: str, address: str, timeout: float = 5.0) -> tuple[int,
     if not base.startswith(("http://", "https://")):
         return None
     try:
-        with urllib.request.urlopen(f"{base}/rpc/accounts/{address}", timeout=timeout) as response:  # nosec B310 - operator-configured RPC endpoint, scheme-checked above, address is regex-validated 0x-hex
+        # operator-configured RPC endpoint, scheme-checked above, address is regex-validated 0x-hex
+        with urllib.request.urlopen(f"{base}/rpc/accounts/{address}", timeout=timeout) as response:  # nosec B310
             body = json.load(response)
         balance, nonce = body["balance"], body["nonce"]
     except urllib.error.HTTPError as exc:

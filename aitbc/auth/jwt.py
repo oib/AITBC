@@ -314,8 +314,8 @@ class JWTHandler:
                 "status": "success",
                 "token": token,
                 "expires_at": expire.isoformat() if expire else None,
-                "token_type": "Bearer",
-            }  # nosec B105
+                "token_type": "Bearer",  # nosec
+            }
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": "Token generation failed"}

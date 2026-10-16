@@ -56,7 +56,7 @@ import argparse
 import json
 import re
 import sqlite3
-import subprocess
+import subprocess  # nosec
 import sys
 import urllib.parse
 from datetime import datetime, UTC
@@ -285,7 +285,8 @@ def _local_bridge_roots(db: str, first: int, last: int, lock_lookback: int) -> N
             if ids:
                 marks = ",".join("?" for _ in ids)
                 for r in conn.execute(
-                    f"SELECT transfer_id, amount, target_chain FROM cross_chain_transfer WHERE source_chain = ? AND transfer_id IN ({marks})",  # nosec B608 - placeholders only
+                    # placeholders only
+                    f"SELECT transfer_id, amount, target_chain FROM cross_chain_transfer WHERE source_chain = ? AND transfer_id IN ({marks})",  # nosec
                     (chain_id, *ids),
                 ).fetchall():
                     records[r[0]] = {"transfer_id": r[0], "amount": r[1], "target_chain": r[2]}
@@ -335,9 +336,9 @@ def ssh(host: str, cmd: str, timeout: int = 20, stdin_file: Path | None = None) 
     try:
         if stdin_file is not None:
             with open(stdin_file, "rb") as fh:  # noqa: PTH123
-                r = subprocess.run(args, stdin=fh, capture_output=True, text=True, timeout=timeout)
+                r = subprocess.run(args, stdin=fh, capture_output=True, text=True, timeout=timeout)  # nosec
         else:
-            r = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+            r = subprocess.run(args, capture_output=True, text=True, timeout=timeout)  # nosec
     except subprocess.TimeoutExpired:
         return "__SSH_TIMEOUT__"
     return r.stdout + (r.stderr if r.returncode else "")

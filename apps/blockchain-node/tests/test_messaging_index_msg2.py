@@ -459,7 +459,7 @@ def _brute_force_moderators(session, topic: str) -> set[str]:
         env = mi._env_from_row(row)
         try:
             grantee = canonical_address(env.get("grantee") or "", strict=True)
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             continue
         if env.get("kind") == "mod_grant":
             mods.add(grantee)

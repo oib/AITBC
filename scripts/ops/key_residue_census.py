@@ -79,7 +79,7 @@ def _derive_address(key_hex: str) -> str | None:
         return None
     try:
         return str(keys.PrivateKey(bytes.fromhex(key_hex)).public_key.to_checksum_address()).lower()
-    except Exception:
+    except Exception:  # noqa: BLE001 - unparseable key material derives to empty
         return ""
 
 

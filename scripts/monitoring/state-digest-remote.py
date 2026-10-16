@@ -69,7 +69,7 @@ def main() -> int:
     try:
         row = cur.execute('SELECT MAX(height) FROM "block" WHERE chain_id=?', (chain_id,)).fetchone()
         max_block_height = int(row[0] or 0)
-    except Exception:
+    except sqlite3.Error:
         pass
     bound = max_height if max_height >= 0 else max_block_height
 
@@ -79,7 +79,7 @@ def main() -> int:
         cls = meta["class"]
         try:
             info = cur.execute(f'PRAGMA table_info("{table}")').fetchall()
-        except Exception as e:  # pragma: no cover - defensive
+        except sqlite3.Error as e:  # pragma: no cover - defensive
             result[table] = {"class": cls, "error": str(e)}
             continue
         if not info:
@@ -114,7 +114,8 @@ def main() -> int:
             else:
                 where += f'"{hcol}" <= ?'
             args += (bound,)
-        q = f'SELECT {sel} FROM "{table}" {where}'  # nosec B608 - identifiers only, values bound
+        # identifiers only, values bound
+        q = f'SELECT {sel} FROM "{table}" {where}'  # nosec
 
         def _norm(row: tuple, keep: list = keep, jdrop: dict = jdrop, jfalsy: dict = jfalsy) -> tuple:
             r = list(row)
@@ -122,7 +123,7 @@ def main() -> int:
                 if (n in jdrop or n in jfalsy) and isinstance(r[i], str) and r[i][:1] == "{":
                     try:
                         obj = json.loads(r[i])
-                    except Exception:
+                    except ValueError:
                         continue
                     if isinstance(obj, dict):
                         for k in jdrop.get(n, ()):
@@ -135,7 +136,7 @@ def main() -> int:
 
         try:
             rows = cur.execute(q, args).fetchall()
-        except Exception as e:
+        except sqlite3.Error as e:
             result[table] = {"class": cls, "error": str(e)}
             continue
         h = hashlib.sha256()
@@ -150,7 +151,7 @@ def main() -> int:
     for table, dk in spec.get("dupkeys", {}).items():
         try:
             info = cur.execute(f'PRAGMA table_info("{table}")').fetchall()
-        except Exception:
+        except sqlite3.Error:
             continue
         names = {c[1] for c in info}
         key = dk["key"]
@@ -161,11 +162,12 @@ def main() -> int:
         grp = ", ".join(f'lower("{k}")' if k in addr else f'"{k}"' for k in key)
         w = "WHERE chain_id=?" if "chain_id" in names else ""
         args = (chain_id,) if w else ()
-        # nosec on next line: only schema-derived identifiers interpolate; values stay bound
-        q = f'SELECT {grp}, COUNT(*) c FROM "{table}" {w} GROUP BY {grp} HAVING c>1'  # nosec B608
+        # on next line: only schema-derived identifiers interpolate; values stay bound
+        # nosec
+        q = f'SELECT {grp}, COUNT(*) c FROM "{table}" {w} GROUP BY {grp} HAVING c>1'  # nosec
         try:
             hits = [list(r) for r in cur.execute(q, args)]
-        except Exception:
+        except sqlite3.Error:
             continue
         if hits:
             dupes[table] = hits

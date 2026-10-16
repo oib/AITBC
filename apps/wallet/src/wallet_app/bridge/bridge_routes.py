@@ -863,7 +863,7 @@ def _check_sell_quote_rate_limit(ait_address: str) -> None:
     """Per-shop limits: open-quote cap and a minimum interval between quotes."""
     try:
         max_open = int(os.getenv("SELL_MAX_OPEN_QUOTES_PER_SHOP", "5"))
-    except Exception:
+    except (TypeError, ValueError):
         max_open = 5
     if count_open_sell_quotes(ait_address) >= max_open:
         raise HTTPException(
@@ -872,13 +872,13 @@ def _check_sell_quote_rate_limit(ait_address: str) -> None:
         )
     try:
         min_interval = int(os.getenv("SELL_QUOTE_MIN_INTERVAL_SECONDS", "30"))
-    except Exception:
+    except (TypeError, ValueError):
         min_interval = 30
     latest = get_latest_sell_quote_by_shop(ait_address)
     if latest and latest.get("created_at"):
         try:
             waited = (datetime.now() - datetime.fromisoformat(str(latest["created_at"]))).total_seconds()
-        except Exception:
+        except (TypeError, ValueError):
             waited = min_interval
         if waited < min_interval:
             raise HTTPException(
@@ -1060,7 +1060,7 @@ async def bridge_float(
     if address:
         try:
             balance = await _eth_balance(address)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - provider hiccup must not blank the float view — ledger stays authoritative
             # A provider hiccup must not blank the whole float view — the
             # ledger-side numbers below stay authoritative either way.
             balance_error = redact_text(str(e))

@@ -21,7 +21,7 @@ PG_CONFIG = {
     "host": "localhost",
     "database": "aitbc_coordinator",
     "user": "aitbc_user",
-    "password": "aitbc_password",
+    "password": "aitbc_password",  # nosec
     "port": 5432,
 }
 
@@ -288,7 +288,8 @@ def migrate_data():
             continue
 
         print(f"Migrating {table_name}...")
-        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec B608 - table_name comes from a hardcoded literal migrations list above, further validated against allowed_tables
+        # table_name comes from a hardcoded literal migrations list above, further validated against allowed_tables
+        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec
         rows = sqlite_cursor.fetchall()
 
         count = 0
@@ -312,7 +313,7 @@ def migrate_data():
                     if isinstance(value, str):
                         try:
                             value = json.loads(value)
-                        except Exception:
+                        except Exception:  # nosec
                             pass
                 elif key in ["balance", "price", "average_job_duration_ms"]:
                     # Handle numeric fields

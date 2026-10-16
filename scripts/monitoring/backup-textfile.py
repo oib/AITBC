@@ -146,11 +146,11 @@ def main() -> int:
     failed: list[str] = []
     try:
         newest_ts, newest_bytes, gen_count = scan(base)
-    except Exception:
+    except Exception:  # noqa: BLE001 - collect probe — an unreadable source counts as failed
         failed.append("backups_dir")
     try:
         run_ok = last_run_success(unit)
-    except Exception:
+    except Exception:  # noqa: BLE001 - collect probe — an unreadable unit result counts as failed
         failed.append("unit_result")
 
     try:

@@ -90,7 +90,8 @@ def _fail(message: str) -> NoReturn:
 
 
 def _rpc_get(base: str, path: str) -> dict:
-    with urllib.request.urlopen(f"{base}{path}", timeout=15) as r:  # nosec B310 -- operator-supplied internal RPC endpoint
+    # operator-supplied internal RPC endpoint
+    with urllib.request.urlopen(f"{base}{path}", timeout=15) as r:  # nosec B310
         return json.load(r)
 
 
@@ -99,19 +100,20 @@ def _rpc_post(base: str, path: str, body: dict) -> tuple[int, dict | str]:
         f"{base}{path}", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST"
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:  # nosec B310 -- operator-supplied internal RPC endpoint
+        # operator-supplied internal RPC endpoint
+        with urllib.request.urlopen(req, timeout=20) as r:  # nosec B310
             return r.status, json.load(r)
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read().decode())
-        except Exception:
+        except (OSError, UnicodeDecodeError, ValueError):
             return e.code, ""
 
 
 def _fetch_chain_id(rpc_url: str) -> str:
     try:
         return str(_rpc_get(rpc_url, "/rpc/info")["chain_id"])
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - RPC failure aborts the op
         _fail(f"cannot read chain_id from {rpc_url}/rpc/info: {e}")
 
 
@@ -119,7 +121,7 @@ def _fetch_parameters(rpc_url: str, chain_id: str) -> dict[str, str]:
     """Current chain parameters from the state snapshot."""
     try:
         snap = _rpc_get(rpc_url, f"/rpc/state/snapshot?chain_id={chain_id}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - RPC failure aborts the op
         _fail(f"cannot read chain parameters from {rpc_url}: {e}")
     return {p["parameter"]: p["value"] for p in snap.get("chain_parameters", [])}
 
@@ -132,7 +134,7 @@ def _fetch_account(rpc_url: str, chain_id: str, address: str) -> tuple[int, int]
         if e.code == 404:
             return 0, 0
         _fail(f"cannot read account {address}: HTTP {e.code}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - RPC failure aborts the op
         _fail(f"cannot read account {address}: {e}")
     return int(row.get("nonce", 0)), int(row.get("balance", 0))
 
@@ -470,7 +472,7 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
 
     try:
         row = _wait_confirmed(args.rpc_url, tx_hash, chain_id, args.timeout)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - RPC failure aborts the op
         _fail(f"lost contact with {args.rpc_url} while waiting for {tx_hash}: {e}")
     if row is None:
         _fail(f"timed out after {args.timeout}s waiting for {tx_hash} to seal — check /rpc/mempool on {args.rpc_url}")

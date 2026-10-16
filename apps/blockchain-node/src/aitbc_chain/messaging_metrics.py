@@ -282,6 +282,6 @@ def collect_all(supported_chains: list[str]) -> None:
                 snap = collect_gauges(session, chain_id)
             wanted.add((chain_id, str(snap["checkpoint_height"]), snap["checkpoint_digest"]))
             collected.add(chain_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - collect containment — one chain's failure must not prune the rest
             _logger.warning("messaging metrics: collect failed for %s: %s", chain_id, e)
     _prune_digest_labels(wanted, collected)

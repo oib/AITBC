@@ -89,7 +89,8 @@ def run_cmd(cmd: list[str], cwd=REPO_DIR, timeout=300, env=None):
     try:
         result = subprocess.run(
             cmd,
-            shell=False,  # nosec B603: argv list, no shell, all commands are literals below
+            # argv list, no shell, all commands are literals below
+            shell=False,  # nosec B603
             cwd=cwd,
             capture_output=True,
             text=True,
@@ -195,7 +196,8 @@ def query_api(path, method="GET", data=None):
         data = json.dumps(data).encode()
     req = urllib.request.Request(url, method=method, headers=headers, data=data)
     try:
-        # nosec B310: the scheme is checked against http/https above. B310 is a blacklist
+        # the scheme is checked against http/https above. B310 is a blacklist
+        # nosec B310
         # rule on the call itself and fires whatever guards precede it.
         with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
             return json.load(resp)
@@ -241,7 +243,8 @@ def main():
     # Jitter, so two agents woken by the same schedule do not fetch and reset at the same
     # instant. This used to run at import, which made the module impossible to import, to test
     # or to inspect with --help without waiting up to 15 minutes first.
-    time.sleep(random.randint(0, 900))  # nosec B311: scheduling jitter, not a security value
+    # scheduling jitter, not a security value
+    time.sleep(random.randint(0, 900))  # nosec B311
 
     now = datetime.now(UTC).isoformat() + "Z"
     log(f"\n=== QA Cycle start: {now} ===")

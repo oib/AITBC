@@ -64,34 +64,17 @@ jobs:
       - name: Typecheck
         run: make typecheck
 
-      - name: Unit tests
-        env:
-          PYTHONPATH: apps/blockchain-node/src
-        run: make test
-
-      - name: App tests
-        env:
-          PYTHONPATH: apps/blockchain-node/src
-        run: make test-apps
-
-      - name: Governance tests
-        run: make test-governance
-
-      # Suites that sat collectable-but-unrun in testpaths for a release cycle:
-      # exchange matching, gateway retries, wallet, market, trading,
-      # agent-coordinator payout authority, security guards, core, property.
-      - name: Critical service tests
-        run: make test-critical
+      # The required gate: one pytest run over every `fast` suite in
+      # scripts/ci/test_suites.py — unit, app, CLI, governance, exchange,
+      # wallet, market, trading, security, property, the app smoke suites and
+      # ops-signer. The args come from the classification itself, so a suite
+      # can no longer sit in testpaths while running in no gate.
+      - name: Required tests (fast suites)
+        run: make test-required
 
       # Fails when a testpaths entry runs in no gate — see test_suites.py.
       - name: Test suite parity
         run: make test-suite-parity
-
-      - name: CLI tests
-        env:
-          WALLET_URL: http://127.0.0.1:1
-          BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
-        run: make test-cli
 
       - name: OpenAPI drift check
         run: make openapi-check

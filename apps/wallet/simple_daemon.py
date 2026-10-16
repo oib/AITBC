@@ -502,4 +502,5 @@ if __name__ == "__main__":
     print("  POST /v1/wallets/{wallet_id}/unlock")
     print("  POST /v1/wallets/{wallet_id}/sign")
 
-    uvicorn.run(wallet_app, host="0.0.0.0", port=8003, log_level="critical", access_log=False)  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    uvicorn.run(wallet_app, host="0.0.0.0", port=8003, log_level="critical", access_log=False)  # nosec B104

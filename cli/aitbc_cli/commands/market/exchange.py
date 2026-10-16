@@ -18,7 +18,7 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
-from . import market
+from ._group import market
 
 
 def _sign_transaction(tx_payload: dict, private_key: str) -> str:

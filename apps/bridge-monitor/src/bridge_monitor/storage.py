@@ -343,7 +343,8 @@ def update_deposit(
         params.append(eth_tx_hash)
 
         if updates:
-            query = f"UPDATE eth_deposits SET {', '.join(updates)} WHERE tx_hash = ?"  # nosec B608 - every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
+            # every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
+            query = f"UPDATE eth_deposits SET {', '.join(updates)} WHERE tx_hash = ?"  # nosec
             cursor.execute(query, params)
             conn.commit()
             return True
@@ -541,7 +542,7 @@ def release_sources() -> dict[str, str]:
         cursor = conn.cursor()
         for table, label in _RELEASE_SOURCES:
             try:
-                cursor.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL")  # nosec B608
+                cursor.execute(f"SELECT eth_tx_hash FROM {table} WHERE eth_tx_hash IS NOT NULL")  # nosec
             except sqlite3.OperationalError:
                 continue
             for (h,) in cursor.fetchall():

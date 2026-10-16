@@ -13,7 +13,8 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 # Initialize logger
 logger = get_logger(__name__)
 
-from . import get_wallet_address, market
+from ._group import market
+from . import get_wallet_address
 
 
 def _market_base_url(override_url: str | None = None) -> str:

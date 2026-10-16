@@ -269,7 +269,7 @@ def _make_handler(source: _SnapshotSource) -> type[BaseHTTPRequestHandler]:
                     self._json(source.blocks_range(start, end))
                 else:
                     self._json({"detail": "not found"}, status=404)
-            except Exception as exc:  # pragma: no cover - defensive
+            except Exception as exc:  # noqa: BLE001 - request boundary: any handler failure returns 500, never drops the connection  # pragma: no cover - defensive
                 self._json({"detail": str(exc)}, status=500)
 
         def _json(self, obj: Any, status: int = 200) -> None:
@@ -503,7 +503,8 @@ def _table_rows(db: sqlite3.Connection, table: str, chain_id: str) -> list[tuple
     cols = [r[1] for r in db.execute(f'PRAGMA table_info("{table}")')]
     keep = [c for c in cols if c not in _VOLATILE_COLUMNS]
     quoted = ", ".join(f'"{c}"' for c in keep)
-    sql = f'SELECT {quoted} FROM "{table}"'  # nosec B608 - quoted identifiers from sqlite_master/PRAGMA, values bound
+    # quoted identifiers from sqlite_master/PRAGMA, values bound
+    sql = f'SELECT {quoted} FROM "{table}"'  # nosec
     params: tuple[Any, ...] = ()
     if "chain_id" in cols:
         sql += " WHERE chain_id = ?"

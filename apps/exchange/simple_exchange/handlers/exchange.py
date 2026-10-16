@@ -435,6 +435,7 @@ class ExchangeMixin:
             funded_pred = "AND funded_state = 'funded'" if _settlement_enabled() else ""
 
             # Sell orders — integer ticks sort; TEXT '10' would sort below '2'.
+            # funded_pred is a fixed literal fragment, never input
             cursor.execute(f"""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at,
                        user_address, expiry_height, funded_state
@@ -442,10 +443,11 @@ class ExchangeMixin:
                 WHERE order_type = 'SELL' AND status = 'open' {funded_pred}
                 ORDER BY price_ticks ASC, id ASC
                 LIMIT 20
-            """)  # nosec B608 - funded_pred is a fixed literal fragment, never input
+            """)  # nosec
             sells = [self._orderbook_row(row, labels, band) for row in cursor.fetchall()]
 
             # Buy orders — integer ticks, then id for deterministic FIFO ties.
+            # same fixed fragment
             cursor.execute(f"""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at,
                        user_address, expiry_height, funded_state
@@ -453,7 +455,7 @@ class ExchangeMixin:
                 WHERE order_type = 'BUY' AND status = 'open' {funded_pred}
                 ORDER BY price_ticks DESC, id ASC
                 LIMIT 20
-            """)  # nosec B608 - same fixed fragment
+            """)  # nosec
             buys = [self._orderbook_row(row, labels, band) for row in cursor.fetchall()]
         finally:
             conn.close()
@@ -1844,7 +1846,8 @@ class ExchangeMixin:
             blockchain_url = f"{RPC_BASE_URL}/rpc/getBalance/{treasury_address}"
 
             try:
-                with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
+                # RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
+                with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310
                     balance_data = json.loads(response.read().decode())
                     treasury_balance = balance_data.get("balance", 0)
 
@@ -2004,7 +2007,8 @@ class ExchangeMixin:
 
             # Get AITBC balance from blockchain
             blockchain_url = f"{RPC_BASE_URL}/rpc/balance/{address}"
-            with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
+            # RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
+            with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310
                 balance_data = json.loads(response.read().decode())
 
             # ETH balance is not queried — no Ethereum RPC is wired to this service, so no
@@ -2182,24 +2186,26 @@ def _match_candidates(cursor, new_type, new_price_ticks, self_guard, guard_addre
     statement — lock_col/funded_pred only exist when settlement is on."""
     if new_type == "BUY":
         # Match against SELL orders with price <= our buy price
+        # lock_col/self_guard/funded_pred are fixed literal fragments, never input
         cursor.execute(
             f"""
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
             FROM orders
             WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ? {self_guard} {funded_pred}
             ORDER BY price_ticks ASC, id ASC
-            """,  # nosec B608 - lock_col/self_guard/funded_pred are fixed literal fragments, never input
+            """,  # nosec
             (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
         )
     else:
         # Match against BUY orders with price >= our sell price
+        # same fixed fragments
         cursor.execute(
             f"""
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash{lock_col}
             FROM orders
             WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ? {self_guard} {funded_pred}
             ORDER BY price_ticks DESC, id ASC
-            """,  # nosec B608 - same fixed fragments
+            """,  # nosec
             (new_price_ticks, guard_address) if guard_address else (new_price_ticks,),
         )
     return cursor.fetchall()

@@ -115,7 +115,7 @@ def _load_ledger(ledger: Path) -> dict:
                 "status": r[4],
                 "deposit_address": r[5],
             }
-            for r in con.execute(f"SELECT id, tx_hash, from_address, amount_eth, status, {dep_addr_expr} FROM eth_deposits")  # nosec B608
+            for r in con.execute(f"SELECT id, tx_hash, from_address, amount_eth, status, {dep_addr_expr} FROM eth_deposits")  # nosec
         ]
         depositors = {
             _norm(r[0]) for r in con.execute("SELECT DISTINCT from_address FROM eth_deposits WHERE from_address IS NOT NULL")
@@ -144,7 +144,7 @@ def _load_ledger(ledger: Path) -> dict:
                         "source": table,
                     }
                     for r in con.execute(
-                        f"SELECT eth_tx_hash, eth_amount, status FROM {table} WHERE eth_tx_hash IS NOT NULL"  # nosec B608
+                        f"SELECT eth_tx_hash, eth_amount, status FROM {table} WHERE eth_tx_hash IS NOT NULL"  # nosec
                     )
                 ]
             except sqlite3.OperationalError:

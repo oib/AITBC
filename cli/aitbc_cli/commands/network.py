@@ -192,7 +192,7 @@ def force_sync(ctx, rpc_url, peer_url, admin_private_key, admin_address):
                     payload["target_node_id"] = info["node_id"]
                 if info.get("chain_id"):
                     payload["target_chain_id"] = info["chain_id"]
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
             pass
         payload["admin_signature"] = _sign_dict(admin_private_key, payload)
         result = http_client.post("/rpc/force-sync", json=payload)

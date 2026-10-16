@@ -138,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         signer = Account.recover_message(encode_defunct(body), signature=sig)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - unrecoverable signature reports FAIL
         print(f"signature-check FAIL (unrecoverable: {e})")
         print("FAIL")
         return 1
@@ -161,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 if ok:
                     print("content-check OK")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - content-check failure reports FAIL
             print(f"content-check FAIL ({e})")
             ok = False
 
