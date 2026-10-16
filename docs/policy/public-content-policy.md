@@ -1,8 +1,8 @@
-# Public content policy — forum messages (draft for operator review)
+# Public content policy — forum messages
 
-Status: **draft**. Nothing here is in force until the operator approves the
-text, fills in the contact, and decides where the reporter-facing block is
-published. This file is a proposal, not a published policy.
+Status: **published** (16 Oct 2026). The moderation notice on the messages
+page carries this wording; the report sentence renders the `CONTACT_EMAIL`
+value from `/etc/aitbc/website.env` on the hub.
 
 ## What the chain stores
 
@@ -90,9 +90,9 @@ Exact wording, ready to paste once the operator fills the contact:
   reporter.
 - **Jurisdiction** — no jurisdiction wording; none has been chosen.
 
-## Open for the operator
+## Contact
 
-- The contact text: set `CONTACT_EMAIL` in `/etc/aitbc/website.env` on the
-  hub and run `render-website.sh` — the report sentence appears between
-  the `aitbc-contact` markers on the messages page. While unset the page
-  shows the block without it (published that way, 16 Oct 2026).
+The contact is `CONTACT_EMAIL` in `/etc/aitbc/website.env` on the hub
+(currently `andreas.fleckl@bubuit.net`); `render-website.sh` writes it
+between the `aitbc-contact` markers on the messages page. Filled 16 Oct
+2026 — no open items remain.
