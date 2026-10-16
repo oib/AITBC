@@ -229,3 +229,35 @@ backend — trust the receipt gas, not that line).
   reverted until the nonce was pinned). Read `kits[0].getNonce()` once,
   pass it as `expectedNonce` so the built-in poll waits for a fresh
   replica, and only then sign and submit.
+
+## Activation + deposit/withdraw run 2026-10-16
+
+Operator ("convert all tasks to testnet") — the run-2 bridge
+(`0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0`) was activated end-to-end on
+Sepolia with the repo's own `AIToken.sol` as the named token (deployed
+fresh for the run, 1000 AIT to signer1 — not a "real" token, and the
+rehearsal AIT symbol is unconnected to any AITBC-side asset).
+
+| step | tx hash | block |
+|---|---|---|
+| AIToken deploy (signer1) | `0x55b80cd9bf5a64958b6ed28ace1e2bf733ddc23f81e444d7077016c05d88805d` | — |
+| Safe `addSupportedToken(0x87fC…, 1M limit, 100bps, no whitelist)` | `0x7d5f6e38a298fd244a880910d423901a0503a81765ab4a1d35bfe3f5a9451ba4` | 11926795 |
+| Safe `unpause()` | `0xde61076b5aafcb8180369f0f7f2988163b9ea53d65801c1dc344d8f9d0a02ad1` | 11926796 |
+| `initiateBridge` 10 AIT → request 1 | `0x85637d367538ce07789b0779ae3fb2aecbef939f37fd8720aec44daf177dc89f` | 11926802 |
+| `confirmBridge` signer1/2/3 | `0x50b651…` / `0x32900e…` / `0xaddaee…` | 11926805–08 |
+| Safe `emergencyWithdraw` → 10 AIT to Safe | `0xbed1b36ecf268d8aa9cf64a058c3d5deb08a80ebc669cebc61be4f6e2df83869` | 11926810 |
+
+- Token: `0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A`, 1% fee —
+  0.1 AIT landed at feeRecipient, 10 AIT locked in the bridge, request 1
+  reached CONFIRMED at 3/3 validator confirmations (MIN_CONFIRMATIONS
+  applies — source chain 11155111 has no chain entry).
+- `completeBridge` is unreachable on a single chain by construction:
+  `initiateBridge` forbids same-chain targets while `completeBridge`
+  requires `block.chainid == targetChainId`. The withdraw leg was proven
+  via `emergencyWithdraw` through the Safe instead — funds recovered.
+- Stale-RPC strike again: `initiateBridge`'s estimateGas read the
+  allowance before the approve receipt had indexed on that backend and
+  reverted `ERC20: insufficient allowance`. Poll the precondition
+  (allowance) before submitting, same class of fix as `expectedNonce`.
+- The bridge is left **unpaused** on Sepolia with token support active —
+  that is the standing testnet state, not a pause drill.

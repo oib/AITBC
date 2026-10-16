@@ -21,6 +21,37 @@
     "chainId": "11155111",
     "timestamp": "2026-10-16T09:57:37Z",
     "txHash": "0xeedd1b4420d565ae3d489b12100f93c415591e6288ee333382e6fc12c43e89f1",
-    "note": "BR-1 testnet deployment (operator gate converted to testnet 16 Oct). Owned by the 2-of-3 rehearsal Safe; validators signer1/2/3 weight 1 added 16 Oct; stays paused until a supported token/chain is named. Wired on hub as BRIDGE_CONTRACT_ADDRESS 16 Oct."
+    "note": "BR-1 testnet deployment. Safe-owned; validators signer1/2/3 (w1). Token support added via Safe 16 Oct (AIToken 0x87fC\u2026, 1% fee); unpaused; deposit+confirm and emergencyWithdraw proven end-to-end. Wired on hub as BRIDGE_CONTRACT_ADDRESS.",
+    "activated": {
+      "timestamp": "2026-10-16",
+      "token": {
+        "contract": "AIToken (repo contracts/AIToken.sol)",
+        "address": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+        "deployTx": "0x55b80cd9bf5a64958b6ed28ace1e2bf733ddc23f81e444d7077016c05d88805d",
+        "supply": "1000 AIT to signer1",
+        "bridgeLimit": "1000000 AIT",
+        "feePercentage": "100 bps",
+        "requiresWhitelist": false
+      },
+      "addSupportedToken_exec": "0x7d5f6e38a298fd244a880910d423901a0503a81765ab4a1d35bfe3f5a9451ba4",
+      "unpause_exec": "0xde61076b5aafcb8180369f0f7f2988163b9ea53d65801c1dc344d8f9d0a02ad1",
+      "deposit_test": {
+        "initiateBridge": "0x85637d367538ce07789b0779ae3fb2aecbef939f37fd8720aec44daf177dc89f",
+        "requestId": 1,
+        "amount": "10 AIT",
+        "fee": "0.1 AIT to feeRecipient",
+        "confirms": [
+          "0x50b65117b1a8f30c5a741281f966ee90e7d4ca221811daf0f7e5542221a273f9",
+          "0x32900e9bb0718ba348e32fc37fd59044a721e044a1c6810120b4efc8e02cee72",
+          "0xaddaee8c625cb8129f1ddf921c0e61a07acc11f1ab459b2980270c7152fd2d13"
+        ],
+        "status": "CONFIRMED (3/3 validators)"
+      },
+      "withdraw_test": {
+        "emergencyWithdraw_exec": "0xbed1b36ecf268d8aa9cf64a058c3d5deb08a80ebc669cebc61be4f6e2df83869",
+        "result": "10 AIT swept to Safe; bridge drained",
+        "note": "completeBridge cannot run on a single chain by construction \u2014 initiate forbids same-chain targets while complete requires target==block.chainid; the sweep exercises the funds-recovery owner path"
+      }
+    }
   }
 ]
