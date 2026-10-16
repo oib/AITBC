@@ -516,3 +516,99 @@ class TestAuthorityProperty:
         topics = list_topics(session, CHAIN)
         assert topics["topics"][0]["authority_unresolved"] is True
         assert get_message(session, CHAIN, post)["tx_hash"] == post
+
+
+# ---------------------------------------------------------------- MSG-2b
+
+
+def _rep_reference(session, address):
+    """Straightforward reference for reputation(): the last valid vote per
+    (voter, target, claimed topic) stands; counted only when the claimed
+    topic equals the target's real topic; self-votes excluded."""
+    from aitbc.messaging import POST_KINDS, VOTE_CAP
+
+    author = address.lower()
+    rows = session.exec(
+        select(Transaction)
+        .where(col(Transaction.chain_id) == CHAIN, col(Transaction.type) == "MESSAGE")
+        .order_by(col(Transaction.block_height), col(Transaction.tx_hash))
+    ).all()
+    targets: list[str] = []
+    topic_of: dict[str, str] = {}
+    standing: dict[tuple[str, str, str], int] = {}
+    for r in rows:
+        env = (r.payload or {}).get("aitbc_msg")
+        if not isinstance(env, dict) or envelope_error(env, sender=r.sender) is not None:
+            continue
+        kind = env.get("kind")
+        if kind in POST_KINDS and r.sender.lower() == author:
+            targets.append(str(r.tx_hash))
+            topic_of[str(r.tx_hash).lower()] = env.get("topic")
+        if kind == "vote":
+            standing[(r.sender.lower(), str(env["target"]).lower(), env.get("topic"))] = env["value"]
+    per: dict[str, list[tuple[str, int]]] = {}
+    for (voter, target, ctopic), v in standing.items():
+        if v != 0 and ctopic == topic_of.get(target):
+            per.setdefault(target, []).append((voter, v))
+    total = 0
+    counted = 0
+    for t in targets:
+        vals = [(s, v) for s, v in per.get(t.lower(), []) if s != author]
+        if not vals:
+            continue
+        counted += 1
+        up = sum(1 for _s, v in vals if v > 0)
+        down = sum(1 for _s, v in vals if v < 0)
+        total += max(-VOTE_CAP, min(VOTE_CAP, up - down))
+    return total, len(targets), counted
+
+
+class TestReputationChunking:
+    """MSG-2b item 1: the target IN-list is chunked (<=500 literals) with
+    exact merged results — no truncation, no cap."""
+
+    def _seed_posts(self, session, n_posts):
+        hashes = []
+        for i in range(n_posts):
+            hashes.append(
+                _tx(session, 10 + i // 20, 0x1000 + i, ALICE, _env("post", sender=ALICE, body=f"m{i}"), commit=False)
+            )
+        session.commit()
+        return hashes
+
+    @pytest.mark.parametrize("n_posts", [499, 500, 501, 1200])
+    def test_exact_across_chunk_boundaries(self, session, n_posts):
+        posts = self._seed_posts(session, n_posts)
+        vote_h = 10 + n_posts // 20 + 10
+        # Voters spread across every chunk boundary: first, last, and the
+        # 499/500/501 seam, plus a self-vote (excluded) and a wrong-topic
+        # vote (sealed no-op).
+        seen = []
+        for i in (0, min(249, n_posts - 1), min(498, n_posts - 1), min(499, n_posts - 1), min(500, n_posts - 1), n_posts - 1):
+            if i in seen:
+                continue
+            seen.append(i)
+            voter = [BOB, CAROL, DAVE][i % 3]
+            _tx(session, vote_h, 0x8000 + i, voter, _env("vote", sender=voter, target=posts[i], value=1), commit=False)
+        _tx(session, vote_h, 0x9000, ALICE, _env("vote", sender=ALICE, target=posts[0], value=1), commit=False)
+        _tx(
+            session,
+            vote_h,
+            0x9001,
+            BOB,
+            _env("vote", topic="other", sender=BOB, target=posts[n_posts - 1], value=-1),
+            commit=False,
+        )
+        session.commit()
+        rep = reputation(session, CHAIN, ALICE)
+        ref_total, ref_authored, ref_counted = _rep_reference(session, ALICE)
+        assert rep["messages_authored"] == n_posts == ref_authored
+        assert rep["reputation"] == ref_total
+        assert rep["messages_counted"] == ref_counted
+
+    def test_zero_message_author(self, session):
+        _tx(session, 10, 0x10, BOB, _env("post", sender=BOB, body="other author"))
+        rep = reputation(session, CHAIN, ALICE)
+        assert rep["messages_authored"] == 0
+        assert rep["reputation"] == 0
+        assert rep["messages_counted"] == 0
