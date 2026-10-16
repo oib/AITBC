@@ -973,3 +973,47 @@ class TestLockIntervals:
             m["tx_hash"]: m["after_lock"] for m in list_messages(session, CHAIN, topic="dev", include_hidden=True)["messages"]
         }
         assert (after[p1], after[p2]) == (True, True)
+
+    def _nested(self, session, *, b_first=False):
+        """A locked (stays locked); B under A locked then unlocked; C under B
+        sealed while A still locked. C must stay flagged via A's open
+        interval. ``b_first`` locks B before A to check dict-order safety."""
+        a = _tx0x(session, 1, 0x10, ALICE, _env("post", sender=ALICE, body="A"))
+        b = _tx0x(session, 2, 0x11, BOB, _env("reply", sender=BOB, body="B", parent=_bare(a)))
+        if b_first:
+            _tx0x(session, 3, 0x20, ALICE, _env("lock", sender=ALICE, target=_bare(b)))
+            _tx0x(session, 4, 0x21, ALICE, _env("lock", sender=ALICE, target=_bare(a)))
+        else:
+            _tx0x(session, 3, 0x20, ALICE, _env("lock", sender=ALICE, target=_bare(a)))
+            _tx0x(session, 4, 0x21, ALICE, _env("lock", sender=ALICE, target=_bare(b)))
+        _tx0x(session, 5, 0x22, ALICE, _env("unlock", sender=ALICE, target=_bare(b)))
+        c = _tx0x(session, 6, 0x12, BOB, _env("reply", sender=BOB, body="C", parent=_bare(b)))
+        return a, b, c
+
+    def test_nested_thread_locks(self, session):
+        a, b, c = self._nested(session)
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        flag = {m["tx_hash"]: m["after_lock"] for m in out["messages"]}
+        assert flag[a] is False and flag[b] is False and flag[c] is True
+
+    def test_nested_thread_locks_b_first(self, session):
+        a, b, c = self._nested(session, b_first=True)
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        flag = {m["tx_hash"]: m["after_lock"] for m in out["messages"]}
+        assert flag[c] is True
+
+    def test_walk_limit_is_per_root(self, session, monkeypatch):
+        import aitbc_chain.messaging_index as mi
+
+        monkeypatch.setattr(mi, "LOCK_WALK_LIMIT", 1)
+        a = _tx0x(session, 1, 0x10, ALICE, _env("post", sender=ALICE, body="A"))
+        b = _tx0x(session, 2, 0x11, BOB, _env("reply", sender=BOB, body="B", parent=_bare(a)))
+        _tx0x(session, 3, 0x20, ALICE, _env("lock", sender=ALICE, target=_bare(a)))
+        _tx0x(session, 4, 0x21, ALICE, _env("lock", sender=ALICE, target=_bare(b)))
+        c = _tx0x(session, 5, 0x12, BOB, _env("reply", sender=BOB, body="C", parent=_bare(b)))
+        d = _tx0x(session, 6, 0x13, BOB, _env("reply", sender=BOB, body="D", parent=_bare(c)))
+        out = list_messages(session, CHAIN, topic="dev", include_hidden=True)
+        flag = {m["tx_hash"]: m["after_lock"] for m in out["messages"]}
+        # A's walk reaches B only (limit 1); B's own walk reaches C; D is
+        # beyond both budgets → outside the lock.
+        assert flag[c] is True and flag[d] is False
