@@ -156,6 +156,11 @@ when anything is "unexplained, needs operator note". Its wallet list
 comes from `--wallets`/`BRIDGE_KNOWN_WALLETS` — keep it in sync with
 `DEFAULT_WALLETS` when a wallet rotates.
 
+The live `bridge_outbound` ledger migration that closes the reconcile's
+outbound blind spot is gated on an operator decision; the prepared steps
+live in the [outbound-ledger migration runbook](bridge-outbound-ledger-migration-runbook.md)
+(currently marked "not authorized").
+
 ## What these wallets are *not* for
 
 - No mainnet use, ever — the recipe and amounts above are Sepolia-only.
