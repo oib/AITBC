@@ -56,7 +56,10 @@ import argparse
 import json
 import sqlite3
 import sys
+from decimal import Decimal
 from pathlib import Path
+
+WEI_PER_ETH = Decimal(10) ** 18
 
 
 def _wei(value: object, field: str) -> int:
@@ -69,16 +72,22 @@ def _wei(value: object, field: str) -> int:
     return wei
 
 
-def _load_depositors(ledger: Path | None) -> set[str]:
-    """from_address values of recorded deposits — the refund-recipient set."""
+def _load_depositor_map(ledger: Path | None) -> dict[str, str]:
+    """from_address -> tx_hash for recorded deposits — the refund-recipient
+    set plus the deposit tx used as `matched_deposit_tx` evidence."""
     if ledger is None:
-        return set()
+        return {}
     con = sqlite3.connect(f"file:{ledger}?mode=ro", uri=True)
     try:
-        rows = con.execute("SELECT DISTINCT from_address FROM eth_deposits WHERE from_address IS NOT NULL").fetchall()
+        rows = con.execute("SELECT from_address, tx_hash FROM eth_deposits WHERE from_address IS NOT NULL").fetchall()
     finally:
         con.close()
-    return {str(r[0]).lower() for r in rows}
+    return {str(a).lower(): str(t) for a, t in rows}
+
+
+def _load_depositors(ledger: Path | None) -> set[str]:
+    """from_address values of recorded deposits — the refund-recipient set."""
+    return set(_load_depositor_map(ledger))
 
 
 def _load_release_hashes(ledger: Path | None) -> set[str]:
@@ -122,6 +131,67 @@ def classify(txs: list[dict], depositors: set[str], funding: set[str], releases:
     return terms
 
 
+def emit_rows(
+    txs: list[dict],
+    depositor_map: dict[str, str],
+    funding: set[str],
+    releases: set[str] | None = None,
+    self_address: str | None = None,
+) -> list[dict]:
+    """Per-tx bridge_outbound rows — same classification order as the live
+    writer in bridge_monitor.main._record_outbound (release hash, self-send,
+    depositor, funding, unidentified), so a backfilled table matches what the
+    monitor itself would have written."""
+    releases = releases or set()
+    self_addr = (self_address or "").lower()
+    rows: list[dict] = []
+    for i, tx in enumerate(txs):
+        if not isinstance(tx, dict) or not tx.get("tx_hash") or not tx.get("to"):
+            raise SystemExit(f"txs[{i}]: missing tx_hash or to")
+        value = _wei(tx.get("value_wei", 0), f"txs[{i}].value_wei")
+        gas_used = tx.get("gas_used")
+        gas_price = tx.get("gas_price_wei")
+        gas_wei = (
+            _wei(gas_used, f"txs[{i}].gas_used") * _wei(gas_price, f"txs[{i}].gas_price_wei")
+            if gas_used is not None and gas_price is not None
+            else None
+        )
+        failed = tx.get("status") in (0, "0", "failed")
+        to = str(tx["to"]).lower()
+        tx_hash = str(tx["tx_hash"])
+        note: str | None = None
+        matched: str | None = None
+        if tx_hash.lower() in releases:
+            kind = "withdrawal"
+        elif to == self_addr and self_addr:
+            kind = "self_send"
+        elif to in depositor_map:
+            kind, matched = "refund", depositor_map[to]
+        elif to in funding:
+            kind, note = "withdrawal", "float return to funding source"
+        else:
+            kind = "unidentified"
+        if failed:
+            note = (note + "; " if note else "") + f"tx failed — gas burned, intended {value} wei not moved"
+            value = 0  # a reverted send moves no value; only its gas is outbound
+        block_height = tx.get("block_height")
+        if block_height is None:
+            raise SystemExit(f"txs[{i}]: missing block_height — bridge_outbound.block_height is NOT NULL")
+        rows.append(
+            {
+                "tx_hash": tx_hash,
+                "to_address": to,
+                "value_eth": str(Decimal(value) / WEI_PER_ETH),
+                "gas_wei": gas_wei,
+                "block_height": _wei(block_height, f"txs[{i}].block_height"),
+                "kind": kind,
+                "matched_deposit_tx": matched,
+                "note": note,
+            }
+        )
+    return rows
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--txs", required=True, type=Path, help="JSON list of outbound txs (operator-supplied)")
@@ -129,6 +199,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--funding-json", type=Path, help="JSON list of funding-source addresses")
     parser.add_argument("--balance-wei", required=True, help="wallet's real ETH balance in wei")
     parser.add_argument("--out", type=Path, help="write the --onchain JSON here (default stdout)")
+    parser.add_argument(
+        "--emit-rows",
+        type=Path,
+        help="BR-6 backfill: also write classified bridge_outbound row dicts "
+        "(tx_hash, to_address, value_eth, gas_wei, block_height, kind, "
+        "matched_deposit_tx, note) to this JSON file — feed to "
+        "record_outbound or inspect before a live INSERT",
+    )
+    parser.add_argument(
+        "--self-address",
+        help="bridge wallet address; outbound sends back to it classify as self_send (value returns — gas only)",
+    )
     args = parser.parse_args(argv)
 
     txs = json.loads(args.txs.read_text(encoding="utf-8"))
@@ -139,6 +221,12 @@ def main(argv: list[str] | None = None) -> int:
     releases = _load_release_hashes(args.ledger)
 
     terms = classify(txs, depositors, funding, releases)
+    if args.emit_rows:
+        args.emit_rows.write_text(
+            json.dumps(emit_rows(txs, _load_depositor_map(args.ledger), funding, releases, args.self_address), indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
     out = {
         "wallet_balance_wei": str(_wei(args.balance_wei, "--balance-wei")),
         "outbound": {k: str(v) for k, v in terms.items()},
