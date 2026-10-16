@@ -82,8 +82,18 @@ aitbc messaging subscribe dev --from-cursor 512:ab12…   # resume
   `_wait_for_seal`, the SDK's `wait_indexed`, and `subscribe` all detect
   indexing on the messaging read routes, never the generic
   `/rpc/transaction/{hash}` route (which 404s MESSAGE txs even sealed).
-- DM helpers (MSG-8 `dm`/`dm_key`) are Phase B — encryption/decryption
-  stay client-side; no MCP tool returns or accepts DM plaintext through
-  a host other than the caller's.
+- DM helpers (MSG-8 `dm`/`dm_key`, Phase B) are in the SDK:
+  `MessagingClient.dm_publish_key(wallet, submit=…)` creates/rotates the
+  X25519 era in the mode-600 `dm-keys/<wallet>.json` store and publishes
+  the public half; `dm_send(recipient, body, wallet=…, submit=…)` fetches
+  the recipient's `enc_pubkey`, seals client-side and submits ciphertext
+  only; `dm_inbox(address)`/`dm_key_for(address)` read ciphertext
+  metadata; `dm_read(tx_hash, wallet=…|address=…, secret_key=…)` decrypts
+  locally with mandatory `aitbc-dm-v1` header verification. The crypto
+  kernel is shared (`aitbc.dm_client`); the CLI `messaging dm` commands
+  and the generated `aitbc_messaging_dm_*` MCP tools sit on the same
+  helpers — `dm_send`/`dm_keygen` stay destructive+confirm-gated. No
+  tool returns or accepts DM plaintext through a host other than the
+  caller's. No forward secrecy in Phase 1.
 - Read routes take the `0x`-prefixed tx hash; envelopes carry the bare
   hash. Helpers normalise — do not reintroduce the mismatch.
