@@ -169,7 +169,7 @@ class MessageStorage:
             raise ValueError(f"invalid message query field: {field}")
         try:
             cursor = await self.sqlite_conn.execute(
-                f"SELECT data FROM messages WHERE {field} = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?",  # nosec B608
+                f"SELECT data FROM messages WHERE {field} = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?",  # nosec
                 (value, limit, offset),
             )
             rows = await cursor.fetchall()

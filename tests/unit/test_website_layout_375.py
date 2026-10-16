@@ -476,7 +476,7 @@ class TestLayout375Browser(unittest.TestCase):
                 if tabs:
                     cls.ws_url = tabs[0]["webSocketDebuggerUrl"]
                     break
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 -- CDP endpoint poll: retry until the timeout decides
                 pass
             time.sleep(0.25)
         if not cls.ws_url:

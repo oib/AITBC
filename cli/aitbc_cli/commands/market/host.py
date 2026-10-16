@@ -27,7 +27,8 @@ from ..ipfs import (
     _ipfs_swarm_connect,
     _is_cid,
 )
-from . import get_chain_id, get_market_wallet, market
+from ._group import market
+from . import get_chain_id, get_market_wallet
 from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
 from .jobs import _resolve_offer, _track_coordinator_job
 

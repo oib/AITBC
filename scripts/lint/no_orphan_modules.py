@@ -50,7 +50,9 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import subprocess  # nosec B404 - used only to list tracked files via git
+
+# used only to list tracked files via git
+import subprocess  # nosec B404
 import sys
 
 from pathlib import Path
@@ -106,7 +108,8 @@ def _tracked_python_files() -> list[Path]:
     Uses ``git ls-files`` so the walk respects ``.gitignore`` -- ``apps/coordinator-api``
     carries its own ``.venv``, and walking it pulls in pip's vendored packages.
     """
-    result = subprocess.run(  # nosec B603 B607 - fixed argv, no shell
+    # fixed argv, no shell
+    result = subprocess.run(  # nosec B603 B607
         ["git", "ls-files", "-z", "*.py"],
         cwd=REPO_ROOT,
         capture_output=True,

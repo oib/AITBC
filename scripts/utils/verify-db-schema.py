@@ -224,7 +224,7 @@ def _add_missing_column(db_path: Path, table: str, col, dialect, quote) -> str |
             (row_count,) = conn.execute(f"SELECT COUNT(*) FROM {quote(table)}").fetchone()  # nosec B608
             if row_count > 0:
                 return f"{table}.{col.name} is NOT NULL with no default and the table has {row_count} rows; cannot safely add"
-        conn.execute(f"ALTER TABLE {quote(table)} ADD COLUMN {quote(col.name)} {coltype}{default}")  # nosec B608
+        conn.execute(f"ALTER TABLE {quote(table)} ADD COLUMN {quote(col.name)} {coltype}{default}")
         conn.commit()
         return None
     finally:

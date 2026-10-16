@@ -523,7 +523,7 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
             info = httpx.get(f"{rpc_url.rstrip('/')}/network-info", timeout=5).json()
             if info.get("node_id") not in (None, "unknown"):
                 payload["target_node_id"] = info["node_id"]
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
             pass
         # Admin signature covers the payload excluding admin_signature itself
         sign_payload = {k: v for k, v in payload.items() if k != "admin_signature"}
@@ -718,7 +718,7 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
             header_data["target_node_id"] = info["node_id"]
         if info.get("chain_id"):
             header_data["target_chain_id"] = info["chain_id"]
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
         pass
     # Admin signature over the request payload, excluding admin_signature itself
     admin_signature = _sign_dict(admin_private_key, header_data)

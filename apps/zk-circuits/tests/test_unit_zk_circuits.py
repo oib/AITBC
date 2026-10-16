@@ -17,7 +17,8 @@ def test_cache_initialization():
 @pytest.mark.unit
 def test_cache_initialization_custom_dir():
     """Test ZKCircuitCache with custom cache directory"""
-    custom_dir = Path("/tmp/test_zk_cache")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    custom_dir = Path("/tmp/test_zk_cache")  # nosec B108
     cache = ZKCircuitCache(cache_dir=custom_dir)
     assert cache.cache_dir == custom_dir
 
@@ -28,7 +29,8 @@ def test_calculate_file_hash():
     cache = ZKCircuitCache()
 
     # Create a temporary file
-    test_file = Path("/tmp/test_hash.txt")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_hash.txt")  # nosec B108
     test_file.write_text("test content")
 
     try:
@@ -54,10 +56,12 @@ def test_find_dependencies():
     cache = ZKCircuitCache()
 
     # Create a test circuit file with includes
-    test_file = Path("/tmp/test_circuit.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_circuit.circom")  # nosec B108
     test_file.write_text('include "dependency.circom"')
 
-    dep_file = Path("/tmp/dependency.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    dep_file = Path("/tmp/dependency.circom")  # nosec B108
     dep_file.write_text("pragma circom 2.0.0;")
 
     try:
@@ -74,7 +78,8 @@ def test_find_dependencies_none():
     """Test dependency finding with no includes"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_circuit_no_deps.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_circuit_no_deps.circom")  # nosec B108
     test_file.write_text("pragma circom 2.0.0;")
 
     try:
@@ -90,13 +95,16 @@ def test_find_dependencies_recursive():
     cache = ZKCircuitCache()
 
     # Create a chain of dependencies
-    test_file = Path("/tmp/test_main.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_main.circom")  # nosec B108
     test_file.write_text('include "dep1.circom"')
 
-    dep1 = Path("/tmp/dep1.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    dep1 = Path("/tmp/dep1.circom")  # nosec B108
     dep1.write_text('include "dep2.circom"')
 
-    dep2 = Path("/tmp/dep2.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    dep2 = Path("/tmp/dep2.circom")  # nosec B108
     dep2.write_text("pragma circom 2.0.0;")
 
     try:
@@ -115,10 +123,12 @@ def test_get_cache_key():
     """Test cache key generation"""
     cache = ZKCircuitCache()
 
-    test_file = Path("/tmp/test_circuit.circom")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    test_file = Path("/tmp/test_circuit.circom")  # nosec B108
     test_file.write_text("pragma circom 2.0.0;")
 
-    output_dir = Path("/tmp/build/test")  # nosec B108 - test fixture using a fixed literal path, not production temp-file handling
+    # test fixture using a fixed literal path, not production temp-file handling
+    output_dir = Path("/tmp/build/test")  # nosec B108
 
     try:
         key1 = cache._get_cache_key(test_file, output_dir)

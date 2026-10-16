@@ -127,7 +127,7 @@ def _decimal_env(env: str, default: str) -> Decimal:
     raw = os.getenv(env, default)
     try:
         value = Decimal(raw)
-    except Exception as e:
+    except (ArithmeticError, TypeError, ValueError) as e:
         raise ValueError(f"{env}={raw!r} is not a number") from e
     if value <= 0:
         raise ValueError(f"{env}={raw!r} must be positive")
@@ -138,7 +138,7 @@ def _positive_int_env(env: str, default: str) -> int:
     raw = os.getenv(env, default)
     try:
         value = int(raw)
-    except Exception as e:
+    except (TypeError, ValueError) as e:
         raise ValueError(f"{env}={raw!r} is not an integer") from e
     if value <= 0:
         raise ValueError(f"{env}={raw!r} must be positive")
@@ -374,7 +374,7 @@ def _validate_escrow_key(cfg: SellConfig) -> str | None:
     """Confirm the key slot loads and derives to AIT_SELL_ESCROW."""
     try:
         _load_escrow_key(cfg)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - probe containment — unusable key reported, never raised
         return f"escrow key slot unusable: {e}"
     return None
 
@@ -497,7 +497,7 @@ def _exchange_inflight_sweep() -> bool:
         from .bridge_db import get_exchange_inflight_sweep
 
         return get_exchange_inflight_sweep() is not None
-    except Exception:
+    except Exception:  # noqa: BLE001 - inflight probe defaults to not-in-flight on failure
         return False
 
 
@@ -614,7 +614,7 @@ async def _update_lock_status_with_retry(ait_tx_hash: str, status: str, **fields
     for attempt in range(wdm._STATUS_PERSIST_ATTEMPTS):
         try:
             return update_sell_lock_status(ait_tx_hash, status, **fields)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - persist retry — any store failure alike
             last_exc = e
             logger.error(
                 "Failed to persist sell lock %s status %s (attempt %d/%d): %s",
@@ -818,7 +818,7 @@ async def _refund_lock(cfg: SellConfig, row: dict[str, Any], reason: str) -> Non
     try:
         await _escrow_sweep(cfg, row, row["shop_ait_address"], reason, "refunding", "queued_fee_refund")
         return
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - refund sweep failure resolved by the resolver
         logger.error("Refund sweep errored for sell lock %s: %s", row["ait_tx_hash"], e)
     fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"]) or {}
     if fresh.get("status") == "refunding":
@@ -914,7 +914,7 @@ async def _resolve_lock_release_failure(cfg: SellConfig, row: dict[str, Any], ex
         logger.warning("Sell lock %s: ETH release confirmed despite error (%s)", row["ait_tx_hash"], exc)
         try:
             await _update_lock_status_with_retry(row["ait_tx_hash"], "released")
-        except Exception as persist_err:
+        except Exception as persist_err:  # noqa: BLE001 - persist best-effort inside the confirmed-error path
             logger.error("Could not persist released for %s: %s", row["ait_tx_hash"], persist_err)
     elif outcome == "not_sent":
         # Release provably never landed — the row owes a refund but stays
@@ -935,7 +935,7 @@ def _lock_age_seconds(row: dict[str, Any]) -> float:
     locked_at = row.get("locked_at") or row.get("created_at")
     try:
         return (datetime.now() - datetime.fromisoformat(str(locked_at))).total_seconds()
-    except Exception:
+    except (TypeError, ValueError):
         return 0.0
 
 
@@ -969,7 +969,7 @@ async def _price_lock_eth_amount(cfg: SellConfig, row: dict[str, Any], quote: di
     expired = True
     try:
         expired = datetime.now() > datetime.fromisoformat(str(quote.get("expires_at") or ""))
-    except Exception:
+    except (TypeError, ValueError):
         pass
     if expired:
         # Late lock on an expired quote: re-quote at the live feed.
@@ -1027,7 +1027,7 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
 
     try:
         await _release_eth_for_lock(cfg, row, amount_eth)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - release failure resolved in-place, never raised into the poll
         logger.error("ETH release failed for sell lock %s: %s", row["ait_tx_hash"], e)
         await _resolve_lock_release_failure(cfg, row, e)
 
@@ -1040,7 +1040,7 @@ async def _handle_orphaned(cfg: SellConfig, row: dict[str, Any]) -> None:
         return
     try:
         height = await _chain_height()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - height probe containment — orphan check skipped
         logger.error("Could not read chain height for orphan check on %s: %s", row["ait_tx_hash"], e)
         return
     if height - int(locked_height) >= cfg.orphan_blocks:
@@ -1175,7 +1175,7 @@ def _expire_stale_quotes() -> int:
             if datetime.now() > datetime.fromisoformat(str(quote.get("expires_at"))):
                 update_sell_quote_status(str(quote["id"]), "expired")
                 expired += 1
-        except Exception:
+        except Exception:  # noqa: BLE001 - bad quote row skipped — expired count stays accurate
             continue
     return expired
 
@@ -1202,7 +1202,7 @@ async def poll_sells_once() -> dict[str, Any]:
 
     try:
         scanned = await _scan_escrow_locks(cfg)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - failed scan skips the poll — RPC outage never drives a refund
         # A failed scan means the chain view is unverifiable this poll —
         # process nothing. Deadline/orphan/refund decisions only ever run
         # on successful polls; an RPC outage can never drive a refund.
@@ -1219,7 +1219,7 @@ async def poll_sells_once() -> dict[str, Any]:
         try:
             await _process_sell_lock(cfg, row)
             processed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - row containment — one bad lock must not kill the drain
             logger.error("Error processing sell lock %s: %s", row.get("ait_tx_hash"), e)
 
     return {"scanned": scanned["scanned"], "recorded": scanned["recorded"], "processed": processed, "skipped": False}
@@ -1255,7 +1255,7 @@ async def sell_monitor_loop() -> None:
             summary = await poll_sells_once()
             if not summary.get("skipped"):
                 logger.info("Sell poll completed: %s", summary)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - poll containment — a failed pass must not end the monitor loop
             logger.error("Error in sell monitor loop: %s", e)
         for _ in range(cfg.poll_interval):
             if not _sell_polling_enabled:

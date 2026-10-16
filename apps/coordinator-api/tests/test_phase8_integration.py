@@ -34,7 +34,8 @@ def _env_url_or_skip(var: str) -> str:
     if not url:
         pytest.skip(f"{var} not set; check skipped")
     try:
-        urllib.request.urlopen(url, timeout=2).close()  # nosec: B310 external URL controlled via env
+        # B310 external URL controlled via env
+        urllib.request.urlopen(url, timeout=2).close()  # nosec
     except urllib.error.HTTPError:
         pass
     except (urllib.error.URLError, OSError) as exc:
@@ -44,7 +45,8 @@ def _env_url_or_skip(var: str) -> str:
 
 def _check_json(url: str) -> None:
     """Check that URL returns valid JSON"""
-    with urllib.request.urlopen(url, timeout=5) as resp:  # nosec: B310 external URL controlled via env
+    # B310 external URL controlled via env
+    with urllib.request.urlopen(url, timeout=5) as resp:  # nosec
         assert resp.status == 200
         data = resp.read().decode("utf-8")
     try:
@@ -55,7 +57,8 @@ def _check_json(url: str) -> None:
 
 def _check_health(url: str, expect_status_field: bool = True) -> None:
     """Check that health endpoint returns healthy status"""
-    with urllib.request.urlopen(url, timeout=5) as resp:  # nosec: B310 external URL controlled via env
+    # B310 external URL controlled via env
+    with urllib.request.urlopen(url, timeout=5) as resp:  # nosec
         assert resp.status == 200
         data = resp.read().decode("utf-8")
     try:

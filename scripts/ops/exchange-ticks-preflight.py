@@ -49,7 +49,7 @@ def preflight(db_path: str) -> int:
             # them regardless of the column's current affinity.
             select_list = ", ".join(f"CAST({c} AS TEXT)" for c in src_cols)
             # table/columns come from the hardcoded _TICK_COLUMNS map
-            rows = conn.execute(f"SELECT id, {select_list} FROM {table}").fetchall()  # nosec B608
+            rows = conn.execute(f"SELECT id, {select_list} FROM {table}").fetchall()  # nosec
 
             bad = 0
             tick_min = tick_max = None

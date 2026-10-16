@@ -630,7 +630,7 @@ def _search_via_explorer(address: str, limit: int) -> None:
         click.echo(json.dumps(transactions, indent=2))
     except NetworkError as e:
         error(f"Explorer API unavailable: {e}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure reports cleanly
         error(f"Error searching transactions: {e}")
 
 
@@ -672,5 +672,5 @@ def _search_via_rpc(filters: dict, sender: str | None, recipient: str | None, li
         click.echo(json.dumps(transactions, indent=2))
     except NetworkError as e:
         error(f"RPC unavailable: {e}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure reports cleanly
         error(f"Error searching transactions: {e}")

@@ -78,6 +78,27 @@ def _peer_allowed(peer: PeerCred, group_gid: int) -> bool:
     return uid == 0 or gid == group_gid
 
 
+def _drain_before_close(conn: socket.socket, timeout: float = 1.0) -> None:
+    """Consume whatever the peer already sent so close() is a clean FIN.
+
+    Closing a stream socket while its receive queue still holds unread bytes
+    makes the kernel RST the connection, and the RST can discard the reply we
+    just wrote on the peer's side. Draining first lets the refusal reach the
+    client intact. Bounded by `timeout` so an idle peer cannot hold the
+    handler thread.
+    """
+    try:
+        conn.shutdown(socket.SHUT_WR)
+    except OSError:
+        return
+    conn.settimeout(timeout)
+    try:
+        while conn.recv(4096):
+            pass
+    except OSError:
+        pass  # peer timeout or reset — either way there is nothing left to read
+
+
 def handle_request(
     payload: dict,
     *,
@@ -120,8 +141,8 @@ def handle_request(
         log.warning("sign request refused: %s: %s", type(e).__name__, e.reason)
         result, reason = "refused", e.reason
         return {"ok": False, "result": result, "reason": reason}
-    except Exception as e:
-        # fail closed: refuse with a generic reason, never leak internals --
+    except Exception as e:  # noqa: BLE001 - fail closed: the wire answer never leaks internals
+        # refuse with a generic reason, never leak internals --
         # but the journal needs the failure cause (class + message only;
         # our exception types carry controlled, secret-free text).
         log.warning("sign request failed: %s: %s", type(e).__name__, e)
@@ -165,7 +186,8 @@ class OpsSignerServer:
                 peer = self._creds_fn(conn)
                 gid = self._group_gid_fn(self.config.peer_group)
                 if not _peer_allowed(peer, gid):
-                    conn.sendall(b'{"ok":false,"result":"refused","reason":"peer_not_in_group"}')
+                    conn.sendall(b'{"ok":false,"result":"refused","reason":"peer_not_in_group"}\n')
+                    _drain_before_close(conn)
                     return
                 chunks: list[bytes] = []
                 while sum(len(c) for c in chunks) <= self.config.max_request_bytes:
@@ -185,7 +207,7 @@ class OpsSignerServer:
                     peer_gid=gid,
                 )
                 conn.sendall(json.dumps(reply).encode() + b"\n")
-            except Exception:
+            except Exception:  # noqa: BLE001 - per-connection fail closed: a bad request must not kill the listener
                 try:
                     conn.sendall(b'{"ok":false,"result":"error","reason":"internal"}\n')
                 except OSError:

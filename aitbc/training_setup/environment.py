@@ -75,7 +75,8 @@ class TrainingEnvironment:
             raise PrerequisitesError(f"AITBC CLI not found at {aitbc_cli}")
         log.info("✓ AITBC CLI found")
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "blockchain", "info"], cwd=self.aitbc_dir, capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0:
@@ -102,7 +103,8 @@ class TrainingEnvironment:
         # Check wallets
         wallets = []
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "wallet", "list"],
                 cwd=self.aitbc_dir,
                 capture_output=True,
@@ -121,7 +123,8 @@ class TrainingEnvironment:
         # Check blockchain
         blockchain = "unknown"
         try:
-            result = subprocess.run(  # nosec B603: fixed command, safe input
+            # fixed command, safe input
+            result = subprocess.run(  # nosec B603
                 [str(aitbc_cli), "blockchain", "info"],
                 cwd=self.aitbc_dir,
                 capture_output=True,

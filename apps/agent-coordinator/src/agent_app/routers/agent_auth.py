@@ -118,7 +118,8 @@ async def agent_login(request: Request, req: AgentLoginRequest) -> dict[str, Any
         return {
             "status": "success",
             "access_token": token,
-            "token_type": "Bearer",  # nosec B105 — RFC 6750 scheme name, not a secret
+            # RFC 6750 scheme name, not a secret
+            "token_type": "Bearer",  # nosec
             "agent_id": req.agent_id,
             "wallet": claimed_wallet,
             "issued_at": datetime.now(UTC).isoformat(),

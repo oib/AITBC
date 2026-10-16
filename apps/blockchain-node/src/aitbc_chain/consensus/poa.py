@@ -897,7 +897,7 @@ class PoAProposer:
                     # peer must not take the blame for it.
                     if self._sync_manager.pull_from_peer(self._config.chain_id, result.peer_url):
                         self._freshness_pulls[result.peer_url] = key[0]
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - peer pull probe: a failed kick must not abort proposing
                     self._logger.warning("[PROPOSE] freshness pull from %s failed to start: %s", result.peer_url, exc)
         elif result.verdict is FreshnessVerdict.HASH_MISMATCH:
             ok = False
@@ -960,7 +960,7 @@ class PoAProposer:
         if self._sync_manager is not None:
             try:
                 in_flight = bool(self._sync_manager.pull_in_flight(self._config.chain_id))
-            except Exception:
+            except Exception:  # noqa: BLE001 - status probe: cannot tell -> assume in-flight, blame nobody
                 in_flight = True  # cannot tell — do not blame anyone yet
         if in_flight:
             return
@@ -1022,7 +1022,7 @@ class PoAProposer:
                 if resp.status_code != 200:
                     continue
                 block = resp.json()
-            except Exception:
+            except Exception:  # noqa: BLE001 - per-peer fetch containment: one bad peer must not break the scan
                 continue
             if not isinstance(block, dict) or block.get("hash") != locked_hash:
                 continue
@@ -1036,7 +1036,7 @@ class PoAProposer:
             metrics_registry.increment("poa_attestation_lock_fetch_total")
             try:
                 self._sync_manager.pull_from_peer(self._config.chain_id, base)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - peer pull probe: a failed kick still leaves the lock held
                 self._logger.warning("[PROPOSE] attestation-lock pull from %s failed: %s", base, exc)
             return True
         metrics_registry.increment("poa_attestation_lock_held_total")

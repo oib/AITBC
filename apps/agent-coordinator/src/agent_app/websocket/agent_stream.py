@@ -436,8 +436,8 @@ def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:
         # supported idiom; bandit cannot tell it from string-concatenated SQL.
         placeholders = ",".join("?" * len(spellings))
         cursor = conn.execute(
-            "SELECT COUNT(*) FROM coin_requests WHERE status IN ('APPROVED') "
-            f"AND (sender = ? OR lower(wallet_address) IN ({placeholders}))",  # nosec B608
+            "SELECT COUNT(*) FROM coin_requests WHERE status IN ('APPROVED') "  # nosec
+            f"AND (sender = ? OR lower(wallet_address) IN ({placeholders}))",
             (sender, *spellings),
         )
         count = cursor.fetchone()[0]

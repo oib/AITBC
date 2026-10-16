@@ -51,8 +51,19 @@ class TestMiningCommands:
 
         assert "list" in mining.commands
 
+    @pytest.fixture
+    def wallet_keystore(self, tmp_path):
+        """A keystore dir holding one wallet, patched into the mining commands."""
+        import json
+
+        wallet_dir = tmp_path / "wallets"
+        wallet_dir.mkdir()
+        (wallet_dir / "default.json").write_text(json.dumps({"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"}))
+        with patch("aitbc_cli.commands.mining._keystore_dirs", lambda: [wallet_dir]):
+            yield wallet_dir
+
     @patch("aitbc_cli.commands.mining.AITBCHTTPClient")
-    def test_mining_stop_command(self, mock_http_class, runner, mock_blockchain_rpc):
+    def test_mining_stop_command(self, mock_http_class, runner, mock_blockchain_rpc, wallet_keystore):
         """``mining stop`` stops mining via the mocked RPC."""
         mock_client = mock_http_class.return_value
         mock_client.post.return_value = {"status": "stopped"}
@@ -66,7 +77,7 @@ class TestMiningCommands:
         assert "/rpc/mining/stop" in mock_client.post.call_args[0][0]
 
     @patch("aitbc_cli.commands.mining.AITBCHTTPClient")
-    def test_mining_status_command(self, mock_http_class, runner, mock_blockchain_rpc):
+    def test_mining_status_command(self, mock_http_class, runner, mock_blockchain_rpc, wallet_keystore):
         """``mining status`` returns mining status from the mocked RPC."""
         mock_client = mock_http_class.return_value
         mock_client.get.return_value = {"enabled": True, "threads": 4, "hash_rate": 1000}
@@ -80,7 +91,7 @@ class TestMiningCommands:
         assert "/rpc/mining/status" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.mining.AITBCHTTPClient")
-    def test_mining_list_command(self, mock_http_class, runner, mock_blockchain_rpc):
+    def test_mining_list_command(self, mock_http_class, runner, mock_blockchain_rpc, wallet_keystore):
         """``mining list`` lists active miners from the mocked RPC."""
         mock_client = mock_http_class.return_value
         mock_client.get.return_value = {"miners": [{"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "threads": 2}]}

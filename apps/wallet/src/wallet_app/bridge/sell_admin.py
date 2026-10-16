@@ -104,7 +104,7 @@ def _intent_metadata(row: dict[str, Any]) -> dict[str, Any] | None:
         return None
     try:
         tx = json.loads(str(raw))
-    except Exception:
+    except (RecursionError, ValueError):
         return {"unparseable": True}
     if not isinstance(tx, dict):
         return {"unparseable": True}
@@ -274,7 +274,7 @@ async def _cmd_inspect(db: Any, sellmon: Any, ait_tx_hash: str) -> int:
     try:
         nonce, balance = await sellmon._account_view(cfg.escrow_address)
         print(f"escrow chain view: address={cfg.escrow_address} nonce={nonce} balance={balance} AIT")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - admin display probe — unavailable prints, never raises
         print(f"escrow chain view unavailable: {redact_text(str(e))}")
     return 0
 
@@ -445,7 +445,7 @@ async def _cmd_sweep_now(db: Any, sellmon: Any, args: argparse.Namespace) -> int
     try:
         _nonce, balance = await sellmon._account_view(cfg.escrow_address)
         print(f"escrow balance: {balance} AIT ({'sufficient' if balance >= required else 'SHORT — would re-park'})")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - admin display probe — unreadable balance prints, never raises
         print(f"escrow balance unreadable: {redact_text(str(e))}")
     if not args.confirm:
         print("dry-run: no write, no send. Re-run with --confirm --note '…' to sweep now.")

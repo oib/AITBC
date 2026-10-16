@@ -32,6 +32,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, event, func, inspect, text
+from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm.attributes import NEVER_SET
 from sqlmodel import Session, col, select
 
@@ -459,7 +460,7 @@ def _pk_of(obj: Any) -> dict[str, Any] | None:
     """Primary-key map (keyed by column name) for a mapped object."""
     try:
         mapper = inspect(type(obj))
-    except Exception:
+    except NoInspectionAvailable:
         return None
     cols = getattr(mapper, "primary_key", None)
     if not cols:
@@ -670,7 +671,7 @@ class BlockDeltaJournal:
             try:
                 mapper = inspect(type(obj))
                 table = mapper.local_table.name
-            except Exception:
+            except NoInspectionAvailable:
                 continue
             if table in _SKIP_TABLES:
                 continue
@@ -696,7 +697,7 @@ class BlockDeltaJournal:
             try:
                 mapper = inspect(type(obj))
                 table = mapper.local_table.name
-            except Exception:
+            except NoInspectionAvailable:
                 continue
             if table in _SKIP_TABLES:
                 continue
@@ -743,7 +744,7 @@ class BlockDeltaJournal:
             try:
                 mapper = inspect(type(obj))
                 table = mapper.local_table.name
-            except Exception:
+            except NoInspectionAvailable:
                 continue
             if table in _SKIP_TABLES:
                 continue
@@ -1149,7 +1150,7 @@ def _tx_on_chain(session_factory: Any, chain_id: str, tx_hash: str) -> bool:
                 .limit(1)
             ).first()
             return row is not None
-    except Exception:
+    except Exception:  # noqa: BLE001 - on-chain probe — an unreadable table counts as not-sealed
         return False
 
 
@@ -1193,7 +1194,7 @@ def requeue_orphaned_transactions(
     for tx in payloads:
         try:
             _admit_orphan(tx, mempool, chain_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-orphan admission containment — failure is recorded, not raised
             tx["_requeue_error"] = str(exc)
             failed.append(tx)
             logger.info(
@@ -1304,7 +1305,7 @@ def _account_cache() -> Any:
         from aitbc.caching import RedisCache
 
         _ACCOUNT_CACHE = RedisCache(redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"), default_ttl=30)
-    except Exception:
+    except Exception:  # noqa: BLE001 - cache is optional — a Redis failure disables it
         _ACCOUNT_CACHE = False
     return _ACCOUNT_CACHE or None
 
@@ -1329,6 +1330,6 @@ def invalidate_account_caches(chain_id: str, addresses: set[str]) -> int:
             try:
                 if cache.delete(f"{prefix}:{chain_id}:{addr.lower()}"):
                     deleted += 1
-            except Exception:
+            except Exception:  # noqa: BLE001 - per-address invalidation containment
                 logger.warning("Failed to invalidate %s cache for %s", prefix, addr)
     return deleted

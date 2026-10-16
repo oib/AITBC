@@ -349,7 +349,8 @@ def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
                     completed_at TIMESTAMP
                 )
             """)
-            query = f"INSERT INTO eth_deposits SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at FROM {temp_name}"  # nosec B608 - temp_name is a hardcoded literal table name from this function's own migration list (`table` above), never external input
+            # temp_name is a hardcoded literal table name from this function's own migration list (`table` above), never external input
+            query = f"INSERT INTO eth_deposits SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at FROM {temp_name}"  # nosec B608
             cursor.execute(query)
         else:
             cursor.execute("""
@@ -362,9 +363,10 @@ def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
                     exchange_rate_eur NUMERIC NOT NULL
                 )
             """)
-            query = f"INSERT INTO price_history SELECT id, timestamp, eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur FROM {temp_name}"  # nosec B608 - temp_name is a hardcoded literal table name from this function's own migration list (`table` above), never external input
+            # temp_name is a hardcoded literal table name from this function's own migration list (`table` above), never external input
+            query = f"INSERT INTO price_history SELECT id, timestamp, eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur FROM {temp_name}"  # nosec
             cursor.execute(query)
-        cursor.execute(f"DROP TABLE {temp_name}")  # nosec B608 - temp_name is a hardcoded literal (see above)
+        cursor.execute(f"DROP TABLE {temp_name}")  # temp_name is a hardcoded literal (see above)
 
 
 def insert_deposit(
@@ -485,7 +487,8 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     # derived from caller input -- `status` itself is bound as a ? parameter.
     timestamp_field = "verified_at" if status == "verified" else "completed_at"
 
-    query = f"UPDATE eth_deposits SET status = ?, {timestamp_field} = ? WHERE id = ?"  # nosec B608 - timestamp_field is one of exactly two hardcoded literals above, never caller input
+    # timestamp_field is one of exactly two hardcoded literals above, never caller input
+    query = f"UPDATE eth_deposits SET status = ?, {timestamp_field} = ? WHERE id = ?"  # nosec
     cursor.execute(
         query,
         (status, datetime.now().isoformat(), deposit_id),
@@ -968,13 +971,14 @@ def update_withdrawal_status(
     elif status == "refunded":
         timestamp_field = "refunded_at"
 
+    # timestamp_field is a hardcoded literal above, never caller input
     query = f"""
         UPDATE eth_withdrawals
         SET status = ?, {timestamp_field} = ?, eth_tx_hash = COALESCE(?, eth_tx_hash),
             refund_tx_hash = COALESCE(?, refund_tx_hash), error = COALESCE(?, error),
             release_nonce = COALESCE(?, release_nonce)
         WHERE ait_tx_hash = ?
-    """  # nosec B608 - timestamp_field is a hardcoded literal above, never caller input
+    """  # nosec
     cursor.execute(
         query,
         (status, datetime.now().isoformat(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash),
@@ -1007,10 +1011,11 @@ def get_withdrawal_eth_committed_since(since_iso: str) -> Decimal:
     conn = _connect_db()
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _WITHDRAWAL_ETH_COMMITTED_STATUSES)
+    # placeholders are literal '?' generated from _WITHDRAWAL_ETH_COMMITTED_STATUSES; all values bound
     cursor.execute(
         f"""SELECT amount_eth FROM eth_withdrawals
             WHERE status IN ({placeholders})
-              AND released_at >= ?""",  # nosec B608 - placeholders are literal '?' generated from _WITHDRAWAL_ETH_COMMITTED_STATUSES; all values bound
+              AND released_at >= ?""",  # nosec
         (*_WITHDRAWAL_ETH_COMMITTED_STATUSES, since_iso),
     )
     total = Decimal(0)
@@ -1250,7 +1255,8 @@ def get_sell_quote(quote_id: str) -> dict[str, Any] | None:
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes WHERE id = ?",  # nosec B608 - _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
+        # _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
+        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes WHERE id = ?",  # nosec
         (quote_id,),
     )
     row = cursor.fetchone()
@@ -1265,7 +1271,8 @@ def get_all_sell_quotes(limit: int = 50, offset: int = 0) -> list[dict[str, Any]
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec B608 - _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
+        # _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
+        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec
         (limit, offset),
     )
     rows = cursor.fetchall()
@@ -1291,7 +1298,8 @@ def get_latest_sell_quote_by_shop(shop_ait_address: str) -> dict[str, Any] | Non
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT "  # nosec B608 - _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
+        # _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
+        "SELECT "  # nosec
         + ", ".join(_SELL_QUOTE_KEYS)
         + " FROM bridge_sell_quotes WHERE LOWER(shop_ait_address) = LOWER(?) ORDER BY created_at DESC LIMIT 1",
         (shop_ait_address,),
@@ -1366,7 +1374,8 @@ def get_sell_lock_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE ait_tx_hash = ?",  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+        # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE ait_tx_hash = ?",  # nosec
         (ait_tx_hash,),
     )
     row = cursor.fetchone()
@@ -1381,7 +1390,8 @@ def get_sell_lock_by_id(lock_id: str) -> dict[str, Any] | None:
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE id = ?",  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+        # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE id = ?",  # nosec
         (lock_id,),
     )
     row = cursor.fetchone()
@@ -1403,7 +1413,8 @@ def get_sell_lock_by_quote_id(
     before a timestamp, so the earliest lock wins the quote."""
     conn = _connect_db()
     cursor = conn.cursor()
-    query = "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE quote_id = ?"  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+    # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+    query = "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE quote_id = ?"  # nosec
     params: list[Any] = [quote_id]
     if exclude_ait_tx_hash:
         query += " AND ait_tx_hash != ?"
@@ -1472,7 +1483,8 @@ def get_all_sell_locks(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec B608 - _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+        # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
+        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec
         (limit, offset),
     )
     rows = cursor.fetchall()
@@ -1512,6 +1524,7 @@ def update_sell_lock_status(
         timestamp_field = "refunded_at"
 
     if timestamp_field:
+        # timestamp_field is a hardcoded literal above, never caller input
         query = f"""
             UPDATE bridge_sell_locks
             SET status = ?, {timestamp_field} = ?,
@@ -1530,7 +1543,7 @@ def update_sell_lock_status(
                 operator_note = COALESCE(?, operator_note),
                 error = COALESCE(?, error)
             WHERE ait_tx_hash = ?
-        """  # nosec B608 - timestamp_field is a hardcoded literal above, never caller input
+        """  # nosec
         params: tuple = (
             status,
             datetime.now().isoformat(),
@@ -1606,7 +1619,8 @@ def get_sell_pending_eth_reserve() -> Decimal:
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _SELL_RESERVE_STATUSES)
     cursor.execute(
-        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})",  # nosec B608 - placeholders are literal '?' generated from _SELL_RESERVE_STATUSES; all values bound
+        # placeholders are literal '?' generated from _SELL_RESERVE_STATUSES; all values bound
+        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})",  # nosec
         _SELL_RESERVE_STATUSES,
     )
     total = cursor.fetchone()[0]
@@ -1629,11 +1643,12 @@ def get_sell_eth_committed_since(since_iso: str) -> Decimal:
     conn = _connect_db()
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _SELL_ETH_COMMITTED_STATUSES)
+    # placeholders are literal '?' generated from _SELL_ETH_COMMITTED_STATUSES; all values bound
     cursor.execute(
         f"""SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks
             WHERE (status IN ({placeholders})
                    OR (status = 'written_off' AND eth_tx_hash IS NOT NULL))
-              AND released_at >= ?""",  # nosec B608 - placeholders are literal '?' generated from _SELL_ETH_COMMITTED_STATUSES; all values bound
+              AND released_at >= ?""",  # nosec
         (*_SELL_ETH_COMMITTED_STATUSES, since_iso),
     )
     total = cursor.fetchone()[0]
@@ -1801,7 +1816,8 @@ def get_exchange_settlement(kind: str, ref_id: int) -> dict[str, Any] | None:
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE kind = ? AND ref_id = ?",  # nosec B608 - column list is a hardcoded constant
+        # column list is a hardcoded constant
+        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE kind = ? AND ref_id = ?",  # nosec
         (kind, ref_id),
     )
     row = cursor.fetchone()
@@ -1815,7 +1831,8 @@ def get_open_exchange_settlements() -> list[dict[str, Any]]:
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_OPEN_STATUSES)
     cursor.execute(
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE status IN ({placeholders}) ORDER BY created_at",  # nosec B608 - placeholders are literal '?' generated from the constant; values bound
+        # placeholders are literal '?' generated from the constant; values bound
+        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE status IN ({placeholders}) ORDER BY created_at",  # nosec
         _EXCHANGE_SETTLEMENT_OPEN_STATUSES,
     )
     rows = cursor.fetchall()
@@ -1829,7 +1846,8 @@ def get_exchange_inflight_sweep() -> dict[str, Any] | None:
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES)
     cursor.execute(
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE status IN ({placeholders}) LIMIT 1",  # nosec B608 - same literal-placeholder pattern
+        # same literal-placeholder pattern
+        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE status IN ({placeholders}) LIMIT 1",  # nosec
         _EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES,
     )
     row = cursor.fetchone()
@@ -1846,7 +1864,8 @@ def get_exchange_pending_eth_reserve() -> Decimal:
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_RESERVE_STATUSES)
     cursor.execute(
-        f"SELECT eth_amount FROM exchange_settlements WHERE status IN ({placeholders})",  # nosec B608 - same literal-placeholder pattern
+        # same literal-placeholder pattern
+        f"SELECT eth_amount FROM exchange_settlements WHERE status IN ({placeholders})",  # nosec
         _EXCHANGE_SETTLEMENT_RESERVE_STATUSES,
     )
     total = Decimal(0)
@@ -1880,10 +1899,11 @@ def get_exchange_eth_committed_since(since_iso: str) -> Decimal:
     conn = _connect_db()
     cursor = conn.cursor()
     placeholders = ", ".join("?" for _ in _EXCHANGE_ETH_COMMITTED_STATUSES)
+    # same literal-placeholder pattern
     cursor.execute(
         f"""SELECT eth_amount FROM exchange_settlements
             WHERE status IN ({placeholders})
-              AND released_at >= ?""",  # nosec B608 - same literal-placeholder pattern
+              AND released_at >= ?""",  # nosec
         (*_EXCHANGE_ETH_COMMITTED_STATUSES, since_iso),
     )
     total = Decimal(0)
@@ -1914,7 +1934,8 @@ def list_exchange_settlements(
     conn = _connect_db()
     cursor = conn.cursor()
     cursor.execute(
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements{where}"  # nosec B608 - column list/keywords are literals; every value is bound
+        # column list/keywords are literals; every value is bound
+        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements{where}"  # nosec
         " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
         (*params, limit, offset),
     )
@@ -1961,6 +1982,7 @@ def update_exchange_settlement(
         timestamp_field = "refunded_at"
 
     if timestamp_field:
+        # timestamp_field is a hardcoded literal above, never caller input
         query = f"""
             UPDATE exchange_settlements
             SET status = ?, {timestamp_field} = ?,
@@ -1973,7 +1995,7 @@ def update_exchange_settlement(
                 escrow_out_tx = COALESCE(?, escrow_out_tx),
                 error = COALESCE(?, error)
             WHERE id = ?
-        """  # nosec B608 - timestamp_field is a hardcoded literal above, never caller input
+        """  # nosec
         params: tuple = (
             status,
             datetime.now().isoformat(),

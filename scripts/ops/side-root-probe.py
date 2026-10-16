@@ -208,7 +208,8 @@ def table_digest(conn: sqlite3.Connection, table: str, *, canonical: bool = Fals
     keep = [c for c in cols if not drop(c)]
     skipped = [c for c in cols if drop(c)]
     quoted = ", ".join(f'"{c}"' for c in keep)
-    rows = conn.execute(f'SELECT {quoted} FROM "{table}"').fetchall()  # nosec B608 - quoted identifiers from PRAGMA table_info
+    # quoted identifiers from PRAGMA table_info
+    rows = conn.execute(f'SELECT {quoted} FROM "{table}"').fetchall()  # nosec
     if canonical:
         rows = [tuple(_canonical_cell_value(v) for v in row) for row in rows]
     canonical_rows = sorted("\x1f".join(_canonical_cell(v) for v in row) for row in rows)

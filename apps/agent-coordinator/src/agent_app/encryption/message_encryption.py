@@ -101,7 +101,13 @@ class AgentKeyPair:
 class MessageEncryptor:
     """Message encryption and decryption handler"""
 
-    def __init__(self, keys_dir: str = "/var/lib/aitbc/agent_keys") -> None:
+    def __init__(self, keys_dir: str | None = None) -> None:
+        if keys_dir is None:
+            # Late-bound: DATA_DIR follows AITBC_DATA_DIR, which test harnesses
+            # redirect — a literal /var/lib/aitbc default would ignore that.
+            from aitbc.constants import DATA_DIR
+
+            keys_dir = str(DATA_DIR / "agent_keys")
         self.keys_dir = keys_dir
         self.key_pairs: dict[str, AgentKeyPair] = {}
         os.makedirs(keys_dir, mode=448, exist_ok=True)

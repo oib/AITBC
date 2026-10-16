@@ -140,7 +140,7 @@ def _error_response_body(exc: BaseException) -> Any:
         if response is not None:
             try:
                 return response.json()
-            except Exception:
+            except ValueError:
                 return response.text
         seen = seen.__cause__ or seen.__context__
     return None

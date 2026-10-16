@@ -63,7 +63,8 @@ def _http_json(url: str) -> object:
     for attempt in range(RETRIES):
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - https-only public explorer
+            # https-only public explorer
+            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
                 return json.load(resp)
         except urllib.error.HTTPError as exc:
             last = ExplorerError(f"HTTP {exc.code} for {url}")
@@ -87,7 +88,8 @@ def _rpc(rpc_url: str, method: str, params: list[object]) -> object:
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
     req = urllib.request.Request(rpc_url, data=body, headers={"Content-Type": "application/json", "User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - https-only public RPC
+        # https-only public RPC
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
             payload = json.load(resp)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
         raise ExplorerError(
