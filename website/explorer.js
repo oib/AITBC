@@ -124,7 +124,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Refresh data
     async function refreshData() {
-        await updateChainStats();
         await loadActivityChart();
         await updateLiveFeed();
         await loadTopAddresses();
@@ -266,20 +265,6 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         } catch (error) {
             console.error('Error loading top addresses:', error);
-        }
-    }
-
-    // Update chain stats
-    async function updateChainStats() {
-        try {
-            const response = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
-            const data = await response.json();
-
-            if (data.height) {
-                document.getElementById('chain-height').textContent = data.height;
-            }
-        } catch (error) {
-            console.error('Error updating chain stats:', error);
         }
     }
 
