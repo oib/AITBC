@@ -1228,6 +1228,8 @@ class TestOutboundLedger:
         monitor._record_outbound(self._w3(status=0), self._tx("0xout_fail", "0x" + "9" * 40, 10**17), 60)
         row = self._outbound_rows()[0]
         assert row[4] == "unidentified" and "failed" in (row[6] or "")
+        assert float(row[2]) == 0.0  # reverted send: gas only, no value moved
+        assert row[3] == 21000 * 10**9
 
     def test_totals_exclude_self_send_value(self, monitor):
         from bridge_monitor.storage import outbound_totals_wei, record_outbound
