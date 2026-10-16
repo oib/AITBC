@@ -222,3 +222,10 @@ backend — trust the receipt gas, not that line).
 - Balance displays from the load-balanced public RPC can lag badly (it
   reported 0.18 ETH before the deploy and 0.044 after — the higher figure
   was a stale backend). Check balances by receipt or a second endpoint.
+- **Sequential Safe execs need a Safe-nonce pin.** Back-to-back
+  `signAndExecute` calls read `Safe.getNonce()` from a stale replica and
+  sign against an already-consumed nonce — `execTransaction` reverts
+  (seen on the validator execs 16 Oct: first exec landed, the next
+  reverted until the nonce was pinned). Read `kits[0].getNonce()` once,
+  pass it as `expectedNonce` so the built-in poll waits for a fresh
+  replica, and only then sign and submit.
