@@ -5,8 +5,8 @@ every consumer of the bridge ledger, and every consumer falls back to the
 The ledger is a shared multi-consumer database. If one consumer misses the
 override during a later migration it silently recreates an empty ledger at
 the old path (``sqlite3.connect()`` creates the file) — split-brain with no
-error. This table is the single list DATA-LAYOUT-2 edits when the default
-flips to ``DATA_DIR/data/bridge_deposits.db``.
+error. This table is the single list that pins the default: since
+DATA-LAYOUT-2 it is ``DATA_DIR/data/bridge_deposits.db``.
 """
 
 from __future__ import annotations
@@ -135,16 +135,16 @@ def test_env_override_resolves_same_path_in_every_consumer(tmp_path, monkeypatch
 def test_unset_env_resolves_existing_default(tmp_path, monkeypatch):
     # exchange resolves through aitbc.constants.DATA_DIR (patched); the two
     # module consumers resolve AITBC_DATA_DIR/DATA_DIR/default at exec time
-    # — cleared above — so their default is /var/lib/aitbc/<name>. Pin both
+    # — cleared above — so their default is /var/lib/aitbc/data/<name>. Pin both
     # to their respective current defaults and assert identity.
     ex_dir = tmp_path / "exdata"
-    _mk_ledger(ex_dir / DEFAULT_NAME)
+    _mk_ledger(ex_dir / "data" / DEFAULT_NAME)
     for c in CONSUMERS:
         resolved = _resolve(c, monkeypatch, None, str(ex_dir))
         if c.kind == "exchange":
-            assert resolved == str(ex_dir / DEFAULT_NAME), c.label
+            assert resolved == str(ex_dir / "data" / DEFAULT_NAME), c.label
         else:
-            assert resolved == os.path.join("/var/lib/aitbc", DEFAULT_NAME), c.label
+            assert resolved == os.path.join("/var/lib/aitbc", "data", DEFAULT_NAME), c.label
 
 
 @pytest.mark.parametrize("blank", ["", "   ", " \t "])
@@ -153,24 +153,24 @@ def test_blank_env_is_treated_as_unset(tmp_path, monkeypatch, blank):
     must not reach ``sqlite3.connect('')`` — that opens a private temporary
     database, a split-brain with no error. Blank is unset."""
     ex_dir = tmp_path / "exdata-blank"
-    _mk_ledger(ex_dir / DEFAULT_NAME)
+    _mk_ledger(ex_dir / "data" / DEFAULT_NAME)
     for c in CONSUMERS:
         resolved = _resolve(c, monkeypatch, blank, str(ex_dir))
         if c.kind == "exchange":
-            assert resolved == str(ex_dir / DEFAULT_NAME), c.label
+            assert resolved == str(ex_dir / "data" / DEFAULT_NAME), c.label
         else:
-            assert resolved == os.path.join("/var/lib/aitbc", DEFAULT_NAME), c.label
+            assert resolved == os.path.join("/var/lib/aitbc", "data", DEFAULT_NAME), c.label
 
 
-def test_unset_default_is_unchanged_from_pre_override_layout(tmp_path, monkeypatch):
-    """The pre-override default for every consumer was
-    ``<data dir>/bridge_deposits.db`` — top-level, not under ``data/``.
-    DATA-LAYOUT-2 updates this expectation when the default flips."""
-    module_default = os.path.join("/var/lib/aitbc", DEFAULT_NAME)
+def test_unset_default_is_data_dir_data_layout(tmp_path, monkeypatch):
+    """The current default for every consumer is
+    ``<data dir>/data/bridge_deposits.db`` (DATA-LAYOUT-2 flipped it
+    from the top level)."""
+    module_default = os.path.join("/var/lib/aitbc", "data", DEFAULT_NAME)
     for c in CONSUMERS:
         if c.kind == "module":
             assert _resolve(c, monkeypatch, None, None) == module_default, c.label
-    # exchange: assert it joins DATA_DIR directly, not DATA_DIR/"data".
+    # exchange: assert it joins DATA_DIR/"data", not DATA_DIR directly.
     ex_dir = tmp_path / "exdata2"
-    _mk_ledger(ex_dir / DEFAULT_NAME)
-    assert _exchange_resolved_path(monkeypatch, None, str(ex_dir)) == str(ex_dir / DEFAULT_NAME)
+    _mk_ledger(ex_dir / "data" / DEFAULT_NAME)
+    assert _exchange_resolved_path(monkeypatch, None, str(ex_dir)) == str(ex_dir / "data" / DEFAULT_NAME)
