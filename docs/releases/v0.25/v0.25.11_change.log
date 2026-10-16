@@ -1173,3 +1173,7 @@ probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
 ### FOLLOWER-RPC-6
 
 - docs(ops): hub1 rpc now binds `127.0.0.1:8202` behind its nginx (set in `node.env`, one `aitbc-blockchain-rpc` restart; direct-port refusal verified from `192.168.100.1`). No `0.0.0.0:8202` remains in the fleet — the XFF-spoof caveat in `messaging-nginx-limits.md` is closed fleet-wide.
+
+### FOLLOWER-RPC-5 (cleanup)
+
+- fix(monitoring): fleet-config-check LAN probes now hit the follower nginx path (`http://<host>/rpc/status` on :80) — direct `:8202` is loopback-only since FOLLOWER-RPC-5/6, so the old first probe always failed before the https fallback.
