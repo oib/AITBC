@@ -97,6 +97,23 @@ groups:
           summary: "Chain head on {{ $labels.chain_id }} has not advanced for 15 minutes on {{ $labels.instance }}"
           description: "aitbc_messaging_chain_head_height on {{ $labels.instance }} has stayed at {{ $value }} for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
 
+      # CHAIN-STALL-2: ChainHeadStalled reads the messaging head gauge, so a
+      # target that keeps scraping but stops exposing the series leaves the
+      # stall rule blind — collect_gauges crashed, the RPC dropped the
+      # metrics family, or the scrape moved to an endpoint without it. `up`
+      # limits this to reachable targets (a dead one is ServiceDown's job);
+      # `unless on(instance)` drops every instance still reporting, leaving
+      # only the gap. Warning, not critical: monitoring is broken, the chain
+      # is not (yet) shown to be.
+      - alert: ChainHeadMetricMissing
+        expr: up{job="blockchain-node"} == 1 unless on(instance) aitbc_messaging_chain_head_height
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "chain-head metric missing on {{ $labels.instance }}"
+          description: "{{ $labels.instance }} answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height, so ChainHeadStalled cannot see a stall there. Check for 'messaging metrics: collect failed' in the rpc journal and that the metrics endpoint still serves the messaging family."
+
       - alert: MempoolFull
         expr: blockchain_mempool_pending_count > 9000
         for: 5m
