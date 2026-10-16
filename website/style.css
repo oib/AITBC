@@ -1067,9 +1067,9 @@ a.btn-secondary {
 
 /* Health check grid */
 .health-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
     margin-top: 1rem;
 }
 .health-item {
@@ -1502,9 +1502,6 @@ a.btn-secondary {
     }
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
-    }
-    .health-grid {
-        grid-template-columns: 1fr;
     }
     .detail-grid {
         grid-template-columns: 1fr;
