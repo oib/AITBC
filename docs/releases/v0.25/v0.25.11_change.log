@@ -646,3 +646,21 @@ reported, not ignored.
 - Property test pins the fixpoint to a brute-force canonical-order replay
   over all grant/revoke rows (40 randomised grant/revoke/reorder seeds);
   a cap-tripped topic test proves reads still answer.
+
+### SD-5
+
+- Re-derived the settlement-authority float question on hub chain.db
+  (mode=ro): escrow_settlement_authority 0x1174…2B1F holds 32,975,761
+  units at nonce 0 — zero sends since the 7 Oct rotation. All
+  ESCROW_RELEASE/REFUND/FEE_SWEEP fees were paid by the previous
+  authority 0x03DF…378 between 1–6 Oct; the live sell/settle path pays
+  flat TRANSFER fees from the escrow account 0x40c7…1a07 itself. The
+  "587-day burn" was a test burst, not a steady rate.
+- scripts/monitoring/aitbc_hub_rules.yml: new SellEscrowFloatLow /
+  SellEscrowFloatCritical (role=sell_escrow, warn <10 fees 3.6M,
+  critical <2 fees 720k) — watches the account that actually pays,
+  wired via an AITBC_WATCH_ACCOUNTS extra (operator env). AuthorityFloat*
+  comments now state the watch is a capability guard on a dormant signer.
+- scripts/monitoring/aitbc_rules_test.yml + monitoring-setup.md updated;
+  promtool test rules passes. No rules installed on any host; no top-up
+  needed (see tasks/progress/SD-5.md).
