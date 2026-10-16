@@ -62,6 +62,16 @@ VECTORS: list[tuple[str, str, str]] = [
     ("plain text untouched", "hello world 123", "hello world 123"),
     ("emoji untouched", "vote \u2705", "vote \u2705"),
     ("newline untouched", "line1\nline2", "line1\nline2"),
+    # MSG-FIX-3: supplementary variation selectors and blank fillers are
+    # neutralised; the BMP variation selectors stay (emoji need them).
+    ("suppl variation selector", f"a{_c(0xE0100)}b", "a[U+E0100]b"),
+    ("suppl variation selector end", f"a{_c(0xE01EF)}b", "a[U+E01EF]b"),
+    ("hangul filler", f"a{_c(0x3164)}b", "a[U+3164]b"),
+    ("choseong filler", f"a{_c(0x115F)}b", "a[U+115F]b"),
+    ("jungseong filler", f"a{_c(0x1160)}b", "a[U+1160]b"),
+    ("halfwidth filler", f"a{_c(0xFFA0)}b", "a[U+FFA0]b"),
+    ("braille blank", f"a{_c(0x2800)}b", "a[U+2800]b"),
+    ("bmp variation selector kept", "a\ufe0fb", "a\ufe0fb"),
 ]
 
 
@@ -132,6 +142,9 @@ class TestSanitizeChainText(unittest.TestCase):
         self.assertIn(r"\u061C", src)
         self.assertIn(r"\u180E", src)
         self.assertIn("E0000", src)
+        self.assertIn("E0100", src)
+        self.assertIn("3164", src)
+        self.assertIn("2800", src)
         self.assertIn("gu;", src, "the regex needs the unicode + global flags")
 
 
