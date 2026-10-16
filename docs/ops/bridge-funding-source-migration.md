@@ -8,8 +8,9 @@ overlap posture (`BRIDGE_FUNDING_SOURCES=F,0x02b8…` on hub's monitor env),
 monitor restarted 12:07:56 CEST, a 0.001 ETH top-up from F recorded as
 `FUNDING`, and a 0.001 ETH canary from signer1 (non-listed) correctly
 landed as a `FAILED` deposit row ("Invalid AIT recipient address").
-Open: step 8 repo copies, step 10 shrink to F alone (testnet), then the
-whole plan again for mainnet. Every step that moves funds, creates a
+Open: nothing on testnet — step 10 shrink executed 16 Oct 12:43 CEST
+(`BRIDGE_FUNDING_SOURCES=F` alone, backup `.bak-2026-10-16-shrink`,
+monitor restarted, clean). Then the whole plan again for mainnet. Every step that moves funds, creates a
 wallet, edits a live env file, or restarts a service is marked
 **[operator]** or **[agent]** per the standing authorizations. Prepared
 16 Oct 2026 from `origin/main` (`b435f3ee9`) plus read-only hub
@@ -27,7 +28,7 @@ service — verified 16 Oct 2026, see section 2.)
 
 | where | what | who reads it | breaks if the address changes |
 |---|---|---|---|
-| `/etc/aitbc/aitbc-bridge-monitor.env` | `BRIDGE_FUNDING_SOURCES=0x7bD5…91D2,0x02b8…4c5b` (overlap since 16 Oct, testnet F first) | `bridge_monitor/main.py` → allowlist of ETH senders whose inflows record `FUNDING` (never paid out) | a top-up from the *new* wallet while the old address is still listed still records `FUNDING`; a top-up from an address **not** listed takes the deposit path and fails (missing recipient) |
+| `/etc/aitbc/aitbc-bridge-monitor.env` | `BRIDGE_FUNDING_SOURCES=0x7bD5…91D2` (shrunk to F alone 16 Oct 12:43; `0x02b8…` removed) | `bridge_monitor/main.py` → allowlist of ETH senders whose inflows record `FUNDING` (never paid out) | a top-up from the *new* wallet while the old address is still listed still records `FUNDING`; a top-up from an address **not** listed takes the deposit path and fails (missing recipient) |
 | `/etc/aitbc/node.env` + ~12 other env files | `GENESIS_WALLET_ADDRESS=0x02B8…` (address only) | informational / genesis labelling across `blockchain.env`, `exchange.env`, `aitbc-*` envs | nothing — it is an address string, not a key or an allowlist entry |
 | `/etc/aitbc/aitbc-blockchain-node.env`, `validator-secrets.env` | `PROPOSER_KEY` / `VALIDATOR_KEYS` | **verified 16 Oct 2026: both files hold only the `0x2aD5…` key (hub's live identity); the 0x02B8 key is absent.** The journal line `proposer=0x02B8F2C6…` that suggested otherwise is the genesis block's historical proposer label (`Genesis block already exists: height=0 …`), printed once per node start — not a loaded key | nothing — the old key is already gone; step 9 is a confirm-only check |
 | `/root/.aitbc/wallets/treasury` | keystore file, root-only | on-demand `aitbc wallet` CLI | nothing running; not a daemon load |
