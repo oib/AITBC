@@ -92,6 +92,6 @@ Exact wording, ready to paste once the operator fills the contact:
 
 ## Open for the operator
 
-- The contact text for `[OPERATOR CONTACT — TO BE FILLED]`.
-- Publishing the reporter-facing block on the site is approved
-  (operator, 16 Oct) and awaits its deploy step.
+- The contact text for `[OPERATOR CONTACT — TO BE FILLED]`. Until it is
+  filled, the site shows the block without the contact sentence —
+  published that way on the messages page, 16 Oct 2026.
