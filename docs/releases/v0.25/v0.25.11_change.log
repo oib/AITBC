@@ -953,3 +953,7 @@ reported, not ignored.
 - Known split documented: collect folds funding-returns into refunds and
   self-sends into unidentified; the ledger records `withdrawal` /
   `self_send`. Net outbound is identical.
+
+### BACKUP-1
+
+- scripts/maintenance/aitbc-backup.sh: new svc_* sweep backs up live SQLite DBs outside data/ (bridge_deposits.db on all hosts, ops-signer-ledger.db on hub, hermes/*.db on node2) via sqlite3 .backup on a -readonly source; chain_* artifact names unchanged.
