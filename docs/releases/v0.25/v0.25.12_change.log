@@ -1,0 +1,26 @@
+# v0.25.12 — post-v0.25.11 work
+
+**Baseline**: `v0.25.11` finalised at `fc356f5169` (2026-10-16). Sections below cover commits accrued on `main` after it, per the release-tag policy (`AGENTS.md`: the version's changelog is finalised in the tagged commit; later entries go to the next version's log).
+**Date**: 2026-10-16.
+**Tag**: `v0.25.12` (pending).
+
+### CHAIN-STALL-1: alert when the chain head stops moving; favicon link; STATUS.md refresh
+
+- `373062b0` — `ChainHeadStalled` (critical, `aitbc_rules.yml`): fires when
+  `aitbc_messaging_chain_head_height` — the RPC process's scrape-time
+  `max(block.height)` from the chain DB — has not advanced for 15 min, held
+  2 min. Closes the gap where every node is up but stuck at one height
+  (the 2026-08-24/25 stalls): `ServiceDown` needs a dead target and
+  `SyncLagHigh` needs a peer ahead, so neither fires. Quiet until 15 min of
+  history exist and on an empty node. promtool cases cover a stall, an
+  advancing node, an empty node and the no-history window;
+  `monitoring-setup.md` explains one host firing versus all of them. Not
+  deployed: copy the rule file per `check-rules-deployed.sh`, then reload.
+- `49044185` — `website/favicon.svg` is a relative symlink to `AITBC.svg`
+  instead of `/opt/aitbc/website/AITBC.svg`, which dangled in any checkout
+  outside `/opt/aitbc` and failed the website link and asset-stamp guards
+  there. The committed stamp already matches; no restamp.
+- `dbd6ff58` — `STATUS.md`: rows for v0.25.8–v0.25.11 and a dated
+  current-topology section (five hosts, four validators, 3-of-4
+  attestations with PBFT off, KR-5 rotation, v10–v14 heights, Sepolia-only
+  bridge) ahead of the August history it used to present as live.
