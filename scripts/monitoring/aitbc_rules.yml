@@ -99,14 +99,19 @@ groups:
 
       # CHAIN-STALL-2: ChainHeadStalled reads the messaging head gauge, so a
       # target that keeps scraping but stops exposing the series leaves the
-      # stall rule blind — collect_gauges crashed, the RPC dropped the
-      # metrics family, or the scrape moved to an endpoint without it. `up`
-      # limits this to reachable targets (a dead one is ServiceDown's job);
-      # `unless on(instance)` drops every instance still reporting, leaving
-      # only the gap. Warning, not critical: monitoring is broken, the chain
-      # is not (yet) shown to be.
+      # stall rule blind — collect_gauges crashed or the RPC dropped the
+      # metrics family. The gauge lives on the blockchain-rpc job (the RPC
+      # process's scrape-time collect), not blockchain-node, so `up` is
+      # matched on that job family — the `(.*-)?` prefix covers the
+      # per-host `aitbc3-blockchain-rpc` shape. The join is on(instance,
+      # node), not instance alone: followers remote-write the same instance
+      # strings (hub1/node1/node2 all scrape 127.0.0.1:8202) and the node
+      # external_label is what tells them apart on hub, while hub's own
+      # local series carry no node label and match the empty value.
+      # Warning, not critical: monitoring is broken, the chain is not (yet)
+      # shown to be.
       - alert: ChainHeadMetricMissing
-        expr: up{job="blockchain-node"} == 1 unless on(instance) aitbc_messaging_chain_head_height
+        expr: up{job=~"(.*-)?blockchain-rpc"} == 1 unless on(instance, node) aitbc_messaging_chain_head_height
         for: 10m
         labels:
           severity: warning

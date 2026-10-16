@@ -252,6 +252,8 @@ groups:
 
 It stays quiet until Prometheus holds 15 minutes of history, and never fires on a fresh node whose chain DB is still empty.
 
+`ChainHeadMetricMissing` (warning) is the blind-spot guard: it fires when a target answers scrapes but exposes no `aitbc_messaging_chain_head_height`, so `ChainHeadStalled` cannot see a stall there. The gauge is served by the RPC process, so the `up` side is matched on the `blockchain-rpc` job family (`(.*-)?blockchain-rpc` covers `aitbc3-blockchain-rpc`), and the join is `on(instance, node)` — followers remote-write identical instance strings (all scrape `localhost`/`127.0.0.1:8202`), so the `node` external_label is what keeps one host's gauge from suppressing another host's gap. Hub's own local series carry no `node` label and match the empty value.
+
 ### Authority account balances
 
 The node exporters carry no account balances, so nothing warned when the escrow settlement authority ran short of fee float. Escrow release and refund debit `max(36, amount // 100)` units (1% of the settled amount) from that account; once its balance is below the fee, both fail and the escrowed funds stay locked until it is topped up. `scripts/monitoring/authority-balances-textfile.py` reads the settlement and bridge release authorities from the local RPC and writes them as a node_exporter textfile, once a minute, from `aitbc-authority-balances.timer`:
