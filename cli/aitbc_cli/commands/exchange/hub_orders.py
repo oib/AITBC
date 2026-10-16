@@ -24,6 +24,7 @@ verifies ``keccak256(canonical JSON)`` over the pinned field set.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from decimal import Decimal, InvalidOperation
@@ -671,7 +672,9 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
     "Default: the service path the script resolves (EXCHANGE_DATABASE_URL / AITBC_DATA_DIR exchange.db)",
 )
 @click.option(
-    "--bridge-db", default=None, help="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check"
+    "--bridge-db",
+    default=os.environ.get("BRIDGE_DEPOSITS_DB"),
+    help="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check (default: BRIDGE_DEPOSITS_DB env var)",
 )
 @click.option("--rpc-url", default=None, help="Sepolia JSON-RPC endpoint — enables eth-chain checks")
 @click.option("--ait-rpc", default=None, help="AITBC chain RPC base URL — enables AIT checks with --escrow-address")

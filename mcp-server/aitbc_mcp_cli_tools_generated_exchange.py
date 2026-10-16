@@ -808,7 +808,10 @@ def aitbc_exchange_verify(
         ),
     ] = None,
     bridge_db: Annotated[
-        str | None, Field(description="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check")
+        str | None,
+        Field(
+            description="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check (default: BRIDGE_DEPOSITS_DB env var)"
+        ),
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Sepolia JSON-RPC endpoint — enables eth-chain checks")] = None,
     ait_rpc: Annotated[
