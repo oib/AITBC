@@ -180,3 +180,45 @@ receipt resolves — both `safe-create`'s and `safe-exec`'s immediate
 read-backs raced a lagging backend and had to be re-queried seconds later.
 Treat a `0x`-returning read right after `waitForTransactionReceipt` as a
 lag, not as a failed deployment; verify the receipt status first.
+
+## Rehearsal run 2026-10-16 (hardened script)
+
+Second Sepolia run, this time against the post-BR-11 hardened
+`deploy-bridge.js` on `main` (`58fba9413`), executed on the IDE host per the
+runbook (keys never copied to a node). Operator decision 16 Oct: "Run Sepolia
+work now". Same throwaway signer set as the 13 Oct run; signer1 balance before
+≈ 0.044 Sepolia ETH, after ≈ 0.0435 (the console "Balance" line read a stale
+backend — trust the receipt gas, not that line).
+
+- **B1 reused the existing Safe.** `safe-create.js` refused with "Safe already
+  deployed" — the deterministic 2-of-3 Safe for these owners + the default
+  salt nonce is the 13 Oct one
+  (`0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7`). A second run does not need a
+  new Safe; if one is ever wanted, `deploySafe` needs a `saltNonce` override.
+- **B2** deployed a fresh bridge with the hardened script:
+
+| step | tx hash | block | gas used |
+|---|---|---|---|
+| bridge deploy (`create`) | `0xeedd1b4420d565ae3d489b12100f93c415591e6288ee333382e6fc12c43e89f1` | 11926614 | 17,717,009 |
+| Safe `execTransaction` — `setFeeRecipient(signer1)`, signed by signer2+signer3, submitted by signer1 | `0xfdad7d9de39a81a098b61555238a0ec5f67ce49a4d382b6a0f79bff12634d0fa` | 11926621 | 85,852 |
+
+- Bridge: `0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0` — B3 read-back
+  `{"verdict":"OK"}`: owner = Safe, `paused = true`, feeRecipient = signer3,
+  `requestCounter = 0`; the deployment record went to
+  `/tmp/rehearsal-deployments-sepolia.json`, never
+  `deployments-bridge-sepolia.json`.
+- B4 negative checks unchanged: single-signature refused ("There is 1
+  signature missing"), direct EOA `setFeeRecipient` reverted `onlyOwner`;
+  after the 2-of-3 execution feeRecipient read back as signer1, owner and
+  paused asserted.
+- The hardened guards were exercised for real: `BRIDGE_REQUIRE_CHAIN_ID` and
+  `BRIDGE_DEPLOY_RECORD` are mandatory once `DEPLOYER_KEY_FILE` is set, and
+  the fee-recipient-must-differ check passed with signer3.
+
+### Run-2 notes for the next Sepolia run
+
+- The IDE host has no system `node`; a `nodeenv` (`~/.local/nodeenv`, node
+  24.22) plus `git archive HEAD contracts | tar -x` + `npm ci` was enough.
+- Balance displays from the load-balanced public RPC can lag badly (it
+  reported 0.18 ETH before the deploy and 0.044 after — the higher figure
+  was a stale backend). Check balances by receipt or a second endpoint.
