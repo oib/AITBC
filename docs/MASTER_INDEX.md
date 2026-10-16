@@ -60,7 +60,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 893
+- **Markdown files under docs/**: 894
 
 | Directory | Files | Description |
 |---|---|---|
@@ -88,7 +88,7 @@ docs/
 | [market](market/) | 19 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 28 | Operational runbooks and key handling |
+| [ops](ops/) | 29 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 19 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
