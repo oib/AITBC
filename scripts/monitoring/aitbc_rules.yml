@@ -614,3 +614,46 @@ groups:
         annotations:
           summary: "Off-site backup pull has not succeeded for over 36 h"
           description: "aitbc_offsite_pull_last_success_timestamp_seconds is older than 36 h — the IDE host's off-site pull has not succeeded; that includes the IDE host being powered down or unreachable. Run offsite-pull-backups.sh --status on the IDE host."
+
+  - name: aitbc-messaging
+    rules:
+      # MSG-6: derived forum/messaging index operability. All informational
+      # except MessagingIndexDigestMismatch, which means two nodes derived
+      # different state from the same sealed rows — a real divergence, not
+      # a capacity wobble.
+
+      - alert: MessagingIndexLag
+        expr: aitbc_messaging_index_lag_blocks > 50
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Messaging index lags the chain head on {{ $labels.instance }}"
+          description: "aitbc_messaging_index_lag_blocks is {{ $value }} on {{ $labels.instance }} for 10m — the derived forum index is reading more than 50 blocks behind the local head. See docs/ops/messaging-operability.md."
+
+      - alert: MessagingIndexDigestMismatch
+        expr: count by (chain_id, checkpoint) (count by (chain_id, checkpoint, digest) (aitbc_messaging_index_digest)) > 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Messaging index digests differ between nodes (checkpoint {{ $labels.checkpoint }})"
+          description: "More than one distinct aitbc_messaging_index_digest exists for {{ $labels.chain_id }} at checkpoint {{ $labels.checkpoint }} — at least one node derived different forum state from the same sealed rows. Compare topics per docs/ops/messaging-operability.md; never 'fix' by restarting first."
+
+      - alert: MessagingReadErrors
+        expr: rate(aitbc_messaging_read_errors_total[10m]) > 0.1
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Messaging reads are erroring on {{ $labels.instance }}"
+          description: "rate(aitbc_messaging_read_errors_total) exceeds 0.1/s for 15m on {{ $labels.instance }} (route {{ $labels.route }}). 4xx and 5xx both count; check whether the rate limiter or a bad query is the cause first."
+
+      - alert: MessagingVolumeSpike
+        expr: increase(aitbc_messaging_messages_total[1h]) > 50 and increase(aitbc_messaging_messages_total[1h]) > 3 * (increase(aitbc_messaging_messages_total[6h] offset 1h) / 6)
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Messaging volume spike on {{ $labels.instance }}"
+          description: "Message count grew {{ $value | humanize }} in the last hour on {{ $labels.instance }} — over 3x the trailing 6h hourly rate and above the 50/h floor (the floor keeps a quiet forum from alerting on a handful of posts). Check for a spam run before treating it as growth."

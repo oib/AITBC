@@ -243,6 +243,9 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
 
             message_error = admission_error(tx_data.get("payload"), tx_data["from"])
             if message_error:
+                from ..messaging_metrics import note_admission_rejected
+
+                note_admission_rejected(message_error)
                 raise ValueError(message_error)
 
         # Last, like the authority gate: every earlier rejection keeps its message. Off unless GPU_RETIRED_IDS is set.

@@ -12,6 +12,7 @@ send``). The mutation routes under ``/rpc/contracts/messaging/*`` return 501
 pointing here.
 """
 
+import functools
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -21,6 +22,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..database import session_scope
 from ..logger import get_logger
+from ..messaging_metrics import collect_gauges, note_read, note_read_error
 from ..messaging_index import (
     MAX_OFFSET,
     MAX_READ_LIMIT,
@@ -50,7 +52,31 @@ def _check_cursor(cursor: str | None) -> None:
             raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+def _observed(route: str):
+    """MSG-6: count each read and each failed read (4xx/5xx) per route.
+
+    Applied to the shared handlers, so the canonical and legacy mounts count
+    under the same route label.
+    """
+
+    def deco(fn):
+        @functools.wraps(fn)
+        async def wrapper(*args, **kwargs):
+            try:
+                result = await fn(*args, **kwargs)
+            except Exception:
+                note_read_error(route)
+                raise
+            note_read(route)
+            return result
+
+        return wrapper
+
+    return deco
+
+
 @rate_limit(rate=200, per=60)
+@_observed("state")
 async def messaging_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Forum totals derived from the chain, plus the index height."""
     resolved = get_chain_id(chain_id)
@@ -59,6 +85,20 @@ async def messaging_state(request: Request, chain_id: str | None = None) -> dict
 
 
 @rate_limit(rate=200, per=60)
+@_observed("stats")
+async def messaging_stats(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """MSG-6 operability snapshot: index height and lag, message/action
+    totals, and the checkpoint digest of the derived index for cross-node
+    comparison."""
+    resolved = get_chain_id(chain_id)
+    with session_scope(resolved) as session:
+        result = collect_gauges(session, resolved)
+    result["success"] = True
+    return result
+
+
+@rate_limit(rate=200, per=60)
+@_observed("topics")
 async def messaging_topics(
     request: Request,
     limit: int = 50,
@@ -74,6 +114,7 @@ async def messaging_topics(
 
 
 @rate_limit(rate=200, per=60)
+@_observed("messages")
 async def messaging_messages(
     request: Request,
     topic: str | None = None,
@@ -113,6 +154,7 @@ async def messaging_messages(
 
 
 @rate_limit(rate=200, per=60)
+@_observed("votes")
 async def messaging_votes(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """Standing votes for one message (exact SQL aggregate, MSG-2)."""
     resolved = get_chain_id(chain_id)
@@ -121,6 +163,7 @@ async def messaging_votes(request: Request, tx_hash: str, chain_id: str | None =
 
 
 @rate_limit(rate=200, per=60)
+@_observed("moderation")
 async def messaging_moderation(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
     """Derived moderator set, locks and recent actions for a topic (MSG-2)."""
     canonical = normalize_topic(slug)
@@ -135,6 +178,7 @@ async def messaging_moderation(request: Request, slug: str, chain_id: str | None
 
 
 @rate_limit(rate=200, per=60)
+@_observed("reputation")
 async def messaging_reputation(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Integer reputation derived from sealed votes (display-only, MSG-2)."""
     resolved = get_chain_id(chain_id)
@@ -143,6 +187,7 @@ async def messaging_reputation(request: Request, address: str, chain_id: str | N
 
 
 @rate_limit(rate=200, per=60)
+@_observed("get")
 async def messaging_get(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """One message by its transaction hash; 404 when it is not a forum message."""
     resolved = get_chain_id(chain_id)
@@ -156,6 +201,7 @@ async def messaging_get(request: Request, tx_hash: str, chain_id: str | None = N
 
 
 @rate_limit(rate=200, per=60)
+@_observed("search")
 async def messaging_search(
     request: Request,
     query: str | None = None,

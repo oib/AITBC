@@ -15,6 +15,7 @@ from ..messaging import (
     messaging_reputation,
     messaging_search,
     messaging_state,
+    messaging_stats,
     messaging_topics,
     messaging_votes,
 )
@@ -25,6 +26,11 @@ router = APIRouter(prefix="/messaging", tags=["messaging"])
 @router.get("/state", summary="Forum index state")
 async def state_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     return await messaging_state(request, chain_id=chain_id)  # type: ignore[no-any-return]
+
+
+@router.get("/stats", summary="Messaging index operability snapshot (MSG-6)")
+async def stats_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    return await messaging_stats(request, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/topics", summary="List forum topics")

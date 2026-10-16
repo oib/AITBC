@@ -1622,6 +1622,58 @@
         }
       }
     },
+    "/rpc/messaging/stats": {
+      "get": {
+        "tags": [
+          "rpc",
+          "messaging"
+        ],
+        "summary": "Messaging index operability snapshot (MSG-6)",
+        "operationId": "stats_route_rpc_messaging_stats_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Stats Route Rpc Messaging Stats Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/messaging/topics": {
       "get": {
         "tags": [
@@ -12491,6 +12543,58 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response State Route V1 Messaging State Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messaging/stats": {
+      "get": {
+        "tags": [
+          "v1",
+          "messaging"
+        ],
+        "summary": "Messaging index operability snapshot (MSG-6)",
+        "operationId": "stats_route_v1_messaging_stats_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Stats Route V1 Messaging Stats Get"
                 }
               }
             }
