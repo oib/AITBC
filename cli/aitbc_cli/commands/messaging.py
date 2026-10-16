@@ -1043,11 +1043,13 @@ def state(ctx, rpc_url):
 # SDK); re-imported under the historical ``_names`` so test patch points
 # and import sites keep working.
 from aitbc.dm_client import (
+    DmStoreCorruptError,
     dm_keys_dir as _dm_keys_dir,
+    dm_mark_published as _dm_mark_published,
     dm_max_plaintext_bytes as _dm_max_plaintext_bytes,
+    dm_prepare_era as _dm_prepare_era,
     dm_store_load as _dm_store_load,
-    dm_store_save as _dm_store_save,
-    generate_key_era as _dm_generate_key_era,
+    dm_store_save as _dm_store_save,  # noqa: F401  (test-suite import surface)
     open_dm as _open_dm,
     seal_dm as _seal_dm,
 )
@@ -1064,7 +1066,10 @@ def _dm_key_file(ctx, wallet_name: str) -> Path:
 def _dm_current_key(ctx, wallet_name: str) -> tuple[dict[str, Any], Path]:
     """The newest key era for the wallet, or abort with the fix."""
     path = _dm_key_file(ctx, wallet_name)
-    store = _dm_store_load(path)
+    try:
+        store = _dm_store_load(path, strict=True)
+    except DmStoreCorruptError as e:
+        abort(ctx, str(e), from_exception=e)
     if store["keys"]:
         return store["keys"][-1], path
     abort(
@@ -1103,14 +1108,15 @@ def dm_keygen(ctx, wallet_name, fee, confirm, rotate, rpc_url, password, passwor
     mode-600 dm-keys file and a ``dm_key`` envelope is signed and submitted.
     """
     path = _dm_key_file(ctx, wallet_name)
-    store = _dm_store_load(path)
-    if store["keys"] and not rotate:
+    try:
+        era, store = _dm_prepare_era(path, rotate=rotate)
+    except DmStoreCorruptError as e:
+        abort(ctx, str(e), from_exception=e)
+    if era is None:
         pub = store["keys"][-1]["enc_pubkey"]
         click.echo(f"DM key already exists for '{wallet_name}' (enc_pubkey {pub}); use --rotate to publish a new one")
-        era = None
-    else:
-        era = _dm_generate_key_era()
-        pub = era["enc_pubkey"]
+        return
+    pub = era["enc_pubkey"]
     sender_address = _wallet_address(ctx, wallet_name)
     resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
     envelope = build_envelope(kind="dm_key", topic=DM_TOPIC, agent_address=sender_address, enc_pubkey=pub)
@@ -1142,11 +1148,13 @@ def dm_keygen(ctx, wallet_name, fee, confirm, rotate, rpc_url, password, passwor
         payload={"aitbc_msg": envelope},
     )
     if not tx_hash:
+        click.echo(
+            f"Submission failed — the DM key era is kept unpublished on disk ({path}); "
+            "re-run `dm keygen` to publish the same era.",
+            err=True,
+        )
         raise SystemExit(1)
-    if era is not None:
-        era["published_tx"] = tx_hash
-        store["keys"].append(era)
-        _dm_store_save(path, store)
+    _dm_mark_published(path, store, era, tx_hash)
     output(
         {"tx_hash": tx_hash, "kind": "dm_key", "author": sender_address, "key_file": str(path)},
         (ctx.obj or {}).get("output_format", "table"),

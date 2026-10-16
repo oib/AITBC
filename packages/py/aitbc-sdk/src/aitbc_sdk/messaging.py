@@ -21,12 +21,13 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 from aitbc.dm_client import (
+    DmStoreCorruptError,
+    dm_mark_published,
     dm_max_plaintext_bytes,
+    dm_prepare_era,
     dm_store_load,
-    dm_store_save,
     fetch_dm_inbox,
     fetch_dm_key,
-    generate_key_era,
     open_dm,
     seal_dm,
 )
@@ -254,9 +255,12 @@ class MessagingClient:
         public half as a ``dm_key`` envelope.
 
         The secret half is appended to the mode-600 ``dm-keys/<wallet>.json``
-        store (same layout the CLI uses); ``rotate=True`` keeps old eras so
-        old ciphertext still opens. Returns ``{"tx_hash", "enc_pubkey",
-        "keys_path"}``.
+        store (same layout the CLI uses) **before** the envelope is submitted,
+        so a crash after submit can never strand a published public half. A
+        failed ``submit`` leaves the era on disk with ``published_tx=None`` —
+        the next call re-publishes that same era rather than minting a new
+        key. ``rotate=True`` keeps old eras so old ciphertext still opens.
+        Returns ``{"tx_hash", "enc_pubkey", "keys_path"}``.
         """
         if not wallet:
             raise AITBCError("dm_publish_key requires an explicit wallet name")
@@ -265,19 +269,20 @@ class MessagingClient:
         if agent_address is None:
             agent_address = _resolve_wallet_address(wallet)
         path = keys_path if keys_path is not None else _resolve_dm_key_path(wallet)
-        store = dm_store_load(path)
-        if store["keys"] and not rotate:
+        try:
+            era, store = dm_prepare_era(path, rotate=rotate)
+        except DmStoreCorruptError as e:
+            raise AITBCError(str(e)) from e
+        if era is None:
+            last = store["keys"][-1]
             return {
-                "tx_hash": store["keys"][-1].get("published_tx"),
-                "enc_pubkey": store["keys"][-1]["enc_pubkey"],
+                "tx_hash": last.get("published_tx"),
+                "enc_pubkey": last["enc_pubkey"],
                 "keys_path": str(path),
             }
-        era = generate_key_era()
         envelope = build_envelope(kind="dm_key", topic=DM_TOPIC, agent_address=agent_address, enc_pubkey=era["enc_pubkey"])
         tx_hash = submit(wallet, envelope, fee_ait)
-        era["published_tx"] = tx_hash
-        store["keys"].append(era)
-        dm_store_save(path, store)
+        dm_mark_published(path, store, era, tx_hash)
         return {"tx_hash": tx_hash, "enc_pubkey": era["enc_pubkey"], "keys_path": str(path)}
 
     def dm_send(
@@ -373,7 +378,10 @@ def _resolve_dm_read_identity(wallet: str | None, address: str | None, secret_ke
     if secret_key is None:
         if wallet is None:
             raise AITBCError("dm_read needs a secret_key (or a wallet whose dm-keys store holds it)")
-        store = dm_store_load(_resolve_dm_key_path(wallet))
+        try:
+            store = dm_store_load(_resolve_dm_key_path(wallet), strict=True)
+        except DmStoreCorruptError as e:
+            raise AITBCError(str(e)) from e
         if not store["keys"]:
             raise AITBCError(f"no DM key stored for wallet '{wallet}'")
         secret_key = str(store["keys"][-1]["secret_key"])

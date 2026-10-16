@@ -1141,3 +1141,27 @@ probe updated; bridge ledger now backs up as chain_bridge_deposits.db.gz.
   plaintext appears in no captured request body or submit call, era
   persistence/rotation, inbox paging, tamper/wrong-key rejects, and the
   wallet/submit/key-material refusals.
+
+
+### MSG-8e — DM key-store hardening (before any dm_key is published)
+
+- Persist-before-publish, once: `aitbc.dm_client.dm_prepare_era` /
+  `dm_mark_published` are the shared helpers both callers (CLI `dm
+  keygen`, SDK `dm_publish_key`) use — a fresh era is written with
+  `published_tx: null` before the envelope is submitted, so a crash can
+  never strand a published public half. A failed submit keeps the era
+  on disk unpublished and the next run re-publishes the same era
+  (verified by crash-simulation tests on both paths).
+- Atomic secret write: `dm-keys/` created 0700; the store is written to
+  `<name>.tmp` via `os.open(O_CREAT|O_EXCL|O_WRONLY, 0o600)` then
+  `os.replace`d — no wider-mode window under any umask, no backup copies.
+- Corrupt store refused: `dm_store_load(strict=True)` (all save paths,
+  `_dm_current_key`, SDK read-key resolution) raises
+  `DmStoreCorruptError` on parse/read errors or a non-list `keys` and
+  leaves the file byte-identical — never overwritten.
+- `dm keygen` without `--rotate` on an already-published key now returns
+  after the notice instead of signing a redundant `dm_key` envelope
+  (finding 4).
+- Design doc `msg8-direct-messages.md` gained the key-file safety rules.
+  Tests: 15 new across CLI + SDK (crash simulations, mode assertions
+  under umask 022/000, byte-identical corrupt files, retry reuse).
