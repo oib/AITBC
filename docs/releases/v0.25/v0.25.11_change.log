@@ -625,3 +625,6 @@ reported, not ignored.
   join) are read-only live measurements pending the operator's line in
   the BR-6 session; B13's report-only reconciler and the VERIFY-1/2/3
   exchange verifier are reused, not duplicated.
+
+### MSG-9
+- docs/features/messaging-spam-economics.md (new, linked from docs/README.md): storage-growth + spam-cost report. Measured via read-only RPC and dated backup copies (live WAL never opened): ~1270 blocks/day (~68s heartbeat-paced), ~3.6MB/day organic DB growth dominated by block rows; a MESSAGE post is ~0.7-5.2KB per row at 0.01 AIT — ~1900 AIT per GB, fee-bound in total, 50/min per-IP submit limiter bounds the rate (~375MB/day/IP worst case). Ranked non-consensus mitigations: per-sender admission rate, nginx limit_req on the submit route, alert thresholds, housekeeping for backup accumulation. Fee-per-byte / body-cap / bond listed as operator-only options (MSG-12).
