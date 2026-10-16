@@ -257,15 +257,17 @@ Alerts in `scripts/monitoring/aitbc_hub_rules.yml` (tests in `aitbc_rules_test.y
 
 | Alert | Fires when | Severity |
 |---|---|---|
-| `AuthorityFloatLow` | settlement authority below 9,000,000 units (0.25 AIT, about 25 AIT of settled volume) for 2 minutes | warning |
+| `AuthorityFloatLow` | settlement authority below 9,000,000 units (0.25 AIT, about 25 AIT of settled volume) for 2 minutes — a capability guard: the account signs marketplace `ESCROW_RELEASE`/`REFUND` only when `/rpc/escrow/settle` is invoked and has had zero sends since the 7 Oct 2026 rotation (SD-5) | warning |
 | `AuthorityFloatCritical` | settlement authority below 1,800,000 units (0.05 AIT, about 5 AIT of settled volume) for 2 minutes | critical |
+| `SellEscrowFloatLow` | sell-escrow account below 3,600,000 units (ten settle/refund TRANSFER fees) for 2 minutes — needs an `AITBC_WATCH_ACCOUNTS` `sell_escrow:` extra | warning |
+| `SellEscrowFloatCritical` | sell-escrow account below 720,000 units (two fees) for 2 minutes | critical |
 | `BridgeAuthorityAccountMoved` | the bridge release authority's balance fell or its nonce changed within 15 minutes | critical |
 | `AuthorityBalanceUnreadable` | an account could not be read for 5 minutes | warning |
 | `AuthorityBalanceStale` | the textfile is missing or older than 5 minutes, for 5 minutes | warning |
 
 The bridge release authority has no low-balance alert on purpose. `BRIDGE_RELEASE` and `BRIDGE_REFUND` carry a pseudo-sender (no account, no nonce, no debit) and the authority only signs them, so its balance cannot run out; a balance that falls or a nonce that moves means its key sent a transaction.
 
-Install on the node that runs Prometheus (hub): copy the `.service` and `.timer` to `/etc/systemd/system/`, edit `AITBC_WATCH_ACCOUNTS` when an authority is rotated (the settlement authority is the on-chain `escrow_settlement_authority` parameter, the bridge authority is `bridge_release_authority`), then:
+Install on the node that runs Prometheus (hub): copy the `.service` and `.timer` to `/etc/systemd/system/`. Watched roles resolve from the live chain parameters at run time (`escrow_settlement_authority`, `bridge_release_authority`, `bond_slash_authority`, `governance_executors`) and follow rotations automatically; `AITBC_WATCH_ACCOUNTS` holds only fallbacks for those roles plus always-on extras — the `sell_escrow` watch needs a `sell_escrow:<address>` entry there (the `AIT_SELL_ESCROW` account; re-point it when the key rotates). Then:
 
 ```bash
 sudo systemctl daemon-reload
