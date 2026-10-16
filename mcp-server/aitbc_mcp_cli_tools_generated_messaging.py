@@ -529,7 +529,9 @@ def aitbc_messaging_send(
     wallet_name: Annotated[str, Field(description="Wallet name that signs the post (the message author)")],
     message: Annotated[str, Field(description="Message body (public and permanent)")],
     topic: Annotated[str | None, Field(description="Topic slug (lowercased, whitespace → '-')")] = None,
-    reply_to: Annotated[str | None, Field(description="Parent message tx_hash — makes the post a reply")] = None,
+    reply_to: Annotated[
+        str | None, Field(description="Parent message tx_hash — makes the post a reply (bare or 0x-prefixed 64-hex)")
+    ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the post, signs nothing)")
@@ -607,7 +609,7 @@ def aitbc_messaging_show(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show one forum message by its transaction hash.."""
+    """Show one forum message by its transaction hash (bare or 0x-prefixed).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

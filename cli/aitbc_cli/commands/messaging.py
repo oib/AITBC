@@ -12,6 +12,7 @@ read-side filter. Agent-to-agent realtime messaging stays with
 """
 
 import json
+import re
 import time
 from decimal import Decimal
 from pathlib import Path
@@ -36,6 +37,18 @@ _PERMANENCE_WARNING = (
 )
 
 _WAIT_POLL_SECONDS = 2.0
+
+_TX_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _normalize_tx_hash(ctx: click.Context, param: click.Parameter, value: str | None) -> str | None:
+    """Accept a bare or ``0x``-prefixed 64-hex transaction hash; return the bare form."""
+    if value is None:
+        return None
+    h = value.strip().lower().removeprefix("0x")
+    if not _TX_HASH_RE.fullmatch(h):
+        raise click.BadParameter("expected 64 hex characters, with or without 0x")
+    return h
 
 
 def _rpc_client(rpc_url: str) -> AITBCHTTPClient:
@@ -268,7 +281,7 @@ def _wait_for_seal(
     if is_action:
         route = _action_wait_route(base, kind or "", topic, target)
     else:
-        route = f"{base}/rpc/messaging/messages/{tx_hash}"
+        route = f"{base}/rpc/messaging/messages/0x{want}"
     if route is None:
         warning(
             f"Transaction {tx_hash} submitted; no read route can confirm a '{kind}' — "
@@ -353,7 +366,12 @@ def messaging():
 @click.option("--wallet", "wallet_name", required=True, help="Wallet name that signs the post (the message author)")
 @click.option("--message", required=True, help="Message body (public and permanent)")
 @click.option("--topic", default=BROADCAST_TOPIC, show_default=True, help="Topic slug (lowercased, whitespace → '-')")
-@click.option("--reply-to", default=None, help="Parent message tx_hash — makes the post a reply")
+@click.option(
+    "--reply-to",
+    default=None,
+    callback=_normalize_tx_hash,
+    help="Parent message tx_hash — makes the post a reply (bare or 0x-prefixed 64-hex)",
+)
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
 @click.option("--confirm", is_flag=True, help="Sign and submit once (default: dry run — prints the post, signs nothing)")
 @click.option(
@@ -407,9 +425,7 @@ def send(
             topic=canonical_topic,
             body=message,
             agent_address=sender_address,
-            # stored tx_hash values are lowercase; an uppercase --reply-to
-            # would sign a parent the index can never resolve
-            parent=reply_to.lower() if reply_to else None,
+            parent=reply_to,
         )
     except ValueError as e:
         abort(ctx, f"Invalid message envelope: {e}", from_exception=e)
@@ -553,15 +569,15 @@ def topic_alias(ctx, limit, offset, rpc_url):
 
   aitbc messaging show 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"""
 )
-@click.argument("tx_hash")
+@click.argument("tx_hash", callback=_normalize_tx_hash)
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @click.pass_context
 def show(ctx, tx_hash, rpc_url):
-    """Show one forum message by its transaction hash."""
+    """Show one forum message by its transaction hash (bare or 0x-prefixed)."""
     rpc = _resolve_transaction_rpc_url(rpc_url)
     try:
         http_client = _rpc_client(rpc)
-        result = http_client.get(f"/rpc/messaging/messages/{tx_hash}")
+        result = http_client.get(f"/rpc/messaging/messages/0x{tx_hash}")
         output(sanitize_chain_obj(result), (ctx.obj or {}).get("output_format", "table"), title="Message")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
@@ -581,7 +597,7 @@ def _target_topic(ctx, http_client: AITBCHTTPClient, tx_hash: str) -> str:
     """Resolve an action target's topic by reading the message (avoids a
     mismatched-topic no-op only the index would see)."""
     try:
-        view = http_client.get(f"/rpc/messaging/messages/{tx_hash}")
+        view = http_client.get(f"/rpc/messaging/messages/0x{tx_hash}")
     except Exception as e:
         abort(ctx, f"Cannot resolve target {tx_hash} — not a forum message ({e})", from_exception=e)
     topic = view.get("topic")
@@ -750,7 +766,7 @@ def _target_action(ctx, kind: str, tx_hash: str, topic: str | None, kw: dict) ->
 
   aitbc messaging vote 0011…eeff up --wallet my-wallet"""
 )
-@click.argument("tx_hash")
+@click.argument("tx_hash", callback=_normalize_tx_hash)
 @click.argument("direction", type=click.Choice(["up", "down", "retract"]))
 @click.option("--topic", default=None, help="Topic slug (default: the target's own topic)")
 @_action_options
@@ -793,7 +809,7 @@ def vote(
 
 def _simple_target_command(kind: str, help_text: str):
     @messaging.command(kind, epilog=f"Example:\n\n  aitbc messaging {kind} <tx_hash> --wallet my-wallet")
-    @click.argument("tx_hash")
+    @click.argument("tx_hash", callback=_normalize_tx_hash)
     @click.option("--topic", default=None, help="Topic slug (default: the target's own topic)")
     @_action_options
     @click.pass_context
@@ -880,7 +896,7 @@ def _lock_impl(
   aitbc messaging lock --target <tx_hash> --wallet my-wallet   # one thread"""
 )
 @click.option("--topic", default=None, help="Lock the whole topic")
-@click.option("--target", default=None, help="Lock the reply subtree under this message")
+@click.option("--target", default=None, callback=_normalize_tx_hash, help="Lock the reply subtree under this message")
 @_action_options
 @click.pass_context
 def lock(ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
@@ -904,7 +920,7 @@ def lock(ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_
 
 @messaging.command("unlock", epilog="Same options as `messaging lock`.")
 @click.option("--topic", default=None, help="Unlock the whole topic")
-@click.option("--target", default=None, help="Unlock the reply subtree under this message")
+@click.option("--target", default=None, callback=_normalize_tx_hash, help="Unlock the reply subtree under this message")
 @_action_options
 @click.pass_context
 def unlock(
