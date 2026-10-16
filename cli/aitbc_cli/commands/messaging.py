@@ -23,7 +23,7 @@ from aitbc.messaging import BROADCAST_TOPIC, MAX_MESSAGE_BODY_BYTES, MIN_SEARCH_
 from aitbc.textsafety import sanitize_chain_obj
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
-from ..utils import DECIMAL, output, success
+from ..utils import DECIMAL, info, output, success, warning
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet_paths import find_wallet_file_report, wallet_not_found_message
@@ -60,20 +60,185 @@ def _wallet_address(ctx, wallet_name: str) -> str:
     return str(address)
 
 
-def _wait_for_seal(ctx, http_client: AITBCHTTPClient, tx_hash: str, timeout: float) -> None:
-    """Poll the transaction until it is sealed into a block or ``timeout`` passes."""
+_STATE_ACTION_KINDS = frozenset({"vote", "mod_grant", "mod_revoke"})
+_TX_ACTION_KINDS = frozenset({"hide", "unhide", "pin", "unpin", "lock", "unlock"})
+
+
+def _action_wait_route(base: str, kind: str, topic: str, target: str | None) -> str | None:
+    """Read route that proves a messaging action, or ``None`` if none exists.
+
+    State kinds read their effect: ``vote`` via the target's ``/votes``
+    route (standing votes carry no per-tx hash), ``mod_grant``/``mod_revoke``
+    via the topic's ``moderators`` list. The six moderation kinds are
+    detected by tx hash inside the moderation ``actions`` list.
+    """
+    if kind == "vote":
+        if target is None:
+            return None
+        prefixed = target if target.startswith("0x") else f"0x{target}"
+        return f"{base}/rpc/messaging/messages/{prefixed}/votes"
+    if kind in _STATE_ACTION_KINDS or kind in _TX_ACTION_KINDS:
+        return f"{base}/rpc/messaging/topics/{topic}/moderation"
+    return None
+
+
+def _action_state_matches(kind: str, data: Any, *, sender: str | None, value: int | None, grantee: str | None) -> bool:
+    """True when a state-route body already shows the action's effect."""
+    if not isinstance(data, dict):
+        return False
+    if kind == "vote":
+        sender_l = (sender or "").lower()
+        for v in data.get("votes") or []:
+            if str(v.get("voter", "")).lower() == sender_l and v.get("value") == value:
+                return True
+        return False
+    mods = {str(m).lower() for m in data.get("moderators") or []}
+    grantee_l = (grantee or "").lower()
+    if kind == "mod_grant":
+        return grantee_l in mods
+    if kind == "mod_revoke":
+        return grantee_l not in mods
+    return False
+
+
+def _action_state_probe(
+    rpc_url: str,
+    kind: str,
+    topic: str,
+    target: str | None,
+    *,
+    sender: str,
+    value: int | None,
+    grantee: str | None,
+) -> bool:
+    """One-shot read for state-detected action kinds; False on any error.
+
+    Lets the confirm path say "already matched before this send" instead
+    of claiming a seal when the state predates the submission.
+    """
+    import requests
+
+    route = _action_wait_route(rpc_url.rstrip("/"), kind, topic, target)
+    if route is None:
+        return False
+    try:
+        resp = requests.get(route, timeout=10)
+        data = resp.json() if resp.status_code == 200 else None
+    except (requests.RequestException, ValueError):
+        return False
+    return _action_state_matches(kind, data, sender=sender, value=value, grantee=grantee)
+
+
+def _sealed_block(data: Any, want: str, is_action: bool) -> Any:
+    """Return the sealed block height from a read-route body, or ``None``.
+
+    ``want`` is the bare lowercase tx hash; stored action hashes may carry
+    a ``0x`` prefix (the production layout from MSG-2d onward).
+    """
+    if not isinstance(data, dict):
+        return None
+    if not is_action:
+        return data.get("block_height")
+    for act in data.get("actions") or []:
+        if str(act.get("tx_hash", "")).lower().removeprefix("0x") == want:
+            return act.get("block_height")
+    return None
+
+
+_UNREACHABLE = object()
+
+
+def _poll_read(route: str) -> Any:
+    """One GET: parsed JSON on 200, ``None`` on other statuses, ``_UNREACHABLE`` on transport failure."""
+    import requests
+
+    try:
+        resp = requests.get(route, timeout=10)
+    except requests.RequestException:
+        return _UNREACHABLE
+    if resp.status_code != 200:
+        return None
+    try:
+        return resp.json()
+    except ValueError:
+        return None
+
+
+def _wait_for_seal(
+    ctx,
+    rpc_url: str,
+    tx_hash: str,
+    timeout: float,
+    *,
+    topic: str,
+    is_action: bool,
+    kind: str | None = None,
+    target: str | None = None,
+    sender: str | None = None,
+    value: int | None = None,
+    grantee: str | None = None,
+) -> None:
+    """Poll the messaging read route until the tx is indexed or ``timeout`` passes.
+
+    The generic ``/rpc/transaction/{hash}`` route 404s for MESSAGE
+    transactions even after they seal, so polling it trips the HTTP
+    client's circuit breaker ("Circuit breaker opened after 5 failures")
+    on a healthy submission — seen live in MSG-3d. Posts and replies are
+    detected at ``/rpc/messaging/messages/{tx_hash}``. Actions have no
+    per-hash route: the six moderation kinds are detected by tx hash in
+    the topic's moderation ``actions`` list, while ``vote`` and
+    ``mod_grant``/``mod_revoke`` never appear there and are detected by
+    their resulting *state* instead (reported as "reads as expected", not
+    "sealed"). Plain ``requests`` keeps expected 404s away from the
+    client's retry/breaker machinery (same pattern as
+    ``utils.gpu_onchain.wait_for_tx``). Timeout degrades to a printed hint
+    — the transaction was already submitted, so this must not abort.
+    """
+    base = rpc_url.rstrip("/")
+    want = tx_hash.lower().removeprefix("0x")
+    state_kind = is_action and kind in _STATE_ACTION_KINDS
+    if is_action:
+        route = _action_wait_route(base, kind or "", topic, target)
+    else:
+        route = f"{base}/rpc/messaging/messages/{tx_hash}"
+    if route is None:
+        warning(
+            f"Transaction {tx_hash} submitted; no read route can confirm a '{kind}' — "
+            f"verify via /rpc/messaging/topics/{topic}/moderation"
+        )
+        return
     deadline = time.monotonic() + timeout
+    saw_response = False
     while time.monotonic() < deadline:
-        try:
-            result = http_client.get(f"/rpc/transaction/{tx_hash}")
-        except Exception:
-            time.sleep(_WAIT_POLL_SECONDS)
-            continue
-        if result.get("block_height") is not None:
-            success(f"Sealed at block {result['block_height']} (status {result.get('status')})")
-            return
+        data = _poll_read(route)
+        if data is not _UNREACHABLE:
+            # Any HTTP response — including an expected 404 — counts as the
+            # RPC answering; 404 simply means "not indexed yet".
+            saw_response = True
+            if state_kind and _action_state_matches(kind or "", data, sender=sender, value=value, grantee=grantee):
+                success(f"'{kind}' reads as expected on topic '{topic}' (tx {tx_hash})")
+                return
+            if not state_kind:
+                block = _sealed_block(data, want, is_action)
+                if block is not None:
+                    success(f"Sealed at block {block}")
+                    return
         time.sleep(_WAIT_POLL_SECONDS)
-    abort(ctx, f"Transaction {tx_hash} not sealed within {timeout:.0f}s — check `aitbc transactions status`")
+    hint = _wait_hint(is_action, kind, topic, target, tx_hash)
+    if saw_response:
+        warning(f"Transaction {tx_hash} submitted but not confirmed within {timeout:.0f}s — {hint}")
+    else:
+        warning(f"Transaction {tx_hash} submitted; no answer from RPC at {base} — {hint}")
+
+
+def _wait_hint(is_action: bool, kind: str | None, topic: str, target: str | None, tx_hash: str) -> str:
+    """The route or command a user should check after a timed-out wait."""
+    if not is_action:
+        return f"verify with `aitbc messaging show {tx_hash}`"
+    if kind == "vote" and target:
+        prefixed = target if target.startswith("0x") else f"0x{target}"
+        return f"verify via the target's votes route (/rpc/messaging/messages/{prefixed}/votes)"
+    return f"verify via the topic moderation route (/rpc/messaging/topics/{topic}/moderation)"
 
 
 @click.group(
@@ -102,7 +267,11 @@ def messaging():
 @click.option("--reply-to", default=None, help="Parent message tx_hash — makes the post a reply")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
 @click.option("--confirm", is_flag=True, help="Sign and submit once (default: dry run — prints the post, signs nothing)")
-@click.option("--wait/--no-wait", default=True, help="With --confirm: poll until the transaction is sealed (default: wait)")
+@click.option(
+    "--wait/--no-wait",
+    default=True,
+    help="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash",
+)
 @click.option("--wait-timeout", type=float, default=180.0, show_default=True, help="Seconds --wait polls for")
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @wallet_password_options
@@ -202,7 +371,7 @@ def send(
         title="Message submitted",
     )
     if wait:
-        _wait_for_seal(ctx, _rpc_client(resolved_rpc), tx_hash, wait_timeout)
+        _wait_for_seal(ctx, resolved_rpc, tx_hash, wait_timeout, topic=canonical_topic, is_action=False)
 
 
 @messaging.command(
@@ -415,6 +584,11 @@ def _submit_action(
         allow_unencrypted=True,
         ctx=ctx,
     )
+    pre_matched = False
+    if wait and kind in _STATE_ACTION_KINDS:
+        pre_matched = _action_state_probe(
+            resolved_rpc, kind, topic, target, sender=sender_address, value=value, grantee=grantee
+        )
     click.echo(_PERMANENCE_WARNING, err=True)
     tx_hash = _send_transaction_impl(
         wallet_name,
@@ -434,7 +608,22 @@ def _submit_action(
         title=f"{kind} submitted",
     )
     if wait:
-        _wait_for_seal(ctx, _rpc_client(resolved_rpc), tx_hash, wait_timeout)
+        if pre_matched:
+            info(f"'{kind}' state already reads as expected on '{topic}' (matched before this send) — not waiting")
+        else:
+            _wait_for_seal(
+                ctx,
+                resolved_rpc,
+                tx_hash,
+                wait_timeout,
+                topic=topic,
+                is_action=True,
+                kind=kind,
+                target=target,
+                sender=sender_address,
+                value=value,
+                grantee=grantee,
+            )
 
 
 def _action_options(f):
@@ -443,7 +632,11 @@ def _action_options(f):
     f = click.option(
         "--confirm", is_flag=True, help="Sign and submit once (default: dry run — prints the action, signs nothing)"
     )(f)
-    f = click.option("--wait/--no-wait", default=True, help="With --confirm: poll until sealed (default: wait)")(f)
+    f = click.option(
+        "--wait/--no-wait",
+        default=True,
+        help="With --confirm: poll the messaging read route until the tx is indexed (default: --wait); --no-wait prints only the submitted hash",
+    )(f)
     f = click.option("--wait-timeout", type=float, default=180.0, show_default=True)(f)
     f = click.option("--rpc-url", default=None, help="Blockchain RPC URL")(f)
     return wallet_password_options(f)
