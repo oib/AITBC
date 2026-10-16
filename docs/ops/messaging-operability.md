@@ -125,3 +125,9 @@ spam; the alert itself is informational and needs no action.
   real client reports rejects.
 - The digest is only meaningful *between* nodes. A single node changing
   digest across a re-scrape is expected when the checkpoint rolls forward.
+
+## Reports of illegal or abusive content
+
+Who handles them, and what the response can and cannot do, is drafted in
+[docs/policy/public-content-policy.md](../policy/public-content-policy.md)
+(operator review pending). Contact: **[OPERATOR CONTACT — TO BE FILLED]**.
