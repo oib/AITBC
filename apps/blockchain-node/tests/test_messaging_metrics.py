@@ -344,3 +344,70 @@ class TestDigestSingleFlight:
         # The lock is released; the next caller scans and succeeds.
         assert checkpoint_digest(session, CHAIN, 4) == "d" * 64
         assert calls["n"] == 2
+
+
+class TestDigestGaugeLifecycle:
+    """MSG-6b item 3: the series never goes absent mid-scan; superseded
+    label sets are pruned only after the new ones are set."""
+
+    def _patch_sessions(self, session, monkeypatch):
+        import aitbc_chain.messaging_metrics as mm
+        from aitbc_chain import database
+        from contextlib import contextmanager
+
+        @contextmanager
+        def fake_scope(chain_id):
+            yield session
+
+        monkeypatch.setattr(database, "session_scope", fake_scope)
+        monkeypatch.setattr(mm, "session_scope", fake_scope, raising=False)
+        return mm
+
+    def _labels(self, mm):
+        return set(mm.digest_gauge._metrics.keys())
+
+    def test_series_survives_cold_scan_then_prunes(self, session, monkeypatch):
+        import threading
+
+        mm = self._patch_sessions(session, monkeypatch)
+        _seed_forum(session)
+        mm.collect_all([CHAIN])
+        first = self._labels(mm)
+        assert len(first) == 1 and next(iter(first))[0] == CHAIN
+
+        # Next computation is slow: the previous series stays exposed.
+        gate = threading.Event()
+
+        def slow_scan(s, c, cp):
+            gate.wait(timeout=10)
+            return "e" * 64  # a changed digest at the same checkpoint
+
+        monkeypatch.setattr(mm, "_scan_digest", slow_scan)
+        from aitbc_chain.messaging_index import _MOD_CACHE
+
+        _MOD_CACHE.clear()  # force the cold path
+        t = threading.Thread(target=mm.collect_all, args=([CHAIN],))
+        t.start()
+        assert self._labels(mm) == first or (CHAIN, str(0), "e" * 64) in self._labels(mm)
+        # The old series is still there while the scan is blocked.
+        assert len(self._labels(mm)) >= 1
+        gate.set()
+        t.join(timeout=10)
+        now = self._labels(mm)
+        assert now == {(CHAIN, "0", "e" * 64)}  # exactly one series, new digest
+
+    def test_superseded_checkpoint_label_removed(self, session, monkeypatch):
+        mm = self._patch_sessions(session, monkeypatch)
+        _seed_forum(session)
+        # Simulate a leftover series from an older checkpoint.
+        mm.digest_gauge.labels(CHAIN, "0", "a" * 64).set(1)
+        mm.collect_all([CHAIN])
+        labels = self._labels(mm)
+        assert (CHAIN, "0", "a" * 64) not in labels
+        assert len(labels) == 1
+
+    def test_failed_chain_keeps_labels(self, session, monkeypatch):
+        mm = self._patch_sessions(session, monkeypatch)
+        mm.digest_gauge.labels("ghost-chain", "0", "f" * 64).set(1)
+        mm.collect_all([CHAIN])
+        assert ("ghost-chain", "0", "f" * 64) in self._labels(mm)

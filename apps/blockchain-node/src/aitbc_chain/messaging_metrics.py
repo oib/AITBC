@@ -222,7 +222,7 @@ def collect_gauges(session, chain_id: str) -> dict[str, Any]:
     actions_gauge.labels(chain_id).set(int(totals["contract_state"]["total_actions"]))
     checkpoint_height_gauge.labels(chain_id).set(checkpoint)
     digest_gauge.labels(chain_id, str(checkpoint), digest).set(1)
-    return {
+    result: dict[str, Any] = {
         "chain_id": chain_id,
         "index_height": index_height,
         "chain_head_height": head_height,
@@ -234,20 +234,43 @@ def collect_gauges(session, chain_id: str) -> dict[str, Any]:
         "checkpoint_height": checkpoint,
         "checkpoint_digest": digest,
     }
+    return result
+
+
+def _prune_digest_labels(wanted: set[tuple[str, str, str]], chains: set[str]) -> None:
+    """Remove digest label sets that are no longer wanted — a superseded
+    checkpoint, or a superseded digest at the same checkpoint (leaving it
+    would read as a false cross-node mismatch). Runs AFTER the new series
+    are set, so the metric never goes absent during a cold scan.
+
+    ``digest_gauge._metrics`` is the only inventory the client library
+    exposes; a missing label set on remove is tolerated.
+    """
+    for labels in set(digest_gauge._metrics.keys()):  # noqa: SLF001 — no public API
+        if labels[0] in chains and labels not in wanted:
+            try:
+                digest_gauge.remove(*labels)
+            except KeyError:
+                pass
 
 
 def collect_all(supported_chains: list[str]) -> None:
     """Update scrape gauges for every supported chain. Never raises into the
     /metrics handler — a broken chain must not blank the whole exposition.
 
-    The digest gauge's label set is rebuilt each scrape so labels from a
-    superseded checkpoint do not linger until process restart."""
+    Digest label sets are pruned to this scrape's result only after the new
+    values are set; a chain that failed to collect keeps its last labels.
+    """
     from .database import session_scope
 
-    digest_gauge.clear()
+    wanted: set[tuple[str, str, str]] = set()
+    collected: set[str] = set()
     for chain_id in supported_chains:
         try:
             with session_scope(chain_id) as session:
-                collect_gauges(session, chain_id)
+                snap = collect_gauges(session, chain_id)
+            wanted.add((chain_id, str(snap["checkpoint_height"]), snap["checkpoint_digest"]))
+            collected.add(chain_id)
         except Exception as e:
             _logger.warning("messaging metrics: collect failed for %s: %s", chain_id, e)
+    _prune_digest_labels(wanted, collected)
