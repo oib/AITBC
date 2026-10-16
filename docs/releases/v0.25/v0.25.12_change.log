@@ -83,3 +83,10 @@
   node0 now drops ALERTS/ALERTS_FOR_STATE series that lack the marker
   origin=node0-local, which its local-only alerts.yml rules carry.
   Host-local files, no repo copy; documented in monitoring-setup.md.
+
+### MON-CHECK-1: check-rules-deployed learns the host-local skip
+
+- `8634b7eb` — the drift checker now skips listed rule files with no repo
+  counterpart (matching deploy-rules.sh) and resolves absolute rule_files
+  entries. node0's host-local alerts.yml no longer reports as drift;
+  real drift and listed-but-undeployed still exit 1.
