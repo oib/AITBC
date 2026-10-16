@@ -876,3 +876,6 @@ reported, not ignored.
 
 ### MSG-CLI-HASH-1
 - fix(cli): all `aitbc messaging` commands accept bare or 0x-prefixed 64-hex tx hashes — normalized once to bare at parse; read routes use the 0x-prefixed form
+
+### WALLET-CUSTODY-1
+- docs(topology): read-only fleet wallet inventory — 18 files across 5 hosts; plaintext defaults on node0/1/2 and the hub sell-escrow key documented; operator decision: accept plaintext
