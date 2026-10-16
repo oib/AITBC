@@ -66,13 +66,13 @@
 | v0.25.2 | CLI, docs, and test surface cleanup | ✅ Complete | See v0.25.2_change.log |
 | v0.25.3 | Escrow and settlement hardening | ✅ Complete | See v0.25.3_change.log |
 | v0.25.4 | Bridge, escrow/consensus hardening, GPU electricity-cost floor | ✅ Complete | See v0.25.4_change.log |
+| v0.25.5 | Audit reconciliation: register fully closed, fleet hardening, dead-code removal | ✅ Complete | All 8 register lanes at 0 items; see v0.25.5_change.log |
 | v0.25.6 | Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path | ✅ Complete | Chain ID / island peer fixes; multi-validator source validated; auth/coordinator/CLI/state/monitoring hardening; see v0.25.6_change.log |
 | v0.25.7 | First-class IPFS marketplace support | ✅ Complete | Marketplace Job/Payment model, `aitbc market host/run` for IPFS, sweeper, MCP, agent SDK, migration; live node0/node2 validation passed; see v0.25.7_change.log |
 | v0.25.8 | Post-v0.25.2-tag consolidation: coordinator hardening, faucet budgets, consensus freshness & fork choice, fleet ops | ✅ Complete | Tagged 2026-09-29 at `6026404775`; relocated post-tag v0.25.2 working notes + new entries; see v0.25.8_change.log |
 | v0.25.9 | Bridge payout monitor, governance service-local reclassification, v9 shadow window | ✅ Complete | Tagged 2026-10-04 at `217eaa9742`; see v0.25.9_change.log |
 | v0.25.10 | Escrow settlement passes, energy-rate guard, v11/v12 consensus pins, governance parameter tooling | ✅ Complete | Tagged 2026-10-07 at `6fc1ed373b`; see v0.25.10_change.log |
 | v0.25.11 | On-chain messaging (votes, moderation, DMs, agent SDK), bridge ledger/ops hardening, authority monitoring, website status pages | ✅ Complete | Finalised 2026-10-16; KR-2…KR-6 key rotations, v13/v14 shared activation at 46,100; see v0.25.11_change.log |
-| v0.25.5 | Audit reconciliation: register fully closed, fleet hardening, dead-code removal | ✅ Complete | All 8 register lanes at 0 items; see v0.25.5_change.log |
 
 ## Security Audit Summary
 
