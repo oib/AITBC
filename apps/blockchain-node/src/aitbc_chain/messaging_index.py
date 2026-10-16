@@ -575,6 +575,7 @@ def list_topics(
                 "last_timestamp": times.get(r.last_block_height),
                 "founder": st.founder,
                 "moderators": sorted(st.moderators),
+                "authority_unresolved": st.authority_unresolved,
                 "hidden_count": len(hidden),
                 "pinned_count": len(pinned),
                 "locked": locked,
@@ -728,6 +729,10 @@ class _ModState:
         self.thread_locks: dict[str, tuple[str, str, tuple[int, str]]] = {}
         # Latest effective topic lock/unlock: (kind, action_tx_hash, moderator, pos)
         self.topic_lock: tuple[str, str, str, tuple[int, str]] | None = None
+        # True when the authority fixpoint hit AUTHORITY_PASSES_CAP without
+        # converging. The route reports it and answers best-effort — it must
+        # never 500, or a long grant chain could break reads on a topic.
+        self.authority_unresolved = False
         # All evaluated actions, canonical order, for the audit route.
         self.actions: list[dict[str, Any]] = []
 
@@ -843,7 +848,9 @@ def moderation_state(session, chain_id: str, topic: str) -> _ModState:
             break
         st.ever_moderators = new_ever
     else:
-        raise RuntimeError(f"authority fixpoint for topic '{topic}' did not converge in {AUTHORITY_PASSES_CAP} passes")
+        # Cap tripped: report it and answer best-effort from the last pass
+        # rather than failing the whole read path.
+        st.authority_unresolved = True
 
     # Phase B — moderation effects by ever-moderators, judged at position.
     stmt = _member_signed_stmt(chain_id, topic, _MOD_EFFECT_KINDS, st.ever_moderators)
@@ -1089,6 +1096,7 @@ def topic_moderation(session, chain_id: str, topic: str) -> dict[str, Any] | Non
         "topic": canonical,
         "founder": st.founder,
         "moderators": sorted(st.moderators),
+        "authority_unresolved": st.authority_unresolved,
         "locked": locked,
         "locked_by": (
             {"action_tx_hash": st.topic_lock[1], "moderator": st.topic_lock[2], "block_height": st.topic_lock[3][0]}

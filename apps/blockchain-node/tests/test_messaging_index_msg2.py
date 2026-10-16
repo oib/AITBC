@@ -436,3 +436,83 @@ class TestDeterminism:
             session.delete(b)
         session.commit()
         assert get_message(session, CHAIN, hidden_post)["hidden"] is False
+
+
+def _brute_force_moderators(session, topic: str) -> set[str]:
+    """Reference authority: ONE canonical-order replay over every valid
+    grant/revoke row for the topic, no signer prefilter. Each row applies iff
+    its signer is in the moderator set at that position."""
+    import aitbc_chain.messaging_index as mi
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    founder = topic_founder(session, CHAIN, topic)
+    mods: set[str] = {founder} if founder else set()
+    stmt = mi._asc_select(CHAIN, topic).where(mi._env_json("kind").in_(["mod_grant", "mod_revoke"]))
+    for row in mi._iter_valid_asc(session, stmt):
+        signer = mi._canonical(row.sender)
+        if signer not in mods:
+            continue
+        env = mi._env_from_row(row)
+        try:
+            grantee = canonical_address(env.get("grantee") or "", strict=True)
+        except Exception:
+            continue
+        if env.get("kind") == "mod_grant":
+            mods.add(grantee)
+        elif grantee in mods and len(mods) > 1:
+            mods.discard(grantee)
+    return mods
+
+
+class TestAuthorityProperty:
+    """Director's amendment: the fixpoint's moderator set must equal a plain
+    canonical-order replay over all rows signed by anyone who ever held
+    moderation — randomised grant/revoke/reorder sequences."""
+
+    def test_fixpoint_matches_brute_force_replay(self):
+        import random
+
+        signers = [ALICE, BOB, CAROL, DAVE]
+        for seed in range(40):
+            rng = random.Random(seed)
+            rows: list[tuple[int, int, str, dict]] = []
+            n = 0x1000
+            height = 10
+            # Founding posts in random order.
+            for s in rng.sample(signers, rng.randint(1, 3)):
+                rows.append((height, n, s, _env("post", sender=s, body=f"p{n}")))
+                n += 1
+            # Random grant/revoke fuzz over later blocks.
+            for _ in range(rng.randint(2, 14)):
+                height += rng.randint(0, 2)
+                signer = rng.choice(signers)
+                grantee = rng.choice(signers)
+                kind = rng.choice(["mod_grant", "mod_revoke"])
+                rows.append((height, n, signer, _env(kind, sender=signer, grantee=grantee)))
+                n += 1
+            rng.shuffle(rows)  # randomised insertion order
+            s = _mk_session()
+            for h, nn, sender, env in rows:
+                _tx(s, h, nn, sender, env, commit=False)
+            s.commit()
+            with s:
+                st = moderation_state(s, CHAIN, "dev")
+                assert st.authority_unresolved is False, f"seed {seed}"
+                assert st.moderators == _brute_force_moderators(s, "dev"), f"seed {seed}"
+
+    def test_unconverged_authority_reports_flag_not_500(self, session, monkeypatch):
+        """If the pass cap trips, the topic flags authority_unresolved and the
+        route still answers — a long grant chain must not break topic reads."""
+        import aitbc_chain.messaging_index as mi
+
+        post = _tx(session, 10, 0x10, ALICE, _env("post", sender=ALICE, body="hi"))
+        _tx(session, 11, 0x20, ALICE, _env("mod_grant", sender=ALICE, grantee=BOB))
+        monkeypatch.setattr(mi, "AUTHORITY_PASSES_CAP", 1)
+        st = moderation_state(session, CHAIN, "dev")
+        assert st.authority_unresolved is True
+        # The read surfaces still answer.
+        tm = topic_moderation(session, CHAIN, "dev")
+        assert tm is not None and tm["authority_unresolved"] is True
+        topics = list_topics(session, CHAIN)
+        assert topics["topics"][0]["authority_unresolved"] is True
+        assert get_message(session, CHAIN, post)["tx_hash"] == post

@@ -636,3 +636,13 @@ reported, not ignored.
 - RPC: `/rpc/messaging/messages` gains `include_hidden` (hidden/after-lock rows returned flagged, body withheld) and a separate `pinned` list so cursors stay monotone; new `/rpc/messaging/messages/{tx}/votes`, `/rpc/messaging/topics/{slug}/moderation`, `/rpc/messaging/reputation/{address}`; `/rpc/messaging/topics` now reports each topic's founder and moderator set (the pre-activation founder report). Legacy `/rpc/contracts/messaging/*` reputation is repointed to the derived index; the vote/moderate POSTs stay 501 with pointers to the signed-CLI path.
 - CLI: `aitbc messaging vote|hide|unhide|pin|unpin|lock|unlock|mod-grant|mod-revoke` submit signed action envelopes through the existing wallet/password flow (`--wait`, `--wait-timeout`, `--rpc-url`, `--fee`, password options preserved); `aitbc messaging reputation|moderators` are read-only. MCP module regenerated — all ten land in the destructive set behind dry_run/confirm.
 - Tests: `tests/test_messaging_index_msg2.py` (42 tests) covers codec validation, founder/grant/revoke authority incl. the non-empty-set rule, per-category latest-wins, vote aggregation and topic-mismatch no-ops, lock semantics, cursor monotonicity, reorg removal and reorder/rebuild determinism.
+
+### MSG-2 Phase 1 follow-up — authority hardening
+
+- `moderation_state` no longer raises when the authority fixpoint hits
+  AUTHORITY_PASSES_CAP: the topic flags `authority_unresolved` on
+  `/rpc/messaging/topics` and `/rpc/messaging/topics/{slug}/moderation`
+  and answers best-effort — a long grant chain cannot 500 topic reads.
+- Property test pins the fixpoint to a brute-force canonical-order replay
+  over all grant/revoke rows (40 randomised grant/revoke/reorder seeds);
+  a cap-tripped topic test proves reads still answer.
