@@ -69,7 +69,7 @@ def _extract_js_sanitizer() -> str:
     """Slice NEUTRAL_RE + sanitizeChainText verbatim out of messages.js."""
     src = MSG_JS.read_text(encoding="utf-8")
     m = re.search(
-        r"const NEUTRAL_RE = [^;]+;.*?function sanitizeChainText[\s\S]*?\n    \}",
+        r"const NEUTRAL_RE = [^;]+;[\s\S]*?function sanitizeChainText[\s\S]*?\n    \}",
         src,
     )
     if not m:
