@@ -34,6 +34,23 @@ def captured_send(monkeypatch):
     return calls
 
 
+@pytest.fixture(autouse=True)
+def _no_real_http(monkeypatch):
+    """No test in this file may reach a real URL.
+
+    ``--wait`` polls with plain ``requests``; without this guard a forgotten
+    stub would hit the network for the whole ``--wait-timeout``. Tests that
+    exercise the wait install their own ``requests.get`` stub on top.
+    """
+    import requests
+
+    def _blocked(url, *a, **kw):
+        raise AssertionError(f"real HTTP attempted in a unit test: {url}")
+
+    for verb in ("get", "post", "put", "delete", "head", "request"):
+        monkeypatch.setattr(requests, verb, _blocked)
+
+
 class TestMessagingCommands:
     def test_messaging_group_name(self):
         assert messaging_mod.messaging.name == "messaging"
@@ -138,21 +155,26 @@ class TestMessagingCommands:
         assert result.exit_code != 0
         assert "simulated" not in result.output.lower()
 
-    def test_send_waits_for_seal(self, runner, sender_wallet, captured_send, monkeypatch):
-        class _Client:
-            def __init__(self, *a, **kw):
-                pass
+    def test_send_waits_for_seal(self, runner, sender_wallet, captured_send):
+        """MSG-CLI-WAIT moved the poll to plain ``requests`` against
+        ``/rpc/messaging/messages/<hash>`` (the transaction route 404s for
+        MESSAGE rows); a 200 body with a block height confirms the seal."""
+        from unittest.mock import MagicMock
 
-            def get(self, path, **kw):
-                assert path == f"/rpc/transaction/{'ab' * 32}"
-                return {"block_height": 42, "status": "confirmed"}
+        class _Resp:
+            status_code = 200
 
-        monkeypatch.setattr(messaging_mod, "AITBCHTTPClient", _Client)
-        result = runner.invoke(
-            messaging_mod.messaging, ["send", "--wallet", "poster", "--message", "hi", "--wait", "--confirm"]
-        )
+            def json(self):
+                return {"block_height": 42}
+
+        with patch("requests.get", MagicMock(return_value=_Resp())) as get:
+            result = runner.invoke(
+                messaging_mod.messaging,
+                ["send", "--wallet", "poster", "--message", "hi", "--wait", "--wait-timeout", "5", "--confirm"],
+            )
         assert result.exit_code == 0, result.output
         assert "Sealed at block 42" in result.output
+        assert get.call_args[0][0].endswith(f"/rpc/messaging/messages/{'ab' * 32}")
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
     def test_list_reads_index(self, mock_http_class, runner, mock_blockchain_rpc):
