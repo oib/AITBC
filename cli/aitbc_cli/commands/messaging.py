@@ -81,119 +81,26 @@ def _wallet_address(ctx, wallet_name: str) -> str:
     return str(address)
 
 
-_STATE_ACTION_KINDS = frozenset({"vote", "mod_grant", "mod_revoke"})
-_TX_ACTION_KINDS = frozenset({"hide", "unhide", "pin", "unpin", "lock", "unlock"})
+# The seal-wait/read detection kernel lives in aitbc.messaging_client (MSG-15)
+# so the SDK and MCP share it; it is re-imported under its historical _names —
+# the wait tests patch this module's attributes.
+from aitbc.messaging_client import (
+    MODERATION_ACTIONS_CAP as _MODERATION_ACTIONS_CAP,
+    MODERATOR_GATED_KINDS as _MODERATOR_GATED_KINDS,
+    STATE_ACTION_KINDS as _STATE_ACTION_KINDS,
+    UNREACHABLE as _UNREACHABLE,
+)
+from aitbc.messaging_client import (
+    action_state_matches as _action_state_matches,
+    action_state_probe as _action_state_probe,
+    action_wait_route as _action_wait_route,
+    poll_read as _poll_read,
+    sealed_block as _sealed_block,
+    topic_moderators_probe as _topic_moderators_probe,
+    wait_hint as _wait_hint,
+)
 
-
-def _action_wait_route(base: str, kind: str, topic: str, target: str | None) -> str | None:
-    """Read route that proves a messaging action, or ``None`` if none exists.
-
-    State kinds read their effect: ``vote`` via the target's ``/votes``
-    route (standing votes carry no per-tx hash), ``mod_grant``/``mod_revoke``
-    via the topic's ``moderators`` list. The six moderation kinds are
-    detected by tx hash inside the moderation ``actions`` list.
-    """
-    if kind == "vote":
-        if target is None:
-            return None
-        prefixed = target if target.startswith("0x") else f"0x{target}"
-        return f"{base}/rpc/messaging/messages/{prefixed}/votes"
-    if kind in _STATE_ACTION_KINDS or kind in _TX_ACTION_KINDS:
-        return f"{base}/rpc/messaging/topics/{topic}/moderation"
-    return None
-
-
-def _action_state_matches(kind: str, data: Any, *, sender: str | None, value: int | None, grantee: str | None) -> bool:
-    """True when a state-route body already shows the action's effect."""
-    if not isinstance(data, dict):
-        return False
-    if kind == "vote":
-        sender_l = (sender or "").lower()
-        if value == 0:
-            # A retract removes the signer from the standing votes — absence is the match.
-            return sender_l not in {str(v.get("voter", "")).lower() for v in data.get("votes") or []}
-        return any(str(v.get("voter", "")).lower() == sender_l and v.get("value") == value for v in data.get("votes") or [])
-    mods = {str(m).lower() for m in data.get("moderators") or []}
-    grantee_l = (grantee or "").lower()
-    if kind == "mod_grant":
-        return grantee_l in mods
-    if kind == "mod_revoke":
-        return grantee_l not in mods
-    return False
-
-
-def _action_state_probe(
-    rpc_url: str,
-    kind: str,
-    topic: str,
-    target: str | None,
-    *,
-    sender: str,
-    value: int | None,
-    grantee: str | None,
-) -> bool:
-    """One-shot read for state-detected action kinds; False on any error.
-
-    Lets the confirm path say "already matched before this send" instead
-    of claiming a seal when the state predates the submission.
-    """
-    import requests
-
-    route = _action_wait_route(rpc_url.rstrip("/"), kind, topic, target)
-    if route is None:
-        return False
-    try:
-        resp = requests.get(route, timeout=10)
-        data = resp.json() if resp.status_code == 200 else None
-    except (requests.RequestException, ValueError):
-        return False
-    return _action_state_matches(kind, data, sender=sender, value=value, grantee=grantee)
-
-
-def _sealed_block(data: Any, want: str, is_action: bool) -> Any:
-    """Return the sealed block height from a read-route body, or ``None``.
-
-    ``want`` is the bare lowercase tx hash; stored action hashes may carry
-    a ``0x`` prefix (the production layout from MSG-2d onward).
-    """
-    if not isinstance(data, dict):
-        return None
-    if not is_action:
-        return data.get("block_height")
-    for act in data.get("actions") or []:
-        if str(act.get("tx_hash", "")).lower().removeprefix("0x") == want:
-            return act.get("block_height")
-    return None
-
-
-_MODERATOR_GATED_KINDS = _TX_ACTION_KINDS | {"mod_grant", "mod_revoke"}
 _CAPPED_WAIT_SECONDS = 30.0
-_MODERATION_ACTIONS_CAP = 100
-_UNREACHABLE = object()
-
-
-def _topic_moderators_probe(rpc_url: str, topic: str) -> set[str] | None:
-    """Lowercased moderator set for a topic, or ``None`` when the read failed."""
-    data = _poll_read(f"{rpc_url.rstrip('/')}/rpc/messaging/topics/{topic}/moderation")
-    if not isinstance(data, dict):
-        return None
-    return {str(m).lower() for m in data.get("moderators") or []}
-
-
-def _poll_read(route: str) -> Any:
-    """One GET: parsed JSON on 200, ``None`` on other statuses, ``_UNREACHABLE`` on transport failure."""
-    import requests
-
-    try:
-        resp = requests.get(route, timeout=10)
-    except requests.RequestException:
-        return _UNREACHABLE
-    if resp.status_code != 200:
-        return None
-    try:
-        return resp.json()
-    except ValueError:
-        return None
 
 
 def _presend_expectations(
@@ -339,16 +246,6 @@ def _wait_for_seal(
         warning(f"Transaction {tx_hash} submitted but not confirmed within {timeout:.0f}s — {hint}")
     else:
         warning(f"Transaction {tx_hash} submitted; no answer from RPC at {base} — {hint}")
-
-
-def _wait_hint(is_action: bool, kind: str | None, topic: str, target: str | None, tx_hash: str) -> str:
-    """The route or command a user should check after a timed-out wait."""
-    if not is_action:
-        return f"verify with `aitbc messaging show {tx_hash}`"
-    if kind == "vote" and target:
-        prefixed = target if target.startswith("0x") else f"0x{target}"
-        return f"verify via the target's votes route (/rpc/messaging/messages/{prefixed}/votes)"
-    return f"verify via the topic moderation route (/rpc/messaging/topics/{topic}/moderation)"
 
 
 @click.group(
@@ -554,6 +451,89 @@ def topics(ctx, limit, offset, rpc_url):
         abort(ctx, f"Blockchain RPC unavailable at {rpc}: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error listing topics: {e}", from_exception=e)
+
+
+@messaging.command(
+    epilog="""Examples:
+
+  aitbc messaging subscribe dev --max-polls 1            # one-shot: what's new now
+  aitbc messaging subscribe dev --follow                 # stream new messages until Ctrl-C
+  aitbc messaging subscribe dev --from-cursor 420:ab12…  # resume after a marker"""
+)
+@click.argument("topic")
+@click.option("--from-cursor", "from_cursor", default=None, help="Resume after a <height>:<tx_hash> marker")
+@click.option("--follow", is_flag=True, help="Keep polling (default: one poll then exit)")
+@click.option("--interval", type=float, default=5.0, show_default=True, help="Seconds between polls when --follow")
+@click.option("--max-polls", type=int, default=None, help="Bound the poll count even with --follow")
+@click.option("--limit", type=int, default=50, help="Rows fetched per poll (server caps at 100)")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
+@click.pass_context
+def subscribe(ctx, topic, from_cursor, follow, interval, max_polls, limit, rpc_url):
+    """Poll a topic for new messages (cursor polling — there is no push stream).
+
+    Yields rows strictly newer than --from-cursor; without a cursor it starts
+    at the current head (no backlog). Each poll prints the new rows plus the
+    ``next_cursor`` marker to resume from. This is the agent-facing durable
+    subscribe path (MSG-15) — the same kernel the SDK's
+    ``MessagingClient.subscribe`` uses.
+    """
+    from aitbc.messaging_client import parse_seen_cursor
+
+    if from_cursor and parse_seen_cursor(from_cursor) is None:
+        abort(ctx, f"--from-cursor '{from_cursor}' is not a '<height>:<tx_hash>' marker")
+    rpc = _resolve_transaction_rpc_url(rpc_url)
+    seen, rows = _subscribe_first_batch(ctx, rpc, topic, limit, parse_seen_cursor(from_cursor))
+    if follow:
+        marker = f"{seen[0]}:{seen[1]}" if seen else None
+        last = _subscribe_follow(ctx, rpc, topic, marker, interval, max_polls)
+        if last is not None:
+            seen = last
+    if seen is not None:
+        click.echo(f"next_cursor: {seen[0]}:{seen[1]}", err=True)
+    elif not rows:
+        click.echo(f"no messages on topic '{topic}'", err=True)
+
+
+def _subscribe_first_batch(ctx, rpc, topic, limit, seen):
+    """Fetch the topic head, emit rows newer than ``seen``; returns ``(seen, rows)``."""
+    from aitbc.messaging_client import (
+        UNREACHABLE,
+        fetch_messages,
+        message_sort_key,
+    )
+
+    data = fetch_messages(rpc, topic=topic, limit=limit)
+    if data is UNREACHABLE:
+        abort(ctx, f"Blockchain RPC unavailable at {rpc}")
+    if not isinstance(data, dict):
+        abort(ctx, f"Messages index returned no data for topic '{topic}' at {rpc}")
+    rows = sorted((data.get("messages") or []), key=message_sort_key)
+    for row in rows:
+        if seen is not None and message_sort_key(row) > seen:
+            seen = message_sort_key(row)
+            _sub_emit(ctx, row)
+    if seen is None and rows:
+        seen = message_sort_key(rows[-1])
+    return seen, rows
+
+
+def _sub_emit(ctx, row):
+    output(sanitize_chain_obj(row), (ctx.obj or {}).get("output_format", "table"), title=None)
+
+
+def _subscribe_follow(ctx, rpc, topic, marker, interval, max_polls):
+    """Poll loop for ``messaging subscribe --follow``; returns the last sort key emitted."""
+    from aitbc.messaging_client import message_sort_key
+    from aitbc.messaging_client import subscribe as _subscribe
+
+    last = None
+    try:
+        for row in _subscribe(rpc, topic, from_cursor=marker, interval=interval, max_polls=max_polls):
+            last = message_sort_key(row)
+            _sub_emit(ctx, row)
+    except KeyboardInterrupt:
+        pass
+    return last
 
 
 @messaging.command(
