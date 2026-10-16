@@ -6,7 +6,8 @@
 
 ## What the migration is
 
-B13 (`TOPOLOGY/2026-10-08-b13-bridge-outbound-ledger-design.md`) adds a
+B13 (`TOPOLOGY/2026-10-08-b13-bridge-outbound-ledger-design.md` — staging
+file only, no repo copy) adds a
 `bridge_outbound` table to the bridge ledger so outbound ETH (depositor
 refunds, operator withdrawals, gas) stops being invisible to the reconcile.
 Today `eth_deposits` records inflows only; `bridge_wallet_reconcile.py`
@@ -35,6 +36,11 @@ CREATE TABLE IF NOT EXISTS bridge_outbound (
 
 ## Preconditions
 
+- [ ] The code carrying the table exists: as of `a63e5a72f`,
+      `bridge_monitor/storage.py` `init_db()` holds no `bridge_outbound`
+      DDL and `record_outbound` is nowhere in the tree (git grep finds
+      neither). This runbook cannot run until a reviewed commit carries
+      them — record that commit's SHA; step 3 pulls exactly that commit.
 - [ ] Typed operator line naming this migration, the host, and the restart.
 - [ ] Hub on the intended deploy commit (`git -C /opt/aitbc rev-parse HEAD`).
 - [ ] `aitbc-backup.service` ran since the last ledger write; the fresh
@@ -90,8 +96,12 @@ sqlite3 <db> "DROP TABLE bridge_outbound"   # only under an operator line
 
 then revert the code to the pre-migration commit (`git revert` / pull to
 the previous SHA) and restart the monitor. The table holds only derived
-data; a rebuilt table re-derives from sealed chain rows plus the ledger,
-so downgrade loses nothing that cannot be recomputed.
+data — each row is written by the monitor's scan when it sees an outbound
+Ethereum transaction sent *from* the bridge wallet (refund, withdrawal or
+unidentified), so a rebuilt table re-derives from the Ethereum chain, not
+from the ledger. One exception: the `note` column is operator annotation
+(write-off reasons and the like) typed by a human — anything written there
+is not recomputable and is lost on a drop.
 
 ## Verification queries (acceptance)
 
