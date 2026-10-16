@@ -70,6 +70,82 @@ The script asserts post-deploy state before recording anything:
   unrecorded, which must be investigated rather than re-run blindly (a second
   run deploys a second contract — the Safe simply owns the first one as well).
 
+## Pre-flight checks (ETH-3 lessons — apply to every Safe execution)
+
+The Sepolia rehearsal found three failure modes, all fixed in the tooling
+(`contracts/scripts/rehearsal/`). They are operator-day checks, not optional:
+
+1. **Pin the Safe nonce immediately before every execution.** Re-read
+   `nonce()` on the Safe, build the signature set against that value, and
+   submit at once. A nonce that moved between the read and the exec
+   reverts `GS026` — never sign against a cached nonce.
+2. **Bound every `eth_getLogs` scan.** Public RPCs cap the range and prune
+   history; scan in bounded windows from a known head, and use an archive
+   endpoint for anything old. An unbounded scan silently returns partial
+   or empty results.
+3. **Read post-transaction state from the receipt, not a fresh `eth_call`.**
+   A `latest`-block read immediately after `sendTransaction` can hit a
+   node that has not indexed the block — assert on
+   `receipt.status`/logs first, then read back.
+
+## Configuration preflight
+
+`scripts/ops/bridge_mainnet_preflight.py` checks the seven env knobs
+(network name, resolved Chainlink feed, confirmation depth, AIT price
+pins, staleness gate, payout cap) in two profiles:
+
+- `--profile sepolia` — proves the *live testnet* configuration is
+  coherent. Runnable today; should report PASS on the current fleet env.
+- `--profile mainnet` (default) — on the current Sepolia configuration
+  **every knob fails by design** (`ETH_NETWORK=sepolia`, the price pins
+  are set, `BRIDGE_CONFIRMATIONS` resolves to 3 < 12, the staleness gate
+  is unset or too loose). The script must go green on staged mainnet env
+  files *before* any deployment — it is the same check the day-of run
+  will repeat.
+
+## Gap list — rehearsal bridge vs a mainnet bridge
+
+| surface | current design | rehearsal evidence | missing / undecided |
+|---|---|---|---|
+| Constructor & fee recipient | `constructor(address _feeRecipient)` only; script refuses deployer-as-recipient and asserts owner=Safe, paused, no validators/tokens | Local dry run + BR-9 Sepolia deploy + ETH-3 | Mainnet fee recipient undecided (operator) |
+| Validator set | `addValidator`/`removeValidator` are `onlyOwner` → Safe-managed flat list; `weight` is stored but each confirmation counts 1; per-chain `chainValidators` is a separate list | ETH-3 exercised owner calls through the Safe | Mainnet validator list undecided; BR-2/BR-3's chain-held validator set is **not** what this contract does — a param-driven set is a contract change |
+| Supported tokens | None at deploy; Safe calls `addSupportedToken` (bridgeLimit, feePercentage ≤ MAX_FEE 5%, whitelist flag) | Post-deploy assert probes `supportedTokens(Safe)` | Token list + per-token `bridgeLimit` undecided (operator) |
+| Lock cap | Per-token `bridgeLimit` via `withinBridgeLimit`; `MAX_BRIDGE_AMOUNT` (1M) is declared but **never enforced** — see defects below | n/a | Cap values undecided; dead constant reported |
+| Pause / emergencyWithdraw | `pause`/`unpause`/`emergencyPause`/`emergencyWithdraw` all `onlyOwner` → Safe; emergencyWithdraw sweeps to `owner()` (the Safe) | ETH-3 ran both end-to-end through the Safe on Sepolia | Mainnet pause drill not scheduled |
+| Confirmations / finality | Contract: `minConfirmations` per chain (default 3; mainnet chain seeded at 12) counts *validator* confirms. Monitor: `BRIDGE_CONFIRMATIONS` env ≥12 mainnet (preflight knob) | ETH-3 ran the 3-confirmation path | Block-finality policy on mainnet undecided (operator) |
+| Owner / signer hygiene | Deployer disposable and unfunded-after; Safe 2-of-3 owns everything; rehearsal keys lived in a keys dir, never on a node | BR-9/BR-11 + ETH-3 | Mainnet signers unnamed; hardware-key requirement undecided (operator) |
+| Upgrade story | **None.** The contract is immutable — no proxy. A defect means redeploy + Safe re-point + operator env work | — | Accepted risk or audit decision (operator) |
+| Monitoring before funds | authority-balance exporter + `AuthorityFloat*`/`BridgeAuthorityAccountMoved`/`SellEscrowFloat*` (SD-5), bridge-monitor stuck-payout/queue/low-float alerts, preflight script | Rules exist and are promtool-tested | `sell_escrow` watch needs its `AITBC_WATCH_ACCOUNTS` entry (operator env); validator-liveness monitor does not exist |
+| Seeded chain | Constructor seeds `supportedChains[1]` active with `minConfirmations=12` and no bridge contract | Deploy script asserts validators/tokens empty; the seeded chain is by design | On a Sepolia deploy the seeded id is still `1` — harmless config data, noted |
+
+## Go/no-go table
+
+| # | precondition | owner | status | evidence needed |
+|---|---|---|---|---|
+| 1 | Mainnet decision | **operator only** | parked (12 Oct) | the operator's word |
+| 2 | Three named signers + 2-of-3 Safe on mainnet | **operator only** | not started | Safe deployed, `getThreshold()==2`, owners = named signers |
+| 3 | Disposable deployer funded (~0.05 ETH mainnet) | **operator only** | not started | funding tx; key never lands on a node |
+| 4 | Audit decision (audit vs accepted risk) | **operator only** | undecided | audit report or signed acceptance |
+| 5 | Deploy script: paused + Safe-owned + refuse-bad-env | repo | **done** (`4fac4085ef`) | this doc's asserts |
+| 6 | Contract suites green on the deploy commit | repo | re-run this task | forge + hardhat counts below |
+| 7 | Preflight `mainnet` profile green on staged env | repo + operator | fails by design today | `bridge_mainnet_preflight.py` PASS on staging envs |
+| 8 | Fee recipient, token list, validator list, caps | **operator only** | undecided | values in the day-of checklist |
+| 9 | Monitoring before funds: exporter + rules live, incl. `sell_escrow` watch | repo + operator | rules shipped (SD-5), env entry pending | `aitbc_authority_*` series for all roles |
+| 10 | Validator-liveness monitor | repo | **missing** | new monitor or accepted gap |
+| 11 | BR-2/BR-3 chain-held validator set | repo | **not in this contract** | contract change or accepted design |
+| 12 | Pause drill on the real deployment | operator | not scheduled | executed pause/unpause through the Safe |
+
+### Known defects (reported, not fixed here)
+
+- `CrossChainBridge.sol:27` — `MAX_BRIDGE_AMOUNT` (1M tokens) is declared
+  but never enforced: `initiateBridge` (line ~164) checks only the
+  per-token `bridgeLimit`. Proposed fix (not applied): either add
+  `require(amount <= MAX_BRIDGE_AMOUNT)` beside the per-token cap, or
+  delete the constant. Decide with the audit question.
+- `validators[].weight` is stored but never used in confirmation
+  counting (`confirmBridge` line ~259 increments by 1) — weighted
+  validators are a contract change if mainnet wants them.
+
 ## Recovery notes
 
 - If `transferOwnership` ran but the record write failed, re-run the read-back
