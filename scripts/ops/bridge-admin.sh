@@ -7,7 +7,7 @@
 #
 # DATA_DIR / AITBC_DATA_DIR / BRIDGE_DEPOSITS_DB / BRIDGE_MONITOR_ENV / --env-file
 # behave as in bridge_monitor.admin itself (default ledger:
-# /var/lib/aitbc/bridge_deposits.db). BRIDGE_DEPOSITS_DB, when set, overrides the
+# /var/lib/aitbc/data/bridge_deposits.db). BRIDGE_DEPOSITS_DB, when set, overrides the
 # ledger path outright and is inherited by the child process like any env var.
 set -euo pipefail
 

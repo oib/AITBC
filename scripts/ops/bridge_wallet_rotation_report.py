@@ -9,7 +9,7 @@ wallet-to-wallet sweeps (internal transfers), unledgered outbound sends,
 and residual balances no ledger row explains.
 
     python scripts/ops/bridge_wallet_rotation_report.py \
-        --ledger /var/lib/aitbc/bridge_deposits.db \
+        --ledger /var/lib/aitbc/data/bridge_deposits.db \
         --txs wallet_txs.json \
         --wallets 0x0936…,0x310d… \
         --current-wallet 0x310d…

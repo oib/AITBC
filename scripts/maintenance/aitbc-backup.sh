@@ -170,9 +170,10 @@ else
 fi
 
 # ── Service SQLite DBs outside data/ (BACKUP-1) ──────────────────────────────
-# bridge_deposits.db, ops-signer-ledger.db, hermes/*.db and friends live under
-# /var/lib/aitbc outside the CHAIN_DB_DIR sweep, so hot ledger rows were
-# unbacked until someone ran .backup by hand. Sweep them as svc_* artifacts.
+# hermes/*.db and any future stray live under /var/lib/aitbc outside the
+# CHAIN_DB_DIR sweep (bridge_deposits.db and ops-signer-ledger.db moved
+# under data/ in DATA-LAYOUT Phase 3 and are covered by the main sweep as
+# chain_* artifacts). Sweep top-level strays as svc_* artifacts.
 # .backup (not .dump): hermes/state.db is ~230 MB and a binary copy is far
 # cheaper; the source is opened -readonly so this can never create or write a
 # database. 0-byte files are skipped, not failed.

@@ -661,7 +661,7 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
 
   aitbc exchange verify --db /var/lib/aitbc/data/exchange/exchange.db
 
-  aitbc exchange verify --db /var/lib/aitbc/data/exchange/exchange.db --bridge-db /var/lib/aitbc/bridge_deposits.db
+  aitbc exchange verify --db /var/lib/aitbc/data/exchange/exchange.db --bridge-db /var/lib/aitbc/data/bridge_deposits.db
 
   aitbc exchange verify --db ... --rpc-url https://sepolia.example --json""",
 )

@@ -112,11 +112,11 @@ def test_db_path_env_precedence(tmp_path, monkeypatch):
     try:
         importlib.reload(storage)
         assert storage.DATA_DIR == str(tmp_path / "ns")
-        assert storage.DB_PATH == os.path.join(str(tmp_path / "ns"), "bridge_deposits.db")
+        assert storage.DB_PATH == os.path.join(str(tmp_path / "ns"), "data", "bridge_deposits.db")
         monkeypatch.delenv("AITBC_DATA_DIR")
         importlib.reload(storage)
         assert storage.DATA_DIR == str(tmp_path / "bare")
-        assert storage.DB_PATH == os.path.join(str(tmp_path / "bare"), "bridge_deposits.db")
+        assert storage.DB_PATH == os.path.join(str(tmp_path / "bare"), "data", "bridge_deposits.db")
     finally:
         monkeypatch.undo()
         importlib.reload(storage)

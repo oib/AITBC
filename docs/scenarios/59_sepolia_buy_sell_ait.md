@@ -459,7 +459,7 @@ below the sweep fee are logged and left in escrow rather than refunded.
 ```bash
 ssh hub 'venv/bin/python /opt/aitbc/scripts/ops/exchange_verify.py \
     --db /var/lib/aitbc/data/exchange/exchange.db \
-    --bridge-db /var/lib/aitbc/bridge_deposits.db \
+    --bridge-db /var/lib/aitbc/data/bridge_deposits.db \
     --bridge-address "$BRIDGE_ETH_ADDRESS" \
     --ait-rpc "$BLOCKCHAIN_RPC_URL" --escrow-address "$AIT_SELL_ESCROW"'
 ```

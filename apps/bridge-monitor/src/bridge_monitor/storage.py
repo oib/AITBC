@@ -6,6 +6,7 @@ two services' vocabularies, so every query aliases the wallet schema back to
 the monitor's field names; callers see one consistent dict shape.
 """
 
+import logging
 import os
 import sqlite3
 import uuid
@@ -20,7 +21,7 @@ from typing import Any
 # namespaced var is what test isolation and service env files set, so a suite
 # must bind the scratch dir, not the live deposits file.
 DATA_DIR = os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc"))
-DB_PATH = (os.getenv("BRIDGE_DEPOSITS_DB") or "").strip() or os.path.join(DATA_DIR, "bridge_deposits.db")
+DB_PATH = (os.getenv("BRIDGE_DEPOSITS_DB") or "").strip() or os.path.join(DATA_DIR, "data", "bridge_deposits.db")
 
 
 class BridgeDepositStatus(StrEnum):
@@ -85,7 +86,14 @@ _DEPOSIT_SELECT = """
 
 def init_db() -> None:
     """Initialize bridge deposits database."""
-    os.makedirs(DATA_DIR, exist_ok=True)
+    canonical_dir = os.path.realpath(os.path.join(DATA_DIR, "data"))
+    if not os.path.realpath(DB_PATH).startswith(canonical_dir + os.sep):
+        logging.getLogger(__name__).warning(
+            "bridge ledger path %s is outside %s — expected under DATA_DIR/data; check BRIDGE_DEPOSITS_DB",
+            DB_PATH,
+            canonical_dir,
+        )
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
     with closing(sqlite3.connect(DB_PATH, timeout=10)) as conn:
         cursor = conn.cursor()

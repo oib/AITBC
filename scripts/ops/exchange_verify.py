@@ -3,11 +3,11 @@
 
     venv/bin/python scripts/ops/exchange_verify.py --db /path/exchange.db
     venv/bin/python scripts/ops/exchange_verify.py --db /path/exchange.db \
-        --bridge-db /var/lib/aitbc/bridge_deposits.db \
+        --bridge-db /var/lib/aitbc/data/bridge_deposits.db \
         --bridge-address 0xBridgeWallet... \
         --ait-rpc http://127.0.0.1:8202 --escrow-address 0xEscrow...
     venv/bin/python scripts/ops/exchange_verify.py --db /path/exchange.db \
-        --bridge-db /var/lib/aitbc/bridge_deposits.db --settlement
+        --bridge-db /var/lib/aitbc/data/bridge_deposits.db --settlement
     venv/bin/python scripts/ops/exchange_verify.py --db ... --no-chain --json
 
     On hub the AIT chain RPC for --ait-rpc is http://127.0.0.1:8202 (not
