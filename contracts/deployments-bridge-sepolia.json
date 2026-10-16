@@ -8,6 +8,19 @@
     "timestamp": "2026-06-08T11:06:25.177Z",
     "txHash": "0x502508675dcbcc8d11c1aa840f51306e7f0c9e1aedea990a11fe902f3f16a1d8",
     "deprecated": true,
-    "deprecated_reason": "owner() is the deployer key 0x818018F3, declared unrecoverable 2026-08-31 — every onlyOwner path (validators, tokens, chains, pause, emergencyWithdraw, transferOwnership) is permanently unreachable. Unpaused and able to receive funds forever: do not point deposits at this address. A replacement deploy with an offline-held multisig owner is part of the key-split; fleet-config-check FAILs on this value."
+    "deprecated_reason": "owner() is the deployer key 0x818018F3, declared unrecoverable 2026-08-31 \u2014 every onlyOwner path (validators, tokens, chains, pause, emergencyWithdraw, transferOwnership) is permanently unreachable. Unpaused and able to receive funds forever: do not point deposits at this address. A replacement deploy with an offline-held multisig owner is part of the key-split; fleet-config-check FAILs on this value."
+  },
+  {
+    "contract": "CrossChainBridge",
+    "address": "0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0",
+    "deployer": "0x5f659B20a89279c815B5b8b98b423E26E2737032",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "feeRecipient": "0x5f659B20a89279c815B5b8b98b423E26E2737032",
+    "pausedAtDeploy": true,
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-10-16T09:57:37Z",
+    "txHash": "0xeedd1b4420d565ae3d489b12100f93c415591e6288ee333382e6fc12c43e89f1",
+    "note": "BR-1 testnet deployment (operator gate converted to testnet 16 Oct). Owned by the 2-of-3 rehearsal Safe; validators signer1/2/3 weight 1 added 16 Oct; stays paused until a supported token/chain is named. Wired on hub as BRIDGE_CONTRACT_ADDRESS 16 Oct."
   }
 ]
