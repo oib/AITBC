@@ -26,10 +26,12 @@ class _RpcStub(BaseHTTPRequestHandler):
 
     responses: dict = {}
     seen: list = []
+    seen_agents: list = []
 
     def do_POST(self):  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         self.__class__.seen.append(body)
+        self.__class__.seen_agents.append(self.headers.get("User-Agent"))
         method = body["method"]
         key = (method, body["params"][0])
         result = self.__class__.responses.get(key, "0x0")
@@ -54,6 +56,7 @@ def rpc_server():
         ("eth_getTransactionCount", ADDR_B): "0x0",
     }
     _RpcStub.seen = []
+    _RpcStub.seen_agents = []
     server = HTTPServer(("127.0.0.1", 0), _RpcStub)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -76,6 +79,14 @@ def test_both_calls_use_latest_block_tag(rpc_server):
         ("eth_getBalance", "latest"),
         ("eth_getTransactionCount", "latest"),
     }
+
+
+def test_sends_descriptive_user_agent(rpc_server):
+    # public RPC endpoints 403 urllib's default "Python-urllib/*" agent
+    sb.query_address(rpc_server, ADDR_B)
+    assert _RpcStub.seen_agents
+    assert all(agent == sb.USER_AGENT for agent in _RpcStub.seen_agents)
+    assert not sb.USER_AGENT.startswith("Python-urllib")
 
 
 def test_main_table_output(rpc_server, capsys):

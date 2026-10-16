@@ -90,3 +90,13 @@
   counterpart (matching deploy-rules.sh) and resolves absolute rule_files
   entries. node0's host-local alerts.yml no longer reports as drift;
   real drift and listed-but-undeployed still exit 1.
+
+
+### ETH-20: sepolia_balance.py sends a descriptive User-Agent
+
+- Public Sepolia RPC endpoints (publicnode, drpc, 1rpc, rpc.sepolia.org,
+  rpc2.sepolia.org, blastapi) answer HTTP 403 to urllib's default
+  "Python-urllib/3.x" agent, so the script's compiled-in default endpoint
+  failed on every node. The request now sends "aitbc-sepolia-balance/1.0",
+  which publicnode accepts (verified 200 vs 403); a unit test pins the
+  non-default agent against a loopback stub.
