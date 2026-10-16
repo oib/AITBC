@@ -84,7 +84,7 @@ def _provider_key(provider_address: str) -> str | None:
     """
     try:
         target = canonical_address(provider_address)
-    except (TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError):
         return None
     try:
         for path in sorted(_wallet_dir().glob("*.json")):

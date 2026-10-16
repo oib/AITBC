@@ -141,7 +141,7 @@ def verify(path: Path) -> dict[str, Any]:
     report: dict[str, Any] = {"file": str(path), "problems": []}
     try:
         doc = json.loads(path.read_text())
-    except (OSError, ValueError) as exc:
+    except (OSError, RecursionError, ValueError) as exc:
         report["problems"].append(f"unreadable/invalid JSON: {exc}")
         report["verdict"] = "FAIL"
         return report
