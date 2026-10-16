@@ -174,7 +174,7 @@ class TestMessagingCommands:
             )
         assert result.exit_code == 0, result.output
         assert "Sealed at block 42" in result.output
-        assert get.call_args[0][0].endswith(f"/rpc/messaging/messages/{'ab' * 32}")
+        assert get.call_args[0][0].endswith(f"/rpc/messaging/messages/0x{'ab' * 32}")
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
     def test_list_reads_index(self, mock_http_class, runner, mock_blockchain_rpc):
@@ -226,7 +226,105 @@ class TestMessagingCommands:
         mock_client.get.return_value = {"tx_hash": h, "body": "hi"}
         result = runner.invoke(messaging_mod.messaging, ["show", h])
         assert result.exit_code == 0, result.output
-        assert mock_client.get.call_args[0][0] == f"/rpc/messaging/messages/{h}"
+        assert mock_client.get.call_args[0][0] == f"/rpc/messaging/messages/0x{h}"
+
+
+_HASH_ACTION_COMMANDS = [
+    ["vote", "up"],
+    ["hide"],
+    ["unhide"],
+    ["pin"],
+    ["unpin"],
+    ["lock", "--target"],
+    ["unlock", "--target"],
+]
+
+
+class TestHashForms:
+    """MSG-CLI-HASH-1: every command accepts bare or 0x-prefixed 64-hex,
+    normalizes once to bare, and uses the 0x-prefixed form on read routes."""
+
+    BARE = "cd" * 32
+    PREFIXED = "0x" + "cd".upper() * 32  # 0x + uppercase of BARE
+
+    @pytest.mark.parametrize("form", [BARE, PREFIXED])
+    @pytest.mark.parametrize("argv", _HASH_ACTION_COMMANDS)
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_action_target_normalized(self, mock_http_class, runner, sender_wallet, captured_send, argv, form):
+        """Bare and prefixed forms sign the same bare envelope target."""
+        mock_http_class.return_value.get.return_value = {"topic": "dev"}
+        args = list(argv)
+        if "--target" in args:
+            args += [form]
+        elif argv[0] == "vote":
+            args = ["vote", form, argv[1]]
+        else:
+            args += [form]
+        if "--target" not in args:
+            args += ["--topic", "dev"]
+        args += ["--wallet", "poster", "--no-wait", "--confirm"]
+        result = runner.invoke(messaging_mod.messaging, args)
+        assert result.exit_code == 0, result.output
+        env = captured_send[0][1]["payload"]["aitbc_msg"]
+        assert env["target"] == self.BARE
+
+    @pytest.mark.parametrize("form", [BARE, PREFIXED])
+    def test_send_reply_to_normalized(self, runner, sender_wallet, captured_send, form):
+        result = runner.invoke(
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "re:hi", "--reply-to", form, "--no-wait", "--confirm"],
+        )
+        assert result.exit_code == 0, result.output
+        env = captured_send[0][1]["payload"]["aitbc_msg"]
+        assert env["parent"] == self.BARE
+
+    @pytest.mark.parametrize("form", [BARE, PREFIXED])
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_show_read_route_prefixed(self, mock_http_class, runner, mock_blockchain_rpc, form):
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"tx_hash": self.BARE}
+        result = runner.invoke(messaging_mod.messaging, ["show", form])
+        assert result.exit_code == 0, result.output
+        assert mock_client.get.call_args[0][0] == f"/rpc/messaging/messages/0x{self.BARE}"
+
+    @pytest.mark.parametrize("form", [BARE, PREFIXED])
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_target_topic_read_route_prefixed(self, mock_http_class, runner, sender_wallet, captured_send, form):
+        """Topic resolution reads the 0x-prefixed message route for both input forms."""
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"topic": "dev"}
+        result = runner.invoke(
+            messaging_mod.messaging, ["vote", form, "up", "--wallet", "poster", "--no-wait", "--confirm"]
+        )
+        assert result.exit_code == 0, result.output
+        assert mock_client.get.call_args[0][0] == f"/rpc/messaging/messages/0x{self.BARE}"
+
+    @pytest.mark.parametrize("bad", ["cd" * 31, "zz" * 32, "", "0x" + "cd" * 31])
+    @pytest.mark.parametrize("argv", [["show"], ["vote", "up"], ["lock"], ["unlock"]])
+    @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
+    def test_invalid_hash_rejected_before_io(self, mock_http_class, runner, sender_wallet, captured_send, argv, bad):
+        """Invalid input aborts at parse time — no wallet sign, no network read."""
+        args = list(argv)
+        if argv[0] in {"show", "vote"}:
+            args.insert(1, bad)
+        else:
+            args += ["--target", bad]
+        if argv[0] != "show":
+            args += ["--wallet", "poster", "--no-wait", "--confirm"]
+        result = runner.invoke(messaging_mod.messaging, args)
+        assert result.exit_code != 0
+        assert "64 hex" in result.output
+        assert captured_send == []
+        mock_http_class.return_value.get.assert_not_called()
+
+    def test_send_invalid_reply_to_rejected(self, runner, sender_wallet, captured_send):
+        result = runner.invoke(
+            messaging_mod.messaging,
+            ["send", "--wallet", "poster", "--message", "re", "--reply-to", "0xshort", "--no-wait", "--confirm"],
+        )
+        assert result.exit_code != 0
+        assert "64 hex" in result.output
+        assert captured_send == []
 
     @patch("aitbc_cli.commands.messaging.AITBCHTTPClient")
     def test_list_sanitises_invisible_chars(self, mock_http_class, runner, mock_blockchain_rpc):

@@ -61,6 +61,22 @@ def test_post_wait_polls_message_route_never_transaction_route():
     assert warnings == []
 
 
+def test_post_wait_bare_hash_still_polls_prefixed_route():
+    """MSG-CLI-HASH-1: whatever form the submit path hands back, the read
+    route is the canonical 0x-prefixed one."""
+    from aitbc_cli.commands.messaging import _wait_for_seal
+
+    get = MagicMock(side_effect=[_resp(200, {"block_height": 1})])
+    with (
+        patch("requests.get", get),
+        patch(f"{MOD}._WAIT_POLL_SECONDS", 0),
+        patch(f"{MOD}.warning"),
+        patch(f"{MOD}.success"),
+    ):
+        _wait_for_seal(None, "http://rpc", "cd" * 32, 1.0, topic="dev", is_action=False)
+    assert get.call_args_list[0].args[0] == f"http://rpc/rpc/messaging/messages/0x{'cd' * 32}"
+
+
 def test_action_wait_detects_tx_in_moderation_actions():
     mod = {"actions": [{"tx_hash": TX, "block_height": 49315, "kind": "hide", "effective": True}]}
     urls, warnings, successes = _run(
