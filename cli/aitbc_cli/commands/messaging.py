@@ -15,7 +15,7 @@ import json
 import time
 from decimal import Decimal
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import click
 
@@ -332,12 +332,32 @@ def _target_topic(ctx, http_client: AITBCHTTPClient, tx_hash: str) -> str:
     return str(topic)
 
 
+def _effectiveness_now(http_client: AITBCHTTPClient, kind: str, topic: str, sender: str) -> Any:
+    """Would this action be effective if it sealed right now?
+
+    A vote always counts. Moderation kinds need the signer in the topic's
+    derived moderator set. Returns True/False, or an ``unknown: …`` string
+    when the moderation read fails — the dry run should still print.
+    """
+    if kind == "vote":
+        return True
+    try:
+        view = http_client.get(f"/rpc/messaging/topics/{topic}/moderation")
+    except Exception as e:
+        return f"unknown: moderation read failed ({e})"
+    if view.get("authority_unresolved"):
+        return "unknown: topic authority unresolved"
+    moderators = {str(m).lower() for m in view.get("moderators") or []}
+    return sender.lower() in moderators
+
+
 def _submit_action(
     ctx,
     wallet_name: str,
     kind: str,
     topic: str,
     fee: Decimal,
+    confirm: bool,
     wait: bool,
     wait_timeout: float,
     rpc_url: str | None,
@@ -362,6 +382,27 @@ def _submit_action(
         )
     except ValueError as e:
         abort(ctx, f"Invalid action envelope: {e}", from_exception=e)
+
+    if not confirm:
+        click.echo("DRY RUN — nothing signed, nothing sent. Re-run with --confirm to sign and submit once:", err=True)
+        output(
+            {
+                "wallet": wallet_name,
+                "sender": sender_address,
+                "topic": topic,
+                "kind": kind,
+                "target": target,
+                "value": value,
+                "grantee": grantee,
+                "fee_ait": str(fee),
+                "envelope": envelope,
+                "would_be_effective_now": _effectiveness_now(_rpc_client(resolved_rpc), kind, topic, sender_address),
+            },
+            (ctx.obj or {}).get("output_format", "table"),
+            title=f"{kind} dry run",
+        )
+        return
+
     resolved_password = resolve_wallet_password(
         wallet_name=wallet_name,
         password=password,
@@ -395,7 +436,10 @@ def _submit_action(
 def _action_options(f):
     f = click.option("--wallet", "wallet_name", required=True, help="Wallet name that signs the action")(f)
     f = click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")(f)
-    f = click.option("--wait/--no-wait", default=True, help="Poll until sealed (default: wait)")(f)
+    f = click.option(
+        "--confirm", is_flag=True, help="Sign and submit once (default: dry run — prints the action, signs nothing)"
+    )(f)
+    f = click.option("--wait/--no-wait", default=True, help="With --confirm: poll until sealed (default: wait)")(f)
     f = click.option("--wait-timeout", type=float, default=180.0, show_default=True)(f)
     f = click.option("--rpc-url", default=None, help="Blockchain RPC URL")(f)
     return wallet_password_options(f)
@@ -422,7 +466,19 @@ def _target_action(ctx, kind: str, tx_hash: str, topic: str | None, kw: dict) ->
 @_action_options
 @click.pass_context
 def vote(
-    ctx, tx_hash, direction, topic, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+    ctx,
+    tx_hash,
+    direction,
+    topic,
+    wallet_name,
+    fee,
+    confirm,
+    wait,
+    wait_timeout,
+    rpc_url,
+    password,
+    password_file,
+    password_stdin,
 ):
     """Vote on a forum message. Last vote per signer wins; 'retract' clears it."""
     _target_action(
@@ -433,6 +489,7 @@ def vote(
         {
             "wallet_name": wallet_name,
             "fee": fee,
+            "confirm": confirm,
             "wait": wait,
             "wait_timeout": wait_timeout,
             "rpc_url": rpc_url,
@@ -450,7 +507,9 @@ def _simple_target_command(kind: str, help_text: str):
     @click.option("--topic", default=None, help="Topic slug (default: the target's own topic)")
     @_action_options
     @click.pass_context
-    def cmd(ctx, tx_hash, topic, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+    def cmd(
+        ctx, tx_hash, topic, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+    ):
         _target_action(
             ctx,
             kind,
@@ -459,6 +518,7 @@ def _simple_target_command(kind: str, help_text: str):
             {
                 "wallet_name": wallet_name,
                 "fee": fee,
+                "confirm": confirm,
                 "wait": wait,
                 "wait_timeout": wait_timeout,
                 "rpc_url": rpc_url,
@@ -479,7 +539,19 @@ _simple_target_command("unpin", "Undo a pin (moderator only).")
 
 
 def _lock_impl(
-    ctx, action: str, topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+    ctx,
+    action: str,
+    topic,
+    target,
+    wallet_name,
+    fee,
+    confirm,
+    wait,
+    wait_timeout,
+    rpc_url,
+    password,
+    password_file,
+    password_stdin,
 ):
     """Lock a topic or one thread (moderator only). Exactly one of --topic/--target."""
     if (topic is None) == (target is None):
@@ -498,6 +570,7 @@ def _lock_impl(
         ctx,
         wallet_name=wallet_name,
         kind=action,
+        confirm=confirm,
         topic=canonical_topic,
         target=target,
         fee=fee,
@@ -520,10 +593,22 @@ def _lock_impl(
 @click.option("--target", default=None, help="Lock the reply subtree under this message")
 @_action_options
 @click.pass_context
-def lock(ctx, topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+def lock(ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
     """Lock a topic or one thread (moderator only)."""
     _lock_impl(
-        ctx, "lock", topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+        ctx,
+        "lock",
+        topic,
+        target,
+        wallet_name,
+        fee,
+        confirm,
+        wait,
+        wait_timeout,
+        rpc_url,
+        password,
+        password_file,
+        password_stdin,
     )
 
 
@@ -532,10 +617,24 @@ def lock(ctx, topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, pass
 @click.option("--target", default=None, help="Unlock the reply subtree under this message")
 @_action_options
 @click.pass_context
-def unlock(ctx, topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+def unlock(
+    ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+):
     """Undo a lock (moderator only)."""
     _lock_impl(
-        ctx, "unlock", topic, target, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+        ctx,
+        "unlock",
+        topic,
+        target,
+        wallet_name,
+        fee,
+        confirm,
+        wait,
+        wait_timeout,
+        rpc_url,
+        password,
+        password_file,
+        password_stdin,
     )
 
 
@@ -548,7 +647,9 @@ def _mod_grant_command(kind: str, help_text: str):
     @click.option("--topic", required=True, help="Topic slug the grant applies to")
     @_action_options
     @click.pass_context
-    def cmd(ctx, grantee, topic, wallet_name, fee, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+    def cmd(
+        ctx, grantee, topic, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+    ):
         canonical_topic = normalize_topic(topic)
         if canonical_topic is None:
             abort(ctx, f"Topic '{topic}' is not a valid slug")
@@ -559,6 +660,7 @@ def _mod_grant_command(kind: str, help_text: str):
             kind=kind,
             topic=canonical_topic,
             grantee=grantee,
+            confirm=confirm,
             fee=fee,
             wait=wait,
             wait_timeout=wait_timeout,
