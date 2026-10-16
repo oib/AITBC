@@ -277,6 +277,23 @@ def init_db() -> None:
         )
     """)
 
+    # B13/BR-6: the outbound-ETH ledger lives in this shared file too — the
+    # monitor writes it, either service may bootstrap it first. Same DDL as
+    # bridge_monitor/storage.py.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bridge_outbound (
+            tx_hash       TEXT PRIMARY KEY,
+            to_address    TEXT NOT NULL,
+            value_eth     NUMERIC NOT NULL,
+            gas_wei       INTEGER,
+            block_height  INTEGER NOT NULL,
+            kind          TEXT NOT NULL,
+            matched_deposit_tx TEXT,
+            note          TEXT,
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # Expression index keeps the public by-recipient lookup off a full table
     # scan; the query stays LOWER() = LOWER() so either service's stored
     # casing matches.
