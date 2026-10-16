@@ -966,3 +966,6 @@ reported, not ignored.
   per-file delete/keep recommendations; plus the 0x02B8 treasury signing
   trace: nonce 90 stable, last send 7 Oct, no wallet file holds the key —
   verdict historical.
+
+### MSG-17
+- feat(explorer): author and topic pages (author.html?a=, topic.html?t=), message body search folded into search.html, tx-view forum badge → topic page with kind; explorer-api gains proxied /api/messages/search, /{tx_hash}, /{tx_hash}/votes, /reputation/{address}, /topics/{slug}/moderation and author filter — all upstream index routes, DOM-API rendering only, noindex everywhere; stale unmoderated-label test pin repaired for the MSG-19 published wording.

@@ -30,6 +30,10 @@ REPO = Path(__file__).resolve().parents[2]
 WEBSITE = REPO / "website"
 MSG_JS = WEBSITE / "messages.js"
 MSG_HTML = WEBSITE / "messages.html"
+# MSG-17 pages share the same rendering rules: DOM APIs only, the pinned
+# sanitizer ranges, noindex on every page.
+EXTRA_JS = [WEBSITE / "author.js", WEBSITE / "topic.js"]
+EXTRA_HTML = [WEBSITE / "author.html", WEBSITE / "topic.html"]
 
 
 class TestMessagesStatic(unittest.TestCase):
@@ -60,6 +64,22 @@ class TestMessagesStatic(unittest.TestCase):
         sitemap = (WEBSITE / "sitemap.xml").read_text(encoding="utf-8")
         self.assertNotIn("messages.html", sitemap)
 
+    def test_msg17_pages_follow_the_same_rules(self) -> None:
+        for path in EXTRA_JS:
+            src = path.read_text(encoding="utf-8")
+            self.assertNotIn("innerHTML", src, f"{path.name} must not use innerHTML")
+            for m in re.finditer(r"insertAdjacentHTML\('[^']+',\s*([^)]+)\)", src):
+                self.assertIn(
+                    "aitbcCopyBtn", m.group(1), f"{path.name}: insertAdjacentHTML may only receive the copy-button emitter"
+                )
+            for pin in (r"\u0080-\u009F", r"\p{Cf}", r"\u061C", r"\u180E", "E0000", "E007F"):
+                self.assertIn(pin, src, f"{path.name}: sanitizer regex missing {pin}")
+        for path in EXTRA_HTML:
+            html = path.read_text(encoding="utf-8")
+            self.assertIn('name="robots" content="noindex', html)
+            self.assertIn("aitbc-menu:start", html)
+            self.assertIn("aitbc-footer:start", html)
+
     def test_page_loads_shared_scripts_deferred(self) -> None:
         html = MSG_HTML.read_text(encoding="utf-8")
         for js in ("config.js", "copy.js", "messages.js"):
@@ -68,7 +88,9 @@ class TestMessagesStatic(unittest.TestCase):
 
     def test_unmoderated_label_present(self) -> None:
         html = MSG_HTML.read_text(encoding="utf-8")
-        self.assertIn("Unmoderated", html)
+        # MSG-19 publish wording: user content moderated only by topic
+        # moderators — the pin follows the committed policy text.
+        self.assertIn("moderated only by topic moderators", html)
         self.assertIn("on-chain", html.lower())
 
 

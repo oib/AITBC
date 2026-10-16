@@ -145,3 +145,71 @@ def test_transport_failure_is_503(client):
         finally:
             messages.httpx.AsyncClient = _FakeClient
     assert r.status_code == 503
+
+
+# --- MSG-17: author/topic/search/detail surfaces ---
+
+
+def test_messages_author_param_proxies(client):
+    r = client.get("/api/messages?author=0xBdDF")
+    assert r.status_code == 200
+    url, params = _FakeClient.calls[-1]
+    assert url.endswith("/rpc/messaging/messages")
+    assert params["author"] == "0xBdDF"
+
+
+def test_search_proxies_query_and_bounds(client):
+    r = client.get("/api/messages/search?q=checkpoint&limit=7")
+    assert r.status_code == 200
+    url, params = _FakeClient.calls[-1]
+    assert url.endswith("/rpc/messaging/messages/search")
+    assert params["q"] == "checkpoint" and params["limit"] == 7
+
+
+def test_search_offset_past_cap_is_400(client):
+    assert client.get("/api/messages/search?offset=501").status_code == 400
+
+
+def test_search_route_not_shadowed_by_tx_hash(client):
+    """The literal /messages/search must resolve before /messages/{tx_hash}."""
+    r = client.get("/api/messages/search?q=x")
+    assert r.status_code == 200
+    url, _ = _FakeClient.calls[-1]
+    assert url.endswith("/rpc/messaging/messages/search")
+
+
+def test_message_detail_proxies(client):
+    h = "0x" + "ab" * 32
+    r = client.get(f"/api/messages/{h}")
+    assert r.status_code == 200
+    url, _ = _FakeClient.calls[-1]
+    assert url.endswith(f"/rpc/messaging/messages/{h}")
+
+
+def test_message_votes_proxies(client):
+    h = "0x" + "cd" * 32
+    r = client.get(f"/api/messages/{h}/votes")
+    assert r.status_code == 200
+    url, _ = _FakeClient.calls[-1]
+    assert url.endswith(f"/rpc/messaging/messages/{h}/votes")
+
+
+def test_reputation_proxies(client):
+    r = client.get("/api/messages/reputation/0x1234")
+    assert r.status_code == 200
+    url, _ = _FakeClient.calls[-1]
+    assert url.endswith("/rpc/messaging/reputation/0x1234")
+
+
+def test_topic_moderation_proxies(client):
+    r = client.get("/api/messages/topics/msg-fix/moderation")
+    assert r.status_code == 200
+    url, _ = _FakeClient.calls[-1]
+    assert url.endswith("/rpc/messaging/topics/msg-fix/moderation")
+
+
+def test_search_404_detail_passes_through(client):
+    _FakeClient.resp = _FakeResp(404, {"detail": "not found"})
+    r = client.get("/api/messages/" + "0x" + "00" * 32)
+    assert r.status_code == 404
+    assert r.json()["detail"] == "not found"

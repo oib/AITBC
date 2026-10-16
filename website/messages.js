@@ -102,14 +102,14 @@
             const head = el('div', 'msg-item-head');
 
             const topicLink = el('a', 'msg-topic-chip', sanitizeChainText(m.topic || ''));
-            topicLink.href = `/messages.html?topic=${encodeURIComponent(m.topic || '')}`;
+            topicLink.href = `/topic.html?t=${encodeURIComponent(m.topic || '')}`;
             head.appendChild(topicLink);
 
             head.appendChild(el('span', 'msg-kind', sanitizeChainText(m.kind || 'post')));
 
             const author = m.author || m.sender || '';
             const authorLink = el('a', 'clickable-value msg-author', sanitizeChainText(author));
-            authorLink.href = `/search.html?query=${encodeURIComponent(author)}`;
+            authorLink.href = `/author.html?a=${encodeURIComponent(author)}`;
             head.appendChild(authorLink);
             if (author && typeof aitbcCopyBtn === 'function') {
                 head.insertAdjacentHTML('beforeend', aitbcCopyBtn(author, 'author address'));
