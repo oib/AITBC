@@ -145,3 +145,5 @@ normalizers. Ops fix on hub: `island_credentials.json` `rpc_endpoint`
 now `http://127.0.0.1:8202/rpc` — the previous `https://hub.aitbc.bubuit.net`
 value hairpin-failed from inside the hub (fulfils the ops item CLI-3
 deferred).
+
+### CLI: aitbc pool-hub on followers used http://{hub}/pool-hub — plain HTTP against a TLS-only edge. Resolved via normalize_hub_base() → https on followers, http://127.0.0.1 on hub. The nginx /pool-hub/ mount already existed; only the scheme was wrong. Also: test_find_service_by_type_and_name now sets API_KEY_STORAGE_PATH → tmp so importing the services router no longer requires /var/lib/aitbc.
