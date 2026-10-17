@@ -48,6 +48,16 @@ def _update_bridge_metrics(bridge: Any) -> None:
         bridge_total_locked_amount.labels(chain_id=chain_id, token="default").set(int(balances.get(chain_id, 0)))
 
 
+def _require_release_enabled() -> None:
+    """503 unless the release path is armed with its production-safety guard."""
+    if not getattr(settings, "bridge_release_enabled", False):
+        raise HTTPException(
+            status_code=503,
+            detail="Bridge release path disabled (bridge_release_enabled=false). "
+            "Set bridge_release_enabled to use confirm; escrow_enabled alone does not open it.",
+        )
+
+
 @rate_limit(rate=20, per=60)
 async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, Any]:
     """
@@ -147,19 +157,15 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
     cryptographic proof verification — Merkle proofs against stored block
     headers, block header signature verification against the v0.7.1
     validator set, finality tracking, and multi-sig threshold signatures.
-    The confirm path is enabled only when ``bridge_release_enabled`` is True.
+    The confirm path is enabled only when ``bridge_release_enabled`` is True
+    (F2): that flag is what arms the production-safety guard in
+    ``cross_chain/bridge.py`` (multisig, required Merkle proofs, signed
+    headers, admin-signed header ingestion). ``escrow_enabled`` alone no
+    longer opens it.
     """
     # Fence check must happen BEFORE signature verification to allow testing
-    # with invalid signatures when the fence is disabled. The confirm path
-    # mints value — it requires bridge_release_enabled explicitly; an
-    # escrow-only node must not serve it.
-    if not getattr(settings, "bridge_release_enabled", False):
-        raise HTTPException(
-            status_code=503,
-            detail="Bridge release path disabled (bridge_release_enabled=false). "
-            "Proof verification requires the release path; enable "
-            "bridge_release_enabled to use it.",
-        )
+    # with invalid signatures when the fence is disabled
+    _require_release_enabled()
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
 
@@ -541,20 +547,11 @@ async def bridge_batch_lock(request: Request, batch_data: dict[str, Any]) -> lis
 async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Batch confirm multiple cross-chain transfers.
 
-    Gated by ``bridge_release_enabled`` same as single confirm. v0.7.2 proof
-    verification is complete.
+    Gated by ``bridge_release_enabled`` same as single confirm.
     """
     # Fence check must happen BEFORE signature verification to allow testing
-    # with invalid signatures when the fence is disabled. The confirm path
-    # mints value — it requires bridge_release_enabled explicitly; an
-    # escrow-only node must not serve it.
-    if not getattr(settings, "bridge_release_enabled", False):
-        raise HTTPException(
-            status_code=503,
-            detail="Bridge release path disabled (bridge_release_enabled=false). "
-            "Proof verification requires the release path; enable "
-            "bridge_release_enabled to use it.",
-        )
+    # with invalid signatures when the fence is disabled
+    _require_release_enabled()
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
 
