@@ -84,8 +84,8 @@ function createOfferCard(offer) {
     const providerId = offer.provider_address || offer.node_id || '';
 
     const registeredRaw = offer.registered_at || offer.block_timestamp;
-    const registeredDate = registeredRaw ? new Date(registeredRaw).toLocaleDateString() : 'N/A';
-    const updatedDate = offer.updated_at ? new Date(offer.updated_at).toLocaleDateString() : 'N/A';
+    const registeredDate = registeredRaw ? aitbcFmt.date(registeredRaw) : 'N/A';
+    const updatedDate = offer.updated_at ? aitbcFmt.date(offer.updated_at) : 'N/A';
 
     // Blockchain verification information
     const isConfirmed = offer.confirmed === true;
@@ -111,7 +111,7 @@ function createOfferCard(offer) {
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Time:</span>
-                <span class="blockchain-value">${escapeHtml(offer.block_timestamp ? new Date(offer.block_timestamp).toLocaleString() : 'N/A')}</span>
+                <span class="blockchain-value">${escapeHtml(offer.block_timestamp ? aitbcFmt.date(offer.block_timestamp) : 'N/A')}</span>
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Proposer:</span>
@@ -236,7 +236,7 @@ function formatTimestamp(timestamp) {
     if (!timestamp) return 'N/A';
     try {
         const date = new Date(timestamp);
-        return escapeHtml(date.toLocaleString());
+        return escapeHtml(aitbcFmt.date(date));
     } catch (e) {
         return escapeHtml(timestamp);
     }
@@ -267,7 +267,7 @@ function setupFilterButtons() {
 
 function updateTimestamp() {
     const now = new Date();
-    document.getElementById('last-updated').textContent = `Last updated: ${now.toLocaleString()}`;
+    document.getElementById('last-updated').textContent = `Last updated: ${aitbcFmt.date(now)}`;
 }
 
 // Wait for DOM to be ready
