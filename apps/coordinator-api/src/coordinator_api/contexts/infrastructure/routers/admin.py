@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import desc
 from sqlmodel import Session, select
 
@@ -97,19 +97,6 @@ async def create_test_miner(
     except Exception:
         logger.error("Failed to create test miner")
         raise HTTPException(status_code=500, detail="Failed to create test miner") from None
-
-
-@router.get("/test-key", summary="Test API key validation")
-@rate_limit(rate=100, per=60)
-async def test_key(request: Request, api_key: str = Header(default=None, alias="X-Api-Key")) -> dict[str, str]:
-    masked_key = api_key[:8] + "..." if api_key else "None"
-    logger.debug("Received API key: %s", masked_key)
-    logger.debug("Allowed admin keys count: %s", len(settings.admin_api_keys))
-    if not api_key or api_key not in settings.admin_api_keys:
-        logger.debug("API key validation failed!")
-        raise HTTPException(status_code=401, detail="invalid api key")
-    logger.debug("API key validation successful!")
-    return {"message": "API key is valid", "key": masked_key}
 
 
 @router.get("/stats", summary="Get coordinator stats")
@@ -279,7 +266,9 @@ async def get_system_status(
 #
 # 3. Routes NOT migrated (kept as-is):
 #    - /debug-settings: Public endpoint (no auth)
-#    - /test-key: API key testing endpoint (kept for debugging)
+#    - /test-key: REMOVED 2026-10-17 — an unauthenticated endpoint returning
+#      401/200 on whether a presented key is a real admin key is a key-validity
+#      oracle (repo-review F7).
 #
 # 4. JWT benefits:
 #    - user["sub"]: Admin user ID
