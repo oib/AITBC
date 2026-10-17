@@ -17,7 +17,9 @@ const BRIDGE_STATUS_BADGES = {
 
 function statusBadge(status) {
     const raw = String(status || '').trim();
-    const entry = BRIDGE_STATUS_BADGES[raw.toLowerCase()];
+    const key = raw.toLowerCase();
+    const entry = Object.prototype.hasOwnProperty.call(BRIDGE_STATUS_BADGES, key)
+        ? BRIDGE_STATUS_BADGES[key] : null;
     if (!entry) {
         return `<span class="status-badge bridge-status-unknown"><span class="bridge-badge-icon" aria-hidden="true">?</span> ${escapeHtml(raw || 'unknown')}</span>`;
     }
@@ -40,14 +42,6 @@ function fmtAit(units) {
 let lastTransfersReadAt = 0;
 let renderedTransfers = 0;
 let lastHealthReadAt = 0;
-
-function agoStr(ts) {
-    const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-    if (s < 60) return `${s}s ago`;
-    const m = Math.round(s / 60);
-    if (m < 60) return `${m}m ago`;
-    return `${Math.round(m / 60)}h ago`;
-}
 
 function showTransfersFailure(reason) {
     const loading = document.getElementById('recent-bridges-loading');
@@ -109,16 +103,23 @@ async function loadRecentBridges() {
     if (failed) failed.style.display = 'none';
     if (note) note.style.display = 'none';
     lastTransfersReadAt = Date.now();
-    renderedTransfers = transfers.length;
-    if (transfers.length === 0) {
+    const visible = transfers.filter(d => d && typeof d === 'object' && !Array.isArray(d));
+    const skipped = transfers.length - visible.length;
+    renderedTransfers = visible.length;
+    if (visible.length === 0) {
+        if (container) container.innerHTML = '';
         if (empty) empty.style.display = 'block';
-        return;
+    } else {
+        if (empty) empty.style.display = 'none';
     }
-    if (empty) empty.style.display = 'none';
-    if (!container) return;
-    const rows = transfers.map(transferRow).join('');
-    const cards = transfers.map(transferCard).join('');
-    container.innerHTML = `<div class="table-wrap bridge-table-wrap" role="region" tabindex="0" aria-label="Bridge transfers">
+    if (skipped > 0 && note) {
+        note.style.display = 'block';
+        note.textContent = `${skipped} item${skipped === 1 ? '' : 's'} in the reply could not be shown.`;
+    }
+    if (visible.length === 0 || !container) return;
+    const rows = visible.map(transferRow).join('');
+    const cards = visible.map(transferCard).join('');
+    container.innerHTML = `<div class="table-wrap" id="bridge-table-wrap" role="region" tabindex="0" aria-label="Bridge transfers">
         <table class="bridge-table">
             <thead><tr>
                 <th scope="col">When</th>
@@ -198,7 +199,7 @@ function renderBridgeHealth(data, reason) {
     if (!banner) return;
     const title = banner.querySelector('.bridge-health-title');
     const detail = banner.querySelector('.bridge-health-detail');
-    const ago = lastHealthReadAt ? `read ${agoStr(lastHealthReadAt)}` : '';
+    const ago = lastHealthReadAt ? `read ${new Date(lastHealthReadAt).toLocaleTimeString()}` : '';
     let cls;
     let titleText;
     let detailText;
@@ -239,7 +240,13 @@ async function loadBridgeHealth() {
             renderBridgeHealth(null, `HTTP ${resp.status}`);
             return;
         }
-        const data = await resp.json();
+        let data = null;
+        try {
+            data = await resp.json();
+        } catch (parseErr) {
+            renderBridgeHealth(null, 'the reply was not readable JSON');
+            return;
+        }
         lastHealthReadAt = Date.now();
         renderBridgeHealth(data);
     } catch (error) {

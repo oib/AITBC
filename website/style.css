@@ -2378,6 +2378,6 @@ a.btn-secondary {
         font-size: 16px;
     }
     /* Bridges page: per-transfer cards replace the wide table. */
-    .bridge-table-wrap { display: none; }
+    #bridge-table-wrap { display: none; }
     .bridge-cards { display: block; }
 }
