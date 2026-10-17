@@ -158,6 +158,8 @@ deferred).
 
 ### Ops: bridge-leaf-audit reads `target_recipient` from sealed envelopes (AUDIT-RECIP-1). Sealed lock envelopes carry the recipient as `target_recipient` (`bridge_transfer.py`); the audit's `derived_leaf` only read `recipient`, so every lock sealed at/above `bridge_lock_leaf_v2_height` derived `unreadable` and classified `missing_data` — a false alarm, not a chain defect (LEAF-V2-LOCK-1 proved the v2 leaf correct end-to-end). `derived_leaf` now accepts the alias in payload and envelope; the skipped-trie line explains the `PYTHONPATH` requirement.
 
+### CLI: `bridge proof`/`sign-proof`/`ingest-header`/`attest` no longer crash on the success line (CLI-PROOF-OUT-1). Each bound `--output` to a parameter named `output`, shadowing the `output()` formatter — the command wrote its file then raised `'str' object is not callable` (on `sign-proof` without `-o`, `None(...)` — unconditional). The options now bind to `output_path`; flag names unchanged. CliRunner tests pin the success path for `proof` and `sign-proof`.
+
 ### Commit index — commits since v0.25.11 the coverage check could not match
 
 `fleet-config-check.sh`'s changelog-coverage section matches a commit by its
