@@ -411,6 +411,62 @@ class TestMarketplaceStates(unittest.TestCase):
         self.assertIn(".offers-state", css)
 
 
+class TestMessagesStates(unittest.TestCase):
+    """WEB-MESSAGES-1: topics and messages fail separately; moderation
+    badges in words (colour backup); hidden collapses behind Show anyway;
+    topic rail on wide, horizontal 44px chips under 640px."""
+
+    def test_per_read_failure_states(self) -> None:
+        js = _site_src("messages.js")
+        self.assertIn("function renderReadState(container, state, detail, retry)", js)
+        self.assertIn("Topics could not be loaded.", js)
+        self.assertIn("Could not refresh topics", js)
+        self.assertIn("Stale, last read", js)
+        self.assertIn("topicsLastGoodAt", js)
+        self.assertIn("msgsLastGoodAt", js)
+        # the destroy-on-fail paths stay gone
+        self.assertNotIn("Topics unavailable:", js)
+        self.assertNotIn("Messages unavailable:", js)
+        self.assertIn("msg-read-note", js)  # single note element
+        # topic page shares the message-list states
+        tjs = _site_src("topic.js")
+        self.assertIn("Stale, last read", tjs)
+        self.assertIn("Messages could not be loaded.", tjs)
+
+    def test_badges_and_hidden_in_words(self) -> None:
+        js = _site_src("messages.js")
+        self.assertIn("PINNED", js)
+        self.assertIn("POSTED AFTER LOCK", js)
+        self.assertIn("HIDDEN BY MODERATOR", js)
+        self.assertIn("msg-body-collapsed", js)
+        self.assertIn("Show anyway", js)
+        self.assertIn("Body hidden by a moderator", js)
+        self.assertIn("msg-fee", js)  # fee kept on hidden messages
+        tjs = _site_src("topic.js")
+        self.assertIn("HIDDEN BY MODERATOR", tjs)
+        self.assertIn("Show anyway", tjs)
+        css = _site_src("style.css")
+        for cls in (".msg-badge-pinned", ".msg-badge-locked", ".msg-badge-hidden"):
+            self.assertIn(cls, css)
+
+    def test_topic_rail_and_chips(self) -> None:
+        html = _site_src("messages.html")
+        self.assertIn('class="msg-layout"', html)
+        js = _site_src("messages.js")
+        self.assertIn("msg-topic-list", js)
+        self.assertIn("topic-item", js)
+        self.assertIn("LOCKED", js)  # topic-level lock badge
+        css = _site_src("style.css")
+        self.assertIn("overflow-x: auto", css)
+        self.assertIn("min-height: 44px", css)
+        self.assertIn("grid-template-columns: 280px", css)
+        self.assertIn("minmax(0, 1fr)", css)  # rail cannot force page sideways
+        # the topic name goes into the empty-state line
+        self.assertIn("No messages in ${activeTopic} yet", js)
+        tjs = _site_src("topic.js")
+        self.assertIn("No messages in ${topic} yet", tjs)
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")

@@ -39,6 +39,29 @@
     const topic = (getParam('t') || getParam('topic') || '').trim();
     let nextCursor = null;
     let busy = false;
+    let msgsLastGoodAt = 0;
+
+    function ageAgo(ts) {
+        const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+        if (s < 5) return 'just now';
+        if (s < 90) return `${s} s ago`;
+        return `${Math.round(s / 60)} min ago`;
+    }
+
+    // One read, one outcome object: ok only for status-ok AND parseable JSON.
+    async function readJson(url) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) return { ok: false, status: resp.status };
+            try {
+                return { ok: true, status: resp.status, data: await resp.json() };
+            } catch (e) {
+                return { ok: false, status: resp.status, err: 'reply was not readable' };
+            }
+        } catch (e) {
+            return { ok: false, status: 0, err: 'network request failed' };
+        }
+    }
 
     async function fetchJson(url) {
         const resp = await fetch(url);
@@ -53,11 +76,31 @@
         return resp.json();
     }
 
+    // The single read-state note for the message list — one element, never
+    // one line per poll.
+    function renderReadState(container, state, detail, retry) {
+        const prev = [...container.children].find(c => c.classList && c.classList.contains('msg-read-note'));
+        if (prev) prev.remove();
+        if (state === 'live') return;
+        const note = el('div', state === 'failed' ? 'msg-state msg-read-note' : 'msg-state-note msg-read-note');
+        note.setAttribute('role', state === 'failed' ? 'alert' : 'status');
+        if (state === 'failed') {
+            note.appendChild(el('p', 'msg-state-title', detail));
+        } else {
+            note.appendChild(el('span', '', detail));
+        }
+        const btn = el('button', 'bridge-retry', 'Try again');
+        btn.type = 'button';
+        btn.addEventListener('click', retry);
+        note.appendChild(btn);
+        container.prepend(note);
+    }
+
     function renderMessages(messages, append) {
         const container = document.getElementById('messages-container');
         if (!append) container.textContent = '';
         if (!messages.length && !append) {
-            container.appendChild(el('p', 'loading-text', 'No messages in this topic.'));
+            container.appendChild(el('p', 'msg-empty', sanitizeChainText(`No messages in ${topic} yet.`)));
             return;
         }
         messages.forEach((m) => {
@@ -65,6 +108,11 @@
             const head = el('div', 'msg-item-head');
 
             head.appendChild(el('span', 'msg-kind', sanitizeChainText(m.kind || 'post')));
+
+            // Moderation badges in words — colour is backup only.
+            if (m.pinned) head.appendChild(el('span', 'msg-badge msg-badge-pinned', 'PINNED'));
+            if (m.after_lock) head.appendChild(el('span', 'msg-badge msg-badge-locked', 'POSTED AFTER LOCK'));
+            if (m.hidden) head.appendChild(el('span', 'msg-badge msg-badge-hidden', 'HIDDEN BY MODERATOR'));
 
             const author = m.author || m.sender || '';
             const authorLink = el('a', 'clickable-value msg-author', sanitizeChainText(author));
@@ -78,7 +126,28 @@
             head.appendChild(el('span', 'msg-time', time ? aitbcFmt.date(time) : ''));
 
             item.appendChild(head);
-            item.appendChild(el('div', 'msg-body', sanitizeChainText(m.body || '')));
+            if (m.hidden) {
+                // A hidden message is not deleted: author, fee and hash stay,
+                // the body collapses behind an explicit Show anyway.
+                const body = el('div', 'msg-body msg-body-collapsed', sanitizeChainText(m.body || ''));
+                const note = el('div', 'msg-hidden-note');
+                note.appendChild(el('span', '', 'Body hidden by a moderator.'));
+                const fee = Number(m.fee);
+                if (Number.isFinite(fee)) {
+                    note.appendChild(el('span', 'msg-fee', ` fee ${aitbcFmt.num(fee / 36000000, 4)} AIT`));
+                }
+                const show = el('button', 'msg-show-anyway', 'Show anyway');
+                show.type = 'button';
+                show.addEventListener('click', () => {
+                    body.classList.remove('msg-body-collapsed');
+                    show.remove();
+                });
+                note.appendChild(show);
+                item.appendChild(note);
+                item.appendChild(body);
+            } else {
+                item.appendChild(el('div', 'msg-body', sanitizeChainText(m.body || '')));
+            }
 
             const hashLine = el('div', 'msg-hash');
             const txLink = el('a', 'clickable-value', `${(m.tx_hash || '').substring(0, 18)}…`);
@@ -120,23 +189,30 @@
         busy = true;
         const more = document.getElementById('load-more');
         more.style.display = 'none';
+        const container = document.getElementById('messages-container');
         try {
             const qs = new URLSearchParams({ topic, limit: String(PAGE_LIMIT) });
             if (!reset && nextCursor) qs.set('cursor', nextCursor);
-            const data = await fetchJson(`${API}/api/messages?${qs}`);
-            renderMessages(data.messages || [], !reset);
+            const r = await readJson(`${API}/api/messages?${qs}`);
+            const data = r.data;
+            if (!r.ok || !data || !Array.isArray(data.messages)) {
+                const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
+                if (msgsLastGoodAt) {
+                    // old rows stay; ONE stale note names the last good read
+                    renderReadState(container, 'stale', `Stale, last read ${ageAgo(msgsLastGoodAt)} — could not refresh (${reason})`, () => loadMessages(true));
+                } else {
+                    container.textContent = '';
+                    renderReadState(container, 'failed', `Messages could not be loaded. (${reason})`, () => loadMessages(true));
+                }
+                announce(`Messages failed to load: ${reason}`);
+                return;
+            }
+            msgsLastGoodAt = Date.now();
+            renderMessages(data.messages, !reset);
+            renderReadState(container, 'live');
             nextCursor = data.next_cursor || null;
             more.style.display = nextCursor ? 'inline-block' : 'none';
             announce(`${data.count || 0} messages loaded`);
-        } catch (e) {
-            const c = document.getElementById('messages-container');
-            if (!c.children.length) {
-                c.textContent = '';
-                c.appendChild(el('p', 'error-text', `Messages unavailable: ${e.message}`));
-            } else {
-                announce(`Messages failed to load: ${e.message}`);
-            }
-            nextCursor = null;
         } finally {
             busy = false;
         }
