@@ -158,7 +158,9 @@ def main() -> int:
     entries = parse_spec(spec)
     try:
         text = render(entries, now) if entries else _failure_render(now)
-    except Exception:
+    except (OSError, ValueError):
+        # UnicodeDecodeError (a ValueError) from a non-UTF8 env file is the
+        # realistic failure; render() itself only walks already-read lines.
         text = _failure_render(now)
     try:
         write_atomic(directory, text)
