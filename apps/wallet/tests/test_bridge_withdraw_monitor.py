@@ -1280,3 +1280,275 @@ class TestGraceLogLevel:
         assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
         msgs = self._monitor_records(caplog)
         assert any(lvl >= logging.ERROR and "unverifiable" in m and "reason=verify_error" in m for lvl, m in msgs)
+
+
+class TestWithdrawSealDepth:
+    """F3: a BRIDGE_WITHDRAW is released only once it is buried by
+    BRIDGE_WITHDRAW_SEAL_DEPTH — tip-block and orphaned withdraws never pay."""
+
+    def _wire_poll(self, monitor_env, monkeypatch, head=100):
+        """Enable the poll path with stubbed chain/RPC boundaries."""
+        monkeypatch.setattr(monitor_env, "BRIDGE_ENABLED", True)
+        monkeypatch.setattr(monitor_env, "WITHDRAW_ENABLED", True)
+        monkeypatch.setattr(monitor_env, "WITHDRAW_SEAL_DEPTH", 3)
+
+        async def _resume():
+            return {"completed": 0, "failed": 0, "parked": 0, "still_open": 0}
+
+        async def _head():
+            return head
+
+        monkeypatch.setattr(monitor_env, "_resume_unfinished_releases", _resume)
+        monkeypatch.setattr(monitor_env, "_fetch_chain_head_height", _head)
+
+        async def _price(gross):
+            return {"amount_eth": Decimal("0.001"), "fee_ait": Decimal("0.05"), "net_ait": gross - Decimal("0.05")}
+
+        monkeypatch.setattr(monitor_env, "calculate_eth_amount", _price)
+        released = []
+
+        async def _release(wid, h, addr, amt, **kw):
+            from wallet_app.bridge.bridge_db import update_withdrawal_status
+
+            released.append((wid, h, addr, amt))
+            # Mirror the real path: the release persists intent before broadcast.
+            update_withdrawal_status(h, "releasing", eth_tx_hash="0x" + "cc" * 32, release_nonce=7)
+            return "0x" + "cc" * 32
+
+        monkeypatch.setattr(monitor_env, "_release_eth_for_withdrawal", _release)
+        return released
+
+    def _tx(self, tx_id: int, height: int, eth_address: str | None = "0x" + "22" * 20, value: int = 10**18):
+        return {
+            "transaction_id": tx_id,
+            "tx_hash": f"0x{tx_id:064x}",
+            "hash": f"0x{tx_id:064x}",
+            "block_height": height,
+            "block_hash": f"0x{'ab' * 32}",
+            "sender": "0x" + "11" * 20,
+            "from": "0x" + "11" * 20,
+            "payload": {"eth_address": eth_address} if eth_address else {},
+            "value": value,
+            "type": "BRIDGE_WITHDRAW",
+        }
+
+    @pytest.mark.asyncio
+    async def test_tip_withdrawal_not_released(self, monitor_env, monkeypatch):
+        """A withdraw sealed in the head block itself waits for depth."""
+        released = self._wire_poll(monitor_env, monkeypatch, head=100)
+
+        async def _fetch(before_id=None):
+            return [self._tx(1, 100)] if before_id is None else []
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["awaiting_depth"] == 1
+        assert released == []
+        row = get_withdrawal_by_ait_tx_hash(f"0x{1:064x}")
+        assert row["status"] == "awaiting_depth"
+        assert row["ait_block_height"] == 100
+
+    @pytest.mark.asyncio
+    async def test_deep_withdrawal_released(self, monitor_env, monkeypatch):
+        """head(100) - height(50) = 50 >= depth(3) — canonical recheck passes."""
+        released = self._wire_poll(monitor_env, monkeypatch, head=100)
+        tx = self._tx(1, 50)
+
+        async def _fetch(before_id=None):
+            return [tx] if before_id is None else []
+
+        async def _canonical(h):
+            return {"block_height": 50, "block_hash": tx["block_hash"]}
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["released"] == 1
+        assert len(released) == 1
+        assert get_withdrawal_by_ait_tx_hash(tx["tx_hash"])["status"] == "releasing"
+
+    @pytest.mark.asyncio
+    async def test_orphaned_withdrawal_never_released(self, monitor_env, monkeypatch):
+        """A deep withdraw that vanished from the canonical chain pays nothing."""
+        released = self._wire_poll(monitor_env, monkeypatch, head=100)
+
+        async def _fetch(before_id=None):
+            return [self._tx(1, 50)] if before_id is None else []
+
+        async def _gone(h):
+            return None
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _gone)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["orphaned"] == 1
+        assert released == []
+        assert get_withdrawal_by_ait_tx_hash(f"0x{1:064x}")["status"] == "orphaned"
+
+    @pytest.mark.asyncio
+    async def test_awaiting_depth_row_releases_when_buried(self, monitor_env, monkeypatch):
+        """A row parked shallow is promoted and released once depth clears."""
+        released = self._wire_poll(monitor_env, monkeypatch, head=200)
+        ait = f"0x{7:064x}"
+        insert_withdrawal(
+            ait_tx_hash=ait,
+            from_address="0x" + "11" * 20,
+            eth_address="0x" + "22" * 20,
+            amount_ait=Decimal("1"),
+            fee_ait=Decimal("0"),
+            net_ait=Decimal("1"),
+            amount_eth=Decimal("0"),
+            status="awaiting_depth",
+            ait_block_height=190,
+            ait_block_hash="0x" + "ab" * 32,
+        )
+
+        async def _canonical(h):
+            return {"block_height": 190, "block_hash": "0x" + "ab" * 32}
+
+        async def _fetch(before_id=None):
+            return []
+
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+
+        await monitor_env.poll_withdrawals_once()
+        assert len(released) == 1
+        row = get_withdrawal_by_ait_tx_hash(ait)
+        assert row["status"] == "releasing"
+        assert row["amount_eth"] == Decimal("0.001")
+
+    @pytest.mark.asyncio
+    async def test_resealed_withdrawal_restarts_depth_wait(self, monitor_env, monkeypatch):
+        """A withdraw that re-sealed at a new height waits on the new height."""
+        released = self._wire_poll(monitor_env, monkeypatch, head=100)
+        tx = self._tx(1, 50)
+
+        async def _fetch(before_id=None):
+            return [tx] if before_id is None else []
+
+        async def _moved(h):
+            return {"block_height": 99, "block_hash": "0x" + "cd" * 32}
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _moved)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["awaiting_depth"] == 1
+        assert released == []
+        row = get_withdrawal_by_ait_tx_hash(tx["tx_hash"])
+        assert row["ait_block_height"] == 99
+
+
+class TestWithdrawPaginationAndRejects:
+    """F3: page past the first 50 rows; every fetched row lands in the ledger."""
+
+    def _wire_poll(self, monitor_env, monkeypatch, head=1000):
+        from apps.wallet.tests.test_bridge_withdraw_monitor import TestWithdrawSealDepth as _T
+
+        return _T()._wire_poll(monitor_env, monkeypatch, head=head)
+
+    @pytest.mark.asyncio
+    async def test_burst_of_120_all_ledgered(self, monitor_env, monkeypatch):
+        """120 pending withdraws across 3 pages all get rows in one poll."""
+        released = self._wire_poll(monitor_env, monkeypatch, head=1000)
+        pages: dict[int | None, list[dict]] = {}
+        all_tx = [
+            TestWithdrawSealDepth()._tx(i, 500, eth_address=f"0x{i:040x}")
+            for i in range(130, 9, -1)  # newest-first ids 130..10
+        ]
+        # Page 1: newest 50 (ids 130..81 → before_id=81), page 2: 80..31,
+        # page 3: 30..10 — the cursor is the lowest id of the previous page.
+        pages[None] = all_tx[:50]
+        pages[81] = all_tx[50:100]
+        pages[31] = all_tx[100:]
+
+        async def _fetch(before_id=None):
+            return pages.get(before_id, [])
+
+        async def _canonical(h):
+            return {"block_height": 500, "block_hash": "0x" + "ab" * 32}
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["scanned"] == 121
+        assert summary["released"] == 121
+        assert len(released) == 121
+
+    @pytest.mark.asyncio
+    async def test_bad_address_produces_rejected_row_and_refund(self, monitor_env, monkeypatch):
+        """An invalid eth_address is ledgered 'rejected' and the AIT refunded."""
+        self._wire_poll(monitor_env, monkeypatch, head=1000)
+        tx = TestWithdrawSealDepth()._tx(1, 500, eth_address="not-an-address")
+
+        async def _fetch(before_id=None):
+            return [tx] if before_id is None else []
+
+        refunded = []
+
+        async def _refund(h, user, gross, reason):
+            refunded.append((h, user, gross, reason))
+            from wallet_app.bridge.bridge_db import update_withdrawal_status
+
+            update_withdrawal_status(h, "refunded", refund_tx_hash="0x" + "dd" * 32, error=reason)
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+        monkeypatch.setattr(monitor_env, "_refund_withdrawal", _refund)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["rejected"] == 1
+        row = get_withdrawal_by_ait_tx_hash(tx["tx_hash"])
+        assert row["status"] == "refunded"
+        assert "invalid eth_address" in row["error"]
+        from aitbc.utils import units_to_ait
+
+        assert len(refunded) == 1 and refunded[0][2] == units_to_ait(tx["value"])
+
+    @pytest.mark.asyncio
+    async def test_below_minimum_rejected_no_silent_drop(self, monitor_env, monkeypatch):
+        """A dust withdraw gets a rejected row — never silently skipped."""
+        self._wire_poll(monitor_env, monkeypatch, head=1000)
+        tx = TestWithdrawSealDepth()._tx(1, 500, value=1)  # 1 unit << MIN_AIT_WITHDRAW
+
+        async def _fetch(before_id=None):
+            return [tx] if before_id is None else []
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["rejected"] == 1
+        row = get_withdrawal_by_ait_tx_hash(tx["tx_hash"])
+        assert row["status"] == "rejected"
+        assert "below MIN_AIT_WITHDRAW" in row["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_head_skips_scan(self, monitor_env, monkeypatch):
+        """An unreadable chain head fails closed — nothing is processed."""
+        monkeypatch.setattr(monitor_env, "BRIDGE_ENABLED", True)
+        monkeypatch.setattr(monitor_env, "WITHDRAW_ENABLED", True)
+
+        async def _resume():
+            return {"completed": 0, "failed": 0, "parked": 0, "still_open": 0}
+
+        async def _no_head():
+            raise RuntimeError("rpc down")
+
+        monkeypatch.setattr(monitor_env, "_resume_unfinished_releases", _resume)
+        monkeypatch.setattr(monitor_env, "_fetch_chain_head_height", _no_head)
+
+        called = []
+
+        async def _fetch(before_id=None):
+            called.append(before_id)
+            return []
+
+        monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
+
+        summary = await monitor_env.poll_withdrawals_once()
+        assert summary["skipped"] is True
+        assert called == []

@@ -538,6 +538,7 @@ async def query_transactions(
     job_id: str | None = None,
     sender: str | None = None,
     recipient: str | None = None,
+    before_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     resolved_chain_id = get_chain_id(chain_id)
@@ -553,6 +554,10 @@ async def query_transactions(
         query = (
             select(Transaction).where(Transaction.chain_id == resolved_chain_id).order_by(Transaction.id.desc())  # type: ignore[union-attr]
         )
+        if before_id is not None:
+            # Cursor paging: rows are newest-first, so a caller walks history
+            # with before_id = the lowest transaction_id it already saw.
+            query = query.where(col(Transaction.id) < before_id)
         if address:
             from ..base_models import address_spellings
 
