@@ -61,9 +61,25 @@ class TestPoolHubCommands:
         monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
         monkeypatch.delenv("POOL_HUB_URL", raising=False)
         monkeypatch.delenv("NODE_ROLE", raising=False)
+        for name in ("BLOCKCHAIN_MODE", "NODE_ID", "AITBC_HOSTNAME", "P2P_NODE_ID"):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setattr("aitbc.config.hub._env_files", lambda: ())
         monkeypatch.setenv("HUB_DISCOVERY_URL", "https://hub.example.net")
         monkeypatch.setattr("aitbc_cli.commands.pool_hub._is_hub_node", lambda: False)
-        assert _default_pool_hub_url() == "http://hub.example.net/pool-hub"
+        assert _default_pool_hub_url() == "https://hub.example.net/pool-hub"
+
+    def test_default_pool_hub_url_upgrades_bare_hub_host_to_https(self, monkeypatch):
+        from aitbc_cli.commands.pool_hub import _default_pool_hub_url
+
+        monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
+        monkeypatch.delenv("POOL_HUB_URL", raising=False)
+        monkeypatch.delenv("NODE_ROLE", raising=False)
+        for name in ("BLOCKCHAIN_MODE", "NODE_ID", "AITBC_HOSTNAME", "P2P_NODE_ID"):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setattr("aitbc.config.hub._env_files", lambda: ())
+        monkeypatch.setenv("HUB_DISCOVERY_URL", "hub.example.net")
+        monkeypatch.setattr("aitbc_cli.commands.pool_hub._is_hub_node", lambda: False)
+        assert _default_pool_hub_url() == "https://hub.example.net/pool-hub"
 
     def test_default_pool_hub_url_falls_back_to_localhost_without_hub_config(self, monkeypatch):
         from aitbc_cli.commands.pool_hub import _default_pool_hub_url
