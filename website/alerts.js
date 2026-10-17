@@ -77,6 +77,42 @@ function alertCard(a, extraClass) {
     </div>`;
 }
 
+function renderSummary(data) {
+    const box = document.getElementById('alerts-summary');
+    if (!box) return;
+    const title = box.querySelector('.alerts-summary-title');
+    const detail = box.querySelector('.alerts-summary-detail');
+    let state, head, tail;
+    if (!data || data.prometheus_ok === false) {
+        const firing = (data && data.firing) || [];
+        state = 'is-unknown';
+        head = 'Alert state unknown';
+        tail = data
+            ? 'Prometheus is unreachable; the list below is the watcher log\'s last known state' +
+              (firing.length ? ` (${firing.length} alert${firing.length === 1 ? '' : 's'} in it).` : '.')
+            : 'The alerts API did not answer.';
+    } else {
+        const firing = data.firing || [], pending = data.pending || [];
+        const bySev = {};
+        firing.forEach(a => { const s = (a.severity || 'unknown').toLowerCase(); bySev[s] = (bySev[s] || 0) + 1; });
+        const parts = Object.keys(bySev).map(s => `${bySev[s]} ${s}`);
+        if (firing.length === 0 && pending.length === 0) { state = 'is-clear'; head = 'No alerts firing'; }
+        else if (firing.length === 0) { state = 'is-pending'; head = `No alerts firing, ${pending.length} pending`; }
+        else { state = 'is-firing'; head = `${firing.length} alert${firing.length === 1 ? '' : 's'} firing` + (pending.length ? `, ${pending.length} pending` : ''); }
+        tail = parts.join(', ');
+        const w = data.watcher;
+        if (w && w.present && !w.stale) {
+            tail += (tail ? '. ' : '') + 'Watcher polled ' + relTime(Date.now() / 1000 - w.last_poll_age_seconds) + '.';
+        } else if (w && w.stale) {
+            if (state === 'is-clear') state = 'is-unknown';
+            tail += (tail ? '. ' : '') + 'Watcher heartbeat is stale.';
+        }
+    }
+    box.className = 'alerts-summary ' + state;
+    title.textContent = head;
+    detail.textContent = tail || '';
+}
+
 function renderFiring(data) {
     const box = document.getElementById('firing-container');
     const firing = data.firing || [];
@@ -84,12 +120,12 @@ function renderFiring(data) {
         box.innerHTML = '<p class="alerts-clear">No alerts firing.</p>';
     } else {
         box.innerHTML = firing.map(a => alertCard(a)).join('');
-        const aStatus = document.getElementById('sr-announcer');
-        const sig = firing.map(a => a.name + '@' + (a.instance || '')).join('|');
-        if (aStatus && sig !== window.__lastAlertSig) {
-            window.__lastAlertSig = sig;
-            aStatus.textContent = firing.length ? `${firing.length} alert${firing.length === 1 ? '' : 's'} firing` : 'No alerts firing';
-        }
+    }
+    const aStatus = document.getElementById('sr-announcer');
+    const sig = firing.map(a => a.alertname + '@' + (a.node || '')).join('|');
+    if (aStatus && sig !== window.__lastAlertSig) {
+        window.__lastAlertSig = sig;
+        aStatus.textContent = firing.length ? `${firing.length} alert${firing.length === 1 ? '' : 's'} firing` : 'No alerts firing';
     }
     const pending = data.pending || [];
     const pbox = document.getElementById('pending-container');
@@ -220,12 +256,14 @@ async function loadAlerts() {
         ]);
         const live = await liveResp.json();
         const hist = await histResp.json();
+        renderSummary(live);
         renderMonitorStrip(live);
         renderFiring(live);
         renderEvents(hist);
         document.getElementById('updated-note').textContent =
             `Updated ${new Date().toLocaleTimeString()} — auto-refresh every ${REFRESH_MS / 1000}s`;
     } catch (err) {
+        renderSummary(null);
         updateHealthItem('prometheus', false, 'API unreachable');
         updateHealthItem('watcher', false, '--');
         console.error('Alert API unreachable:', err);
