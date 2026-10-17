@@ -1915,6 +1915,7 @@ a.btn-secondary {
     padding: 0.05rem 0.4rem;
 }
 .alerts-clear { color: var(--success); font-size: 0.9rem; margin-top: 0.5rem; }
+.alerts-unknown { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; }
 .alerts-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
 .alerts-table th {
     text-align: left;
