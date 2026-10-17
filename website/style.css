@@ -2399,7 +2399,14 @@ a.btn-secondary {
         align-items: center;
         min-height: 44px;
     }
-    /* Bridges page: per-transfer cards replace the wide table. */
+    /* Bridges page: per-transfer cards replace the wide table. The tx link
+       inside a card line is the only <a> there (addresses are spans) — give
+       it the same 44px floor as the message links. */
     #bridge-table-wrap { display: none; }
     .bridge-cards { display: block; }
+    .bridge-card-line a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
 }
