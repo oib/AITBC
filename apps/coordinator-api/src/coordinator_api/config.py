@@ -15,7 +15,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
 from aitbc.market.energy_pricing import DEFAULT_MAX_RATE_AGE_SECONDS
-from aitbc.constants import LOG_DIR, REPO_DIR
+from aitbc.constants import DATA_DIR, KEYSTORE_DIR, LOG_DIR
 from aitbc.utils.env import is_production
 from aitbc_shared import DatabaseConfig as BaseDatabaseConfig
 
@@ -97,8 +97,8 @@ class Settings(BaseAITBCConfig):
         return self
 
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
-    key_storage_dir: str = Field(default=str(REPO_DIR / "data" / "keys"), description="Key storage directory")
-    media_storage_dir: str = Field(default=str(REPO_DIR / "data" / "media"), description="Media upload storage directory")
+    key_storage_dir: str = Field(default=str(KEYSTORE_DIR / "confidential"), description="Key storage directory")
+    media_storage_dir: str = Field(default=str(DATA_DIR / "media"), description="Media upload storage directory")
     max_media_upload_bytes: int = Field(default=100 * 1024 * 1024, description="Maximum media upload size in bytes")
 
     # Database

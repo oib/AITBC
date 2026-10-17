@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import DATA_DIR
 
 from ..keystore.persistent_service import PersistentKeystoreService
 from .manager import ChainManager
@@ -37,7 +38,7 @@ class ChainAwareWalletService:
             chain = self.chain_manager.get_chain(chain_id)
             if not chain:
                 return
-            keystore_path = chain.keystore_path or f"./data/keystore_{chain_id}"
+            keystore_path = chain.keystore_path or str(DATA_DIR / "data" / f"keystore_{chain_id}")
             from pathlib import Path
 
             keystore = PersistentKeystoreService(Path(keystore_path))
