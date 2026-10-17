@@ -53,6 +53,7 @@ def ai_patches():
         patch("aitbc_cli.commands.ai.get_config", return_value=config),
         patch("aitbc_cli.commands.ai.load_wallet_for_payment", return_value=wallet),
         patch("aitbc_cli.commands.ai.create_signed_escrow_lock") as escrow_spy,
+        patch("aitbc_cli.commands.ai.get_buyer_nonce", return_value=7),
     ):
         escrow_spy.return_value = ({"from": ACCOUNT, "payload": {"provider": PROVIDER}, "nonce": 1, "fee": "1"}, "0xsig")
         yield client, escrow_spy
@@ -313,17 +314,41 @@ def test_island_join_env_chain_id_wins(monkeypatch):
     assert coord.post.call_args.kwargs["json"]["chain_id"] == "env-chain"
 
 
-def test_ai_submit_lookup_failure_names_job_id(runner, ai_patches):
-    """A chain-lookup abort after the job was POSTed must name the job id
-    and the pay-job recovery hint, not just the lookup error."""
+def test_ai_submit_chain_probe_failure_posts_no_job(runner, ai_patches):
+    """A chain-probe failure now aborts during pre-flight — before
+    ``POST /v1/jobs`` — so the coordinator never holds an accepted but
+    unfunded job."""
     client, escrow_spy = ai_patches
     with _failing_probe():
         result = _invoke_ai(runner, SUBMIT_ARGS)
     assert result.exit_code != 0
-    text = result.output + str(result.exception)
-    assert "job-1" in text
-    assert "pay --job-id job-1" in text
-    assert "CHAIN_ID" in text
+    assert "chain" in (result.output + str(result.exception)).lower()
+    client.post.assert_not_called()
+    escrow_spy.assert_not_called()
+
+
+def test_ai_submit_nonce_probe_failure_posts_no_job(runner, ai_patches):
+    """A missing/unreachable buyer account likewise aborts pre-flight; no
+    unfunded job row is left for the operator to discover later."""
+    client, escrow_spy = ai_patches
+    with _ok_probe(), patch("aitbc_cli.commands.ai.get_buyer_nonce", side_effect=CLIError("nonce lookup failed")):
+        result = _invoke_ai(runner, SUBMIT_ARGS)
+    assert result.exit_code != 0
+    client.post.assert_not_called()
+    escrow_spy.assert_not_called()
+
+
+def test_ai_submit_unpaid_skips_chain_preflight(runner, ai_patches):
+    """Deliberately-unpaid submits must not depend on the chain RPC at all —
+    no chain-id probe, no nonce lookup."""
+    client, escrow_spy = ai_patches
+    client.post.side_effect = None
+    client.post.return_value = {"job_id": "job-2", "state": "QUEUED"}
+    with _failing_probe() as prober_cls, patch("aitbc_cli.commands.ai.get_buyer_nonce") as nonce_spy:
+        result = _invoke_ai(runner, ["submit", "--prompt", "hi", "--wallet", "w"])
+    assert result.exit_code == 0, result.output
+    prober_cls.assert_not_called()
+    nonce_spy.assert_not_called()
     escrow_spy.assert_not_called()
 
 
@@ -391,6 +416,60 @@ def test_ai_submit_escrow_lock_prefers_explicit_buyer(runner, ai_patches):
         result = _invoke_ai(runner, [*SUBMIT_ARGS, "--buyer-address", other])
     assert result.exit_code == 0, result.output
     assert escrow_spy.call_args.args[3] == to_canonical(other)
+
+
+# --- escrow address guards (S4) --------------------------------------------
+
+
+def _escrow_ctx():
+    ctx = MagicMock()
+    ctx.obj = {"output_format": "table", "api_key": "k"}
+    return ctx
+
+
+def _call_create_escrow(**kw):
+    from aitbc_cli.commands.ai import _create_escrow_payment
+
+    args = {
+        "ctx": _escrow_ctx(),
+        "coord_http_client": MagicMock(),
+        "rpc_url": "http://localhost:8202",
+        "job_id": "job-1",
+        "amount": "5",
+        "token": "AIT",
+        "buyer_address": ACCOUNT,
+        "provider_address": PROVIDER,
+        "private_key": "0xprivate",
+        "node_wallet": NODE_WALLET,
+        "chain_id": "ait-x",
+        "offer_id": None,
+        "offer_quantity": None,
+    }
+    args.update(kw)
+    _create_escrow_payment(*args.values())
+
+
+def test_create_escrow_aborts_on_missing_buyer():
+    """buyer_address=None must abort locally — never reach /rpc/account/none."""
+    with (
+        patch("aitbc_cli.commands.ai.resolve_chain_id") as chain_spy,
+        patch("aitbc_cli.commands.ai.create_signed_escrow_lock") as escrow_spy,
+        pytest.raises(CLIError, match="buyer_address"),
+    ):
+        _call_create_escrow(buyer_address=None)
+    chain_spy.assert_not_called()
+    escrow_spy.assert_not_called()
+
+
+def test_create_escrow_aborts_on_missing_provider():
+    with (
+        patch("aitbc_cli.commands.ai.resolve_chain_id") as chain_spy,
+        patch("aitbc_cli.commands.ai.create_signed_escrow_lock") as escrow_spy,
+        pytest.raises(CLIError, match="provider_address"),
+    ):
+        _call_create_escrow(provider_address=None)
+    chain_spy.assert_not_called()
+    escrow_spy.assert_not_called()
 
 
 # --- probe base normalization (CLI-3) -------------------------------------
