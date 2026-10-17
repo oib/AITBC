@@ -274,15 +274,29 @@ def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof
 
   aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --signature 0x...
 
+  aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --wallet-name ipfsbuyer
+
   aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --signature 0x... --rpc-url http://node2.example.net:8202/rpc"""
 )
 @click.option("--transfer-id", required=True, help="Transfer ID to refund")
 @click.option("--sender", required=True, help="Original sender address")
-@click.option("--signature", required=True, help="Sender signature authorizing the unlock")
+@click.option("--signature", default="", help="Sender signature authorizing the unlock (hex); or use --wallet-name")
+@click.option("--wallet-name", default=None, help="Wallet to sign the unlock with")
+@click.option("--wallet-password", default="", help="Password if the wallet is encrypted")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def unlock(ctx, transfer_id, sender, signature, rpc_url):
+def unlock(ctx, transfer_id, sender, signature, wallet_name, wallet_password, rpc_url):
     """Refund or cancel a pending bridge transfer."""
+
+    if wallet_name and signature:
+        raise click.ClickException("Pass either --signature or --wallet-name, not both")
+    if wallet_name:
+        private_key = _load_private_key(wallet_name, wallet_password)
+        if _derive_address(private_key).lower() != sender.lower():
+            raise click.ClickException("--sender does not match the wallet's address")
+        signature = _sign_dict(private_key, {"transfer_id": transfer_id, "sender": sender, "action": "unlock"})
+    if not signature:
+        raise click.ClickException("Either --signature or --wallet-name is required")
 
     async def _unlock():
         client = _get_bridge_client(rpc_url)

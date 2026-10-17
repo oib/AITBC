@@ -833,7 +833,11 @@ def aitbc_bridge_store_header(
 def aitbc_bridge_unlock(
     transfer_id: Annotated[str, Field(description="Transfer ID to refund")],
     sender: Annotated[str, Field(description="Original sender address")],
-    signature: Annotated[str, Field(description="Sender signature authorizing the unlock")],
+    signature: Annotated[
+        str | None, Field(description="Sender signature authorizing the unlock (hex); or use --wallet-name")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Wallet to sign the unlock with")] = None,
+    wallet_password: Annotated[str | None, Field(description="Password if the wallet is encrypted")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -845,7 +849,14 @@ def aitbc_bridge_unlock(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"transfer_id": "transfer-id", "sender": "sender", "signature": "signature", "rpc_url": "rpc-url"},
+        values={
+            "transfer_id": "transfer-id",
+            "sender": "sender",
+            "signature": "signature",
+            "wallet_name": "wallet-name",
+            "wallet_password": "wallet-password",
+            "rpc_url": "rpc-url",
+        },
     )
     args = None
     target = _host_for_role(role, host)
