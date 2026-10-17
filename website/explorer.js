@@ -122,6 +122,66 @@ document.addEventListener('DOMContentLoaded', function() {
     const EXPLORER_API_URL = window.AITBC_CONFIG.explorerApiUrl; // Use nginx proxy
     let currentChain = window.AITBC_CONFIG.chainId;
 
+    // ── Shared read/state helpers ──────────────────────────────────────
+    // Every panel keeps its last good render. A failed or unreadable reply
+    // lands the panel in stale (old content + last-good time) or failed
+    // (reason + Try again) — never in empty, zero or loading.
+    const FEED_DISCONNECT_MS = 2 * 60 * 1000; // two missed 60 s polls = disconnected
+    let feedLastOkAt = 0;
+    let feedLastBlockHeight = null;
+
+    function ageAgo(ts) {
+        const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+        if (s < 5) return 'just now';
+        if (s < 90) return `${s} s ago`;
+        return `${Math.round(s / 60)} min ago`;
+    }
+
+    function renderPanelSource(id, state, detail) {
+        const src = document.getElementById(id);
+        if (!src) return;
+        const text = src.querySelector('.panel-src-text');
+        const retry = src.querySelector('.bridge-retry');
+        if (state === 'live') {
+            src.dataset.lastGoodAt = String(Date.now());
+            src.className = 'panel-source is-live';
+            if (text) text.textContent = 'read just now';
+            if (retry) retry.style.display = 'none';
+            return;
+        }
+        if (state === 'stale') {
+            const t = Number(src.dataset.lastGoodAt || 0);
+            const when = t ? `last good read ${ageAgo(t)}` : 'keeping last data';
+            src.className = 'panel-source is-stale';
+            if (text) text.textContent = `${detail} — ${when}, checks again every 30 s`;
+            if (retry) retry.style.display = 'none';
+            return;
+        }
+        // failed — no good read has ever landed for this panel
+        src.className = 'panel-source is-failed';
+        if (text) text.textContent = `${detail} — checks again every 30 s`;
+        if (retry) retry.style.display = '';
+    }
+
+    // One read, one outcome object: ok only for status-ok AND parseable JSON.
+    async function readJson(url) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) return { ok: false, status: resp.status };
+            try {
+                return { ok: true, status: resp.status, data: await resp.json() };
+            } catch (e) {
+                return { ok: false, status: resp.status, err: 'reply was not readable' };
+            }
+        } catch (e) {
+            return { ok: false, status: 0, err: 'network request failed' };
+        }
+    }
+
+    function readFail(r, label) {
+        return `${label}: ${r.err || `HTTP ${r.status}`}`;
+    }
+
     // Refresh data
     async function refreshData() {
         await loadActivityChart();
@@ -148,18 +208,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadActivityChart() {
         const canvas = document.getElementById('activity-chart');
-        try {
-            const response = await fetch(`${EXPLORER_API_URL}/api/analytics/activity?chain_id=${currentChain}&days=30`);
-            if (!canvas) return;
-            const data = await response.json();
-            // A failed or shapeless reply keeps the old chart — only a valid
-            // empty labels array is a true "no activity".
-            if (!response.ok || !Array.isArray(data.labels)) {
-                markChartStale(canvas);
-                return;
-            }
-            if (data.labels.length === 0) return;
-
+        const r = await readJson(`${EXPLORER_API_URL}/api/analytics/activity?chain_id=${currentChain}&days=30`);
+        if (!canvas) return;
+        const data = r.data;
+        // A failed or shapeless reply keeps the old chart — only a valid
+        // empty labels array is a true "no activity".
+        if (!r.ok || !data || !Array.isArray(data.labels)) {
+            const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
+            markChartStale(canvas);
+            renderPanelSource('chart-source', window.activityChartInstance ? 'stale' : 'failed', `activity could not refresh (${reason})`);
+            return;
+        }
+        if (data.labels.length > 0) {
             const ctx = canvas.getContext('2d');
             // Destroy existing chart if any
             if (window.activityChartInstance) {
@@ -183,60 +243,46 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                 },
             });
-            clearChartStale(canvas);
-        } catch (error) {
-            console.error('Error loading activity chart:', error);
-            markChartStale(canvas);
         }
+        clearChartStale(canvas);
+        renderPanelSource('chart-source', 'live');
     }
 
     // Live feed
     let liveFeedItems = [];
+
+    function hideFeedDisconnect() {
+        const box = document.getElementById('feed-disconnect');
+        if (box) box.style.display = 'none';
+    }
+
+    function checkFeedDisconnected() {
+        const box = document.getElementById('feed-disconnect');
+        if (!box) return;
+        // Only a feed that once answered can be "disconnected" — a feed that
+        // never landed shows failed/stale on its source line instead.
+        const age = feedLastOkAt ? Date.now() - feedLastOkAt : 0;
+        if (!feedLastOkAt || age < FEED_DISCONNECT_MS) {
+            hideFeedDisconnect();
+            return;
+        }
+        box.style.display = '';
+        const ago = document.getElementById('feed-stopped-ago');
+        if (ago) ago.textContent = ageAgo(feedLastOkAt);
+        const lb = document.getElementById('feed-last-block');
+        if (lb) lb.textContent = feedLastBlockHeight !== null
+            ? `latest known block #${feedLastBlockHeight}`
+            : 'no block height received yet';
+    }
+
     async function updateLiveFeed() {
         const container = document.getElementById('live-feed-list');
-        try {
-            const blocksResp = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`);
-            const blocksData = await blocksResp.json();
-            // A failed or shapeless reply keeps the old items — the feed must
-            // never collapse to an empty list on a bad read.
-            if (!blocksResp.ok || !blocksData || !Array.isArray(blocksData.blocks)) {
-                throw new Error(blocksResp.ok ? 'unexpected reply' : `HTTP ${blocksResp.status}`);
-            }
-
-            const newItems = [];
-            (blocksData.blocks || []).forEach(b => {
-                newItems.push({
-                    type: 'BLOCK',
-                    label: `#${b.height}`,
-                    hash: b.hash,
-                    time: b.timestamp,
-                    url: `/block.html?height=${encodeURIComponent(b.height)}`,
-                    comp: txChipsHtml(blockComposition(b.transactions)),
-                });
-                // Extract transactions from block
-                (b.transactions || []).forEach(t => {
-                    newItems.push({
-                        type: t.type || 'TX',
-                        label: (t.tx_hash || t.hash || '').substring(0, 16) + '...',
-                        hash: t.tx_hash || t.hash,
-                        time: t.created_at,
-                        url: `/tx.html?hash=${encodeURIComponent(t.tx_hash || t.hash || '')}`,
-                    });
-                });
-            });
-
-            // Sort by time descending
-            newItems.sort((a, b) => {
-                const ta = a.time ? new Date(a.time).getTime() : 0;
-                const tb = b.time ? new Date(b.time).getTime() : 0;
-                return tb - ta;
-            });
-
-            // Keep only top 10
-            liveFeedItems = newItems.slice(0, 10);
-            renderLiveFeed();
-        } catch (error) {
-            console.error('Error updating live feed:', error);
+        const r = await readJson(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`);
+        const blocksData = r.data;
+        // A failed or shapeless reply keeps the old items — the feed must
+        // never collapse to an empty list on a bad read.
+        if (!r.ok || !blocksData || !Array.isArray(blocksData.blocks)) {
+            const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
             // Keep the last good items; show one muted refresh-failed line.
             if (container) {
                 let note = container.querySelector('.feed-refresh-note');
@@ -247,7 +293,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 note.textContent = `Live feed could not refresh (${aitbcFmt.time()}).`;
             }
+            renderPanelSource('feed-source', liveFeedItems.length ? 'stale' : 'failed', `live feed could not refresh (${reason})`);
+            checkFeedDisconnected();
+            return;
         }
+
+        feedLastOkAt = Date.now();
+        const newest = (blocksData.blocks || []).find(b => b && b.height !== undefined && b.height !== null);
+        if (newest) feedLastBlockHeight = newest.height;
+
+        const newItems = [];
+        (blocksData.blocks || []).forEach(b => {
+            newItems.push({
+                type: 'BLOCK',
+                label: `#${b.height}`,
+                hash: b.hash,
+                time: b.timestamp,
+                url: `/block.html?height=${encodeURIComponent(b.height)}`,
+                comp: txChipsHtml(blockComposition(b.transactions)),
+            });
+            // Extract transactions from block
+            (b.transactions || []).forEach(t => {
+                newItems.push({
+                    type: t.type || 'TX',
+                    label: (t.tx_hash || t.hash || '').substring(0, 16) + '...',
+                    hash: t.tx_hash || t.hash,
+                    time: t.created_at,
+                    url: `/tx.html?hash=${encodeURIComponent(t.tx_hash || t.hash || '')}`,
+                });
+            });
+        });
+
+        // Sort by time descending
+        newItems.sort((a, b) => {
+            const ta = a.time ? new Date(a.time).getTime() : 0;
+            const tb = b.time ? new Date(b.time).getTime() : 0;
+            return tb - ta;
+        });
+
+        // Keep only top 10
+        liveFeedItems = newItems.slice(0, 10);
+        renderLiveFeed();
+        renderPanelSource('feed-source', 'live');
+        hideFeedDisconnect();
+        // Clear a stale refresh-failed note once the feed answers again.
+        const note = container && container.querySelector('.feed-refresh-note');
+        if (note) note.remove();
     }
 
     let lastAnnouncedFeedKey = null;
@@ -281,50 +372,102 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadTopAddresses() {
         const container = document.getElementById('top-addresses-container');
         if (!container) return;
-        try {
-            const resp = await fetch(`${EXPLORER_API_URL}/api/analytics/top-addresses?chain_id=${currentChain}&limit=20`);
-            if (!resp.ok) {
-                throw new Error(`HTTP ${resp.status}`);
-            }
-            const data = await resp.json();
-            if (!data || !Array.isArray(data.addresses)) {
-                throw new Error('unexpected reply');
-            }
-            const addresses = data.addresses;
-            if (addresses.length === 0) {
-                container.innerHTML = '<p class="loading-text">No address data yet.</p>';
-                return;
-            }
-            container.innerHTML = `
-            <div class="table-wrap" role="region" tabindex="0" aria-label="Top addresses by volume">
-                <table aria-label="Top addresses by volume">
-                    <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">TXs</th><th scope="col">Volume (AIT)</th></tr></thead>
-                    <tbody>
-                        ${addresses.map((a, i) => `
-                            <tr tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
-                                <td>${i + 1}</td>
-                                <td>${escapeHtml(a.address)}</td>
-                                <td>${escapeHtml(a.transaction_count)}</td>
-                                <td>${typeof a.volume === 'number' ? aitbcFmt.num(a.volume, 2) : escapeHtml(a.volume)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-            `;
-        } catch (error) {
-            console.error('Error loading top addresses:', error);
-            container.innerHTML = '<p class="error-text">Failed to load top addresses.</p>';
+        const r = await readJson(`${EXPLORER_API_URL}/api/analytics/top-addresses?chain_id=${currentChain}&limit=20`);
+        const data = r.data;
+        if (!r.ok || !data || !Array.isArray(data.addresses)) {
+            const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
+            // Keep the last good table — a failed read never becomes an
+            // empty table or a zero.
+            renderPanelSource('ta-source', container.dataset.taLoaded === '1' ? 'stale' : 'failed', `could not load top addresses (${reason})`);
+            return;
         }
+        container.dataset.taLoaded = '1';
+        renderPanelSource('ta-source', 'live');
+        const addresses = data.addresses;
+        if (addresses.length === 0) {
+            container.innerHTML = '<p class="loading-text">No address data yet.</p>';
+            return;
+        }
+        container.innerHTML = `
+        <div class="table-wrap" role="region" tabindex="0" aria-label="Top addresses by volume">
+            <table aria-label="Top addresses by volume">
+                <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">TXs</th><th scope="col">Volume (AIT)</th></tr></thead>
+                <tbody>
+                    ${addresses.map((a, i) => `
+                        <tr tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
+                            <td>${i + 1}</td>
+                            <td>${escapeHtml(a.address)}</td>
+                            <td>${escapeHtml(a.transaction_count)}</td>
+                            <td>${typeof a.volume === 'number' ? aitbcFmt.num(a.volume, 2) : escapeHtml(a.volume)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        `;
+    }
+
+    // ── Search: three kept-apart answers ──────────────────────────────
+    // found (labelled + link to details) · nothing found (only after a
+    // proven 404 or empty answer) · could not be completed (reason +
+    // Try again — a failure is not a "nothing exists").
+
+    function setSearchRetry(visible) {
+        const btn = document.getElementById('search-retry-btn');
+        if (btn) btn.style.display = visible ? '' : 'none';
+    }
+
+    function showSearchAnswer(html, countText) {
+        const section = document.getElementById('results-section');
+        const container = document.getElementById('results-container');
+        const count = document.getElementById('results-count');
+        if (!section || !container) return;
+        section.classList.remove('hidden');
+        section.style.display = 'block';
+        container.innerHTML = html;
+        if (count) count.textContent = countText || '';
+    }
+
+    function searchNothingFound(query) {
+        showSearchAnswer(
+            `<p class="join-neutral">Nothing found for <strong>&ldquo;${escapeHtml(query)}&rdquo;</strong> — all lookups answered empty or not-found.</p>`
+        );
+        setSearchRetry(false);
+    }
+
+    function searchFailed(query, reason) {
+        showSearchAnswer(
+            `<div class="join-failed" role="alert">` +
+            `<p class="join-failed-title">Search could not be completed (${escapeHtml(reason)})</p>` +
+            `<p class="join-failed-detail">This does not mean nothing exists for &ldquo;${escapeHtml(query)}&rdquo; — the search could not be checked.</p>` +
+            `</div>`
+        );
+        setSearchRetry(true);
+    }
+
+    function searchFound(label, href, countText) {
+        showSearchAnswer(
+            `<p class="answer-found">Found: <strong>${escapeHtml(label)}</strong> — <a href="${escapeHtml(href)}">open details</a></p>`,
+            countText
+        );
+        setSearchRetry(false);
+    }
+
+    function plural(n, word) {
+        return `${n} ${word}${n === 1 ? '' : 's'}`;
     }
 
     // Clear search
     function clearSearch() {
         document.getElementById('search-input').value = '';
-        document.getElementById('results-section').style.display = 'none';
+        const section = document.getElementById('results-section');
+        section.classList.add('hidden');
+        section.style.display = 'none';
+        setSearchRetry(false);
     }
 
-    // Perform simple search
+    // Perform the search — queries the same explorer-api routes the
+    // dedicated search page uses; the three answers land in the results card.
     async function performSearch() {
         let query = document.getElementById('search-input').value.trim();
         if (!query) {
@@ -334,27 +477,92 @@ document.addEventListener('DOMContentLoaded', function() {
         // Strip # prefix if present (e.g., user enters "#27381")
         query = query.replace(/^#/, '');
 
-        // Try to determine if it's a block height, hash, or address
         const isNumber = /^\d+$/.test(query);
         const isHash = /^(0x)?[a-fA-F0-9]{64}$/.test(query);
 
+        showSearchAnswer('<p class="endpoint-note-sm">Searching…</p>');
+        setSearchRetry(false);
 
         if (isNumber) {
-            // Go directly to block detail
-            location.href = `/block.html?height=${query}`;
-        } else if (isHash) {
-            // Try hash as transaction first, then block
-            location.href = `/tx.html?hash=${encodeURIComponent(query)}`;
-        } else {
-            // Address or other search -> dedicated search page
-            location.href = `/search.html?query=${encodeURIComponent(query)}`;
+            const r = await readJson(`${EXPLORER_API_URL}/api/blocks/${encodeURIComponent(query)}`);
+            if (r.ok) {
+                searchFound(`Block ${aitbcFmt.num(Number(query), 0)}`, `/block.html?height=${encodeURIComponent(query)}`, '1 result');
+            } else if (r.status === 404) {
+                searchNothingFound(query);
+            } else {
+                searchFailed(query, r.err || `HTTP ${r.status}`);
+            }
+            return;
         }
+
+        if (isHash) {
+            const tx = await readJson(`${EXPLORER_API_URL}/api/transactions/${encodeURIComponent(query)}`);
+            if (tx.ok) {
+                searchFound('Transaction', `/tx.html?hash=${encodeURIComponent(query)}`, '1 result');
+                return;
+            }
+            if (tx.status !== 404) {
+                searchFailed(query, tx.err || `HTTP ${tx.status}`);
+                return;
+            }
+            const blk = await readJson(`${EXPLORER_API_URL}/api/blocks/by-hash/${encodeURIComponent(query)}`);
+            if (blk.ok) {
+                const h = blk.data && blk.data.height !== undefined ? ` ${aitbcFmt.num(Number(blk.data.height), 0)}` : '';
+                searchFound(`Block${h}`, `/block.html?hash=${encodeURIComponent(query)}`, '1 result');
+            } else if (blk.status === 404) {
+                searchNothingFound(query);
+            } else {
+                searchFailed(query, blk.err || `HTTP ${blk.status}`);
+            }
+            return;
+        }
+
+        // Address or free text — the three-legged search the dedicated page
+        // runs. "Found" stands on the hard legs (transactions, blocks);
+        // "nothing found" needs every leg proven empty — a degraded
+        // messages leg makes the answer inconclusive, not a not-found.
+        const [txs, blocks, msgs] = await Promise.all([
+            readJson(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(query)}&limit=50`),
+            readJson(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}?limit=50`),
+            readJson(`${EXPLORER_API_URL}/api/messages/search?q=${encodeURIComponent(query)}&limit=50`),
+        ]);
+        const hardFail = [txs, blocks].find(r => !r.ok && r.status !== 404);
+        if (hardFail) {
+            searchFailed(query, hardFail.err || `HTTP ${hardFail.status}`);
+            return;
+        }
+        const txN = txs.ok ? (txs.data.transactions || []).length : 0;
+        const blkN = blocks.ok ? (blocks.data.blocks || []).length : 0;
+        const msgLegFailed = !msgs.ok && msgs.status !== 404;
+        const msgN = msgs.ok ? (msgs.data.messages || []).length : 0;
+        if (txN + blkN + msgN > 0) {
+            const parts = [
+                txN ? plural(txN, 'transaction') : null,
+                blkN ? plural(blkN, 'block') : null,
+                msgN ? plural(msgN, 'message') : null,
+            ].filter(Boolean).join(' · ');
+            showSearchAnswer(
+                `<p class="answer-found">Found: <strong>${escapeHtml(parts)}</strong> for &ldquo;${escapeHtml(query)}&rdquo; — ` +
+                `<a href="/search.html?query=${encodeURIComponent(query)}">open full results</a></p>`,
+                `${txN + blkN + msgN} results`
+            );
+            setSearchRetry(false);
+            return;
+        }
+        if (msgLegFailed) {
+            searchFailed(query, `messages leg: ${msgs.err || `HTTP ${msgs.status}`}`);
+            return;
+        }
+        searchNothingFound(query);
     }
 
     // Auto-refresh every 30 seconds
     setInterval(refreshData, 30000);
     // Live feed refreshes every 60 seconds
     setInterval(updateLiveFeed, 60000);
+    // Disconnected-state check: ages the "stopped N s ago" line and trips
+    // the box once the feed's last good answer crosses the threshold.
+    setInterval(checkFeedDisconnected, 30000);
 
     // Event listeners
     document.getElementById('clear-search-btn').addEventListener('click', clearSearch);
@@ -363,6 +571,12 @@ document.addEventListener('DOMContentLoaded', function() {
             performSearch();
         }
     });
+    const wire = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+    wire('search-retry-btn', performSearch);
+    wire('feed-reconnect-btn', updateLiveFeed);
+    wire('feed-retry-btn', updateLiveFeed);
+    wire('chart-retry-btn', loadActivityChart);
+    wire('ta-retry-btn', loadTopAddresses);
 
     // Initial load
     refreshData();
