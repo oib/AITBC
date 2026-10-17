@@ -243,10 +243,11 @@ The Coordinator API can be configured via environment variables.
 ### Environment Variables
 
 ```bash
-# Security — separate key lists per caller class (comma-separated)
-CLIENT_API_KEYS=key1,key2
-MINER_API_KEYS=key3,key4
-ADMIN_API_KEYS=key5
+# Security — separate key lists per caller class (JSON array;
+# comma-separated also accepted)
+CLIENT_API_KEYS=["key1","key2"]
+MINER_API_KEYS=["key3","key4"]
+ADMIN_API_KEYS=["key5"]
 
 # Auth / signing
 JWT_SECRET=<secret>
