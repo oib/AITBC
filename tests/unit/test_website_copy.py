@@ -365,6 +365,52 @@ class TestExplorerPanelsSearchFeed(unittest.TestCase):
         self.assertIn("wire('feed-retry-btn'", js)
 
 
+class TestMarketplaceStates(unittest.TestCase):
+    """WEB-MARKETPLACE-1: stat tiles fail independently with per-cell
+    last-good (Unavailable amber, never '--'/0, stale names its read
+    time); Listed vs Anchored tiles split truthfully; offer failures keep
+    last-good cards; filter-zero and proven-empty stay apart."""
+
+    def test_tiles_fail_independently(self) -> None:
+        js = _site_src("marketplace.js")
+        self.assertIn("function setStatGood(id, num)", js)
+        self.assertIn("function setStatFailed(id, reason)", js)
+        self.assertIn("dataset.lastGood", js)
+        self.assertIn("Unavailable", js)
+        self.assertIn("last read", js)
+        # the all-cells-wiped-on-failure path must stay gone
+        self.assertNotIn("el.textContent = 'unavailable'", js)
+        html = _site_src("marketplace.html")
+        self.assertIn('id="stat-listed-offers"', html)
+        self.assertIn('id="stat-active-offers"', html)
+        self.assertIn("Anchored on chain", html)
+        self.assertNotIn("Anchored Offers", html)
+
+    def test_offer_failure_states(self) -> None:
+        js = _site_src("marketplace.js")
+        self.assertIn("function renderOffersFailed(reason)", js)
+        self.assertIn("Offers could not be loaded", js)
+        self.assertIn("does not mean no offers exist", js)
+        self.assertIn("showing the list read", js)
+        self.assertIn("offersLastGoodAt", js)
+        self.assertNotIn("Failed to load marketplace offers", js)
+
+    def test_empty_states_kept_apart(self) -> None:
+        js = _site_src("marketplace.js")
+        self.assertIn("No offers match these filters", js)
+        self.assertIn("No offers listed yet", js)
+        self.assertIn("function clearFilters()", js)
+        self.assertIn("clear-filters-btn", js)
+
+    def test_badges_in_words(self) -> None:
+        js = _site_src("marketplace.js")
+        self.assertIn("ON CHAIN", js)
+        self.assertIn("NOT CONFIRMED", js)
+        css = _site_src("style.css")
+        self.assertIn(".stat-failed", css)
+        self.assertIn(".offers-state", css)
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")

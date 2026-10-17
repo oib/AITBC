@@ -1490,6 +1490,40 @@ a.btn-secondary {
     margin-bottom: 1rem;
     opacity: 0.5;
 }
+.no-offers .bridge-retry { margin-top: 0.75rem; }
+
+/* ── Marketplace: stat cells fail independently; offers keep last good ── */
+.stat-note {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+.stat-failed {
+    color: #f59e0b;
+    border-left: 3px solid #f59e0b;
+    padding-left: 0.5rem;
+}
+.stat-stale .stat-note { color: #b26a00; }
+
+.offers-state {
+    border: 1px solid #78350f;
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 0.9rem 1rem;
+    margin: 0.6rem 0;
+}
+.offers-state-title { color: #f59e0b; font-weight: 700; margin: 0 0 0.3rem; }
+.offers-state-detail { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 0.6rem; }
+.offers-stale-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+    color: #b26a00;
+}
 
 /* Responsive marketplace styles */
 @media (max-width: 768px) {
