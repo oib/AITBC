@@ -20,6 +20,24 @@
     let timer = null;
     let backoffMs = REFRESH_MS;
     let lastGoodAt = null;
+    // Per-leg answer state: 'unknown' | 'empty' | 'live' | 'failed'.
+    // A failed read must never render as "empty", so the empty lines require
+    // a real successful answer; a failed leg keeps whatever it last showed.
+    let bookState = 'unknown';
+    let tapeState = 'unknown';
+
+    // One combined empty line when both legs answered empty; otherwise each
+    // leg shows its own empty note only when it actually answered empty.
+    function updateEmptyLines() {
+        const combined = bookState === 'empty' && tapeState === 'empty';
+        const set = (id, on) => {
+            const e = document.getElementById(id);
+            if (e) e.style.display = on ? 'block' : 'none';
+        };
+        set('ob-empty', combined);
+        set('ob-book-empty', bookState === 'empty' && !combined);
+        set('ob-tape-empty', tapeState === 'empty' && !combined);
+    }
 
     // ── small helpers (all output is text, never markup) ────────────
     function el(tag, cls, text) {
@@ -145,14 +163,14 @@
         // ladder
         const asksBody = document.getElementById('ob-asks-body');
         const bidsBody = document.getElementById('ob-bids-body');
-        const emptyEl = document.getElementById('ob-empty');
         const wrapEl = document.getElementById('ob-ladder');
         if (asksBody) asksBody.replaceChildren();
         if (bidsBody) bidsBody.replaceChildren();
 
         const hasLive = askLevels.length + bidLevels.length > 0;
         if (wrapEl) wrapEl.style.display = hasLive ? '' : 'none';
-        if (emptyEl) emptyEl.style.display = hasLive ? 'none' : 'block';
+        bookState = hasLive ? 'live' : 'empty';
+        updateEmptyLines();
 
         if (hasLive) {
             // asks render worst→best top-down so the best ask sits next to the spread
@@ -167,7 +185,7 @@
         if (det && detBody) {
             if (staleCount > 0) {
                 det.style.display = 'block';
-                if (detLabel) detLabel.textContent = `Inactive test data (${staleCount} orders)`;
+                if (detLabel) detLabel.textContent = `Inactive test data: ${staleCount} earlier entr${staleCount === 1 ? 'y' : 'ies'}, units are not ETH per AIT`;
                 detBody.replaceChildren();
                 const all = [...asks.stale, ...bids.stale]
                     .sort((a, b) => (parseTime(b.created_at) || 0) - (parseTime(a.created_at) || 0));
@@ -193,13 +211,13 @@
         for (const t of rows) (isLive(t.created_at) ? live : stale).push(t);
 
         const body = document.getElementById('ob-tape-body');
-        const emptyEl = document.getElementById('ob-tape-empty');
         const tableEl = document.getElementById('ob-tape-table');
         if (body) body.replaceChildren();
 
         const show = live.slice(0, TAPE_MAX);
         if (tableEl) tableEl.style.display = show.length ? '' : 'none';
-        if (emptyEl) emptyEl.style.display = show.length ? 'none' : 'block';
+        tapeState = show.length ? 'live' : 'empty';
+        updateEmptyLines();
 
         for (const t of show) {
             const tr = el('tr', 'ob-row');
@@ -220,7 +238,7 @@
         if (det && detBody) {
             if (stale.length) {
                 det.style.display = 'block';
-                if (detLabel) detLabel.textContent = `Inactive test data (${stale.length} trades)`;
+                if (detLabel) detLabel.textContent = `Inactive test data: ${stale.length} earlier entr${stale.length === 1 ? 'y' : 'ies'}, units are not ETH per AIT`;
                 detBody.replaceChildren();
                 for (const t of stale.slice(0, TAPE_MAX)) {
                     const tr = el('tr', 'ob-row ob-stale');
@@ -256,6 +274,8 @@
             setError('ob-error', null);
         } catch (err) {
             ok = false;
+            bookState = 'failed';
+            updateEmptyLines();
             setError('ob-error', `Order book unavailable (${errReason(err)}) — retrying automatically.`);
             console.error('orderbook fetch failed:', err);
         }
@@ -264,15 +284,17 @@
             setError('ob-tape-error', null);
         } catch (err) {
             ok = false;
+            tapeState = 'failed';
+            updateEmptyLines();
             setError('ob-tape-error', `Trade tape unavailable (${errReason(err)}) — retrying automatically.`);
             console.error('trades fetch failed:', err);
         }
         const lu = document.getElementById('ob-updated');
         if (lu) {
-            // "last updated" is a claim — only stamp it on a good read.
+            // "updated" is a claim — only stamp it on a good read.
             if (ok) {
                 lastGoodAt = Date.now();
-                lu.textContent = 'last updated ' + aitbcFmt.time(lastGoodAt);
+                lu.textContent = 'updated ' + aitbcFmt.time(lastGoodAt);
             } else if (lastGoodAt) {
                 lu.textContent = `last attempt failed ${aitbcFmt.time()}, showing data from ${aitbcFmt.time(lastGoodAt)}`;
             } else {
