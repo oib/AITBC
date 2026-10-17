@@ -108,7 +108,7 @@ async function loadRecentBridges() {
     renderedTransfers = visible.length;
     if (visible.length === 0) {
         if (container) container.innerHTML = '';
-        if (transfers.length === 0 && empty) empty.style.display = 'block';
+        if (empty) empty.style.display = transfers.length === 0 ? 'block' : 'none';
     } else {
         if (empty) empty.style.display = 'none';
     }
