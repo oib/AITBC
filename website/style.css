@@ -198,6 +198,9 @@ h1 {
 .subtitle {
     color: var(--text-muted);
     font-size: 0.9rem;
+    /* Long unbroken identifiers (author hex, topic hash) must not push the
+       page wider than the viewport — break anywhere. */
+    overflow-wrap: anywhere;
 }
 .badge {
     display: inline-block;
@@ -228,6 +231,13 @@ h1 {
     border-radius: 8px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
+    /* min-width:auto would floor a grid/flex child at its min-content. */
+    min-width: 0;
+}
+/* Paragraphs inside cards carry on-chain identifiers (moderator address
+   lists, hashes) — an unbreakable run must wrap, not widen the card. */
+.card p {
+    overflow-wrap: anywhere;
 }
 h2 {
     font-size: 1.1rem;
@@ -2377,6 +2387,17 @@ a.btn-secondary {
     select,
     textarea {
         font-size: 16px;
+    }
+    /* On-chain message links/chips: the same 44px floor — chips were ~24px
+       and the address/tx links ~14-18px tall. inline-flex keeps them
+       inline while the hit box reaches the floor. */
+    .msg-topic-chip,
+    .clickable-value,
+    .msg-author,
+    #contact-email-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
     }
     /* Bridges page: per-transfer cards replace the wide table. */
     #bridge-table-wrap { display: none; }

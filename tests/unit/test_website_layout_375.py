@@ -195,6 +195,30 @@ class TestLayoutHeuristics(unittest.TestCase):
             "min-width: 0", m2.group(1), ".journal-controls select needs min-width:0 or min-content beats max-width:100%"
         )
 
+    def test_web_pages1_fixes_pinned(self) -> None:
+        # WEB-PAGES-1: topic.html and author.html scrolled sideways on a
+        # phone — unbreakable hex (topic hash, author address, moderator
+        # list) won over min-content. Pin the wrap rules.
+        m = re.search(r"\.subtitle\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m)
+        self.assertIn("overflow-wrap: anywhere", m.group(1), ".subtitle must break unbroken identifiers")
+        m = re.search(r"\.card\s+p\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m)
+        self.assertIn("overflow-wrap: anywhere", m.group(1), ".card p must break unbroken identifiers")
+        m = re.search(r"\.card\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m)
+        self.assertIn("min-width: 0", m.group(1), ".card needs min-width:0 or min-content beats the grid")
+        # 44px tap targets live in the shared phone/touch media block.
+        m = re.search(
+            r"@media\s*\(pointer:\s*coarse\)\s*,\s*\(max-width:\s*640px\)\s*\{(?P<body>.*?)^\}",
+            self.css,
+            re.S | re.M,
+        )
+        self.assertIsNotNone(m)
+        body = m.group("body")
+        for sel in (".msg-topic-chip", ".clickable-value", ".msg-author", "#contact-email-link"):
+            self.assertIn(sel, body, f"{sel} is missing from the phone tap-target block")
+
 
 # ---------------------------------------------------------------------------
 # Browser layer — skipped cleanly when no browser exists
