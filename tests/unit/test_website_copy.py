@@ -292,6 +292,79 @@ class TestExchangeBuySteps(unittest.TestCase):
         self.assertIn(".exchange-steps li.is-active", css)
 
 
+class TestExplorerPanelsSearchFeed(unittest.TestCase):
+    """WEB-EXPLORER-1: search-first layout; three kept-apart search answers;
+    per-panel source lines (live / stale-with-last-good / failed+retry);
+    a named feed-disconnect threshold with latest-known block + Reconnect;
+    and top-addresses keeping its last good table on failure."""
+
+    def test_search_card_is_first(self) -> None:
+        html = _site_src("explorer.html")
+        search = html.index('id="search-input"')
+        for panel in ("activity-chart", "live-feed-list", "top-addresses-container"):
+            self.assertLess(search, html.index(f'id="{panel}"'), f"{panel} must come after search")
+        self.assertIn('id="results-section"', html)
+        self.assertIn('id="search-retry-btn"', html)
+
+    def test_three_search_answers_kept_apart(self) -> None:
+        js = _site_src("explorer.js")
+        self.assertIn("Search could not be completed", js)
+        self.assertIn("does not mean nothing exists", js)
+        self.assertIn("Nothing found", js)
+        self.assertIn("function searchFound(", js)
+        self.assertIn("function setSearchRetry(visible)", js)
+        # a 404 is the only path to not-found for direct lookups
+        self.assertIn("r.status === 404", js)
+        # the dedicated search-page routes are retained
+        self.assertIn("/api/transactions/search?address=", js)
+        self.assertIn("/api/blocks/by-address/", js)
+        self.assertIn("/api/messages/search?q=", js)
+        # a degraded messages leg cannot masquerade as a proven empty
+        self.assertIn("msgLegFailed", js)
+
+    def test_per_panel_source_lines(self) -> None:
+        html = _site_src("explorer.html")
+        for sid in ("chart-source", "feed-source", "ta-source"):
+            self.assertIn(f'id="{sid}"', html)
+            self.assertIn("panel-src-text", html)
+        js = _site_src("explorer.js")
+        self.assertIn("function renderPanelSource(id, state, detail)", js)
+        for state in ("'live'", "'stale'", "'failed'"):
+            self.assertIn(state, js)
+        self.assertIn("last good read", js)
+        self.assertIn("dataset.lastGoodAt", js)
+        css = _site_src("style.css")
+        self.assertIn(".panel-source.is-stale", css)
+        self.assertIn(".panel-source.is-failed", css)
+
+    def test_feed_disconnect_state(self) -> None:
+        html = _site_src("explorer.html")
+        self.assertIn('id="feed-disconnect"', html)
+        self.assertIn('id="feed-stopped-ago"', html)
+        self.assertIn('id="feed-last-block"', html)
+        self.assertIn('id="feed-reconnect-btn"', html)
+        self.assertIn("Disconnected", html)
+        self.assertIn("feed stopped", html)
+        js = _site_src("explorer.js")
+        self.assertIn("FEED_DISCONNECT_MS", js)  # named threshold constant
+        self.assertIn("function checkFeedDisconnected()", js)
+        self.assertIn("setInterval(checkFeedDisconnected", js)
+        self.assertIn("feedLastOkAt", js)
+        self.assertIn("latest known block", js)
+        self.assertIn("wire('feed-reconnect-btn'", js)
+
+    def test_top_addresses_keeps_last_good(self) -> None:
+        js = _site_src("explorer.js")
+        # the destroy-on-fail body must stay gone
+        self.assertNotIn("Failed to load top addresses", js)
+        self.assertIn("dataset.taLoaded", js)
+        self.assertIn("could not load top addresses", js)
+        # every panel retry button is wired to its loader
+        self.assertIn("wire('ta-retry-btn'", js)
+        self.assertIn("wire('chart-retry-btn'", js)
+        self.assertIn("wire('feed-retry-btn'", js)
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")
