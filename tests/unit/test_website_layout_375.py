@@ -138,7 +138,7 @@ class TestLayoutHeuristics(unittest.TestCase):
     def test_js_emitted_tables_are_wrapped(self) -> None:
         # dashboard.js/alerts.js build tables dynamically — pin that every
         # emitted <table> is preceded by a .table-wrap in the same template.
-        for js in ("dashboard.js", "alerts.js"):
+        for js in ("dashboard.js", "alerts.js", "bridges.js"):
             src = (WEBSITE / js).read_text(encoding="utf-8")
             for m in re.finditer(r'<table[^>]*class="([^"]*)"', src):
                 head = src[max(0, m.start() - 400) : m.start()]
