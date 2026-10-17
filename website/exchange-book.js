@@ -270,7 +270,12 @@
     async function refresh() {
         let ok = true;
         try {
-            renderBook(await fetchJson(ORDERBOOK_URL));
+            const book = await fetchJson(ORDERBOOK_URL);
+            // A 200 counts as an answer only in the expected shape — a stray
+            // body like {detail:"Not Found"} must not read as an empty book.
+            if (!book || !Array.isArray(book.sells) || !Array.isArray(book.buys))
+                throw new Error('reply was not the expected shape');
+            renderBook(book);
             setError('ob-error', null);
         } catch (err) {
             ok = false;
@@ -280,7 +285,10 @@
             console.error('orderbook fetch failed:', err);
         }
         try {
-            renderTape(await fetchJson(TRADES_URL));
+            const tape = await fetchJson(TRADES_URL);
+            if (!Array.isArray(tape) && !(tape && Array.isArray(tape.trades)))
+                throw new Error('reply was not the expected shape');
+            renderTape(tape);
             setError('ob-tape-error', null);
         } catch (err) {
             ok = false;
