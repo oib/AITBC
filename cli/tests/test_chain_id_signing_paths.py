@@ -472,6 +472,33 @@ def test_create_escrow_aborts_on_missing_provider():
     escrow_spy.assert_not_called()
 
 
+# --- auth-login hints on mutating commands (S5) -----------------------------
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        SUBMIT_ARGS,
+        PAY_ARGS,
+        ["accept", "--job-id", "job-1"],
+        ["refund", "--job-id", "job-1"],
+        ["refund-sweep"],
+        ["service", "test", "--name", "svc1"],
+        ["cancel", "--job-id", "job-1"],
+    ],
+    ids=["submit", "pay", "accept", "refund", "refund-sweep", "service-test", "cancel"],
+)
+def test_mutating_ai_commands_hint_auth_login(runner, ai_patches, args):
+    """Mutating commands abort locally with the login hint instead of
+    shipping an anonymous request to the coordinator and relaying its 401."""
+    client, _escrow_spy = ai_patches
+    with _ok_probe(), patch("aitbc_cli.commands.ai._auth_headers", return_value=None):
+        result = _invoke_ai(runner, args)
+    assert result.exit_code != 0
+    assert "aitbc auth login" in (result.output + str(result.exception))
+    client.post.assert_not_called()
+
+
 # --- probe base normalization (CLI-3) -------------------------------------
 
 
