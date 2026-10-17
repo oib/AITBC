@@ -44,7 +44,7 @@ def mgr() -> EscrowManager:
 async def _make_funded(mgr: EscrowManager, job_id: str = "job1", amount: Decimal = Decimal("1.0")) -> str:
     ok, _, cid = await mgr.create_contract(job_id, BUYER, PROVIDER, amount)
     assert ok, "setup create failed"
-    ok, _ = await mgr.fund_contract(cid, "0xhash")
+    ok, _ = await mgr.fund_contract(cid, "0xhash", {"tx_hash": "0xhash"})
     assert ok, "setup fund failed"
     return cid
 
@@ -130,12 +130,12 @@ class TestMilestoneValidation:
 
 class TestStateGuards:
     async def test_fund_nonexistent(self, mgr: EscrowManager):
-        ok, msg = await mgr.fund_contract("nope", "0x")
+        ok, msg = await mgr.fund_contract("nope", "0x", {"tx_hash": "0x"})
         assert not ok and "not found" in msg
 
     async def test_fund_already_funded(self, mgr: EscrowManager):
         cid = await _make_funded(mgr)
-        ok, msg = await mgr.fund_contract(cid, "0x")
+        ok, msg = await mgr.fund_contract(cid, "0x", {"tx_hash": "0x"})
         assert not ok and "funded" in msg
 
     async def test_start_job_wrong_state(self, mgr: EscrowManager):
@@ -235,7 +235,7 @@ class TestReleasePayment:
             energy_net_floor_units=200_000_000,  # 0.2 AIT in units (8 decimals)
             energy_provider_credit_units=500_000_000,  # 0.5 AIT
         )
-        await mgr.fund_contract(cid, "0x")
+        await mgr.fund_contract(cid, "0x", {"tx_hash": "0x"})
         await mgr.complete_milestone(cid, "milestone_1")
         await mgr.verify_milestone(cid, "milestone_1")
         mgr.escrow_contracts[cid].state = EscrowState.JOB_COMPLETED
