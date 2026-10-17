@@ -32,7 +32,12 @@ from aitbc.rate_limiting import rate_limit
 from ...config import settings
 from ...logger import get_logger
 from ...models import CrossChainSwap, CrossChainTransfer, Transaction
-from ..utils import get_supported_chains, validate_chain_id, verify_request_signature
+from ..utils import (
+    apply_replay_guard_fields,
+    get_supported_chains,
+    validate_chain_id,
+    verify_signed_request_with_freshness,
+)
 
 _logger = get_logger(__name__)
 
@@ -123,6 +128,7 @@ def _bridge_supported_targets() -> list[str]:
 
 def _lock_transfer(
     *,
+    request_data: dict[str, Any],
     sign_data: dict[str, Any],
     source_chain: str,
     target_chain: str,
@@ -139,6 +145,11 @@ def _lock_transfer(
     the swap endpoint signs its nine-field request (which includes the chain
     pair, tokens, amount, min_amount and slippage). Either way the signature
     authorizes exactly the operation the wallet approved.
+
+    SEC-REPLAY-2: like ``/bridge/lock`` a body carrying ``issued_at``/``nonce``
+    gets both inside the signed dict and is freshness- + nonce-checked against
+    the shared store (keyed ``crosschain-lock:<sender>:<nonce>``); the old form
+    stays accepted until ``CROSS_CHAIN_REQUIRE_REPLAY_GUARD`` is set.
     """
     # Same pause fence as /bridge/lock — swaps and cross-chain bridges are
     # lock requests too (they end in initiate_transfer), so they refuse 503
@@ -161,8 +172,19 @@ def _lock_transfer(
         )
     if not signature:
         raise HTTPException(status_code=403, detail="Signature required for cross-chain lock")
-    if not verify_request_signature(sender, signature, sign_data):
-        raise HTTPException(status_code=403, detail="Invalid sender signature")
+    sign_data, guarded = apply_replay_guard_fields(
+        request_data,
+        sign_data,
+        require_guard=getattr(settings, "cross_chain_require_replay_guard", False),
+        label="Cross-chain locks",
+    )
+    verify_signed_request_with_freshness(
+        sender,
+        signature,
+        sign_data,
+        guarded=guarded,
+        nonce_key=f"crosschain-lock:{sender.lower()}:{sign_data.get('nonce')}",
+    )
     try:
         return bridge.initiate_transfer(
             source_chain=source_chain,
@@ -365,6 +387,7 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
         "slippage_tolerance": slippage,
     }
     transfer = _lock_transfer(
+        request_data=swap_data,
         sign_data=sign_data,
         source_chain=cast(str, from_chain),
         target_chain=cast(str, to_chain),
@@ -543,6 +566,7 @@ async def create_cross_chain_bridge(request: Request, bridge_data: dict[str, Any
         "asset": token,
     }
     transfer = _lock_transfer(
+        request_data=bridge_data,
         sign_data=sign_data,
         source_chain=cast(str, source_chain),
         target_chain=cast(str, target_chain),

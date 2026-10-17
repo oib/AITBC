@@ -524,3 +524,134 @@ class TestBlockScopedRefund:
         entries = mempool_mod.get_mempool().list_transactions("chain-a")
         assert entries, "refund tx must be queued on the source chain mempool"
         json.dumps(entries[0].content)  # would raise TypeError on a raw datetime
+
+
+def _bridge_sign_data(sender: str, recipient: str, amount_units: int, **overrides) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "source_chain": "chain-a",
+        "target_chain": "chain-b",
+        "sender": sender,
+        "recipient": recipient,
+        "amount": amount_units,
+        "asset": "native",
+    }
+    data.update(overrides)
+    return data
+
+
+class TestLockTransferReplayGuard:
+    """SEC-REPLAY-2 — /swap and /cross-chain/bridge share ``_lock_transfer``;
+    new-form bodies (issued_at + nonce inside the signed dict) are single-use,
+    old-form stays accepted until CROSS_CHAIN_REQUIRE_REPLAY_GUARD is set.
+    Exercised through TestClient so the real JSON -> handler path is covered."""
+
+    @pytest.fixture(autouse=True)
+    def _nonce_store(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("aitbc_chain.rpc.utils._nonce_db_path", lambda: tmp_path / "nonces.db")
+
+    def _new_form_bridge(self, sender_account, *, amount: int = 1_000, issued_at=None, nonce="n-1") -> dict[str, Any]:
+        import time as _time
+
+        sign_data = _bridge_sign_data(
+            sender_account.address,
+            "0x" + "bb" * 20,
+            amount,
+            issued_at=_time.time() if issued_at is None else issued_at,
+            nonce=nonce,
+        )
+        payload = dict(sign_data)
+        payload["signature"] = _sign_request(sender_account.key.hex(), sign_data)
+        return payload
+
+    def test_new_form_bridge_lock_accepted_once_replay_refused(self, client: TestClient, engine, sender_account) -> None:
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        payload = self._new_form_bridge(sender_account)
+
+        resp = client.post("/cross-chain/bridge", json=payload)
+        assert resp.status_code == 200, resp.text
+
+        replay = client.post("/cross-chain/bridge", json=payload)
+        assert replay.status_code == 403
+        assert "nonce" in replay.json()["detail"].lower()
+
+    def test_new_form_swap_accepted_once_replay_refused(self, client: TestClient, engine, sender_account) -> None:
+        import time as _time
+
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        sign_data = _swap_sign_data(
+            sender_account.address,
+            sender,
+            1_000,
+            issued_at=_time.time(),
+            nonce="swap-n-1",
+        )
+        payload = dict(sign_data)
+        payload["signature"] = _sign_request(sender_account.key.hex(), sign_data)
+
+        assert client.post("/swap", json=payload).status_code == 200
+        replay = client.post("/swap", json=payload)
+        assert replay.status_code == 403
+        assert "nonce" in replay.json()["detail"].lower()
+
+    def test_expired_issued_at_refused(self, client: TestClient, engine, sender_account) -> None:
+        import time as _time
+
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        payload = self._new_form_bridge(sender_account, issued_at=_time.time() - 400)
+        assert client.post("/cross-chain/bridge", json=payload).status_code == 403
+
+    def test_future_issued_at_refused(self, client: TestClient, engine, sender_account) -> None:
+        import time as _time
+
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        payload = self._new_form_bridge(sender_account, issued_at=_time.time() + 400)
+        assert client.post("/cross-chain/bridge", json=payload).status_code == 403
+
+    def test_old_form_accepted_flag_off(self, client: TestClient, engine, sender_account) -> None:
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        sign_data = _bridge_sign_data(sender_account.address, "0x" + "bb" * 20, 1_000)
+        payload = dict(sign_data)
+        payload["signature"] = _sign_request(sender_account.key.hex(), sign_data)
+        assert client.post("/cross-chain/bridge", json=payload).status_code == 200
+
+    def test_old_form_refused_flag_on(self, client: TestClient, engine, sender_account, monkeypatch) -> None:
+        monkeypatch.setattr("aitbc_chain.config.settings.cross_chain_require_replay_guard", True)
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        sign_data = _bridge_sign_data(sender_account.address, "0x" + "bb" * 20, 1_000)
+        payload = dict(sign_data)
+        payload["signature"] = _sign_request(sender_account.key.hex(), sign_data)
+        resp = client.post("/cross-chain/bridge", json=payload)
+        assert resp.status_code == 400
+
+    def test_new_fields_present_but_unsigned_refused(self, client: TestClient, engine, sender_account) -> None:
+        import time as _time
+
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        sign_data = _bridge_sign_data(sender_account.address, "0x" + "bb" * 20, 1_000)
+        payload = dict(sign_data)
+        payload["signature"] = _sign_request(sender_account.key.hex(), sign_data)
+        # Fields in the body but not in the signed dict → signature mismatch.
+        payload["issued_at"] = _time.time()
+        payload["nonce"] = "n-x"
+        resp = client.post("/cross-chain/bridge", json=payload)
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "Invalid sender signature"
+
+    def test_fresh_nonce_after_first_still_works(self, client: TestClient, engine, sender_account) -> None:
+        """A second, freshly-signed body (new nonce, different amount) is a
+        legitimate lock; only byte-identical replays are refused. (Same-second
+        identical content would collide on the transfer_id unique key — the id
+        derives from content + int(time.time()), not the nonce.)"""
+        sender = sender_account.address.lower()
+        _fund(engine, "chain-a", sender, 10_000)
+        first = self._new_form_bridge(sender_account, nonce="n-1")
+        second = self._new_form_bridge(sender_account, amount=1_001, nonce="n-2")
+        assert client.post("/cross-chain/bridge", json=first).status_code == 200
+        assert client.post("/cross-chain/bridge", json=second).status_code == 200
