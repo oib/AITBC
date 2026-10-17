@@ -44,7 +44,6 @@ SAFE_CALL = re.compile(
 # Keep this list short; new entries need a justification comment.
 ALLOWLIST: list[tuple[str, str, str]] = [
     ("exchange.js", r"^\$?\{?\s*[kv]\s*\}?$", "rows are literal [label, formatted] pairs — no data fields"),
-    ("explorer.js", r"^\{?\s*displayValue\s*\}?$", "reassigned to an escaped fragment at every use site"),
     ("alerts.js", r"^\{?\s*cls\s*\}?$", "severity class — mapped literal, never data text"),
     ("alerts.js", r"^\{?\s*text\s*\}?$", "literal status text"),
     ("alerts.js", r"^\{?\s*extraClass\s*\}?$", "alertCard param — literal class at call sites"),
@@ -59,7 +58,6 @@ ALLOWLIST: list[tuple[str, str, str]] = [
     ),
     ("marketplace.js", r"^\{?\s*(statusClass|confirmationBadge|ratingStars)\s*\}?$", "class literal / prebuilt fragments"),
     ("search.html", r"^\{?\s*(dir|labels\[dir\]|dBadge)\s*\}?$", "direction constant / badge fragment"),
-    ("explorer.js", r"^\{?\s*labels\[direction\]\s*\}?$", "direction constant lookup"),
 ]
 
 TEMPLATE = re.compile(r"`((?:[^`\\]|\\.)*)`", re.S)
