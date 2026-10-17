@@ -78,8 +78,9 @@ async function fetchPrices() {
         heroLastGoodAt = Date.now();
     } catch (error) {
         console.error('Error fetching prices:', error);
-        markStale(document.getElementById('hero-eth-equivalent'), heroLastGoodAt, 'price unavailable');
-        markStale(document.getElementById('hero-eth-rate'), heroLastGoodAt, 'price unavailable');
+        const reason = 'price unavailable (' + errReason(error) + ')';
+        markStale(document.getElementById('hero-eth-equivalent'), heroLastGoodAt, reason);
+        markStale(document.getElementById('hero-eth-rate'), heroLastGoodAt, reason);
     }
 }
 
@@ -119,7 +120,7 @@ async function updatePriceTicker() {
         const data = await response.json();
         if (!ticker) return;
         if (data.error) {
-            ticker.textContent = 'price unavailable';
+            ticker.textContent = 'price unavailable' + (data.error ? ' — ' + String(data.error) : '');
             return;
         }
         const usd = data.price_usd != null ? `$${Number(data.price_usd).toFixed(4)}` : null;
@@ -131,7 +132,7 @@ async function updatePriceTicker() {
         tickerLastGoodAt = Date.now();
     } catch (error) {
         console.error('Error fetching price ticker:', error);
-        markStale(ticker, tickerLastGoodAt, 'price unavailable');
+        markStale(ticker, tickerLastGoodAt, 'price unavailable (' + errReason(error) + ')');
     }
 }
 
@@ -139,6 +140,16 @@ function bridgeFailReason(resp, err) {
     if (resp) return 'HTTP ' + resp.status;
     if (err && err.name === 'SyntaxError') return 'reply was not readable';
     return 'network request failed';
+}
+
+// Failure wording shared by the page's reads: status codes as "HTTP n",
+// broken connections as "network request failed", unreadable bodies named
+// as such — never raw upstream text injected verbatim into markup.
+function errReason(err) {
+    if (err && /^HTTP \d+$/.test(err.message)) return err.message;
+    if (err && err.name === 'SyntaxError') return 'reply was not readable';
+    if (err && err.name === 'TypeError') return 'network request failed';
+    return (err && err.message) ? String(err.message) : 'request failed';
 }
 
 // The page-level claim about the bridge: four states through one render
@@ -403,6 +414,8 @@ async function trackDeposit() {
     const resultEl = document.getElementById('track-result');
     errEl.style.display = 'none';
     resultEl.style.display = 'none';
+    const retryEl = document.getElementById('track-retry-btn');
+    if (retryEl) retryEl.style.display = 'none';
 
     if (trackPollHandle) { clearInterval(trackPollHandle); trackPollHandle = null; }
 
@@ -432,9 +445,11 @@ async function lookupDeposit(input) {
 
     try {
         let deposit = null;
+        const retryEl = document.getElementById('track-retry-btn');
         const queryFailed = (resp) => {
             errEl.style.display = 'block';
             errEl.textContent = `Could not query deposit status (HTTP ${resp.status}). This is not a "not found".`;
+            if (retryEl) retryEl.style.display = '';
             // A failed poll keeps the last shown deposit — hide the result
             // only when none was ever shown.
         };
@@ -495,7 +510,9 @@ async function lookupDeposit(input) {
     } catch (error) {
         console.error('Error tracking deposit:', error);
         errEl.style.display = 'block';
-        errEl.textContent = 'Failed to query deposit status';
+        errEl.textContent = `Could not query deposit status (${errReason(error)}). This is not a "not found".`;
+        const retryEl = document.getElementById('track-retry-btn');
+        if (retryEl) retryEl.style.display = '';
     }
 }
 
@@ -540,4 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const retryBtn = document.getElementById('bridge-retry-btn');
     if (retryBtn) retryBtn.addEventListener('click', fetchBridgeStatus);
+
+    const trackRetryBtn = document.getElementById('track-retry-btn');
+    if (trackRetryBtn) trackRetryBtn.addEventListener('click', trackDeposit);
 });
