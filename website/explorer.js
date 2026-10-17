@@ -100,6 +100,7 @@ function renderBlockCard(block) {
         : '';
     return `
         <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
+            <div class="table-wrap">
             <table class="block-list-table" aria-label="Block summary">
                 <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
                 <tr><th scope="row">Hash</th><td>${escapeHtml(blockHash)} ${aitbcCopyBtn(blockHash, 'block hash')}</td></tr>
@@ -108,6 +109,7 @@ function renderBlockCard(block) {
                 ${contentRow}
                 <tr><th scope="row">Timestamp</th><td>${escapeHtml(timestamp)} UTC</td></tr>
             </table>
+            </div>
         </div>
     `;
 }
@@ -238,17 +240,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Top addresses leaderboard
     async function loadTopAddresses() {
+        const container = document.getElementById('top-addresses-container');
+        if (!container) return;
         try {
             const resp = await fetch(`${EXPLORER_API_URL}/api/analytics/top-addresses?chain_id=${currentChain}&limit=20`);
+            if (!resp.ok) {
+                throw new Error(`HTTP ${resp.status}`);
+            }
             const data = await resp.json();
-            const container = document.getElementById('top-addresses-container');
-            if (!container) return;
-            const addresses = data.addresses || [];
+            if (!data || !Array.isArray(data.addresses)) {
+                throw new Error('unexpected reply');
+            }
+            const addresses = data.addresses;
             if (addresses.length === 0) {
                 container.innerHTML = '<p class="loading-text">No address data yet.</p>';
                 return;
             }
             container.innerHTML = `
+            <div class="table-wrap" role="region" tabindex="0" aria-label="Top addresses by volume">
                 <table aria-label="Top addresses by volume">
                     <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">TXs</th><th scope="col">Volume (AIT)</th></tr></thead>
                     <tbody>
@@ -262,9 +271,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         `).join('')}
                     </tbody>
                 </table>
+            </div>
             `;
         } catch (error) {
             console.error('Error loading top addresses:', error);
+            container.innerHTML = '<p class="error-text">Failed to load top addresses.</p>';
         }
     }
 

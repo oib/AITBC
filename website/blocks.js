@@ -22,8 +22,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 : `${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=${limit}&offset=${blocksOffset}`;
 
             const response = await fetch(endpoint);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
             const data = await response.json();
-            const blocks = data.blocks || [];
+            if (!data || !Array.isArray(data.blocks)) {
+                throw new Error('unexpected reply');
+            }
+            const blocks = data.blocks;
 
             const container = document.getElementById('blocks-container');
             const loadMoreContainer = document.getElementById('load-more-container');
