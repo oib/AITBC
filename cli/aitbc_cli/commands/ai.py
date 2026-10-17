@@ -491,7 +491,7 @@ def _secure_escrow(
         abort(
             ctx,
             f"{e} — job {job_id} was accepted but its escrow could not be secured; "
-            f"set CHAIN_ID and fund it with 'aitbc ai pay-job {job_id}'",
+            f"set CHAIN_ID and fund it with 'aitbc ai pay --job-id {job_id}'",
             from_exception=e,
         )
     try:
@@ -515,7 +515,7 @@ def _secure_escrow(
         # operator can fund it instead of resubmitting.
         abort(
             ctx,
-            f"{e} — job {job_id} was accepted but its escrow could not be secured; fund it with 'aitbc ai pay-job {job_id}'",
+            f"{e} — job {job_id} was accepted but its escrow could not be secured; fund it with 'aitbc ai pay --job-id {job_id}'",
             from_exception=e,
         )
     payment_id = payment_result.get("payment_id")
@@ -652,6 +652,10 @@ def submit(
         wallet_address, private_key, _ = load_wallet_for_payment(
             ctx, wallet_name=wallet, password=password, password_file=password_file, password_stdin=password_stdin
         )
+        # Resolve the buyer once: the job POST and the escrow lock must pay
+        # from the same address, so the lock falls back to the wallet the
+        # same way _apply_payment_fields does for the POST.
+        buyer_address = buyer_address or wallet_address
 
         # Auth once and reuse for media upload and job submission.
         headers = _auth_headers(ctx)
@@ -728,7 +732,7 @@ def submit(
                 f"Job {job_id} was accepted but its escrow could not be secured "
                 f"(payment_status={result.get('payment_status', 'pending')}); it "
                 "would never be dispatched. Resubmit with --provider-address and "
-                f"a signing --wallet, or fund it with 'aitbc ai pay-job {job_id}'.",
+                f"a signing --wallet, or fund it with 'aitbc ai pay --job-id {job_id}'.",
             )
 
         if not wait:
