@@ -35,7 +35,8 @@ def tool():
 
 def _mk_db(path: Path, rows: list[tuple]) -> Path:
     """rows: (tx_hash, height, payload_dict, envelope_dict, transfer_or_None)
-    transfer_or_None: (transfer_id, amount, target_chain) for the local row."""
+    transfer_or_None: (transfer_id, amount, target_chain, recipient) for the
+    local row (recipient needed once the v2 leaf arms)."""
     conn = sqlite3.connect(path)
     conn.executescript(
         """
@@ -46,7 +47,7 @@ def _mk_db(path: Path, rows: list[tuple]) -> Path:
             payload TEXT, envelope TEXT, type TEXT);
         CREATE TABLE cross_chain_transfer (
             transfer_id TEXT, source_chain TEXT, amount INTEGER,
-            target_chain TEXT);
+            target_chain TEXT, recipient TEXT);
         """
     )
     for tx_hash, height, payload, envelope, transfer in rows:
@@ -60,8 +61,8 @@ def _mk_db(path: Path, rows: list[tuple]) -> Path:
         )
         if transfer is not None:
             conn.execute(
-                "INSERT INTO cross_chain_transfer VALUES (?, ?, ?, ?)",
-                (transfer[0], CHAIN, transfer[1], transfer[2]),
+                "INSERT INTO cross_chain_transfer VALUES (?, ?, ?, ?, ?)",
+                (transfer[0], CHAIN, transfer[1], transfer[2], transfer[3]),
             )
     conn.commit()
     conn.close()
@@ -69,7 +70,7 @@ def _mk_db(path: Path, rows: list[tuple]) -> Path:
 
 
 def test_leaf_with_row_agrees(tool):
-    cur, src = tool.current_leaf("txhash1", ("txhash1", 500, "ait-dest"))
+    cur, src = tool.current_leaf("txhash1", ("txhash1", 500, "ait-dest", "0xrecip"))
     assert src == "row" and cur == "lock:txhash1:500:ait-dest"
     der, dsrc = tool.derived_leaf(
         "txhash1",
@@ -106,13 +107,33 @@ def test_unreadable_lock(tool):
     assert der is None and src == "unreadable"
 
 
+def test_v2_leaf_binds_recipient(tool, monkeypatch):
+    """Post-arming leaves carry the recipient; missing recipient → underivable."""
+    monkeypatch.setattr(tool, "_V2_HEIGHT", 50_000)
+    cur, src = tool.current_leaf("txh", ("txh", 500, "ait-dest", "0xrecip"), 50_001)
+    assert cur == "lock:txh:500:ait-dest:0xrecip" and src == "row"
+    der, dsrc = tool.derived_leaf(
+        "txh",
+        {"transfer_id": "txh", "amount": 500, "target_chain": "ait-dest", "recipient": "0xrecip"},
+        {},
+        50_001,
+    )
+    assert der == cur and dsrc == "payload"
+    # Below the arm height the same data keeps the 3-field leaf.
+    cur1, _ = tool.current_leaf("txh", ("txh", 500, "ait-dest", "0xrecip"), 49_999)
+    assert cur1 == "lock:txh:500:ait-dest"
+    # Missing recipient at/above the arm height cannot be derived.
+    der2, dsrc2 = tool.derived_leaf("txh", {"transfer_id": "txh", "amount": 5, "target_chain": "d"}, {}, 50_001)
+    assert der2 is None and dsrc2 == "unreadable"
+
+
 def test_audit_counts(tool, tmp_path):
     db = _mk_db(
         tmp_path / "a.db",
         [
-            ("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d")),
+            ("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d", "0xrecip")),
             ("bb22", 1, {"transfer_id": "bb22", "amount": 6, "target_chain": "d"}, None, None),
-            ("cc33", 2, {}, {"transfer_id": "cc33", "amount": 7, "target_chain": "d"}, ("cc33", 7, "d")),
+            ("cc33", 2, {}, {"transfer_id": "cc33", "amount": 7, "target_chain": "d"}, ("cc33", 7, "d", "0xrecip")),
         ],
     )
     conn = tool.connect_ro(str(db))
@@ -139,8 +160,8 @@ def test_root_rebuild_matches_consensus_encoding(tool, tmp_path):
     db = _mk_db(
         tmp_path / "a.db",
         [
-            ("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d")),
-            ("bb22", 1, {"transfer_id": "bb22", "amount": 6, "target_chain": "d"}, None, ("bb22", 6, "d")),
+            ("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d", "0xrecip")),
+            ("bb22", 1, {"transfer_id": "bb22", "amount": 6, "target_chain": "d"}, None, ("bb22", 6, "d", "0xrecip")),
         ],
     )
     conn = tool.connect_ro(str(db))
@@ -155,7 +176,7 @@ def test_root_rebuild_matches_consensus_encoding(tool, tmp_path):
 def test_no_row_data_in_output(tool, tmp_path, capsys):
     db = _mk_db(
         tmp_path / "a.db",
-        [("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d"))],
+        [("aa11", 1, {"transfer_id": "aa11", "amount": 5, "target_chain": "d"}, None, ("aa11", 5, "d", "0xrecip"))],
     )
     assert tool.main(["--db", str(db), "--no-trie"]) == 0
     out = capsys.readouterr().out
@@ -167,7 +188,7 @@ def test_connection_is_query_only(tool, tmp_path):
     db = _mk_db(tmp_path / "a.db", [])
     conn = tool.connect_ro(str(db))
     with pytest.raises(sqlite3.OperationalError):
-        conn.execute("INSERT INTO cross_chain_transfer VALUES ('x','y',1,'z')")
+        conn.execute("INSERT INTO cross_chain_transfer VALUES ('x','y',1,'z','r')")
     conn.close()
 
 
@@ -187,7 +208,7 @@ def test_wal_contents_visible(tool, tmp_path):
             payload TEXT, envelope TEXT, type TEXT);
         CREATE TABLE cross_chain_transfer (
             transfer_id TEXT, source_chain TEXT, amount INTEGER,
-            target_chain TEXT);
+            target_chain TEXT, recipient TEXT);
         """
     )
     writer.execute(
