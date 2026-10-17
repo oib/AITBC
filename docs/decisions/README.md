@@ -38,3 +38,7 @@ Related design documents:
 - [TOPOLOGY/2026-10-16-keytrace.md](../../TOPOLOGY/2026-10-16-keytrace.md) —
   KEYTRACE-1: fleet backup-file inventory (5 key-bearing env backups named) and
   the 0x02B8 treasury signing trace — verdict historical, last send 7 Oct.
+- [TOPOLOGY/2026-10-17-env-var-crosscheck.md](../../TOPOLOGY/2026-10-17-env-var-crosscheck.md) —
+  ENV-XCHECK-1: names-only fleet env census (307 names, 115 service records) —
+  20 fictional/stale keys removed from `/etc/aitbc/*.env` on 17 Oct; scanner
+  pitfalls + node0 orphan-fragment note for re-runs.
