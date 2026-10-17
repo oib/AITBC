@@ -3291,13 +3291,6 @@
           ]
         },
         {
-          "public": "/api/v2/coordinator/v1/admin/test-key",
-          "upstream": "/v1/admin/test-key",
-          "methods": [
-            "GET"
-          ]
-        },
-        {
           "public": "/api/v2/coordinator/v1/agent-creativity/capabilities",
           "upstream": "/v1/agent-creativity/capabilities",
           "methods": [

@@ -124,6 +124,13 @@ class Settings(BaseAITBCConfig):
     miner_api_keys: Annotated[list[str], NoDecode] = []
     admin_api_keys: Annotated[list[str], NoDecode] = []
 
+    # Dedicated key for coordinator -> chain RPC calls (X-Api-Key). An admin key
+    # used here is replayable against every admin surface on the coordinator, so
+    # CHAIN_RPC_API_KEY should be a separate credential that only the chain RPC
+    # accepts. Empty falls back to admin_api_keys[0] with a warning for backward
+    # compatibility — set it in production.
+    chain_rpc_api_key: str = ""
+
     @field_validator("client_api_keys", "miner_api_keys", "admin_api_keys", mode="before")
     @classmethod
     def parse_api_keys(cls, v: str | list[str]) -> list[str]:
