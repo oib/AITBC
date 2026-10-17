@@ -22,7 +22,7 @@ Usage examples::
     from aitbc.auth import PasswordManager, password_manager
 """
 
-from .api_key import APIKeyManager, api_key_manager
+from .api_key import APIKeyManager, get_api_key_manager
 from .dependencies import (
     AdminDep,
     AdminOrClientDep,
@@ -97,6 +97,7 @@ __all__ = [
     # API Keys
     "APIKeyManager",
     "api_key_manager",
+    "get_api_key_manager",
     # RBAC
     "Permission",
     "PermissionManager",
@@ -137,3 +138,11 @@ __all__ = [
     "check_role_match",
     "get_auth_level",
 ]
+
+
+def __getattr__(name: str) -> APIKeyManager:
+    # api_key_manager is a lazy singleton: importing aitbc.auth must not
+    # create the key-file lock on disk.
+    if name == "api_key_manager":
+        return get_api_key_manager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

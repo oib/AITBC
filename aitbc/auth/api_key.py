@@ -19,6 +19,7 @@ import hmac
 import json
 import os
 import secrets
+import threading
 from datetime import UTC, datetime
 from typing import Any
 
@@ -223,8 +224,29 @@ class APIKeyManager:
             return {"status": "error", "message": "API key revocation failed"}
 
 
-# Global instance (agent-coordinator compatibility)
-api_key_manager = APIKeyManager()
+# Global instance (agent-coordinator compatibility), created lazily on first
+# access: APIKeyManager() creates <storage_path>.lock and reads the key file,
+# so eager construction made a bare ``import aitbc.auth`` write to
+# /var/lib/aitbc. The name ``api_key_manager`` resolves through module
+# __getattr__ and still yields a real APIKeyManager instance.
+_api_key_manager: APIKeyManager | None = None
+_api_key_manager_lock = threading.Lock()
 
 
-__all__ = ["APIKeyManager", "api_key_manager"]
+def get_api_key_manager() -> APIKeyManager:
+    global _api_key_manager
+    if _api_key_manager is None:
+        with _api_key_manager_lock:
+            if _api_key_manager is None:
+                _api_key_manager = APIKeyManager()
+    return _api_key_manager
+
+
+def __getattr__(name: str) -> Any:
+    if name == "api_key_manager":
+        return get_api_key_manager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# api_key_manager resolves through __getattr__ above — F822 is a false positive.
+__all__ = ["APIKeyManager", "api_key_manager", "get_api_key_manager"]  # noqa: F822
