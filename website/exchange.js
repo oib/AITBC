@@ -60,7 +60,9 @@ let tickerLastGoodAt = null;
 function markStale(el, lastGoodAt, unavailableText) {
     if (!el) return;
     if (lastGoodAt) {
-        el.textContent = `${el.textContent} (stale, last read ${aitbcFmt.time(lastGoodAt)})`;
+        // Render from the recorded good text — appending to textContent
+        // would pile one "(stale …)" on the element per failed poll.
+        el.textContent = `${el.dataset.lastGood || el.textContent} (stale, last read ${aitbcFmt.time(lastGoodAt)})`;
     } else {
         el.textContent = unavailableText;
     }
@@ -96,14 +98,16 @@ function updateHeroPrice(data) {
     // Update hero card: ETH equivalent of the €0.25 reference value
     const heroEth = document.getElementById('hero-eth-equivalent');
     if (heroEth && aitEth != null) {
-        heroEth.innerHTML = `&asymp; ${aitEth.toFixed(6)} ETH`;
+        heroEth.dataset.lastGood = `≈ ${aitEth.toFixed(6)} ETH`;
+        heroEth.textContent = heroEth.dataset.lastGood;
     }
 
     // And the inverse: how many AIT 1 ETH buys (eth_eur / 0.25)
     const heroRate = document.getElementById('hero-eth-rate');
     if (heroRate && ethEur) {
         const aitPerEth = ethEur / REF_EUR;
-        heroRate.innerHTML = `1 ETH &asymp; ${Math.round(aitPerEth).toLocaleString('en-US')} AIT`;
+        heroRate.dataset.lastGood = `1 ETH ≈ ${Math.round(aitPerEth).toLocaleString('en-US')} AIT`;
+        heroRate.textContent = heroRate.dataset.lastGood;
     }
 }
 
@@ -122,6 +126,7 @@ async function updatePriceTicker() {
         const eur = data.price_eur != null ? `&euro;${Number(data.price_eur).toFixed(2)}` : null;
         const eth = data.price_eth != null ? `${Number(data.price_eth).toFixed(6)} ETH` : null;
         const parts = [eur, usd, eth].filter(p => p !== null);
+        ticker.dataset.lastGood = parts.join(' | ');
         ticker.innerHTML = parts.join(' &nbsp;|&nbsp; ');
         tickerLastGoodAt = Date.now();
     } catch (error) {
@@ -404,7 +409,7 @@ async function lookupDeposit(input) {
         } else if (input.startsWith('0x') && input.length === 42) {
             // Lookup by AIT address (0x + 40 hex) — non-enumerable per-recipient
             // endpoint; the enumerable /v1/bridge/deposits index is loopback-only.
-            const resp = await fetch(`/v1/bridge/deposit/${encodeURIComponent(input)}`);
+            const resp = await fetch(`/v1/bridge/deposit/by-recipient/${encodeURIComponent(input)}`);
             if (resp.ok) {
                 const data = await resp.json();
                 deposit = (data.deposits || [])[0] || null;
