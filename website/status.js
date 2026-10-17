@@ -81,9 +81,14 @@
         var a = document.createElement('a');
         a.href = '/alerts.html';
         a.className = 'status-part';
-        if (alerts && alerts.prometheus_ok !== false &&
-            (!alerts.watcher || (alerts.watcher.present !== false && alerts.watcher.stale !== true))) {
-            var n = (alerts.firing || []).length;
+        var firing = alerts && Array.isArray(alerts.firing) ? alerts.firing : null;
+        var freshWatcher = !!(alerts && alerts.watcher &&
+            alerts.watcher.present !== false && alerts.watcher.stale !== true);
+        // Firing count is a live Prometheus answer — show it even when the
+        // watcher can't vouch. The "no alerts" claim needs both.
+        if (alerts && alerts.prometheus_ok === true && firing &&
+            (firing.length > 0 || freshWatcher)) {
+            var n = firing.length;
             a.textContent = n === 0 ? 'no alerts firing' : n + ' alert' + (n === 1 ? '' : 's') + ' firing';
             ok = true;
         } else if (alerts) {
