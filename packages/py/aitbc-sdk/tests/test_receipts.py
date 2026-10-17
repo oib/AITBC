@@ -238,3 +238,29 @@ def test_summarize_receipts_with_failures(monkeypatch, sample_payload: dict[str,
     assert isinstance(failure, ReceiptFailure)
     assert failure.reasons
     assert failure.verification.miner_signature.valid is False
+
+
+def test_verify_receipt_trusted_key_ids(sample_payload: dict[str, object]) -> None:
+    """With a trusted key set, a valid signature from an unlisted key fails —
+    a self-made keypair must not produce a 'verified' receipt."""
+    import base64
+
+    signing_key = SigningKey.generate()
+    receipt = _sign_receipt(sample_payload, signing_key)
+    signer_key_id = base64.urlsafe_b64encode(signing_key.verify_key.encode()).rstrip(b"=").decode()
+
+    trusted = verify_receipt(receipt, trusted_key_ids={signer_key_id})
+    assert trusted.miner_signature.valid is True
+    assert trusted.verified is True
+
+    other_id = base64.urlsafe_b64encode(SigningKey.generate().verify_key.encode()).rstrip(b"=").decode()
+    untrusted = verify_receipt(receipt, trusted_key_ids={other_id})
+    assert untrusted.miner_signature.valid is False
+    assert untrusted.miner_signature.reason == "key_id not in trusted set"
+    assert untrusted.verified is False
+
+
+def test_verify_receipt_no_trusted_set_keeps_prior_behavior(sample_payload: dict[str, object]) -> None:
+    """trusted_key_ids=None preserves the pre-pinning semantics."""
+    receipt = _sign_receipt(sample_payload, SigningKey.generate())
+    assert verify_receipt(receipt).verified is True
