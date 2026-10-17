@@ -241,13 +241,26 @@ def cli_obj():
 
 
 @pytest.fixture
-def mock_config():
+def mock_config(monkeypatch):
     """Return a mock ``CLIConfig`` with sensible test values.
 
     The object is a ``MagicMock`` configured with attribute access so it can
     be used as a drop-in replacement for ``CLIConfig`` instances returned by
     ``get_config()``.
+
+    ``CHAIN_ID`` is set because ``resolve_chain_id`` deliberately bypasses
+    the config's ``chain_id`` field on signing paths — it only honors the
+    env var / explicit flag, otherwise it probes the RPC URL. The same goes
+    for the paid-submit pre-flight nonce check, which would otherwise GET
+    ``/rpc/account/…`` on ``localhost:8202``.
     """
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    try:
+        import aitbc_cli.commands.ai  # noqa: F401
+
+        monkeypatch.setattr("aitbc_cli.commands.ai.get_buyer_nonce", lambda *a, **k: 0)
+    except ImportError:
+        pass
     config = MagicMock()
     config.app_name = "AITBC CLI"
     config.app_version = "2.1.0"
