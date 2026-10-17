@@ -164,6 +164,8 @@ deferred).
 
 ### Escrow: `fund_contract` no longer marks a contract FUNDED on a hash it never read (ESC-FUND-1). `escrow/create` passed the mempool-acceptance hash straight through; a lock evicted before sealing left a FUNDED contract whose settlement gates then 425'd forever on a hash that never lands. `escrow_routes._verify_funding_lock` now re-loads the lock — sealed `transactions` row first, hub `/mempool` otherwise — and requires the contract's job_id, buyer, amount and escrow destination; absence is retryable (425), a field mismatch or a different sealed hash is a conflict (409), and on refusal the just-created contract is dropped so the retry starts clean. `fund_contract` cross-checks the verified tx's hash and stores it on the contract.
 
+### Escrow: sealed-lock funding verify reads the sealed row's real keys (ESC-FUND-1 fix). `b0fed2982`'s `_assert_lock_matches_contract` read `from`/`to`/`amount` — the submitted-body shape — but a sealed `transactions` row carries `sender`/`recipient`/`value`, so a lock sealing between submit and verify got a false 409 and a dropped contract. `_canonical_lock_fields` now normalizes both shapes before the field check; the mempool branch is unchanged. The `_sealed()` test fixture is rebuilt in the real row shape (keys from a live read).
+
 ### Commit index — commits since v0.25.11 the coverage check could not match
 
 `fleet-config-check.sh`'s changelog-coverage section matches a commit by its
