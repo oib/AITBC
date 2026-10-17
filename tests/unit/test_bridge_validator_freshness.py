@@ -122,7 +122,7 @@ def test_stale_superseded_epoch_fails_regardless_of_latest_age() -> None:
     assert stub._check_validator_set_freshness("c", epoch=0) is False
 
 
-def test_empty_table_passes_freshness() -> None:
-    """No rows → 'fresh enough'; the vset-None check fails it downstream."""
+def test_empty_table_fails_freshness() -> None:
+    """F2: no rows → nothing to be fresh against; fails closed on its own."""
     stub = _stub_with([])
-    assert stub._check_validator_set_freshness("c") is True
+    assert stub._check_validator_set_freshness("c") is False
