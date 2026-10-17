@@ -113,3 +113,10 @@
 - User-Agent: verified live from node2 that the compiled-in publicnode endpoint accepts httpx's default `python-httpx` agent (HTTP 200, valid `eth_chainId`) — no explicit UA needed in `rpc_call` (unlike the urllib path ETH-20 fixed).
 - MCP: `aitbc_wallet_eth_balance` generated into `aitbc_mcp_cli_tools_generated_wallet.py`, classified read-only (`read_only_hint=True`, `_aitbc_cli_read_tool`, no dry_run/confirm) via a new `FORCE_READ_ONLY_PATHS` entry in the generator.
 - Tests: new `cli/tests/test_wallet_eth_balance.py` (15 cases: happy paths, address/checksum/selector refusals, unresolved RPC, RPC error, wallet-file read never touching `private_key`, non-Sepolia refusal, masked-URL error text); `test_wallet_eth_send.py` fixture extended for the helper move. `cli/README.md` and `cli/CLI_USAGE_GUIDE.md` list the new subcommand.
+
+
+### CLI: `market list`/`providers` fall back to the local market service when the hub name is unreachable
+
+- `ffa031662` fix(cli): on the hub itself `https://<hub>` resolves to the TLS edge, which the node cannot hairpin back to, so every hub-facing read failed with "connection refused". New `_hub_base_url` keeps an explicit scheme in `HUB_DISCOVERY_URL`, maps localhost to http, and only upgrades a bare host to https (TLS termination lives on the fronting proxy); `_candidate_bases` retries the same reads against `market_service_url` (`http://127.0.0.1:8102`). `aitbc market list` and `aitbc market providers` now work on the hub and degrade gracefully on any node whose hub edge is down. `cancel`, `offer`, `offer-list` and `offer-disable` share `_hub_base_url`, so an explicit `http(s)://` value in `HUB_DISCOVERY_URL` is honoured everywhere.
+- Same commit: the `/rpc/transactions` reads in `market list`'s chain fallback switched to `get_json()` — the endpoint returns a bare JSON array that `get()` rejects, which previously turned the local-RPC fallback into a TypeError abort ("returned a JSON array, not an object").
+- Tests: `tests/cli/test_market_offers.py` gains `TestHubBaseUrl` (scheme matrix) and `TestMarketListFallback` (hub refused → local market service serves the list; bare-array RPC response accepted).
