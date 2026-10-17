@@ -222,7 +222,7 @@ class TestExchangeChipAndTokens(unittest.TestCase):
         css = STYLE.read_text(encoding="utf-8")
         root = re.search(r":root\s*\{([^}]*)\}", css)
         self.assertIsNotNone(root, ":root block missing")
-        defined = set(re.findall(r"--[\w-]+(?=\s*:)", root.group(1)))
+        defined = set(re.findall(r"--([\w-]+)(?=\s*:)", root.group(1)))
         used: set[str] = set()
         for m in re.finditer(r"\.exchange-[^{]*\{([^}]*)\}", css):
             used.update(re.findall(r"var\(--([\w-]+)", m.group(1)))
