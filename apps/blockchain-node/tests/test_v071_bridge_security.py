@@ -460,8 +460,10 @@ class TestMultiSigThreshold:
             assert record is not None
 
         proof_fields = _build_proof_fields(record)
-        # Sign with any valid key (multisig disabled, so any valid sig works)
+        # Single signer (multisig disabled); F2 still requires it to be a
+        # registered validator of the source chain.
         signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
             signer.key.hex(),

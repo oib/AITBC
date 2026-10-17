@@ -121,6 +121,8 @@ class TestP1_3Bridge:
             session.add(Account(chain_id=source_chain, address=sender, balance=1_000_000, nonce=0))
             session.add(Account(chain_id=target_chain, address=recipient, balance=0, nonce=0))
             session.commit()
+        # F2: a header verifies only against the source chain's validator set.
+        bridge.register_validator(source_chain, proposer.address.lower(), "0x", 0)
 
         # Disable release-only fences so the test can pass without a full validator set.
         # CFG-1: assert the legacy RPC-time mutation path — pin the flag off explicitly.
@@ -210,6 +212,8 @@ class TestP1_3Bridge:
             session.add(Account(chain_id=source_chain, address=sender, balance=1_000_000, nonce=0))
             session.add(Account(chain_id=target_chain, address=recipient, balance=0, nonce=0))
             session.commit()
+        # F2: a header verifies only against the source chain's validator set.
+        bridge.register_validator(source_chain, proposer.address.lower(), "0x", 0)
 
         with (
             patch("aitbc_chain.config.settings.bridge_release_enabled", False),

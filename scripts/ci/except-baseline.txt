@@ -79,7 +79,7 @@
       3 apps/blockchain-node/src/aitbc_chain/contracts/persistent_spending_tracker.py
       7 apps/blockchain-node/src/aitbc_chain/contracts/upgrades.py
       2 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
-      6 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
+      5 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py

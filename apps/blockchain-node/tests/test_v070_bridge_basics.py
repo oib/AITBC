@@ -235,6 +235,7 @@ class TestBridgeUnlock:
 
         # v0.7.2: Store a block header for proof verification
         _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
+        bridge.register_validator(source_chain, proposer_account.address.lower(), "0x", 0)
 
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
@@ -359,6 +360,8 @@ class TestBridgeBatch:
         resp = client.post("/bridge/batch/confirm", json={"transfers": [{"transfer_id": "t1"}]})
         assert resp.status_code == 422
 
+    # F2: the confirm routes open only with bridge_release_enabled.
+    @patch("aitbc_chain.config.settings.bridge_release_enabled", True)
     def test_batch_confirm_requires_signature_per_item(
         self, client: TestClient, initialized_bridge, sender_account: EthAccount
     ) -> None:
@@ -372,6 +375,8 @@ class TestBridgeBatch:
         assert item["success"] is False
         assert "signature" in item["error"]
 
+    # F2: the confirm routes open only with bridge_release_enabled.
+    @patch("aitbc_chain.config.settings.bridge_release_enabled", True)
     def test_batch_confirm_rejects_bad_signature(
         self, client: TestClient, initialized_bridge, sender_account: EthAccount
     ) -> None:
@@ -395,6 +400,8 @@ class TestBridgeBatch:
         assert item["success"] is False
         assert item["error"] == "invalid confirmer signature"
 
+    # F2: the confirm routes open only with bridge_release_enabled.
+    @patch("aitbc_chain.config.settings.bridge_release_enabled", True)
     def test_batch_confirm_mixed_batch_preserves_order(self, client: TestClient, sender_account: EthAccount) -> None:
         """Signed items reach the bridge; unsigned fail in place; order preserved."""
         signed = {

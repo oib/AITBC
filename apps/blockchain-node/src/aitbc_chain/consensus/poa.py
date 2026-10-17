@@ -51,6 +51,7 @@ from ..state.pure_state_transition import (
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
 from ..state.v9_policy import count_v9_would_reject
 from ..cross_chain import bridge_lock_guard
+from ..cross_chain.bridge_leaf import lock_leaf_value, unknown_lock_leaf
 from ..state.block_deltas import BlockDeltaJournal
 from ..state import side_root_shadow
 from ..state.bridge_credit import (
@@ -1252,7 +1253,7 @@ class PoAProposer:
         # blocks, a full recompute is the only correct option.
         state_root = _compute_state_root(session, self._config.chain_id)
         # v0.7.2: compute the bridge event trie root from BRIDGE_LOCK events.
-        bridge_state_root = self._compute_bridge_state_root(session, processed_txs, self._config.chain_id)
+        bridge_state_root = self._compute_bridge_state_root(session, processed_txs, self._config.chain_id, next_height)
         # V-4 dry-run missing-data guard (flag-gated, logs/counts only —
         # the block below is built exactly as before).
         bridge_lock_guard.run_guard_dryrun(processed_txs, height=next_height, chain_id=self._config.chain_id, log=self._logger)
@@ -2548,7 +2549,9 @@ class PoAProposer:
         )
         return processed_txs, changed_addresses, True
 
-    def _compute_bridge_state_root(self, session: Session, processed_txs: list[Any], chain_id: str) -> str:
+    def _compute_bridge_state_root(
+        self, session: Session, processed_txs: list[Any], chain_id: str, height: int | None = None
+    ) -> str:
         """Build a Merkle trie from the BRIDGE_LOCK events in this block.
 
         The trie key is the lock transfer ID and the value is the canonical
@@ -2572,9 +2575,9 @@ class PoAProposer:
         for tx in lock_txs:
             record = record_map.get(tx.tx_hash)
             if record is None:
-                value = f"lock:{tx.tx_hash}:0:unknown"
+                value = unknown_lock_leaf(tx.tx_hash)
             else:
-                value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
+                value = lock_leaf_value(record.transfer_id, record.amount, record.target_chain, record.recipient, height)
             trie.put(tx.tx_hash.encode(), value.encode())
         return "0x" + trie.get_root().hex()
 

@@ -288,6 +288,17 @@ def init_db() -> None:
         )
     """)
 
+    # F3: scan cursors. ``height`` is the highest AITBC block whose
+    # transactions of that kind have all been handled, so a poll resumes
+    # from there instead of trusting a newest-N window.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bridge_scan_cursors (
+            name TEXT PRIMARY KEY,
+            height INTEGER NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # B13/BR-6: the outbound-ETH ledger lives in this shared file too — the
     # monitor writes it, either service may bootstrap it first. Same DDL as
     # bridge_monitor/storage.py.
@@ -2040,6 +2051,29 @@ def update_exchange_settlement(
     rows_affected = cursor.rowcount
     conn.close()
     return rows_affected > 0
+
+
+def get_scan_cursor(name: str) -> int | None:
+    """Highest fully handled block height for scan ``name``, or None before the first scan."""
+    conn = _connect_db()
+    try:
+        row = conn.execute("SELECT height FROM bridge_scan_cursors WHERE name = ?", (name,)).fetchone()
+    finally:
+        conn.close()
+    return None if row is None else int(row[0])
+
+
+def set_scan_cursor(name: str, height: int) -> None:
+    conn = _connect_db()
+    try:
+        conn.execute(
+            "INSERT INTO bridge_scan_cursors (name, height, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(name) DO UPDATE SET height = excluded.height, updated_at = excluded.updated_at",
+            (name, int(height), datetime.now().isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def insert_monitor_mark(mark: str, detail: str | None = None, outcome: str | None = None) -> bool:

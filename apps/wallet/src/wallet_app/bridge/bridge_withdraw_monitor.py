@@ -27,9 +27,11 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from .bridge_db import (
     get_resumable_withdrawals,
+    get_scan_cursor,
     get_withdrawal_by_ait_tx_hash,
     init_db,
     insert_withdrawal,
+    set_scan_cursor,
     update_withdrawal_status,
 )
 from .price_api import calculate_eth_amount
@@ -52,6 +54,15 @@ BRIDGE_ENABLED = os.getenv("BRIDGE_ENABLED", "false").lower() == "true"
 WITHDRAW_ENABLED = os.getenv("BRIDGE_WITHDRAW_ENABLED", "true").lower() == "true"
 WITHDRAW_POLL_INTERVAL = int(os.getenv("BRIDGE_WITHDRAW_POLL_INTERVAL", "30"))
 MIN_AIT_WITHDRAW = Decimal(os.getenv("MIN_AIT_WITHDRAW", "0.01"))
+# F3: a withdrawal pays out only once its BRIDGE_WITHDRAW sits this many blocks
+# below the AITBC head — the rule deposits already follow (bridge-monitor
+# PAYOUT_SEAL_DEPTH, default 2). The chain reorgs its tip, so ETH released for
+# a tip-only burn can outlive the burn that funded it.
+WITHDRAW_SEAL_DEPTH = int(os.getenv("BRIDGE_WITHDRAW_SEAL_DEPTH", os.getenv("PAYOUT_SEAL_DEPTH", "2")))
+_MAINNET_MIN_SEAL_DEPTH = 2
+# Scan cursor name in bridge_scan_cursors: every BRIDGE_WITHDRAW at or below
+# the stored height has been released, rejected or was already recorded.
+WITHDRAW_SCAN_CURSOR = "bridge_withdraw"
 # ETH-14: release gas comes from eth_estimateGas — never a static value.
 # Post-Glamsterdam (Sepolia 2026-10-06, EIP-8037 state-gas) a transfer to a
 # previously unseen address costs ~207k units; the old fixed 100k guaranteed
@@ -494,10 +505,69 @@ async def _release_eth_for_withdrawal(
     return eth_tx_hash
 
 
+class WithdrawalNotReady(Exception):
+    """A withdrawal that cannot be decided this poll; the scan cursor stops before it."""
+
+
+def _is_mainnet() -> bool:
+    return _eth_chain_id() == 1 or os.getenv("CHAIN_ID", "") == "ait-mainnet"
+
+
+def _seal_depth_error() -> str | None:
+    """Preflight: mainnet refuses a withdraw seal depth below 2."""
+    if WITHDRAW_SEAL_DEPTH < 0:
+        return f"BRIDGE_WITHDRAW_SEAL_DEPTH={WITHDRAW_SEAL_DEPTH} is negative"
+    if _is_mainnet() and WITHDRAW_SEAL_DEPTH < _MAINNET_MIN_SEAL_DEPTH:
+        return f"BRIDGE_WITHDRAW_SEAL_DEPTH={WITHDRAW_SEAL_DEPTH} is below {_MAINNET_MIN_SEAL_DEPTH} on mainnet"
+    return None
+
+
+async def _ait_head_height() -> int:
+    """Current AITBC head height."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/head")
+        response.raise_for_status()
+        return int(response.json()["height"])
+
+
+async def _withdrawal_sealed_height(ait_tx_hash: str) -> int | None:
+    """Height the chain currently seals ``ait_tx_hash`` at, or None if it does not."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/transaction/{ait_tx_hash}")
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        height = response.json().get("block_height")
+        return None if height is None else int(height)
+
+
+def _record_rejected_withdrawal(ait_tx_hash: str, sender: str, eth_address: str, gross_ait: Decimal, reason: str) -> None:
+    """Keep a row for a burned withdrawal that can never be paid, and alert.
+
+    The AIT is already burned, so silently skipping it lost the user's funds
+    with no trace. The row is terminal for the monitor; an operator refunds it.
+    """
+    insert_withdrawal(
+        ait_tx_hash=ait_tx_hash,
+        from_address=sender,
+        eth_address=eth_address,
+        amount_ait=gross_ait,
+        fee_ait=Decimal("0"),
+        net_ait=gross_ait,
+        amount_eth=Decimal("0"),
+        status="rejected",
+        error=reason,
+    )
+    logger.error(
+        "Withdrawal %s rejected (%s): %s AIT burned by %s needs an operator refund", ait_tx_hash, reason, gross_ait, sender
+    )
+
+
 async def _process_withdrawal(tx: dict[str, Any]) -> bool:
     """
     Process a single confirmed BRIDGE_WITHDRAW transaction.
     Returns True if a new withdrawal was recorded and release attempted.
+    Raises WithdrawalNotReady when the withdrawal must be retried next poll.
     """
     ait_tx_hash = tx.get("tx_hash") or tx.get("hash", "")
     if not ait_tx_hash:
@@ -512,19 +582,26 @@ async def _process_withdrawal(tx: dict[str, Any]) -> bool:
     eth_address = payload.get("eth_address") or ""
     value = int(tx.get("value", 0) or 0)
 
+    gross_ait = units_to_ait(value)
     if not _is_valid_eth_address(eth_address):
-        logger.warning("Skipping withdrawal %s with invalid eth_address: %s", ait_tx_hash, eth_address)
+        _record_rejected_withdrawal(ait_tx_hash, sender, str(eth_address), gross_ait, "invalid eth_address")
         return False
 
-    gross_ait = units_to_ait(value)
     if gross_ait < MIN_AIT_WITHDRAW:
-        logger.info("Skipping withdrawal %s below minimum: %s AIT", ait_tx_hash, gross_ait)
+        _record_rejected_withdrawal(ait_tx_hash, sender, str(eth_address), gross_ait, f"below minimum {MIN_AIT_WITHDRAW} AIT")
         return False
 
     estimate = await calculate_eth_amount(gross_ait)
     if not estimate:
         logger.error("Failed to calculate ETH amount for withdrawal %s", ait_tx_hash)
-        return False
+        raise WithdrawalNotReady("price unavailable")
+
+    # Re-check just before recording and releasing: the scan's view may be a
+    # poll old, and a reorg can have dropped or moved the burn since.
+    sealed_height = await _withdrawal_sealed_height(ait_tx_hash)
+    if sealed_height is None or await _ait_head_height() - sealed_height < WITHDRAW_SEAL_DEPTH:
+        logger.warning("Withdrawal %s is no longer sealed %d deep; deferring", ait_tx_hash, WITHDRAW_SEAL_DEPTH)
+        raise WithdrawalNotReady("not sealed deep enough")
 
     amount_eth = estimate["amount_eth"]
     fee_ait = estimate["fee_ait"]
@@ -823,12 +900,16 @@ async def _resume_unfinished_releases() -> dict[str, int]:
 
 
 async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
-    """Fetch recent confirmed BRIDGE_WITHDRAW transactions from the AITBC hub."""
+    """Fetch every BRIDGE_WITHDRAW transaction the AITBC hub holds.
+
+    ``limit=0`` is the route's "no limit": a fixed newest-N window silently
+    skipped the older rows of a burst. The scan cursor decides what is new.
+    """
     async with httpx.AsyncClient(timeout=10.0) as client:
         url = f"{BLOCKCHAIN_RPC_URL}/rpc/transactions"
         params: dict[str, str | int] = {
             "transaction_type": "BRIDGE_WITHDRAW",
-            "limit": 50,
+            "limit": 0,
         }
         response = await client.get(url, params=params)
         response.raise_for_status()
@@ -838,6 +919,49 @@ async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
         if isinstance(data, list):
             return cast(list[dict[str, Any]], data)
         return []
+
+
+async def _scan_withdrawals() -> dict[str, Any]:
+    """Handle every BRIDGE_WITHDRAW between the scan cursor and the seal-depth line.
+
+    Withdrawals are taken oldest first. The cursor then moves to the deepest
+    height below which all of them were handled — never past one that was
+    deferred, so a price outage or an error retries it next poll.
+    """
+    head = await _ait_head_height()
+    safe_height = head - WITHDRAW_SEAL_DEPTH
+    cursor = get_scan_cursor(WITHDRAW_SCAN_CURSOR)
+    floor = -1 if cursor is None else cursor
+
+    transactions = await get_bridge_withdraw_transactions()
+    window = sorted(
+        (tx for tx in transactions if tx.get("block_height") is not None and floor < int(tx["block_height"]) <= safe_height),
+        key=lambda tx: (int(tx["block_height"]), int(tx.get("transaction_id") or 0)),
+    )
+    recorded = 0
+    deferred = 0
+    new_cursor = safe_height
+    for tx in window:
+        try:
+            if await _process_withdrawal(tx):
+                recorded += 1
+            continue
+        except WithdrawalNotReady as e:
+            logger.info("Withdrawal tx %s deferred: %s", tx.get("tx_hash", ""), e)
+        except Exception as e:
+            logger.error("Error processing withdrawal tx %s: %s", tx.get("tx_hash", ""), e)
+        deferred += 1
+        new_cursor = min(new_cursor, int(tx["block_height"]) - 1)
+
+    if new_cursor > floor:
+        set_scan_cursor(WITHDRAW_SCAN_CURSOR, new_cursor)
+    return {
+        "scanned": len(window),
+        "recorded": recorded,
+        "deferred": deferred,
+        "head": head,
+        "cursor": max(new_cursor, floor),
+    }
 
 
 async def poll_withdrawals_once() -> dict[str, Any]:
@@ -863,16 +987,12 @@ async def poll_withdrawals_once() -> dict[str, Any]:
     except Exception as e:  # noqa: BLE001 - resume pass containment — logged, retried next poll
         logger.error("Release resume pass failed: %s", e)
 
-    transactions = await get_bridge_withdraw_transactions()
-    recorded = 0
-    for tx in transactions:
-        try:
-            if await _process_withdrawal(tx):
-                recorded += 1
-        except Exception as e:
-            logger.error("Error processing withdrawal tx %s: %s", tx.get("tx_hash", ""), e)
+    depth_error = _seal_depth_error()
+    if depth_error:
+        logger.error("Withdrawal monitor disabled: %s", depth_error)
+        return {"scanned": 0, "recorded": 0, "skipped": True, "reason": depth_error}
 
-    return {"scanned": len(transactions), "recorded": recorded, "skipped": False}
+    return {**await _scan_withdrawals(), "skipped": False}
 
 
 async def withdrawal_monitor_loop() -> None:

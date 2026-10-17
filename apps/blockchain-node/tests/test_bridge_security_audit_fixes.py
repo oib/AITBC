@@ -234,8 +234,8 @@ class TestBug3ProposerSignatureValidatorSetMembership:
             result = bridge._validate_proof(proof_fields, record)
         assert result is True, "Proof signed by validator set member must be accepted"
 
-    def test_any_valid_signature_accepted_without_vset(self, bridge: CrossChainBridge, engine) -> None:
-        """When no validator set is registered, any valid signature is accepted (dev mode)."""
+    def test_any_valid_signature_rejected_without_vset(self, bridge: CrossChainBridge, engine) -> None:
+        """F2: with no validator set registered, no signature is trusted — dev mode no longer accepts any key."""
         _seed_sender(engine, "chain-a", "0xsender", 100000)
 
         _store_block_header(
@@ -266,7 +266,7 @@ class TestBug3ProposerSignatureValidatorSetMembership:
             patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
         ):
             result = bridge._validate_proof(proof_fields, record)
-        assert result is True, "Without vset, any valid signature should be accepted (dev mode)"
+        assert result is False, "Without a vset the proof must be refused"
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +332,7 @@ class TestBug4MerkleProofEnforcement:
             assert record is not None
 
         signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields = _build_proof_fields(record)
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
@@ -360,7 +361,7 @@ class TestBug4MerkleProofEnforcement:
 
         # Build a trie with the lock event and get the real state root + proof
         lock_key = record.source_tx_hash or "0xlock"
-        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         trie = MerklePatriciaTrie()
         trie.put(lock_key.encode(), lock_value.encode())
         state_root = trie.get_root()
@@ -378,6 +379,7 @@ class TestBug4MerkleProofEnforcement:
         )
 
         signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields = _build_proof_fields(record)
         proof_fields["state_root"] = state_root_hex
         proof_fields["lock_event"] = lock_value
@@ -418,7 +420,7 @@ class TestV01016ProductionReleasePath:
 
         # Build a real Merkle proof so the failure is specifically vset membership
         lock_key = record.source_tx_hash or "0xlock"
-        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         trie = MerklePatriciaTrie()
         trie.put(lock_key.encode(), lock_value.encode())
         state_root = trie.get_root()

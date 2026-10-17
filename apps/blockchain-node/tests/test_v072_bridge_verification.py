@@ -331,7 +331,7 @@ class TestMerkleProofVerification:
 
         # Generate a valid Merkle proof
         lock_key = record.source_tx_hash or "0xlock"
-        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         proof_elements, state_root = _generate_merkle_proof(lock_key, lock_value)
         state_root_hex = "0x" + state_root.hex()
 
@@ -351,6 +351,7 @@ class TestMerkleProofVerification:
         proof_fields["merkle_proof"] = [p.hex() for p in proof_elements]
 
         signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
             signer.key.hex(),
@@ -374,7 +375,7 @@ class TestMerkleProofVerification:
 
         # Generate a valid Merkle proof
         lock_key = record.source_tx_hash or "0xlock"
-        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         proof_elements, state_root = _generate_merkle_proof(lock_key, lock_value)
         state_root_hex = "0x" + state_root.hex()
 
@@ -637,6 +638,7 @@ class TestFinalityTracking:
 
         proof_fields = _build_proof_fields(record)
         signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
             signer.key.hex(),
@@ -731,6 +733,7 @@ class TestFinalityTracking:
 
         proof_fields = _build_proof_fields(record)
         signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
             signer.key.hex(),
@@ -821,9 +824,9 @@ class TestValidatorSetEpochTracking:
             assert bridge._check_validator_set_freshness("chain-a") is True
             assert bridge._check_validator_set_freshness("chain-a", epoch=1) is True
 
-    def test_no_validators_is_fresh(self, bridge: CrossChainBridge) -> None:
-        """No validators registered → fresh enough (will fail elsewhere)."""
-        assert bridge._check_validator_set_freshness("chain-empty") is True
+    def test_no_validators_is_not_fresh(self, bridge: CrossChainBridge) -> None:
+        """F2: no validators registered → nothing to be fresh against; fails closed."""
+        assert bridge._check_validator_set_freshness("chain-empty") is False
 
 
 # ---------------------------------------------------------------------------

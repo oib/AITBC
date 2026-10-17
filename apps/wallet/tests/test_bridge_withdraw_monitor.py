@@ -1280,3 +1280,172 @@ class TestGraceLogLevel:
         assert get_withdrawal_by_ait_tx_hash(ait)["status"] == "releasing"
         msgs = self._monitor_records(caplog)
         assert any(lvl >= logging.ERROR and "unverifiable" in m and "reason=verify_error" in m for lvl, m in msgs)
+
+
+class _FakeChain:
+    """AITBC hub view for the F3 scan: sealed BRIDGE_WITHDRAWs plus a head."""
+
+    def __init__(self, head: int) -> None:
+        self.head = head
+        self.txs: dict[str, dict] = {}
+
+    def add(self, n: int, height: int, eth_address: str = "0x2222222222222222222222222222222222222222", value=10**18):
+        tx_hash = "0x" + f"{n:064x}"
+        self.txs[tx_hash] = {
+            "transaction_id": n,
+            "tx_hash": tx_hash,
+            "block_height": height,
+            "sender": "0x1111111111111111111111111111111111111111",
+            "payload": {"eth_address": eth_address},
+            "value": value,
+            "type": "BRIDGE_WITHDRAW",
+        }
+        return tx_hash
+
+    def orphan(self, tx_hash: str) -> None:
+        self.txs[tx_hash]["block_height"] = None
+
+
+@pytest.fixture
+def scan(monitor_env, monkeypatch):
+    """Wire poll_withdrawals_once to a fake hub; releases are recorded, not broadcast."""
+    chain = _FakeChain(head=100)
+    released: list[str] = []
+    monitor = monitor_env
+    monkeypatch.setattr(monitor, "BRIDGE_ENABLED", True)
+    monkeypatch.setattr(monitor, "WITHDRAW_ENABLED", True)
+    monkeypatch.setattr(monitor, "WITHDRAW_SEAL_DEPTH", 2)
+
+    async def _resume():
+        return {}
+
+    async def _list():
+        return [dict(tx) for tx in chain.txs.values()]
+
+    async def _head():
+        return chain.head
+
+    async def _sealed(tx_hash):
+        tx = chain.txs.get(tx_hash)
+        return None if tx is None else tx["block_height"]
+
+    async def _price(gross_ait):
+        return {"amount_eth": Decimal("0.001"), "fee_ait": Decimal("0"), "net_ait": gross_ait}
+
+    async def _release(withdrawal_id, ait_tx_hash, eth_address, amount_eth):
+        released.append(ait_tx_hash)
+        return "0x" + "ee" * 32
+
+    monkeypatch.setattr(monitor, "_resume_unfinished_releases", _resume)
+    monkeypatch.setattr(monitor, "get_bridge_withdraw_transactions", _list)
+    monkeypatch.setattr(monitor, "_ait_head_height", _head)
+    monkeypatch.setattr(monitor, "_withdrawal_sealed_height", _sealed)
+    monkeypatch.setattr(monitor, "calculate_eth_amount", _price)
+    monkeypatch.setattr(monitor, "_release_eth_for_withdrawal", _release)
+    return monitor, chain, released
+
+
+class TestWithdrawSealDepth:
+    """F3: ETH is released only for burns sealed WITHDRAW_SEAL_DEPTH below the head."""
+
+    @pytest.mark.asyncio
+    async def test_withdrawal_at_tip_not_released(self, scan):
+        monitor, chain, released = scan
+        tip = chain.add(1, height=100)
+        one_deep = chain.add(2, height=99)
+        await monitor.poll_withdrawals_once()
+        assert released == []
+        assert get_withdrawal_by_ait_tx_hash(tip) is None
+        assert get_withdrawal_by_ait_tx_hash(one_deep) is None
+
+    @pytest.mark.asyncio
+    async def test_withdrawal_at_depth_released(self, scan):
+        monitor, chain, released = scan
+        tx = chain.add(1, height=98)
+        await monitor.poll_withdrawals_once()
+        assert released == [tx]
+
+    @pytest.mark.asyncio
+    async def test_tip_withdrawal_released_once_it_is_deep(self, scan):
+        monitor, chain, released = scan
+        tx = chain.add(1, height=100)
+        await monitor.poll_withdrawals_once()
+        assert released == []
+        chain.head = 102
+        await monitor.poll_withdrawals_once()
+        await monitor.poll_withdrawals_once()
+        assert released == [tx]
+
+    @pytest.mark.asyncio
+    async def test_orphaned_withdrawal_never_released(self, scan, monkeypatch):
+        monitor, chain, released = scan
+        tx = chain.add(1, height=98)
+        # The scan saw it sealed, but a reorg dropped it before the release.
+        listed = [dict(t) for t in chain.txs.values()]
+
+        async def _stale_list():
+            return listed
+
+        monkeypatch.setattr(monitor, "get_bridge_withdraw_transactions", _stale_list)
+        chain.orphan(tx)
+        for _ in range(3):
+            await monitor.poll_withdrawals_once()
+        assert released == []
+        assert get_withdrawal_by_ait_tx_hash(tx) is None
+
+    @pytest.mark.asyncio
+    async def test_burst_of_120_all_processed(self, scan):
+        monitor, chain, released = scan
+        hashes = [chain.add(n, height=60 + n // 4) for n in range(120)]
+        chain.head = 60 + 119 // 4  # newest burns still at the tip
+        await monitor.poll_withdrawals_once()
+        assert 0 < len(released) < 120
+        chain.head += 2
+        await monitor.poll_withdrawals_once()
+        assert sorted(released) == sorted(hashes)
+        assert len(set(released)) == 120
+
+    @pytest.mark.asyncio
+    async def test_bad_address_gets_rejected_row(self, scan):
+        monitor, chain, released = scan
+        bad = chain.add(1, height=90, eth_address="not-an-address")
+        dust = chain.add(2, height=90, value=1)
+        await monitor.poll_withdrawals_once()
+        assert released == []
+        bad_row = get_withdrawal_by_ait_tx_hash(bad)
+        dust_row = get_withdrawal_by_ait_tx_hash(dust)
+        assert bad_row is not None and bad_row["status"] == "rejected"
+        assert "eth_address" in bad_row["error"]
+        assert dust_row is not None and dust_row["status"] == "rejected"
+
+    @pytest.mark.asyncio
+    async def test_cursor_stops_before_a_deferred_withdrawal(self, scan, monkeypatch):
+        monitor, chain, released = scan
+        first = chain.add(1, height=90)
+        second = chain.add(2, height=95)
+        price_up = {"ok": False}
+        real_price = monitor.calculate_eth_amount
+
+        async def _flaky_price(gross_ait):
+            return await real_price(gross_ait) if price_up["ok"] else None
+
+        monkeypatch.setattr(monitor, "calculate_eth_amount", _flaky_price)
+        await monitor.poll_withdrawals_once()
+        assert released == []
+        from wallet_app.bridge.bridge_db import get_scan_cursor
+
+        assert get_scan_cursor(monitor.WITHDRAW_SCAN_CURSOR) == 89
+        price_up["ok"] = True
+        await monitor.poll_withdrawals_once()
+        assert released == [first, second]
+        assert get_scan_cursor(monitor.WITHDRAW_SCAN_CURSOR) == 98
+
+    @pytest.mark.asyncio
+    async def test_mainnet_refuses_depth_below_two(self, scan, monkeypatch):
+        monitor, chain, released = scan
+        chain.add(1, height=90)
+        monkeypatch.setattr(monitor, "WITHDRAW_SEAL_DEPTH", 1)
+        monkeypatch.setattr(monitor, "ETH_NETWORK", "mainnet")
+        summary = await monitor.poll_withdrawals_once()
+        assert summary["skipped"] is True
+        assert released == []
