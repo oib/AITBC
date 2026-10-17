@@ -2012,6 +2012,71 @@ a.btn-secondary {
 .jn-chip { padding: 0.1rem 0.55rem; border: 1px solid currentColor; border-radius: 999px; font-family: 'Courier New', monospace; }
 
 /* ── ETH-11 exchange order book / tape (read-only) ── */
+.exchange-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.exchange-header .value-tagline { margin: 0; }
+.exchange-header .ob-banner { position: static; margin: 0; flex: 0 0 auto; }
+
+.exchange-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    grid-template-areas:
+        "buy price"
+        "buy track";
+    gap: 1rem;
+    align-items: start;
+}
+.grid-buy { grid-area: buy; }
+.grid-price { grid-area: price; }
+.grid-track { grid-area: track; }
+
+.exchange-steps {
+    list-style: none;
+    display: flex;
+    gap: 0.4rem;
+    padding: 0;
+    margin: 0.6rem 0 1rem;
+}
+.exchange-steps li {
+    flex: 1;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.exchange-steps li.is-active {
+    color: var(--text);
+    font-weight: 700;
+    border-bottom-color: var(--accent);
+}
+.exchange-steps li a {
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+}
+
+@media (max-width: 640px) {
+    .exchange-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "price"
+            "buy"
+            "track";
+    }
+}
+
 .ob-banner {
     position: sticky;
     top: 0;
@@ -2134,7 +2199,8 @@ a.btn-secondary {
     border-top: 1px solid var(--border);
     padding-top: 0.5rem;
 }
-.ob-inactive summary {
+.ob-inactive summary,
+.details-collapsed summary {
     cursor: pointer;
     color: var(--text-muted);
     font-size: 0.8rem;
@@ -2143,9 +2209,18 @@ a.btn-secondary {
     min-height: 44px;
     list-style: none;
 }
-.ob-inactive summary::-webkit-details-marker { display: none; }
-.ob-inactive summary::before { content: "▸"; margin-right: 0.35rem; }
-.ob-inactive[open] > summary::before { content: "▾"; }
+.ob-inactive summary::-webkit-details-marker,
+.details-collapsed summary::-webkit-details-marker { display: none; }
+.ob-inactive summary::before,
+.details-collapsed summary::before { content: "▸"; margin-right: 0.35rem; }
+.ob-inactive[open] > summary::before,
+.details-collapsed[open] > summary::before { content: "▾"; }
+
+.details-collapsed {
+    margin-top: 0.8rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.5rem;
+}
 
 @media (max-width: 600px) {
     .ob-table { font-size: 0.72rem; }
