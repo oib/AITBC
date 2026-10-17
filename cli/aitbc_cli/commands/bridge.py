@@ -590,10 +590,12 @@ def oracle_status(ctx, rpc_url):
 @click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
 @click.option("--block-height", default=1, type=int, help="Block height to anchor the proof")
 @click.option("--block-hash", default=None, help="Block hash to anchor the proof")
-@click.option("--output", "-o", required=True, type=click.Path(), help="JSON file to write the unsigned proof to")
+@click.option(
+    "--output", "-o", "output_path", required=True, type=click.Path(), help="JSON file to write the unsigned proof to"
+)
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output, rpc_url):
+def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output_path, rpc_url):
     """Build a Merkle proof for a locked bridge transfer."""
 
     async def _proof():
@@ -609,7 +611,7 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output, 
     try:
         result = asyncio.run(_proof())
         proof = result.get("proof", result)
-        Path(output).write_text(json.dumps(proof, indent=2, sort_keys=True))
+        Path(output_path).write_text(json.dumps(proof, indent=2, sort_keys=True))
         output(
             {"success": True, "transfer_id": transfer_id, "proof_file": output},
             ctx.obj.get("output_format", "table"),
@@ -634,9 +636,9 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output, 
     multiple=True,
     help="Private key hex to sign with (use multiple times for multi-sig; first becomes proposer_signature)",
 )
-@click.option("--output", "-o", default=None, type=click.Path(), help="Output file (defaults to proof-file)")
+@click.option("--output", "-o", "output_path", default=None, type=click.Path(), help="Output file (defaults to proof-file)")
 @click.pass_context
-def sign_proof(ctx, proof_file, private_key, output):
+def sign_proof(ctx, proof_file, private_key, output_path):
     """Sign a bridge proof with one or more validator private keys."""
     try:
         proof = json.loads(Path(proof_file).read_text())
@@ -656,7 +658,7 @@ def sign_proof(ctx, proof_file, private_key, output):
     proof["proposer_signature"] = signatures[0]
     proof["validator_signatures"] = signatures
 
-    out_file = output or proof_file
+    out_file = output_path or proof_file
     try:
         Path(out_file).write_text(json.dumps(proof, indent=2, sort_keys=True))
     except Exception as e:
@@ -753,9 +755,9 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
 @click.option("--re-sign/--no-re-sign", default=False, help="Replace the source signature with a local validator signature")
 @click.option("--private-key", default=None, help="Private key hex for re-signing (requires --re-sign)")
 @click.option("--proposer", default=None, help="Proposer address for the new signature (defaults to address of --private-key)")
-@click.option("--output", "-o", default=None, type=click.Path(), help="Write the stored header to a JSON file")
+@click.option("--output", "-o", "output_path", default=None, type=click.Path(), help="Write the stored header to a JSON file")
 @click.pass_context
-def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, private_key, proposer, output):
+def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, private_key, proposer, output_path):
     """Fetch a block header from a source node and store it as a bridge header."""
 
     if re_sign:
@@ -770,8 +772,8 @@ def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, privat
             header["proposer"] = proposer
             header["signature"] = _sign_header(private_key, header)
 
-        if output:
-            Path(output).write_text(json.dumps(header, indent=2, sort_keys=True))
+        if output_path:
+            Path(output_path).write_text(json.dumps(header, indent=2, sort_keys=True))
 
         client = _get_bridge_client(target_rpc)
         async with client:
@@ -799,9 +801,11 @@ def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, privat
 @click.option("--private-key", required=True, help="Validator private key hex to sign with")
 @click.option("--proposer", default=None, help="Proposer/validator address (defaults to derived address)")
 @click.option("--target-rpc", default="http://localhost:8202/rpc", help="RPC URL to store the attested header on")
-@click.option("--output", "-o", default=None, type=click.Path(), help="Write the attested header to a JSON file")
+@click.option(
+    "--output", "-o", "output_path", default=None, type=click.Path(), help="Write the attested header to a JSON file"
+)
 @click.pass_context
-def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer, target_rpc, output):
+def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer, target_rpc, output_path):
     """Sign a block header as a bridge validator and store it as a bridge header."""
     proposer = proposer or _derive_address(private_key)
 
@@ -829,8 +833,8 @@ def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer
 
         header_fields["signature"] = _sign_header(private_key, header_fields)
 
-        if output:
-            Path(output).write_text(json.dumps(header_fields, indent=2, sort_keys=True))
+        if output_path:
+            Path(output_path).write_text(json.dumps(header_fields, indent=2, sort_keys=True))
 
         client = _get_bridge_client(target_rpc)
         async with client:
