@@ -1,42 +1,43 @@
-async function loadNetworkInfo() {
-    try {
-        const response = await fetch('/rpc/network-info');
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
+// ── Network facts + join-sentence/meta fill ───────────────────────────
+// One shared path: applyNetworkInfo writes the join sentence ("This node
+// (…) is the … for the … island") and the meta block from a proven
+// network-info reply. networkInfoGood gates the first-failure "unknown"
+// writes so a later failed re-read never overwrites good values (the
+// site's stale-note rule). loadFacts() is the single reader — it polls
+// every 60 s and drives both the sentence and the strip, so nothing is
+// fetched twice per cycle.
 
-        const role = data.is_hub ? 'HUB' : (data.role || 'FOLLOWER');
+let networkInfoGood = false;
 
-        // Update Join the Network section
-        document.getElementById('node-id').textContent = data.p2p_node_id || 'unknown';
-        document.getElementById('chain-id').textContent = data.chain_id || 'unknown';
-        document.getElementById('role-name').textContent = role;
+function applyNetworkInfo(data) {
+    const role = data.is_hub ? 'HUB' : (data.role || 'FOLLOWER');
 
-        // Update meta section
-        document.getElementById('meta-node-id').textContent = data.p2p_node_id || 'unknown';
-        document.getElementById('meta-chain-id').textContent = data.chain_id || 'unknown';
-        document.getElementById('meta-role').textContent = role;
+    // Join the Network section
+    document.getElementById('node-id').textContent = data.p2p_node_id || 'unknown';
+    document.getElementById('chain-id').textContent = data.chain_id || 'unknown';
+    document.getElementById('role-name').textContent = role;
 
-        // Update contact email
-        if (data.contact_email) {
-            document.getElementById('contact-email').textContent = data.contact_email;
-            document.getElementById('contact-email-link').href = 'mailto:' + data.contact_email;
-        }
-    } catch (error) {
-        console.error('Failed to load network info:', error);
-        document.getElementById('node-id').textContent = 'unknown';
-        document.getElementById('chain-id').textContent = 'unknown';
-        document.getElementById('role-name').textContent = 'NODE';
-        document.getElementById('meta-node-id').textContent = 'unknown';
-        document.getElementById('meta-chain-id').textContent = 'unknown';
-        document.getElementById('meta-role').textContent = 'unknown';
-        document.getElementById('contact-email').textContent = 'unknown';
+    // Meta section
+    document.getElementById('meta-node-id').textContent = data.p2p_node_id || 'unknown';
+    document.getElementById('meta-chain-id').textContent = data.chain_id || 'unknown';
+    document.getElementById('meta-role').textContent = role;
+
+    // Contact email
+    if (data.contact_email) {
+        document.getElementById('contact-email').textContent = data.contact_email;
+        document.getElementById('contact-email-link').href = 'mailto:' + data.contact_email;
     }
 }
 
-// Load network info on page load
-document.addEventListener('DOMContentLoaded', loadNetworkInfo);
+function markNetworkInfoUnknown() {
+    document.getElementById('node-id').textContent = 'unknown';
+    document.getElementById('chain-id').textContent = 'unknown';
+    document.getElementById('role-name').textContent = 'NODE';
+    document.getElementById('meta-node-id').textContent = 'unknown';
+    document.getElementById('meta-chain-id').textContent = 'unknown';
+    document.getElementById('meta-role').textContent = 'unknown';
+    document.getElementById('contact-email').textContent = 'unknown';
+}
 
 // ── Live network facts strip ──────────────────────────────────────────
 // One strip, three states: loading → live (green, proven reply) → unknown
@@ -96,6 +97,13 @@ async function loadFacts() {
         && typeof info.p2p_node_id === 'string' && info.p2p_node_id
         && Array.isArray(info.validators);
     const headProven = head && typeof head === 'object' && Number.isFinite(Number(head.height));
+
+    if (infoProven) {
+        applyNetworkInfo(info);
+        networkInfoGood = true;
+    } else if (!networkInfoGood) {
+        markNetworkInfoUnknown();
+    }
 
     if (infoProven && headProven) {
         setFact('fact-node', info.p2p_node_id);
