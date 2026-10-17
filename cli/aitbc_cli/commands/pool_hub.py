@@ -30,11 +30,11 @@ def _default_pool_hub_url() -> str:
         return DEFAULT_POOL_HUB_URL
 
     try:
-        from aitbc.config.hub import hub_discovery_host
+        from aitbc.config.hub import hub_discovery_host, normalize_hub_base
 
         host = hub_discovery_host()
         if host:
-            return f"http://{host}/pool-hub"
+            return f"{normalize_hub_base(host)}/pool-hub"
     except Exception:
         pass
 
