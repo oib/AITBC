@@ -129,7 +129,9 @@ async def verify_api_key(request: Request, credentials: HTTPAuthorizationCredent
     from ..config import settings
 
     all_allowed_keys = settings.client_api_keys + settings.miner_api_keys + settings.admin_api_keys
-    if api_key not in all_allowed_keys:
+    # Membership must be constant-time: `api_key in keys` short-circuits on the
+    # first mismatching character position, leaking how close a guess is.
+    if not any(hmac.compare_digest(api_key, allowed) for allowed in all_allowed_keys):
         client_host = request.client.host if request.client else "unknown"
         logger.warning("Invalid API key from %s", client_host)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")

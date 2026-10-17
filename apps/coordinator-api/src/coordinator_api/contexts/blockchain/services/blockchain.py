@@ -27,6 +27,28 @@ RPC = f"{BLOCKCHAIN_RPC}/rpc"
 
 ADDRESS_PATTERN = re.compile(r"^[a-zA-Z0-9]{20,50}$")
 
+_chain_key_warned = False
+
+
+def _chain_rpc_api_key() -> str:
+    """Key presented to the chain RPC's X-Api-Key check.
+
+    Prefers the dedicated CHAIN_RPC_API_KEY so an admin credential never
+    leaves the coordinator; falls back to the first admin key for
+    compatibility until the fleet sets the dedicated one.
+    """
+    global _chain_key_warned
+    if settings.chain_rpc_api_key:
+        return settings.chain_rpc_api_key
+    if not _chain_key_warned:
+        logger.warning(
+            "CHAIN_RPC_API_KEY not set — sending admin_api_keys[0] to the chain RPC. "
+            "An admin key accepted by the chain is replayable against every admin "
+            "surface; set a dedicated key."
+        )
+        _chain_key_warned = True
+    return settings.admin_api_keys[0] if settings.admin_api_keys else ""
+
 
 def _canonical_sign_payload(payload: dict[str, Any]) -> bytes:
     """Canonical JSON that the node's ``verify_request_signature`` expects."""
@@ -58,7 +80,7 @@ class BlockchainService:
         return AITBCHTTPClient(timeout=10.0)
 
     def _headers(self) -> dict[str, str]:
-        return {"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""}
+        return {"X-Api-Key": _chain_rpc_api_key()}
 
     def _signed(self, payload: dict[str, Any]) -> dict[str, Any]:
         payload["signature"] = _sign_payload(payload)
@@ -209,7 +231,7 @@ def get_balance(address: str) -> Decimal | None:
         client = AITBCHTTPClient(timeout=10.0)
         response = client.get(
             f"{RPC}/balance/{address}",
-            headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""},
+            headers={"X-Api-Key": _chain_rpc_api_key()},
         )
         return units_to_ait(response.get("available_balance", 0))
     except NetworkError as e:
