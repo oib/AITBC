@@ -22,6 +22,7 @@ import requests
 from eth_keys.datatypes import PrivateKey
 from eth_utils import keccak
 
+from aitbc.config.hub import normalize_hub_base
 from aitbc.crypto.crypto import sign_transaction_hash
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
@@ -88,14 +89,7 @@ def _hub_market_client(timeout: int = 15) -> AITBCHTTPClient:
     if config.market_service_url and not config.market_service_url.startswith("http://127.0.0.1"):
         return AITBCHTTPClient(base_url=config.market_service_url, timeout=timeout)
     hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
-    if hub_host.startswith(("http://", "https://")):
-        hub_url = hub_host.rstrip("/")
-    elif "localhost" in hub_host or "127.0.0.1" in hub_host:
-        hub_url = f"http://{hub_host}"
-    else:
-        # Public hubs are exposed over HTTPS unless the env explicitly says http://
-        hub_url = f"https://{hub_host}"
-    return AITBCHTTPClient(base_url=hub_url, timeout=timeout)
+    return AITBCHTTPClient(base_url=normalize_hub_base(hub_host) or hub_host, timeout=timeout)
 
 
 def _daemon_available(ipfs_api: str = IPFS_API) -> bool:

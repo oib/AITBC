@@ -16,6 +16,7 @@ from urllib.parse import quote
 import click
 from tabulate import tabulate
 
+from aitbc.config.hub import normalize_hub_base
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import get_config
@@ -64,16 +65,13 @@ def _is_active(status: Any) -> bool:
 def _hub_base_url(config) -> str:
     """Resolve the hub base URL for cross-node queries.
 
-    An explicit scheme in ``hub_discovery_url`` wins verbatim; a localhost
-    host gets ``http://``; any other bare host is upgraded to ``https://``
-    because the hub's TLS edge terminates on its fronting reverse proxy.
+    Delegates to :func:`aitbc.config.hub.normalize_hub_base`: an explicit
+    scheme wins, localhost maps to ``http://``, other bare hosts to
+    ``https://``, and on the hub itself the configured host resolves to the
+    local nginx because the public name cannot hairpin back.
     """
-    hub_host = (getattr(config, "hub_discovery_url", None) or "hub.aitbc.invalid").strip()
-    if hub_host.startswith(("http://", "https://")):
-        return hub_host.rstrip("/")
-    if "localhost" in hub_host or "127.0.0.1" in hub_host:
-        return f"http://{hub_host}"
-    return f"https://{hub_host}"
+    hub_host = getattr(config, "hub_discovery_url", None) or "hub.aitbc.invalid"
+    return normalize_hub_base(hub_host) or hub_host
 
 
 def _candidate_bases(hub_url: str, config) -> list[str]:
@@ -562,11 +560,7 @@ def status(ctx, order_id: str):
     try:
         config = get_config()
         blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        hub_url = (
-            f"https://{config.hub_discovery_url}"
-            if config.hub_discovery_url and not config.hub_discovery_url.startswith("http")
-            else (config.hub_discovery_url or blockchain_rpc_url)
-        )
+        hub_url = normalize_hub_base(config.hub_discovery_url) or config.hub_discovery_url or blockchain_rpc_url
 
         # Query blockchain for transaction status, then escrow state —
         # primary RPC first, hub as fallback for both.
@@ -660,10 +654,9 @@ def match(ctx, output_format: str):
             result = http_client.get("/rpc/transactions/market/match")
 
             if not result:
-                # Try hub
-                hub_url = config.blockchain_rpc_url.replace(
-                    "localhost", config.hub_discovery_url or "hub.aitbc.invalid"
-                ).replace("http://", "https://")
+                # Try hub — the local-replace + scheme-rewrite produced dead
+                # ``https://…:8202`` URLs; resolve the hub origin properly.
+                hub_url = normalize_hub_base(config.hub_discovery_url or "hub.aitbc.invalid") or "hub.aitbc.invalid"
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.get("/rpc/transactions/market/match")
 

@@ -6,6 +6,8 @@ import os
 
 import click
 
+from aitbc.config.hub import normalize_hub_base
+
 from ...config import get_config
 from ...utils import error, info, output, success
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -35,9 +37,7 @@ def _market_base_url(override_url: str | None = None) -> str:
     if url and "localhost" not in url and "127.0.0.1" not in url:
         return url.rstrip("/")
     hub = config.hub_discovery_url or "hub.aitbc.invalid"
-    if hub.startswith(("http://", "https://")):
-        return hub.rstrip("/")
-    return f"https://{hub}"
+    return normalize_hub_base(hub) or hub
 
 
 @market.command(

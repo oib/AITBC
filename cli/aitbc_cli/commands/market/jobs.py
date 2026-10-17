@@ -12,6 +12,7 @@ from typing import Any, cast
 
 import click
 
+from aitbc.config.hub import normalize_hub_base
 from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
@@ -55,13 +56,7 @@ def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str
     try:
         job_data["signature"] = sign_transaction_data(job_data, private_key)
         hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
-        if hub_host.startswith(("http://", "https://")):
-            hub_url = hub_host.rstrip("/")
-        elif "localhost" in hub_host or "127.0.0.1" in hub_host:
-            hub_url = f"http://{hub_host}"
-        else:
-            # Public hubs are exposed over HTTPS.
-            hub_url = f"https://{hub_host}"
+        hub_url = normalize_hub_base(hub_host) or hub_host
         client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         job_tx_hash: str | None = client.post("/rpc/transactions/market", json=job_data).get("transaction_hash")
         info(f"Job recorded on-chain: {job_tx_hash}")
@@ -133,13 +128,7 @@ def _resolve_offer(ctx, offer_id_or_plugin_id: str) -> dict[str, Any]:
     """Resolve an offer by on-chain offer_id or market plugin_id."""
     config = get_config()
     hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
-    if hub_host.startswith(("http://", "https://")):
-        hub_url = hub_host.rstrip("/")
-    elif "localhost" in hub_host or "127.0.0.1" in hub_host:
-        hub_url = f"http://{hub_host}"
-    else:
-        # Public hubs are exposed over HTTPS.
-        hub_url = f"https://{hub_host}"
+    hub_url = normalize_hub_base(hub_host) or hub_host
     http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
 
     # Prefer the market service, which has the liveliest view and plugin_id.

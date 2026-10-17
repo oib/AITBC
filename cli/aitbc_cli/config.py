@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from aitbc.config.hub import hub_agent_url, hub_coordinator_url, hub_exchange_url
+from aitbc.config.hub import hub_agent_url, hub_coordinator_url, hub_exchange_url, hub_service_url
 from aitbc.market.energy_pricing import DEFAULT_MAX_RATE_AGE_SECONDS
 
 
@@ -274,9 +274,10 @@ class CLIConfig(BaseAITBCConfig):
                 if not rpc.endswith("/rpc"):
                     rpc = f"{rpc}/rpc"
                 self.exchange_service_url = rpc
-        if not self.hub_blockchain_rpc_url and self.hub_discovery_url:
-            # Follower/customer nodes talk to the hub's public blockchain RPC.
-            self.hub_blockchain_rpc_url = f"https://{self.hub_discovery_url}/rpc"
+        if not self.hub_blockchain_rpc_url:
+            # Follower/customer nodes talk to the hub's public blockchain RPC;
+            # on the hub itself hub_service_url resolves to the local nginx.
+            self.hub_blockchain_rpc_url = hub_service_url("rpc") or ""
         return self
 
     @property

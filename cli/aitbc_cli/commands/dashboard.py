@@ -13,6 +13,7 @@ from ..auth import AuthManager
 from ..utils import error, info, output, success
 from ..utils.address import to_canonical
 from ..utils.http_client import AITBCHTTPClient, JSONResponse, NetworkError, get_logger
+from aitbc.config.hub import normalize_hub_base
 from aitbc.utils import format_ait
 
 logger = get_logger(__name__)
@@ -427,8 +428,9 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         # Market offers published by this shop
         offer_rows: list[dict[str, Any]] = []
         try:
+            hub = config.hub_discovery_url or "hub.aitbc.invalid"
             market_client = AITBCHTTPClient(
-                base_url=f"http://{config.hub_discovery_url or 'hub.aitbc.invalid'}",
+                base_url=normalize_hub_base(hub) or hub,
                 timeout=10,
                 headers=_auth_headers(ctx),
             )
