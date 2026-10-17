@@ -109,6 +109,36 @@ def _check_lock_freshness(sender: str, sign_data: dict[str, Any]) -> None:
         raise HTTPException(status_code=403, detail="Lock nonce already used — this signed body cannot be replayed")
 
 
+def _verify_lock_signature(
+    lock_data: dict[str, Any],
+    *,
+    source_chain: str,
+    target_chain: Any,
+    sender: Any,
+    recipient: Any,
+    amount: Any,
+    asset: str,
+) -> None:
+    """Verify the sender's signature over the lock body, including the
+    replay guard when the signed dict carries issued_at + nonce."""
+    signature = lock_data.get("signature")
+    if not signature:
+        raise HTTPException(status_code=403, detail="Signature required for bridge lock")
+    sign_data = {
+        "source_chain": source_chain,
+        "target_chain": target_chain,
+        "sender": sender,
+        "recipient": recipient,
+        "amount": amount,
+        "asset": asset,
+    }
+    sign_data, replay_guarded = _apply_lock_replay_guard(lock_data, sign_data)
+    if not verify_request_signature(cast(str, sender), signature, sign_data):
+        raise HTTPException(status_code=403, detail="Invalid sender signature")
+    if replay_guarded:
+        _check_lock_freshness(cast(str, sender), sign_data)
+
+
 @rate_limit(rate=20, per=60)
 async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, Any]:
     """
@@ -145,22 +175,15 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
             raise HTTPException(status_code=400, detail="Amount must be positive")
 
         # Bug 7: Verify sender signature before locking funds
-        signature = lock_data.get("signature")
-        if not signature:
-            raise HTTPException(status_code=403, detail="Signature required for bridge lock")
-        sign_data = {
-            "source_chain": source_chain,
-            "target_chain": target_chain,
-            "sender": sender,
-            "recipient": recipient,
-            "amount": amount,
-            "asset": asset,
-        }
-        sign_data, replay_guarded = _apply_lock_replay_guard(lock_data, sign_data)
-        if not verify_request_signature(cast(str, sender), signature, sign_data):
-            raise HTTPException(status_code=403, detail="Invalid sender signature")
-        if replay_guarded:
-            _check_lock_freshness(cast(str, sender), sign_data)
+        _verify_lock_signature(
+            lock_data,
+            source_chain=source_chain,
+            target_chain=target_chain,
+            sender=sender,
+            recipient=recipient,
+            amount=amount,
+            asset=asset,
+        )
 
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
