@@ -69,16 +69,10 @@ class BridgeUnlockRequest(BaseModel):
     signature: str = Field(..., min_length=1, description="Sender signature authorizing the refund")
 
 
-class BridgeBatchRequest(BaseModel):
-    """Request body for batch lock/confirm endpoints."""
-
-    transfers: list[dict[str, Any]] = Field(..., min_length=1, description="List of transfer dicts")
-
-
 class BridgeBatchConfirmRequest(BaseModel):
     """Request body for POST /batch/confirm.
 
-    Distinct from ``BridgeBatchRequest``: the confirm handler reads
+    Distinct from the removed batch-lock schema: the confirm handler reads
     ``confirmations`` (matching ``BridgeClient.batch_confirm``), not
     ``transfers``. Sharing the lock schema left this endpoint returning
     400 for every request.
@@ -134,7 +128,6 @@ class BlockHeaderRequest(BaseModel):
 
 # Optional imports - will be None if module not available
 bridge_batch_confirm: Callable[..., Any] | None = None
-bridge_batch_lock: Callable[..., Any] | None = None
 bridge_confirm: Callable[..., Any] | None = None
 bridge_health: Callable[..., Any] | None = None
 bridge_lock: Callable[..., Any] | None = None
@@ -154,7 +147,6 @@ store_block_header: Callable[..., Any] | None = None
 try:
     from ..bridge import (
         bridge_batch_confirm,
-        bridge_batch_lock,
         bridge_confirm,
         bridge_health,
         bridge_lock,
@@ -288,15 +280,6 @@ async def get_bridge_status_route(request: Request, transfer_id: str) -> dict[st
     if get_bridge_transfer is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     return await get_bridge_transfer(request, transfer_id)  # type: ignore[no-any-return]
-
-
-@router.post("/batch/lock", summary="Batch lock multiple transfers")
-@rate_limit(rate=20, per=60)
-async def bridge_batch_lock_route(request: Request, batch_data: BridgeBatchRequest) -> list[dict[str, Any]]:
-    """Batch lock multiple cross-chain transfers"""
-    if bridge_batch_lock is None:
-        raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_batch_lock(request, batch_data.model_dump(exclude_none=True))  # type: ignore[no-any-return]
 
 
 @router.post("/batch/confirm", summary="Batch confirm multiple transfers")

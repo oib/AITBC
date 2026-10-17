@@ -573,54 +573,6 @@ async def bridge_health(request: Request) -> dict[str, Any]:
 
 
 @rate_limit(rate=20, per=60)
-async def bridge_batch_lock(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Batch lock multiple cross-chain transfers."""
-    # Pause fence — the batch shares the single-lock pause semantics: the
-    # whole request refuses 503 rather than degrading into per-item failures.
-    if getattr(settings, "bridge_locks_paused", False):
-        from ..cross_chain.bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL
-
-        raise HTTPException(status_code=503, detail=BRIDGE_LOCKS_PAUSED_DETAIL)
-    try:
-        from ..cross_chain.bridge import get_cross_chain_bridge
-
-        bridge = get_cross_chain_bridge()
-        if not bridge:
-            raise HTTPException(status_code=503, detail="Cross-chain bridge not initialized")
-        transfers = batch_data.get("transfers", [])
-        if not transfers:
-            raise HTTPException(status_code=400, detail="Missing or empty 'transfers' list")
-        max_batch = getattr(settings, "bridge_batch_size", 10)
-        if len(transfers) > max_batch:
-            raise HTTPException(status_code=400, detail=f"Batch size {len(transfers)} exceeds maximum {max_batch}")
-
-        results = bridge.batch_lock(transfers)
-        return [
-            {
-                "success": t.status.value != "failed",
-                "transfer_id": t.transfer_id,
-                "status": t.status.value,
-                "source_chain": t.source_chain,
-                "target_chain": t.target_chain,
-                "sender": t.sender,
-                "recipient": t.recipient,
-                "amount": t.amount,
-                "error": t.proof.get("error") if t.proof and isinstance(t.proof, dict) else None,
-            }
-            for t in results
-        ]
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except HTTPException:
-        raise
-    except Exception as e:
-        _logger.error("Bridge batch lock failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@rate_limit(rate=20, per=60)
 async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Batch confirm multiple cross-chain transfers.
 
