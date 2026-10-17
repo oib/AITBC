@@ -34,7 +34,6 @@ class BridgeClient:
     - GET /bridge/pending — list pending transfers
     - GET /bridge/balance/{chain_id} — get bridge balance per chain
     - GET /bridge/health — bridge health check
-    - POST /bridge/batch/lock — batch lock
     - POST /bridge/batch/confirm — batch confirm
     """
 
@@ -162,20 +161,6 @@ class BridgeClient:
         resp = await self._ensure_client().get("/bridge/health")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
-
-    async def batch_lock(
-        self,
-        transfers: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        """Batch lock multiple transfers."""
-        resp = await self._ensure_client().post("/bridge/batch/lock", json={"transfers": transfers})
-        resp.raise_for_status()
-        data = resp.json()
-        if isinstance(data, list):
-            return cast(list[dict[str, Any]], data)
-        if isinstance(data, dict) and isinstance(data.get("results"), list):
-            return cast(list[dict[str, Any]], data["results"])
-        return []
 
     async def batch_confirm(
         self,

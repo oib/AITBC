@@ -1,7 +1,7 @@
 """BRIDGE_LOCKS_PAUSED — new bridge locks refuse while the pause is set.
 
 The pause boundary is the lock *request* path: every REST surface
-(/bridge/lock, /bridge/batch/lock, /swap, /cross-chain/bridge) returns 503,
+(/bridge/lock, /swap, /cross-chain/bridge) returns 503,
 and ``initiate_transfer`` — the chokepoint they all funnel through — raises
 ``BridgeLocksPausedError`` so no internal caller bypasses it. Refunds,
 status reads and the confirm path are untouched, and mempool admission is
@@ -79,29 +79,6 @@ class TestLockEndpointsPaused:
                         "recipient": "0xrecipient",
                         "amount": 1000,
                         "signature": "0xsig",
-                    },
-                )
-            )
-        assert exc.value.status_code == 503
-        assert exc.value.detail == BRIDGE_LOCKS_PAUSED_DETAIL
-
-    def test_bridge_batch_lock_503(self, paused):
-        from aitbc_chain.rpc.bridge import bridge_batch_lock
-
-        with pytest.raises(HTTPException) as exc:
-            asyncio.run(
-                bridge_batch_lock(
-                    None,  # type: ignore[arg-type]
-                    {
-                        "transfers": [
-                            {
-                                "source_chain": "chain-a",
-                                "target_chain": "chain-b",
-                                "sender": "0xs",
-                                "recipient": "0xr",
-                                "amount": 1,
-                            }
-                        ]
                     },
                 )
             )

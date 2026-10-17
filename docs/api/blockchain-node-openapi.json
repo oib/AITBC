@@ -9138,64 +9138,6 @@
         }
       }
     },
-    "/rpc/bridge/batch/lock": {
-      "post": {
-        "tags": [
-          "rpc",
-          "bridge"
-        ],
-        "summary": "Batch lock multiple transfers",
-        "description": "Batch lock multiple cross-chain transfers",
-        "operationId": "bridge_batch_lock_route_rpc_bridge_batch_lock_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BridgeBatchRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "type": "array",
-                  "title": "Response Bridge Batch Lock Route Rpc Bridge Batch Lock Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Bridge module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/rpc/bridge/batch/confirm": {
       "post": {
         "tags": [
@@ -20272,64 +20214,6 @@
         }
       }
     },
-    "/v1/bridge/batch/lock": {
-      "post": {
-        "tags": [
-          "v1",
-          "bridge"
-        ],
-        "summary": "Batch lock multiple transfers",
-        "description": "Batch lock multiple cross-chain transfers",
-        "operationId": "bridge_batch_lock_route_v1_bridge_batch_lock_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BridgeBatchRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "type": "array",
-                  "title": "Response Bridge Batch Lock Route V1 Bridge Batch Lock Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Bridge module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/bridge/batch/confirm": {
       "post": {
         "tags": [
@@ -23327,27 +23211,7 @@
           "confirmations"
         ],
         "title": "BridgeBatchConfirmRequest",
-        "description": "Request body for POST /batch/confirm.\n\nDistinct from ``BridgeBatchRequest``: the confirm handler reads\n``confirmations`` (matching ``BridgeClient.batch_confirm``), not\n``transfers``. Sharing the lock schema left this endpoint returning\n400 for every request."
-      },
-      "BridgeBatchRequest": {
-        "properties": {
-          "transfers": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Transfers",
-            "description": "List of transfer dicts"
-          }
-        },
-        "type": "object",
-        "required": [
-          "transfers"
-        ],
-        "title": "BridgeBatchRequest",
-        "description": "Request body for batch lock/confirm endpoints."
+        "description": "Request body for POST /batch/confirm.\n\nDistinct from the removed batch-lock schema: the confirm handler reads\n``confirmations`` (matching ``BridgeClient.batch_confirm``), not\n``transfers``. Sharing the lock schema left this endpoint returning\n400 for every request."
       },
       "BridgeConfirmRequest": {
         "properties": {

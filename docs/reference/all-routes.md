@@ -77,7 +77,6 @@
 | `POST` | `/rpc/bounty/{bounty_id}/verify` | Verify bounty submission **(retired since v9)** |
 | `GET` | `/rpc/bridge/balance/{chain_id}` | Get bridge balance for a chain |
 | `POST` | `/rpc/bridge/batch/confirm` | Batch confirm multiple transfers |
-| `POST` | `/rpc/bridge/batch/lock` | Batch lock multiple transfers |
 | `POST` | `/rpc/bridge/block-headers` | Store a remote chain block header |
 | `GET` | `/rpc/bridge/block-headers/{chain_id}/{height}` | Get a block header with finality status |
 | `POST` | `/rpc/bridge/confirm` | Confirm and release cross-chain transfer |
@@ -245,7 +244,6 @@
 | `POST` | `/v1/bounty/{bounty_id}/verify` | Verify bounty submission |
 | `GET` | `/v1/bridge/balance/{chain_id}` | Get bridge balance for a chain |
 | `POST` | `/v1/bridge/batch/confirm` | Batch confirm multiple transfers |
-| `POST` | `/v1/bridge/batch/lock` | Batch lock multiple transfers |
 | `POST` | `/v1/bridge/block-headers` | Store a remote chain block header |
 | `GET` | `/v1/bridge/block-headers/{chain_id}/{height}` | Get a block header with finality status |
 | `POST` | `/v1/bridge/confirm` | Confirm and release cross-chain transfer |

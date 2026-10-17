@@ -936,13 +936,6 @@
           ]
         },
         {
-          "public": "/api/v2/chain/rpc/bridge/batch/lock",
-          "upstream": "/rpc/bridge/batch/lock",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
           "public": "/api/v2/chain/rpc/bridge/block-headers",
           "upstream": "/rpc/bridge/block-headers",
           "methods": [
@@ -2179,13 +2172,6 @@
         {
           "public": "/api/v2/chain/v1/bridge/batch/confirm",
           "upstream": "/v1/bridge/batch/confirm",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/chain/v1/bridge/batch/lock",
-          "upstream": "/v1/bridge/batch/lock",
           "methods": [
             "POST"
           ]

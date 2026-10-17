@@ -516,7 +516,7 @@ class ChainSettings(BaseSettings):
     bridge_release_enabled: bool = False
 
     # Operator pause switch for NEW bridge locks (BRIDGE_LOCKS_PAUSED). While
-    # set, every lock-request surface — POST /bridge/lock, /bridge/batch/lock,
+    # set, every lock-request surface — POST /bridge/lock,
     # /swap and /cross-chain/bridge, plus the initiate_transfer chokepoint
     # itself — refuses new locks with HTTP 503; refunds, status reads and the
     # confirm path are untouched. In place pending the attestation-based
