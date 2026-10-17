@@ -25,6 +25,17 @@ unset fleet-wide: `BACKUP_GPG_RECIPIENT` (encrypt the key-material tarballs)
 and `BACKUP_OFFSITE_SCRIPT` (ship `$BACKUP_DIR` off the host). Both gaps are
 documented in the drill record.
 
+**`etc-aitbc.tar.gz` carries live secrets by design.** The env files hold
+production credentials — the coordinator's `RECEIPT_SIGNING_KEY_HEX`, API
+keys, service passwords — and the tarball is the working disaster-recovery
+copy: the Oct 2026 receipt-key restore came from exactly this artifact.
+Custody bounds are root-600 files inside root-750 generation directories,
+30-day name-date retention, and the same trust domain as `/etc/aitbc`
+itself. Do not copy it off the host except through the GPG-encrypted
+off-site path (`BACKUP_GPG_ARTIFACTS` already lists `etc-aitbc.tar.gz`),
+and do not filter secret vars out of it — that would silently break the
+restore path it exists to serve.
+
 ## Taking a consistent copy of a live chain DB
 
 The chain DB runs in WAL mode. **Never `cp` a live `.db` file** — a raw copy
