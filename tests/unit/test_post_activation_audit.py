@@ -45,6 +45,15 @@ def test_lock_leaf_value_matches_v4_format():
     assert audit.lock_leaf_value("0xabc", None) == "lock:0xabc:0:unknown"
 
 
+def test_lock_leaf_value_v2_binds_recipient(monkeypatch):
+    """From the armed height the leaf also commits to the recipient."""
+    monkeypatch.setattr(audit, "_V2_HEIGHT", 51_000)
+    rec = {"transfer_id": "0xabc", "amount": 36000, "target_chain": "ait-shop", "recipient": "0xdest"}
+    assert audit.lock_leaf_value("0xabc", rec, 51_000) == "lock:0xabc:36000:ait-shop:0xdest"
+    assert audit.lock_leaf_value("0xabc", rec, 50_999) == "lock:0xabc:36000:ait-shop"
+    assert audit.lock_leaf_value("0xabc", None, 51_000) == "lock:0xabc:0:unknown"
+
+
 def test_version_window_not_yet_then_pass():
     rows = [(ACT - 2, 12), (ACT - 1, 12)]
     assert audit.eval_version_window(rows, ACT)[0] == audit.NOT_YET

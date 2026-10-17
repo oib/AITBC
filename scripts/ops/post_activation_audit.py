@@ -23,10 +23,10 @@ Checks (a–g per BR-12):
   c. ``aux_state_root`` empty before H_act, non-empty and identical across
      hosts from H_act;
   d. ``bridge_state_root`` recomputed from the sealed BRIDGE_LOCK leaves
-     (``lock:{transfer_id}:{amount}:{target_chain}`` keyed by tx_hash in a
-     MerklePatriciaTrie — the exact V-4 derivation in poa.py /
-     sync_block_import.py) equals the committed column, on hub and one
-     follower;
+     (``lock:{transfer_id}:{amount}:{target_chain}`` keyed by tx_hash, plus
+     ``:{recipient}`` from ``bridge_lock_leaf_v2_height`` — the exact
+     derivation in poa.py / sync_block_import.py / bridge_leaf.py) equals
+     the committed column, on hub and one follower;
   e. the active validator set (``/rpc/consensus/validators``,
      role=validator && is_active) equals the expected four on every host,
      and recent-block attesters are a subset;
@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sqlite3
 import subprocess  # nosec
@@ -111,11 +112,58 @@ def parse_block_meta(raw: object) -> dict:
     return {}
 
 
-def lock_leaf_value(tx_hash: str, record: dict | None) -> str:
-    """The exact V-4 leaf string from poa._compute_bridge_state_root /
-    sync_block_import._derive_bridge_state_root."""
+def _scan_env_key(path: str, key: str) -> str | None:
+    """One targeted key out of an env file; never returns file contents."""
+    try:
+        for line in Path(path).read_text().splitlines():  # noqa: PTH123
+            line = line.strip()
+            if line.startswith(key + "="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return None
+
+
+_V2_HEIGHT: int | None = None  # resolved once per process (remote mode)
+
+
+def _resolve_v2_height(cli_value: int | None = None) -> int | None:
+    """Activation height of the recipient-bound leaf — mirrors
+    ``cross_chain/bridge_leaf.lock_leaf_v2_active``. Order: --v2-height,
+    $BRIDGE_LOCK_LEAF_V2_HEIGHT, aitbc_chain settings, /etc/aitbc/blockchain.env."""
+    global _V2_HEIGHT
+    if _V2_HEIGHT is not None:
+        return _V2_HEIGHT
+    raw: object = cli_value
+    if raw is None:
+        env = os.environ.get("BRIDGE_LOCK_LEAF_V2_HEIGHT", "").strip()
+        if env:
+            raw = env
+    if raw is None:
+        try:
+            from aitbc_chain.config import settings  # noqa: PLC0415
+
+            raw = getattr(settings, "bridge_lock_leaf_v2_height", None)
+        except Exception:
+            raw = None
+    if raw is None:
+        raw = _scan_env_key("/etc/aitbc/blockchain.env", "BRIDGE_LOCK_LEAF_V2_HEIGHT")
+    try:
+        _V2_HEIGHT = None if raw is None else int(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        _V2_HEIGHT = None
+    return _V2_HEIGHT
+
+
+def lock_leaf_value(tx_hash: str, record: dict | None, height: int | None = None) -> str:
+    """The exact leaf string from poa._compute_bridge_state_root /
+    sync_block_import._derive_bridge_state_root, height-aware: from
+    ``bridge_lock_leaf_v2_height`` the leaf also commits to the recipient."""
     if record is None:
         return f"lock:{tx_hash}:0:unknown"
+    v2 = _V2_HEIGHT
+    if height is not None and v2 is not None and int(height) >= v2:
+        return f"lock:{record['transfer_id']}:{record['amount']}:{record['target_chain']}:{record.get('recipient')}"
     return f"lock:{record['transfer_id']}:{record['amount']}:{record['target_chain']}"
 
 
@@ -250,12 +298,13 @@ def _local_shadow(db: str, limit: int) -> None:
     print(json.dumps({"mode": "shadow", "rows": [[h, f] for h, f in rows]}))
 
 
-def _local_bridge_roots(db: str, first: int, last: int, lock_lookback: int) -> None:
+def _local_bridge_roots(db: str, first: int, last: int, lock_lookback: int, v2_height: int | None = None) -> None:
     """Recompute block.bridge_state_root per the V-4 derivation for the
     sealed range [first,last] plus up to 3 lock-bearing blocks inside the
     lookback window. Emits one JSON object per block."""
     from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie  # noqa: PLC0415
 
+    _resolve_v2_height(v2_height)
     conn = _ro_conn(db)
     try:
         (chain_id,) = conn.execute("SELECT chain_id FROM block ORDER BY height DESC LIMIT 1").fetchone()
@@ -286,12 +335,12 @@ def _local_bridge_roots(db: str, first: int, last: int, lock_lookback: int) -> N
                 marks = ",".join("?" for _ in ids)
                 for r in conn.execute(
                     # placeholders only
-                    f"SELECT transfer_id, amount, target_chain FROM cross_chain_transfer WHERE source_chain = ? AND transfer_id IN ({marks})",  # nosec
+                    f"SELECT transfer_id, amount, target_chain, recipient FROM cross_chain_transfer WHERE source_chain = ? AND transfer_id IN ({marks})",  # nosec
                     (chain_id, *ids),
                 ).fetchall():
-                    records[r[0]] = {"transfer_id": r[0], "amount": r[1], "target_chain": r[2]}
+                    records[r[0]] = {"transfer_id": r[0], "amount": r[1], "target_chain": r[2], "recipient": r[3]}
             for tx_hash in ids:
-                trie.put(tx_hash.encode(), lock_leaf_value(tx_hash, records.get(tx_hash)).encode())
+                trie.put(tx_hash.encode(), lock_leaf_value(tx_hash, records.get(tx_hash), height).encode())
             recomputed = "0x" + trie.get_root().hex()
             missing = sum(1 for t in ids if t not in records)
             out.append(
@@ -317,11 +366,14 @@ def _remote_main(argv: list[str]) -> int:
     p.add_argument("--from", dest="first", type=int, default=0)
     p.add_argument("--to", dest="last", type=int, default=0)
     p.add_argument("--lock-lookback", type=int, default=20_000)
+    p.add_argument(
+        "--v2-height", type=int, default=None, help="recipient-bound leaf activation (default: env/settings/blockchain.env)"
+    )
     a = p.parse_args(argv)
     if a.mode == "shadow":
         _local_shadow(a.local_db, a.limit)
     else:
-        _local_bridge_roots(a.local_db, a.first, a.last, a.lock_lookback)
+        _local_bridge_roots(a.local_db, a.first, a.last, a.lock_lookback, a.v2_height)
     return 0
 
 
