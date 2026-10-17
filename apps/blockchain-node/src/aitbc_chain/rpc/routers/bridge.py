@@ -46,6 +46,10 @@ class BridgeLockRequest(BaseModel):
     asset: str = Field(default="native", description="Asset identifier")
     source_chain: str | None = Field(default=None, description="Source chain ID (defaults to this chain)")
     signature: str = Field(..., min_length=1, description="Sender signature authorizing the lock")
+    issued_at: str | int | float | None = Field(
+        default=None, description="Replay-guard issue time (ISO-8601 or epoch seconds); signed"
+    )
+    nonce: str | None = Field(default=None, description="Single-use replay-guard nonce; signed")
 
 
 class BridgeConfirmRequest(BaseModel):
