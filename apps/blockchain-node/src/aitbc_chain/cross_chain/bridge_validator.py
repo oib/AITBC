@@ -197,30 +197,24 @@ class BridgeValidatorMixin(BridgeBase):
         confirm but never release. Returns ``(available, reason)`` —
         ``reason`` is None when available.
 
-        Fails closed identically to the verification path: when
-        ``bridge_release_enabled`` is set, a missing/unreachable validator
-        set means release is impossible; when multisig is enabled, a
-        validator set smaller than the threshold can never satisfy it.
+        Fails closed identically to the verification path: a missing or
+        unreachable validator set means release is impossible; when multisig
+        is enabled, a validator set smaller than the threshold can never
+        satisfy it.
         """
         if not (getattr(settings, "escrow_enabled", False) or getattr(settings, "bridge_release_enabled", False)):
             return False, "release path disabled (escrow_enabled=false, bridge_release_enabled=false)"
 
-        release_enabled = getattr(settings, "bridge_release_enabled", False)
         multisig_enabled = getattr(settings, "bridge_multisig_enabled", False)
         threshold = int(getattr(settings, "bridge_multisig_threshold", 3))
 
         try:
             vset = self.get_validator_set(source_chain)
         except Exception as e:
-            if release_enabled:
-                return False, f"validator set lookup failed for {source_chain}: {e}"
-            vset = None
+            return False, f"validator set lookup failed for {source_chain}: {e}"
 
         if vset is None:
-            if release_enabled or multisig_enabled:
-                return False, f"no validator set registered for source chain {source_chain}"
-            # Dev mode: single-signer proofs are accepted for backward compat.
-            return True, None
+            return False, f"no validator set registered for source chain {source_chain}"
 
         if multisig_enabled and vset.total < threshold:
             return False, f"validator set size {vset.total} below required threshold {threshold} for {source_chain}"
@@ -235,10 +229,9 @@ class BridgeValidatorMixin(BridgeBase):
         The signer's address must match the source chain's proposer at the
         claimed block height.
 
-        If a validator set is registered for the proof's source chain, the
-        recovered signer address **must** be a member of that set. If no
-        validator set is registered (e.g. dev/isolated networks), any valid
-        signature is accepted for backward compatibility.
+        The recovered signer address **must** be a member of the proof's
+        source-chain validator set; with no set registered the proof is
+        refused (F2).
         """
         proposer_signature = proof.get("proposer_signature", "")
         if not proposer_signature:
@@ -258,54 +251,28 @@ class BridgeValidatorMixin(BridgeBase):
                 return False
             logger.debug("Proof signed by: %s", recovered)
 
-            # v0.10.16: Validator-set membership is required for production
-            # release paths. When bridge_release_enabled is True, a missing set
-            # or a non-member signature is a hard failure (fail-closed). Dev/test
-            # networks with the release fence disabled still accept any valid
-            # signature for backward compatibility.
+            # F2: the signer must be a member of the source chain's validator
+            # set on every path; a missing or unreadable set fails closed.
             source_chain = proof.get("source_chain") or proof.get("chain_id")
-            release_enabled = getattr(settings, "bridge_release_enabled", False)
-            if source_chain:
-                try:
-                    vset = self.get_validator_set(source_chain)
-                except Exception as e:
-                    if release_enabled:
-                        logger.warning(
-                            "Validator set lookup failed for chain=%s (%s) with release enabled; rejecting proof",
-                            source_chain,
-                            e,
-                        )
-                        return False
-                    # Validator set lookup may fail with mocked sessions or
-                    # transient DB issues. Treat as unregistered for dev mode.
-                    logger.debug(
-                        "Validator set lookup failed for chain=%s (%s); treating as unregistered",
-                        source_chain,
-                        e,
-                    )
-                    vset = None
-                if vset is not None:
-                    validator_addresses = {
-                        v.address.lower() if hasattr(v, "address") else str(v).lower() for v in vset.validators
-                    }
-                    if recovered.lower() not in validator_addresses:
-                        logger.warning(
-                            "Proposer signature recovered to %s which is NOT in the validator set for chain=%s",
-                            recovered,
-                            source_chain,
-                        )
-                        return False
-                elif release_enabled:
-                    logger.warning(
-                        "No validator set registered for chain=%s and bridge_release_enabled=True; rejecting proof",
-                        source_chain,
-                    )
-                    return False
-                else:
-                    logger.debug(
-                        "No validator set registered for chain=%s — accepting any valid signature (dev mode)",
-                        source_chain,
-                    )
+            if not source_chain:
+                logger.warning("Proof missing source_chain for validator set lookup")
+                return False
+            try:
+                vset = self.get_validator_set(source_chain)
+            except Exception as e:
+                logger.warning("Validator set lookup failed for chain=%s (%s); rejecting proof", source_chain, e)
+                return False
+            if vset is None:
+                logger.warning("No validator set registered for chain=%s; rejecting proof", source_chain)
+                return False
+            validator_addresses = {v.address.lower() if hasattr(v, "address") else str(v).lower() for v in vset.validators}
+            if recovered.lower() not in validator_addresses:
+                logger.warning(
+                    "Proposer signature recovered to %s which is NOT in the validator set for chain=%s",
+                    recovered,
+                    source_chain,
+                )
+                return False
 
             return True
         except Exception as e:
@@ -413,26 +380,20 @@ class BridgeValidatorMixin(BridgeBase):
                 )
                 return False
 
-            release_enabled = getattr(settings, "bridge_release_enabled", False)
+            # F2: the signer must be a registered validator; a missing or
+            # unreadable set fails closed rather than accepting any key.
             try:
                 vset = self.get_validator_set(source_chain)
             except Exception as e:
-                if release_enabled:
-                    logger.warning(
-                        "Validator set lookup failed for chain=%s (%s) with release enabled; rejecting proof",
-                        source_chain,
-                        e,
-                    )
-                    return False
-                vset = None
+                logger.warning("Validator set lookup failed for chain=%s (%s); rejecting proof", source_chain, e)
+                return False
 
-            if vset is not None:
-                valid_addresses = {a.lower() for a in vset.addresses}
-                if not any(s.lower() in valid_addresses for s in signers):
-                    logger.warning("Proposer not in validator set for chain=%s", source_chain)
-                    return False
-            elif release_enabled:
-                logger.warning("No validator set registered for chain=%s and release enabled", source_chain)
+            if vset is None:
+                logger.warning("No validator set registered for chain=%s; rejecting proof", source_chain)
+                return False
+            valid_addresses = {a.lower() for a in vset.addresses}
+            if not any(s.lower() in valid_addresses for s in signers):
+                logger.warning("Proposer not in validator set for chain=%s", source_chain)
                 return False
 
             return True
@@ -481,8 +442,7 @@ class BridgeValidatorMixin(BridgeBase):
                 select(func.max(BridgeValidator.epoch)).where(BridgeValidator.chain_id == chain_id)
             ).first()
             if latest_epoch_row is None:
-                # No validators registered for the chain — fail closed. An
-                # empty set cannot attest to anything, so "fresh" is False.
+                # F2: no validators registered — nothing can be fresh.
                 logger.warning("Validator set for chain=%s is empty", chain_id)
                 return False
             latest_epoch = int(latest_epoch_row)
