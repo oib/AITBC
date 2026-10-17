@@ -414,8 +414,7 @@ async function trackDeposit() {
     const resultEl = document.getElementById('track-result');
     errEl.style.display = 'none';
     resultEl.style.display = 'none';
-    const retryEl = document.getElementById('track-retry-btn');
-    if (retryEl) retryEl.style.display = 'none';
+    setTrackRetry(false);
 
     if (trackPollHandle) { clearInterval(trackPollHandle); trackPollHandle = null; }
 
@@ -439,17 +438,23 @@ async function trackDeposit() {
     }
 }
 
+// The track card's Try again button belongs to a could-not-query answer
+// only — it must not outlive its error line on later poll outcomes.
+function setTrackRetry(visible) {
+    const btn = document.getElementById('track-retry-btn');
+    if (btn) btn.style.display = visible ? '' : 'none';
+}
+
 async function lookupDeposit(input) {
     const errEl = document.getElementById('track-error');
     const resultEl = document.getElementById('track-result');
 
     try {
         let deposit = null;
-        const retryEl = document.getElementById('track-retry-btn');
         const queryFailed = (resp) => {
             errEl.style.display = 'block';
             errEl.textContent = `Could not query deposit status (HTTP ${resp.status}). This is not a "not found".`;
-            if (retryEl) retryEl.style.display = '';
+            setTrackRetry(true);
             // A failed poll keeps the last shown deposit — hide the result
             // only when none was ever shown.
         };
@@ -462,6 +467,7 @@ async function lookupDeposit(input) {
                 errEl.style.display = 'block';
                 errEl.textContent = 'Deposit not found for this tx hash';
                 resultEl.style.display = 'none';
+                setTrackRetry(false);
                 return;
             } else {
                 queryFailed(resp);
@@ -478,12 +484,14 @@ async function lookupDeposit(input) {
                     errEl.style.display = 'block';
                     errEl.textContent = 'No deposit found for this AIT address';
                     resultEl.style.display = 'none';
+                    setTrackRetry(false);
                     return;
                 }
             } else if (resp.status === 404) {
                 errEl.style.display = 'block';
                 errEl.textContent = 'No deposit found for this AIT address';
                 resultEl.style.display = 'none';
+                setTrackRetry(false);
                 return;
             } else {
                 queryFailed(resp);
@@ -493,6 +501,7 @@ async function lookupDeposit(input) {
             errEl.style.display = 'block';
             errEl.textContent = 'Enter a 0x ETH tx hash (66 chars) or 0x AIT address (42 chars)';
             resultEl.style.display = 'none';
+            setTrackRetry(false);
             return;
         }
 
@@ -501,6 +510,7 @@ async function lookupDeposit(input) {
             const d = deposit.dict ? deposit.dict() : deposit;
             resultEl.dataset.status = d.status;
             errEl.style.display = 'none';   // a good poll clears a prior failure line
+            setTrackRetry(false);
             renderDeposit(d);
             // Stop polling if terminal
             if (d.status === 'completed' || d.status === 'failed') {
@@ -511,8 +521,7 @@ async function lookupDeposit(input) {
         console.error('Error tracking deposit:', error);
         errEl.style.display = 'block';
         errEl.textContent = `Could not query deposit status (${errReason(error)}). This is not a "not found".`;
-        const retryEl = document.getElementById('track-retry-btn');
-        if (retryEl) retryEl.style.display = '';
+        setTrackRetry(true);
     }
 }
 
