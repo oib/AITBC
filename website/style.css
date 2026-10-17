@@ -2463,6 +2463,124 @@ a.btn-secondary {
 .msg-parent {
     font-style: italic;
 }
+
+/* ── Messages: topic rail on wide screens, horizontal chips on phones ── */
+.msg-layout {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+}
+.msg-topic-list {
+    display: flex;
+    flex-direction: row;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+}
+.topic-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 44px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+.topic-item-name { font-weight: 600; }
+.topic-item-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 400;
+}
+.filter-btn.active .topic-item-meta { color: rgba(255, 255, 255, 0.85); }
+@media (min-width: 641px) {
+    .msg-layout {
+        grid-template-columns: 280px minmax(0, 1fr);
+        align-items: start;
+    }
+    .msg-topic-list {
+        flex-direction: column;
+        overflow-x: visible;
+        padding-bottom: 0;
+    }
+    .topic-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+        white-space: normal;
+        width: 100%;
+    }
+}
+
+/* Moderation badges — word plus shape, colour is backup only. */
+.msg-badge {
+    display: inline-block;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+.msg-badge-pinned { border-color: var(--primary); color: var(--primary); }
+.msg-badge-locked { border-color: #b26a00; color: #b26a00; }
+.msg-badge-hidden { border-color: #f59e0b; color: #f59e0b; }
+.filter-btn.active .msg-badge { border-color: rgba(255,255,255,0.6); color: #fff; }
+
+/* Hidden message: body collapsed behind an explicit control. */
+.msg-body-collapsed { display: none; }
+.msg-hidden-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    margin-top: 0.4rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px dashed #78350f;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.msg-fee { color: var(--text-muted); }
+.msg-show-anyway {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--primary);
+    border-radius: 4px;
+    min-height: 44px;
+    padding: 0 0.8rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+/* Per-read state: failed = amber card + Try again; stale = one note. */
+.msg-state {
+    border: 1px solid #78350f;
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 0.9rem 1rem;
+    margin: 0.4rem 0;
+}
+.msg-state-title { color: #f59e0b; font-weight: 700; margin: 0 0 0.5rem; }
+.msg-state-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    color: #b26a00;
+    margin-bottom: 0.5rem;
+}
+.msg-empty {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 0.9rem;
+}
 .error-text {
     color: #e05c5c;
     font-size: 0.85rem;
