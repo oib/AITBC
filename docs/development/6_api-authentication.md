@@ -33,7 +33,8 @@ X-Api-Key: your_api_key_here
 ### Environment Variable
 
 Keys are configured on the **server** side via the service's environment
-(e.g. `MINER_API_KEYS=key-one,key-two`). Clients pass the key per request,
+(e.g. `MINER_API_KEYS=["key-one","key-two"]` — JSON array; a
+comma-separated list is also accepted). Clients pass the key per request,
 per SDK constructor, or through the CLI's client-side env var:
 
 ```bash
