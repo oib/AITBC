@@ -78,6 +78,22 @@ class Settings(ServiceSettings):
         # Fallback to coordinator API key for admin endpoint authentication
         if self.auth_enabled and self.api_key is None:
             self.api_key = self.coordinator_api_key
+        # F4: an unset trust set means every receipt verifies under the legacy
+        # any-key behavior — the spoofing surface the pin exists to close.
+        # Refuse to start in production, or wherever the operator sets the
+        # dedicated gate (the wallet env does not carry ENVIRONMENT=production,
+        # so REQUIRE_TRUSTED_RECEIPT_KEYS is the explicit fleet control).
+        require_trust = is_production() or os.getenv("REQUIRE_TRUSTED_RECEIPT_KEYS", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        if require_trust and self.trusted_receipt_key_id_set is None:
+            raise ValueError(
+                "TRUSTED_RECEIPT_KEY_IDS must be set when REQUIRE_TRUSTED_RECEIPT_KEYS is on or in production — "
+                "without it, receipt verification accepts signatures from any self-made keypair"
+            )
         return self
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
