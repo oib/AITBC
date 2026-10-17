@@ -902,7 +902,10 @@ ensure_gossip_defaults() {
 # reach this step — update.sh runs fleet-wide.
 # ----------------------------------------------------------------------------
 deploy_prometheus_rules() {
-    if ! systemctl list-unit-files 2>/dev/null | grep -q '^prometheus\.service'; then
+    # systemctl cat, not list-unit-files | grep -q: under this script's
+    # pipefail, grep -q's early exit SIGPIPEs the producer and the gate
+    # intermittently reports "no prometheus" on the host that runs it.
+    if ! systemctl cat prometheus.service >/dev/null 2>&1; then
         return 0
     fi
     local deploy_script="$AITBC_ROOT/scripts/monitoring/deploy-rules.sh"
