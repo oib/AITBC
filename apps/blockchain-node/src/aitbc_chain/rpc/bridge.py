@@ -2,6 +2,7 @@
 Bridge-related RPC endpoints.
 """
 
+import time
 from typing import Any, cast
 
 from fastapi import HTTPException, Request
@@ -16,7 +17,14 @@ from ..metrics import (
     bridge_release_enabled,
     bridge_total_locked_amount,
 )
-from .utils import get_chain_id, verify_admin_signature, verify_request_signature
+from .utils import (
+    _ADMIN_MAX_SKEW_SECS,
+    _nonce_seen,
+    _parse_issued_at,
+    get_chain_id,
+    verify_admin_signature,
+    verify_request_signature,
+)
 
 _logger = get_logger(__name__)
 
@@ -56,6 +64,49 @@ def _require_release_enabled() -> None:
             detail="Bridge release path disabled (bridge_release_enabled=false). "
             "Set bridge_release_enabled to use confirm; escrow_enabled alone does not open it.",
         )
+
+
+def _apply_lock_replay_guard(lock_data: dict[str, Any], sign_data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """SEC-REPLAY-1: attach issued_at/nonce to the signed dict when present.
+
+    The six-field dict is replayable as-is (a captured body re-posts as a new
+    transfer — the id derives from time.time()). New-form locks add
+    issued_at+nonce inside the signed dict and are always replay-checked;
+    old-form stays accepted until the operator sets
+    BRIDGE_LOCK_REQUIRE_REPLAY_GUARD.
+    """
+    issued_at = lock_data.get("issued_at")
+    nonce = lock_data.get("nonce")
+    if issued_at is not None or nonce is not None:
+        sign_data["issued_at"] = issued_at
+        sign_data["nonce"] = nonce
+        return sign_data, True
+    if getattr(settings, "bridge_lock_require_replay_guard", False):
+        raise HTTPException(
+            status_code=400,
+            detail="Bridge locks require a replay-guarded signature (issued_at + nonce)",
+        )
+    return sign_data, False
+
+
+def _check_lock_freshness(sender: str, sign_data: dict[str, Any]) -> None:
+    """Replay guard for new-form bridge lock signatures.
+
+    New-form locks sign ``issued_at`` (within the admin ±300 s window) and a
+    single-use ``nonce`` keyed per sender in the shared nonce store. Both ride
+    inside the signed dict, so they cannot be stripped without breaking the
+    signature. Reuses the admin path's helpers — the sqlite store is shared
+    with it, keyed ``bridge-lock:<sender>:<nonce>`` so lock nonces cannot
+    collide with admin nonces.
+    """
+    issued = _parse_issued_at(sign_data.get("issued_at"))
+    if issued is None or abs(time.time() - issued) > _ADMIN_MAX_SKEW_SECS:
+        raise HTTPException(status_code=403, detail="Lock signature requires a fresh issued_at (±5 min)")
+    nonce = sign_data.get("nonce")
+    if not isinstance(nonce, str) or not nonce:
+        raise HTTPException(status_code=403, detail="Lock signature requires a nonce")
+    if _nonce_seen(f"bridge-lock:{sender.lower()}:{nonce}"):
+        raise HTTPException(status_code=403, detail="Lock nonce already used — this signed body cannot be replayed")
 
 
 @rate_limit(rate=20, per=60)
@@ -105,8 +156,11 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
             "amount": amount,
             "asset": asset,
         }
+        sign_data, replay_guarded = _apply_lock_replay_guard(lock_data, sign_data)
         if not verify_request_signature(cast(str, sender), signature, sign_data):
             raise HTTPException(status_code=403, detail="Invalid sender signature")
+        if replay_guarded:
+            _check_lock_freshness(cast(str, sender), sign_data)
 
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
