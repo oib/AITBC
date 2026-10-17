@@ -150,6 +150,58 @@ class TestExchangeBridgeBanner(unittest.TestCase):
         self.assertIn('id="bridge-retry-btn"', html)
 
 
+class TestHomeFactsStrip(unittest.TestCase):
+    """WEB-HOME-1: the live network facts strip must keep honest state —
+    green only for a proven reply from both endpoints; a failed or
+    unreadable read says unknown with a reason, never loading."""
+
+    def test_strip_element_and_states(self) -> None:
+        html = _site_src("index.html")
+        self.assertIn('id="facts-strip"', html)
+        self.assertIn('role="status"', html)
+        for fid in ("fact-node", "fact-island", "fact-height", "fact-validators"):
+            self.assertIn(f'id="{fid}"', html)
+        self.assertIn('id="facts-retry-btn"', html)
+
+    def test_load_facts_proves_both_legs(self) -> None:
+        js = _site_src("index.js")
+        self.assertIn("function renderFactsState", js)
+        self.assertIn("'facts-strip is-'", js)  # class built from state
+        for state in ("'live'", "'unknown'", "'loading'"):
+            self.assertIn(state, js)
+        self.assertIn("/rpc/network-info", js)
+        self.assertIn("/rpc/head", js)
+        self.assertIn("setInterval(loadFacts, 60000)", js)
+        # green requires proven fields, not just a 200
+        self.assertIn("Array.isArray(info.validators)", js)
+        self.assertIn("Number.isFinite(Number(head.height))", js)
+
+
+class TestHomeJoinStepperAndAnswers(unittest.TestCase):
+    """WEB-HOME-1: the join steps are a numbered <ol> with a paused gift
+    step, and the key request keeps its three answers apart — issued,
+    already-has-a-key (server answered), could-not-request."""
+
+    def test_stepper_and_paused_gift(self) -> None:
+        html = _site_src("index.html")
+        self.assertIn('<ol class="join-steps">', html)
+        self.assertIn('aria-current="step"', html)
+        step4 = html[html.index("join-step-4") : html.index("</ol>")]
+        self.assertIn("step-paused", step4)
+        self.assertIn("Faucet paused", step4)
+        self.assertIn("paid once the hub faucet resumes", step4)
+
+    def test_three_answers_kept_apart(self) -> None:
+        html = _site_src("index.html")
+        self.assertIn('id="join-retry-btn"', html)
+        js = _site_src("index.js")
+        self.assertIn("function setJoinRetry(visible)", js)
+        self.assertIn("join-neutral", js)  # server answered, nothing issued
+        self.assertIn("join-failed", js)  # could-not-request, retry follows
+        self.assertIn("response.status === 409", js)
+        self.assertIn("requestSubmit", js)
+
+
 class TestExchangeTrackRetry(unittest.TestCase):
     """EXCH-TRACKRETRY-1: the track Try again button must not outlive its
     could-not-query error line; and exchange-book.js may only rely on

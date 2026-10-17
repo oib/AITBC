@@ -38,6 +38,87 @@ async function loadNetworkInfo() {
 // Load network info on page load
 document.addEventListener('DOMContentLoaded', loadNetworkInfo);
 
+// ── Live network facts strip ──────────────────────────────────────────
+// One strip, three states: loading → live (green, proven reply) → unknown
+// (amber, reason in words, Try again). A failed or unreadable reply never
+// reads as loading or empty — the strip says unknown and re-checks every
+// 60 s. "Proven" = network-info carries chain_id + p2p_node_id + a
+// validators array AND /rpc/head carries a numeric height.
+
+function renderFactsState(state, detailText) {
+    const strip = document.getElementById('facts-strip');
+    if (!strip) return;
+    const titles = {
+        'loading': 'Reading network facts…',
+        'live': 'Live network facts',
+        'unknown': 'Network facts unknown',
+    };
+    strip.className = 'facts-strip is-' + (state in titles ? state : 'unknown');
+    const title = strip.querySelector('.facts-strip-title');
+    if (title) title.textContent = titles[state] || titles.unknown;
+    const detail = document.getElementById('facts-detail');
+    if (detail) detail.textContent = detailText || '';
+    const retry = document.getElementById('facts-retry-btn');
+    if (retry) retry.style.display = state === 'unknown' ? '' : 'none';
+}
+
+function setFact(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+async function loadFacts() {
+    let info = null, infoErr = null;
+    try {
+        const r = await fetch('/rpc/network-info');
+        if (!r.ok) {
+            infoErr = 'HTTP ' + r.status;
+        } else {
+            try { info = await r.json(); } catch (e) { infoErr = 'reply was not readable'; }
+        }
+    } catch (e) {
+        infoErr = 'network request failed';
+    }
+    let head = null, headErr = null;
+    try {
+        const r = await fetch('/rpc/head');
+        if (!r.ok) {
+            headErr = 'HTTP ' + r.status;
+        } else {
+            try { head = await r.json(); } catch (e) { headErr = 'reply was not readable'; }
+        }
+    } catch (e) {
+        headErr = 'network request failed';
+    }
+
+    const infoProven = info && typeof info === 'object'
+        && typeof info.chain_id === 'string' && info.chain_id
+        && typeof info.p2p_node_id === 'string' && info.p2p_node_id
+        && Array.isArray(info.validators);
+    const headProven = head && typeof head === 'object' && Number.isFinite(Number(head.height));
+
+    if (infoProven && headProven) {
+        setFact('fact-node', info.p2p_node_id);
+        setFact('fact-island', info.chain_id);
+        setFact('fact-height', String(head.height));
+        setFact('fact-validators', String(info.validators.length));
+        renderFactsState('live', 'read ' + new Date().toUTCString().slice(17, 22) + ' UTC');
+        return;
+    }
+
+    if (!infoErr && !infoProven) infoErr = 'reply was not the expected shape';
+    if (!headErr && !headProven) headErr = 'reply was not the expected shape';
+    const reason = infoErr ? 'network info: ' + infoErr : 'chain head: ' + headErr;
+    renderFactsState('unknown', reason + ' — checks again every 60 s');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFacts();
+    setInterval(loadFacts, 60000);
+    const retry = document.getElementById('facts-retry-btn');
+    if (retry) retry.addEventListener('click', loadFacts);
+});
+
 // ── Island join form ──────────────────────────────────────────────────
 // POSTs to /rpc/join, which issues a peer key bound to the node_id. The key
 // is returned once and only its hash is stored server-side, so it is rendered
@@ -47,6 +128,21 @@ function escapeHtml(s) {
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function setJoinRetry(visible) {
+    const retry = document.getElementById('join-retry-btn');
+    if (retry) retry.style.display = visible ? '' : 'none';
+}
+
+function joinFailed(reason, detail) {
+    const result = document.getElementById('join-result');
+    result.innerHTML =
+        `<div class="join-failed" role="alert">` +
+        `<p class="join-failed-title">Could not request a key (${escapeHtml(reason)})</p>` +
+        (detail ? `<p class="join-failed-detail">${escapeHtml(detail)}</p>` : '') +
+        `</div>`;
+    setJoinRetry(true);
+}
+
 async function handleJoinSubmit(event) {
     event.preventDefault();
     const nodeId = document.getElementById('join-node-id').value.trim();
@@ -54,6 +150,7 @@ async function handleJoinSubmit(event) {
     const result = document.getElementById('join-result');
     const button = document.getElementById('join-submit');
 
+    setJoinRetry(false);
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}$/.test(nodeId)) {
         result.innerHTML = '<p class="join-error">Node ID must be 3-64 characters: letters, digits, dots, hyphens, underscores.</p>';
         return;
@@ -67,10 +164,28 @@ async function handleJoinSubmit(event) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({node_id: nodeId, contact: contact || undefined}),
         });
-        const data = await response.json();
+        let data = null;
+        try { data = await response.json(); } catch (e) { data = null; }
         if (!response.ok) {
-            const detail = data.detail || `HTTP ${response.status}`;
-            result.innerHTML = `<p class="join-error">${escapeHtml(String(detail))}</p>`;
+            // 409 is a server answer, not a failure: the node id already
+            // holds a key and nothing new was issued. Everything else —
+            // HTTP error or unreadable body — is could-not-request.
+            if (response.status === 409) {
+                result.innerHTML =
+                    `<p class="join-neutral">` +
+                    `<strong>Node ID already has a key</strong> — the server answered; nothing new was issued.<br>` +
+                    `<span class="endpoint-note-sm">If the key is lost, contact the operator to revoke and re-join.</span>` +
+                    `</p>`;
+                return;
+            }
+            joinFailed(
+                `HTTP ${response.status}`,
+                data && data.detail ? String(data.detail) : 'nothing was issued',
+            );
+            return;
+        }
+        if (!data || typeof data !== 'object' || typeof data.peer_key !== 'string' || !data.peer_key) {
+            joinFailed(response.ok ? 'reply was not the expected shape' : `HTTP ${response.status}`, 'nothing was issued');
             return;
         }
         result.innerHTML =
@@ -81,10 +196,10 @@ async function handleJoinSubmit(event) {
             `<p class="endpoint-note-sm">Add to your node's <code>/etc/aitbc/blockchain-secrets.env</code> (or <code>node.env</code>):<br>` +
             `<code>${escapeHtml(data.env_snippet)}</code></p>` +
             `<p class="endpoint-note-sm">Bound to <code>${escapeHtml(data.node_id)}</code>. If you lose it, ask the operator to revoke so you can re-join.</p>` +
-            `<p class="endpoint-note-sm">Welcome gift: once your node is up, claim <strong>3 AIT free</strong> with <code>aitbc coin-requests request</code> — first request auto-pays.</p>` +
+            `<p class="endpoint-note-sm">Welcome gift: once your node is up, request the one-time <strong>3 AIT</strong> grant with <code>aitbc coin-requests request</code> — paid once the hub faucet resumes.</p>` +
             `</div>`;
     } catch (error) {
-        result.innerHTML = `<p class="join-error">Request failed: ${escapeHtml(String(error))}</p>`;
+        joinFailed('network request failed', 'nothing was issued');
     } finally {
         button.disabled = false;
     }
@@ -93,4 +208,6 @@ async function handleJoinSubmit(event) {
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('join-form');
     if (form) form.addEventListener('submit', handleJoinSubmit);
+    const retry = document.getElementById('join-retry-btn');
+    if (retry) retry.addEventListener('click', function() { if (form) form.requestSubmit(); });
 });

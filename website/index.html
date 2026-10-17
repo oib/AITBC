@@ -13,14 +13,14 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=7be31d33e01373b1">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=52387b01aade037c">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=7be31d33e01373b1">
-    <script src="copy.js?v=7be31d33e01373b1" defer></script>
-    <script src="index.js?v=7be31d33e01373b1" defer></script>
+    <link rel="stylesheet" href="/style.css?v=52387b01aade037c">
+    <script src="copy.js?v=52387b01aade037c" defer></script>
+    <script src="index.js?v=52387b01aade037c" defer></script>
 
-    <script src="status.js?v=7be31d33e01373b1" defer></script>
+    <script src="status.js?v=52387b01aade037c" defer></script>
     <!-- Agent Discovery Links -->
     <link rel="alternate" type="application/json" href="/rpc/network-info" title="AITBC Network Discovery">
     <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
@@ -82,6 +82,21 @@
             <p class="subtitle">Autonomous agent discovery interface for the AI-powered blockchain network</p>
         </header>
 
+        <div id="facts-strip" class="facts-strip is-loading" role="status" aria-live="polite">
+            <div class="facts-strip-head">
+                <span class="facts-strip-dot" aria-hidden="true"></span>
+                <span class="facts-strip-title">Reading network facts…</span>
+                <span class="facts-strip-detail" id="facts-detail"></span>
+                <button id="facts-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button>
+            </div>
+            <div class="facts-cells">
+                <span class="fact">node <strong id="fact-node">…</strong></span>
+                <span class="fact">island <strong id="fact-island">…</strong></span>
+                <span class="fact">height <strong id="fact-height">…</strong></span>
+                <span class="fact">validators <strong id="fact-validators">…</strong></span>
+            </div>
+        </div>
+
         <!-- aitbc-status:start -->
         <div class="status-strip" role="status" aria-live="polite"></div>
         <!-- aitbc-status:end -->
@@ -130,44 +145,55 @@
             <h2>Join the Island</h2>
             <p>This node (<span id="node-id">loading...</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">loading...</span> island. Joining is self-serve: download the chain configuration, request a peer key for your node below, and run the setup script.</p>
 
-            <h3 class="quickstart-heading">1. Download the chain configuration</h3>
-            <a href="/agent/bootstrap.env" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/bootstrap.env</span>
-            </a>
-            <p class="endpoint-note">Sanitized follower configuration — chain ID, hub endpoints, gossip settings, FOLLOWER_API_KEY.</p>
+            <ol class="join-steps">
+                <li id="join-step-1" aria-current="step">
+                    <h3 class="quickstart-heading">1. Download the chain configuration</h3>
+                    <a href="/agent/bootstrap.env" class="endpoint endpoint-link">
+                        <span class="method">GET</span> <span class="path">/agent/bootstrap.env</span>
+                    </a>
+                    <p class="endpoint-note">Sanitized follower configuration — chain ID, hub endpoints, gossip settings, FOLLOWER_API_KEY.</p>
 
-            <a href="/agent/genesis.json" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/genesis.json</span>
-            </a>
-            <p class="endpoint-note">Chain genesis block — a joining node builds block 0 from this.</p>
+                    <a href="/agent/genesis.json" class="endpoint endpoint-link">
+                        <span class="method">GET</span> <span class="path">/agent/genesis.json</span>
+                    </a>
+                    <p class="endpoint-note">Chain genesis block — a joining node builds block 0 from this.</p>
+                </li>
 
-            <h3 class="quickstart-heading">2. Get a peer key for your node</h3>
-            <p class="endpoint-note-sm">Your node needs a key to subscribe to block updates. Pick a unique node ID — the issued key is bound to it and shown once.</p>
-            <form id="join-form">
-                <label class="form-label" for="join-node-id">Node ID</label>
-                <input type="text" id="join-node-id" class="endpoint" placeholder="e.g. follower-1.example.com" required
-                       pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}" title="3-64 chars: letters, digits, dots, hyphens, underscores">
-                <label class="form-label" for="join-contact">Contact (optional)</label>
-                <input type="text" id="join-contact" class="endpoint" placeholder="email — helps the operator reach you">
-                <button type="submit" class="btn-primary" id="join-submit">Request peer key</button>
-            </form>
-            <div id="join-result"></div>
+                <li id="join-step-2">
+                    <h3 class="quickstart-heading">2. Get a peer key for your node</h3>
+                    <p class="endpoint-note-sm">Your node needs a key to subscribe to block updates. Pick a unique node ID — the issued key is bound to it and shown once.</p>
+                    <form id="join-form">
+                        <label class="form-label" for="join-node-id">Node ID</label>
+                        <input type="text" id="join-node-id" class="endpoint" placeholder="e.g. follower-1.example.com" required
+                               pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}" title="3-64 chars: letters, digits, dots, hyphens, underscores">
+                        <label class="form-label" for="join-contact">Contact (optional)</label>
+                        <input type="text" id="join-contact" class="endpoint" placeholder="email — helps the operator reach you">
+                        <button type="submit" class="btn-primary" id="join-submit">Request peer key</button>
+                    </form>
+                    <div id="join-result"></div>
+                    <button id="join-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button>
+                </li>
 
-            <h3 class="quickstart-heading">3. Install and start</h3>
-            <a href="https://github.com/oib/AITBC/blob/main/docs/agent/guides/open-island-joining-guide.md" class="endpoint endpoint-link" target="_blank" rel="noopener noreferrer">
-                <span class="method">DOC</span> <span class="path">Open Island Joining Guide</span>
-            </a>
-            <p class="endpoint-note-sm">Step-by-step instructions for joining the network as a follower node</p>
+                <li id="join-step-3">
+                    <h3 class="quickstart-heading">3. Install and start</h3>
+                    <a href="https://github.com/oib/AITBC/blob/main/docs/agent/guides/open-island-joining-guide.md" class="endpoint endpoint-link" target="_blank" rel="noopener noreferrer">
+                        <span class="method">DOC</span> <span class="path">Open Island Joining Guide</span>
+                    </a>
+                    <p class="endpoint-note-sm">Step-by-step instructions for joining the network as a follower node</p>
 
-            <a href="/rpc/network-info" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/rpc/network-info</span>
-            </a>
-            <p class="endpoint-note">Machine-readable join instructions: endpoints, validators, and the same bootstrap URLs.</p>
+                    <a href="/rpc/network-info" class="endpoint endpoint-link">
+                        <span class="method">GET</span> <span class="path">/rpc/network-info</span>
+                    </a>
+                    <p class="endpoint-note">Machine-readable join instructions: endpoints, validators, and the same bootstrap URLs.</p>
+                </li>
 
-            <h3 class="quickstart-heading">4. Claim your welcome gift — 3 AIT free</h3>
-            <p class="endpoint-note-sm">Every new node gets a one-time <strong>3 AIT</strong> grant (&asymp; 3 compute-hours at the 1&nbsp;AIT&nbsp;=&nbsp;1&nbsp;compute-hour reference). Once your follower is running:</p>
-            <p class="endpoint-note-sm"><code>aitbc coin-requests request</code></p>
-            <p class="endpoint-note-sm">Authenticates with the FOLLOWER_API_KEY already in bootstrap.env — the first request is auto-approved with no operator approval needed (paid once the hub faucet resumes — see the follower key announcement).</p>
+                <li id="join-step-4">
+                    <h3 class="quickstart-heading">4. Welcome gift <span class="step-paused">Faucet paused</span></h3>
+                    <p class="endpoint-note-sm">Every new node gets a one-time <strong>3 AIT</strong> grant (&asymp; 3 compute-hours at the 1&nbsp;AIT&nbsp;=&nbsp;1&nbsp;compute-hour reference) — <strong>paid once the hub faucet resumes</strong>.</p>
+                    <p class="endpoint-note-sm">Once your follower is running: <code>aitbc coin-requests request</code></p>
+                    <p class="endpoint-note-sm">Authenticates with the FOLLOWER_API_KEY already in bootstrap.env — the first request is auto-approved with no operator approval needed (paid once the hub faucet resumes — see the follower key announcement).</p>
+                </li>
+            </ol>
         </div>
 
         <div class="card">
