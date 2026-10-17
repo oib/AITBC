@@ -116,28 +116,71 @@ async function loadRecentBridges() {
     }
     if (empty) empty.style.display = 'none';
     if (!container) return;
-        container.innerHTML = transfers.map(d => {
-            const time = d.confirm_time || d.lock_time;
-            const when = time ? new Date(time).toLocaleString() : '-';
-            const tx = d.transfer_id
-                ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener noreferrer" aria-label="Transaction ${escapeHtml(d.transfer_id)}">${escapeHtml(d.transfer_id.slice(0, 18))}...</a> ${aitbcCopyBtn(d.transfer_id, 'transaction hash')}`
-                : '—';
-            const amount = fmtAit(d.release_amount !== null && d.release_amount !== undefined ? d.release_amount : d.amount);
-            return `
-                <div class="endpoint fade-in" style="padding:0;margin-bottom:0.75rem;">
-                    <table class="block-list-table" aria-label="Bridge transfer details">
-                        <tr><th scope="row">Time</th><td>${escapeHtml(when)}</td></tr>
-                        <tr><th scope="row">Route</th><td>${escapeHtml(d.source_chain || '-')} &rarr; ${escapeHtml(d.target_chain || '-')}</td></tr>
-                        <tr><th scope="row">Sender</th><td>${shortAddr(d.sender)}</td></tr>
-                        <tr><th scope="row">Recipient</th><td>${shortAddr(d.recipient)}</td></tr>
-                        <tr><th scope="row">Amount</th><td>${escapeHtml(amount)} AIT</td></tr>
-                        <tr><th scope="row">Asset</th><td>${escapeHtml(d.asset || 'native')}</td></tr>
-                        <tr><th scope="row">Tx</th><td>${tx}</td></tr>
-                        <tr><th scope="row">Status</th><td>${statusBadge(d.status)}</td></tr>
-                    </table>
-                </div>
-            `;
-        }).join('');
+    const rows = transfers.map(transferRow).join('');
+    const cards = transfers.map(transferCard).join('');
+    container.innerHTML = `<div class="table-wrap bridge-table-wrap" role="region" tabindex="0" aria-label="Bridge transfers">
+        <table class="bridge-table">
+            <thead><tr>
+                <th scope="col">When</th>
+                <th scope="col">Route</th>
+                <th scope="col">Sender</th>
+                <th scope="col">Recipient</th>
+                <th scope="col" class="bridge-col-amt">Amount</th>
+                <th scope="col">Status</th>
+                <th scope="col">Transfer</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </div>
+    <div class="bridge-cards">${cards}</div>`;
+}
+
+function shortChain(c) {
+    const s = String(c || '').replace(/\.aitbc\.bubuit\.net$/, '');
+    return s || '-';
+}
+
+function transferParts(d) {
+    const time = d.confirm_time || d.lock_time;
+    const when = time ? escapeHtml(new Date(time).toLocaleString()) : '-';
+    const whenNote = time ? (d.confirm_time ? 'confirmed' : 'locked') : '';
+    const srcChain = String(d.source_chain || '-');
+    const tgtChain = String(d.target_chain || '-');
+    const routeHtml = `<span title="${escapeHtml(srcChain)} &rarr; ${escapeHtml(tgtChain)}">${escapeHtml(shortChain(srcChain))} &rarr; ${escapeHtml(shortChain(tgtChain))}</span>`;
+    const senderHtml = shortAddr(d.sender);
+    const sameAsSender = d.sender && d.recipient
+        && String(d.sender).toLowerCase() === String(d.recipient).toLowerCase();
+    const recipientHtml = sameAsSender ? '<span class="muted-text">same as sender</span>' : shortAddr(d.recipient);
+    const amount = escapeHtml(fmtAit(d.release_amount !== null && d.release_amount !== undefined ? d.release_amount : d.amount));
+    const tx = d.transfer_id
+        ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener noreferrer" aria-label="Transaction ${escapeHtml(d.transfer_id)}">${escapeHtml(d.transfer_id.slice(0, 18))}...</a> ${aitbcCopyBtn(d.transfer_id, 'transaction hash')}`
+        : '—';
+    return { when, whenNote, routeHtml, senderHtml, recipientHtml, amount, tx };
+}
+
+function transferRow(d) {
+    const parts = transferParts(d);
+    return `<tr>
+        <td class="bridge-when"><span class="bridge-when-main">${parts.when}</span><span class="bridge-when-note">${parts.whenNote}</span></td>
+        <td>${parts.routeHtml}</td>
+        <td>${parts.senderHtml}</td>
+        <td>${parts.recipientHtml}</td>
+        <td class="bridge-amt">${parts.amount} AIT</td>
+        <td>${statusBadge(d.status)}</td>
+        <td>${parts.tx}</td>
+    </tr>`;
+}
+
+function transferCard(d) {
+    const parts = transferParts(d);
+    return `<div class="bridge-card-item">
+        <div class="bridge-card-top"><span class="bridge-when-main">${parts.when}</span>${statusBadge(d.status)}</div>
+        <div class="bridge-card-line"><span class="bridge-card-k">Route</span>${parts.routeHtml}</div>
+        <div class="bridge-card-line"><span class="bridge-card-k">From</span>${parts.senderHtml}</div>
+        <div class="bridge-card-line"><span class="bridge-card-k">To</span>${parts.recipientHtml}</div>
+        <div class="bridge-card-line"><span class="bridge-card-k">Amount</span><span class="bridge-amt">${parts.amount} AIT</span></div>
+        <div class="bridge-card-line">${parts.tx}</div>
+    </div>`;
 }
 
 function healthBits(data) {
