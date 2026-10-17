@@ -92,6 +92,7 @@ class TestLockEndpointsPaused:
 
         with pytest.raises(HTTPException) as exc:
             _lock_transfer(
+                request_data={},
                 sign_data={},
                 source_chain="chain-a",
                 target_chain="chain-b",

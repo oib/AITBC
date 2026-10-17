@@ -534,6 +534,13 @@ class ChainSettings(BaseSettings):
     # deliberate operator step after clients are updated.
     bridge_lock_require_replay_guard: bool = False
 
+    # SEC-REPLAY-2: when set (CROSS_CHAIN_REQUIRE_REPLAY_GUARD), the
+    # /cross-chain/bridge and /swap lock paths refuse old-form signatures —
+    # same scheme as BRIDGE_LOCK_REQUIRE_REPLAY_GUARD, on the shared
+    # _lock_transfer helper. New-form bodies (issued_at + nonce signed) are
+    # always replay-checked, flag or not. Default off for client compat.
+    cross_chain_require_replay_guard: bool = False
+
     # Bridge configuration (v0.7.0). Operational parameters for the cross-chain
     # bridge. Defaults mirror the constants in aitbc/constants.py
     # (BRIDGE_TIMEOUT_SECONDS, BRIDGE_RETRY_LIMIT, etc.) so they can be tuned

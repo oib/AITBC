@@ -15,6 +15,7 @@ settlement.
 """
 
 import json
+import secrets
 import time
 from decimal import Decimal
 from typing import Any
@@ -234,6 +235,8 @@ def swap(
     amount_units = ait_to_units(amount)
     min_amount_units = ait_to_units(min_amount) if min_amount is not None else 0
 
+    # SEC-REPLAY-2: issued_at + nonce inside the signed dict make a captured
+    # body single-use (server-side replay guard, always on for new-form bodies).
     sign_data = {
         "from_chain": from_chain,
         "to_chain": to_chain,
@@ -244,6 +247,8 @@ def swap(
         "amount": amount_units,
         "min_amount": min_amount_units,
         "slippage_tolerance": slippage,
+        "issued_at": int(time.time()),
+        "nonce": secrets.token_hex(16),
     }
     swap_data = dict(sign_data)
     swap_data["signature"] = _sign_request(sign_data, private_key)
@@ -430,6 +435,8 @@ def bridge(
         "recipient": recipient,
         "amount": amount_units,
         "asset": token,
+        "issued_at": int(time.time()),
+        "nonce": secrets.token_hex(16),
     }
     bridge_data = dict(sign_data)
     bridge_data["signature"] = _sign_request(sign_data, private_key)
