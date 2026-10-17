@@ -45,7 +45,7 @@ Two `aitbc-blockchain-rpc` env keys govern whether the node accepts *new* bridge
 
 | env key | default | meaning |
 |---|---|---|
-| `BRIDGE_LOCKS_PAUSED` | `false` | `true` fences off new locks on `POST /bridge/lock`, `POST /bridge/batch/lock`, `/swap`, `/cross-chain/bridge` and internal `initiate_transfer`. Refund, status-read and confirm paths stay available, so in-flight transfers can still settle. |
+| `BRIDGE_LOCKS_PAUSED` | `false` | `true` fences off new locks on `POST /bridge/lock`, `/swap`, `/cross-chain/bridge` and internal `initiate_transfer`. Refund, status-read and confirm paths stay available, so in-flight transfers can still settle. |
 | `BRIDGE_MAX_LOCK_AMOUNT` | `0` (unlimited) | Per-lock maximum in compute units. `1 AIT = 36,000,000 units`; `36,000,000,000` = a 1,000 AIT per-lock cap — the value the live fleet runs. |
 
 Normal state is **locks open** (`BRIDGE_LOCKS_PAUSED=false`) with a per-lock cap. The cap is **fail-closed in production**: when `BRIDGE_LOCKS_PAUSED` is false and `BRIDGE_MAX_LOCK_AMOUNT` is unset or `0`, `initiate_transfer` refuses locks with a logged reason instead of running uncapped. Development and test environments keep `0 = unlimited`. To pause intake again — e.g. while rotating the bridge validator set — edit `/etc/aitbc/blockchain.env` on the host:
@@ -90,7 +90,7 @@ the same values.
 | List Pending Transfers (`list_pending_transfers`) | List pending bridge transfers | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
 | Bridge Balance (`get_bridge_balance`) | Get bridge balance for a chain | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
 | Bridge Health (`bridge_health`) | Bridge health check | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Batch Lock/Confirm (`batch_lock`, `batch_confirm`) | Batch lock or confirm multiple transfers | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
+| Batch Confirm (`batch_confirm`) | Confirm multiple transfers (per-item confirmer signatures) | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
 
 ### Bridge Security
 
