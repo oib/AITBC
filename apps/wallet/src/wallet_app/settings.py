@@ -33,6 +33,17 @@ class Settings(ServiceSettings):
     api_key: str | None = Field(default=None, alias="WALLET_API_KEY")
     auth_enabled: bool = Field(default=True, alias="WALLET_AUTH_ENABLED")
 
+    # Receipt signature trust: comma-separated Ed25519 key_ids (e.g. the
+    # coordinator's RECEIPT_SIGNING key). When set, a receipt signature whose
+    # embedded key_id is not listed verifies as invalid — a self-made keypair
+    # can no longer produce a "valid" receipt.
+    trusted_receipt_key_ids: str = Field(default="", alias="TRUSTED_RECEIPT_KEY_IDS")
+
+    @property
+    def trusted_receipt_key_id_set(self) -> frozenset[str] | None:
+        ids = {k.strip() for k in self.trusted_receipt_key_ids.split(",") if k.strip()}
+        return frozenset(ids) if ids else None
+
     @property
     def ledger_db_path(self) -> Path:
         """Backward-compatible property: returns the ledger DB path as a Path."""
