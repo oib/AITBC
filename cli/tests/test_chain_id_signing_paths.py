@@ -322,7 +322,7 @@ def test_ai_submit_lookup_failure_names_job_id(runner, ai_patches):
     assert result.exit_code != 0
     text = result.output + str(result.exception)
     assert "job-1" in text
-    assert "pay-job job-1" in text
+    assert "pay --job-id job-1" in text
     assert "CHAIN_ID" in text
     escrow_spy.assert_not_called()
 
@@ -348,7 +348,7 @@ def test_ai_submit_invalid_amount_omits_chain_hint(runner, ai_patches):
     text = result.output + str(result.exception)
     assert "Invalid payment amount" in text
     assert "job-1" in text
-    assert "pay-job job-1" in text
+    assert "pay --job-id job-1" in text
     assert "CHAIN_ID" not in text
 
 
@@ -363,8 +363,34 @@ def test_ai_submit_nonce_failure_omits_chain_hint(runner, ai_patches):
     text = result.output + str(result.exception)
     assert "nonce lookup failed" in text
     assert "job-1" in text
-    assert "pay-job job-1" in text
+    assert "pay --job-id job-1" in text
     assert "CHAIN_ID" not in text
+
+
+def test_ai_submit_escrow_lock_uses_wallet_buyer(runner, ai_patches):
+    """Without --buyer-address the escrow lock must sign for the --wallet
+    address — the same buyer the job POST carries — not the literal
+    string 'none' (which produced /rpc/account/none lookups live)."""
+    from aitbc_cli.utils.address import to_canonical
+
+    client, escrow_spy = ai_patches
+    with _ok_probe():
+        result = _invoke_ai(runner, SUBMIT_ARGS)
+    assert result.exit_code == 0, result.output
+    # create_signed_escrow_lock(ctx, rpc_url, job_id, buyer, provider, ...)
+    assert escrow_spy.call_args.args[3] == to_canonical(ACCOUNT)
+
+
+def test_ai_submit_escrow_lock_prefers_explicit_buyer(runner, ai_patches):
+    """An explicit --buyer-address still wins over the wallet fallback."""
+    from aitbc_cli.utils.address import to_canonical
+
+    client, escrow_spy = ai_patches
+    other = "0x1111111111111111111111111111111111111111"
+    with _ok_probe():
+        result = _invoke_ai(runner, [*SUBMIT_ARGS, "--buyer-address", other])
+    assert result.exit_code == 0, result.output
+    assert escrow_spy.call_args.args[3] == to_canonical(other)
 
 
 # --- probe base normalization (CLI-3) -------------------------------------
