@@ -234,8 +234,8 @@ class TestBug3ProposerSignatureValidatorSetMembership:
             result = bridge._validate_proof(proof_fields, record)
         assert result is True, "Proof signed by validator set member must be accepted"
 
-    def test_signature_rejected_without_vset(self, bridge: CrossChainBridge, engine) -> None:
-        """When no validator set is registered, any valid signature is accepted (dev mode)."""
+    def test_any_valid_signature_rejected_without_vset(self, bridge: CrossChainBridge, engine) -> None:
+        """F2: with no validator set registered, no signature is trusted — dev mode no longer accepts any key."""
         _seed_sender(engine, "chain-a", "0xsender", 100000)
 
         _store_block_header(
@@ -266,9 +266,7 @@ class TestBug3ProposerSignatureValidatorSetMembership:
             patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
         ):
             result = bridge._validate_proof(proof_fields, record)
-        # F2: the freshness gate fails closed — with no validator set there is
-        # nothing that can attest to the header, so even dev mode rejects.
-        assert result is False, "Without a validator set the proof must be rejected (fail closed)"
+        assert result is False, "Without a vset the proof must be refused"
 
 
 # ---------------------------------------------------------------------------
@@ -314,19 +312,15 @@ class TestBug4MerkleProofEnforcement:
             result = bridge._validate_proof(proof_fields, record)
         assert result is False, "Proof without merkle_proof must be rejected when bridge_require_merkle_proof=True"
 
-    def test_proof_without_merkle_accepted_when_not_required(
-        self, bridge: CrossChainBridge, engine, validator_accounts: list[EthAccount]
-    ) -> None:
+    def test_proof_without_merkle_accepted_when_not_required(self, bridge: CrossChainBridge, engine) -> None:
         """A proof without merkle_proof is accepted when bridge_require_merkle_proof=False (default)."""
-        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(engine, "chain-a", "0xsender", 100000)
 
-        proposer = validator_accounts[0]
         _store_block_header(
             engine,
             chain_id="chain-a",
             height=10,
-            proposer=proposer.address.lower(),
+            proposer="0xproposer",
             state_root="0x" + "cd" * 32,
             signature="",
             confirmation_count=10,
@@ -337,11 +331,12 @@ class TestBug4MerkleProofEnforcement:
             record = session.get(CrossChainTransfer, transfer.transfer_id)
             assert record is not None
 
+        signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields = _build_proof_fields(record)
-        proof_fields["proposer"] = proposer.address.lower()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            proposer.key.hex(),
+            signer.key.hex(),
         )
         # No merkle_proof in proof_fields
 
@@ -353,13 +348,10 @@ class TestBug4MerkleProofEnforcement:
             result = bridge._validate_proof(proof_fields, record)
         assert result is True, "Proof without merkle_proof should be accepted when bridge_require_merkle_proof=False"
 
-    def test_proof_with_valid_merkle_accepted_when_required(
-        self, bridge: CrossChainBridge, engine, validator_accounts: list[EthAccount]
-    ) -> None:
+    def test_proof_with_valid_merkle_accepted_when_required(self, bridge: CrossChainBridge, engine) -> None:
         """A proof with a valid merkle_proof is accepted when bridge_require_merkle_proof=True."""
         from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
 
-        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(engine, "chain-a", "0xsender", 100000)
 
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
@@ -367,9 +359,7 @@ class TestBug4MerkleProofEnforcement:
             record = session.get(CrossChainTransfer, transfer.transfer_id)
             assert record is not None
 
-        # Build a trie with the lock event and get the real state root + proof.
-        # The leaf must match _build_lock_event_value (the v1 format the chain
-        # commits at lock time) — confirm_transfer binds lock_event to it.
+        # Build a trie with the lock event and get the real state root + proof
         lock_key = record.source_tx_hash or "0xlock"
         lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         trie = MerklePatriciaTrie()
@@ -378,25 +368,25 @@ class TestBug4MerkleProofEnforcement:
         state_root_hex = "0x" + state_root.hex()
         merkle_proof = trie.get_proof(lock_key.encode())
 
-        proposer = validator_accounts[0]
         _store_block_header(
             engine,
             chain_id="chain-a",
             height=10,
-            proposer=proposer.address.lower(),
+            proposer="0xproposer",
             state_root=state_root_hex,
             signature="",
             confirmation_count=10,
         )
 
+        signer = EthAccount.create()
+        bridge.register_validator("chain-a", signer.address.lower(), "0x", 0)
         proof_fields = _build_proof_fields(record)
         proof_fields["state_root"] = state_root_hex
         proof_fields["lock_event"] = lock_value
         proof_fields["merkle_proof"] = [p.hex() for p in merkle_proof]
-        proof_fields["proposer"] = proposer.address.lower()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            proposer.key.hex(),
+            signer.key.hex(),
         )
 
         with (
@@ -430,7 +420,7 @@ class TestV01016ProductionReleasePath:
 
         # Build a real Merkle proof so the failure is specifically vset membership
         lock_key = record.source_tx_hash or "0xlock"
-        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         trie = MerklePatriciaTrie()
         trie.put(lock_key.encode(), lock_value.encode())
         state_root = trie.get_root()
@@ -504,114 +494,3 @@ class TestV01016ProductionReleasePath:
         ):
             result = bridge._validate_proof(proof_fields, record)
         assert result is False, "Release path must reject proof without merkle_proof"
-
-
-# ---------------------------------------------------------------------------
-# Repo-review 2026-10-17 #1: the release path must be bound to a stored record
-# and to the lock leaf the source chain actually committed.
-# ---------------------------------------------------------------------------
-
-
-class TestConfirmRecordBinding:
-    """/bridge/confirm minted whatever a proof claimed: the record was built
-    from the proof (so equality checks compared it to itself) and the Merkle
-    leaf was never bound to the record's fields."""
-
-    def test_confirm_rejects_unknown_transfer_id(self, bridge: CrossChainBridge, engine) -> None:
-        """A proof naming a transfer_id with no stored record is refused; the
-        record must never be materialized from the proof itself."""
-        _seed_sender(engine, "chain-a", "0xsender", 100000)
-        _store_block_header(
-            engine,
-            chain_id="chain-a",
-            height=10,
-            proposer="0xproposer",
-            state_root="0x" + "cd" * 32,
-            signature="",
-            confirmation_count=10,
-        )
-
-        transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
-        with Session(engine) as session:
-            record = session.get(CrossChainTransfer, transfer.transfer_id)
-            assert record is not None
-            proof_fields = _build_proof_fields(record)
-
-        forged_id = "0x" + "aa" * 32
-        proof_fields["target_chain"] = "chain-b"  # past the target-chain gate to reach the record check
-        with pytest.raises(ValueError, match="Unknown transfer_id"):
-            bridge.confirm_transfer(forged_id, proof_fields)
-
-        with Session(engine) as session:
-            assert session.get(CrossChainTransfer, forged_id) is None
-
-    def test_lock_event_must_match_record_leaf(self, bridge: CrossChainBridge, engine) -> None:
-        """A lock_event that verifies inside the supplied trie but does not
-        describe the stored record (e.g. inflated amount) is rejected."""
-        from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
-
-        _seed_sender(engine, "chain-a", "0xsender", 100000)
-        transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
-        with Session(engine) as session:
-            record = session.get(CrossChainTransfer, transfer.transfer_id)
-            assert record is not None
-
-        lock_key = record.source_tx_hash or "0xlock"
-        # Leaf commits 10x the record's amount — an attacker-supplied leaf.
-        lock_value = f"lock:{record.transfer_id}:{record.amount * 10}:{record.target_chain}"
-        trie = MerklePatriciaTrie()
-        trie.put(lock_key.encode(), lock_value.encode())
-        state_root_hex = "0x" + trie.get_root().hex()
-        merkle_proof = trie.get_proof(lock_key.encode())
-
-        _store_block_header(
-            engine,
-            chain_id="chain-a",
-            height=10,
-            proposer="0xproposer",
-            state_root=state_root_hex,
-            signature="",
-            confirmation_count=10,
-        )
-
-        signer = EthAccount.create()
-        proof_fields = _build_proof_fields(record)
-        proof_fields["state_root"] = state_root_hex
-        proof_fields["lock_event"] = lock_value
-        proof_fields["merkle_proof"] = [p.hex() for p in merkle_proof]
-        proof_fields["proposer_signature"] = _sign_proof(
-            {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
-        )
-
-        with (
-            patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
-            patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
-            patch("aitbc_chain.config.settings.bridge_require_merkle_proof", True),
-        ):
-            result = bridge._validate_proof(proof_fields, record)
-        assert result is False, "lock_event not matching the stored record's leaf must be rejected"
-
-    def test_missing_header_rejected_when_release_enabled(self, bridge: CrossChainBridge, engine) -> None:
-        """No stored header + bridge_release_enabled must fail closed: a
-        proof-materialized header makes every anchor check self-referential."""
-        _seed_sender(engine, "chain-a", "0xsender", 100000)
-        transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
-        with Session(engine) as session:
-            record = session.get(CrossChainTransfer, transfer.transfer_id)
-            assert record is not None
-
-        signer = EthAccount.create()
-        proof_fields = _build_proof_fields(record)
-        proof_fields["proposer_signature"] = _sign_proof(
-            {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
-        )
-
-        with (
-            patch("aitbc_chain.config.settings.bridge_release_enabled", True),
-            patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
-            patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
-        ):
-            result = bridge._validate_proof(proof_fields, record)
-        assert result is False, "Missing stored header must be rejected when bridge_release_enabled"

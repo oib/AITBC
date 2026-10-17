@@ -214,6 +214,7 @@ class TestBug3And12BridgeProofVerification:
             amount=1000,
             asset="native",
             status="pending",
+            source_tx_hash="0xlocktxhash",
         )
 
     def _base_proof(self, record) -> dict[str, Any]:
@@ -258,7 +259,7 @@ class TestBug3And12BridgeProofVerification:
 
     def test_accepts_valid_proof_with_valid_signature(self, bridge, valid_record) -> None:
         """A complete proof with a valid proposer_signature is accepted."""
-        priv_key, _ = _generate_keypair()
+        priv_key, address = _generate_keypair()
         proof = self._base_proof(valid_record)
         # Sign the proof (excluding proposer_signature) with the test private key
         proof_for_signing = {k: v for k, v in proof.items() if k != "proposer_signature"}
@@ -266,9 +267,12 @@ class TestBug3And12BridgeProofVerification:
         # v0.7.2: _validate_proof now does block header lookup + validator set freshness
         # check. With a mock session, these fail. Use "field-eq" mode (skips block header
         # lookup) and patch validator set freshness to return True.
+        # F2: the signer must be a member of the source chain's validator set.
+        vset = SimpleNamespace(validators=[SimpleNamespace(address=address)])
         with patch.object(bridge, "_check_validator_set_freshness", return_value=True):
-            with patch.object(settings, "bridge_verification_mode", "field-eq"):
-                assert bridge._validate_proof(proof, valid_record) is True
+            with patch.object(bridge, "get_validator_set", return_value=vset):
+                with patch.object(settings, "bridge_verification_mode", "field-eq"):
+                    assert bridge._validate_proof(proof, valid_record) is True
 
     def test_rejects_proof_with_invalid_signature(self, bridge, valid_record) -> None:
         """A proof with an invalid (malformed) proposer_signature is rejected."""

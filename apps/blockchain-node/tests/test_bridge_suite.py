@@ -67,6 +67,11 @@ def _store_block_header(
         return header
 
 
+def _register_signer(bridge: CrossChainBridge, account: EthAccount, chain_id: str = "chain-a") -> None:
+    """Register the proof signer as the source chain's validator set (F2: no set, no release)."""
+    bridge.register_validator(chain_id, account.address.lower(), "0x", 0)
+
+
 def _canonical_hash(data: dict[str, Any]) -> bytes:
     """keccak256 of canonical JSON encoding (matches verify_request_signature)."""
     message = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
@@ -179,14 +184,7 @@ def bridge_with_header(bridge: CrossChainBridge, engine, proposer_account: EthAc
         signature="",  # no signature — block sig verification disabled
         confirmation_count=10,  # enough for finality
     )
-    # F2: the validator-set freshness gate fails closed with an empty set, so
-    # the stored header's proposer must be a registered validator.
-    bridge.register_validator(
-        chain_id="chain-a",
-        address=proposer_account.address.lower(),
-        public_key="0x" + proposer_account.key.hex(),
-        epoch=0,
-    )
+    _register_signer(bridge, proposer_account)
     with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
         yield bridge
 
@@ -277,6 +275,7 @@ class TestBridgeLifecycle:
 
     def test_bridge_lifecycle_lock_then_confirm(self, bridge: CrossChainBridge, proposer_account: EthAccount, engine) -> None:
         """Full lock -> confirm cycle with valid data and a valid proof."""
+        _register_signer(bridge, proposer_account)
         sender = "0xlivesender"
         recipient = "0xliverecipient"
         source_chain = "chain-a"
@@ -290,13 +289,6 @@ class TestBridgeLifecycle:
 
         # v0.7.2: Store a block header for proof verification
         _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
-        # F2: freshness gate fails closed without validators — register the proposer.
-        bridge.register_validator(
-            chain_id=source_chain,
-            address=proposer_account.address.lower(),
-            public_key="0x" + proposer_account.key.hex(),
-            epoch=0,
-        )
 
         # Step 1: lock
         transfer = bridge.initiate_transfer(
@@ -356,6 +348,7 @@ class TestBridgeLifecycle:
 
     def test_bridge_transfer_status_tracking(self, bridge: CrossChainBridge, proposer_account: EthAccount, engine) -> None:
         """Verify transfer status transitions (pending -> locked -> confirmed -> completed)."""
+        _register_signer(bridge, proposer_account)
         sender = "0xtracksender"
         recipient = "0xtrackrecipient"
         source_chain = "chain-a"
@@ -368,12 +361,6 @@ class TestBridgeLifecycle:
 
         # v0.7.2: Store a block header for proof verification
         _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
-        bridge.register_validator(
-            chain_id=source_chain,
-            address=proposer_account.address.lower(),
-            public_key="0x" + proposer_account.key.hex(),
-            epoch=0,
-        )
 
         # DB record starts as "pending" after initiation
         transfer = bridge.initiate_transfer(
@@ -431,15 +418,9 @@ class TestCrossChainContamination:
 
     def test_proof_replay_across_chains_rejected(self, bridge: CrossChainBridge, proposer_account: EthAccount, engine) -> None:
         """A proof valid for chain A must be rejected for a transfer on chain B."""
+        _register_signer(bridge, proposer_account)
         # v0.7.2: Store block header for chain-a
         _store_block_header(engine, chain_id="chain-a", height=10, proposer=proposer_account.address.lower())
-        # F2: freshness gate fails closed without validators — register the proposer.
-        bridge.register_validator(
-            chain_id="chain-a",
-            address=proposer_account.address.lower(),
-            public_key="0x" + proposer_account.key.hex(),
-            epoch=0,
-        )
         record_a = _make_record(source_chain="chain-a", target_chain="chain-b")
         proof = _make_valid_proof(record_a, proposer_account.key.hex())
         with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):

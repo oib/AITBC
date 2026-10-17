@@ -121,6 +121,8 @@ class TestP1_3Bridge:
             session.add(Account(chain_id=source_chain, address=sender, balance=1_000_000, nonce=0))
             session.add(Account(chain_id=target_chain, address=recipient, balance=0, nonce=0))
             session.commit()
+        # F2: a header verifies only against the source chain's validator set.
+        bridge.register_validator(source_chain, proposer.address.lower(), "0x", 0)
 
         # Disable release-only fences so the test can pass without a full validator set.
         # CFG-1: assert the legacy RPC-time mutation path — pin the flag off explicitly.
@@ -132,15 +134,6 @@ class TestP1_3Bridge:
         ):
             transfer = bridge.initiate_transfer(source_chain, target_chain, sender, recipient, 10_000)
             assert transfer.status == BridgeStatus.locked
-
-            # F2: the validator-set freshness gate fails closed with an empty
-            # set — register the block proposer so proof verification can run.
-            bridge.register_validator(
-                chain_id=source_chain,
-                address=proposer.address.lower(),
-                public_key="0x" + proposer.key.hex(),
-                epoch=0,
-            )
 
             # Build and persist the signed source block with bridge_state_root.
             block, _signature = _build_and_sign_block(bridge, source_chain, proposer, 1, transfer)
@@ -219,6 +212,8 @@ class TestP1_3Bridge:
             session.add(Account(chain_id=source_chain, address=sender, balance=1_000_000, nonce=0))
             session.add(Account(chain_id=target_chain, address=recipient, balance=0, nonce=0))
             session.commit()
+        # F2: a header verifies only against the source chain's validator set.
+        bridge.register_validator(source_chain, proposer.address.lower(), "0x", 0)
 
         with (
             patch("aitbc_chain.config.settings.bridge_release_enabled", False),
