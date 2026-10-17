@@ -294,22 +294,18 @@ class BridgeTransferMixin(BridgeBase):
             if persisted_proof is not None:
                 raise ValueError("Proof already processed (double-spend attempt)")
             record = session.get(CrossChainTransfer, transfer_id)
-            if not record:
-                # v0.7.3: Target chain has not seen the lock yet; create a
-                # CrossChainTransfer from the proof so the release can proceed.
-                record = CrossChainTransfer(
-                    transfer_id=transfer_id,
-                    source_chain=proof.get("source_chain", ""),
-                    target_chain=target_chain,
-                    sender=proof.get("sender", ""),
-                    recipient=proof.get("recipient", ""),
-                    amount=int(proof.get("amount", 0)),
-                    asset=proof.get("asset", "native"),
-                    status="pending",
-                    source_tx_hash=proof.get("lock_tx_hash", transfer_id),
-                    lock_time=datetime.now(UTC),
+            if record is None:
+                # Fail closed: the record must already exist on this chain —
+                # written by the lock path or mirrored through state sync.
+                # Materializing it from the proof made every equality check in
+                # _validate_proof compare the proof against itself, and the v1
+                # lock leaf (lock:{transfer_id}:{amount}:{target_chain}) cannot
+                # bind the claimed recipient — a record built from an untrusted
+                # proof let a caller redirect any real lock's release.
+                raise ValueError(
+                    "Unknown transfer_id: no CrossChainTransfer record on this "
+                    "chain; refusing to materialize the record from the proof"
                 )
-                session.add(record)
             if record.status != "pending":
                 raise ValueError(f"Transfer already processed: {record.status}")
             if not self._validate_proof(proof, record):
@@ -882,6 +878,18 @@ class BridgeTransferMixin(BridgeBase):
             # Look up the block header from the DB
             header = self._get_block_header(record_chain_id, block_height)
             if header is None:
+                # Production flags fail closed: a header materialized from the
+                # proof makes the hash/state-root/signature checks that follow
+                # self-referential — the prover supplies all of them. Only
+                # dev mode (neither bridge_release_enabled nor
+                # bridge_multisig_enabled) may fall back to a proof header.
+                if getattr(settings, "bridge_release_enabled", False) or getattr(settings, "bridge_multisig_enabled", False):
+                    logger.warning(
+                        "No stored block header for chain=%s height=%s under production bridge flags; rejecting proof",
+                        record_chain_id,
+                        block_height,
+                    )
+                    return False
                 # Materialize a BridgeBlockHeader from the proof as a fallback.
                 try:
                     header = BridgeBlockHeader(
@@ -929,6 +937,19 @@ class BridgeTransferMixin(BridgeBase):
             # Step 5c: Merkle proof verification (B3)
             merkle_proof = proof.get("merkle_proof", [])
             if merkle_proof:
+                # Bind the leaf to the stored record before trusting the trie:
+                # the leaf "lock:{transfer_id}:{amount}:{target_chain}" is the
+                # only value the source chain committed. A proof that carries
+                # a different lock_event would still verify in the trie — it
+                # just would not describe this transfer.
+                expected_lock_event = self._build_lock_event_value(record)
+                if proof.get("lock_event", "") != expected_lock_event:
+                    logger.warning(
+                        "lock_event mismatch: proof commits %r, record requires %r",
+                        str(proof.get("lock_event", ""))[:80],
+                        expected_lock_event[:80],
+                    )
+                    return False
                 merkle_state_root = header.bridge_state_root or header.state_root
                 if not self._verify_merkle_proof(merkle_state_root, proof):
                     logger.warning("Merkle proof verification failed for height=%s", block_height)
