@@ -7,7 +7,9 @@ proposer looks up the local row and writes the leaf
 ``lock:<transfer_id>:<amount>:<target_chain>`` — or the degenerate
 ``lock:<tx_hash>:0:unknown`` when the row is missing
 (``consensus/poa.py::_compute_bridge_state_root``). A node without the local
-row derives a different root for the same sealed block.
+row derives a different root for the same sealed block. From
+``bridge_lock_leaf_v2_height`` the leaf gains ``:<recipient>`` — both
+builders are height-aware via the same resolution order as the node.
 
 V-4 proposes deriving the leaf entirely from the sealed transaction — the
 ``payload``, with the ``envelope`` fallback for the GAP-47 block-scoped rows
@@ -46,6 +48,51 @@ from typing import Any
 
 UNKNOWN_LEAF_TEMPLATE = "lock:{tx_hash}:0:unknown"
 
+_V2_HEIGHT: int | None = None  # resolved once per process
+
+
+def _scan_env_key(path: str, key: str) -> str | None:
+    """One targeted key out of an env file; never returns file contents."""
+    try:
+        with open(path) as fh:  # noqa: PTH123
+            for line in fh:
+                line = line.strip()
+                if line.startswith(key + "="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return None
+
+
+def _resolve_v2_height(cli_value: int | None = None) -> int | None:
+    """Recipient-bound leaf activation — mirrors bridge_leaf.lock_leaf_v2_active.
+    Order: --v2-height, $BRIDGE_LOCK_LEAF_V2_HEIGHT, aitbc_chain settings,
+    /etc/aitbc/blockchain.env."""
+    global _V2_HEIGHT
+    if _V2_HEIGHT is not None:
+        return _V2_HEIGHT
+    raw: Any = cli_value
+    if raw is None:
+        raw = os.environ.get("BRIDGE_LOCK_LEAF_V2_HEIGHT", "").strip() or None
+    if raw is None:
+        try:
+            from aitbc_chain.config import settings  # noqa: PLC0415
+
+            raw = getattr(settings, "bridge_lock_leaf_v2_height", None)
+        except Exception:
+            raw = None
+    if raw is None:
+        raw = _scan_env_key("/etc/aitbc/blockchain.env", "BRIDGE_LOCK_LEAF_V2_HEIGHT")
+    try:
+        _V2_HEIGHT = None if raw is None else int(raw)
+    except (TypeError, ValueError):
+        _V2_HEIGHT = None
+    return _V2_HEIGHT
+
+
+def _v2_active(height: int) -> bool:
+    return _V2_HEIGHT is not None and int(height) >= _V2_HEIGHT
+
 
 def connect_ro(db_path: str) -> sqlite3.Connection:
     """The ONLY connection this program creates: mode=ro + query_only.
@@ -78,33 +125,43 @@ def _pick(source: dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def current_leaf(tx_hash: str, record: tuple | None) -> tuple[str, str]:
-    """Today's service-local leaf. record = (transfer_id, amount, target_chain)
-    or None → the degenerate 0:unknown leaf."""
+def current_leaf(tx_hash: str, record: tuple | None, height: int = 0) -> tuple[str, str]:
+    """The leaf consensus actually sealed at ``height``. record =
+    (transfer_id, amount, target_chain, recipient) or None → the degenerate
+    0:unknown leaf (unchanged post-arming)."""
     if record is None:
         return UNKNOWN_LEAF_TEMPLATE.format(tx_hash=tx_hash), "missing-row"
-    tid, amount, target = record
+    tid, amount, target, recipient = record
+    if _v2_active(height):
+        return f"lock:{tid}:{amount}:{target}:{recipient}", "row"
     return f"lock:{tid}:{amount}:{target}", "row"
 
 
-def derived_leaf(tx_hash: str, payload: dict[str, Any], envelope: dict[str, Any]) -> tuple[str | None, str]:
-    """V-4 leaf derived from the sealed transaction only.
+def derived_leaf(tx_hash: str, payload: dict[str, Any], envelope: dict[str, Any], height: int = 0) -> tuple[str | None, str]:
+    """V-4 leaf derived from the sealed transaction only, height-aware.
 
     Preferred source is ``payload``; when it is empty (GAP-47 block-scoped
-    rows) the signed ``envelope`` carries the same body. Returns
-    ``(leaf, source)`` where source is payload / envelope / missing.
+    rows) the signed ``envelope`` carries the same body. From the v2 height
+    the recipient must also be derivable. Returns ``(leaf, source)`` where
+    source is payload / envelope / unreadable.
     """
     tid = _pick(payload, "transfer_id")
     amount = _pick(payload, "amount")
     target = _pick(payload, "target_chain")
+    recipient = _pick(payload, "recipient")
     source = "payload"
-    if tid is None or amount is None or target is None:
+    if tid is None or amount is None or target is None or (_v2_active(height) and recipient is None):
         tid = tid or _pick(envelope, "transfer_id")
         amount = amount or _pick(envelope, "amount")
         target = target or _pick(envelope, "target_chain")
+        recipient = recipient or _pick(envelope, "recipient")
         source = "envelope"
     if tid is None or amount is None or target is None:
         return None, "unreadable"
+    if _v2_active(height):
+        if recipient is None:
+            return None, "unreadable"
+        return f"lock:{tid}:{amount}:{target}:{recipient}", source
     return f"lock:{tid}:{amount}:{target}", source
 
 
@@ -156,8 +213,10 @@ def audit(conn: sqlite3.Connection, *, use_trie: bool = True, boundary: int | No
 
     # Local transfer rows, keyed exactly the way consensus looks them up:
     # source_chain == tx.chain_id AND transfer_id == tx.tx_hash.
-    transfer_rows = conn.execute("SELECT source_chain, transfer_id, amount, target_chain FROM cross_chain_transfer").fetchall()
-    transfers = {(r[0], r[1]): (r[1], r[2], r[3]) for r in transfer_rows}
+    transfer_rows = conn.execute(
+        "SELECT source_chain, transfer_id, amount, target_chain, recipient FROM cross_chain_transfer"
+    ).fetchall()
+    transfers = {(r[0], r[1]): (r[1], r[2], r[3], r[4]) for r in transfer_rows}
 
     block_roots = {
         (r[0], r[1]): r[2]
@@ -185,8 +244,8 @@ def audit(conn: sqlite3.Connection, *, use_trie: bool = True, boundary: int | No
     for chain_id, tx_hash, height, payload_raw, envelope_raw in locks:
         payload = _as_json(payload_raw)
         envelope = _as_json(envelope_raw)
-        cur, cur_src = current_leaf(tx_hash, transfers.get((chain_id, tx_hash)))
-        der, der_src = derived_leaf(tx_hash, payload, envelope)
+        cur, cur_src = current_leaf(tx_hash, transfers.get((chain_id, tx_hash)), height)
+        der, der_src = derived_leaf(tx_hash, payload, envelope, height)
         cls = lock_class(der_src, height, boundary)
         result["current_leaf"][cur_src] += 1
         result["derived_leaf"][der_src] += 1
@@ -296,7 +355,15 @@ def main(argv: list[str] | None = None) -> int:
         "underivable lock as grandfathered (below) or missing_data defect (at/above) — the "
         "V-4 boundary rule; pass 0 to classify everything as missing_data",
     )
+    ap.add_argument(
+        "--v2-height",
+        type=int,
+        default=None,
+        metavar="HEIGHT",
+        help="recipient-bound leaf activation (default: $BRIDGE_LOCK_LEAF_V2_HEIGHT → aitbc_chain settings → /etc/aitbc/blockchain.env)",
+    )
     args = ap.parse_args(argv)
+    _resolve_v2_height(args.v2_height)
 
     try:
         conn = connect_ro(args.db)
