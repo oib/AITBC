@@ -50,6 +50,15 @@ def _auth_headers(ctx) -> dict[str, str] | None:
     return None
 
 
+def _require_auth_headers(ctx) -> dict[str, str]:
+    """_auth_headers, or abort with the login hint for commands that mutate."""
+    headers = _auth_headers(ctx)
+    if not headers:
+        abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")
+        raise AssertionError("unreachable: abort always raises")
+    return headers
+
+
 def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     """Return the coordinator base URL without a trailing /v1 path.
 
@@ -664,7 +673,7 @@ def submit(
         buyer_address = buyer_address or wallet_address
 
         # Auth once and reuse for media upload and job submission.
-        headers = _auth_headers(ctx)
+        headers = _require_auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
 
         # Prepare job data in the JobCreate shape expected by coordinator-api
@@ -861,7 +870,7 @@ def pay(
             abort(ctx, f"Wallet {wallet} has no usable private key")
         assert private_key is not None
 
-        headers = _auth_headers(ctx)
+        headers = _require_auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
 
         job = http_client.get(f"/v1/jobs/{job_id}")
@@ -991,7 +1000,7 @@ def accept(ctx, job_id, coordinator_url, format):
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        headers = _auth_headers(ctx)
+        headers = _require_auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.post(f"/v1/jobs/{job_id}/accept")
 
@@ -1020,14 +1029,13 @@ def refund(ctx, job_id, reason, coordinator_url):
     get_config()
 
     try:
-        if not _auth_headers(ctx):
-            abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")
+        headers = _require_auth_headers(ctx)
 
         coord_url = _coordinator_base_url(ctx, coordinator_url)
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=_auth_headers(ctx))
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
 
         # Lookup payment_id for this job.
         job = http_client.get(f"/v1/jobs/{job_id}")
@@ -1099,7 +1107,7 @@ def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        headers = _auth_headers(ctx)
+        headers = _require_auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
 
         result = http_client.get("/v1/jobs", params={"status": "COMPLETED", "limit": limit})
@@ -1221,7 +1229,7 @@ def test(ctx, name, coordinator_url, format):
         if not name:
             abort(ctx, "Service name required")
 
-        headers = _auth_headers(ctx)
+        headers = _require_auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.post(f"/v1/services/{name}/test")
 
@@ -1323,10 +1331,9 @@ def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund,
         if not job_id:
             abort(ctx, "Job ID required")
 
-        if not _auth_headers(ctx):
-            abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")
+        headers = _require_auth_headers(ctx)
 
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=_auth_headers(ctx))
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.post(f"/v1/jobs/{job_id}/cancel")
 
         if refund:
