@@ -331,6 +331,23 @@ def _log_startup_summary() -> None:
     logger.info("Audit logging: %s", settings.audit_log_dir)
 
 
+def _log_receipt_signing_status() -> None:
+    """Surface a dropped signing key at every boot.
+
+    The 12 Oct env-file rewrite removed RECEIPT_SIGNING_KEY_HEX and receipt
+    signing silently stayed disabled until a live job exposed it — nothing
+    noticed the setting was gone. ERROR level so the journal-errors monitor
+    pages on the next restart after such a rewrite.
+    """
+    if settings.receipt_signing_key_hex:
+        logger.info("Receipt signing: enabled")
+    elif settings.environment == "production":
+        logger.error(
+            "RECEIPT_SIGNING_KEY_HEX not configured — JobReceipt signing disabled; "
+            "paid jobs cannot release escrow. Restore the key in the coordinator env and restart."
+        )
+
+
 async def _startup(app: FastAPI, task_manager) -> None:
     """Startup phase of the lifespan: init stores, warm up, start sweepers."""
     await _init_databases()
@@ -349,6 +366,7 @@ async def _startup(app: FastAPI, task_manager) -> None:
     await audit_dir.mkdir(parents=True, exist_ok=True)
 
     _log_startup_summary()
+    _log_receipt_signing_status()
     await _start_sweepers(task_manager)
 
     logger.info("🚀 Coordinator API is ready to serve requests")

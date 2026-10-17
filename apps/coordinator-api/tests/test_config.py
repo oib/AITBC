@@ -240,3 +240,44 @@ def test_fhe_enabled_defaults_by_arch(monkeypatch):
     monkeypatch.setenv("FHE_ENABLED", "true")
     monkeypatch.setattr(config_mod.platform, "machine", lambda: "aarch64")
     assert Settings().fhe_enabled is True
+
+
+class TestReceiptSigningStatusLog:
+    """_log_receipt_signing_status must page (ERROR) when production boots
+    without RECEIPT_SIGNING_KEY_HEX — the journal-errors monitor counts it."""
+
+    def _settings(self, *, key, env):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(receipt_signing_key_hex=key, environment=env)
+
+    def test_production_without_key_logs_error(self, monkeypatch, caplog):
+        import logging
+
+        from coordinator_api import main
+
+        monkeypatch.setattr(main, "settings", self._settings(key=None, env="production"))
+        with caplog.at_level(logging.ERROR, logger="coordinator_api.main"):
+            main._log_receipt_signing_status()
+        assert any("RECEIPT_SIGNING_KEY_HEX" in r.message for r in caplog.records)
+
+    def test_production_with_key_logs_info_not_error(self, monkeypatch, caplog):
+        import logging
+
+        from coordinator_api import main
+
+        monkeypatch.setattr(main, "settings", self._settings(key="ab" * 32, env="production"))
+        with caplog.at_level(logging.INFO, logger="coordinator_api.main"):
+            main._log_receipt_signing_status()
+        assert not any(r.levelno >= logging.ERROR for r in caplog.records)
+        assert any("Receipt signing: enabled" in r.message for r in caplog.records)
+
+    def test_development_without_key_stays_quiet(self, monkeypatch, caplog):
+        import logging
+
+        from coordinator_api import main
+
+        monkeypatch.setattr(main, "settings", self._settings(key=None, env="development"))
+        with caplog.at_level(logging.INFO, logger="coordinator_api.main"):
+            main._log_receipt_signing_status()
+        assert not any(r.levelno >= logging.ERROR for r in caplog.records)
