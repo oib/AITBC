@@ -136,10 +136,11 @@ def route(monkeypatch):
     mgr.disputed_contracts = set()
     mgr._validate_contract_inputs.return_value = True
     mgr.create_contract = AsyncMock(return_value=(True, "ok", "contract-1"))
-    mgr.fund_contract = AsyncMock()
+    mgr.fund_contract = AsyncMock(return_value=(True, "funded"))
     monkeypatch.setattr(escrow_routes, "get_escrow_manager", lambda: mgr)
     monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value=None))
     monkeypatch.setattr(escrow_routes, "_submit_lock_tx", AsyncMock(return_value="0x" + "cd" * 32))
+    monkeypatch.setattr(escrow_routes, "_verify_funding_lock", AsyncMock(side_effect=lambda h, **_: {"tx_hash": h}))
     monkeypatch.setattr(escrow_routes, "session_scope", _session_scope)
     return escrow_routes
 
