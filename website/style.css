@@ -1870,6 +1870,81 @@ a.btn-secondary {
     color: #ef4444;
 }
 
+/* ── Home page: network facts strip, join stepper, key-request states ── */
+.facts-strip {
+    padding: 0.6rem 0.85rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.facts-strip-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+.facts-strip-title { font-weight: 700; }
+.facts-strip-detail { color: var(--text-muted); font-size: 0.85rem; }
+.facts-strip-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: currentColor; }
+.facts-strip.is-live { border-color: #1f4d3a; }
+.facts-strip.is-live .facts-strip-title,
+.facts-strip.is-live .facts-strip-dot { color: var(--success); }
+.facts-strip.is-unknown { border-color: #78350f; }
+.facts-strip.is-unknown .facts-strip-title,
+.facts-strip.is-unknown .facts-strip-dot { color: #f59e0b; }
+.facts-strip.is-unknown .facts-strip-dot { background: transparent; border: 2px solid currentColor; }
+.facts-strip.is-loading .facts-strip-title { color: var(--text-muted); }
+.facts-cells {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.2rem;
+    margin-top: 0.45rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.facts-cells .fact strong {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.join-steps { list-style: none; margin: 0; padding: 0; }
+.join-steps > li {
+    border-left: 3px solid var(--border);
+    padding-left: 0.9rem;
+    margin: 0 0 1.1rem;
+}
+.join-steps > li[aria-current="step"] { border-left-color: var(--primary); }
+.join-steps > li[aria-current="step"] .quickstart-heading { font-weight: 700; }
+.step-paused {
+    display: inline-block;
+    border: 1px dashed #b26a00;
+    color: #b26a00;
+    border-radius: 999px;
+    padding: 0.05rem 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+}
+
+.join-neutral {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+}
+.join-failed {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #78350f;
+    border-radius: 6px;
+}
+.join-failed-title { color: #f59e0b; font-weight: 700; margin: 0 0 0.3rem; }
+.join-failed-detail { color: var(--text-muted); font-size: 0.85rem; margin: 0; }
+
 /* ── Alerts page ── */
 .mon-ok { color: var(--success); }
 .mon-warn { color: #f59e0b; }
