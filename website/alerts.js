@@ -297,7 +297,7 @@ async function loadAlerts() {
         renderFiring(live);
         renderEvents(hist);
         document.getElementById('updated-note').textContent =
-            `Updated ${new Date().toLocaleTimeString()} — auto-refresh every ${REFRESH_MS / 1000}s`;
+            `Updated ${aitbcFmt.time()} — auto-refresh every ${REFRESH_MS / 1000}s`;
     } catch (err) {
         renderSummary(null);
         updateHealthItem('prometheus', false, 'API unreachable');

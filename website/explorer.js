@@ -87,9 +87,9 @@ function renderBlockCard(block) {
     let timestamp = 'N/A';
     if (block.timestamp) {
         if (typeof block.timestamp === 'string') {
-            timestamp = new Date(block.timestamp).toLocaleString();
+            timestamp = aitbcFmt.date(block.timestamp);
         } else if (typeof block.timestamp === 'number') {
-            timestamp = new Date(block.timestamp * 1000).toLocaleString();
+            timestamp = aitbcFmt.date(block.timestamp * 1000);
         }
     }
     const txCount = block.txCount || 0;
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
             note.className = 'muted-text chart-refresh-note';
             canvas.parentElement.insertBefore(note, canvas.nextSibling);
         }
-        note.textContent = `Activity chart could not refresh (${new Date().toLocaleTimeString('en-GB')}).`;
+        note.textContent = `Activity chart could not refresh (${aitbcFmt.time()}).`;
     }
 
     function clearChartStale(canvas) {
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     note.className = 'muted-text feed-refresh-note';
                     container.prepend(note);
                 }
-                note.textContent = `Live feed could not refresh (${new Date().toLocaleTimeString('en-GB')}).`;
+                note.textContent = `Live feed could not refresh (${aitbcFmt.time()}).`;
             }
         }
     }
@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         container.innerHTML = liveFeedItems.map(item => {
-            const timeStr = item.time ? new Date(item.time).toLocaleTimeString() : '';
+            const timeStr = item.time ? aitbcFmt.time(item.time) : '';
             return `
                 <div class="live-feed-item" tabindex="0" role="link" aria-label="${escapeHtml(item.type)} ${escapeHtml(item.hash || '')}" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='${escapeHtml(item.url)}'">
                     <span class="live-feed-type">${escapeHtml(item.type)}</span>
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <td>${i + 1}</td>
                                 <td>${escapeHtml(a.address)}</td>
                                 <td>${escapeHtml(a.transaction_count)}</td>
-                                <td>${typeof a.volume === 'number' ? a.volume.toLocaleString(undefined, {maximumFractionDigits: 2}) : escapeHtml(a.volume)}</td>
+                                <td>${typeof a.volume === 'number' ? aitbcFmt.num(a.volume, 2) : escapeHtml(a.volume)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -507,13 +507,13 @@ document.addEventListener('DOMContentLoaded', function() {
             let timestamp = '-';
             if (item.timestamp) {
                 if (typeof item.timestamp === 'string') {
-                    timestamp = new Date(item.timestamp).toLocaleString();
+                    timestamp = aitbcFmt.date(item.timestamp);
                 } else if (typeof item.timestamp === 'number') {
-                    timestamp = new Date(item.timestamp * 1000).toLocaleString();
+                    timestamp = aitbcFmt.date(item.timestamp * 1000);
                 }
             }
             if (item.created_at) {
-                timestamp = new Date(item.created_at).toLocaleString();
+                timestamp = aitbcFmt.date(item.created_at);
             }
 
             let details = '';
@@ -657,9 +657,9 @@ document.addEventListener('DOMContentLoaded', function() {
             let timestamp = '-';
             if (item.timestamp) {
                 if (typeof item.timestamp === 'string') {
-                    timestamp = new Date(item.timestamp).toLocaleString();
+                    timestamp = aitbcFmt.date(item.timestamp);
                 } else if (typeof item.timestamp === 'number') {
-                    timestamp = new Date(item.timestamp * 1000).toLocaleString();
+                    timestamp = aitbcFmt.date(item.timestamp * 1000);
                 }
             }
 

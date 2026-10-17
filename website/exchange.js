@@ -60,7 +60,7 @@ let tickerLastGoodAt = null;
 function markStale(el, lastGoodAt, unavailableText) {
     if (!el) return;
     if (lastGoodAt) {
-        el.textContent = `${el.textContent} (stale, last read ${new Date(lastGoodAt).toLocaleTimeString('en-GB')})`;
+        el.textContent = `${el.textContent} (stale, last read ${aitbcFmt.time(lastGoodAt)})`;
     } else {
         el.textContent = unavailableText;
     }
