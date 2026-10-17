@@ -122,6 +122,18 @@ class TestFaucetAnnouncementCopy(unittest.TestCase):
         self.assertIn("paused", src.lower())
 
 
+class TestExchangeFaucetCard(unittest.TestCase):
+    """EXCH-FAUCET-CARD-1: the Early Adopter card must not promise automatic
+    payout while the faucet is paused (503 since 2026-09-09). Scoped to the
+    card: the ETH→AIT deposit flow legitimately says "automatically"."""
+
+    def test_card_states_pause_not_automatic(self) -> None:
+        src = _site_src("exchange.html")
+        card = src[src.index("Early Adopter Program") : src.index("Value Model Documentation")]
+        self.assertNotIn("automatically", card)
+        self.assertIn("paused", card.lower())
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")
