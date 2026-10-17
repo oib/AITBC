@@ -499,6 +499,22 @@ async def _find_existing_lock(job_id: str) -> str | None:
 _FUNDING_LOCK_MEMPOOL_LIMIT = 1000
 
 
+def _canonical_lock_fields(lock_tx: dict[str, Any]) -> dict[str, Any]:
+    """Normalize the two lock-transaction shapes for field comparison.
+
+    A sealed ``transactions`` row uses ``sender``/``recipient``/``value``; a
+    mempool entry carries the submitted body (``from``/``to``/``amount``).
+    ``type`` and ``payload`` are spelled the same in both.
+    """
+    return {
+        "from": lock_tx.get("from", lock_tx.get("sender")),
+        "to": lock_tx.get("to", lock_tx.get("recipient")),
+        "amount": lock_tx.get("amount", lock_tx.get("value")),
+        "type": lock_tx.get("type"),
+        "payload": lock_tx.get("payload"),
+    }
+
+
 def _assert_lock_matches_contract(
     lock_tx: dict[str, Any], *, job_id: str, buyer: str, amount_units: int, tx_hash: str
 ) -> None:
@@ -507,17 +523,18 @@ def _assert_lock_matches_contract(
     A mismatch is permanent — the sealed/mempool tx says what it says — so this
     is a conflict, not a retryable deferral.
     """
+    fields = _canonical_lock_fields(lock_tx)
     problems = []
-    if lock_tx.get("type") != "ESCROW_LOCK":
+    if fields["type"] != "ESCROW_LOCK":
         problems.append("type")
-    if (lock_tx.get("payload") or {}).get("job_id") != job_id:
+    if (fields["payload"] or {}).get("job_id") != job_id:
         problems.append("payload.job_id")
-    if _to_canonical(str(lock_tx.get("from") or "")) != _to_canonical(buyer):
+    if _to_canonical(str(fields["from"] or "")) != _to_canonical(buyer):
         problems.append("from")
-    if _to_canonical(str(lock_tx.get("to") or "")) != _to_canonical(_NODE_WALLET):
+    if _to_canonical(str(fields["to"] or "")) != _to_canonical(_NODE_WALLET):
         problems.append("to")
     try:
-        if int(lock_tx.get("amount") or 0) != amount_units:
+        if int(fields["amount"] or 0) != amount_units:
             problems.append("amount")
     except (TypeError, ValueError):
         problems.append("amount")
