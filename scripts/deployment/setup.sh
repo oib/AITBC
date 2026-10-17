@@ -394,9 +394,9 @@ check_prerequisites() {
 
     # Verify versions after installation
     python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
-    # AITBC pins exactly Python 3.13.5 — requirements markers are
-    # python_full_version == "3.13.5", so any other interpreter would
-    # install nothing and fail obscurely later.
+    # Deploys pin the runtime to exactly Python 3.13.5 so every host runs the
+    # interpreter CI tested. The requirements files accept any 3.13 patch
+    # >= 3.13.5; this check, not the markers, is what keeps hosts identical.
     if [ "$python_version" != "3.13.5" ]; then
         error "Python $python_version found; AITBC requires exactly 3.13.5"
     fi

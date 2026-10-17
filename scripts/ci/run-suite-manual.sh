@@ -102,7 +102,7 @@ git -C "$SCRATCH" checkout -q -b manual-ci FETCH_HEAD
 rm -f "$BUNDLE"
 
 cd "$SCRATCH"
-python3 -c "import sys; assert sys.version_info[:3] == (3,13,5), f'Python {sys.version} — AITBC pins exactly 3.13.5'"
+python3 -c "import sys; assert (3,13,5) <= sys.version_info[:3] < (3,14), f'Python {sys.version} — AITBC needs 3.13.x, at least 3.13.5'"
 
 bash scripts/ci/setup-python-venv.sh \
   --cache-root /opt/gitea-runner/.cache/aitbc-venvs \
