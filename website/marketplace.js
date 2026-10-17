@@ -2,38 +2,118 @@ function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ── Shared read/state helpers ────────────────────────────────────────
+// Every read keeps its last good result. A failed or unreadable reply
+// lands the element in stale (old value + last-good time) or failed
+// (Unavailable / reason + Try again) — never in empty, zero or "--".
+
+function ageAgo(ts) {
+    const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (s < 5) return 'just now';
+    if (s < 90) return `${s} s ago`;
+    return `${Math.round(s / 60)} min ago`;
+}
+
+// One read, one outcome object: ok only for status-ok AND parseable JSON.
+async function readJson(url) {
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) return { ok: false, status: resp.status };
+        try {
+            return { ok: true, status: resp.status, data: await resp.json() };
+        } catch (e) {
+            return { ok: false, status: resp.status, err: 'reply was not readable' };
+        }
+    } catch (e) {
+        return { ok: false, status: 0, err: 'network request failed' };
+    }
+}
+
+// A stat cell keeps its last good number across failures. With a last
+// good it goes stale (value stays, "last read" note); without one it
+// shows Unavailable — amber, never "--" or 0.
+function setStatGood(id, num) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.dataset.lastGood = String(num);
+    el.dataset.lastGoodAt = String(Date.now());
+    el.classList.remove('stat-failed', 'stat-stale');
+    el.textContent = Number(num).toLocaleString('en-US');
+}
+
+function setStatFailed(id, reason) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.dataset.lastGood !== undefined) {
+        el.classList.remove('stat-failed');
+        el.classList.add('stat-stale');
+        el.innerHTML = `${escapeHtml(Number(el.dataset.lastGood).toLocaleString('en-US'))}` +
+            `<span class="stat-note">last read ${escapeHtml(ageAgo(Number(el.dataset.lastGoodAt)))} — could not refresh (${escapeHtml(reason)})</span>`;
+    } else {
+        el.classList.remove('stat-stale');
+        el.classList.add('stat-failed');
+        el.innerHTML = `Unavailable<span class="stat-note">${escapeHtml(reason)}</span>`;
+    }
+}
+
 let allOffers = [];
+let offersLastGoodAt = 0;
+let offersStale = false;
+let offersFailReason = '';
 let currentFilter = 'all';
 let currentStatusFilter = 'all';
 let confirmedOnly = false;
 
-async function fetchOffers() {
-    try {
-        // Build query parameters based on current filters
-        const params = new URLSearchParams();
-        if (currentFilter !== 'all') {
-            params.append('service_type', currentFilter);
-        }
-        if (currentStatusFilter !== 'all') {
-            params.append('status', currentStatusFilter);
-        }
-
-        const url = `/v1/market/offer?${params.toString()}`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.offers && Array.isArray(data.offers)) {
-            allOffers = data.offers;
-            updateOfferCount();
-            renderOffers();
-        } else {
-            throw new Error('Invalid response format');
-        }
-    } catch (error) {
-        console.error('Error fetching offers:', error);
-        document.getElementById('offers-container').innerHTML = '<p class="error">Failed to load marketplace offers</p>';
-        document.getElementById('offer-count').textContent = 'Error loading offers';
+// The offers list failed. Last-good cards stay and one stale note names
+// the reason + last-good time; with nothing good the amber card carries
+// reason + Try again — a failed read never reads as an empty market.
+function renderOffersFailed(reason) {
+    const container = document.getElementById('offers-container');
+    const count = document.getElementById('offer-count');
+    if (!container) return;
+    if (!allOffers.length) {
+        container.innerHTML = `
+            <div class="offers-state" role="alert">
+                <p class="offers-state-title">Offers could not be loaded (${escapeHtml(reason)})</p>
+                <p class="offers-state-detail">This does not mean no offers exist — the read failed. Checks again every 30 s.</p>
+                <button id="offers-retry-btn" type="button" class="bridge-retry">Try again</button>
+            </div>`;
+        const btn = container.querySelector('#offers-retry-btn');
+        if (btn) btn.addEventListener('click', fetchOffers);
+        if (count) count.textContent = 'Could not load offers';
+        return;
     }
+    // keep the last good cards — stale note is rendered by renderOffers
+    offersStale = true;
+    offersFailReason = reason;
+    renderOffers();
+    if (count) count.textContent = `Showing ${filterOffers(allOffers, currentFilter, currentStatusFilter).length} of ${allOffers.length} offers — last read ${ageAgo(offersLastGoodAt)}`;
+}
+
+async function fetchOffers() {
+    // Build query parameters based on current filters
+    const params = new URLSearchParams();
+    if (currentFilter !== 'all') {
+        params.append('service_type', currentFilter);
+    }
+    if (currentStatusFilter !== 'all') {
+        params.append('status', currentStatusFilter);
+    }
+
+    const r = await readJson(`/v1/market/offer?${params.toString()}`);
+    const data = r.data;
+    if (!r.ok || !data || !Array.isArray(data.offers)) {
+        const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
+        renderOffersFailed(reason);
+        setStatFailed('stat-listed-offers', reason);
+        return;
+    }
+    allOffers = data.offers;
+    offersLastGoodAt = Date.now();
+    offersStale = false;
+    setStatGood('stat-listed-offers', allOffers.length);
+    updateOfferCount();
+    renderOffers();
 }
 
 function updateOfferCount() {
@@ -54,25 +134,57 @@ function renderOffers() {
     const container = document.getElementById('offers-container');
     const filteredOffers = filterOffers(allOffers, currentFilter, currentStatusFilter);
 
+    // Two kept-apart empties: "filters leave zero" only after a good load,
+    // "nothing listed" only after a proven ok empty list.
     if (filteredOffers.length === 0) {
-        container.innerHTML = `
-            <div class="no-offers">
-                <div class="no-offers-icon">📦</div>
-                <p>No marketplace offers found matching your filters.</p>
-                <p>Try adjusting your filters or check back later.</p>
-            </div>
-        `;
+        if (allOffers.length === 0) {
+            container.innerHTML = `
+                <div class="no-offers">
+                    <p>No offers listed yet.</p>
+                </div>`;
+        } else {
+            container.innerHTML = `
+                <div class="no-offers">
+                    <p>No offers match these filters.</p>
+                    <button id="clear-filters-btn" type="button" class="bridge-retry">Clear filters</button>
+                </div>`;
+            const btn = container.querySelector('#clear-filters-btn');
+            if (btn) btn.addEventListener('click', clearFilters);
+        }
         return;
     }
+
+    const staleNote = offersStale
+        ? `<div class="offers-state offers-stale-note" role="status">
+               <span>Offers could not refresh (${escapeHtml(offersFailReason)}) — showing the list read ${escapeHtml(ageAgo(offersLastGoodAt))}. Checks again every 30 s.</span>
+               <button id="offers-retry-btn" type="button" class="bridge-retry">Try again</button>
+           </div>`
+        : '';
 
     let html = '';
     filteredOffers.forEach(offer => {
         html += createOfferCard(offer);
     });
 
-    container.innerHTML = html;
+    container.innerHTML = staleNote + html;
+    const btn = container.querySelector('#offers-retry-btn');
+    if (btn) btn.addEventListener('click', fetchOffers);
     updateOfferCount();
     loadReputations();
+}
+
+function clearFilters() {
+    currentFilter = 'all';
+    currentStatusFilter = 'all';
+    confirmedOnly = false;
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === 'all');
+    });
+    const status = document.getElementById('status-filter');
+    if (status) status.value = 'all';
+    const toggle = document.getElementById('confirmed-only-toggle');
+    if (toggle) toggle.checked = false;
+    renderOffers();
 }
 
 function createOfferCard(offer) {
@@ -87,11 +199,11 @@ function createOfferCard(offer) {
     const registeredDate = registeredRaw ? aitbcFmt.date(registeredRaw) : 'N/A';
     const updatedDate = offer.updated_at ? aitbcFmt.date(offer.updated_at) : 'N/A';
 
-    // Blockchain verification information
+    // Blockchain verification information — badge in words, colour as backup.
     const isConfirmed = offer.confirmed === true;
     const confirmationBadge = isConfirmed
-        ? `<span class="blockchain-confirmed">✓ Confirmed in Block #${escapeHtml(offer.block_height)}</span>`
-        : `<span class="blockchain-pending">⏳ Pending (Not on blockchain)</span>`;
+        ? `<span class="blockchain-confirmed">ON CHAIN · block #${escapeHtml(offer.block_height)}</span>`
+        : `<span class="blockchain-pending">NOT CONFIRMED</span>`;
 
     const blockInfo = isConfirmed ? `
         <div class="blockchain-info">
@@ -325,26 +437,23 @@ function loadReputations() {
     });
 }
 
-// Fetch network stats
+// Fetch network stats — per-cell last-good: a failed read leaves every
+// cell that ever answered showing its number with a "last read" note;
+// only never-answered cells go Unavailable.
 const NETWORK_STAT_CELLS = ['stat-total-ait', 'stat-transfer-volume', 'stat-active-offers', 'stat-unique-nodes', 'stat-unique-providers', 'stat-total-txs'];
 async function fetchNetworkStats() {
-    try {
-        const response = await fetch(`/explorer-api/api/analytics/network-stats?chain_id=${window.AITBC_CONFIG.chainId}`);
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const data = await response.json();
-        // Every cell must be a real number — a partial reply is a failure,
-        // not a partial table.
-        const vals = [data.total_ait, data.transfer_volume_ait, data.active_offers, data.unique_nodes, data.unique_providers, data.total_transactions];
-        if (vals.some(v => v == null || !isFinite(Number(v)))) throw new Error('unexpected reply');
-        NETWORK_STAT_CELLS.forEach((id, i) => {
-            document.getElementById(id).textContent = Number(vals[i]).toLocaleString('en-US');
-        });
-    } catch (error) {
-        console.error('Error fetching network stats:', error);
-        // Failed cells must not sit on '--' forever — that reads as loading.
-        NETWORK_STAT_CELLS.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = 'unavailable';
-        });
-    }
+    const r = await readJson(`/explorer-api/api/analytics/network-stats?chain_id=${window.AITBC_CONFIG.chainId}`);
+    const data = r.data;
+    // Every cell must be a real number — a partial reply is a failure,
+    // not a partial table.
+    const vals = r.ok && data ? [data.total_ait, data.transfer_volume_ait, data.active_offers, data.unique_nodes, data.unique_providers, data.total_transactions] : null;
+    const bad = !vals || vals.some(v => v == null || !isFinite(Number(v)));
+    const reason = bad ? (r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`)) : '';
+    NETWORK_STAT_CELLS.forEach((id, i) => {
+        if (bad) {
+            setStatFailed(id, reason);
+        } else {
+            setStatGood(id, vals[i]);
+        }
+    });
 }
