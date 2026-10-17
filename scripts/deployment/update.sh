@@ -893,6 +893,34 @@ ensure_gossip_defaults() {
 }
 
 # ----------------------------------------------------------------------------
+# Step 4g: Sync Prometheus rule files where Prometheus actually runs
+#
+# /etc/prometheus/*.yml are copies of scripts/monitoring/*.yml, not symlinks:
+# deploy-rules.sh validates the repo file with promtool BEFORE anything is
+# deployed, so a malformed rules file on main can never leave Prometheus
+# failing to start after a routine restart. Only hosts serving Prometheus
+# reach this step — update.sh runs fleet-wide.
+# ----------------------------------------------------------------------------
+deploy_prometheus_rules() {
+    if ! systemctl list-unit-files 2>/dev/null | grep -q '^prometheus\.service'; then
+        return 0
+    fi
+    local deploy_script="$AITBC_ROOT/scripts/monitoring/deploy-rules.sh"
+    if [ ! -x "$deploy_script" ]; then
+        warning "deploy-rules.sh not executable: $deploy_script — Prometheus rules may be stale"
+        return 0
+    fi
+    log "Step 4g: Syncing Prometheus rule files..."
+    if "$deploy_script"; then
+        success "Prometheus rules synced"
+    else
+        # A failed deploy leaves the previously-deployed rules live and must
+        # not abort the rest of the update.
+        warning "deploy-rules.sh failed — deployed rules left unchanged"
+    fi
+}
+
+# ----------------------------------------------------------------------------
 # Step 5: Run Alembic DB migrations for all services with alembic.ini
 #
 # The logic lives in run-migrations.sh so that deploy.sh, which installs a node from
@@ -1137,6 +1165,7 @@ main() {
     ensure_gossip_defaults
     ensure_validator_secrets_scope
     render_website_files
+    deploy_prometheus_rules
 
     if [ "$DO_MIGRATE" = "true" ]; then
         run_migrations || exit 1
