@@ -133,6 +133,15 @@ class TestP1_3Bridge:
             transfer = bridge.initiate_transfer(source_chain, target_chain, sender, recipient, 10_000)
             assert transfer.status == BridgeStatus.locked
 
+            # F2: the validator-set freshness gate fails closed with an empty
+            # set — register the block proposer so proof verification can run.
+            bridge.register_validator(
+                chain_id=source_chain,
+                address=proposer.address.lower(),
+                public_key="0x" + proposer.key.hex(),
+                epoch=0,
+            )
+
             # Build and persist the signed source block with bridge_state_root.
             block, _signature = _build_and_sign_block(bridge, source_chain, proposer, 1, transfer)
 

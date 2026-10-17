@@ -481,8 +481,10 @@ class BridgeValidatorMixin(BridgeBase):
                 select(func.max(BridgeValidator.epoch)).where(BridgeValidator.chain_id == chain_id)
             ).first()
             if latest_epoch_row is None:
-                # No validators registered — fresh enough (will fail elsewhere)
-                return True
+                # No validators registered for the chain — fail closed. An
+                # empty set cannot attest to anything, so "fresh" is False.
+                logger.warning("Validator set for chain=%s is empty", chain_id)
+                return False
             latest_epoch = int(latest_epoch_row)
 
             if epoch is None or epoch == latest_epoch:
