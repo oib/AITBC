@@ -176,6 +176,17 @@ class TestHomeFactsStrip(unittest.TestCase):
         self.assertIn("Array.isArray(info.validators)", js)
         self.assertIn("Number.isFinite(Number(head.height))", js)
 
+    def test_sentence_follows_the_proven_read(self) -> None:
+        """WEB-HOME-2: one shared path — a proven read updates the join
+        sentence and meta block too, and a later failure keeps the last
+        good values (loadNetworkInfo is folded into loadFacts)."""
+        js = _site_src("index.js")
+        self.assertIn("function applyNetworkInfo(data)", js)
+        self.assertIn("applyNetworkInfo(info)", js)
+        self.assertIn("networkInfoGood", js)
+        self.assertIn("function markNetworkInfoUnknown()", js)
+        self.assertNotIn("async function loadNetworkInfo", js)
+
 
 class TestHomeJoinStepperAndAnswers(unittest.TestCase):
     """WEB-HOME-1: the join steps are a numbered <ol> with a paused gift
