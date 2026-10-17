@@ -235,6 +235,13 @@ class TestBridgeUnlock:
 
         # v0.7.2: Store a block header for proof verification
         _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
+        # F2: freshness gate fails closed without validators — register the proposer.
+        bridge.register_validator(
+            chain_id=source_chain,
+            address=proposer_account.address.lower(),
+            public_key="0x" + proposer_account.key.hex(),
+            epoch=0,
+        )
 
         transfer = bridge.initiate_transfer(
             source_chain=source_chain,
@@ -344,6 +351,12 @@ class TestBridgeStatusAlias:
 class TestBridgeBatch:
     """POST /bridge/batch/lock and /bridge/batch/confirm."""
 
+    @pytest.fixture(autouse=True)
+    def _enable_release(self):
+        """The confirm routes are gated on bridge_release_enabled; the fleet runs with it on."""
+        with patch("aitbc_chain.config.settings.bridge_release_enabled", True):
+            yield
+
     @staticmethod
     def _confirmed_transfer(transfer_id: str):
         """Minimal stand-in for a BridgeTransfer result row."""
@@ -418,6 +431,43 @@ class TestBridgeBatch:
         # Only the signed item reached the bridge
         (forwarded,), _ = mock_bridge.batch_confirm.call_args
         assert forwarded == [signed]
+
+
+# ---------------------------------------------------------------------------
+# Confirm Route Gate Tests (repo-review 2026-10-17 F2)
+# ---------------------------------------------------------------------------
+
+
+class TestConfirmRouteGate:
+    """The confirm routes mint value — escrow_enabled alone must not open them."""
+
+    @pytest.fixture(autouse=True)
+    def _escrow_only(self):
+        """escrow_enabled=True, bridge_release_enabled=False — the old OR-gate opened confirm here."""
+        with (
+            patch("aitbc_chain.config.settings.escrow_enabled", True),
+            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
+        ):
+            yield
+
+    def test_single_confirm_closed_under_escrow_only(self, client: TestClient) -> None:
+        resp = client.post(
+            "/bridge/confirm",
+            json={
+                "transfer_id": "t1",
+                "proof": {"target_chain": "chain-b"},
+                "confirmer": "0xconfirmer",
+                "signature": "0xsig",
+            },
+        )
+        assert resp.status_code == 503
+
+    def test_batch_confirm_closed_under_escrow_only(self, client: TestClient) -> None:
+        resp = client.post(
+            "/bridge/batch/confirm",
+            json={"confirmations": [{"transfer_id": "t1", "proof": {"target_chain": "chain-b"}}]},
+        )
+        assert resp.status_code == 503
 
 
 # ---------------------------------------------------------------------------

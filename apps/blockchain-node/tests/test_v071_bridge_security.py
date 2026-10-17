@@ -449,9 +449,13 @@ class TestMultiSigThreshold:
         self, bridge: CrossChainBridge, rpc_engine, validator_accounts: list[EthAccount]
     ) -> None:
         """When multisig is disabled, single-signer verification works (backward compat)."""
+        # F2: the freshness gate fails closed with an empty validator set —
+        # register validators and let one of them act as the block proposer.
+        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
         # v0.7.2: Store a block header for proof verification
-        _store_block_header(rpc_engine, chain_id="chain-a", height=10)
+        proposer = validator_accounts[0]
+        _store_block_header(rpc_engine, chain_id="chain-a", height=10, proposer=proposer.address.lower())
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
 
         # Build a proof with a single proposer_signature (v0.7.0 style)
@@ -460,11 +464,11 @@ class TestMultiSigThreshold:
             assert record is not None
 
         proof_fields = _build_proof_fields(record)
-        # Sign with any valid key (multisig disabled, so any valid sig works)
-        signer = EthAccount.create()
+        # Sign with a registered validator acting as the block proposer
+        proof_fields["proposer"] = proposer.address.lower()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
+            proposer.key.hex(),
         )
 
         # With multisig disabled + block sig disabled, _validate_proof should accept this
