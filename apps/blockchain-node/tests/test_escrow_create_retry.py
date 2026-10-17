@@ -52,6 +52,11 @@ def patched(monkeypatch, engine, mgr) -> EscrowManager:
     monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_ADDRESS", "")
     monkeypatch.setattr(escrow_routes, "get_escrow_manager", lambda: mgr)
     monkeypatch.setattr(escrow_routes, "_find_existing_lock", AsyncMock(return_value=None))
+    # These tests cover create ordering/idempotency, not lock verification:
+    # the funding verifier is stubbed to a tx dict echoing the submitted hash
+    # so ``fund_contract``'s hash check passes. Verification itself is covered
+    # in test_escrow_funding_verify.py.
+    monkeypatch.setattr(escrow_routes, "_verify_funding_lock", AsyncMock(side_effect=lambda h, **_: {"tx_hash": h}))
 
     @contextmanager
     def scope(chain_id: str = ""):

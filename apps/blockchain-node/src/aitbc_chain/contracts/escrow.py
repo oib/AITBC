@@ -88,6 +88,10 @@ class EscrowContract:
     energy_net_floor_units: int | None = None
     energy_provider_credit_units: int | None = None
     energy_fee_basis_points: int | None = None
+    # The ESCROW_LOCK transaction hash this contract was funded against. Set at
+    # funding time from the hash the caller verified against the chain/mempool —
+    # funding on an unverified hash is refused (ESC-FUND-1).
+    lock_tx_hash: str | None = None
 
 
 @dataclass
@@ -713,16 +717,28 @@ class EscrowManager:
         content = f"{client_address}:{agent_address}:{job_id}:{time.time()}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
-    async def fund_contract(self, contract_id: str, payment_tx_hash: str) -> tuple[bool, str]:
-        """Fund escrow contract"""
+    async def fund_contract(self, contract_id: str, payment_tx_hash: str, verified_lock: dict[str, Any]) -> tuple[bool, str]:
+        """Fund escrow contract against a caller-verified ESCROW_LOCK.
+
+        ``verified_lock`` is the lock transaction the route already loaded and
+        field-checked (``escrow_routes._verify_funding_lock`` — sealed row or
+        mempool entry). Its hash must equal ``payment_tx_hash``: funding an
+        unverified or mismatched hash leaves the contract CREATED — a lock
+        evicted from the mempool must not still mark the job funded
+        (ESC-FUND-1).
+        """
         contract = self.escrow_contracts.get(contract_id)
         if not contract:
             return (False, "Contract not found")
         if contract.state != EscrowState.CREATED:
             return (False, f"Cannot fund contract in {contract.state.value} state")
+        observed = str(verified_lock.get("tx_hash") or verified_lock.get("hash") or "")
+        if observed != payment_tx_hash:
+            return (False, "Verified ESCROW_LOCK does not match payment_tx_hash")
         contract.state = EscrowState.FUNDED
+        contract.lock_tx_hash = payment_tx_hash
         self.active_contracts.add(contract_id)
-        log_info(f"Contract funded: {contract_id}")
+        log_info(f"Contract funded: {contract_id} (lock {payment_tx_hash})")
         return (True, "Contract funded successfully")
 
     async def start_job(self, contract_id: str) -> tuple[bool, str]:

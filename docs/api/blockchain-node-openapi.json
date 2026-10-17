@@ -22337,7 +22337,17 @@
             }
           },
           "409": {
-            "description": "escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash})",
+            "description": "escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash}) / a different ESCROW_LOCK sealed for job_id={job_id} (tx {sealed.get('tx_hash')}); refusing to fund against the submitted hash",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "425": {
+            "description": "lock tx {tx_hash} for job_id={job_id} is neither sealed nor present in the hub mempool; retry after it re-lands or resubmit",
             "content": {
               "application/json": {
                 "schema": {

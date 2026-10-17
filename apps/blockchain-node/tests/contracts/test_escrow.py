@@ -125,7 +125,9 @@ class TestEscrowManager:
         assert success
 
         # Fund contract
-        success, message = asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        success, message = asyncio.run(
+            self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"})
+        )
 
         assert success, f"Contract funding failed: {message}"
 
@@ -145,10 +147,12 @@ class TestEscrowManager:
             )
         )
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
 
         # Try to fund again
-        success, message = asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_002"))
+        success, message = asyncio.run(
+            self.escrow_manager.fund_contract(contract_id, "tx_hash_002", {"tx_hash": "tx_hash_002"})
+        )
 
         assert not success
         assert "state" in message.lower()
@@ -165,7 +169,7 @@ class TestEscrowManager:
             )
         )
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
 
         # Start job
         success, message = asyncio.run(self.escrow_manager.start_job(contract_id))
@@ -194,7 +198,7 @@ class TestEscrowManager:
             )
         )
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
         asyncio.run(self.escrow_manager.start_job(contract_id))
 
         # Complete milestone
@@ -225,7 +229,7 @@ class TestEscrowManager:
             )
         )
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
         asyncio.run(self.escrow_manager.start_job(contract_id))
         asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
 
@@ -252,7 +256,7 @@ class TestEscrowManager:
             )
         )
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
         asyncio.run(self.escrow_manager.start_job(contract_id))
 
         # Create dispute
@@ -281,7 +285,7 @@ class TestEscrowManager:
             )
         )
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
         asyncio.run(self.escrow_manager.start_job(contract_id))
 
         # Create dispute
@@ -315,7 +319,7 @@ class TestEscrowManager:
             )
         )
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
 
         # Refund contract
         success, message = asyncio.run(self.escrow_manager.refund_contract(contract_id, "Client requested refund"))
@@ -367,7 +371,7 @@ class TestEscrowManager:
         )
         assert success
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
         asyncio.run(self.escrow_manager.start_job(contract_id))
         asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
         asyncio.run(self.escrow_manager.verify_milestone(contract_id, "milestone_1"))
@@ -400,7 +404,7 @@ class TestEscrowManager:
         )
         assert success
 
-        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001", {"tx_hash": "tx_hash_001"}))
         asyncio.run(self.escrow_manager.start_job(contract_id))
         asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
         asyncio.run(self.escrow_manager.verify_milestone(contract_id, "milestone_1"))
