@@ -166,12 +166,14 @@ class CoordinatorReceiptClient:
 
         return ReceiptPage(items=items, next_cursor=next_cursor, raw=raw)
 
-    def summarize_receipts(self, job_id: str, page_size: int = 100) -> ReceiptStatus:
+    def summarize_receipts(
+        self, job_id: str, page_size: int = 100, trusted_key_ids: Iterable[str] | None = None
+    ) -> ReceiptStatus:
         receipts = list(self.iter_receipts(job_id=job_id, page_size=page_size))
         if not receipts:
             return ReceiptStatus(job_id=job_id, total=0, verified_count=0, failed=[], latest_verified=None)
 
-        verifications = verify_receipts(receipts)
+        verifications = verify_receipts(receipts, trusted_key_ids)
         verified = [v for v in verifications if v.verified]
         failed = [v for v in verifications if not v.verified]
         failures: list[ReceiptFailure] = []
@@ -242,7 +244,11 @@ class ReceiptPage:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
-def _verify_signature(payload: dict[str, Any], signature: dict[str, Any]) -> SignatureValidation:
+def _verify_signature(
+    payload: dict[str, Any],
+    signature: dict[str, Any],
+    trusted_key_ids: Iterable[str] | None = None,
+) -> SignatureValidation:
     key_id = signature.get("key_id", "")
     try:
         # Constructing the verifier is inside the try. It used to sit above it, so an
@@ -253,6 +259,12 @@ def _verify_signature(payload: dict[str, Any], signature: dict[str, Any]) -> Sig
         verifier = ReceiptVerifier(_decode_key(key_id))
         valid = verifier.verify(payload, signature)
         reason: str | None = None if valid else "signature mismatch"
+        if valid and trusted_key_ids is not None and key_id not in trusted_key_ids:
+            # The embedded key_id alone only proves the receipt is self-
+            # consistent: any self-made keypair produces a "valid" signature.
+            # When a trusted set is configured the signer must be in it.
+            valid = False
+            reason = "key_id not in trusted set"
     except Exception as exc:  # pragma: no cover - verifier could raise on malformed payloads
         valid = False
         reason = str(exc) or "signature verification error"
@@ -260,13 +272,16 @@ def _verify_signature(payload: dict[str, Any], signature: dict[str, Any]) -> Sig
     return SignatureValidation(key_id=key_id, valid=valid, algorithm=algorithm, reason=reason)
 
 
-def verify_receipt(receipt: dict[str, Any]) -> ReceiptVerification:
+def verify_receipt(receipt: dict[str, Any], trusted_key_ids: Iterable[str] | None = None) -> ReceiptVerification:
+    """Verify a receipt's signatures. When ``trusted_key_ids`` is given, every
+    signature's embedded ``key_id`` must be in the set — otherwise a valid
+    signature from an arbitrary self-made keypair reports as verified."""
     payload = {k: v for k, v in receipt.items() if k not in {"signature", "attestations"}}
     miner_sig = receipt.get("signature") or {}
-    miner_validation = _verify_signature(payload, miner_sig)
+    miner_validation = _verify_signature(payload, miner_sig, trusted_key_ids)
 
     attestations = receipt.get("attestations") or []
-    att_validations = [_verify_signature(payload, att) for att in attestations if isinstance(att, dict)]
+    att_validations = [_verify_signature(payload, att, trusted_key_ids) for att in attestations if isinstance(att, dict)]
 
     return ReceiptVerification(
         receipt=receipt,
@@ -275,8 +290,10 @@ def verify_receipt(receipt: dict[str, Any]) -> ReceiptVerification:
     )
 
 
-def verify_receipts(receipts: Iterable[dict[str, Any]]) -> list[ReceiptVerification]:
-    return [verify_receipt(receipt) for receipt in receipts]
+def verify_receipts(
+    receipts: Iterable[dict[str, Any]], trusted_key_ids: Iterable[str] | None = None
+) -> list[ReceiptVerification]:
+    return [verify_receipt(receipt, trusted_key_ids) for receipt in receipts]
 
 
 def _decode_key(data: str) -> bytes:
