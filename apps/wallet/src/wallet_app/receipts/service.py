@@ -32,19 +32,26 @@ class ReceiptValidationResult:
 class ReceiptVerifierService:
     """Wraps `aitbc_sdk` receipt verification for wallet daemon workflows."""
 
-    def __init__(self, coordinator_url: str, api_key: str, timeout: float = 10.0) -> None:
+    def __init__(
+        self,
+        coordinator_url: str,
+        api_key: str,
+        timeout: float = 10.0,
+        trusted_key_ids: frozenset[str] | None = None,
+    ) -> None:
         self.client = CoordinatorReceiptClient(coordinator_url, api_key, timeout=timeout)
+        self.trusted_key_ids = trusted_key_ids
 
     def verify_latest(self, job_id: str) -> ReceiptValidationResult | None:
         receipt = self.client.fetch_latest(job_id)
         if receipt is None:
             return None
-        verification = verify_receipt(receipt)
+        verification = verify_receipt(receipt, self.trusted_key_ids)
         return self._to_result(verification)
 
     def verify_history(self, job_id: str) -> list[ReceiptValidationResult]:
         receipts = self.client.fetch_history(job_id)
-        verifications = verify_receipts(receipts)
+        verifications = verify_receipts(receipts, self.trusted_key_ids)
         return [self._to_result(item) for item in verifications]
 
     @staticmethod

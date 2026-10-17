@@ -43,6 +43,7 @@ def get_receipt_service(config: Annotated[Settings, Depends(get_settings)]) -> R
     return ReceiptVerifierService(
         coordinator_url=config.coordinator_base_url,
         api_key=config.coordinator_api_key,
+        trusted_key_ids=config.trusted_receipt_key_id_set,
     )
 
 
