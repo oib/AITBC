@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/exchange.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=a54b33f557f9469b">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=cf90d01e4348db55">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=a54b33f557f9469b">
-    <script src="config.js?v=a54b33f557f9469b" defer></script>
-    <script src="copy.js?v=a54b33f557f9469b" defer></script>
-    <script src="exchange.js?v=a54b33f557f9469b" defer></script>
-    <script src="exchange-book.js?v=a54b33f557f9469b" defer></script>
-    <script src="status.js?v=a54b33f557f9469b" defer></script>
+    <link rel="stylesheet" href="/style.css?v=cf90d01e4348db55">
+    <script src="config.js?v=cf90d01e4348db55" defer></script>
+    <script src="copy.js?v=cf90d01e4348db55" defer></script>
+    <script src="exchange.js?v=cf90d01e4348db55" defer></script>
+    <script src="exchange-book.js?v=cf90d01e4348db55" defer></script>
+    <script src="status.js?v=cf90d01e4348db55" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -72,19 +72,25 @@
             <p class="value-note">EUR serves only as a pricing reference.<br>AIT represents compute, not fiat currency.</p>
         </div>
 
-        <!-- ═══ Order Book (ETH-11 phase 1: read-only display) ═══ -->
+        <!-- ═══ Order book and trades (read-only market view) ═══ -->
         <div class="card">
-            <h2>Order Book — AIT/ETH</h2>
-            <p class="muted-text">Live bids and asks from registered nodes. All orders are
-            <strong>unfunded — display only</strong>; nothing here settles yet.</p>
+            <h2>Order book and trades · AIT/ETH</h2>
+            <p class="endpoint-note">Display only: nothing here settles yet ·
+                <span id="ob-updated">updated —</span></p>
             <div class="ob-stats">
                 <span>last: <strong id="ob-last">—</strong></span>
                 <span>spread: <strong id="ob-spread">—</strong></span>
                 <span>mid: <strong id="ob-mid">—</strong></span>
             </div>
             <div id="ob-error" class="error-box" style="display:none;"></div>
+            <div id="ob-tape-error" class="error-box" style="display:none;"></div>
             <div id="ob-empty" class="ob-empty" style="display:none;">
-                No live orders yet. The book is empty; earlier entries are inactive test data.
+                No live orders and no live trades yet. The book answered and is empty.
+                Earlier entries are inactive test data.
+            </div>
+            <h3 class="ob-subhead">Order book</h3>
+            <div id="ob-book-empty" class="ob-empty" style="display:none;">
+                No live orders yet. The book answered and is empty.
             </div>
             <div id="ob-ladder" class="ob-ladder" style="display:none;">
                 <div class="ob-scroll" role="region" tabindex="0" aria-label="Sell orders (asks)">
@@ -103,22 +109,7 @@
                     </table>
                 </div>
             </div>
-            <details id="ob-inactive" class="ob-inactive" style="display:none;">
-                <summary><span id="ob-inactive-label">Inactive test data</span>
-                    — earlier entries, units are not ETH per AIT</summary>
-                <div class="ob-scroll" role="region" tabindex="0" aria-label="Inactive test orders">
-                    <table class="ob-table" aria-label="Inactive test orders">
-                        <thead><tr><th scope="col">side</th><th scope="col">price</th><th scope="col">size</th><th scope="col">maker</th><th scope="col">date</th></tr></thead>
-                        <tbody id="ob-inactive-body"></tbody>
-                    </table>
-                </div>
-            </details>
-        </div>
-
-        <!-- ═══ Recent Trades (read-only tape) ═══ -->
-        <div class="card">
-            <h2>Recent Trades</h2>
-            <div id="ob-tape-error" class="error-box" style="display:none;"></div>
+            <h3 class="ob-subhead">Recent trades</h3>
             <div id="ob-tape-empty" class="ob-empty" style="display:none;">
                 No live trades yet. Earlier entries are inactive test data.
             </div>
@@ -128,9 +119,17 @@
                     <tbody id="ob-tape-body"></tbody>
                 </table>
             </div>
+            <details id="ob-inactive" class="ob-inactive" style="display:none;">
+                <summary><span id="ob-inactive-label">Inactive test data — earlier entries, units are not ETH per AIT</span></summary>
+                <div class="ob-scroll" role="region" tabindex="0" aria-label="Inactive test orders">
+                    <table class="ob-table" aria-label="Inactive test orders">
+                        <thead><tr><th scope="col">side</th><th scope="col">price</th><th scope="col">size</th><th scope="col">maker</th><th scope="col">date</th></tr></thead>
+                        <tbody id="ob-inactive-body"></tbody>
+                    </table>
+                </div>
+            </details>
             <details id="ob-tape-inactive" class="ob-inactive" style="display:none;">
-                <summary><span id="ob-tape-inactive-label">Inactive test data</span>
-                    — earlier entries, units are not ETH per AIT</summary>
+                <summary><span id="ob-tape-inactive-label">Inactive test data — earlier entries, units are not ETH per AIT</span></summary>
                 <div class="ob-scroll" role="region" tabindex="0" aria-label="Inactive test trades">
                     <table class="ob-table" aria-label="Inactive test trades">
                         <thead><tr><th scope="col">price</th><th scope="col">size</th><th scope="col">time (UTC)</th></tr></thead>
@@ -138,7 +137,6 @@
                     </table>
                 </div>
             </details>
-            <p class="endpoint-note" id="ob-updated">last updated —</p>
         </div>
 
         <!-- ═══ Buy AIT with ETH (Bridge) ═══ -->
