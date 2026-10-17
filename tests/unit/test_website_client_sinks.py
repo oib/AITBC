@@ -48,7 +48,7 @@ ALLOWLIST: list[tuple[str, str, str]] = [
     ("alerts.js", r"^\{?\s*cls\s*\}?$", "severity class — mapped literal, never data text"),
     ("alerts.js", r"^\{?\s*text\s*\}?$", "literal status text"),
     ("alerts.js", r"^\{?\s*extraClass\s*\}?$", "alertCard param — literal class at call sites"),
-    ("bridges.js", r"^\{?\s*(cls|tx)\s*\}?$", "class literal / prebuilt escaped link"),
+    ("bridges.js", r"^\{?\s*parts\.\w+\s*\}?$", "transferParts() fields — escapeHtml-built fragments or literals"),
     ("dashboard.js", r"^\{?\s*esc\s*\}?$", "already escapeHtml() output"),
     ("dashboard.js", r"^\{?\s*v\s*\}?$", "html:true cells carry prebuilt fragments (escrow/txLink)"),
     ("exchange.js", r"^\{?\s*(cls|fromShort|aitTxLink|errLine)\s*\}?$", "prebuilt escaped fragments"),

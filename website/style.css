@@ -2275,6 +2275,41 @@ a.btn-secondary {
 .bridge-status-failed    { background: #5a2d2d; color: #e0b0b0; }
 .bridge-status-unknown   { background: transparent; color: var(--text-muted); border: 1px dashed var(--text-muted); }
 
+.bridge-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.bridge-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.bridge-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.bridge-table th.bridge-col-amt,
+.bridge-table td.bridge-amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bridge-when { white-space: nowrap; }
+.bridge-when-note { display: block; color: var(--text-muted); font-size: 0.7rem; }
+
+.bridge-cards { display: none; }
+.bridge-card-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.7rem 0.85rem;
+    margin-bottom: 0.75rem;
+    background: var(--surface);
+}
+.bridge-card-top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+.bridge-card-line { display: flex; flex-wrap: wrap; gap: 0.6rem; padding: 0.2rem 0; font-size: 0.85rem; align-items: baseline; }
+.bridge-card-k { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; min-width: 4.5rem; }
+
 @media (pointer: coarse), (max-width: 640px) {
     .status-strip a.status-part {
         display: inline-flex;
@@ -2342,4 +2377,7 @@ a.btn-secondary {
     textarea {
         font-size: 16px;
     }
+    /* Bridges page: per-transfer cards replace the wide table. */
+    .bridge-table-wrap { display: none; }
+    .bridge-cards { display: block; }
 }
