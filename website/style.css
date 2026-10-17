@@ -1947,6 +1947,41 @@ a.btn-secondary {
 .evt-other { color: var(--text-muted); }
 .alerts-updated { color: var(--text-muted); font-size: 0.72rem; margin-top: 0.8rem; text-align: right; }
 
+/* One-line fleet alert summary at the top of the alerts page. State is
+   carried by words + a distinct dot shape, never by colour alone:
+   filled circle = clear, square = firing, ring = pending/unknown. */
+.alerts-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    min-height: 3.2rem;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.alerts-summary-title { font-weight: 700; }
+.alerts-summary-detail { color: var(--text-muted); font-size: 0.85rem; }
+.alerts-summary-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: currentColor; }
+.alerts-summary.is-clear { border-color: #1f4d3a; }
+.alerts-summary.is-clear .alerts-summary-title,
+.alerts-summary.is-clear .alerts-summary-dot { color: var(--success); }
+.alerts-summary.is-firing { border-color: #7f1d1d; }
+.alerts-summary.is-firing .alerts-summary-title,
+.alerts-summary.is-firing .alerts-summary-dot { color: #ef4444; }
+.alerts-summary.is-firing .alerts-summary-dot { border-radius: 2px; }
+.alerts-summary.is-pending,
+.alerts-summary.is-unknown { border-color: #78350f; }
+.alerts-summary.is-pending .alerts-summary-title,
+.alerts-summary.is-unknown .alerts-summary-title,
+.alerts-summary.is-pending .alerts-summary-dot,
+.alerts-summary.is-unknown .alerts-summary-dot { color: #f59e0b; }
+.alerts-summary.is-pending .alerts-summary-dot,
+.alerts-summary.is-unknown .alerts-summary-dot { background: transparent; border: 2px solid currentColor; }
+.alerts-summary.is-loading .alerts-summary-title { color: var(--text-muted); }
+
 /* Service journal card on alerts page */
 .journal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .journal-head h2 { margin: 0; }
