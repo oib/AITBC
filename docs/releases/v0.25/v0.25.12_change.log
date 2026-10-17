@@ -156,6 +156,8 @@ deferred).
 
 ### Tests: auth-middleware tests could not reach the "no miner keys" state — _configured_miner_keys() also merges coordinator_api.config.settings.miner_api_keys, and the Settings singleton bakes MINER_API_KEYS at first import (inside an earlier monkeypatched test). _no_miner_keys() clears both sources; the previously-red 401-log test now passes on hosts where coordinator_api is importable (node2, IDE venv). Also adds a merge/dedup contract test for _configured_miner_keys. ENG-3.
 
+### Ops: bridge-leaf-audit reads `target_recipient` from sealed envelopes (AUDIT-RECIP-1). Sealed lock envelopes carry the recipient as `target_recipient` (`bridge_transfer.py`); the audit's `derived_leaf` only read `recipient`, so every lock sealed at/above `bridge_lock_leaf_v2_height` derived `unreadable` and classified `missing_data` — a false alarm, not a chain defect (LEAF-V2-LOCK-1 proved the v2 leaf correct end-to-end). `derived_leaf` now accepts the alias in payload and envelope; the skipped-trie line explains the `PYTHONPATH` requirement.
+
 ### Commit index — commits since v0.25.11 the coverage check could not match
 
 `fleet-config-check.sh`'s changelog-coverage section matches a commit by its
