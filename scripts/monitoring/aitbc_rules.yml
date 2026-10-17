@@ -659,6 +659,37 @@ groups:
           summary: "Off-site backup pull has not succeeded for over 36 h"
           description: "aitbc_offsite_pull_last_success_timestamp_seconds is older than 36 h — the IDE host's off-site pull has not succeeded; that includes the IDE host being powered down or unreachable. Run offsite-pull-backups.sh --status on the IDE host."
 
+  - name: aitbc-env-watch
+    rules:
+      # AITBCReceiptSigningKeyAbsent: a var dropped from a service's env file
+      # stays invisible until the next restart — the running process keeps
+      # its old environment (RECEIPT_SIGNING_KEY_HEX sat missing for ~4.5
+      # days in Oct 2026 after an env rewrite; signing broke only at the
+      # eventual restart). env-watch-textfile greps env files for ^VAR=
+      # every 15 min. No absent() arm by design: hosts without the timer
+      # emit no series and should not fire.
+      - alert: AITBCReceiptSigningKeyAbsent
+        expr: aitbc_env_var_present{var="RECEIPT_SIGNING_KEY_HEX"} == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RECEIPT_SIGNING_KEY_HEX absent from coordinator env on {{ $labels.instance }}"
+          description: "No coordinator env file on {{ $labels.instance }} assigns RECEIPT_SIGNING_KEY_HEX — the next aitbc-coordinator-api restart leaves JobReceipt signing disabled and paid jobs unreleasable. Restore the key into /etc/aitbc/aitbc-coordinator-api(-override).env before the service restarts."
+
+      # AITBCEnvWatchStale: same stale-collector pattern as
+      # BackupExporterMissing — the timestamp stays in the last-written
+      # textfile when the timer stops, so age catches blindness without an
+      # absent() arm that would fire on hosts where it was never installed.
+      - alert: AITBCEnvWatchStale
+        expr: time() - aitbc_env_watch_timestamp_seconds > 2700
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Env-watch exporter has stopped ({{ $labels.instance }})"
+          description: "aitbc_env_watch_timestamp_seconds is older than 45 minutes on {{ $labels.instance }} — env-var presence is no longer being checked. Check systemctl status aitbc-env-watch.timer."
+
   - name: aitbc-messaging
     rules:
       # MSG-6: derived forum/messaging index operability. All informational

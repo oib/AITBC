@@ -1,0 +1,29 @@
+[Unit]
+Description=AITBC critical env-var presence for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+
+[Service]
+Type=oneshot
+# Deploy on the host whose services are watched: entries name local env
+# files. Today only the hub's coordinator receipt-signing key is watched —
+# the var dropped out of an env rewrite unnoticed for days in Oct 2026.
+# Extend by adding service=VAR:file[,file...] tokens.
+Environment=AITBC_ENV_WATCH=aitbc-coordinator-api=RECEIPT_SIGNING_KEY_HEX:/etc/aitbc/aitbc-coordinator-api.env,/etc/aitbc/aitbc-coordinator-api-override.env
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/env-watch-textfile.py
+SyslogIdentifier=aitbc-env-watch
+
+# Reads the named env files (names only, never values) and writes one file
+# in the textfile directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ReadOnlyPaths=/etc/aitbc
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
