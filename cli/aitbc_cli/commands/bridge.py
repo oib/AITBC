@@ -613,7 +613,7 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output_p
         proof = result.get("proof", result)
         Path(output_path).write_text(json.dumps(proof, indent=2, sort_keys=True))
         output(
-            {"success": True, "transfer_id": transfer_id, "proof_file": output},
+            {"success": True, "transfer_id": transfer_id, "proof_file": output_path},
             ctx.obj.get("output_format", "table"),
             title="Bridge Proof",
         )
