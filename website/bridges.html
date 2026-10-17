@@ -13,14 +13,14 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/bridges.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=44b2f05f41f4178c">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=571fa74a6f17ddcc">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=44b2f05f41f4178c">
-    <script src="config.js?v=44b2f05f41f4178c" defer></script>
-    <script src="copy.js?v=44b2f05f41f4178c" defer></script>
-    <script src="bridges.js?v=44b2f05f41f4178c" defer></script>
-    <script src="status.js?v=44b2f05f41f4178c" defer></script>
+    <link rel="stylesheet" href="/style.css?v=571fa74a6f17ddcc">
+    <script src="config.js?v=571fa74a6f17ddcc" defer></script>
+    <script src="copy.js?v=571fa74a6f17ddcc" defer></script>
+    <script src="bridges.js?v=571fa74a6f17ddcc" defer></script>
+    <script src="status.js?v=571fa74a6f17ddcc" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -50,10 +50,23 @@
 
         <main id="main" tabindex="-1">
 
+        <div id="bridge-health" class="bridge-health is-loading" role="status" aria-live="polite">
+            <span class="bridge-health-dot" aria-hidden="true"></span>
+            <span class="bridge-health-title">Checking bridge...</span>
+            <span class="bridge-health-detail"></span>
+        </div>
+
         <div class="card">
             <h2>Recent Bridge Transfers</h2>
             <div id="recent-bridges-loading" class="muted-text">Loading...</div>
             <div id="recent-bridges-empty" style="display:none;" class="muted-text">No bridges yet — <a href="/exchange.html">be the first</a>.</div>
+            <div id="recent-bridges-fail-note" class="bridge-fail-note" style="display:none;" role="status"></div>
+            <div id="recent-bridges-failed" class="bridge-failed" style="display:none;" role="alert">
+                <p class="bridge-failed-title">Transfers could not be loaded.</p>
+                <p class="bridge-failed-detail" id="recent-bridges-failed-reason"></p>
+                <p class="bridge-failed-detail">This is not an empty list.</p>
+                <button type="button" id="recent-bridges-retry" class="bridge-retry">Try again</button>
+            </div>
             <div id="recent-bridges-container"></div>
         </div>
         </main>
