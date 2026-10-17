@@ -64,10 +64,26 @@ def _lock_tx() -> dict:
 
 
 def _sealed(tx: dict) -> dict:
-    row = dict(tx)
-    row["tx_hash"] = compute_tx_hash(tx)
-    row["block_height"] = 123
-    return row
+    """A real sealed ``transactions`` row — `sender`/`recipient`/`value`, not
+    the submitted body's `from`/`to`/`amount` (the shape the original fixture
+    got wrong and live data corrected, queue 1066)."""
+    return {
+        "block_hash": "0x" + "11" * 32,
+        "block_height": 123,
+        "block_proposer": "0x" + "22" * 20,
+        "created_at": 1761000000.0,
+        "fee": tx["fee"],
+        "nonce": tx["nonce"],
+        "payload": dict(tx["payload"]),
+        "recipient": tx["to"],
+        "sender": tx["from"],
+        "status": "confirmed",
+        "timestamp": 1761000000,
+        "transaction_id": 42,
+        "tx_hash": compute_tx_hash(tx),
+        "type": tx["type"],
+        "value": tx["amount"],
+    }
 
 
 def _mempool_response(transactions: list) -> MagicMock:
@@ -106,18 +122,18 @@ async def test_verify_sealed_lock_with_different_hash_refuses(patched, monkeypat
 @pytest.mark.parametrize(
     "mutate, field",
     [
-        (lambda t: t.update({"amount": t["amount"] + 1}), "amount"),
-        (lambda t: t.update({"from": PROVIDER}), "from"),
-        (lambda t: t["payload"].update({"job_id": "other-job"}), "payload.job_id"),
-        (lambda t: t.update({"to": BUYER}), "to"),
-        (lambda t: t.update({"type": "TRANSFER"}), "type"),
+        (lambda row: row.update({"value": row["value"] + 1}), "amount"),
+        (lambda row: row.update({"sender": PROVIDER}), "from"),
+        (lambda row: row["payload"].update({"job_id": "other-job"}), "payload.job_id"),
+        (lambda row: row.update({"recipient": BUYER}), "to"),
+        (lambda row: row.update({"type": "TRANSFER"}), "type"),
     ],
 )
 async def test_verify_sealed_lock_field_mismatch_refuses(patched, monkeypatch, mutate, field):
-    tx = _lock_tx()
-    mutate(tx)
-    sealed = _sealed(tx)  # keep tx_hash constant so the field check fires, not the hash check
-    sealed["tx_hash"] = "0x" + "ab" * 32
+    """Mutations hit the sealed row's own keys (sender/recipient/value)."""
+    sealed = _sealed(_lock_tx())
+    mutate(sealed)
+    sealed["tx_hash"] = "0x" + "ab" * 32  # pin the hash so the field check fires, not the hash check
     monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=sealed))
 
     with pytest.raises(HTTPException) as exc_info:
