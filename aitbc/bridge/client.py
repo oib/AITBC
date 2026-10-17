@@ -74,6 +74,8 @@ class BridgeClient:
         asset: str = "native",
         signature: str = "",
         source_chain: str | None = None,
+        issued_at: int | float | str | None = None,
+        nonce: str | None = None,
     ) -> dict[str, Any]:
         """Lock funds for a cross-chain transfer."""
         payload: dict[str, Any] = {
@@ -86,6 +88,10 @@ class BridgeClient:
         }
         if source_chain:
             payload["source_chain"] = source_chain
+        if issued_at is not None:
+            payload["issued_at"] = issued_at
+        if nonce is not None:
+            payload["nonce"] = nonce
         resp = await self._ensure_client().post("/bridge/lock", json=payload)
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())

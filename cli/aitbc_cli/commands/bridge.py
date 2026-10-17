@@ -13,6 +13,7 @@ import json
 import os
 import secrets
 import subprocess
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -195,8 +196,14 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
 def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, signature, wallet_name, wallet_password, rpc_url):
     """Lock funds for a cross-chain bridge transfer."""
 
+    issued_at = None
+    nonce = None
     if wallet_name:
         private_key = _load_private_key(wallet_name, wallet_password)
+        # SEC-REPLAY-1: the replay guard fields ride inside the signed dict —
+        # a captured signed body can no longer be re-posted.
+        issued_at = int(time.time())
+        nonce = secrets.token_hex(16)
         sign_data = {
             "source_chain": source_chain or "",
             "target_chain": target_chain,
@@ -204,6 +211,8 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
             "recipient": recipient,
             "amount": amount,
             "asset": asset,
+            "issued_at": issued_at,
+            "nonce": nonce,
         }
         signature = _sign_dict(private_key, sign_data)
 
@@ -218,6 +227,8 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
                 asset=asset,
                 signature=signature,
                 source_chain=source_chain,
+                issued_at=issued_at,
+                nonce=nonce,
             )
 
     try:

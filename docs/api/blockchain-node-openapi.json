@@ -23447,6 +23447,36 @@
             "minLength": 1,
             "title": "Signature",
             "description": "Sender signature authorizing the lock"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At",
+            "description": "Replay-guard issue time (ISO-8601 or epoch seconds); signed"
+          },
+          "nonce": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nonce",
+            "description": "Single-use replay-guard nonce; signed"
           }
         },
         "type": "object",
