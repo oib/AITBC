@@ -364,3 +364,32 @@ def test_sell_lock_and_settlement_releases_explained(tmp_path):
     assert len(unexplained) == 1 and "cccc" in unexplained[0]
     cur = books[bwr._norm(CUR)]
     assert not any("release" in f and sell1[:14] in f for f in cur.flags)  # exact match, no delta flag
+
+
+def test_analyze_normalizes_withdrawal_hash_keys():
+    """Direct analyze() callers hand over rows that did not pass through
+    _load_ledger's normalization: an eth_tx_hash kept '0xABC…' style must
+    still match the chain tx recorded bare/lowercase (ENG-2)."""
+    w = {"id": "w1", "eth_tx_hash": "0x" + "AB" * 32, "amount_wei": 1113060053784850, "status": "completed"}
+    tx = _tx("ab" * 32, CUR, RECEIVER, 1113060053784850)
+    books, _, flags = bwr.analyze([tx], [], set(), [w], set(), WALLETS, bwr._norm(CUR))
+    assert not any("unexplained outflow" in f for f in flags)
+    assert not any("delta" in f for f in flags)
+
+
+def test_analyze_normalizes_sell_release_hash_keys():
+    """Same for sell_releases rows (ENG-2)."""
+    w = {"id": "sl1", "eth_tx_hash": "0x" + "CD" * 32, "amount_wei": 10**15}
+    tx = _tx("cd" * 32, CUR, RECEIVER, 10**15)
+    books, _, flags = bwr.analyze([tx], [], set(), [], set(), WALLETS, bwr._norm(CUR), sell_releases=[w])
+    assert not any("unexplained outflow" in f for f in flags)
+    assert not any("delta" in f for f in flags)
+
+
+def test_analyze_normalizes_hash_keys_reverse_direction():
+    """Bare ledger hash vs prefixed chain tx — the lookup normalizes both
+    sides, so direction of the prefix does not matter (ENG-2)."""
+    w = {"id": "w2", "eth_tx_hash": "ef" * 32, "amount_wei": 5 * 10**14, "status": "completed"}
+    tx = _tx("0x" + "EF" * 32, CUR, RECEIVER, 5 * 10**14)
+    books, _, flags = bwr.analyze([tx], [], set(), [w], set(), WALLETS, bwr._norm(CUR))
+    assert not any("unexplained outflow" in f for f in flags)
