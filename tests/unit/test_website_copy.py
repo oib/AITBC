@@ -184,6 +184,24 @@ class TestExchangeTrackRetry(unittest.TestCase):
         self.assertIn("The book and the trade list", html)
 
 
+class TestExchangeBuySteps(unittest.TestCase):
+    """EXCH-BUYFIRST-1: the step indicator is presentational — aria-current
+    marks the step in progress, updated by the existing handlers."""
+
+    def test_steps_markup_and_updates(self) -> None:
+        html = _site_src("exchange.html")
+        self.assertIn('class="exchange-steps"', html)
+        for step in ("step-amount", "step-review", "step-send", "step-track"):
+            self.assertIn(f'id="{step}"', html)
+        js = _site_src("exchange.js")
+        self.assertIn("function updateExchangeStep()", js)
+        self.assertIn("aria-current", js)
+        self.assertGreaterEqual(js.count("updateExchangeStep();"), 4)
+        css = _site_src("style.css")
+        self.assertIn("grid-template-areas", css)
+        self.assertIn(".exchange-steps li.is-active", css)
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")

@@ -76,6 +76,8 @@ async function fetchPrices() {
         if (!data.success) throw new Error(data.error || 'Failed to fetch prices');
         updateHeroPrice(data);
         heroLastGoodAt = Date.now();
+        const src = document.getElementById('ref-source');
+        if (src) src.textContent = 'source: reference.json + live ETH price · read ' + aitbcFmt.time(heroLastGoodAt);
     } catch (error) {
         console.error('Error fetching prices:', error);
         const reason = 'price unavailable (' + errReason(error) + ')';
@@ -275,6 +277,7 @@ function showConnectedAccount(account) {
     if (buyBtn && lastEstimate) {
         buyBtn.style.display = 'block';
     }
+    updateExchangeStep();
 }
 
 async function sendBridgeTransaction() {
@@ -312,6 +315,7 @@ async function sendBridgeTransaction() {
             errEl.textContent = error.message || 'Transaction rejected or failed';
         }
     }
+    updateExchangeStep();
 }
 
 async function calculateDeposit() {
@@ -327,6 +331,7 @@ async function calculateDeposit() {
         const errEl = document.getElementById('deposit-error');
         errEl.style.display = 'block';
         errEl.textContent = 'Please enter both ETH amount and AIT address';
+        updateExchangeStep();
         return;
     }
 
@@ -371,6 +376,7 @@ async function calculateDeposit() {
         errEl.style.display = 'block';
         errEl.textContent = 'Failed to connect to server';
     }
+    updateExchangeStep();
 }
 
 // ─── Deposit status tracking ───
@@ -436,6 +442,30 @@ async function trackDeposit() {
     if (status === 'pending' || status === 'processing') {
         trackPollHandle = setInterval(() => lookupDeposit(input), 10000);
     }
+}
+
+// Buy-flow step indicator: presentational only — the active step follows
+// which stage box is visible (estimate = Review, send affordance = Send,
+// tx hash = Track). aria-current marks the step in progress.
+function setExchangeStep(name) {
+    for (const li of document.querySelectorAll('.exchange-steps li')) {
+        const active = li.id === 'step-' + name;
+        li.classList.toggle('is-active', active);
+        if (active) li.setAttribute('aria-current', 'step');
+        else li.removeAttribute('aria-current');
+    }
+}
+
+function updateExchangeStep() {
+    const shown = id => {
+        const e = document.getElementById(id);
+        return e && e.style.display !== 'none' && e.style.display !== '';
+    };
+    setExchangeStep(
+        shown('deposit-tx-result') ? 'track'
+        : (shown('deposit-instructions') || shown('buy-with-eth-btn')) ? 'send'
+        : shown('deposit-estimate') ? 'review'
+        : 'amount');
 }
 
 // The track card's Try again button belongs to a could-not-query answer
@@ -569,4 +599,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const trackRetryBtn = document.getElementById('track-retry-btn');
     if (trackRetryBtn) trackRetryBtn.addEventListener('click', trackDeposit);
+
+    setExchangeStep('amount');
 });
