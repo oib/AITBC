@@ -256,7 +256,7 @@
             setError('ob-error', null);
         } catch (err) {
             ok = false;
-            setError('ob-error', 'Order book unavailable — retrying automatically.');
+            setError('ob-error', `Order book unavailable (${errReason(err)}) — retrying automatically.`);
             console.error('orderbook fetch failed:', err);
         }
         try {
@@ -264,7 +264,7 @@
             setError('ob-tape-error', null);
         } catch (err) {
             ok = false;
-            setError('ob-tape-error', 'Trade tape unavailable — retrying automatically.');
+            setError('ob-tape-error', `Trade tape unavailable (${errReason(err)}) — retrying automatically.`);
             console.error('trades fetch failed:', err);
         }
         const lu = document.getElementById('ob-updated');
