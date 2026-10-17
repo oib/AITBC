@@ -132,12 +132,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Load activity timeline chart
+    function markChartStale(canvas) {
+        if (!canvas || !canvas.parentElement) return;
+        let note = canvas.parentElement.querySelector('.chart-refresh-note');
+        if (!note) {
+            note = document.createElement('p');
+            note.className = 'muted-text chart-refresh-note';
+            canvas.parentElement.insertBefore(note, canvas.nextSibling);
+        }
+        note.textContent = `Activity chart could not refresh (${new Date().toLocaleTimeString('en-GB')}).`;
+    }
+
+    function clearChartStale(canvas) {
+        const note = canvas && canvas.parentElement && canvas.parentElement.querySelector('.chart-refresh-note');
+        if (note) note.remove();
+    }
+
     async function loadActivityChart() {
+        const canvas = document.getElementById('activity-chart');
         try {
             const response = await fetch(`${EXPLORER_API_URL}/api/analytics/activity?chain_id=${currentChain}&days=30`);
+            if (!canvas) return;
             const data = await response.json();
-            const canvas = document.getElementById('activity-chart');
-            if (!canvas || !data.labels || data.labels.length === 0) return;
+            // A failed or shapeless reply keeps the old chart — only a valid
+            // empty labels array is a true "no activity".
+            if (!response.ok || !Array.isArray(data.labels)) {
+                markChartStale(canvas);
+                return;
+            }
+            if (data.labels.length === 0) return;
 
             const ctx = canvas.getContext('2d');
             // Destroy existing chart if any
@@ -162,17 +185,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                 },
             });
+            clearChartStale(canvas);
         } catch (error) {
             console.error('Error loading activity chart:', error);
+            markChartStale(canvas);
         }
     }
 
     // Live feed
     let liveFeedItems = [];
     async function updateLiveFeed() {
+        const container = document.getElementById('live-feed-list');
         try {
             const blocksResp = await fetch(`${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=10`);
             const blocksData = await blocksResp.json();
+            // A failed or shapeless reply keeps the old items — the feed must
+            // never collapse to an empty list on a bad read.
+            if (!blocksResp.ok || !blocksData || !Array.isArray(blocksData.blocks)) {
+                throw new Error(blocksResp.ok ? 'unexpected reply' : `HTTP ${blocksResp.status}`);
+            }
 
             const newItems = [];
             (blocksData.blocks || []).forEach(b => {
@@ -208,6 +239,16 @@ document.addEventListener('DOMContentLoaded', function() {
             renderLiveFeed();
         } catch (error) {
             console.error('Error updating live feed:', error);
+            // Keep the last good items; show one muted refresh-failed line.
+            if (container) {
+                let note = container.querySelector('.feed-refresh-note');
+                if (!note) {
+                    note = document.createElement('p');
+                    note.className = 'muted-text feed-refresh-note';
+                    container.prepend(note);
+                }
+                note.textContent = `Live feed could not refresh (${new Date().toLocaleTimeString('en-GB')}).`;
+            }
         }
     }
 
@@ -288,21 +329,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Perform simple search
     async function performSearch() {
         let query = document.getElementById('search-input').value.trim();
-        console.log('Search query:', query);
         if (!query) {
-            console.log('Empty query, returning');
             return;
         }
 
         // Strip # prefix if present (e.g., user enters "#27381")
         query = query.replace(/^#/, '');
-        console.log('Query after stripping #:', query);
 
         // Try to determine if it's a block height, hash, or address
         const isNumber = /^\d+$/.test(query);
         const isHash = /^(0x)?[a-fA-F0-9]{64}$/.test(query);
 
-        console.log('Is number:', isNumber, 'Is hash:', isHash);
 
         if (isNumber) {
             // Go directly to block detail
@@ -318,80 +355,88 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Search by hash (could be block or transaction)
     async function searchByHash(hash) {
-        console.log('searchByHash called with:', hash);
-        // Strip 0x prefix if present for API calls
         const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
-        console.log('Clean hash for API:', cleanHash);
-
-        // First try to search as block
-        const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${cleanHash}?chain_id=${currentChain}`);
-        console.log('Block by hash response status:', blockResponse.status);
-        if (blockResponse.ok) {
-            const blockData = await blockResponse.json();
-            console.log('Block by hash data:', blockData);
-            if (blockData && blockData.height) {
-                displayResults([blockData], 'block');
+        try {
+            // A failed reply stops the chain — only a 404 or a proven
+            // non-matching answer justifies trying the next lookup.
+            const blockResponse = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${cleanHash}?chain_id=${currentChain}`);
+            if (blockResponse.ok) {
+                const blockData = await blockResponse.json();
+                if (blockData && blockData.height) {
+                    displayResults([blockData], 'block');
+                    return;
+                }
+            } else if (blockResponse.status !== 404) {
+                displayError(`Search could not be completed (HTTP ${blockResponse.status}). This is not a "not found".`);
                 return;
             }
-        }
 
-        console.log('Block not found by hash, trying transaction search');
-        // If block not found, try to search as transaction
-        const txResponse = await fetch(`${EXPLORER_API_URL}/api/transactions/by-hash/${cleanHash}?chain_id=${currentChain}`);
-        console.log('Transaction by hash response status:', txResponse.status);
-        if (txResponse.ok) {
-            const txData = await txResponse.json();
-            console.log('Transaction by hash data:', txData);
-            if (txData && txData.tx_hash) {
-                displayResults([txData], 'transaction');
+            const txResponse = await fetch(`${EXPLORER_API_URL}/api/transactions/by-hash/${cleanHash}?chain_id=${currentChain}`);
+            if (txResponse.ok) {
+                const txData = await txResponse.json();
+                if (txData && txData.tx_hash) {
+                    displayResults([txData], 'transaction');
+                    return;
+                }
+            } else if (txResponse.status !== 404) {
+                displayError(`Search could not be completed (HTTP ${txResponse.status}). This is not a "not found".`);
                 return;
             }
-        }
 
-        console.log('Neither block nor transaction found by hash, trying address search');
-        // If no block or transaction found, the "hash" might actually be a node ID or address
-        await searchByAddress(hash);
+            // No block or transaction found — the "hash" might be a node ID or address
+            await searchByAddress(hash);
+        } catch (error) {
+            console.error('Error searching by hash:', error);
+            displayError('Search could not be completed (network error). This is not a "not found".');
+        }
     }
 
     // Search block by height
     async function searchBlock(height) {
-        console.log('searchBlock called with height:', height);
         try {
             const response = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}?chain_id=${currentChain}`);
-            console.log('Response status:', response.status);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    displayError('Block not found');
+                } else {
+                    displayError(`Search could not be completed (HTTP ${response.status}). This is not a "not found".`);
+                }
+                return;
+            }
             const data = await response.json();
-            console.log('Response data:', data);
             if (data && data.height) {
                 displayResults([data], 'block');
             } else {
-                console.log('No valid block data in response');
-                displayResults([], 'block');
+                displayError('Block not found');
             }
         } catch (error) {
             console.error('Error searching block:', error);
-            displayError('Block not found');
+            displayError('Search could not be completed (network error). This is not a "not found".');
         }
     }
 
     // Search transaction by hash
     async function searchTransaction(hash) {
-        console.log('searchTransaction called with:', hash);
-        // Strip 0x prefix if present for API calls
         const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
         try {
             const response = await fetch(`${EXPLORER_API_URL}/api/transactions/${cleanHash}?chain_id=${currentChain}`);
-            console.log('Transaction response status:', response.status);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    displayError('Transaction not found');
+                } else {
+                    displayError(`Search could not be completed (HTTP ${response.status}). This is not a "not found".`);
+                }
+                return;
+            }
             const data = await response.json();
-            console.log('Transaction data:', data);
-            if (data && data.hash) {
+            if (data && (data.hash || data.tx_hash)) {
                 displayResults([data], 'transaction');
             } else {
-                console.log('No valid transaction data');
-                displayResults([], 'transaction');
+                displayError('Transaction not found');
             }
         } catch (error) {
             console.error('Error searching transaction:', error);
-            displayError('Transaction not found');
+            displayError('Search could not be completed (network error). This is not a "not found".');
         }
     }
 
@@ -402,8 +447,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(address)}&chain_id=${currentChain}`),
                 fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(address)}?chain_id=${currentChain}`),
             ]);
-            const txData = await txResp.json();
-            const blockData = await blockResp.json();
+            const failed = [txResp, blockResp].find(r => !r.ok && r.status !== 404);
+            if (failed) {
+                displayError(`Search could not be completed (HTTP ${failed.status}). This is not a "not found".`);
+                return;
+            }
+            const txData = txResp.ok ? await txResp.json() : {};
+            const blockData = blockResp.ok ? await blockResp.json() : {};
             const txs = txData.transactions || [];
             const blocks = blockData.blocks || [];
             if (txs.length === 0 && blocks.length === 0) {
@@ -413,7 +463,7 @@ document.addEventListener('DOMContentLoaded', function() {
             displayAddressResults(blocks, txs, address);
         } catch (error) {
             console.error('Error searching by address:', error);
-            displayError('No transactions or blocks found for address');
+            displayError('Search could not be completed (network error). This is not a "not found".');
         }
     }
 
@@ -575,7 +625,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Display results
     function displayResults(results, type, searchedAddress = '') {
-        console.log('displayResults called with:', results.length, 'results of type:', type);
         const section = document.getElementById('results-section');
         const container = document.getElementById('results-container');
         const count = document.getElementById('results-count');
@@ -597,7 +646,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        console.log('Valid results after filtering:', validResults.length);
 
         if (validResults.length === 0) {
             container.innerHTML = '<p class="loading-text">No valid results found.</p>';
