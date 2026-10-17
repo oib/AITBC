@@ -108,7 +108,7 @@ async function loadRecentBridges() {
     renderedTransfers = visible.length;
     if (visible.length === 0) {
         if (container) container.innerHTML = '';
-        if (empty) empty.style.display = 'block';
+        if (transfers.length === 0 && empty) empty.style.display = 'block';
     } else {
         if (empty) empty.style.display = 'none';
     }
@@ -163,7 +163,7 @@ function transferRow(d) {
     const parts = transferParts(d);
     return `<tr>
         <td class="bridge-when"><span class="bridge-when-main">${parts.when}</span><span class="bridge-when-note">${parts.whenNote}</span></td>
-        <td>${parts.routeHtml}</td>
+        <td class="bridge-route">${parts.routeHtml}</td>
         <td>${parts.senderHtml}</td>
         <td>${parts.recipientHtml}</td>
         <td class="bridge-amt">${parts.amount} AIT</td>

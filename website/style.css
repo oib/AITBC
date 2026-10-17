@@ -2289,6 +2289,7 @@ a.btn-secondary {
 .bridge-table th.bridge-col-amt,
 .bridge-table td.bridge-amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bridge-when { white-space: nowrap; }
+.bridge-route { white-space: nowrap; }
 .bridge-when-note { display: block; color: var(--text-muted); font-size: 0.7rem; }
 
 .bridge-cards { display: none; }
