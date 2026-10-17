@@ -134,6 +134,22 @@ class TestExchangeFaucetCard(unittest.TestCase):
         self.assertIn("paused", card.lower())
 
 
+class TestExchangeBridgeBanner(unittest.TestCase):
+    """EXCH-FAILSTATES-1: the page-level bridge banner must exist and its
+    render path must cover all four states — green only on a proven reply."""
+
+    def test_banner_element_and_states(self) -> None:
+        html = _site_src("exchange.html")
+        self.assertIn('id="bridge-health"', html)
+        self.assertIn('role="status"', html)
+        js = _site_src("exchange.js")
+        for cls in ("is-loading", "is-healthy", "is-attention", "is-unknown"):
+            self.assertIn(cls, js)
+        self.assertIn("setInterval(fetchBridgeStatus, 60000)", js)
+        self.assertIn("setDepositFormEnabled", js)
+        self.assertIn('id="bridge-retry-btn"', html)
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")
