@@ -155,3 +155,75 @@ deferred).
 ### Auth: aitbc.auth.api_key no longer touches the filesystem at import. api_key_manager is now a lazy module-__getattr__ singleton (get_api_key_manager(), double-checked under a lock) — `import aitbc.auth`/`import aitbc.auth.api_key` create no <API_KEY_STORAGE_PATH>.lock and no longer raise PermissionError on hosts without /var/lib/aitbc. The name still yields a real APIKeyManager; API_KEY_STORAGE_PATH set after import but before first access is now honored. ENG-1.
 
 ### Tests: auth-middleware tests could not reach the "no miner keys" state — _configured_miner_keys() also merges coordinator_api.config.settings.miner_api_keys, and the Settings singleton bakes MINER_API_KEYS at first import (inside an earlier monkeypatched test). _no_miner_keys() clears both sources; the previously-red 401-log test now passes on hosts where coordinator_api is importable (node2, IDE venv). Also adds a merge/dedup contract test for _configured_miner_keys. ENG-3.
+
+### Commit index — commits since v0.25.11 the coverage check could not match
+
+`fleet-config-check.sh`'s changelog-coverage section matches a commit by its
+short hash or its exact subject. These commits had neither in any release
+log. Listed by hash and verbatim subject so either survives a rebase.
+Generated against `origin/main` `7c3bf8e96` on 2026-10-17 (supersedes the
+stale index proposed in draft PR #200).
+
+No narrative entry in this log yet:
+
+- `7c3bf8e` docs(env): drop fictional env vars removed from fleet files
+- `6feca06` chore: untrack committed egg-info build metadata
+- `01f487b` fix(ops): make bridge root audits height-aware for v2 leaves
+- `fdb6e14` fix(bridge): bind confirm proofs to stored records and fail closed without anchors
+- `8d3a51e` feat(bridge): recipient-bound v2 lock leaf behind activation height
+- `5d3b7a6` test(security): reach the empty miner-key state in auth middleware tests
+- `a958a06` chore(repo): remove three stale dev helpers untouched since re-import
+- `601857b` chore(repo): remove six dead setup artifacts untouched since re-import
+- `72c6ca4` fix(auth): lazy api_key_manager singleton — no filesystem writes at import
+- `5255480` fix(ops): normalize withdrawal/sell-release hash keys in analyze()
+- `7633401` fix(wallet): refuse to start without TRUSTED_RECEIPT_KEY_IDS when the trust gate applies
+- `eb5ea5e` fix(wallet): seal-depth gating, pagination and rejected-row accounting in the withdraw monitor
+- `9c8201c` fix(blockchain-node): gate bridge confirm on bridge_release_enabled; fail closed on freshness and confirmation depth
+- `6ba8cc5` fix(coordinator-api): remove /admin/test-key oracle, constant-time keys, dedicated chain RPC key
+- `b1e1c80` test(cli): isolate ai submit tests from chain RPC probes
+- `ad5bd63` docs(coordinator): harmonize MINER_API_KEYS format guidance
+- `8bd9e4d` fix(cli): pool-hub follower URL over https; redirect api-key lockfile in test
+- `5e7a811` feat(wallet): verify receipts against configured trusted key ids
+- `0516f79` feat(sdk): pin receipt verification to a trusted key set
+- `65dc625` fix(bridge): bind /bridge/confirm release to stored record and lock leaf
+- `77e2e94` fix(monitoring): narrow env-watch render guard to concrete exception types
+- `05f4516` fix(cli): get_json for the array-shaped /rpc/transactions endpoint
+- `e6cebff` fix(update): use systemctl cat for the prometheus gate
+- `9220b56` feat(update): sync prometheus rules on hosts that serve it
+- `30afd78` docs(ops): note etc-aitbc.tar.gz carries live secrets by design
+- `343646c` feat(monitoring): watch critical env-var presence, alert on receipt key
+- `895dbcd` feat(coordinator): error-log at startup when receipt signing is unconfigured
+- `f45b4cc` fix(cli): hint at auth login on mutating ai commands
+- `a28de9f` fix(cli): resolve hub-ward URLs locally on the hub and honor explicit schemes
+- `923fc0d` feat(backup): catch-all leg for non-db /var/lib/aitbc state + systemd units
+- `7df12e4` fix(paths): stop writing runtime data under the repo checkout
+- `01858d3` fix(cli): sign ai submit escrow lock for the resolved buyer
+- `77c8a91` fix(ci): complete exception-narrowing coverage on untyped input boundaries
+- `58768e9` feat(cli): add read-only aitbc wallet eth-balance for Sepolia balance/nonce (ETH-20b)
+- `91a31a5` fix(ops): send a descriptive User-Agent in sepolia_balance.py (ETH-20)
+- `857eb34` fix(ci): restore gate integrity — unified required tests, ratchet triage, bandit gate
+- `a0f53f5` docs(monitoring): record the alert-state remote-write drop convention (MON-ALERT-2)
+- `3d96781` fix(coordinator): SEC-20 — a miner-written receipt can no longer open the escrow release gate
+- `68c44aa` chore(deps): bump the npm_and_yarn group across 2 directories with 3 updates
+
+Changelog and merge bookkeeping:
+
+- `9d0c617` docs(release): v0.25.12 ENG-3 miner-key test isolation entry
+- `e37a84a` docs(release): v0.25.12 ENG-1 lazy api_key_manager entry
+- `6724426` docs(release): v0.25.12 ENG-2 analyze() hash-normalization entry
+- `d12674b` docs(release): v0.25.12 ai-submit test isolation entry
+- `af512aa` docs(release): v0.25.12 pool-hub https + api-key lockfile test entries
+- `c7221ba` docs(release): v0.25.12 rpc/transactions get_json entry
+- `42beead` docs(release): v0.25.12 hub-ward URL resolution entry
+- `8d741e5` docs(release): v0.25.12 market list/providers local-fallback entry
+- `dfb3c7c` docs(release): point MSG-8g entry at the rebased commit SHA
+- `e818ac0` docs(release): drop stray rebase marker left in v0.25.12 log
+- `75f639c` docs(release): MSG-8g changelog entry
+- `38d5dc0` docs(release): MON-CHECK-1 changelog entry
+- `ee6001a` docs(release): MON-ALERT-1 changelog entry
+- `c717923` docs(release): DEPS-4 changelog entry
+- `f05ad35` Merge dependabot npm_and_yarn group bump (handlebars, brace-expansion, undici)
+- `bdf32c0` docs(release): cite the deploy-rules.sh host-local skip fix
+- `e936458` docs(release): CHAIN-STALL-2 + deploy-rules.sh changelog entries
+- `62c2ac7` docs(release): cite the v0.25.9->v0.25.11 relocation in the v0.25.12 log
+- `4287c92` docs(release): CHAIN-STALL-1 changelog entry in a new v0.25.12 log
