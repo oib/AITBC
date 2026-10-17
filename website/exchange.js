@@ -141,48 +141,94 @@ function bridgeFailReason(resp, err) {
     return 'network request failed';
 }
 
+// The page-level claim about the bridge: four states through one render
+// path, re-read every 60 s. Green only on a proven "bridge is on" reply —
+// a failed, unreadable or non-proving answer is unknown, never ready.
+function renderBridgeBanner(state, detailText) {
+    const banner = document.getElementById('bridge-health');
+    if (!banner) return;
+    const map = {
+        loading: ['is-loading', 'Checking bridge...'],
+        ready:   ['is-healthy', 'Bridge ready'],
+        off:     ['is-attention', 'Bridge off'],
+        unknown: ['is-unknown', 'Bridge state unknown'],
+    };
+    const [cls, titleText] = map[state] || map.unknown;
+    banner.className = `bridge-health ${cls}`;
+    const title = banner.querySelector('.bridge-health-title');
+    const detail = banner.querySelector('.bridge-health-detail');
+    if (title) title.textContent = titleText;
+    if (detail) detail.textContent = detailText || '';
+}
+
+// The deposit form stays visible but inert when the bridge is not proven
+// on: inputs and the primary button disabled, the reason beside the form
+// (aria-describedby), and Try again re-reads the status.
+function setDepositFormEnabled(enabled, reason) {
+    for (const id of ['eth-amount', 'ait-address', 'calculate-deposit-btn']) {
+        const ctrl = document.getElementById(id);
+        if (!ctrl) continue;
+        ctrl.disabled = !enabled;
+        if (enabled) ctrl.removeAttribute('aria-describedby');
+        else ctrl.setAttribute('aria-describedby', 'bridge-offline-note');
+    }
+    const noteEl = document.getElementById('bridge-offline-note');
+    if (noteEl) {
+        noteEl.style.display = enabled ? 'none' : 'block';
+        noteEl.textContent = enabled ? '' : reason;
+    }
+    const retryEl = document.getElementById('bridge-retry-btn');
+    if (retryEl) retryEl.style.display = enabled ? 'none' : '';
+}
+
 async function fetchBridgeStatus() {
     let resp = null;
+    let data = null;
+    let unreadable = false;
     try {
         resp = await fetch('/v1/bridge/status');
-        const data = resp.ok ? await resp.json() : null;
-        const el = document.getElementById('bridge-status-text');
-        // The deposit form is offered only on a proven "bridge is on" reply —
-        // the healthy shape carries enabled:true (see Phase 0). A failed,
-        // unreadable or non-proving answer must not leave a money form up.
-        const proven = resp.ok && data && typeof data === 'object' && data.enabled === true;
-        const disabled = resp.ok && data && data.enabled === false;
-        if (el) {
-            el.textContent = (data && data.status != null)
-                ? `${data.status || 'unknown'} — ${data.message || ''}`
-                : `unknown — ${resp.ok ? 'reply did not prove the bridge is on' : bridgeFailReason(resp, null)}`;
+        if (resp.ok) {
+            try { data = await resp.json(); } catch (e) { unreadable = true; }
         }
-        if (data && data.deposit_address) {
-            const depositEl = document.getElementById('deposit-address');
-            if (depositEl) {
-                depositEl.textContent = data.deposit_address;
-            }
-        }
-        const noteEl = document.getElementById('bridge-offline-note');
-        if (noteEl) {
-            noteEl.style.display = proven ? 'none' : 'block';
-            noteEl.textContent = disabled
-                ? 'The bridge reports deposits are disabled.'
-                : 'Deposits are unavailable while the bridge state is unknown.';
-        }
-        const formEl = document.getElementById('deposit-form');
-        if (formEl) formEl.style.display = proven ? '' : 'none';
     } catch (error) {
         console.error('Error fetching bridge status:', error);
-        const el = document.getElementById('bridge-status-text');
-        if (el) el.textContent = 'unknown — ' + bridgeFailReason(resp, error);
-        const noteEl = document.getElementById('bridge-offline-note');
-        if (noteEl) {
-            noteEl.style.display = 'block';
-            noteEl.textContent = 'Deposits are unavailable while the bridge state is unknown.';
+    }
+
+    const el = document.getElementById('bridge-status-text');
+    // The deposit form is offered only on a proven "bridge is on" reply —
+    // the healthy shape carries status:"ready" + enabled:true (see Phase 0).
+    const proven = !!(resp && resp.ok && data && typeof data === 'object' && data.status === 'ready' && data.enabled === true);
+    const off = !!(resp && resp.ok && data && data.enabled === false);
+
+    if (data && data.deposit_address) {
+        const depositEl = document.getElementById('deposit-address');
+        if (depositEl) {
+            depositEl.textContent = data.deposit_address;
         }
-        const formEl = document.getElementById('deposit-form');
-        if (formEl) formEl.style.display = 'none';
+    }
+
+    if (proven) {
+        const bits = [];
+        if (data.fee_rate != null) bits.push(`fee ${(Number(data.fee_rate) * 100).toFixed(1)}%`);
+        if (data.min_deposit != null) bits.push(`min ${data.min_deposit} ETH`);
+        if (data.network != null) bits.push(String(data.network));
+        renderBridgeBanner('ready', bits.join(' · '));
+        if (el) el.textContent = `${data.status} — ${data.message || ''}`;
+        setDepositFormEnabled(true, null);
+    } else if (off) {
+        const msg = data.message || 'The bridge reports deposits are disabled.';
+        renderBridgeBanner('off', msg);
+        if (el) el.textContent = `${data.status || 'unknown'} — ${data.message || ''}`;
+        setDepositFormEnabled(false, 'The bridge reports deposits are disabled.');
+    } else {
+        const reason = !resp
+            ? 'network request failed'
+            : !resp.ok
+                ? `HTTP ${resp.status}`
+                : (unreadable || !data ? 'reply was not readable' : 'reply did not prove the bridge is on');
+        renderBridgeBanner('unknown', `${reason} — checks again every 60 s`);
+        if (el) el.textContent = `unknown — ${reason}`;
+        setDepositFormEnabled(false, 'Deposits are unavailable while the bridge state is unknown.');
     }
 }
 
@@ -456,6 +502,8 @@ async function lookupDeposit(input) {
 document.addEventListener('DOMContentLoaded', function() {
     fetchReference().finally(fetchPrices);
     fetchBridgeStatus();
+    // The banner says "checks again every 60 s" — keep that claim true.
+    setInterval(fetchBridgeStatus, 60000);
     updatePriceTicker();
     setInterval(updatePriceTicker, 60000);
 
@@ -489,4 +537,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const trackBtn = document.getElementById('track-deposit-btn');
     if (trackBtn) trackBtn.addEventListener('click', trackDeposit);
+
+    const retryBtn = document.getElementById('bridge-retry-btn');
+    if (retryBtn) retryBtn.addEventListener('click', fetchBridgeStatus);
 });
