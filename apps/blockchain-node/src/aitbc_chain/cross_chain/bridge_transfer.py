@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import raiseload
-from sqlmodel import select
+from sqlmodel import func, select
 
 from aitbc.utils.env import is_production
 
@@ -891,6 +891,14 @@ class BridgeTransferMixin(BridgeBase):
                     )
                     return False
                 # Materialize a BridgeBlockHeader from the proof as a fallback.
+                # confirmation_count never comes from the proof: it is derived
+                # from how many stored headers sit above the claimed height.
+                # No stored headers → 0 → the finality check below fails closed.
+                with self._session_for(record_chain_id) as session:
+                    tip = session.exec(
+                        select(func.max(BridgeBlockHeader.height)).where(BridgeBlockHeader.chain_id == record_chain_id)
+                    ).first()
+                derived_confirmations = max(0, (int(tip) if tip is not None else block_height) - block_height)
                 try:
                     header = BridgeBlockHeader(
                         chain_id=record_chain_id,
@@ -900,9 +908,14 @@ class BridgeTransferMixin(BridgeBase):
                         proposer=proof.get("proposer", ""),
                         state_root=proof.get("state_root", ""),
                         bridge_state_root=proof.get("bridge_state_root", "") or proof.get("state_root", ""),
-                        signature=proof.get("proposer_signature", ""),
-                        confirmation_count=int(proof.get("confirmation_count", 0) or 0),
-                        finality_confirmed=bool(proof.get("finality_confirmed", False)),
+                        # Do not reuse proposer_signature as the header signature:
+                        # it signs the proof fields, not the header's
+                        # verification message, so the recovered signer would be
+                        # garbage. Dev fallback headers are unsigned; the
+                        # block-signature gate decides acceptance.
+                        signature="",
+                        confirmation_count=derived_confirmations,
+                        finality_confirmed=False,
                     )
                 except Exception as e:
                     logger.warning("Failed to materialize block header from proof: %s", e)
