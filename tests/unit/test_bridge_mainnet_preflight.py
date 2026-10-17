@@ -44,7 +44,7 @@ def test_mainnet_config_all_pass():
 def test_testnet_config_fails():
     """The current testnet config must not pass preflight — the verify step.
 
-    Six of seven knobs fail (network, feed, confirmations, USD pin,
+    Six of eight knobs fail (network, feed, confirmations, USD pin,
     staleness, payout ceiling); only the correctly-unset EUR pin passes —
     unset pins are desired on mainnet too.
     """
@@ -63,7 +63,7 @@ def test_testnet_config_fails():
 def test_main_rc_all_pass(tmp_path, capsys):
     rc = preflight.main(["--env-file", str(_write_env(tmp_path, MAINNET_ENV))])
     assert rc == 0
-    assert "7/7" in capsys.readouterr().out
+    assert "8/8" in capsys.readouterr().out
 
 
 def test_main_rc_testnet_fails(tmp_path):
@@ -195,7 +195,7 @@ def test_sepolia_rc_all_pass(tmp_path, capsys):
     rc = preflight.main(["--profile", "sepolia", "--env-file", str(_write_env(tmp_path, SEPOLIA_ENV))])
     assert rc == 0
     out = capsys.readouterr().out
-    assert "7/7" in out and "sepolia" in out.lower()
+    assert "8/8" in out and "sepolia" in out.lower()
 
 
 def test_sepolia_header_names_profile(tmp_path, capsys):
@@ -299,7 +299,7 @@ def _staging_env_paths(tmp_path: Path, knobs: dict) -> list[str]:
     ]
 
 
-def test_staging_mainnet_stack_passes_7_of_7(tmp_path, capsys):
+def test_staging_mainnet_stack_passes_8_of_8(tmp_path, capsys):
     """Part B proof: the mainnet profile is green on a mainnet-style env
     layered exactly like the real EnvironmentFile list."""
     files = _staging_env_paths(tmp_path, dict(STAGING_MAINNET))
@@ -307,7 +307,7 @@ def test_staging_mainnet_stack_passes_7_of_7(tmp_path, capsys):
     rc = preflight.main(argv)
     out = capsys.readouterr().out
     assert rc == 0
-    assert "7/7" in out
+    assert "8/8" in out
     assert "MAINNET" in out
 
 
@@ -326,3 +326,39 @@ def test_staging_mainnet_stack_knob_removed_fails(tmp_path, capsys, knob):
     extra = {"chainlink feed"} if knob == "ETH_NETWORK" else set()
     fails = [line for line in out.splitlines() if line.lstrip().startswith("FAIL")]
     assert all(knob in line or any(x in line for x in extra) for line in fails)
+
+
+# --- F3: BRIDGE_WITHDRAW_SEAL_DEPTH ---
+
+
+def test_withdraw_seal_depth_inherits_confirmations():
+    """Unset BRIDGE_WITHDRAW_SEAL_DEPTH resolves to BRIDGE_CONFIRMATIONS."""
+    res = results(MAINNET_ENV)
+    assert res["BRIDGE_WITHDRAW_SEAL_DEPTH"].passed
+    assert "inherits" in res["BRIDGE_WITHDRAW_SEAL_DEPTH"].detail
+
+
+def test_withdraw_seal_depth_below_2_refused_on_mainnet():
+    env = dict(MAINNET_ENV, BRIDGE_WITHDRAW_SEAL_DEPTH="1")
+    res = results(env)
+    assert not res["BRIDGE_WITHDRAW_SEAL_DEPTH"].passed
+
+
+def test_withdraw_seal_depth_unparseable_refused_on_mainnet():
+    env = dict(MAINNET_ENV, BRIDGE_WITHDRAW_SEAL_DEPTH="abc")
+    res = results(env)
+    assert not res["BRIDGE_WITHDRAW_SEAL_DEPTH"].passed
+
+
+def test_withdraw_seal_depth_low_inherits_fails_on_mainnet():
+    """A mainnet config with BRIDGE_CONFIRMATIONS=1 inherits the shallow depth."""
+    env = dict(MAINNET_ENV)
+    env["BRIDGE_CONFIRMATIONS"] = "1"
+    res = results(env)
+    assert not res["BRIDGE_WITHDRAW_SEAL_DEPTH"].passed
+
+
+def test_withdraw_seal_depth_1_allowed_on_sepolia():
+    env = dict(SEPOLIA_ENV, BRIDGE_WITHDRAW_SEAL_DEPTH="1")
+    res = sepolia_results(env)
+    assert res["BRIDGE_WITHDRAW_SEAL_DEPTH"].passed

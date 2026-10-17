@@ -128,6 +128,23 @@ def check_config(env: dict[str, str], profile: str = "mainnet") -> list[Check]:
         )
     )
 
+    # F3: the withdraw monitor pays on the same depth by default; a separate
+    # pin may deepen it, but below 2 on mainnet a tip-reorg can orphan the
+    # withdraw AFTER the ETH release — refuse the config outright.
+    raw_wd = env.get("BRIDGE_WITHDRAW_SEAL_DEPTH", "")
+    try:
+        withdraw_depth = int(raw_wd) if raw_wd else confirmations
+    except ValueError:
+        withdraw_depth, raw_wd = -1, raw_wd
+    checks.append(
+        Check(
+            "BRIDGE_WITHDRAW_SEAL_DEPTH",
+            withdraw_depth >= 2 if not sepolia else withdraw_depth >= 1,
+            f"effective withdraw seal depth {withdraw_depth} (env={raw_wd or '<inherits BRIDGE_CONFIRMATIONS>'})"
+            + (" — mainnet refuses < 2" if not sepolia else " — testnet needs >= 1"),
+        )
+    )
+
     for pin in ("AIT_USD_FIXED_PRICE", "AIT_EUR_FIXED_PRICE"):
         value = env.get(pin)
         if sepolia:

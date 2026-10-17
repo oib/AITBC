@@ -26,10 +26,13 @@ from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.crypto.signature_recovery import canonical_address
 
 from .bridge_db import (
+    get_awaiting_depth_withdrawals,
     get_resumable_withdrawals,
     get_withdrawal_by_ait_tx_hash,
     init_db,
     insert_withdrawal,
+    update_withdrawal_block,
+    update_withdrawal_pricing,
     update_withdrawal_status,
 )
 from .price_api import calculate_eth_amount
@@ -84,6 +87,19 @@ ETH_RELEASE_NONCE_LOCK = asyncio.Lock()
 # Defaults to the deposit-side BRIDGE_CONFIRMATIONS (3) so both directions
 # agree on finality.
 ETH_RELEASE_CONFIRMATIONS = int(os.getenv("BRIDGE_RELEASE_CONFIRMATIONS", os.getenv("BRIDGE_CONFIRMATIONS", "3")))
+# F3: AIT-side seal depth a BRIDGE_WITHDRAW must reach before its ETH is
+# released. Defaults to the deposit-side depth; paying on a tip tx lets a
+# shallow reorg leave the release unfunded (the AIT burn un-seals).
+WITHDRAW_SEAL_DEPTH = int(os.getenv("BRIDGE_WITHDRAW_SEAL_DEPTH", os.getenv("BRIDGE_CONFIRMATIONS", "3")))
+# Refund an auto-rejected withdrawal only when the gross covers the refund
+# fee — paying a 0.01 fee to return a 0.005 dust withdrawal is worse than
+# alerting on it.
+_REFUND_FEE_AIT = Decimal("0.01")
+# F3: page size for the BRIDGE_WITHDRAW scan and a per-poll page cap — a
+# backlog deeper than the cap drains over subsequent polls because every
+# fetched row is ledgered before the next page is fetched.
+_WITHDRAW_PAGE_SIZE = 50
+_MAX_PAGES_PER_POLL = 20
 
 _db_initialized = False
 _withdraw_polling_enabled: bool = True
@@ -340,7 +356,7 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
     from eth_utils import keccak
 
     value = ait_to_units(amount_ait)
-    fee = ait_to_units(Decimal("0.01"))
+    fee = ait_to_units(_REFUND_FEE_AIT)
 
     tx_payload = {
         # An ordinary spend out of the funding wallet: TRANSFER debits it and
@@ -494,37 +510,159 @@ async def _release_eth_for_withdrawal(
     return eth_tx_hash
 
 
-async def _process_withdrawal(tx: dict[str, Any]) -> bool:
+async def _record_rejected_withdrawal(
+    ait_tx_hash: str,
+    sender: str,
+    eth_address: str,
+    gross_ait: Decimal,
+    reason: str,
+    ait_block_height: int | None,
+    ait_block_hash: str | None,
+) -> None:
+    """Ledger a withdrawal that can never be paid, then refund when economical.
+
+    A rejected row is never silent: the ledger carries the reason and the
+    sender's AIT is refunded when the gross covers the refund fee — below
+    that it can only alert (paying 0.01 to return dust would cost more
+    than the refund itself).
     """
-    Process a single confirmed BRIDGE_WITHDRAW transaction.
-    Returns True if a new withdrawal was recorded and release attempted.
+    insert_withdrawal(
+        ait_tx_hash=ait_tx_hash,
+        from_address=sender,
+        eth_address=eth_address,
+        amount_ait=gross_ait,
+        fee_ait=Decimal("0"),
+        net_ait=gross_ait,
+        amount_eth=Decimal("0"),
+        status="rejected",
+        error=reason,
+        ait_block_height=ait_block_height,
+        ait_block_hash=ait_block_hash,
+    )
+    logger.error("Withdrawal %s rejected: %s", ait_tx_hash, reason)
+    if gross_ait >= _REFUND_FEE_AIT:
+        await _refund_withdrawal(ait_tx_hash, sender, gross_ait, reason)
+
+
+async def _fetch_withdraw_tx(ait_tx_hash: str) -> dict[str, Any] | None:
+    """Canonical view of a BRIDGE_WITHDRAW tx, or None if the chain no longer seals it."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/transaction/{ait_tx_hash}")
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        data = response.json()
+        return cast(dict[str, Any], data) if isinstance(data, dict) else None
+
+
+async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
+    """Process a single BRIDGE_WITHDRAW transaction.
+
+    Returns the outcome: 'released' | 'awaiting_depth' | 'rejected' |
+    'orphaned' | 'duplicate' | 'unprocessable' | 'error'. Every reachable
+    outcome writes a ledger row — nothing is silently skipped (F3).
     """
     ait_tx_hash = tx.get("tx_hash") or tx.get("hash", "")
     if not ait_tx_hash:
-        logger.warning("Skipping withdrawal with no tx hash: %s", tx)
-        return False
+        logger.error("ALERT: BRIDGE_WITHDRAW row with no tx hash cannot be ledgered: %s", tx)
+        return "unprocessable"
 
     if get_withdrawal_by_ait_tx_hash(ait_tx_hash):
-        return False
+        return "duplicate"
 
     sender = tx.get("sender") or tx.get("from", "")
     payload = tx.get("payload") or {}
     eth_address = payload.get("eth_address") or ""
     value = int(tx.get("value", 0) or 0)
+    block_height = tx.get("block_height")
+    block_hash = tx.get("block_hash")
+    gross_ait = units_to_ait(value)
 
     if not _is_valid_eth_address(eth_address):
-        logger.warning("Skipping withdrawal %s with invalid eth_address: %s", ait_tx_hash, eth_address)
-        return False
+        await _record_rejected_withdrawal(
+            ait_tx_hash, sender, eth_address, gross_ait, f"invalid eth_address {eth_address!r}", block_height, block_hash
+        )
+        return "rejected"
 
-    gross_ait = units_to_ait(value)
     if gross_ait < MIN_AIT_WITHDRAW:
-        logger.info("Skipping withdrawal %s below minimum: %s AIT", ait_tx_hash, gross_ait)
-        return False
+        await _record_rejected_withdrawal(
+            ait_tx_hash,
+            sender,
+            eth_address,
+            gross_ait,
+            f"below MIN_AIT_WITHDRAW: {gross_ait} AIT < {MIN_AIT_WITHDRAW}",
+            block_height,
+            block_hash,
+        )
+        return "rejected"
+
+    # F3: pay only on a buried withdraw — a tip tx can still reorg out.
+    # Too-shallow rows wait as 'awaiting_depth' and the drain rechecks them.
+    if block_height is None or head_height - int(block_height) < WITHDRAW_SEAL_DEPTH:
+        insert_withdrawal(
+            ait_tx_hash=ait_tx_hash,
+            from_address=sender,
+            eth_address=canonical_address(eth_address),
+            amount_ait=gross_ait,
+            fee_ait=Decimal("0"),
+            net_ait=gross_ait,
+            amount_eth=Decimal("0"),
+            status="awaiting_depth",
+            error=f"sealed at height {block_height}, head {head_height} — needs {WITHDRAW_SEAL_DEPTH} confirmations",
+            ait_block_height=int(block_height) if block_height is not None else None,
+            ait_block_hash=block_hash,
+        )
+        return "awaiting_depth"
+
+    # Canonical re-check just before release: between the page fetch and now
+    # the tx may have reorged to a different block — or off the chain entirely.
+    canonical = await _fetch_withdraw_tx(ait_tx_hash)
+    if canonical is None:
+        insert_withdrawal(
+            ait_tx_hash=ait_tx_hash,
+            from_address=sender,
+            eth_address=canonical_address(eth_address),
+            amount_ait=gross_ait,
+            fee_ait=Decimal("0"),
+            net_ait=gross_ait,
+            amount_eth=Decimal("0"),
+            status="orphaned",
+            error="withdraw tx no longer sealed in the canonical chain — the reorg un-burned the AIT",
+            ait_block_height=block_height,
+            ait_block_hash=block_hash,
+        )
+        logger.error("Withdrawal %s orphaned before release — no ETH sent, no refund needed", ait_tx_hash)
+        return "orphaned"
+    canon_height = canonical.get("block_height")
+    canon_hash = canonical.get("block_hash")
+    if canon_height != block_height or (canon_hash and block_hash and canon_hash != block_hash):
+        # Re-sealed in a different block — restart the depth wait on the
+        # canonical position rather than trusting the reorged page row.
+        insert_withdrawal(
+            ait_tx_hash=ait_tx_hash,
+            from_address=sender,
+            eth_address=canonical_address(eth_address),
+            amount_ait=gross_ait,
+            fee_ait=Decimal("0"),
+            net_ait=gross_ait,
+            amount_eth=Decimal("0"),
+            status="awaiting_depth",
+            error=f"re-sealed at height {canon_height} (was {block_height}) — depth wait restarted",
+            ait_block_height=int(canon_height) if canon_height is not None else None,
+            ait_block_hash=canon_hash,
+        )
+        logger.warning(
+            "Withdrawal %s re-sealed at a different height (%s -> %s); depth wait restarted",
+            ait_tx_hash,
+            block_height,
+            canon_height,
+        )
+        return "awaiting_depth"
 
     estimate = await calculate_eth_amount(gross_ait)
     if not estimate:
         logger.error("Failed to calculate ETH amount for withdrawal %s", ait_tx_hash)
-        return False
+        return "error"
 
     amount_eth = estimate["amount_eth"]
     fee_ait = estimate["fee_ait"]
@@ -538,6 +676,8 @@ async def _process_withdrawal(tx: dict[str, Any]) -> bool:
         fee_ait=fee_ait,
         net_ait=net_ait,
         amount_eth=amount_eth,
+        ait_block_height=int(block_height),
+        ait_block_hash=block_hash,
     )
     logger.info(
         "Recorded withdrawal %s: %s AIT -> %s ETH for %s",
@@ -549,13 +689,13 @@ async def _process_withdrawal(tx: dict[str, Any]) -> bool:
 
     try:
         await _release_eth_for_withdrawal(withdrawal_id, ait_tx_hash, eth_address, amount_eth)
-        return True
+        return "released"
     except Exception as e:
         logger.error("ETH release failed for withdrawal %s: %s", ait_tx_hash, e)
         # Never refund blind: a DB error after the broadcast can land us here
         # with the ETH already gone. Verify against the chain first.
         await _resolve_release_failure(ait_tx_hash, sender, gross_ait, e)
-        return True
+        return "released"
 
 
 def _receipt_status(receipt: dict[str, Any]) -> int:
@@ -822,14 +962,21 @@ async def _resume_unfinished_releases() -> dict[str, int]:
     return resolved
 
 
-async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
-    """Fetch recent confirmed BRIDGE_WITHDRAW transactions from the AITBC hub."""
+async def get_bridge_withdraw_transactions(before_id: int | None = None) -> list[dict[str, Any]]:
+    """Fetch a page of BRIDGE_WITHDRAW transactions, newest first.
+
+    ``before_id`` pages backwards: pass the lowest ``transaction_id`` seen
+    so far to fetch the next-older page (F3 — a burst larger than the page
+    size must not strand rows beyond the first 50).
+    """
     async with httpx.AsyncClient(timeout=10.0) as client:
         url = f"{BLOCKCHAIN_RPC_URL}/rpc/transactions"
         params: dict[str, str | int] = {
             "transaction_type": "BRIDGE_WITHDRAW",
-            "limit": 50,
+            "limit": _WITHDRAW_PAGE_SIZE,
         }
+        if before_id is not None:
+            params["before_id"] = before_id
         response = await client.get(url, params=params)
         response.raise_for_status()
         data = response.json()
@@ -838,6 +985,89 @@ async def get_bridge_withdraw_transactions() -> list[dict[str, Any]]:
         if isinstance(data, list):
             return cast(list[dict[str, Any]], data)
         return []
+
+
+async def _fetch_chain_head_height() -> int | None:
+    """Current chain head height, or None when the RPC cannot say."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/height")
+        response.raise_for_status()
+        height = response.json().get("height")
+        return int(height) if height is not None else None
+
+
+async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
+    """Re-check 'awaiting_depth' rows against the canonical chain.
+
+    A row deep enough moves to 'pending' and releases; a tx that vanished
+    from the chain is 'orphaned' (the reorg un-burned the AIT — no refund);
+    a tx re-sealed elsewhere restarts its depth wait on the new position.
+    """
+    drained = {"released": 0, "orphaned": 0, "still_waiting": 0}
+    for row in get_awaiting_depth_withdrawals():
+        ait_tx_hash = row["ait_tx_hash"]
+        try:
+            canonical = await _fetch_withdraw_tx(ait_tx_hash)
+            if canonical is None:
+                update_withdrawal_status(
+                    ait_tx_hash,
+                    "orphaned",
+                    error="withdraw tx no longer sealed in the canonical chain — the reorg un-burned the AIT",
+                )
+                drained["orphaned"] += 1
+                logger.error("Withdrawal %s orphaned — its block left the canonical chain", ait_tx_hash)
+                continue
+            canon_height = canonical.get("block_height")
+            canon_hash = canonical.get("block_hash")
+            if canon_height != row["ait_block_height"] or (
+                canon_hash and row["ait_block_hash"] and canon_hash != row["ait_block_hash"]
+            ):
+                update_withdrawal_block(
+                    ait_tx_hash,
+                    int(canon_height) if canon_height is not None else row["ait_block_height"],
+                    canon_hash,
+                )
+                logger.warning(
+                    "Withdrawal %s re-sealed at a different height (%s -> %s)",
+                    ait_tx_hash,
+                    row["ait_block_height"],
+                    canon_height,
+                )
+            if canon_height is None or head_height - int(canon_height) < WITHDRAW_SEAL_DEPTH:
+                drained["still_waiting"] += 1
+                continue
+            # Deep enough in the canonical block — price and release now.
+            gross_ait = Decimal(str(row["amount_ait"]))
+            estimate = await calculate_eth_amount(gross_ait)
+            if not estimate:
+                logger.error("Failed to calculate ETH amount for withdrawal %s", ait_tx_hash)
+                drained["still_waiting"] += 1
+                continue
+            amount_eth = estimate["amount_eth"]
+            # Store the priced legs before releasing — the row carried
+            # amount_eth=0 while it waited for depth.
+            update_withdrawal_pricing(
+                ait_tx_hash,
+                fee_ait=estimate["fee_ait"],
+                net_ait=estimate["net_ait"],
+                amount_eth=amount_eth,
+            )
+            # update_withdrawal_status COALESCEs error — clear it with "".
+            update_withdrawal_status(
+                ait_tx_hash,
+                "pending",
+                error="",
+            )
+            await _release_eth_for_withdrawal(row["id"], ait_tx_hash, row["eth_address"], amount_eth)
+            drained["released"] += 1
+        except Exception as e:
+            drained["still_waiting"] += 1
+            logger.error("Awaiting-depth drain failed for withdrawal %s: %s", ait_tx_hash, e)
+            try:
+                await _resolve_release_failure(ait_tx_hash, row["from_address"], Decimal(str(row["amount_ait"])), e)
+            except Exception as e2:  # noqa: BLE001 - containment: a failed drain row must not kill the pass
+                logger.error("Post-drain release-failure resolution also failed for %s: %s", ait_tx_hash, e2)
+    return drained
 
 
 async def poll_withdrawals_once() -> dict[str, Any]:
@@ -863,16 +1093,65 @@ async def poll_withdrawals_once() -> dict[str, Any]:
     except Exception as e:  # noqa: BLE001 - resume pass containment — logged, retried next poll
         logger.error("Release resume pass failed: %s", e)
 
-    transactions = await get_bridge_withdraw_transactions()
-    recorded = 0
-    for tx in transactions:
-        try:
-            if await _process_withdrawal(tx):
-                recorded += 1
-        except Exception as e:
-            logger.error("Error processing withdrawal tx %s: %s", tx.get("tx_hash", ""), e)
+    # F3: seal depth — never release on a tip-block withdraw. An unreadable
+    # head fails closed: nothing new is processed this poll.
+    try:
+        head_height = await _fetch_chain_head_height()
+    except Exception as e:  # noqa: BLE001 - head fetch containment — no head, no release
+        logger.error("Could not fetch chain head — skipping withdraw scan this poll: %s", e)
+        return {"scanned": 0, "recorded": 0, "skipped": True, "reason": f"chain head unavailable: {e}"}
+    if head_height is None:
+        logger.error("Chain head height missing — skipping withdraw scan this poll")
+        return {"scanned": 0, "recorded": 0, "skipped": True, "reason": "chain head unavailable"}
 
-    return {"scanned": len(transactions), "recorded": recorded, "skipped": False}
+    try:
+        drained = await _drain_awaiting_depth(head_height)
+        if any(drained.values()):
+            logger.info("Awaiting-depth drain: %s", drained)
+    except Exception as e:  # noqa: BLE001 - drain containment — logged, retried next poll
+        logger.error("Awaiting-depth drain failed: %s", e)
+
+    return await _scan_withdraw_transactions(head_height)
+
+
+async def _scan_withdraw_transactions(head_height: int) -> dict[str, Any]:
+    """Page backwards through BRIDGE_WITHDRAW history until a page is
+    fully-known (dedupe by ait_tx_hash row) or history is exhausted —
+    bounded at _MAX_PAGES_PER_POLL pages; a deeper backlog drains over
+    subsequent polls since each poll's rows are already ledgered."""
+    scanned = 0
+    recorded = 0
+    outcomes: dict[str, int] = {}
+    before_id: int | None = None
+    for _page in range(_MAX_PAGES_PER_POLL):
+        transactions = await get_bridge_withdraw_transactions(before_id=before_id)
+        if not transactions:
+            break
+        scanned += len(transactions)
+        all_known = True
+        for tx in transactions:
+            try:
+                outcome = await _process_withdrawal(tx, head_height)
+            except Exception as e:
+                outcome = "error"
+                logger.error("Error processing withdrawal tx %s: %s", tx.get("tx_hash", ""), e)
+            outcomes[outcome] = outcomes.get(outcome, 0) + 1
+            if outcome in ("released", "awaiting_depth", "rejected", "orphaned"):
+                recorded += 1
+            if outcome != "duplicate":
+                all_known = False
+        ids = [t["transaction_id"] for t in transactions if isinstance(t.get("transaction_id"), int)]
+        if all_known or len(transactions) < _WITHDRAW_PAGE_SIZE or not ids:
+            break
+        before_id = min(ids)
+    else:
+        logger.error(
+            "Withdraw scan hit the %d-page cap (%d rows) with backlog remaining — continuing next poll",
+            _MAX_PAGES_PER_POLL,
+            scanned,
+        )
+
+    return {"scanned": scanned, "recorded": recorded, "skipped": False, **outcomes}
 
 
 async def withdrawal_monitor_loop() -> None:
