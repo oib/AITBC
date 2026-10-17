@@ -50,14 +50,34 @@ function renderReference(ref) {
         .join('');
 }
 
+// A read that fails must never leave the HTML placeholder ("...",
+// "loading...") on screen — it reads as "still loading" forever. Track the
+// last good read per widget: first failure says unavailable; a failure
+// after a good read keeps the value and marks it stale.
+let heroLastGoodAt = null;
+let tickerLastGoodAt = null;
+
+function markStale(el, lastGoodAt, unavailableText) {
+    if (!el) return;
+    if (lastGoodAt) {
+        el.textContent = `${el.textContent} (stale, last read ${new Date(lastGoodAt).toLocaleTimeString('en-GB')})`;
+    } else {
+        el.textContent = unavailableText;
+    }
+}
+
 async function fetchPrices() {
     try {
         const response = await fetch('/v1/exchange/history');
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Failed to fetch prices');
         updateHeroPrice(data);
+        heroLastGoodAt = Date.now();
     } catch (error) {
         console.error('Error fetching prices:', error);
+        markStale(document.getElementById('hero-eth-equivalent'), heroLastGoodAt, 'price unavailable');
+        markStale(document.getElementById('hero-eth-rate'), heroLastGoodAt, 'price unavailable');
     }
 }
 
@@ -88,11 +108,11 @@ function updateHeroPrice(data) {
 }
 
 async function updatePriceTicker() {
+    const ticker = document.getElementById('price-ticker');
     try {
         const response = await fetch('/exchange/price.json');
-        if (!response.ok) return;
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
-        const ticker = document.getElementById('price-ticker');
         if (!ticker) return;
         if (data.error) {
             ticker.textContent = 'price unavailable';
@@ -103,36 +123,61 @@ async function updatePriceTicker() {
         const eth = data.price_eth != null ? `${Number(data.price_eth).toFixed(6)} ETH` : null;
         const parts = [eur, usd, eth].filter(p => p !== null);
         ticker.innerHTML = parts.join(' &nbsp;|&nbsp; ');
+        tickerLastGoodAt = Date.now();
     } catch (error) {
         console.error('Error fetching price ticker:', error);
+        markStale(ticker, tickerLastGoodAt, 'price unavailable');
     }
 }
 
+function bridgeFailReason(resp, err) {
+    if (resp) return 'HTTP ' + resp.status;
+    if (err && err.name === 'SyntaxError') return 'reply was not readable';
+    return 'network request failed';
+}
+
 async function fetchBridgeStatus() {
+    let resp = null;
     try {
-        const response = await fetch('/v1/bridge/status');
-        const data = await response.json();
+        resp = await fetch('/v1/bridge/status');
+        const data = resp.ok ? await resp.json() : null;
         const el = document.getElementById('bridge-status-text');
+        // The deposit form is offered only on a proven "bridge is on" reply —
+        // the healthy shape carries enabled:true (see Phase 0). A failed,
+        // unreadable or non-proving answer must not leave a money form up.
+        const proven = resp.ok && data && typeof data === 'object' && data.enabled === true;
+        const disabled = resp.ok && data && data.enabled === false;
         if (el) {
-            el.textContent = `${data.status || 'unknown'} — ${data.message || ''}`;
+            el.textContent = (data && data.status != null)
+                ? `${data.status || 'unknown'} — ${data.message || ''}`
+                : `unknown — ${resp.ok ? 'reply did not prove the bridge is on' : bridgeFailReason(resp, null)}`;
         }
-        if (data.deposit_address) {
+        if (data && data.deposit_address) {
             const depositEl = document.getElementById('deposit-address');
             if (depositEl) {
                 depositEl.textContent = data.deposit_address;
             }
         }
-        // A running-but-unconfigured bridge reports enabled:false — tell the
-        // user instead of letting them drive a deposit flow that cannot settle.
-        const offline = data.enabled === false;
         const noteEl = document.getElementById('bridge-offline-note');
-        if (noteEl) noteEl.style.display = offline ? 'block' : 'none';
+        if (noteEl) {
+            noteEl.style.display = proven ? 'none' : 'block';
+            noteEl.textContent = disabled
+                ? 'The bridge reports deposits are disabled.'
+                : 'Deposits are unavailable while the bridge state is unknown.';
+        }
         const formEl = document.getElementById('deposit-form');
-        if (formEl) formEl.style.display = offline ? 'none' : '';
+        if (formEl) formEl.style.display = proven ? '' : 'none';
     } catch (error) {
         console.error('Error fetching bridge status:', error);
         const el = document.getElementById('bridge-status-text');
-        if (el) el.textContent = 'Failed to load';
+        if (el) el.textContent = 'unknown — ' + bridgeFailReason(resp, error);
+        const noteEl = document.getElementById('bridge-offline-note');
+        if (noteEl) {
+            noteEl.style.display = 'block';
+            noteEl.textContent = 'Deposits are unavailable while the bridge state is unknown.';
+        }
+        const formEl = document.getElementById('deposit-form');
+        if (formEl) formEl.style.display = 'none';
     }
 }
 
@@ -336,6 +381,12 @@ async function lookupDeposit(input) {
 
     try {
         let deposit = null;
+        const queryFailed = (resp) => {
+            errEl.style.display = 'block';
+            errEl.textContent = `Could not query deposit status (HTTP ${resp.status}). This is not a "not found".`;
+            // A failed poll keeps the last shown deposit — hide the result
+            // only when none was ever shown.
+        };
         if (input.startsWith('0x') && input.length === 66) {
             // Lookup by ETH tx hash (0x + 64 hex)
             const resp = await fetch(`/v1/bridge/deposit/${encodeURIComponent(input)}`);
@@ -346,19 +397,30 @@ async function lookupDeposit(input) {
                 errEl.textContent = 'Deposit not found for this tx hash';
                 resultEl.style.display = 'none';
                 return;
+            } else {
+                queryFailed(resp);
+                return;
             }
         } else if (input.startsWith('0x') && input.length === 42) {
             // Lookup by AIT address (0x + 40 hex) — non-enumerable per-recipient
             // endpoint; the enumerable /v1/bridge/deposits index is loopback-only.
-            const resp = await fetch(`/v1/bridge/deposit/by-recipient/${encodeURIComponent(input)}`);
+            const resp = await fetch(`/v1/bridge/deposit/${encodeURIComponent(input)}`);
             if (resp.ok) {
                 const data = await resp.json();
                 deposit = (data.deposits || [])[0] || null;
-            }
-            if (!deposit) {
+                if (!deposit) {
+                    errEl.style.display = 'block';
+                    errEl.textContent = 'No deposit found for this AIT address';
+                    resultEl.style.display = 'none';
+                    return;
+                }
+            } else if (resp.status === 404) {
                 errEl.style.display = 'block';
                 errEl.textContent = 'No deposit found for this AIT address';
                 resultEl.style.display = 'none';
+                return;
+            } else {
+                queryFailed(resp);
                 return;
             }
         } else {
