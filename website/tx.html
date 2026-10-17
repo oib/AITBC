@@ -6,8 +6,8 @@
     <title>Transaction Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Transaction detail for the AITBC explorer: hash, sender, recipient, amount, and status of a single transaction.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=d12f962517c36363">
-    <link rel="stylesheet" href="/style.css?v=d12f962517c36363">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=67f6143aaffd52e0">
+    <link rel="stylesheet" href="/style.css?v=67f6143aaffd52e0">
     <style>
         .detail-header {
             display: flex;
@@ -45,8 +45,8 @@
             text-decoration: underline;
         }
     </style>
-<script src="copy.js?v=d12f962517c36363" defer></script>
-<script src="status.js?v=d12f962517c36363" defer></script>
+<script src="copy.js?v=67f6143aaffd52e0" defer></script>
+<script src="status.js?v=67f6143aaffd52e0" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -138,12 +138,34 @@
 
             try {
                 const resp = await fetch(`${EXPLORER_API_URL}/api/transactions/${hash}`);
-                const data = await resp.json();
+                // A failed reply is not "not found" — only a 404 or a proven
+                // non-transaction reply falls through to the block-hash probe.
+                if (!resp.ok && resp.status !== 404) {
+                    throw new Error(`Transaction could not be loaded (HTTP ${resp.status}). This is not a "not found".`);
+                }
+                let data = null;
+                if (resp.ok) {
+                    try {
+                        data = await resp.json();
+                    } catch (e) {
+                        throw new Error('Transaction reply was not readable JSON');
+                    }
+                }
 
                 if (!data || !data.hash) {
                     // Not a tx hash — try as block hash and redirect if found
                     const blockResp = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${hash}`);
-                    const blockData = await blockResp.json();
+                    if (!blockResp.ok && blockResp.status !== 404) {
+                        throw new Error(`Transaction could not be loaded (HTTP ${blockResp.status}). This is not a "not found".`);
+                    }
+                    let blockData = null;
+                    if (blockResp.ok) {
+                        try {
+                            blockData = await blockResp.json();
+                        } catch (e) {
+                            throw new Error('Transaction reply was not readable JSON');
+                        }
+                    }
                     if (blockData && blockData.height) {
                         location.href = `/block.html?height=${blockData.height}`;
                         return;

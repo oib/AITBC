@@ -6,8 +6,8 @@
     <title>Block Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Block detail for the AITBC explorer: height, hash, timestamp, and transactions of a single chain block.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=d12f962517c36363">
-    <link rel="stylesheet" href="/style.css?v=d12f962517c36363">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=67f6143aaffd52e0">
+    <link rel="stylesheet" href="/style.css?v=67f6143aaffd52e0">
     <style>
         .detail-header {
             display: flex;
@@ -34,8 +34,8 @@
             text-decoration: underline;
         }
     </style>
-<script src="copy.js?v=d12f962517c36363" defer></script>
-<script src="status.js?v=d12f962517c36363" defer></script>
+<script src="copy.js?v=67f6143aaffd52e0" defer></script>
+<script src="status.js?v=67f6143aaffd52e0" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -119,12 +119,23 @@
 
             try {
                 let data;
+                let resp;
                 if (height) {
-                    const resp = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}`);
-                    data = await resp.json();
+                    resp = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}`);
                 } else {
-                    const resp = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${hash}`);
+                    resp = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${hash}`);
+                }
+                // A failed reply is not "not found" — only a 404 or a proven
+                // body without a block is.
+                if (!resp.ok) {
+                    throw new Error(resp.status === 404
+                        ? 'Block not found'
+                        : `Block could not be loaded (HTTP ${resp.status}). This is not a "not found".`);
+                }
+                try {
                     data = await resp.json();
+                } catch (e) {
+                    throw new Error('Block reply was not readable JSON');
                 }
 
                 if (!data || !data.height) {
@@ -160,7 +171,12 @@
                 const txs = data.transactions || [];
                 document.getElementById('tx-count').textContent = `(${txs.length})`;
                 document.getElementById('tx-list').innerHTML = txs.map(tx => {
-                    const amount = tx.amount != null ? tx.amount : (tx.payload ? (JSON.parse(tx.payload).amount || 'N/A') : 'N/A');
+                    // One malformed payload must not blank the whole block.
+                    let payloadAmount = 'N/A';
+                    try {
+                        payloadAmount = tx.payload ? (JSON.parse(tx.payload).amount || 'N/A') : 'N/A';
+                    } catch (e) { payloadAmount = 'N/A'; }
+                    const amount = tx.amount != null ? tx.amount : payloadAmount;
                     return `
                     <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
                         <table class="block-list-table" aria-label="Block details">
