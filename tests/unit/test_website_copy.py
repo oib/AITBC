@@ -114,6 +114,21 @@ def _site_src(name: str) -> str:
     return (WEBSITE / name).read_text(encoding="utf-8")
 
 
+class TestFaucetAnnouncementCopy(unittest.TestCase):
+    """WEB-FAUCET-NOTE-1: the paused-faucet notice must name the real route.
+
+    `coin-requests/*/execute` is a wildcard placeholder that resolves to 404 —
+    the real route takes no path parameter. The 503 pause claim itself stays:
+    verified live on 17 Oct 2026 (GENESIS_PRIVATE_KEY absent on hub).
+    """
+
+    def test_announcement_names_real_execute_route(self) -> None:
+        src = _site_src("follower-api-key-announcement.html")
+        self.assertNotIn("coin-requests/*/execute", src)
+        self.assertIn("coin-requests/execute", src)
+        self.assertIn("paused", src.lower())
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")
