@@ -2096,7 +2096,7 @@ a.btn-secondary {
     margin-bottom: 1rem;
 }
 .exchange-header .value-tagline { margin: 0; }
-.exchange-header .ob-banner { position: static; margin: 0; flex: 0 0 auto; }
+.exchange-header .ob-banner { position: static; margin: 0; flex: 0 1 auto; min-width: 0; max-width: 100%; }
 
 .exchange-grid {
     display: grid;
@@ -2132,7 +2132,7 @@ a.btn-secondary {
 .exchange-steps li.is-active {
     color: var(--text);
     font-weight: 700;
-    border-bottom-color: var(--accent);
+    border-bottom-color: var(--primary);
 }
 .exchange-steps li a {
     color: inherit;
