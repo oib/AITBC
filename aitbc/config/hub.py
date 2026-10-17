@@ -49,6 +49,14 @@ def _raw_env_value(*keys: str) -> str | None:
     return None
 
 
+# Where hub-ward URLs resolve on the hub itself when nothing overrides it.
+# The public name hairpin-fails there (TLS terminates at the edge, which the
+# hub cannot reach on its own address), while local nginx on :80 mounts the
+# exact same paths. ``HUB_LOCAL_URL`` overrides the default for deployments
+# whose local gateway binds elsewhere.
+LOCAL_HUB_ORIGIN = "http://127.0.0.1"
+
+
 def _host_from(raw: str | None) -> str | None:
     """Reduce a URL or bare hostname to a DNS host, stripping scheme and path."""
     if not raw:
@@ -61,6 +69,28 @@ def _host_from(raw: str | None) -> str | None:
     return host.split("/", 1)[0].rstrip("/") or None
 
 
+def _origin_from(raw: str | None) -> tuple[str, str] | None:
+    """Reduce a URL or bare hostname to ``(scheme, host[:port])``.
+
+    An explicit ``http://`` or ``https://`` prefix is honored verbatim —
+    https is only the default for bare hosts, where TLS lives at the hub's
+    fronting edge.
+    """
+    if not raw:
+        return None
+    value = raw.strip()
+    for prefix in ("https://", "http://"):
+        if value.startswith(prefix):
+            host = value[len(prefix) :].split("/", 1)[0].rstrip("/")
+            return (prefix[: -len("://")], host) if host else None
+    host = value.split("/", 1)[0].rstrip("/")
+    return ("https", host) if host else None
+
+
+def _hub_raw() -> str | None:
+    return _raw_env_value("HUB_DISCOVERY_URL", "HUB_P2P_HOST", "HUB_RPC_URL")
+
+
 def hub_discovery_host() -> str | None:
     """The hub's DNS name, or None if nothing in the environment named one.
 
@@ -69,22 +99,85 @@ def hub_discovery_host() -> str | None:
     source found is reduced to a host so callers can append paths without
     doubling schemes.
     """
-    raw = _raw_env_value("HUB_DISCOVERY_URL", "HUB_P2P_HOST", "HUB_RPC_URL")
-    return _host_from(raw)
+    return _host_from(_hub_raw())
 
 
-def hub_service_url(path: str) -> str | None:
-    """``https://<hub>/<path>`` when a hub host is configured, else None."""
-    host = hub_discovery_host()
-    if not host:
+def is_hub_self() -> bool:
+    """True when this node is the hub itself.
+
+    Two independent signals, either sufficient:
+
+    - ``BLOCKCHAIN_MODE=hub`` (process env or the env files — ``setup.sh``
+      writes it for own-island deployments);
+    - the node's identity (``NODE_ID``, ``AITBC_HOSTNAME`` or ``P2P_NODE_ID``)
+      equals the configured hub host.
+
+    The hub cannot reach its own public name — the edge does not hairpin —
+    so hub-ward URLs must resolve locally when this is True.
+    """
+    mode = _raw_env_value("BLOCKCHAIN_MODE")
+    if mode and mode.strip().lower() == "hub":
+        return True
+    hub_host = hub_discovery_host()
+    if not hub_host:
+        return False
+    identity = _host_from(_raw_env_value("NODE_ID", "AITBC_HOSTNAME", "P2P_NODE_ID"))
+    if not identity:
+        return False
+    return identity.lower() == hub_host.lower()
+
+
+def _local_hub_origin() -> str:
+    """Where "the hub" lives when this node is the hub.
+
+    ``HUB_LOCAL_URL`` (process env or env files) wins; the default is local
+    nginx on :80, which mounts the same paths the public edge serves.
+    """
+    explicit = _raw_env_value("HUB_LOCAL_URL")
+    if explicit:
+        return explicit.rstrip("/")
+    return LOCAL_HUB_ORIGIN
+
+
+def normalize_hub_base(raw: str | None) -> str | None:
+    """Normalize a hub URL or bare host into a usable base origin.
+
+    - When this node *is* the hub and ``raw`` names it, the result is the
+      local origin (``HUB_LOCAL_URL`` or :data:`LOCAL_HUB_ORIGIN`) — the
+      public name hairpin-fails here.
+    - An explicit ``http://``/``https://`` scheme wins verbatim.
+    - A localhost host gets ``http://``; any other bare host ``https://``
+      (TLS terminates at the hub's fronting edge).
+    """
+    host = _host_from(raw)
+    discovery = hub_discovery_host()
+    if host is not None and discovery is not None and host.lower() == discovery.lower() and is_hub_self():
+        return _local_hub_origin()
+    origin = _origin_from(raw)
+    if not origin:
         return None
-    return f"https://{host}/{path.lstrip('/')}"
+    scheme, host = origin
+    if "localhost" in host or "127.0.0.1" in host:
+        scheme = "http"
+    return f"{scheme}://{host}"
 
 
 def hub_origin() -> str | None:
-    """``https://<hub>`` with no path, or None when no hub host is configured."""
-    host = hub_discovery_host()
-    return f"https://{host}" if host else None
+    """The hub's base origin, or None when no hub host is configured.
+
+    Resolves the configured discovery value through
+    :func:`normalize_hub_base` — ``https://<hub>`` for followers, the local
+    nginx on the hub itself.
+    """
+    return normalize_hub_base(_hub_raw())
+
+
+def hub_service_url(path: str) -> str | None:
+    """``<hub-origin>/<path>`` when a hub host is configured, else None."""
+    origin = hub_origin()
+    if not origin:
+        return None
+    return f"{origin}/{path.lstrip('/')}"
 
 
 def hub_agent_url() -> str | None:
