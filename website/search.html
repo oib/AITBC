@@ -6,8 +6,8 @@
     <title>Search Results — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="AITBC explorer search results for an address, transaction hash, or block height.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=d12f962517c36363">
-    <link rel="stylesheet" href="/style.css?v=d12f962517c36363">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=67f6143aaffd52e0">
+    <link rel="stylesheet" href="/style.css?v=67f6143aaffd52e0">
     <style>
         .search-query {
             color: var(--text-muted);
@@ -35,8 +35,8 @@
         .dir-in { background: rgba(16, 185, 129, 0.15); color: #10b981; }
         .dir-self { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
     </style>
-<script src="copy.js?v=d12f962517c36363" defer></script>
-<script src="status.js?v=d12f962517c36363" defer></script>
+<script src="copy.js?v=67f6143aaffd52e0" defer></script>
+<script src="status.js?v=67f6143aaffd52e0" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -169,8 +169,15 @@
                     // failed search degrades to no section, not a page error.
                     fetch(`${EXPLORER_API_URL}/api/messages/search?q=${encodeURIComponent(query)}&limit=50`).catch(() => null),
                 ]);
-                const txData = await txResp.json();
-                const blockData = await blockResp.json();
+                // A failed reply is not "no results" — only 404s and proven
+                // empty lists are. Message search already degrades to no
+                // section on failure (MSG-17), not a page error.
+                const failed = [txResp, blockResp].find(r => !r.ok && r.status !== 404);
+                if (failed) {
+                    throw new Error(`Search could not be completed (HTTP ${failed.status}). This is not a "not found".`);
+                }
+                const txData = txResp.ok ? await txResp.json() : {};
+                const blockData = blockResp.ok ? await blockResp.json() : {};
                 const msgData = msgResp && msgResp.ok ? await msgResp.json() : {};
                 const txs = txData.transactions || [];
                 const blocks = blockData.blocks || [];
