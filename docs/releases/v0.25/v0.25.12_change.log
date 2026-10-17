@@ -134,3 +134,49 @@ transactions, gpu-onchain, island join). `CLIConfig.hub_blockchain_rpc_url`
 derives via `hub_service_url("rpc")` and covers `HUB_P2P_HOST`-only nodes.
 Fixes hub-local `market list`/`providers`, `escrow`, `status`, `match` and the
 fleet-wide-dead `gpu-onchain`/`island join` hub fallbacks; followers unchanged.
+
+### Commit index — commits since v0.25.11 the coverage check could not match
+
+`fleet-config-check.sh`'s changelog-coverage section matches a commit by its
+short hash or its exact subject. These commits had neither in any release
+log: some entries above carry no hash or a pre-rebase one, some commits have
+no entry yet, and changelog commits are never cited by their own entry.
+Listed by hash and verbatim subject so either survives a rebase.
+
+Described in an entry above, which carries no matching hash:
+
+- `91a31a59` fix(ops): send a descriptive User-Agent in sepolia_balance.py (ETH-20)
+- `58768e9c` feat(cli): add read-only aitbc wallet eth-balance for Sepolia balance/nonce (ETH-20b)
+- `a28de9fc` fix(cli): resolve hub-ward URLs locally on the hub and honor explicit schemes
+- `a0f53f54` docs(monitoring): record the alert-state remote-write drop convention (MON-ALERT-2)
+
+No narrative entry in this log yet:
+
+- `3d96781b` fix(coordinator): SEC-20 — a miner-written receipt can no longer open the escrow release gate
+- `895dbcd0` feat(coordinator): error-log at startup when receipt signing is unconfigured
+- `343646cb` feat(monitoring): watch critical env-var presence, alert on receipt key
+- `01858d34` fix(cli): sign ai submit escrow lock for the resolved buyer
+- `655a1b32` fix(cli): pre-flight escrow prerequisites before posting paid jobs
+- `f45b4cc3` fix(cli): hint at auth login on mutating ai commands
+- `7df12e4b` fix(paths): stop writing runtime data under the repo checkout
+- `923fc0df` feat(backup): catch-all leg for non-db /var/lib/aitbc state + systemd units
+- `30afd784` docs(ops): note etc-aitbc.tar.gz carries live secrets by design
+- `857eb348` fix(ci): restore gate integrity — unified required tests, ratchet triage, bandit gate
+- `77c8a914` fix(ci): complete exception-narrowing coverage on untyped input boundaries
+- `68c44aa4` chore(deps): bump the npm_and_yarn group across 2 directories with 3 updates
+- `f05ad358` Merge dependabot npm_and_yarn group bump (handlebars, brace-expansion, undici)
+
+Changelog and merge bookkeeping:
+
+- `4287c929` docs(release): CHAIN-STALL-1 changelog entry in a new v0.25.12 log
+- `62c2ac77` docs(release): cite the v0.25.9->v0.25.11 relocation in the v0.25.12 log
+- `e9364582` docs(release): CHAIN-STALL-2 + deploy-rules.sh changelog entries
+- `bdf32c09` docs(release): cite the deploy-rules.sh host-local skip fix
+- `c717923f` docs(release): DEPS-4 changelog entry
+- `ee6001a1` docs(release): MON-ALERT-1 changelog entry
+- `38d5dc05` docs(release): MON-CHECK-1 changelog entry
+- `75f639cd` docs(release): MSG-8g changelog entry
+- `e818ac03` docs(release): drop stray rebase marker left in v0.25.12 log
+- `dfb3c7c6` docs(release): point MSG-8g entry at the rebased commit SHA
+- `8d741e58` docs(release): v0.25.12 market list/providers local-fallback entry
+- `42beead3` docs(release): v0.25.12 hub-ward URL resolution entry
