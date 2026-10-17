@@ -526,6 +526,14 @@ class ChainSettings(BaseSettings):
     # (BRIDGE_REFUND binds a *sealed* lock from v6).
     bridge_locks_paused: bool = False
 
+    # SEC-REPLAY-1: when set (BRIDGE_LOCK_REQUIRE_REPLAY_GUARD), POST
+    # /bridge/lock refuses old-form signatures — the six-field dict has no
+    # nonce/expiry, so a captured signed body replays as a new transfer. New-form
+    # locks (issued_at + nonce in the signed dict) are always replay-checked,
+    # flag or not. Default off for deployed-CLI compatibility; enabling is a
+    # deliberate operator step after clients are updated.
+    bridge_lock_require_replay_guard: bool = False
+
     # Bridge configuration (v0.7.0). Operational parameters for the cross-chain
     # bridge. Defaults mirror the constants in aitbc/constants.py
     # (BRIDGE_TIMEOUT_SECONDS, BRIDGE_RETRY_LIMIT, etc.) so they can be tuned
