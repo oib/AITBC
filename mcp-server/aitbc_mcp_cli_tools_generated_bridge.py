@@ -36,6 +36,7 @@ def aitbc_bridge_attest(
     chain_id: Annotated[str | None, Field(description="Chain ID for the block")] = None,
     proposer: Annotated[str | None, Field(description="Proposer/validator address (defaults to derived address)")] = None,
     target_rpc: Annotated[str | None, Field(description="RPC URL to store the attested header on")] = None,
+    output_path: Annotated[str | None, Field(description="Write the attested header to a JSON file")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -54,6 +55,7 @@ def aitbc_bridge_attest(
             "private_key": "private-key",
             "proposer": "proposer",
             "target_rpc": "target-rpc",
+            "output_path": "output",
         },
     )
     args = None
@@ -211,6 +213,7 @@ def aitbc_bridge_ingest_header(
     proposer: Annotated[
         str | None, Field(description="Proposer address for the new signature (defaults to address of --private-key)")
     ] = None,
+    output_path: Annotated[str | None, Field(description="Write the stored header to a JSON file")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -228,6 +231,7 @@ def aitbc_bridge_ingest_header(
             "chain_id": "chain-id",
             "private_key": "private-key",
             "proposer": "proposer",
+            "output_path": "output",
         },
     )
     args = None
@@ -431,6 +435,7 @@ def aitbc_bridge_pending(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_proof(
     transfer_id: Annotated[str, Field(description="Transfer ID.")],
+    output_path: Annotated[str, Field(description="JSON file to write the unsigned proof to")],
     source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to node's chain)")] = None,
     block_height: Annotated[int | None, Field(description="Block height to anchor the proof")] = None,
     block_hash: Annotated[str | None, Field(description="Block hash to anchor the proof")] = None,
@@ -450,6 +455,7 @@ def aitbc_bridge_proof(
             "source_chain": "source-chain",
             "block_height": "block-height",
             "block_hash": "block-hash",
+            "output_path": "output",
             "rpc_url": "rpc-url",
         },
     )
@@ -609,6 +615,7 @@ def aitbc_bridge_sign_proof(
         list[str],
         Field(description="Private key hex to sign with (use multiple times for multi-sig; first becomes proposer_signature)"),
     ],
+    output_path: Annotated[str | None, Field(description="Output file (defaults to proof-file)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -619,7 +626,7 @@ def aitbc_bridge_sign_proof(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proof_file": "proof-file", "private_key": "private-key"},
+        values={"proof_file": "proof-file", "private_key": "private-key", "output_path": "output"},
     )
     args = None
     target = _host_for_role(role, host)
