@@ -134,3 +134,14 @@ transactions, gpu-onchain, island join). `CLIConfig.hub_blockchain_rpc_url`
 derives via `hub_service_url("rpc")` and covers `HUB_P2P_HOST`-only nodes.
 Fixes hub-local `market list`/`providers`, `escrow`, `status`, `match` and the
 fleet-wide-dead `gpu-onchain`/`island join` hub fallbacks; followers unchanged.
+
+### CLI: `exchange-island`/`market`/`wallet` read the array-shaped `/rpc/transactions` via `get_json`
+
+The endpoint returns a bare JSON array; `AITBCHTTPClient.get()` rejects
+non-object bodies, so `exchange-island orderbook`/`orders`/`rates`,
+`market` offer resolution's chain fallback, and `wallet transactions`
+all failed fleet-wide before reaching their (already shape-tolerant)
+normalizers. Ops fix on hub: `island_credentials.json` `rpc_endpoint`
+now `http://127.0.0.1:8202/rpc` — the previous `https://hub.aitbc.bubuit.net`
+value hairpin-failed from inside the hub (fulfils the ops item CLI-3
+deferred).
