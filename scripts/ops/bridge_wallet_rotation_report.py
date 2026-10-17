@@ -341,8 +341,8 @@ def analyze(
     _attribute_ledger(deposits, withdrawals, books, current)
 
     deposit_by_hash = {_norm(d["tx_hash"]): d for d in deposits}
-    withdrawal_by_hash = {w["eth_tx_hash"]: w for w in withdrawals}
-    sell_release_by_hash = {w["eth_tx_hash"]: w for w in (sell_releases or [])}
+    withdrawal_by_hash = {_norm(w["eth_tx_hash"]): w for w in withdrawals}
+    sell_release_by_hash = {_norm(w["eth_tx_hash"]): w for w in (sell_releases or [])}
     dump_by_hash = {_norm(t.get("tx_hash")): t for t in txs if isinstance(t, dict)}
     transfers: list[dict] = []
     for i, tx in enumerate(txs):
