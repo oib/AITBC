@@ -83,14 +83,21 @@ function renderSummary(data) {
     const title = box.querySelector('.alerts-summary-title');
     const detail = box.querySelector('.alerts-summary-detail');
     let state, head, tail;
-    if (!data || data.prometheus_ok === false) {
+    if (!data || data.prometheus_ok !== true) {
+        // Green requires a proven live answer: prometheus_ok === true plus a
+        // vouching watcher below. Everything else — API down, event-log
+        // fallback, or a body with no such field at all — is unknown.
         const firing = (data && data.firing) || [];
         state = 'is-unknown';
         head = 'Alert state unknown';
-        tail = data
-            ? 'Prometheus is unreachable; the list below is the watcher log\'s last known state' +
-              (firing.length ? ` (${firing.length} alert${firing.length === 1 ? '' : 's'} in it).` : '.')
-            : 'The alerts API did not answer.';
+        if (!data) {
+            tail = 'The alerts API did not answer.';
+        } else if (data.prometheus_ok === false) {
+            tail = 'Prometheus is unreachable; the list below is the watcher log\'s last known state' +
+                (firing.length ? ` (${firing.length} alert${firing.length === 1 ? '' : 's'} in it).` : '.');
+        } else {
+            tail = 'The alerts API returned an unexpected answer.';
+        }
     } else {
         const firing = data.firing || [], pending = data.pending || [];
         const bySev = {};
@@ -103,9 +110,13 @@ function renderSummary(data) {
         const w = data.watcher;
         if (w && w.present && !w.stale) {
             tail += (tail ? '. ' : '') + 'Watcher polled ' + relTime(Date.now() / 1000 - w.last_poll_age_seconds) + '.';
-        } else if (w && w.stale) {
+        } else {
+            // A stale or absent watcher cannot vouch for the list —
+            // clear demotes to unknown; firing/pending keep their state.
+            // present:false arrives with stale:true from the backend —
+            // check presence first so the wording says "absent".
             if (state === 'is-clear') state = 'is-unknown';
-            tail += (tail ? '. ' : '') + 'Watcher heartbeat is stale.';
+            tail += (tail ? '. ' : '') + (w && w.present && w.stale ? 'Watcher heartbeat is stale.' : 'Watcher heartbeat is absent.');
         }
     }
     box.className = 'alerts-summary ' + state;
@@ -254,11 +265,11 @@ async function loadAlerts() {
             fetch(`${EXPLORER_API_URL}/api/alerts`),
             fetch(`${EXPLORER_API_URL}/api/alerts/history?limit=100`),
         ]);
-        const live = await liveResp.json();
+        const live = liveResp.ok ? await liveResp.json() : null;
         const hist = await histResp.json();
         renderSummary(live);
-        renderMonitorStrip(live);
-        renderFiring(live);
+        renderMonitorStrip(live || {});
+        renderFiring(live || {});
         renderEvents(hist);
         document.getElementById('updated-note').textContent =
             `Updated ${new Date().toLocaleTimeString()} — auto-refresh every ${REFRESH_MS / 1000}s`;
