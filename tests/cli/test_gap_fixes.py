@@ -308,7 +308,13 @@ def test_job_create_accepts_valid_currency_when_priced():
 # ---------------------------------------------------------------------------
 
 
-def test_find_service_by_type_and_name():
+def test_find_service_by_type_and_name(tmp_path, monkeypatch):
+    # The services router imports aitbc.auth.api_key, whose module-level
+    # APIKeyManager() takes a filelock under the key storage path — the default
+    # /var/lib/aitbc only exists on deployed nodes. Redirect it so the import
+    # works on dev hosts too. (If the module was already imported in this
+    # session, the env is moot — the path was writable anyway.)
+    monkeypatch.setenv("API_KEY_STORAGE_PATH", str(tmp_path / "api_keys.json"))
     from coordinator_api.contexts.infrastructure.routers.services import _find_service
 
     assert _find_service("whisper")["type"] == "whisper"
