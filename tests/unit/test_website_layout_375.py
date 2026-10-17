@@ -219,6 +219,20 @@ class TestLayoutHeuristics(unittest.TestCase):
         for sel in (".msg-topic-chip", ".clickable-value", ".msg-author", "#contact-email-link"):
             self.assertIn(sel, body, f"{sel} is missing from the phone tap-target block")
 
+    def test_web_bridges3_fix_pinned(self) -> None:
+        # WEB-BRIDGES-3: the tx link inside a phone card line was 22px tall —
+        # the only <a> inside .bridge-card-line (addresses are spans), so
+        # this selector reaches exactly it and nothing on the desktop table.
+        m = re.search(
+            r"@media\s*\(pointer:\s*coarse\)\s*,\s*\(max-width:\s*640px\)\s*\{(?P<body>.*?)^\}",
+            self.css,
+            re.S | re.M,
+        )
+        self.assertIsNotNone(m, "no (pointer: coarse)/(max-width:640px) tap-target block found")
+        sel = re.search(r"\.bridge-card-line\s+a\s*\{([^}]*)\}", m.group("body"))
+        self.assertIsNotNone(sel, ".bridge-card-line a is missing from the phone tap-target block")
+        self.assertIn("min-height: 44px", sel.group(1), ".bridge-card-line a lacks the 44px floor")
+
 
 # ---------------------------------------------------------------------------
 # Browser layer — skipped cleanly when no browser exists
