@@ -360,7 +360,9 @@ def get_bridge_admin_addresses() -> set[str]:
 
 
 _ADMIN_MAX_SKEW_SECS = 300
-_ADMIN_NONCE_TTL_SECS = 600
+# Slightly longer than the 600 s freshness span (±300 s) so a nonce spent at
+# the earliest acceptable instant still covers the body's latest one.
+_ADMIN_NONCE_TTL_SECS = 660
 
 
 def _parse_issued_at(value: Any) -> float | None:
@@ -463,6 +465,73 @@ def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
         _logger.warning("Rejected admin request: nonce already used")
         return False
     return True
+
+
+def apply_replay_guard_fields(
+    request_data: dict[str, Any],
+    sign_data: dict[str, Any],
+    *,
+    require_guard: bool,
+    label: str,
+) -> tuple[dict[str, Any], bool]:
+    """Attach ``issued_at``/``nonce`` from the request body to the signed dict.
+
+    Shared replay-guard plumbing (SEC-REPLAY-1/-2): a signed dict without a
+    freshness field and nonce is replayable verbatim. When either field is
+    present in the request both ride inside the signed dict — they cannot be
+    stripped without breaking the signature — and the caller must run the
+    freshness check (returns ``guarded=True``). When neither is present the
+    legacy form stands unless ``require_guard`` (the operator flag) refuses it.
+    """
+    issued_at = request_data.get("issued_at")
+    nonce = request_data.get("nonce")
+    if issued_at is not None or nonce is not None:
+        sign_data["issued_at"] = issued_at
+        sign_data["nonce"] = nonce
+        return sign_data, True
+    if require_guard:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} require a replay-guarded signature (issued_at + nonce)",
+        )
+    return sign_data, False
+
+
+def check_signed_request_freshness(sign_data: dict[str, Any], *, nonce_key: str) -> None:
+    """Reject a guarded body whose signed freshness/nonce fails.
+
+    ``issued_at`` must parse and sit within ``_ADMIN_MAX_SKEW_SECS``;
+    ``nonce`` must be a non-empty string first-seen under ``nonce_key`` in the
+    shared sqlite store (the key carries the endpoint prefix and sender, so
+    nonces cannot collide across endpoints or accounts).
+    """
+    issued = _parse_issued_at(sign_data.get("issued_at"))
+    if issued is None or abs(time.time() - issued) > _ADMIN_MAX_SKEW_SECS:
+        raise HTTPException(status_code=403, detail="Signature requires a fresh issued_at (±5 min)")
+    nonce = sign_data.get("nonce")
+    if not isinstance(nonce, str) or not nonce:
+        raise HTTPException(status_code=403, detail="Signature requires a nonce")
+    if _nonce_seen(nonce_key):
+        raise HTTPException(status_code=403, detail="Nonce already used — this signed body cannot be replayed")
+
+
+def verify_signed_request_with_freshness(
+    sender: str,
+    signature: Any,
+    sign_data: dict[str, Any],
+    *,
+    guarded: bool,
+    nonce_key: str,
+) -> None:
+    """Verify ``signature`` over ``sign_data``, then spend the nonce if guarded.
+
+    Freshness runs strictly after signature verification: an unauthenticated
+    caller must not be able to burn a nonce ahead of its legitimate use.
+    """
+    if not verify_request_signature(sender, signature, sign_data):
+        raise HTTPException(status_code=403, detail="Invalid sender signature")
+    if guarded:
+        check_signed_request_freshness(sign_data, nonce_key=nonce_key)
 
 
 def verify_admin_signature(payload: dict[str, Any], admin_address: str | None, admin_signature: str | None) -> bool:
