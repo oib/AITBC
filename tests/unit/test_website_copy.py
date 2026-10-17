@@ -202,6 +202,33 @@ class TestHomeJoinStepperAndAnswers(unittest.TestCase):
         self.assertIn("requestSubmit", js)
 
 
+class TestExchangeChipAndTokens(unittest.TestCase):
+    """EXCH-BUYFIRST-2: the testnet chip must shrink and wrap — flex 0 0 auto
+    pushed the page to 450 px at 375 — and every var(--token) the
+    .exchange-* rules use must be defined in :root (--accent was not;
+    older undefined tokens in non-exchange rules are listed in the
+    progress note, not fixed here)."""
+
+    def test_testnet_chip_can_shrink_and_wrap(self) -> None:
+        css = STYLE.read_text(encoding="utf-8")
+        rule = re.search(r"\.exchange-header \.ob-banner\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(rule, "chip rule missing")
+        body = rule.group(1)
+        self.assertNotIn("flex: 0 0 auto", body)
+        self.assertIn("min-width: 0", body)
+        self.assertIn("max-width: 100%", body)
+
+    def test_exchange_rules_use_defined_tokens(self) -> None:
+        css = STYLE.read_text(encoding="utf-8")
+        root = re.search(r":root\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(root, ":root block missing")
+        defined = set(re.findall(r"--[\w-]+(?=\s*:)", root.group(1)))
+        used: set[str] = set()
+        for m in re.finditer(r"\.exchange-[^{]*\{([^}]*)\}", css):
+            used.update(re.findall(r"var\(--([\w-]+)", m.group(1)))
+        self.assertEqual(set(), used - defined)
+
+
 class TestExchangeTrackRetry(unittest.TestCase):
     """EXCH-TRACKRETRY-1: the track Try again button must not outlive its
     could-not-query error line; and exchange-book.js may only rely on
