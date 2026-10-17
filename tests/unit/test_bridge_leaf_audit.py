@@ -127,6 +127,45 @@ def test_v2_leaf_binds_recipient(tool, monkeypatch):
     assert der2 is None and dsrc2 == "unreadable"
 
 
+def test_v2_leaf_target_recipient_key(tool, monkeypatch):
+    """Sealed envelopes carry the recipient as ``target_recipient`` (AUDIT-RECIP-1):
+    a v2-height lock whose envelope has only that key still derives, source ``envelope``."""
+    monkeypatch.setattr(tool, "_V2_HEIGHT", 50_000)
+    der, src = tool.derived_leaf(
+        "txh",
+        {},
+        {"transfer_id": "txh", "amount": 500, "target_chain": "ait-dest", "target_recipient": "0xrecip"},
+        50_001,
+    )
+    assert der == "lock:txh:500:ait-dest:0xrecip" and src == "envelope"
+    # Payload carrying only the alias also works.
+    der2, src2 = tool.derived_leaf(
+        "txh",
+        {"transfer_id": "txh", "amount": 500, "target_chain": "ait-dest", "target_recipient": "0xrecip"},
+        {},
+        50_001,
+    )
+    assert der2 == "lock:txh:500:ait-dest:0xrecip" and src2 == "payload"
+    # Neither key present at v2 height → still underivable.
+    der3, src3 = tool.derived_leaf(
+        "txh",
+        {},
+        {"transfer_id": "txh", "amount": 500, "target_chain": "ait-dest"},
+        50_001,
+    )
+    assert der3 is None and src3 == "unreadable"
+    # And the derivable v2 lock classifies derivable, not missing_data.
+    assert tool.lock_class("envelope", 50_001, 30_000) == "derivable"
+    # Pre-v2 the same alias-less body keeps the 3-field leaf unchanged.
+    der4, _ = tool.derived_leaf(
+        "txh",
+        {},
+        {"transfer_id": "txh", "amount": 500, "target_chain": "ait-dest"},
+        49_999,
+    )
+    assert der4 == "lock:txh:500:ait-dest"
+
+
 def test_audit_counts(tool, tmp_path):
     db = _mk_db(
         tmp_path / "a.db",

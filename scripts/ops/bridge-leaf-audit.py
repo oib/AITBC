@@ -141,20 +141,21 @@ def derived_leaf(tx_hash: str, payload: dict[str, Any], envelope: dict[str, Any]
     """V-4 leaf derived from the sealed transaction only, height-aware.
 
     Preferred source is ``payload``; when it is empty (GAP-47 block-scoped
-    rows) the signed ``envelope`` carries the same body. From the v2 height
+    rows) the signed ``envelope`` carries the same body — with the recipient
+    under ``target_recipient`` (the seal path's key). From the v2 height
     the recipient must also be derivable. Returns ``(leaf, source)`` where
     source is payload / envelope / unreadable.
     """
     tid = _pick(payload, "transfer_id")
     amount = _pick(payload, "amount")
     target = _pick(payload, "target_chain")
-    recipient = _pick(payload, "recipient")
+    recipient = _pick(payload, "recipient", "target_recipient")
     source = "payload"
     if tid is None or amount is None or target is None or (_v2_active(height) and recipient is None):
         tid = tid or _pick(envelope, "transfer_id")
         amount = amount or _pick(envelope, "amount")
         target = target or _pick(envelope, "target_chain")
-        recipient = recipient or _pick(envelope, "recipient")
+        recipient = recipient or _pick(envelope, "recipient", "target_recipient")
         source = "envelope"
     if tid is None or amount is None or target is None:
         return None, "unreadable"
@@ -398,7 +399,8 @@ def main(argv: list[str] | None = None) -> int:
             f"missing_data(activation-blocking defect)={lc['missing_data']}"
         )
     if not result["trie_rebuilt"]:
-        print("trie rebuild: SKIPPED (aitbc_chain not importable or --no-trie)")
+        print("trie rebuild: SKIPPED (aitbc_chain not importable or --no-trie;")
+        print("  to import it run with PYTHONPATH=<checkout>/apps/blockchain-node/src:<checkout>)")
     else:
         rv = result["root_verdicts"]
         print("per-block root verdicts (blocks containing locks):")
