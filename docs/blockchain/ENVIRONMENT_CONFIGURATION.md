@@ -149,8 +149,6 @@ GOSSIP_BACKEND=websocket
 | `REDIS_URL` | Yes | - | Redis connection URL |
 | `gossip_backend` | No | `memory` (code default in `config.py:346`) | Gossip backend type |
 | `gossip_broadcast_url` | Yes | - | Redis URL for gossip broadcast |
-| `SYNC_REDIS_URL` | ~~Yes~~ — **not read anywhere** | - | fictional var; chain sync uses subscription/heartbeat + bulk-pull RPC |
-
 ### Sync Configuration
 
 | Variable | Required | Default | Description |
@@ -160,10 +158,11 @@ GOSSIP_BACKEND=websocket
 | `auto_sync_threshold` | No | `10` | Block-gap size that triggers a bulk sync |
 
 > **Removed:** `SYNC_SOURCE_HOST`, `SYNC_SOURCE_PORT`, `SYNC_LEADER_HOST`,
-> `SYNC_IMPORT_HOST`, `SYNC_IMPORT_PORT`, and `SYNC_CHAIN_ID` are no longer read
-> by any service — they remain only in legacy `blockchain.env` files. Sync source
-> selection is done through the subscription settings below
-> (`default_peer_rpc_url`) or `CHAIN_SYNC_SOURCES` for multi-chain hubs.
+> `SYNC_IMPORT_HOST`, `SYNC_IMPORT_PORT`, `SYNC_CHAIN_ID`, `SYNC_REDIS_URL`,
+> and `SYNC_MANAGED_EXTERNALLY` are read by no service — the sync path takes
+> `REDIS_URL` and selects sources via `default_peer_rpc_url` /
+> `CHAIN_SYNC_SOURCES` (multi-chain hubs). These fictional leftovers were
+> deleted from the fleet's `/etc/aitbc/*.env` files on 2026-10-17.
 
 ### Subscription Configuration
 
@@ -257,7 +256,6 @@ JWT_SECRET=production-jwt-secret-32-chars-long-change-me
 REDIS_URL=redis://localhost:6379/0
 gossip_backend=broadcast
 gossip_broadcast_url=redis://redis.example.com:6379
-SYNC_REDIS_URL=redis://redis.example.com:6379
 
 # Sync Configuration (bulk-sync gap recovery)
 sync_manager_enabled=true
@@ -306,7 +304,6 @@ JWT_SECRET=production-jwt-secret-32-chars-long-change-me
 REDIS_URL=redis://localhost:6379/0
 gossip_backend=broadcast
 gossip_broadcast_url=redis://redis.example.com:6379
-SYNC_REDIS_URL=redis://redis.example.com:6379
 
 # Sync Configuration (following ait-mainnet)
 sync_manager_enabled=true
@@ -410,7 +407,6 @@ Cluster-wide backend secrets also live in this file:
 |----------|----------|---------|-------------|
 | `REDIS_URL` | If using Redis | - | Full `redis://` or `rediss://` URL including credentials. |
 | `GOSSIP_BROADCAST_URL` | If using Redis gossip | - | `redis://` URL used by the hub's gossip broker. |
-| `SYNC_REDIS_URL` | If using Redis sync | - | `redis://` URL used by the sync backend. |
 
 ### Example blockchain-secrets.env
 
