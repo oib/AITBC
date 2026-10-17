@@ -11,6 +11,7 @@ published in a world-readable bootstrap file — so the credential here is ``MIN
 and the removal is pinned by a test of its own rather than left to be re-introduced.
 """
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -37,6 +38,22 @@ def _make_app() -> FastAPI:
 def _configure_miner_key(monkeypatch, key: str = MINER_KEY) -> None:
     monkeypatch.setenv("MINER_API_KEYS", key)
     monkeypatch.setenv("ENVIRONMENT", "development")
+
+
+def _no_miner_keys(monkeypatch) -> None:
+    """Empty the merged miner-key list so the "no keys configured" branch runs.
+
+    ``_configured_miner_keys`` merges ``coordinator_api.config.settings.miner_api_keys``
+    with ``MINER_API_KEYS``. The Settings singleton bakes the env value at first
+    import, which under pytest happens inside an earlier test's monkeypatch — so
+    deleting the env var alone cannot empty the list (ENG-3).
+    """
+    monkeypatch.delenv("MINER_API_KEYS", raising=False)
+    try:
+        from coordinator_api.config import settings as coordinator_settings
+    except ImportError:
+        return  # coordinator_api not importable here; the env half is already empty
+    monkeypatch.setattr(coordinator_settings, "miner_api_keys", [])
 
 
 def test_auth_middleware_accepts_miner_api_key(monkeypatch):
@@ -86,7 +103,7 @@ def test_auth_middleware_rejects_invalid_api_key(monkeypatch):
 def test_the_coordinator_key_is_not_a_miner_credential(monkeypatch):
     """V23-68: the published hub key must not open the miner routes."""
     monkeypatch.setenv("COORDINATOR_API_KEY", "hub-key-32-chars-long-xxxxxxxxxx")
-    monkeypatch.delenv("MINER_API_KEYS", raising=False)
+    _no_miner_keys(monkeypatch)
     monkeypatch.setenv("ENVIRONMENT", "development")
 
     app = _make_app()
@@ -109,7 +126,7 @@ def test_the_reason_for_a_401_reaches_the_log(monkeypatch, caplog):
     """
     import logging
 
-    monkeypatch.delenv("MINER_API_KEYS", raising=False)
+    _no_miner_keys(monkeypatch)
     monkeypatch.setenv("ENVIRONMENT", "development")
 
     client = TestClient(_make_app())
@@ -152,3 +169,18 @@ def test_auth_middleware_blocks_miner_key_on_admin_route(monkeypatch):
     )
 
     assert response.status_code == 403
+
+
+def test_configured_miner_keys_merges_settings_and_env(monkeypatch):
+    """Settings list + env var merge with dedup, order kept (ENG-3 optional).
+
+    This is the contract _no_miner_keys() manipulates: the merged list stays
+    empty only when BOTH sources are empty.
+    """
+    config = pytest.importorskip("coordinator_api.config")
+    from aitbc.auth.dependencies import _configured_miner_keys
+
+    monkeypatch.setattr(config.settings, "miner_api_keys", ["a", "b"])
+    monkeypatch.setenv("MINER_API_KEYS", "b,c")
+
+    assert _configured_miner_keys() == ["a", "b", "c"]
