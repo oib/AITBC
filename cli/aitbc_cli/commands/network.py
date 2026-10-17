@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 import click
 import requests
 
+from aitbc.config.hub import normalize_hub_base
+
 from ..utils import output
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -137,7 +139,7 @@ def test(ctx, peer, rpc_url):
     try:
         base_url = rpc_url
         if not base_url:
-            base_url = f"https://{peer}"
+            base_url = normalize_hub_base(peer) or f"https://{peer}"
         url = f"{base_url}/health"
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
@@ -283,9 +285,7 @@ def _hub_rpc_url() -> str:
 
     config = get_config()
     hub = config.hub_discovery_url or "hub.aitbc.invalid"
-    if hub.startswith(("http://", "https://")):
-        return hub.rstrip("/")
-    return f"https://{hub}"
+    return normalize_hub_base(hub) or hub
 
 
 @network.command(

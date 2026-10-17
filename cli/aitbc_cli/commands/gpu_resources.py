@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import click
 
+from aitbc.config.hub import normalize_hub_base
 from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
@@ -14,6 +15,19 @@ from ..utils.error_handling import CLIError
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
+
+
+def _hub_rpc_url(config, rpc_url: str) -> str:
+    """Swap a localhost RPC base for the hub's public one when a hub is known.
+
+    The old ``rpc_url.replace("localhost", host)`` kept the ``http://`` scheme
+    and the ``:8202`` port — both dead at the edge, which only forwards the
+    nginx mounts. ``normalize_hub_base`` yields ``https://<hub>`` on followers
+    and the local nginx on the hub itself; callers append ``/rpc/...`` paths.
+    """
+    if config.hub_discovery_url and "localhost" in rpc_url:
+        return normalize_hub_base(config.hub_discovery_url) or rpc_url
+    return rpc_url
 
 
 @click.group(
@@ -72,9 +86,7 @@ def register_onchain(
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        if config.hub_discovery_url and "localhost" in rpc_url:
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
+        rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
 
         chain_id = resolve_chain_id(ctx, rpc_url)
 
@@ -139,9 +151,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        if config.hub_discovery_url and "localhost" in rpc_url:
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
+        rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
 
         chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
@@ -201,9 +211,7 @@ def deregister_gpu(
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        if config.hub_discovery_url and "localhost" in rpc_url:
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
+        rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
 
         chain_id = resolve_chain_id(ctx, rpc_url)
 
@@ -270,9 +278,7 @@ def allocate_gpu(
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        if config.hub_discovery_url and "localhost" in rpc_url:
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
+        rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
 
         chain_id = resolve_chain_id(ctx, rpc_url)
 
@@ -339,9 +345,7 @@ def get_allocations(ctx, gpu_id: str, format: str):
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        if config.hub_discovery_url and "localhost" in rpc_url:
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
+        rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
 
         chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
@@ -382,9 +386,7 @@ def list_gpus(ctx, status: str | None, format: str):
 
     try:
         # Get RPC URL from config (use hub for cross-node operations)
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        if config.hub_discovery_url and "localhost" in rpc_url:
-            rpc_url = rpc_url.replace("localhost", config.hub_discovery_url)
+        rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
 
         chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 

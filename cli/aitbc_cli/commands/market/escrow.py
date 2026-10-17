@@ -8,6 +8,7 @@ from typing import Any, cast
 
 import click
 
+from aitbc.config.hub import normalize_hub_base
 from aitbc.utils.units import units_to_ait
 
 from ...auth import AuthManager
@@ -41,6 +42,12 @@ def escrow_group():
 
 
 escrow = escrow_group()
+
+
+def _hub_base_url(config) -> str:
+    """Resolve the hub base URL — self/scheme-aware via aitbc.config.hub."""
+    raw = config.hub_discovery_url or "hub.aitbc.invalid"
+    return normalize_hub_base(raw) or raw
 
 
 def _get_rpc_client(config, base_url: str, timeout: int = 10) -> AITBCHTTPClient:
@@ -185,7 +192,7 @@ def escrow_release(ctx, job_id: str):
     try:
         config = get_config()
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+        hub_url = _hub_base_url(config)
         result = None
         refusal_detail: str | None = None
         try:
@@ -259,7 +266,7 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
             output(coordinator_result, ctx.obj.get("output_format", "table"))
             return coordinator_result
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+        hub_url = _hub_base_url(config)
         result = None
         refusal_detail: str | None = None
         try:
@@ -318,7 +325,7 @@ def escrow_status(ctx, job_id: str):
     try:
         config = get_config()
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+        hub_url = _hub_base_url(config)
         result = None
         try:
             http_client = _get_rpc_client(config, rpc_url, timeout=10)

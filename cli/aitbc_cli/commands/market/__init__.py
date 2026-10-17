@@ -12,6 +12,8 @@ from typing import Any, cast
 
 import click
 
+from aitbc.config.hub import normalize_hub_base
+
 from ...config import get_config
 from ...utils.wallet_secret import wallet_password_options
 from ...utils import error, info, output, success, warning
@@ -115,7 +117,7 @@ def _account_balance(address: str, chain_id: str) -> int:
     try:
         config = get_config()
         hub = config.hub_discovery_url or "hub.aitbc.invalid"
-        client = AITBCHTTPClient(base_url=f"https://{hub}", timeout=5)
+        client = AITBCHTTPClient(base_url=normalize_hub_base(hub) or hub, timeout=5)
         data = client.get(f"/rpc/accounts/{address}", params={"chain_id": chain_id})
         return int(data.get("balance", 0))
     except Exception as e:
@@ -180,8 +182,9 @@ def get_account_nonce(address: str, chain_id: str) -> int:
 
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    hub = config.hub_discovery_url or "hub.aitbc.invalid"
     # Prefer the local blockchain RPC; the hub discovery URL may not expose /rpc.
-    for base_url in (rpc_url, f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"):
+    for base_url in (rpc_url, normalize_hub_base(hub) or hub):
         try:
             http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
             response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")

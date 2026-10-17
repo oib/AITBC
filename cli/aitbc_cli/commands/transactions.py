@@ -13,6 +13,7 @@ from eth_keys import keys
 from eth_utils import keccak
 
 from aitbc import ValidationError
+from aitbc.config.hub import normalize_hub_base
 from aitbc.utils import ait_to_units, format_ait
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT, DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address_strict
@@ -53,8 +54,8 @@ def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
     config = get_config()
     rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
     if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
-        hub_rpc = (
-            getattr(config, "hub_blockchain_rpc_url", None) or f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+        hub_rpc = getattr(config, "hub_blockchain_rpc_url", None) or normalize_hub_base(
+            config.hub_discovery_url or "hub.aitbc.invalid"
         )
         if hub_rpc:
             hub_rpc = hub_rpc.rstrip("/")
