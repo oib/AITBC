@@ -677,6 +677,15 @@ class ChainSettings(BaseSettings):
     # Operator-chosen activation boundary (2026-10-08): below it an
     # underivable lock is grandfathered; at/above it is a would-refuse.
     bridge_lock_guard_boundary: int = 30000
+    # F1: from this source-chain height the bridge_state_root leaf also commits
+    # to the recipient — ``lock:<transfer_id>:<amount>:<target_chain>:<recipient>``
+    # instead of ``lock:<transfer_id>:<amount>:<target_chain>``. It changes the
+    # root the proposer seals, so every producer must run a build that knows it
+    # before the height, and the same value must be set on every host
+    # (BRIDGE_LOCK_LEAF_V2_HEIGHT). None (the default) keeps the old leaf for
+    # every block. Until it is armed, a confirm whose lock is not on this node
+    # cannot prove its recipient and is refused.
+    bridge_lock_leaf_v2_height: int | None = None
 
     # V-3 side-table root shadow (design docs/design/v3-side-table-root-shadow.md).
     # Compare-only soak phase: after each sealed block compute the 13-table

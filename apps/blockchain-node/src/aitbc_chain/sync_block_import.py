@@ -22,6 +22,7 @@ from .metrics import (
     sync_failures_total,
 )
 from .cross_chain import bridge_lock_guard
+from .cross_chain.bridge_leaf import lock_leaf_value, unknown_lock_leaf
 from .state import side_root_shadow, state_root_utils
 from .state.block_deltas import (
     BlockDeltaJournal,
@@ -162,9 +163,8 @@ class BlockImportMixin(SyncBase):
             return "0x" + trie.get_root().hex()
         # V-4 dry-run missing-data guard (flag-gated, logs/counts only —
         # the derived root below is computed exactly as before).
-        bridge_lock_guard.run_guard_dryrun_dicts(
-            lock_txs, height=int(block_data.get("height") or 0), chain_id=self._chain_id, log=logger
-        )
+        block_height = int(block_data.get("height") or 0)
+        bridge_lock_guard.run_guard_dryrun_dicts(lock_txs, height=block_height, chain_id=self._chain_id, log=logger)
         transfer_ids = [tx.get("tx_hash", "") for tx in lock_txs]
         records = session.exec(
             select(CrossChainTransfer).where(
@@ -177,9 +177,9 @@ class BlockImportMixin(SyncBase):
             tx_hash = tx.get("tx_hash", "")
             record = record_map.get(tx_hash)
             if record is None:
-                value = f"lock:{tx_hash}:0:unknown"
+                value = unknown_lock_leaf(tx_hash)
             else:
-                value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
+                value = lock_leaf_value(record.transfer_id, record.amount, record.target_chain, record.recipient, block_height)
             trie.put(tx_hash.encode(), value.encode())
         return "0x" + trie.get_root().hex()
 
