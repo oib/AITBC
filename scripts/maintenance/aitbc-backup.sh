@@ -1,6 +1,8 @@
 #!/bin/bash
 # AITBC Production Backup Script
-# Backs up: PostgreSQL, blockchain SQLite DB, keystore, and service configs
+# Backs up: PostgreSQL, blockchain + service SQLite DBs, keystore, wallets,
+# non-database /var/lib/aitbc state (catch-all), aitbc systemd units/drop-ins,
+# and service configs
 # Schedule: Daily via systemd timer
 # Retention: 30 days
 
@@ -237,6 +239,51 @@ for LEGACY_WALLET_DIR in "${LEGACY_WALLET_DIRS[@]}"; do
     fi
 done
 
+# ── Misc /var/lib/aitbc state (non-database catch-all) ────────────────────────
+# The legs above only capture *.db files plus the keystore/ and wallets/ trees.
+# Everything else under /var/lib/aitbc -- island_credentials.json, IPFS
+# island/daemon repos, agent key files, token files, media uploads, JSON state,
+# stray secrets -- would otherwise never reach a snapshot. WAL/SHM sidecars and
+# *.bak / *.pre-* / *.db.* crumbs are skipped: they are meaningless without
+# their .db or deliberately stale by name. keystore/ and wallets/ are excluded
+# only at top level -- they already have their own legs; a nested data/keystore
+# on a follower is not covered anywhere else and stays in scope.
+BACKUP_MISC_MAX_KB="${BACKUP_MISC_MAX_KB:-65536}"
+_MISC_LIST="$(mktemp)"
+_misc_skip_list="$(mktemp)"
+if [ -d "$SVC_DB_DIR" ]; then
+    ( cd "$SVC_DB_DIR" && find . -type f \
+        -not -name "*.db" -not -name "*.db-*" -not -name "*.db.*" \
+        -not -name "*.bak*" -not -name "*.pre-*" \
+        -not -path "./keystore/*" -not -path "./wallets/*" \
+        -not -path "./backups/*" -not -path "./fork-export/*" \
+        -size -"${BACKUP_MISC_MAX_KB}"k -print0 ) > "$_MISC_LIST" 2>/dev/null || true
+    ( cd "$SVC_DB_DIR" && find . -type f \
+        -not -name "*.db" -not -name "*.db-*" -not -name "*.db.*" \
+        -not -name "*.bak*" -not -name "*.pre-*" \
+        -not -path "./keystore/*" -not -path "./wallets/*" \
+        -not -path "./backups/*" -not -path "./fork-export/*" \
+        -size +"${BACKUP_MISC_MAX_KB}"k -print ) 2>/dev/null > "$_misc_skip_list" || true
+fi
+if [ -s "$_misc_skip_list" ]; then
+    while IFS= read -r _big; do
+        warn "varlib-state: skipping ${_big} (>${BACKUP_MISC_MAX_KB}K; raise BACKUP_MISC_MAX_KB to include)"
+    done < "$_misc_skip_list"
+fi
+if [ -s "$_MISC_LIST" ]; then
+    _misc_count=$(tr -cd '\0' < "$_MISC_LIST" | wc -c)
+    if tar czf "${BACKUP_DIR}/varlib-state.tar.gz" -C "$SVC_DB_DIR" --null --files-from "$_MISC_LIST" 2>/dev/null; then
+        chmod 600 "${BACKUP_DIR}/varlib-state.tar.gz"
+        log "varlib-state catch-all: OK (${_misc_count} files, $(du -sh "${BACKUP_DIR}/varlib-state.tar.gz" | cut -f1))"
+    else
+        rm -f "${BACKUP_DIR}/varlib-state.tar.gz"
+        error "varlib-state catch-all FAILED"
+    fi
+else
+    log "varlib-state catch-all: no non-database state files found"
+fi
+rm -f "$_MISC_LIST" "$_misc_skip_list"
+
 # ── Service Configuration ─────────────────────────────────────────────────────
 ETC_AITBC_DIR="${ETC_AITBC_DIR:-/etc/aitbc}"
 ETC_PROMETHEUS_DIR="${ETC_PROMETHEUS_DIR:-/etc/prometheus}"
@@ -249,6 +296,30 @@ if [ -d "${ETC_PROMETHEUS_DIR}" ]; then
         && log "/etc/prometheus: OK" || error "Prometheus config backup FAILED"
 else
     warn "${ETC_PROMETHEUS_DIR} not found, skipping"
+fi
+
+# ── aitbc systemd units and drop-ins ──────────────────────────────────────────
+# Unit files are redeployable from the repo, but *.service.d/*.timer.d drop-ins
+# carry host-local overrides (env pins, secret-exclusion flags) that exist
+# nowhere else. Archive the whole aitbc-* set, dirs included recursively.
+SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
+if [ -d "$SYSTEMD_DIR" ]; then
+    _unit_list="$(mktemp)"
+    ( cd "$SYSTEMD_DIR" && find . -maxdepth 1 -name "aitbc-*" -print0 ) > "$_unit_list" 2>/dev/null || true
+    if [ -s "$_unit_list" ]; then
+        if tar czf "${BACKUP_DIR}/systemd-aitbc.tar.gz" -C "$SYSTEMD_DIR" --null --files-from "$_unit_list" 2>/dev/null; then
+            chmod 600 "${BACKUP_DIR}/systemd-aitbc.tar.gz"
+            log "systemd aitbc units: OK ($(du -sh "${BACKUP_DIR}/systemd-aitbc.tar.gz" | cut -f1))"
+        else
+            rm -f "${BACKUP_DIR}/systemd-aitbc.tar.gz"
+            error "systemd aitbc units backup FAILED"
+        fi
+    else
+        log "systemd aitbc units: none found"
+    fi
+    rm -f "$_unit_list"
+else
+    warn "${SYSTEMD_DIR} not found, skipping systemd unit backup"
 fi
 
 # ── Redis RDB Snapshot ────────────────────────────────────────────────────────
