@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/exchange.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=eaceebb3daec45c4">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2f589dc82a10a34d">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=eaceebb3daec45c4">
-    <script src="config.js?v=eaceebb3daec45c4" defer></script>
-    <script src="copy.js?v=eaceebb3daec45c4" defer></script>
-    <script src="exchange.js?v=eaceebb3daec45c4" defer></script>
-    <script src="exchange-book.js?v=eaceebb3daec45c4" defer></script>
-    <script src="status.js?v=eaceebb3daec45c4" defer></script>
+    <link rel="stylesheet" href="/style.css?v=2f589dc82a10a34d">
+    <script src="config.js?v=2f589dc82a10a34d" defer></script>
+    <script src="copy.js?v=2f589dc82a10a34d" defer></script>
+    <script src="exchange.js?v=2f589dc82a10a34d" defer></script>
+    <script src="exchange-book.js?v=2f589dc82a10a34d" defer></script>
+    <script src="status.js?v=2f589dc82a10a34d" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -51,6 +51,11 @@
 
         <main id="main" tabindex="-1">
             <div class="ob-banner">Sepolia testnet. Test ETH and test AIT have no real-world value.</div>
+            <div id="bridge-health" class="bridge-health is-loading" role="status" aria-live="polite">
+                <span class="bridge-health-dot" aria-hidden="true"></span>
+                <span class="bridge-health-title">Checking bridge...</span>
+                <span class="bridge-health-detail"></span>
+            </div>
 
         <!-- ═══ Value Proposition ═══ -->
         <div class="card value-hero">
@@ -144,6 +149,7 @@
             <div id="bridge-offline-note" class="error-box" style="display:none;">
                 Bridge is currently offline — ETH deposits are disabled. Check back later.
             </div>
+            <button id="bridge-retry-btn" type="button" class="bridge-retry" style="display:none;margin:0.5rem 0;">Try again</button>
 
             <!-- Wallet connection (shown only if window.ethereum is detected) -->
             <div id="wallet-connect-row" style="display:none;" class="wallet-row">
