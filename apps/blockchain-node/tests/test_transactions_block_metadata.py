@@ -97,3 +97,19 @@ def test_missing_block_row_yields_null_fields(patched_db):
     assert len(result) == 1
     assert result[0]["block_height"] == 999
     assert result[0]["block_hash"] is None
+
+
+def test_before_id_pages_backwards(patched_db):
+    """F3: before_id returns rows older than the cursor, newest-first."""
+    for i in range(5):
+        patched_db.add(_tx("test-chain", f"0xtx{i}", 10 + i))
+    patched_db.commit()
+
+    first = asyncio.run(query_transactions(None, chain_id="test-chain", limit=2))
+    assert [t["transaction_id"] for t in first] == [5, 4]
+
+    older = asyncio.run(query_transactions(None, chain_id="test-chain", before_id=4))
+    assert [t["transaction_id"] for t in older] == [3, 2, 1]
+
+    empty = asyncio.run(query_transactions(None, chain_id="test-chain", before_id=1))
+    assert empty == []
