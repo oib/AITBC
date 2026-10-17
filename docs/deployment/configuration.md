@@ -25,9 +25,10 @@ VALIDATOR_SET=hub,node1,node2
 
 # /etc/aitbc/aitbc-coordinator-api.env
 JWT_SECRET=<random secret>
-CLIENT_API_KEYS=<comma-separated keys>
-MINER_API_KEYS=<comma-separated keys>
-ADMIN_API_KEYS=<comma-separated keys>
+# *_API_KEYS take a JSON array; a comma-separated list is also accepted.
+CLIENT_API_KEYS=["<key>","<key>"]
+MINER_API_KEYS=["<key>","<key>"]
+ADMIN_API_KEYS=["<key>"]
 COORDINATOR_API_KEY=<key used by follower CLIs>
 BLOCKCHAIN_RPC_URL=http://localhost:8202
 BLOCKCHAIN_RPC_API_KEY=<key>
