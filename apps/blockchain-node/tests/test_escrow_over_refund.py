@@ -46,7 +46,7 @@ async def _funded(mgr, job_id="job_1", amount=LOCK, milestones=None):
         milestones=milestones,
     )
     assert success, message
-    success, message = await mgr.fund_contract(contract_id, "0xlock")
+    success, message = await mgr.fund_contract(contract_id, "0xlock", {"tx_hash": "0xlock"})
     assert success, message
     return contract_id
 
