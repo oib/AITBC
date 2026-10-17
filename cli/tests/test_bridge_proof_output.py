@@ -55,6 +55,8 @@ class TestProofOutput:
         assert list(written) == sorted(written)
         assert "Bridge Proof" in result.output
         assert "0xabc123" in result.output
+        # the success line prints the real path, not the formatter's repr
+        assert str(out) in result.output and "<function" not in result.output
 
     def test_proof_output_flag_unchanged(self, runner):
         # --output/-o must still parse (flag names unchanged)
