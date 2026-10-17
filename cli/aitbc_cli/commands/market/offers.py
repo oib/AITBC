@@ -61,6 +61,36 @@ def _is_active(status: Any) -> bool:
     return str(status).lower() in ("active", "available", "open")
 
 
+def _hub_base_url(config) -> str:
+    """Resolve the hub base URL for cross-node queries.
+
+    An explicit scheme in ``hub_discovery_url`` wins verbatim; a localhost
+    host gets ``http://``; any other bare host is upgraded to ``https://``
+    because the hub's TLS edge terminates on its fronting reverse proxy.
+    """
+    hub_host = (getattr(config, "hub_discovery_url", None) or "hub.aitbc.invalid").strip()
+    if hub_host.startswith(("http://", "https://")):
+        return hub_host.rstrip("/")
+    if "localhost" in hub_host or "127.0.0.1" in hub_host:
+        return f"http://{hub_host}"
+    return f"https://{hub_host}"
+
+
+def _candidate_bases(hub_url: str, config) -> list[str]:
+    """Bases to try for hub-facing reads: the hub first, then the local market service.
+
+    The local fallback covers the cases where the hub name is unreachable
+    from this node — running on the hub itself (the public name resolves to
+    the TLS edge, which the node cannot hairpin back to), or the edge being
+    down while the node is fine.
+    """
+    bases = [hub_url]
+    local = str(getattr(config, "market_service_url", "") or "").rstrip("/")
+    if local and local != hub_url:
+        bases.append(local)
+    return bases
+
+
 def _reputation_for_offer(http_client: AITBCHTTPClient, coordinator_url: str, offer: dict[str, Any]) -> None:
     """Enrich an offer with coordinator trust score, if available."""
     agent_id = offer.get("provider_address") or offer.get("node_id") or ""
@@ -212,7 +242,7 @@ def list_offers(
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
-        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+        hub_url = _hub_base_url(config)
 
         # Resolve the local identity when --mine is used.
         my_address: str | None = None
@@ -225,7 +255,7 @@ def list_offers(
             my_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
 
         if _list_offers_via_market_api(
-            hub_url, config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
+            _candidate_bases(hub_url, config), config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
         ):
             return
 
@@ -286,44 +316,45 @@ def _filter_offers(offers, provider, status, service_type, mine, my_address, my_
 
 
 def _list_offers_via_market_api(
-    hub_url, config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
+    bases, config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
 ) -> bool:
-    """Try the market service API; True when it produced output."""
-    try:
-        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+    """Try the market service API on each candidate base; True when one produced output."""
+    for base in bases:
+        try:
+            http_client = AITBCHTTPClient(base_url=base, timeout=15)
 
-        # Build query parameters
-        params: dict[str, Any] = {}
-        if service_type:
-            params["service_type"] = service_type
-        if status:
-            params["status"] = status
+            # Build query parameters
+            params: dict[str, Any] = {}
+            if service_type:
+                params["service_type"] = service_type
+            if status:
+                params["status"] = status
 
-        result = http_client.get("/v1/market/offer", params=params)
+            result = http_client.get("/v1/market/offer", params=params)
 
-        if not (result and "offers" in result and result["offers"]):
-            return False
-        offers = _filter_offers(result["offers"], provider, status, service_type, mine, my_address, my_node_id)
-        if not offers:
-            return False
+            if not (result and "offers" in result and result["offers"]):
+                continue
+            offers = _filter_offers(result["offers"], provider, status, service_type, mine, my_address, my_node_id)
+            if not offers:
+                continue
 
-        # Enrich offers with canonical coordinator reputation data.
-        # The /reputation/... path is relative to the /v1 root, so
-        # normalize the configured URL (service root or .../v1).
-        coordinator_url = normalize_base_url(config.coordinator_api_url or hub_url)
-        for offer in offers:
-            _reputation_for_offer(http_client, coordinator_url, offer)
+            # Enrich offers with canonical coordinator reputation data.
+            # The /reputation/... path is relative to the /v1 root, so
+            # normalize the configured URL (service root or .../v1).
+            coordinator_url = normalize_base_url(config.coordinator_api_url or base)
+            for offer in offers:
+                _reputation_for_offer(http_client, coordinator_url, offer)
 
-        # Sort deterministically by live reputation (trust score > avg rating).
-        offers = _sort_offers(offers, sort)
+            # Sort deterministically by live reputation (trust score > avg rating).
+            offers = _sort_offers(offers, sort)
 
-        output([_offer_row(offer) for offer in offers], fmt)
-        success(f"Found {len(offers)} market offers")
-        return True
-    except NetworkError as e:
-        logger.warning("Market service not available: %s", e)
-    except Exception as e:
-        logger.warning("Error querying market service: %s", e)
+            output([_offer_row(offer) for offer in offers], fmt)
+            success(f"Found {len(offers)} market offers")
+            return True
+        except NetworkError as e:
+            logger.warning("Market service not available at %s: %s", base, e)
+        except Exception as e:
+            logger.warning("Error querying market service at %s: %s", base, e)
     return False
 
 
@@ -333,13 +364,14 @@ def _collect_market_txs(hub_url: str, config) -> list[dict[str, Any]]:
     try:
         # Query hub directly (HTTP) for confirmed GPU_MARKET transactions
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-        result = http_client.get("/rpc/transactions", params={"limit": 500})
-        if result and not isinstance(result, dict):
+        result = http_client.get_json("/rpc/transactions", params={"limit": 500})
+        if isinstance(result, list):
             # Filter by payload action since hub doesn't store type field
-            transactions = [  # type: ignore[unreachable]
+            transactions = [
                 tx
                 for tx in result
-                if isinstance(tx.get("payload"), dict)
+                if isinstance(tx, dict)
+                and isinstance(tx.get("payload"), dict)
                 and tx["payload"].get("action") in ("offer", "bid", "cancel", "accept", "software_offer")
             ]
             logger.debug("Found %s GPU_MARKET transactions from hub", len(transactions))
@@ -355,9 +387,9 @@ def _collect_market_txs(hub_url: str, config) -> list[dict[str, Any]]:
         # Fallback to local blockchain RPC
         try:
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 200})
-            if result and not isinstance(result, dict):
-                transactions = result  # type: ignore[unreachable]
+            result = http_client.get_json("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 200})
+            if isinstance(result, list):
+                transactions = [tx for tx in result if isinstance(tx, dict)]
         except NetworkError:
             logger.debug("Local blockchain RPC unavailable for transactions", exc_info=True)
     return transactions
@@ -499,7 +531,7 @@ def offer_cancel(ctx, order_ids: tuple[str, ...]):
         cancel_data["signature"] = sign_transaction_data(cancel_data, private_key)
 
         try:
-            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+            hub_url = _hub_base_url(config)
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/market", json=cancel_data)
             success(f"Offer(s) {', '.join(order_ids)} cancelled successfully!")
@@ -1024,6 +1056,37 @@ def _mempool_has_pending_offer(hub_url, wallet_address, service_type, model_or_v
     return False
 
 
+def _fetch_provider_offers(client: AITBCHTTPClient) -> tuple[list[dict[str, Any]], bool]:
+    """Offers for ``providers`` from one base: market API first, then chain match.
+
+    Returns (offers, answered): answered is True once either endpoint has
+    responded at all — even with an empty list — so callers can tell
+    "nothing is listed" apart from "nothing was reachable".
+    """
+    answered = False
+    offers: list[dict[str, Any]] = []
+    try:
+        result = client.get("/v1/market/offer")
+        answered = True
+        offers = (result or {}).get("offers") or []
+    except NetworkError as e:
+        logger.warning("Market service not available at %s: %s", client.base_url, e)
+
+    if not offers:
+        # Fall back to the chain. The match endpoint returns listings only,
+        # and its projection names the seller differently.
+        try:
+            result = client.get("/rpc/transactions/market/match")
+            answered = True
+            offers = [
+                {**m, "provider_address": m.get("seller"), "status": "active"}
+                for m in _purchasable_matches((result or {}).get("matches", []))
+            ]
+        except NetworkError as e:
+            logger.warning("Market match not available at %s: %s", client.base_url, e)
+    return offers, answered
+
+
 @market.command(
     epilog="""Examples:
 
@@ -1043,36 +1106,31 @@ def providers(ctx, output_format: str):
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
-        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+        hub_url = _hub_base_url(config)
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        used_base = hub_url
 
         offers: list[dict[str, Any]] = []
-        try:
-            result = http_client.get("/v1/market/offer")
-            offers = (result or {}).get("offers") or []
-        except NetworkError as e:
-            logger.warning("Market service not available: %s", e)
+        answered = False
+        for base in _candidate_bases(hub_url, config):
+            client = AITBCHTTPClient(base_url=base, timeout=15)
+            offers, base_answered = _fetch_provider_offers(client)
+            answered = answered or base_answered
+            if offers:
+                http_client = client
+                used_base = base
+                break
 
         if not offers:
-            # Fall back to the chain. The match endpoint returns listings only,
-            # and its projection names the seller differently.
-            try:
-                result = http_client.get("/rpc/transactions/market/match")
-                offers = [
-                    {**m, "provider_address": m.get("seller"), "status": "active"}
-                    for m in _purchasable_matches((result or {}).get("matches", []))
-                ]
-            except NetworkError as e:
-                error(f"Network error: {e}")
-                raise click.Abort() from e
-
-        if not offers:
+            if not answered:
+                error("Market endpoints unavailable on hub and local service")
+                raise click.Abort()
             info("No providers are listing offers right now.")
             return
 
         grouped = _group_by_provider(offers)
 
-        coordinator_url = normalize_base_url(config.coordinator_api_url or hub_url)
+        coordinator_url = normalize_base_url(config.coordinator_api_url or used_base)
         _backfill_trust_scores(http_client, coordinator_url, grouped)
 
         rows = _provider_rows(grouped)
@@ -1148,7 +1206,7 @@ def offer(
         config = get_config()
         chain_id = get_chain_id()
         island_id = get_island_id()
-        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
+        hub_url = _hub_base_url(config)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
         if not private_key:
             # Both public intake doors reject unsigned offer transactions —
@@ -1332,13 +1390,7 @@ def offer_list(
         wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
         config = get_config()
-        hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
-        if hub_host.startswith(("http://", "https://")):
-            hub_url = hub_host.rstrip("/")
-        elif "localhost" in hub_host or "127.0.0.1" in hub_host:
-            hub_url = f"http://{hub_host}"
-        else:
-            hub_url = f"https://{hub_host}"
+        hub_url = _hub_base_url(config)
 
         client = AITBCHTTPClient(base_url=hub_url, timeout=15)
         result = client.get("/v1/market/offers")
@@ -1387,13 +1439,7 @@ def offer_disable(
     try:
         output_format = resolve_output_format(ctx, output_format)
         config = get_config()
-        hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
-        if hub_host.startswith(("http://", "https://")):
-            hub_url = hub_host.rstrip("/")
-        elif "localhost" in hub_host or "127.0.0.1" in hub_host:
-            hub_url = f"http://{hub_host}"
-        else:
-            hub_url = f"https://{hub_host}"
+        hub_url = _hub_base_url(config)
 
         # DELETE is provider-signed: the market service removes the row only for
         # the offer's own provider (an "unregister" proof, so a captured

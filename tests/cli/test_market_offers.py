@@ -1,8 +1,141 @@
 """Tests for the market offers CLI helpers."""
 
-import pytest
+from types import SimpleNamespace
 
-from aitbc_cli.commands.market.offers import _sort_offers
+import pytest
+from click.testing import CliRunner
+
+from aitbc.exceptions import NetworkError
+from aitbc_cli.commands.market import market
+from aitbc_cli.commands.market.offers import _hub_base_url, _sort_offers
+
+
+class TestHubBaseUrl:
+    """``_hub_base_url`` keeps an explicit scheme, maps localhost to http,
+    and upgrades only a bare host to https — the TLS edge is the hub's
+    reverse proxy, not something the CLI should assume is local."""
+
+    def test_bare_host_gets_https(self):
+        config = SimpleNamespace(hub_discovery_url="hub.example.net")
+        assert _hub_base_url(config) == "https://hub.example.net"
+
+    def test_explicit_scheme_is_kept(self):
+        config = SimpleNamespace(hub_discovery_url="http://hub.example.net:8080")
+        assert _hub_base_url(config) == "http://hub.example.net:8080"
+
+    def test_localhost_gets_http(self):
+        config = SimpleNamespace(hub_discovery_url="localhost:8102")
+        assert _hub_base_url(config) == "http://localhost:8102"
+
+
+_OFFER = {
+    "offer_id": "sw_offer_1",
+    "plugin_id": "ollama-llama3",
+    "service_type": "ollama",
+    "model": "llama3",
+    "price": 1.0,
+    "price_unit": "per_1k_tokens",
+    "provider_address": "0xProviderAddress",
+    "node_id": "node-1",
+    "gpu_name": "RTX 4090",
+    "gpu_device": "0",
+    "gpu_memory_gb": 24,
+    "disk_quota_mb": 100,
+    "public_endpoint": "https://provider.example/",
+    "status": "active",
+    "avg_rating": 4.5,
+    "rating_count": 3,
+}
+
+_SOFTWARE_OFFER_TX = {
+    "payload": {
+        "action": "software_offer",
+        "offer_id": "sw_offer_chain",
+        "service_type": "whisper",
+        "model": "base",
+        "gpu_name": "RTX 4090",
+        "deployment_type": "local",
+        "price": 0.5,
+        "price_unit": "per_minute",
+        "status": "active",
+        "provider_address": "0xProviderAddress",
+        "description": "chain-listed offer",
+        "created_at": "2026-10-17T00:00:00",
+    }
+}
+
+
+class TestMarketListFallback:
+    """`market list` reads the hub over https first, then the local service.
+
+    On the hub itself the public name resolves to the TLS edge, which the
+    node cannot hairpin back to — the local market service must carry the
+    command instead of the command failing.
+    """
+
+    @pytest.fixture
+    def config(self):
+        return SimpleNamespace(
+            hub_discovery_url="hub.aitbc.invalid",
+            market_service_url="http://127.0.0.1:8102",
+            coordinator_api_url="",
+            blockchain_rpc_url="http://127.0.0.1:8202",
+        )
+
+    def test_falls_back_to_local_market_service(self, monkeypatch, config):
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        seen: list[str] = []
+
+        class _Client:
+            def __init__(self, base_url="", timeout=0, **_kw):
+                self.base_url = base_url
+
+            def get(self, path, params=None, **_kw):
+                seen.append(f"{self.base_url}{path}")
+                if "hub.aitbc.invalid" in self.base_url:
+                    raise NetworkError("connection refused")
+                if path == "/v1/market/offer":
+                    return {"offers": [_OFFER]}
+                raise NetworkError("unexpected path")
+
+            def get_json(self, path, params=None, **_kw):
+                raise NetworkError("unreachable")
+
+        monkeypatch.setattr(offers_mod, "AITBCHTTPClient", _Client)
+        monkeypatch.setattr(offers_mod, "get_config", lambda: config)
+
+        result = CliRunner().invoke(market, ["list"], obj={})
+        assert result.exit_code == 0, result.output
+        assert "Found 1 market offers" in result.output
+        assert seen[0].startswith("https://hub.aitbc.invalid")
+        assert any(s.startswith("http://127.0.0.1:8102") for s in seen)
+
+    def test_array_response_from_local_rpc_is_accepted(self, monkeypatch, config):
+        """/rpc/transactions returns a JSON array — the local-RPC fallback
+        must read it instead of crashing on the object shape check."""
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        class _Client:
+            def __init__(self, base_url="", timeout=0, **_kw):
+                self.base_url = base_url
+
+            def get(self, path, params=None, **_kw):
+                raise NetworkError("market api down")
+
+            def get_json(self, path, params=None, **_kw):
+                if "hub.aitbc.invalid" in self.base_url:
+                    raise NetworkError("edge unreachable")
+                if path == "/rpc/transactions":
+                    return [_SOFTWARE_OFFER_TX]
+                return []
+
+        monkeypatch.setattr(offers_mod, "AITBCHTTPClient", _Client)
+        monkeypatch.setattr(offers_mod, "get_config", lambda: config)
+
+        result = CliRunner().invoke(market, ["list"], obj={})
+        assert result.exit_code == 0, result.output
+        assert "sw_offer_chain" in result.output
 
 
 class TestSortOffers:
