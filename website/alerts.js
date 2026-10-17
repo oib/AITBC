@@ -112,10 +112,16 @@ function renderSummary(data) {
             tail += (tail ? '. ' : '') + 'Watcher polled ' + relTime(Date.now() / 1000 - w.last_poll_age_seconds) + '.';
         } else {
             // A stale or absent watcher cannot vouch for the list —
-            // clear demotes to unknown; firing/pending keep their state.
-            // present:false arrives with stale:true from the backend —
-            // check presence first so the wording says "absent".
-            if (state === 'is-clear') state = 'is-unknown';
+            // clear demotes to unknown (amber title included, so the
+            // headline and the colour say the same thing); firing/pending
+            // keep their state. present:false arrives with stale:true
+            // from the backend — check presence first so the wording
+            // says "absent".
+            if (state === 'is-clear') {
+                state = 'is-unknown';
+                head = 'Alert state unknown';
+                tail = 'Prometheus answered: no alerts firing';
+            }
             tail += (tail ? '. ' : '') + (w && w.present && w.stale ? 'Watcher heartbeat is stale.' : 'Watcher heartbeat is absent.');
         }
     }
