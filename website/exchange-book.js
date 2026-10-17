@@ -272,11 +272,11 @@
             // "last updated" is a claim — only stamp it on a good read.
             if (ok) {
                 lastGoodAt = Date.now();
-                lu.textContent = 'last updated ' + new Date(lastGoodAt).toLocaleTimeString('en-GB');
+                lu.textContent = 'last updated ' + aitbcFmt.time(lastGoodAt);
             } else if (lastGoodAt) {
-                lu.textContent = `last attempt failed ${new Date().toLocaleTimeString('en-GB')}, showing data from ${new Date(lastGoodAt).toLocaleTimeString('en-GB')}`;
+                lu.textContent = `last attempt failed ${aitbcFmt.time()}, showing data from ${aitbcFmt.time(lastGoodAt)}`;
             } else {
-                lu.textContent = 'last attempt failed ' + new Date().toLocaleTimeString('en-GB') + ' — no data yet';
+                lu.textContent = 'last attempt failed ' + aitbcFmt.time() + ' — no data yet';
             }
         }
         backoffMs = ok ? REFRESH_MS : Math.min(backoffMs * 2, MAX_BACKOFF_MS);

@@ -10,6 +10,33 @@
 (function () {
     'use strict';
 
+    // Shared number/date format (WEB-PAGES-1, operator choice): one fixed
+    // convention on every page — numbers in en-US, dates ISO-style
+    // "YYYY-MM-DD HH:mm", clock times 24-hour HH:MM:SS. Defined here because
+    // status.js is the only script every page loads. Exposed before the
+    // early return so a page without a strip still gets the helpers.
+    window.aitbcFmt = {
+        num: function (v, maxDigits) {
+            var n = Number(v);
+            if (!isFinite(n)) return '-';
+            return maxDigits == null
+                ? n.toLocaleString('en-US')
+                : n.toLocaleString('en-US', { maximumFractionDigits: maxDigits });
+        },
+        date: function (v) {
+            // No argument means "now" (the common clock-stamp call).
+            var t = (v == null) ? new Date() : (v instanceof Date) ? v : new Date(v);
+            if (isNaN(t.getTime())) return '-';
+            var p = function (n) { return String(n).padStart(2, '0'); };
+            return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + ' ' + p(t.getHours()) + ':' + p(t.getMinutes());
+        },
+        time: function (v) {
+            var t = (v == null) ? new Date() : (v instanceof Date) ? v : new Date(v);
+            if (isNaN(t.getTime())) return '';
+            return t.toLocaleTimeString('en-GB');
+        }
+    };
+
     var POLL_MS = 45000;            // one request per endpoint per cycle; >= 30 s
     var JITTER_MS = 8000;           // desynchronize visitors
     var STALE_AFTER_MS = 300000;    // ~4.5x the ~67 s block cadence -> "stale"

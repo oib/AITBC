@@ -116,7 +116,7 @@
             }
 
             const time = m.timestamp || m.created_at || '';
-            head.appendChild(el('span', 'msg-time', time ? new Date(time).toLocaleString() : ''));
+            head.appendChild(el('span', 'msg-time', time ? aitbcFmt.date(time) : ''));
 
             item.appendChild(head);
             item.appendChild(el('div', 'msg-body', sanitizeChainText(m.body || '')));

@@ -36,7 +36,7 @@ function shortAddr(a) {
 function fmtAit(units) {
     if (units === null || units === undefined) return '-';
     const ait = Number(units) / AIT_UNITS;
-    return Number.isFinite(ait) ? ait.toLocaleString(undefined, {maximumFractionDigits: 6}) : '-';
+    return Number.isFinite(ait) ? aitbcFmt.num(ait, 6) : '-';
 }
 
 let lastTransfersReadAt = 0;
@@ -55,7 +55,7 @@ function showTransfersFailure(reason) {
         if (failed) failed.style.display = 'none';
         if (note) {
             note.style.display = 'block';
-            note.textContent = `Could not refresh: ${reason} Showing transfers last loaded ${new Date(lastTransfersReadAt).toLocaleTimeString()}.`;
+            note.textContent = `Could not refresh: ${reason} Showing transfers last loaded ${aitbcFmt.time(lastTransfersReadAt)}.`;
         }
         return;
     }
@@ -143,7 +143,7 @@ function shortChain(c) {
 
 function transferParts(d) {
     const time = d.confirm_time || d.lock_time;
-    const when = time ? escapeHtml(new Date(time).toLocaleString()) : '-';
+    const when = time ? escapeHtml(aitbcFmt.date(time)) : '-';
     const whenNote = time ? (d.confirm_time ? 'confirmed' : 'locked') : '';
     const srcChain = String(d.source_chain || '-');
     const tgtChain = String(d.target_chain || '-');
@@ -199,7 +199,7 @@ function renderBridgeHealth(data, reason) {
     if (!banner) return;
     const title = banner.querySelector('.bridge-health-title');
     const detail = banner.querySelector('.bridge-health-detail');
-    const ago = lastHealthReadAt ? `read ${new Date(lastHealthReadAt).toLocaleTimeString()}` : '';
+    const ago = lastHealthReadAt ? `read ${aitbcFmt.time(lastHealthReadAt)}` : '';
     let cls;
     let titleText;
     let detailText;

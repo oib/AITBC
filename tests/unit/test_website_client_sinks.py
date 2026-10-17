@@ -36,7 +36,7 @@ SAFE_CALL = re.compile(
     r"formatServiceTitle|formatPrice|formatDate|formatHash|plainHash|fmtAit|fmtNum|"
     r"eurStr|relTime|sevClass|statusClass|copyBtn|aitbcCopyBtn|statusBadge|eventBadge|priBadge|"
     r"txLink|addrLink|dirBadge|directionBadge|txTypeColor|blockContentHtml|"
-    r"txChipsHtml|renderBlockCard|alertCard|eventRow|createOfferCard)\s*\("
+    r"txChipsHtml|renderBlockCard|alertCard|eventRow|createOfferCard|aitbcFmt\.[\w.]+)\s*\("
 )
 
 # Interpolations the resolver cannot prove statically but that were audited
