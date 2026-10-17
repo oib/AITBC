@@ -19,6 +19,7 @@
     const LIVE_MS = LIVE_WINDOW_DAYS * 86400 * 1000;
     let timer = null;
     let backoffMs = REFRESH_MS;
+    let lastGoodAt = null;
 
     // ── small helpers (all output is text, never markup) ────────────
     function el(tag, cls, text) {
@@ -267,7 +268,17 @@
             console.error('trades fetch failed:', err);
         }
         const lu = document.getElementById('ob-updated');
-        if (lu) lu.textContent = 'last updated ' + new Date().toLocaleTimeString();
+        if (lu) {
+            // "last updated" is a claim — only stamp it on a good read.
+            if (ok) {
+                lastGoodAt = Date.now();
+                lu.textContent = 'last updated ' + new Date(lastGoodAt).toLocaleTimeString('en-GB');
+            } else if (lastGoodAt) {
+                lu.textContent = `last attempt failed ${new Date().toLocaleTimeString('en-GB')}, showing data from ${new Date(lastGoodAt).toLocaleTimeString('en-GB')}`;
+            } else {
+                lu.textContent = 'last attempt failed ' + new Date().toLocaleTimeString('en-GB') + ' — no data yet';
+            }
+        }
         backoffMs = ok ? REFRESH_MS : Math.min(backoffMs * 2, MAX_BACKOFF_MS);
     }
 
