@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import raiseload
-from sqlmodel import func, select
+from sqlmodel import select
 
 from aitbc.utils.env import is_production
 
@@ -24,6 +24,7 @@ from ..state.bridge_credit import (
     sign_bridge_lock,
 )
 from .bridge_base import BridgeBase
+from .bridge_leaf import lock_leaf_v2_active, lock_leaf_value, unknown_lock_leaf
 from .bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL, BridgeLocksPausedError, BridgeStatus, BridgeTransfer
 
 logger = get_logger(__name__)
@@ -268,6 +269,37 @@ class BridgeTransferMixin(BridgeBase):
                 return record.target_chain
         return str(getattr(settings, "chain_id", "") or "")
 
+    def _lock_record_from_source(
+        self, transfer_id: str, proof: dict[str, Any], target_chain: str
+    ) -> CrossChainTransfer | None:
+        """Target-chain copy of the lock record this node wrote on the source chain.
+
+        When the node hosts the source chain in a separate store (the relayer
+        case), the record ``initiate_transfer`` wrote there is node-authored
+        and is the trusted source of the payout fields. Returns None when the
+        lock is not known locally.
+        """
+        source_chain = proof.get("source_chain")
+        if not source_chain or source_chain == target_chain or not self._chain_db_ready(source_chain):
+            return None
+        with self._session_for(source_chain) as src_session:
+            src = src_session.get(CrossChainTransfer, transfer_id)
+            if src is None or src.source_chain != source_chain or src.target_chain != target_chain:
+                return None
+            return CrossChainTransfer(
+                transfer_id=src.transfer_id,
+                source_chain=src.source_chain,
+                target_chain=src.target_chain,
+                sender=src.sender,
+                recipient=src.recipient,
+                amount=src.amount,
+                asset=src.asset,
+                status=src.status,
+                source_tx_hash=src.source_tx_hash,
+                lock_time=src.lock_time,
+                release_amount=src.release_amount,
+            )
+
     def confirm_transfer(self, transfer_id: str, proof: dict[str, Any]) -> BridgeTransfer:
         """
         Confirm a cross-chain transfer on target chain.
@@ -294,22 +326,34 @@ class BridgeTransferMixin(BridgeBase):
             if persisted_proof is not None:
                 raise ValueError("Proof already processed (double-spend attempt)")
             record = session.get(CrossChainTransfer, transfer_id)
-            if record is None:
-                # Fail closed: the record must already exist on this chain —
-                # written by the lock path or mirrored through state sync.
-                # Materializing it from the proof made every equality check in
-                # _validate_proof compare the proof against itself, and the v1
-                # lock leaf (lock:{transfer_id}:{amount}:{target_chain}) cannot
-                # bind the claimed recipient — a record built from an untrusted
-                # proof let a caller redirect any real lock's release.
-                raise ValueError(
-                    "Unknown transfer_id: no CrossChainTransfer record on this "
-                    "chain; refusing to materialize the record from the proof"
+            # F1: the fields a release pays out on (amount, recipient, target
+            # chain) must come from a record this node wrote when it served the
+            # lock, or be bound by the proof's Merkle leaf. A record built from
+            # the proof alone used to be checked against itself.
+            proof_built_record = False
+            if not record:
+                record = self._lock_record_from_source(transfer_id, proof, target_chain)
+            if not record:
+                # v0.7.3: the lock is on another node; materialise the record
+                # from the proof, but only persist it once the proof verifies.
+                proof_built_record = True
+                record = CrossChainTransfer(
+                    transfer_id=transfer_id,
+                    source_chain=proof.get("source_chain", ""),
+                    target_chain=target_chain,
+                    sender=proof.get("sender", ""),
+                    recipient=proof.get("recipient", ""),
+                    amount=proof.get("amount", 0),
+                    asset=proof.get("asset", "native"),
+                    status="pending",
+                    source_tx_hash=transfer_id,
+                    lock_time=datetime.now(UTC),
                 )
             if record.status != "pending":
                 raise ValueError(f"Transfer already processed: {record.status}")
-            if not self._validate_proof(proof, record):
+            if not self._validate_proof(proof, record, require_leaf_binding=proof_built_record):
                 raise ValueError("Invalid transfer proof")
+            session.add(record)
             # GAP-47: cross-chain swaps may release a converted amount that
             # differs from the locked amount; plain bridges release `amount`.
             release_amount = record.release_amount if record.release_amount is not None else record.amount
@@ -762,9 +806,9 @@ class BridgeTransferMixin(BridgeBase):
             for tx in lock_txs:
                 tx_record = record_map.get(tx.tx_hash)
                 if tx_record is None:
-                    value = f"lock:{tx.tx_hash}:0:unknown"
+                    value = unknown_lock_leaf(tx.tx_hash)
                 else:
-                    value = f"lock:{tx_record.transfer_id}:{tx_record.amount}:{tx_record.target_chain}"
+                    value = self._build_lock_event_value(tx_record, block.height)
                 trie.put(tx.tx_hash.encode(), value.encode())
 
             computed_root = "0x" + trie.get_root().hex()
@@ -772,7 +816,7 @@ class BridgeTransferMixin(BridgeBase):
                 raise ValueError("Computed bridge state root does not match block")
 
             lock_tx_hash = record.source_tx_hash or transfer_id
-            lock_value = self._build_lock_event_value(record).encode()
+            lock_value = self._build_lock_event_value(record, block.height).encode()
             proof_bytes = trie.get_proof(lock_tx_hash.encode())
 
             validator_signatures: list[str] = []
@@ -806,9 +850,9 @@ class BridgeTransferMixin(BridgeBase):
                 "validator_signatures": validator_signatures,
             }
 
-    def _build_lock_event_value(self, record: CrossChainTransfer) -> str:
-        """Canonical lock event string that the Merkle proof commits to."""
-        return f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
+    def _build_lock_event_value(self, record: CrossChainTransfer, height: int | None) -> str:
+        """Canonical lock event string the source block at ``height`` committed to."""
+        return lock_leaf_value(record.transfer_id, record.amount, record.target_chain, record.recipient, height)
 
     def _generate_transfer_id(
         self, source_chain: str, target_chain: str, sender: str, recipient: str, amount: int, timestamp: int
@@ -817,8 +861,38 @@ class BridgeTransferMixin(BridgeBase):
         data = f"{source_chain}:{target_chain}:{sender}:{recipient}:{amount}:{timestamp}"
         return "0x" + hashlib.sha256(data.encode()).hexdigest()
 
-    def _validate_proof(self, proof: dict[str, Any], record: CrossChainTransfer) -> bool:
-        """Validate cross-chain transfer proof with cryptographic verification (v0.7.3)."""
+    def _proof_binds_payout_fields(self, proof: dict[str, Any], record: CrossChainTransfer) -> bool:
+        """True when the proof's Merkle leaf commits to every field the release pays on.
+
+        Only the recipient-bound leaf (``bridge_lock_leaf_v2_height``) covers
+        the recipient, so a proof from an older source block cannot stand on
+        its own and is refused.
+        """
+        amount = proof.get("amount")
+        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
+            logger.warning("Proof amount must be a positive integer")
+            return False
+        if not proof.get("merkle_proof"):
+            logger.warning("Proof-built transfer record needs a Merkle inclusion proof; rejecting")
+            return False
+        if not lock_leaf_v2_active(proof.get("block_height")):
+            logger.warning(
+                "Lock for %s is not on this node and its source block (height=%s) predates the "
+                "recipient-bound leaf; rejecting",
+                record.transfer_id[:16],
+                proof.get("block_height"),
+            )
+            return False
+        return True
+
+    def _validate_proof(self, proof: dict[str, Any], record: CrossChainTransfer, require_leaf_binding: bool = False) -> bool:
+        """Validate cross-chain transfer proof with cryptographic verification (v0.7.3).
+
+        ``require_leaf_binding`` is set when ``record`` was built from the
+        proof itself: the field checks below then compare the proof with
+        itself, so the proof must carry a recipient-bound leaf and a Merkle
+        inclusion proof against a stored header, or it is refused.
+        """
         required_fields = [
             "source_chain",
             "lock_tx_hash",
@@ -853,6 +927,23 @@ class BridgeTransferMixin(BridgeBase):
         if proof.get("chain_id") != record_chain_id:
             logger.warning("Proof chain_id mismatch: %s != %s", proof.get("chain_id"), record_chain_id)
             return False
+        if proof.get("target_chain") is not None and proof.get("target_chain") != record.target_chain:
+            logger.warning("Proof target_chain mismatch")
+            return False
+
+        # F1: the proven key and leaf must be the ones this transfer's fields
+        # produce. Without this the Merkle check below only proves that *some*
+        # lock exists — not that it carries this amount, recipient or target.
+        if proof.get("lock_tx_hash") != (getattr(record, "source_tx_hash", None) or record.transfer_id):
+            logger.warning("Proof lock_tx_hash does not match the transfer record")
+            return False
+        if require_leaf_binding and not self._proof_binds_payout_fields(proof, record):
+            return False
+        if proof.get("merkle_proof"):
+            expected_event = self._build_lock_event_value(record, proof.get("block_height"))
+            if proof.get("lock_event") != expected_event:
+                logger.warning("Proof lock_event does not match the transfer fields")
+                return False
 
         # Step 2: Verify block anchor (height + hash must be present and consistent)
         block_height = proof.get("block_height")
@@ -875,51 +966,13 @@ class BridgeTransferMixin(BridgeBase):
         header: BridgeBlockHeader | None = None
         verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
         if verification_mode == "in_process":
-            # Look up the block header from the DB
+            # F2: only a header this node stored can anchor a proof. A header
+            # built from the proof would let the proof choose its own roots,
+            # proposer and confirmation_count.
             header = self._get_block_header(record_chain_id, block_height)
             if header is None:
-                # Production flags fail closed: a header materialized from the
-                # proof makes the hash/state-root/signature checks that follow
-                # self-referential — the prover supplies all of them. Only
-                # dev mode (neither bridge_release_enabled nor
-                # bridge_multisig_enabled) may fall back to a proof header.
-                if getattr(settings, "bridge_release_enabled", False) or getattr(settings, "bridge_multisig_enabled", False):
-                    logger.warning(
-                        "No stored block header for chain=%s height=%s under production bridge flags; rejecting proof",
-                        record_chain_id,
-                        block_height,
-                    )
-                    return False
-                # Materialize a BridgeBlockHeader from the proof as a fallback.
-                # confirmation_count never comes from the proof: it is derived
-                # from how many stored headers sit above the claimed height.
-                # No stored headers → 0 → the finality check below fails closed.
-                with self._session_for(record_chain_id) as session:
-                    tip = session.exec(
-                        select(func.max(BridgeBlockHeader.height)).where(BridgeBlockHeader.chain_id == record_chain_id)
-                    ).first()
-                derived_confirmations = max(0, (int(tip) if tip is not None else block_height) - block_height)
-                try:
-                    header = BridgeBlockHeader(
-                        chain_id=record_chain_id,
-                        height=block_height,
-                        hash=block_hash,
-                        parent_hash=proof.get("parent_hash", "0x" + "00" * 32),
-                        proposer=proof.get("proposer", ""),
-                        state_root=proof.get("state_root", ""),
-                        bridge_state_root=proof.get("bridge_state_root", "") or proof.get("state_root", ""),
-                        # Do not reuse proposer_signature as the header signature:
-                        # it signs the proof fields, not the header's
-                        # verification message, so the recovered signer would be
-                        # garbage. Dev fallback headers are unsigned; the
-                        # block-signature gate decides acceptance.
-                        signature="",
-                        confirmation_count=derived_confirmations,
-                        finality_confirmed=False,
-                    )
-                except Exception as e:
-                    logger.warning("Failed to materialize block header from proof: %s", e)
-                    return False
+                logger.warning("No stored block header for chain=%s height=%s; rejecting proof", record_chain_id, block_height)
+                return False
 
             # Verify block hash matches
             if header.hash != block_hash:
@@ -950,19 +1003,6 @@ class BridgeTransferMixin(BridgeBase):
             # Step 5c: Merkle proof verification (B3)
             merkle_proof = proof.get("merkle_proof", [])
             if merkle_proof:
-                # Bind the leaf to the stored record before trusting the trie:
-                # the leaf "lock:{transfer_id}:{amount}:{target_chain}" is the
-                # only value the source chain committed. A proof that carries
-                # a different lock_event would still verify in the trie — it
-                # just would not describe this transfer.
-                expected_lock_event = self._build_lock_event_value(record)
-                if proof.get("lock_event", "") != expected_lock_event:
-                    logger.warning(
-                        "lock_event mismatch: proof commits %r, record requires %r",
-                        str(proof.get("lock_event", ""))[:80],
-                        expected_lock_event[:80],
-                    )
-                    return False
                 merkle_state_root = header.bridge_state_root or header.state_root
                 if not self._verify_merkle_proof(merkle_state_root, proof):
                     logger.warning("Merkle proof verification failed for height=%s", block_height)
@@ -994,6 +1034,10 @@ class BridgeTransferMixin(BridgeBase):
                     record.amount,
                 )
                 return False
+
+        elif require_leaf_binding:
+            logger.warning("Proof-built transfer record needs in-process Merkle verification; rejecting")
+            return False
 
         # Step 4: Multi-sig threshold verification (v0.7.1, kept)
         # Moved to occur after the BridgeBlockHeader is available.
