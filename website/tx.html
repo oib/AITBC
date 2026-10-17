@@ -6,8 +6,8 @@
     <title>Transaction Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Transaction detail for the AITBC explorer: hash, sender, recipient, amount, and status of a single transaction.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=6f5a97a60a0024d5">
-    <link rel="stylesheet" href="/style.css?v=6f5a97a60a0024d5">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=a09708edc219dee5">
+    <link rel="stylesheet" href="/style.css?v=a09708edc219dee5">
     <style>
         .detail-header {
             display: flex;
@@ -45,8 +45,8 @@
             text-decoration: underline;
         }
     </style>
-<script src="copy.js?v=6f5a97a60a0024d5" defer></script>
-<script src="status.js?v=6f5a97a60a0024d5" defer></script>
+<script src="copy.js?v=a09708edc219dee5" defer></script>
+<script src="status.js?v=a09708edc219dee5" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -187,7 +187,7 @@
                     { label: 'Value', value: escapeHtml(data.value !== undefined ? data.value : 'N/A') },
                     { label: 'Fee', value: escapeHtml(data.fee !== undefined ? data.fee : 'N/A') },
                     { label: 'Nonce', value: escapeHtml(data.nonce !== undefined ? data.nonce : 'N/A') },
-                    { label: 'Timestamp', value: escapeHtml(data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A') },
+                    { label: 'Timestamp', value: escapeHtml(data.created_at ? aitbcFmt.date(data.created_at) : 'N/A') },
                 ];
 
                 // MSG-4: forum posts surface a badge linking to their topic;
