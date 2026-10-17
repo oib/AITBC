@@ -28,6 +28,8 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from eth_account import Account
+
+from aitbc.constants import DATA_DIR
 from eth_keys import keys
 
 
@@ -87,9 +89,7 @@ def generate_wallet(name: str, password: str, keystore_dir: Path) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Production blockchain setup")
-    parser.add_argument(
-        "--base-dir", type=Path, default=Path("/opt/aitbc/apps/blockchain-node"), help="Blockchain node base directory"
-    )
+    parser.add_argument("--base-dir", type=Path, default=DATA_DIR, help="Blockchain node base directory")
     parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID")
     parser.add_argument("--total-supply", type=int, default=1_000_000_000, help="Total token supply (smallest units)")
     args = parser.parse_args()
