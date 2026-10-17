@@ -296,6 +296,7 @@ async function fetchReputation(providerId, elementId) {
     if (!providerId) return;
     try {
         const response = await fetch(`/explorer-api/api/analytics/provider-reputation/${encodeURIComponent(providerId)}?chain_id=${window.AITBC_CONFIG.chainId}`);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
         const el = document.getElementById(elementId);
         if (el) {
@@ -310,6 +311,8 @@ async function fetchReputation(providerId, elementId) {
         }
     } catch (error) {
         console.error('Error fetching reputation:', error);
+        const el = document.getElementById(elementId);
+        if (el) el.title = 'reputation unavailable';
     }
 }
 
@@ -323,17 +326,25 @@ function loadReputations() {
 }
 
 // Fetch network stats
+const NETWORK_STAT_CELLS = ['stat-total-ait', 'stat-transfer-volume', 'stat-active-offers', 'stat-unique-nodes', 'stat-unique-providers', 'stat-total-txs'];
 async function fetchNetworkStats() {
     try {
         const response = await fetch(`/explorer-api/api/analytics/network-stats?chain_id=${window.AITBC_CONFIG.chainId}`);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
         const data = await response.json();
-        document.getElementById('stat-total-ait').textContent = data.total_ait.toLocaleString();
-        document.getElementById('stat-transfer-volume').textContent = data.transfer_volume_ait.toLocaleString();
-        document.getElementById('stat-active-offers').textContent = data.active_offers.toLocaleString();
-        document.getElementById('stat-unique-nodes').textContent = data.unique_nodes.toLocaleString();
-        document.getElementById('stat-unique-providers').textContent = data.unique_providers.toLocaleString();
-        document.getElementById('stat-total-txs').textContent = data.total_transactions.toLocaleString();
+        // Every cell must be a real number — a partial reply is a failure,
+        // not a partial table.
+        const vals = [data.total_ait, data.transfer_volume_ait, data.active_offers, data.unique_nodes, data.unique_providers, data.total_transactions];
+        if (vals.some(v => v == null || !isFinite(Number(v)))) throw new Error('unexpected reply');
+        NETWORK_STAT_CELLS.forEach((id, i) => {
+            document.getElementById(id).textContent = Number(vals[i]).toLocaleString('en-US');
+        });
     } catch (error) {
         console.error('Error fetching network stats:', error);
+        // Failed cells must not sit on '--' forever — that reads as loading.
+        NETWORK_STAT_CELLS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = 'unavailable';
+        });
     }
 }
