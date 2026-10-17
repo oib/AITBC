@@ -449,7 +449,7 @@ def orderbook(ctx, pair: str, limit: int):
 
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
         try:
-            transactions = _transaction_rows(http_client.get(TX_QUERY_PATH, params=params))
+            transactions = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
         except NetworkError:
             transactions = _simulated_orderbook_transactions(pair, limit)
 
@@ -550,7 +550,7 @@ def rates(ctx):
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             try:
-                orders = _transaction_rows(http_client.get(TX_QUERY_PATH, params=params))
+                orders = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
             except NetworkError:
                 orders = _simulated_orders_for_pair(pair, 100)
 
@@ -614,7 +614,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
         try:
-            orders = _transaction_rows(http_client.get(TX_QUERY_PATH, params=params))
+            orders = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
         except NetworkError:
             orders = _simulated_order_list(user, status, pair, island_id)
 

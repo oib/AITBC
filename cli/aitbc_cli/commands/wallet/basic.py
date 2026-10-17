@@ -671,7 +671,7 @@ def transactions(ctx, name: str | None, limit: int):
         config = get_config()
         rpc_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=30)
         hex_address = to_eip55(address)
-        transactions = rpc_client.get(f"/rpc/transactions?address={hex_address}&limit={limit}")
+        transactions = rpc_client.get_json(f"/rpc/transactions?address={hex_address}&limit={limit}")
 
         if isinstance(transactions, dict):
             transactions = transactions.get("transactions", [])

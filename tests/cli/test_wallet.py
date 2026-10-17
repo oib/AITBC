@@ -195,8 +195,10 @@ class TestWalletCommands:
                 return {}
 
             mock_client.get = mock_get
+            mock_client.get_json = mock_get
             mock_client.post = mock_post
             mock_http_instance.get = mock_get
+            mock_http_instance.get_json = mock_get
             mock_http_instance.post = mock_post
             yield mock_get_client
 
