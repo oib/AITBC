@@ -126,19 +126,38 @@ function renderSummary(data) {
 
 function renderFiring(data) {
     const box = document.getElementById('firing-container');
-    const firing = data.firing || [];
-    if (firing.length === 0) {
-        box.innerHTML = '<p class="alerts-clear">No alerts firing.</p>';
-    } else {
-        box.innerHTML = firing.map(a => alertCard(a)).join('');
-    }
     const aStatus = document.getElementById('sr-announcer');
-    const sig = firing.map(a => a.alertname + '@' + (a.node || '')).join('|');
+    let sig, announce;
+    if (!data || data.prometheus_ok !== true) {
+        // Not a proven live answer — the card must never claim all-clear.
+        // The event-log fallback may still carry the watcher's last-known
+        // firing set; it is labelled as a replay, never as a live list.
+        if (data && data.prometheus_ok === false) {
+            const firing = data.firing || [];
+            box.innerHTML = firing.length
+                ? '<p class="alerts-unknown">Prometheus is unreachable — the cards below are the watcher log\u2019s last known state, not a live answer:</p>' +
+                  firing.map(a => alertCard(a)).join('')
+                : '<p class="alerts-unknown">Alert state unknown — Prometheus is unreachable and the watcher log records no firing alerts.</p>';
+        } else {
+            box.innerHTML = `<p class="alerts-unknown">${escapeHtml(!data
+                ? 'Alert state unknown — the alerts API did not answer.'
+                : 'Alert state unknown — the alerts API returned an unexpected answer.')}</p>`;
+        }
+        sig = '__unknown__';
+        announce = 'Alert state unknown';
+    } else {
+        const firing = data.firing || [];
+        box.innerHTML = firing.length === 0
+            ? '<p class="alerts-clear">No alerts firing.</p>'
+            : firing.map(a => alertCard(a)).join('');
+        sig = firing.map(a => a.alertname + '@' + (a.node || '')).join('|');
+        announce = firing.length ? `${firing.length} alert${firing.length === 1 ? '' : 's'} firing` : 'No alerts firing';
+    }
     if (aStatus && sig !== window.__lastAlertSig) {
         window.__lastAlertSig = sig;
-        aStatus.textContent = firing.length ? `${firing.length} alert${firing.length === 1 ? '' : 's'} firing` : 'No alerts firing';
+        aStatus.textContent = announce;
     }
-    const pending = data.pending || [];
+    const pending = (data && data.prometheus_ok === true && data.pending) || [];
     const pbox = document.getElementById('pending-container');
     if (pending.length === 0) {
         pbox.style.display = 'none';
@@ -269,7 +288,7 @@ async function loadAlerts() {
         const hist = await histResp.json();
         renderSummary(live);
         renderMonitorStrip(live || {});
-        renderFiring(live || {});
+        renderFiring(live);
         renderEvents(hist);
         document.getElementById('updated-note').textContent =
             `Updated ${new Date().toLocaleTimeString()} — auto-refresh every ${REFRESH_MS / 1000}s`;
