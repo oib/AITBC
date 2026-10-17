@@ -112,13 +112,14 @@ class Settings(BaseAITBCConfig):
 
     # API Keys.
     #
-    # NoDecode is what lets `parse_api_keys` below see the raw environment string.
-    # pydantic-settings JSON-decodes any complex-typed variable inside EnvSettingsSource,
-    # *before* validators run, and raises SettingsError when that fails — so
-    # `MINER_API_KEYS=key-one,key-two`, the form docs/ops/follower-api-key.md tells operators
-    # to use, stopped the whole Settings object from constructing and took coordinator-api's
-    # startup with it. The comma-separated branch in the validator had never been reachable
-    # from the environment, only from code passing a string directly (V23-68b).
+    # Both `MINER_API_KEYS=["k1","k2"]` (JSON array, the documented canonical
+    # form) and `MINER_API_KEYS=k1,k2` (comma-separated) parse — see
+    # `parse_api_keys` below. NoDecode is what lets that validator see the raw
+    # environment string: without it pydantic-settings JSON-decodes any
+    # complex-typed variable inside EnvSettingsSource *before* validators run
+    # and raises SettingsError on the comma-separated form, so a plain
+    # `MINER_API_KEYS=key-one,key-two` took coordinator-api's startup down with
+    # it (V23-68b).
     client_api_keys: Annotated[list[str], NoDecode] = []
     miner_api_keys: Annotated[list[str], NoDecode] = []
     admin_api_keys: Annotated[list[str], NoDecode] = []
@@ -403,7 +404,7 @@ def validate_critical_environment_variables() -> None:
         get_logger(__name__).warning(
             "MINER_API_KEYS is empty: every X-Api-Key request to the miner, settlement and "
             "market routers will be refused. Set it in /etc/aitbc/aitbc-coordinator-api.env "
-            "(JSON array form) — see docs/ops/follower-api-key.md."
+            "(JSON array form) — see docs/development/6_api-authentication.md."
         )
 
 
