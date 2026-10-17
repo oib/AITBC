@@ -105,8 +105,8 @@ class BridgeTransferMixin(BridgeBase):
         ``None`` releases the locked amount — the plain bridge behavior.
         """
         # Pause gate — the single chokepoint every lock request funnels
-        # through (/bridge/lock, /bridge/batch/lock, /swap,
-        # /cross-chain/bridge). Raising here rather than only in the routes
+        # through (/bridge/lock, /swap, /cross-chain/bridge). Raising here
+        # rather than only in the routes
         # covers internal callers too: while paused no new BRIDGE_LOCK
         # envelope is signed, so no valid lock can reach the mempool —
         # nothing downstream needs to refuse it for the pause to hold.
@@ -676,50 +676,6 @@ class BridgeTransferMixin(BridgeBase):
             if chain_id and chain_id not in balances:
                 balances[chain_id] = 0
             return balances
-
-    def batch_lock(self, transfers: list[dict[str, Any]]) -> list[BridgeTransfer]:
-        """Batch lock multiple transfers.
-
-        Each transfer dict must contain: source_chain, target_chain, sender,
-        recipient, amount. Optional: asset (default "native").
-
-        Returns a list of BridgeTransfer results. If any individual lock fails,
-        the error is recorded in the result dict's 'error' field and the
-        remaining transfers are still attempted.
-        """
-        results: list[BridgeTransfer] = []
-        for t in transfers:
-            try:
-                transfer = self.initiate_transfer(
-                    source_chain=t["source_chain"],
-                    target_chain=t["target_chain"],
-                    sender=t["sender"],
-                    recipient=t["recipient"],
-                    amount=t["amount"],
-                    asset=t.get("asset", "native"),
-                )
-                results.append(transfer)
-            except Exception as e:
-                logger.warning("Batch lock failed for transfer: %s", e)
-                # Append a failed transfer placeholder so the caller knows which ones failed
-                results.append(
-                    BridgeTransfer(
-                        transfer_id="",
-                        source_chain=t.get("source_chain", ""),
-                        target_chain=t.get("target_chain", ""),
-                        sender=t.get("sender", ""),
-                        recipient=t.get("recipient", ""),
-                        amount=t.get("amount", 0),
-                        asset=t.get("asset", "native"),
-                        status=BridgeStatus.failed,
-                        source_tx_hash=None,
-                        target_tx_hash=None,
-                        lock_time=None,
-                        confirm_time=None,
-                        proof={"error": str(e)},
-                    )
-                )
-        return results
 
     def batch_confirm(self, confirmations: list[dict[str, Any]]) -> list[BridgeTransfer | dict[str, Any]]:
         """Batch confirm multiple transfers.

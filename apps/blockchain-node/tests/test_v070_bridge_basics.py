@@ -5,7 +5,8 @@ Covers:
 - GET /bridge/balance/{chain_id} — bridge balance query
 - GET /bridge/health — bridge health check
 - GET /bridge/status/{transfer_id} — alias for /bridge/transfer/{id}
-- POST /bridge/batch/lock — batch lock operations
+- POST /bridge/batch/lock — REMOVED (BRIDGE-BATCHLOCK-AUTH-1): it moved funds with
+  no sender signature; the route must stay gone (404/405 regression test below)
 - POST /bridge/batch/confirm — batch confirm operations
 - BridgeManager monitoring: health_check, detect_stuck_transfers, get_metrics
 - CLI bridge commands: lock, status, health (via BridgeClient)
@@ -343,7 +344,26 @@ class TestBridgeStatusAlias:
 
 
 class TestBridgeBatch:
-    """POST /bridge/batch/lock and /bridge/batch/confirm."""
+    """POST /bridge/batch/confirm; /bridge/batch/lock was removed unsigned."""
+
+    def test_batch_lock_route_removed(self, client: TestClient) -> None:
+        """BRIDGE-BATCHLOCK-AUTH-1: batch lock debited `sender` with no signature,
+        so the route was removed — it must not quietly come back."""
+        resp = client.post(
+            "/bridge/batch/lock",
+            json={
+                "transfers": [
+                    {
+                        "source_chain": "chain-a",
+                        "target_chain": "chain-b",
+                        "sender": "0xs",
+                        "recipient": "0xr",
+                        "amount": 1,
+                    }
+                ]
+            },
+        )
+        assert resp.status_code in (404, 405)
 
     @staticmethod
     def _confirmed_transfer(transfer_id: str):
