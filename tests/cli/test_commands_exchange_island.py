@@ -53,7 +53,7 @@ class TestExchangeIslandCommands:
         """``exchange-island orderbook`` displays the order book from the mocked RPC."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {
+        mock_client.get_json.return_value = {
             "transactions": [
                 {"order_id": "ord1", "side": "buy", "amount": 10.0, "max_price": 0.001, "user_id": "user1"},
                 {"order_id": "ord2", "side": "sell", "amount": 5.0, "min_price": 0.002, "user_id": "user2"},
@@ -65,8 +65,8 @@ class TestExchangeIslandCommands:
         result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        called_path = mock_client.get.call_args[0][0]
+        mock_client.get_json.assert_called_once()
+        called_path = mock_client.get_json.call_args[0][0]
         # Assert the exact path, not a substring. The commands used to call a bare
         # "/transactions", which the RPC does not serve -- every router is mounted
         # under /rpc (or /v1), so the bare path 404s and orderbook silently fell
@@ -82,7 +82,7 @@ class TestExchangeIslandCommands:
         """``exchange-island orderbook`` handles an empty order book gracefully."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"transactions": []}
+        mock_client.get_json.return_value = {"transactions": []}
 
         from aitbc_cli.commands.exchange_island import exchange_island
 
@@ -107,7 +107,7 @@ class TestExchangeIslandCommands:
         """``exchange-island orders`` lists exchange orders from the mocked RPC."""
         mock_creds.return_value = {"island_id": "island-test-123", "credentials": {"p2p_port": 8001}}
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = [
+        mock_client.get_json.return_value = [
             {
                 "order_id": "ord1",
                 "side": "buy",
@@ -124,7 +124,7 @@ class TestExchangeIslandCommands:
         result = runner.invoke(exchange_island, ["orders"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
+        mock_client.get_json.assert_called_once()
 
 
 if __name__ == "__main__":

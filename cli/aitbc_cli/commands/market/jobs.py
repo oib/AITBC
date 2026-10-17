@@ -97,14 +97,14 @@ def _resolve_offer_from_market(http_client: AITBCHTTPClient, offer_id_or_plugin_
 def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plugin_id: str) -> dict[str, Any] | None:
     """Resolve an offer from on-chain GPU_MARKET transactions."""
     try:
-        result = http_client.get("/rpc/transactions", params={"limit": 1000})
+        result = http_client.get_json("/rpc/transactions", params={"limit": 1000})
     except Exception:
         return None
 
     if isinstance(result, dict):
         return None
 
-    for tx in result:  # type: ignore[unreachable]
+    for tx in result:
         if not isinstance(tx, dict):
             continue
         payload = tx.get("payload", {})
@@ -116,11 +116,11 @@ def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plu
         if payload.get("action") != "software_offer":
             continue
         if payload.get("offer_id") == offer_id_or_plugin_id:
-            return payload
+            return cast(dict[str, Any], payload)
         st = payload.get("service_type", "")
         model = payload.get("model", "")
         if _compute_plugin_id(st, model) == offer_id_or_plugin_id:
-            return payload
+            return cast(dict[str, Any], payload)
     return None
 
 
