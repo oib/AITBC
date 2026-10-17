@@ -57,16 +57,9 @@ PAGES_WITH_COPY = [
 # aitbcCopyBtn call). Copying a truncated value is the whole point of the
 # control, so each truncation emit site is pinned individually.
 TRUNCATION_SITES = [
-    # explorer.js — hash/from/to rows plus the generic >60-char payload
-    # truncations (a truncated payload value is unrecoverable without it).
+    # explorer.js — the block-hash row in renderBlockCard. The search-result
+    # sites were removed with the dead search functions (WEB-DEADCODE-1).
     ("explorer.js", r"aitbcCopyBtn\(blockHash, 'block hash'\)"),
-    ("explorer.js", r"aitbcCopyBtn\(item\.hash \|\| '', 'block hash'\)"),
-    ("explorer.js", r"aitbcCopyBtn\(txHashVal, 'transaction hash'\)"),
-    ("explorer.js", r"aitbcCopyBtn\(fromAddr, 'address'\)"),
-    ("explorer.js", r"aitbcCopyBtn\(toAddr, 'address'\)"),
-    ("explorer.js", r"aitbcCopyBtn\(innerTxHash, 'transaction hash'\)"),
-    ("explorer.js", r"aitbcCopyBtn\(blockHashVal, 'block hash'\)"),
-    ("explorer.js", r"aitbcCopyBtn\(fullValue, key\)"),
     # detail pages — inline emitters inside <script> blocks.
     ("block.html", r"aitbcCopyBtn\(data\.hash \|\| '', 'block hash'\)"),
     ("block.html", r"aitbcCopyBtn\(data\.proposer \|\| '', 'proposer address'\)"),
