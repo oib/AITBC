@@ -496,6 +496,92 @@ async def _find_existing_lock(job_id: str) -> str | None:
     return str(settled_hash) if settled_hash else None
 
 
+_FUNDING_LOCK_MEMPOOL_LIMIT = 1000
+
+
+def _assert_lock_matches_contract(
+    lock_tx: dict[str, Any], *, job_id: str, buyer: str, amount_units: int, tx_hash: str
+) -> None:
+    """Refuse a lock whose fields do not carry this contract's facts (HTTP 409).
+
+    A mismatch is permanent — the sealed/mempool tx says what it says — so this
+    is a conflict, not a retryable deferral.
+    """
+    problems = []
+    if lock_tx.get("type") != "ESCROW_LOCK":
+        problems.append("type")
+    if (lock_tx.get("payload") or {}).get("job_id") != job_id:
+        problems.append("payload.job_id")
+    if _to_canonical(str(lock_tx.get("from") or "")) != _to_canonical(buyer):
+        problems.append("from")
+    if _to_canonical(str(lock_tx.get("to") or "")) != _to_canonical(_NODE_WALLET):
+        problems.append("to")
+    try:
+        if int(lock_tx.get("amount") or 0) != amount_units:
+            problems.append("amount")
+    except (TypeError, ValueError):
+        problems.append("amount")
+    if problems:
+        raise HTTPException(
+            status_code=409,
+            detail=f"ESCROW_LOCK {tx_hash} for job_id={job_id} does not match this contract ({', '.join(problems)})",
+        )
+
+
+async def _verify_funding_lock(tx_hash: str, *, job_id: str, buyer: str, amount_units: int) -> dict[str, Any]:
+    """Return the ESCROW_LOCK this create's hash points at; refuse if unverifiable.
+
+    ``_submit_lock_tx`` returns the hash mempool admission computed — a mempool
+    entry can still be evicted before it seals, so FUNDED must rest on a
+    transaction the node can still see, carrying this contract's fields
+    (ESC-FUND-1). The sealed ``transactions`` row wins; a mempool-held tx is
+    sufficient because admission already verified its signature and the
+    settlement gates re-check the sealed row before any payout. Absence
+    everywhere is retryable (HTTP 425, like ``_ensure_lock_sealed``); a field
+    mismatch or a different sealed hash for the same job is permanent (409).
+    """
+    sealed = await _find_existing_lock_tx(job_id)
+    if sealed is not None:
+        if str(sealed.get("tx_hash")) != tx_hash:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"a different ESCROW_LOCK sealed for job_id={job_id} (tx {sealed.get('tx_hash')}); "
+                    "refusing to fund against the submitted hash"
+                ),
+            )
+        _assert_lock_matches_contract(sealed, job_id=job_id, buyer=buyer, amount_units=amount_units, tx_hash=tx_hash)
+        return sealed
+
+    from ..mempool import compute_tx_hash
+
+    try:
+        r = await SharedHttpClient.get(
+            f"{_HUB_RPC_URL}/mempool?chain_id={_CHAIN_ID}&limit={_FUNDING_LOCK_MEMPOOL_LIMIT}", timeout=5.0
+        )
+        if r.status_code == 200:
+            for tx in r.json().get("transactions") or []:
+                if isinstance(tx, dict) and compute_tx_hash(tx) == tx_hash:
+                    verified = dict(tx)
+                    verified["tx_hash"] = tx_hash
+                    _assert_lock_matches_contract(
+                        verified, job_id=job_id, buyer=buyer, amount_units=amount_units, tx_hash=tx_hash
+                    )
+                    return verified
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.warning("mempool funding-lock probe failed for job_id=%s: %s", job_id, e)
+    raise HTTPException(
+        status_code=425,
+        detail=(
+            f"lock tx {tx_hash} for job_id={job_id} is neither sealed nor present in the hub mempool; "
+            "retry after it re-lands or resubmit"
+        ),
+        headers={"Retry-After": "5"},
+    )
+
+
 async def _refuse_v2_lock(job_id: str) -> None:
     """Refuse route settlement for a lock sealed before the v3 custody height.
 
@@ -1344,8 +1430,25 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
 
     amount_units = int(tx_to_submit.get("amount", 0)) if energy_kwargs else ait_to_units(amount_dec)
 
-    # Fund the in-memory contract now that the lock has been submitted.
-    await mgr.fund_contract(contract_id, lock_tx_hash)
+    # Verify the lock still exists and carries this contract's facts before
+    # marking FUNDED. Admission's hash is not proof: a mempool-evicted lock
+    # would leave the job funded with nothing locked, and the settlement gates
+    # would 425 forever on a hash that never seals. On any failure the
+    # just-created contract is dropped, mirroring the stale-cleanup above, so
+    # the retry starts clean.
+    try:
+        verified_lock = await _verify_funding_lock(lock_tx_hash, job_id=job_id, buyer=buyer, amount_units=amount_units)
+        funded, fund_message = await mgr.fund_contract(contract_id, lock_tx_hash, verified_lock)
+    except HTTPException:
+        mgr.escrow_contracts.pop(contract_id, None)
+        mgr.active_contracts.discard(contract_id)
+        mgr.disputed_contracts.discard(contract_id)
+        raise
+    if not funded:
+        mgr.escrow_contracts.pop(contract_id, None)
+        mgr.active_contracts.discard(contract_id)
+        mgr.disputed_contracts.discard(contract_id)
+        raise HTTPException(status_code=425, detail=fund_message, headers={"Retry-After": "5"}) from None
 
     # Persist the Escrow DB record only once the lock was accepted. If the
     # process dies between submit and this write the row is missing, but the
