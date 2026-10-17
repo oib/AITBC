@@ -380,10 +380,23 @@ async def query_transactions_route(
     job_id: str | None = None,
     sender: str | None = None,
     recipient: str | None = None,
+    before_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """Query transactions with optional filters"""
     return await query_transactions(  # type: ignore[no-any-return]
-        request, transaction_type, island_id, pair, status, order_id, limit, chain_id, address, job_id, sender, recipient
+        request,
+        transaction_type,
+        island_id,
+        pair,
+        status,
+        order_id,
+        limit,
+        chain_id,
+        address,
+        job_id,
+        sender,
+        recipient,
+        before_id,
     )
 
 

@@ -155,6 +155,11 @@ def init_db() -> None:
     # bumped per attempt; every attempt is recorded in
     # eth_withdrawal_release_attempts with operator + note + outcome.
     _add_column_if_not_exists(conn, "eth_withdrawals", "retry_count", "INTEGER NOT NULL DEFAULT 0")
+    # F3: the AIT-side block the withdraw sealed in, recorded when the row is
+    # created so the monitor can demand BRIDGE_WITHDRAW_SEAL_DEPTH before
+    # paying and detect a reorg that moved the tx to a different block.
+    _add_column_if_not_exists(conn, "eth_withdrawals", "ait_block_height", "INTEGER")
+    _add_column_if_not_exists(conn, "eth_withdrawals", "ait_block_hash", "TEXT")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS eth_withdrawal_release_attempts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -742,6 +747,8 @@ def insert_withdrawal(
     amount_eth: Decimal,
     status: str = "pending",
     error: str | None = None,
+    ait_block_height: int | None = None,
+    ait_block_hash: str | None = None,
 ) -> str:
     """Record a new ETH withdrawal request."""
     import uuid
@@ -755,9 +762,9 @@ def insert_withdrawal(
             """
             INSERT INTO eth_withdrawals (
                 id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
-                amount_eth, status, error, created_at
+                amount_eth, status, error, created_at, ait_block_height, ait_block_hash
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 withdrawal_id,
@@ -771,6 +778,8 @@ def insert_withdrawal(
                 status,
                 error,
                 datetime.now().isoformat(),
+                ait_block_height,
+                ait_block_hash,
             ),
         )
         conn.commit()
@@ -791,7 +800,8 @@ def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce, retry_count
+            released_at, completed_at, refunded_at, release_nonce, retry_count,
+            ait_block_height, ait_block_hash
         FROM eth_withdrawals
         WHERE ait_tx_hash = ?
         """,
@@ -820,6 +830,8 @@ def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
         "refunded_at",
         "release_nonce",
         "retry_count",
+        "ait_block_height",
+        "ait_block_hash",
     ]
     return dict(zip(keys, row, strict=False))
 
@@ -833,7 +845,8 @@ def get_pending_withdrawals() -> list[dict[str, Any]]:
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce
+            released_at, completed_at, refunded_at, release_nonce,
+            ait_block_height, ait_block_hash
         FROM eth_withdrawals
         WHERE status IN ('pending', 'insufficient_reserve', 'failed', 'releasing', 'needs_review',
                          'releasing_retry', 'needs_review_release')
@@ -860,6 +873,8 @@ def get_pending_withdrawals() -> list[dict[str, Any]]:
         "completed_at",
         "refunded_at",
         "release_nonce",
+        "ait_block_height",
+        "ait_block_hash",
     ]
     return [dict(zip(keys, row, strict=False)) for row in rows]
 
@@ -883,7 +898,8 @@ def get_resumable_withdrawals() -> list[dict[str, Any]]:
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce
+            released_at, completed_at, refunded_at, release_nonce,
+            ait_block_height, ait_block_hash
         FROM eth_withdrawals
         WHERE status IN ('releasing', 'needs_review', 'releasing_retry')
         ORDER BY created_at ASC
@@ -909,8 +925,81 @@ def get_resumable_withdrawals() -> list[dict[str, Any]]:
         "completed_at",
         "refunded_at",
         "release_nonce",
+        "ait_block_height",
+        "ait_block_hash",
     ]
     return [dict(zip(keys, row, strict=False)) for row in rows]
+
+
+def get_awaiting_depth_withdrawals() -> list[dict[str, Any]]:
+    """Withdrawals recorded before they reached BRIDGE_WITHDRAW_SEAL_DEPTH.
+
+    The monitor re-checks these every poll: once the chain head clears
+    their recorded ait_block_height by the required depth — and a
+    canonical lookup still shows the tx sealed in that same block — they
+    move to 'pending' and enter the normal release path. A tx that
+    vanished from the canonical chain became 'orphaned' — the reorg
+    already un-burned the AIT, so no refund is needed.
+    """
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            id, ait_tx_hash, from_address, eth_address, amount_ait, ait_block_height,
+            ait_block_hash, status, created_at
+        FROM eth_withdrawals
+        WHERE status = 'awaiting_depth'
+        ORDER BY created_at ASC
+        """,
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    keys = [
+        "id",
+        "ait_tx_hash",
+        "from_address",
+        "eth_address",
+        "amount_ait",
+        "ait_block_height",
+        "ait_block_hash",
+        "status",
+        "created_at",
+    ]
+    return [dict(zip(keys, row, strict=False)) for row in rows]
+
+
+def update_withdrawal_block(ait_tx_hash: str, ait_block_height: int, ait_block_hash: str | None) -> bool:
+    """Refresh the sealing block on an awaiting-depth row after a reorg."""
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE eth_withdrawals SET ait_block_height = ?, ait_block_hash = ? WHERE ait_tx_hash = ?",
+        (ait_block_height, ait_block_hash, ait_tx_hash),
+    )
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
+
+
+def update_withdrawal_pricing(ait_tx_hash: str, *, fee_ait: Decimal, net_ait: Decimal, amount_eth: Decimal) -> bool:
+    """Fill in the priced legs on a row inserted before pricing existed.
+
+    'awaiting_depth' rows carry amount_eth=0 until they are deep enough to
+    release; when the drain promotes one to 'pending' it stores the price
+    it is about to pay so the ledger (and the payout audit) shows it.
+    """
+    conn = _connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE eth_withdrawals SET fee_ait = ?, net_ait = ?, amount_eth = ? WHERE ait_tx_hash = ?",
+        (fee_ait, net_ait, amount_eth, ait_tx_hash),
+    )
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    return rows_affected > 0
 
 
 def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
@@ -922,7 +1011,8 @@ def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]
         SELECT
             id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
             amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce
+            released_at, completed_at, refunded_at, release_nonce,
+            ait_block_height, ait_block_hash
         FROM eth_withdrawals
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
@@ -949,6 +1039,8 @@ def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]
         "completed_at",
         "refunded_at",
         "release_nonce",
+        "ait_block_height",
+        "ait_block_hash",
     ]
     return [dict(zip(keys, row, strict=False)) for row in rows]
 
