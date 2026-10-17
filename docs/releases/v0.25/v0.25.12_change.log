@@ -120,3 +120,17 @@
 - `ffa031662` fix(cli): on the hub itself `https://<hub>` resolves to the TLS edge, which the node cannot hairpin back to, so every hub-facing read failed with "connection refused". New `_hub_base_url` keeps an explicit scheme in `HUB_DISCOVERY_URL`, maps localhost to http, and only upgrades a bare host to https (TLS termination lives on the fronting proxy); `_candidate_bases` retries the same reads against `market_service_url` (`http://127.0.0.1:8102`). `aitbc market list` and `aitbc market providers` now work on the hub and degrade gracefully on any node whose hub edge is down. `cancel`, `offer`, `offer-list` and `offer-disable` share `_hub_base_url`, so an explicit `http(s)://` value in `HUB_DISCOVERY_URL` is honoured everywhere.
 - Same commit: the `/rpc/transactions` reads in `market list`'s chain fallback switched to `get_json()` — the endpoint returns a bare JSON array that `get()` rejects, which previously turned the local-RPC fallback into a TypeError abort ("returned a JSON array, not an object").
 - Tests: `tests/cli/test_market_offers.py` gains `TestHubBaseUrl` (scheme matrix) and `TestMarketListFallback` (hub refused → local market service serves the list; bare-array RPC response accepted).
+
+### Config/CLI: hub-ward URLs resolve locally on the hub; explicit schemes honored
+
+`aitbc.config.hub` detects when the node *is* the hub (`BLOCKCHAIN_MODE=hub`,
+or `NODE_ID`/`AITBC_HOSTNAME`/`P2P_NODE_ID` matching the discovery host) and
+resolves the hub origin to `HUB_LOCAL_URL` or local nginx `http://127.0.0.1`
+— the public name cannot hairpin back there. `hub_origin()`/`hub_service_url()`
+now honor explicit `http://` schemes instead of always upgrading to https;
+new `normalize_hub_base()`/`is_hub_self()` helpers back every naive call site
+(market offers/jobs/escrow/ratings/status/match, network, ipfs, dashboard,
+transactions, gpu-onchain, island join). `CLIConfig.hub_blockchain_rpc_url`
+derives via `hub_service_url("rpc")` and covers `HUB_P2P_HOST`-only nodes.
+Fixes hub-local `market list`/`providers`, `escrow`, `status`, `match` and the
+fleet-wide-dead `gpu-onchain`/`island join` hub fallbacks; followers unchanged.
