@@ -19,7 +19,7 @@ from aitbc.compliance.policies import (
 from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
 from ..utils.chain_id import resolve_chain_id
-from ..utils.escrow import create_signed_escrow_lock, get_node_wallet
+from ..utils.escrow import create_signed_escrow_lock, get_buyer_nonce, get_node_wallet
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import (
     AITBCHTTPClient,
@@ -123,6 +123,12 @@ def _create_escrow_payment(
         amount_ait = Decimal(str(amount))
     except InvalidOperation:
         abort(ctx, f"Invalid payment amount: {amount}")
+    buyer = to_canonical(str(buyer_address or ""))
+    if not buyer:
+        abort(ctx, "buyer_address is required to secure escrow: set --wallet, --buyer-address, or CUSTOMER_WALLET_ADDRESS")
+    provider = to_canonical(str(provider_address or ""))
+    if not provider:
+        abort(ctx, "provider_address is required to secure escrow: set --provider-address or SHOP_WALLET_ADDRESS")
     # Resolve only when an escrow will actually be signed: submit paths that
     # skip payment must not depend on the blockchain RPC being reachable.
     chain_id = chain_id or resolve_chain_id(ctx, rpc_url)
@@ -130,8 +136,8 @@ def _create_escrow_payment(
         ctx,
         rpc_url,
         job_id,
-        to_canonical(buyer_address),
-        to_canonical(provider_address),
+        buyer,
+        provider,
         amount_ait,
         private_key,
         chain_id=chain_id,
@@ -700,6 +706,14 @@ def submit(
             offer_id=offer_id,
             offer_quantity=offer_quantity,
         )
+
+        # Pre-flight the chain round-trips the escrow step needs anyway when
+        # we will sign it ourselves: an unreachable RPC or a missing buyer
+        # account aborts here, before the coordinator holds an
+        # accepted-but-unfunded job until TTL.
+        if (payment or offer_id) and private_key:
+            chain_id = chain_id or resolve_chain_id(ctx, rpc_url)
+            get_buyer_nonce(ctx, rpc_url, buyer_address)
 
         # Submit to coordinator
         result = http_client.post("/v1/jobs", json=job_data)
