@@ -434,6 +434,7 @@ async function lookupDeposit(input) {
             // Normalize: detail endpoint returns a Row dict, list returns plain dict
             const d = deposit.dict ? deposit.dict() : deposit;
             resultEl.dataset.status = d.status;
+            errEl.style.display = 'none';   // a good poll clears a prior failure line
             renderDeposit(d);
             // Stop polling if terminal
             if (d.status === 'completed' || d.status === 'failed') {
