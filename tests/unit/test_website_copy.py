@@ -172,6 +172,17 @@ class TestExchangeTrackRetry(unittest.TestCase):
         # address empty-list, address 404, input help, and the good-poll branch
         self.assertGreaterEqual(js.count("setTrackRetry(false)"), 6)
 
+    def test_200_reply_requires_expected_shape(self) -> None:
+        """EXCH-TRACKRETRY-1 item 3: a 200 body without the expected arrays
+        (e.g. {} or {detail:"Not Found"}) must fail the read, not read empty."""
+        book = _site_src("exchange-book.js")
+        self.assertIn("Array.isArray(book.sells)", book)
+        self.assertIn("Array.isArray(book.buys)", book)
+        self.assertIn("Array.isArray(tape.trades)", book)
+        self.assertEqual(book.count("reply was not the expected shape"), 2)
+        html = _site_src("exchange.html")
+        self.assertIn("The book and the trade list", html)
+
 
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
