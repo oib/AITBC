@@ -160,6 +160,8 @@ deferred).
 
 ### CLI: `bridge proof`/`sign-proof`/`ingest-header`/`attest` no longer crash on the success line (CLI-PROOF-OUT-1). Each bound `--output` to a parameter named `output`, shadowing the `output()` formatter — the command wrote its file then raised `'str' object is not callable` (on `sign-proof` without `-o`, `None(...)` — unconditional). The options now bind to `output_path`; flag names unchanged. CliRunner tests pin the success path for `proof` and `sign-proof`.
 
+### CLI: `bridge unlock --wallet-name` signs the refund in-process, like `lock` (CLI-UNLOCK-SIGN-1). `unlock` previously required a raw `--signature` built outside the CLI; it now accepts `--wallet-name`/`--wallet-password` and signs `{transfer_id, sender, action:"unlock"}` with the wallet key — the exact dict the server verifies. `--signature` stays accepted; both-given and a sender/wallet-address mismatch are refused before any request. Signatures and keys are never printed.
+
 ### Commit index — commits since v0.25.11 the coverage check could not match
 
 `fleet-config-check.sh`'s changelog-coverage section matches a commit by its
