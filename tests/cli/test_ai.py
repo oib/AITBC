@@ -14,6 +14,11 @@ from aitbc_cli.core.main import cli
 @pytest.fixture
 def mock_config(monkeypatch):
     """Patch get_config with safe local defaults."""
+    # CHAIN_ID env wins in resolve_chain_id before any RPC probe — without it
+    # the submit path tries to detect a chain from localhost:8202. Same for
+    # the paid-submit pre-flight nonce check (GET /rpc/account/…).
+    monkeypatch.setenv("CHAIN_ID", "ait-testchain.local")
+    monkeypatch.setattr("aitbc_cli.commands.ai.get_buyer_nonce", lambda *a, **k: 0)
     config = SimpleNamespace(
         coordinator_api_url="http://127.0.0.1:8203",
         blockchain_rpc_url="http://127.0.0.1:8202",
