@@ -150,6 +150,29 @@ class TestExchangeBridgeBanner(unittest.TestCase):
         self.assertIn('id="bridge-retry-btn"', html)
 
 
+class TestExchangeTrackRetry(unittest.TestCase):
+    """EXCH-TRACKRETRY-1: the track Try again button must not outlive its
+    could-not-query error line; and exchange-book.js may only rely on
+    errReason because exchange.js loads first — both pinned."""
+
+    def test_script_load_order(self) -> None:
+        html = _site_src("exchange.html")
+        self.assertLess(
+            html.index('src="exchange.js'),
+            html.index('src="exchange-book.js'),
+            "exchange-book.js calls errReason() defined in exchange.js",
+        )
+
+    def test_retry_button_follows_error_line(self) -> None:
+        js = _site_src("exchange.js")
+        self.assertIn("function setTrackRetry(visible)", js)
+        # shown only on could-not-query outcomes (queryFailed + catch)
+        self.assertEqual(js.count("setTrackRetry(true)"), 2)
+        # hidden on every other outcome: trackDeposit entry, hash 404,
+        # address empty-list, address 404, input help, and the good-poll branch
+        self.assertGreaterEqual(js.count("setTrackRetry(false)"), 6)
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")
