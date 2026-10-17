@@ -234,7 +234,7 @@ class TestBug3ProposerSignatureValidatorSetMembership:
             result = bridge._validate_proof(proof_fields, record)
         assert result is True, "Proof signed by validator set member must be accepted"
 
-    def test_any_valid_signature_accepted_without_vset(self, bridge: CrossChainBridge, engine) -> None:
+    def test_signature_rejected_without_vset(self, bridge: CrossChainBridge, engine) -> None:
         """When no validator set is registered, any valid signature is accepted (dev mode)."""
         _seed_sender(engine, "chain-a", "0xsender", 100000)
 
@@ -266,7 +266,9 @@ class TestBug3ProposerSignatureValidatorSetMembership:
             patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
         ):
             result = bridge._validate_proof(proof_fields, record)
-        assert result is True, "Without vset, any valid signature should be accepted (dev mode)"
+        # F2: the freshness gate fails closed — with no validator set there is
+        # nothing that can attest to the header, so even dev mode rejects.
+        assert result is False, "Without a validator set the proof must be rejected (fail closed)"
 
 
 # ---------------------------------------------------------------------------
@@ -312,15 +314,19 @@ class TestBug4MerkleProofEnforcement:
             result = bridge._validate_proof(proof_fields, record)
         assert result is False, "Proof without merkle_proof must be rejected when bridge_require_merkle_proof=True"
 
-    def test_proof_without_merkle_accepted_when_not_required(self, bridge: CrossChainBridge, engine) -> None:
+    def test_proof_without_merkle_accepted_when_not_required(
+        self, bridge: CrossChainBridge, engine, validator_accounts: list[EthAccount]
+    ) -> None:
         """A proof without merkle_proof is accepted when bridge_require_merkle_proof=False (default)."""
+        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(engine, "chain-a", "0xsender", 100000)
 
+        proposer = validator_accounts[0]
         _store_block_header(
             engine,
             chain_id="chain-a",
             height=10,
-            proposer="0xproposer",
+            proposer=proposer.address.lower(),
             state_root="0x" + "cd" * 32,
             signature="",
             confirmation_count=10,
@@ -331,11 +337,11 @@ class TestBug4MerkleProofEnforcement:
             record = session.get(CrossChainTransfer, transfer.transfer_id)
             assert record is not None
 
-        signer = EthAccount.create()
         proof_fields = _build_proof_fields(record)
+        proof_fields["proposer"] = proposer.address.lower()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
+            proposer.key.hex(),
         )
         # No merkle_proof in proof_fields
 
@@ -347,10 +353,13 @@ class TestBug4MerkleProofEnforcement:
             result = bridge._validate_proof(proof_fields, record)
         assert result is True, "Proof without merkle_proof should be accepted when bridge_require_merkle_proof=False"
 
-    def test_proof_with_valid_merkle_accepted_when_required(self, bridge: CrossChainBridge, engine) -> None:
+    def test_proof_with_valid_merkle_accepted_when_required(
+        self, bridge: CrossChainBridge, engine, validator_accounts: list[EthAccount]
+    ) -> None:
         """A proof with a valid merkle_proof is accepted when bridge_require_merkle_proof=True."""
         from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
 
+        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(engine, "chain-a", "0xsender", 100000)
 
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
@@ -369,24 +378,25 @@ class TestBug4MerkleProofEnforcement:
         state_root_hex = "0x" + state_root.hex()
         merkle_proof = trie.get_proof(lock_key.encode())
 
+        proposer = validator_accounts[0]
         _store_block_header(
             engine,
             chain_id="chain-a",
             height=10,
-            proposer="0xproposer",
+            proposer=proposer.address.lower(),
             state_root=state_root_hex,
             signature="",
             confirmation_count=10,
         )
 
-        signer = EthAccount.create()
         proof_fields = _build_proof_fields(record)
         proof_fields["state_root"] = state_root_hex
         proof_fields["lock_event"] = lock_value
         proof_fields["merkle_proof"] = [p.hex() for p in merkle_proof]
+        proof_fields["proposer"] = proposer.address.lower()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
+            proposer.key.hex(),
         )
 
         with (

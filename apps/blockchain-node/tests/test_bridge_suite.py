@@ -179,6 +179,14 @@ def bridge_with_header(bridge: CrossChainBridge, engine, proposer_account: EthAc
         signature="",  # no signature — block sig verification disabled
         confirmation_count=10,  # enough for finality
     )
+    # F2: the validator-set freshness gate fails closed with an empty set, so
+    # the stored header's proposer must be a registered validator.
+    bridge.register_validator(
+        chain_id="chain-a",
+        address=proposer_account.address.lower(),
+        public_key="0x" + proposer_account.key.hex(),
+        epoch=0,
+    )
     with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
         yield bridge
 
@@ -282,6 +290,13 @@ class TestBridgeLifecycle:
 
         # v0.7.2: Store a block header for proof verification
         _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
+        # F2: freshness gate fails closed without validators — register the proposer.
+        bridge.register_validator(
+            chain_id=source_chain,
+            address=proposer_account.address.lower(),
+            public_key="0x" + proposer_account.key.hex(),
+            epoch=0,
+        )
 
         # Step 1: lock
         transfer = bridge.initiate_transfer(
@@ -353,6 +368,12 @@ class TestBridgeLifecycle:
 
         # v0.7.2: Store a block header for proof verification
         _store_block_header(engine, chain_id=source_chain, height=10, proposer=proposer_account.address.lower())
+        bridge.register_validator(
+            chain_id=source_chain,
+            address=proposer_account.address.lower(),
+            public_key="0x" + proposer_account.key.hex(),
+            epoch=0,
+        )
 
         # DB record starts as "pending" after initiation
         transfer = bridge.initiate_transfer(
@@ -412,6 +433,13 @@ class TestCrossChainContamination:
         """A proof valid for chain A must be rejected for a transfer on chain B."""
         # v0.7.2: Store block header for chain-a
         _store_block_header(engine, chain_id="chain-a", height=10, proposer=proposer_account.address.lower())
+        # F2: freshness gate fails closed without validators — register the proposer.
+        bridge.register_validator(
+            chain_id="chain-a",
+            address=proposer_account.address.lower(),
+            public_key="0x" + proposer_account.key.hex(),
+            epoch=0,
+        )
         record_a = _make_record(source_chain="chain-a", target_chain="chain-b")
         proof = _make_valid_proof(record_a, proposer_account.key.hex())
         with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):

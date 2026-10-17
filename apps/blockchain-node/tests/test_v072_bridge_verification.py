@@ -320,8 +320,11 @@ class TestBlockHeaderStorage:
 class TestMerkleProofVerification:
     """Merkle proof verification via merkle_patricia_trie (v0.7.2 §B3)."""
 
-    def test_valid_merkle_proof_accepted(self, bridge: CrossChainBridge, rpc_engine) -> None:
+    def test_valid_merkle_proof_accepted(
+        self, bridge: CrossChainBridge, rpc_engine, validator_accounts: list[EthAccount]
+    ) -> None:
         """A valid Merkle proof is accepted by _validate_proof."""
+        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
 
@@ -331,15 +334,19 @@ class TestMerkleProofVerification:
 
         # Generate a valid Merkle proof
         lock_key = record.source_tx_hash or "0xlock"
-        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         proof_elements, state_root = _generate_merkle_proof(lock_key, lock_value)
         state_root_hex = "0x" + state_root.hex()
 
-        # Store the block header with the trie's state root
+        # Store the block header with the trie's state root, proposed by a
+        # registered validator — the signature check below requires the
+        # recovered signer to be in the validator set.
+        proposer = validator_accounts[0]
         _store_block_header(
             rpc_engine,
             chain_id="chain-a",
             height=10,
+            proposer=proposer.address.lower(),
             state_root=state_root_hex,
             confirmation_count=10,
         )
@@ -349,11 +356,11 @@ class TestMerkleProofVerification:
         proof_fields["state_root"] = state_root_hex
         proof_fields["lock_event"] = lock_value
         proof_fields["merkle_proof"] = [p.hex() for p in proof_elements]
+        proof_fields["proposer"] = proposer.address.lower()
 
-        signer = EthAccount.create()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
+            proposer.key.hex(),
         )
 
         with (
@@ -374,7 +381,7 @@ class TestMerkleProofVerification:
 
         # Generate a valid Merkle proof
         lock_key = record.source_tx_hash or "0xlock"
-        lock_value = f"lock:{record.transfer_id}:{record.amount}"
+        lock_value = f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}"
         proof_elements, state_root = _generate_merkle_proof(lock_key, lock_value)
         state_root_hex = "0x" + state_root.hex()
 
@@ -617,16 +624,20 @@ class TestBlockHeaderSignatureVerification:
 class TestFinalityTracking:
     """Finality threshold enforcement — small vs large transfers (v0.7.2 §B5)."""
 
-    def test_small_transfer_min_confirmations(self, bridge: CrossChainBridge, rpc_engine) -> None:
+    def test_small_transfer_min_confirmations(
+        self, bridge: CrossChainBridge, rpc_engine, validator_accounts: list[EthAccount]
+    ) -> None:
         """Small transfers require only min_confirmations (3)."""
+        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
 
+        proposer = validator_accounts[0]
         # Store a block header with exactly 3 confirmations
         _store_block_header(
             rpc_engine,
             chain_id="chain-a",
             height=10,
-            proposer="0xproposer",
+            proposer=proposer.address.lower(),
             confirmation_count=3,  # meets min_confirmations
         )
 
@@ -636,10 +647,10 @@ class TestFinalityTracking:
             assert record is not None
 
         proof_fields = _build_proof_fields(record)
-        signer = EthAccount.create()
+        proof_fields["proposer"] = proposer.address.lower()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
+            proposer.key.hex(),
         )
 
         with (
@@ -712,15 +723,19 @@ class TestFinalityTracking:
             result = bridge._validate_proof(proof_fields, record)
         assert result is False
 
-    def test_large_transfer_with_full_finality_accepted(self, bridge: CrossChainBridge, rpc_engine) -> None:
+    def test_large_transfer_with_full_finality_accepted(
+        self, bridge: CrossChainBridge, rpc_engine, validator_accounts: list[EthAccount]
+    ) -> None:
         """Large transfers with full finality (6+ confirmations) are accepted."""
+        _register_validators(bridge, "chain-a", validator_accounts)
         _seed_sender(rpc_engine, "chain-a", "0xsender", 1000000)
 
+        proposer = validator_accounts[0]
         _store_block_header(
             rpc_engine,
             chain_id="chain-a",
             height=10,
-            proposer="0xproposer",
+            proposer=proposer.address.lower(),
             confirmation_count=6,  # meets full finality
         )
 
@@ -730,10 +745,10 @@ class TestFinalityTracking:
             assert record is not None
 
         proof_fields = _build_proof_fields(record)
-        signer = EthAccount.create()
+        proof_fields["proposer"] = proposer.address.lower()
         proof_fields["proposer_signature"] = _sign_proof(
             {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
-            signer.key.hex(),
+            proposer.key.hex(),
         )
 
         with (
@@ -821,9 +836,9 @@ class TestValidatorSetEpochTracking:
             assert bridge._check_validator_set_freshness("chain-a") is True
             assert bridge._check_validator_set_freshness("chain-a", epoch=1) is True
 
-    def test_no_validators_is_fresh(self, bridge: CrossChainBridge) -> None:
-        """No validators registered → fresh enough (will fail elsewhere)."""
-        assert bridge._check_validator_set_freshness("chain-empty") is True
+    def test_no_validators_is_not_fresh(self, bridge: CrossChainBridge) -> None:
+        """No validators registered → fail closed (repo-review 2026-10-17 F2)."""
+        assert bridge._check_validator_set_freshness("chain-empty") is False
 
 
 # ---------------------------------------------------------------------------
@@ -842,6 +857,72 @@ class TestUnfencedReleasePath:
 
 class TestBridgeVerificationRPC:
     """RPC endpoints for block headers and oracle status (v0.7.2 §B7)."""
+
+
+# ---------------------------------------------------------------------------
+# Dev-Fallback Confirmation Count (repo-review 2026-10-17 F2)
+# ---------------------------------------------------------------------------
+
+
+class TestDevFallbackConfirmationCount:
+    """The dev-mode header materialization derives confirmation_count from
+    stored headers — the proof's own value must never feed finality."""
+
+    def _make_proof(self, record, proposer: EthAccount, block_height: int, block_hash: str) -> dict[str, Any]:
+        proof_fields = _build_proof_fields(record, block_height=block_height, block_hash=block_hash)
+        proof_fields["confirmation_count"] = 999  # prover-controlled — must be ignored
+        proof_fields["proposer"] = proposer.address.lower()
+        proof_fields["proposer_signature"] = _sign_proof(
+            {k: v for k, v in proof_fields.items() if k != "proposer_signature"},
+            proposer.key.hex(),
+        )
+        return proof_fields
+
+    def test_confirmation_count_below_tip_rejected(
+        self, bridge: CrossChainBridge, rpc_engine, validator_accounts: list[EthAccount]
+    ) -> None:
+        """tip below the claimed height → derived count is 0 → finality fails."""
+        _register_validators(bridge, "chain-a", validator_accounts)
+        _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
+        transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
+        with Session(rpc_engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+
+        # Only a header far below the claimed height — tip(2) - 10 < 0 → 0.
+        _store_block_header(rpc_engine, chain_id="chain-a", height=2, block_hash="0x" + "11" * 32)
+
+        proof_fields = self._make_proof(record, validator_accounts[0], block_height=10, block_hash="0x" + "ab" * 32)
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
+            patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
+            patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
+        ):
+            assert bridge._validate_proof(proof_fields, record) is False
+
+    def test_confirmation_count_derived_from_tip_accepted(
+        self, bridge: CrossChainBridge, rpc_engine, validator_accounts: list[EthAccount]
+    ) -> None:
+        """Headers stored above a gap at the claimed height → derived count satisfies finality."""
+        _register_validators(bridge, "chain-a", validator_accounts)
+        _seed_sender(rpc_engine, "chain-a", "0xsender", 100000)
+        transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecip", 5000)
+        with Session(rpc_engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+
+        # Heights 12-17 stored; the claim is height 11 (a gap) — materialization
+        # runs and derives tip(17) - 11 = 6 confirmations.
+        for height in range(12, 18):
+            _store_block_header(rpc_engine, chain_id="chain-a", height=height, block_hash="0x" + f"{height:02x}" * 32)
+
+        proof_fields = self._make_proof(record, validator_accounts[0], block_height=11, block_hash="0x" + "ab" * 32)
+        with (
+            patch("aitbc_chain.config.settings.bridge_release_enabled", False),
+            patch("aitbc_chain.config.settings.bridge_multisig_enabled", False),
+            patch("aitbc_chain.config.settings.bridge_block_signature_required", False),
+        ):
+            assert bridge._validate_proof(proof_fields, record) is True
 
 
 # ---------------------------------------------------------------------------
