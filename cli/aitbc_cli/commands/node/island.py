@@ -22,6 +22,7 @@ except ImportError:
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
 from aitbc_cli.utils.error_handling import CLIError
+from aitbc.config.hub import normalize_hub_base
 
 
 def _resolve_join_rpc_url(hub: str, rpc_url: str | None) -> str:
@@ -43,7 +44,9 @@ def _resolve_join_rpc_url(hub: str, rpc_url: str | None) -> str:
     if hub_ip in ("127.0.0.1", "::1", "localhost"):
         return "http://127.0.0.1:8202"
 
-    return f"http://{hub}:8202"
+    # The hub's node RPC sits behind its public /rpc mount; the raw :8202 port
+    # is not forwarded at the edge.
+    return normalize_hub_base(hub) or hub
 
 
 def create_island_command(ctx, island_id, island_name, chain_id):
