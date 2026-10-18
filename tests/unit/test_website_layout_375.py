@@ -259,6 +259,14 @@ class TestLayoutHeuristics(unittest.TestCase):
                 bad.append(f"font-size: {m.group(0)} ≈ {px:.1f}px")
         self.assertEqual([], bad, "font sizes under 11px:\n" + "\n".join(bad))
 
+    def test_explorer_inner_container_adds_no_inset(self) -> None:
+        # WEB-POLISH-1 item 5: explorer.html nests a second .container
+        # inside the page one — it must not re-pad or the cards sit deeper
+        # than on every other page.
+        m = re.search(r"\.explorer-container\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m)
+        self.assertIn("padding: 0", m.group(1), ".explorer-container must not add its own inset")
+
 
 # ---------------------------------------------------------------------------
 # Browser layer — skipped cleanly when no browser exists
