@@ -285,17 +285,22 @@ async function loadAddressRows(limit) {
     if (!r.ok) return { ok: false, err: r.err };
     const entries = pickList(r.data, ['addresses']);
     if (entries === null) return { ok: false, err: 'reply was not the expected shape' };
-    const rows = [];
-    for (const entry of entries.slice(0, limit)) {
-        if (!entry || typeof entry !== 'object') continue;
+    // Balances are independent reads, so fetch them together instead of one
+    // after another (was ~limit x round-trip). Promise.all keeps input order;
+    // readApi never rejects (failures come back as { ok: false }).
+    const picked = entries.slice(0, limit).filter(entry => entry && typeof entry === 'object');
+    const accts = await Promise.all(picked.map(entry => {
         const address = entry.address || 'N/A';
-        const acct = address !== 'N/A' ? await readApi(`/rpc/account/${encodeURIComponent(address)}`) : { ok: false };
-        rows.push({
-            address: address,
+        return address !== 'N/A' ? readApi(`/rpc/account/${encodeURIComponent(address)}`) : Promise.resolve({ ok: false });
+    }));
+    const rows = picked.map((entry, i) => {
+        const acct = accts[i];
+        return {
+            address: entry.address || 'N/A',
             balance: acct.ok && acct.data && acct.data.balance != null ? formatAit(acct.data.balance) : 'N/A',
             txs: entry.transaction_count != null ? entry.transaction_count : 'N/A',
-        });
-    }
+        };
+    });
     return { ok: true, rows: rows };
 }
 
