@@ -403,9 +403,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             // Reapply per-type hides recorded before this rebuild.
             const built = window.activityChartInstance;
+            let reapplied = false;
             (built.data.datasets || []).forEach(function (ds, i) {
-                if (ds && hiddenTypes.has(ds.label)) setChartDatasetVisible(built, i, false);
+                if (ds && hiddenTypes.has(ds.label)) {
+                    setChartDatasetVisible(built, i, false);
+                    reapplied = true;
+                }
             });
+            // setDatasetVisibility only writes meta.hidden — without an
+            // update the series can render until the next repaint.
+            if (reapplied) built.update();
         }
         syncLegendToggle();
         clearChartStale(canvas);
