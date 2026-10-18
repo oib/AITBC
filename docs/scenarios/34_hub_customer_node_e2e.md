@@ -256,7 +256,7 @@ aitbc zk verify --job-id "$JOB_ID"
 
 **Expected output:** `verified: true`, `computation_correct: true`, `privacy_preserved: true`.
 
-See [Scenario 37: ZK Proof for High-Value Jobs](./37_zk_high_value_jobs.md) for full details.
+See [Scenario 37: ZK Proof for High-Value Jobs](./47_zk_high_value_jobs.md) for full details.
 
 ### Step 12: Reputation and trust-aware market ranking
 

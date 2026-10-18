@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Multi-Validator PoA Soak
 
 ## See Also
 
-- **Previous Scenario**: [Scenario 49 Auto Reinvest Escrow](./49_auto_reinvest_escrow.md)
+- **Previous Scenario**: [Scenario 49 Auto Reinvest Escrow](../archive/scenarios/49_auto_reinvest_escrow.md)
 - **Feature Documentation**: [Multi-Validator PoA source](../../apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py)
 - **Closed cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) P1.4
 
