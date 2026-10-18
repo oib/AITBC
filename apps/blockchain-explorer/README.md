@@ -48,7 +48,7 @@ Provides JSON API endpoints for blockchain data:
 
 ### Analytics
 - `GET /api/analytics/activity?days=30` - Daily transaction counts by type (for timeline charts)
-- `GET /api/analytics/network-stats` - Aggregate network stats (total AIT, active offers, unique nodes/providers, total TXs)
+- `GET /api/analytics/network-stats` - Aggregate network stats (total AIT, distinct offers ever anchored on chain as `anchored_offers` — `active_offers` is a deprecated alias — unique nodes/providers, total TXs). A missing or unreadable chain database answers 503, never zeros.
 - `GET /api/analytics/top-addresses?limit=20` - Top addresses by transaction count and AIT volume
 - `GET /api/analytics/provider-reputation/{provider_id}` - Computed reputation score (0-100) with level from blockchain history
 
