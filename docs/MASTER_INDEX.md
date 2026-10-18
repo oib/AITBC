@@ -60,41 +60,41 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 882
+- **Markdown files under docs/**: 881
 
 | Directory | Files | Description |
 |---|---|---|
-| [agent](agent/) | 10 | Single agent integration and coordination |
+| [agent](agent/) | 9 | Single agent integration and coordination |
 | [agent-coordinator](agent-coordinator/) | 18 | Agent coordinator service and API docs |
 | [agent-sdk](agent-sdk/) | 13 | Agent SDK and communication guide |
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
 | [apps](apps/) | 34 | Application catalog and per-app landing pages |
-| [architecture](architecture/) | 16 | System architecture and design patterns |
-| [archive](archive/) | 25 | Historical documents and archive |
+| [architecture](architecture/) | 15 | System architecture and design patterns |
+| [archive](archive/) | 47 | Historical documents and archive |
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 17 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
 | [cli](cli/) | 5 | Command-line interface reference |
-| [contracts](contracts/) | 15 | Smart contract and ZK verification docs |
+| [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 17 | Deployment and infrastructure setup |
 | [design](design/) | 13 | Design documents and decisions |
-| [development](development/) | 29 | Developer guides and workflow |
+| [development](development/) | 25 | Developer guides and workflow |
 | [features](features/) | 93 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 30 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
-| [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |
+| [infrastructure](infrastructure/) | 9 | Infrastructure and migration docs |
 | [market](market/) | 18 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 29 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
-| [reference](reference/) | 17 | Quick lookup: ports, glossary, FAQ |
-| [releases](releases/) | 314 | Release notes, changelogs, and status |
+| [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
+| [releases](releases/) | 313 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 62 | End-to-end usage scenarios |
-| [security](security/) | 30 | Security architecture and audits |
-| [testing](testing/) | 7 | Test suite and validation documentation |
+| [security](security/) | 23 | Security architecture and audits |
+| [testing](testing/) | 6 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |
 | [web](web/) | 1 | Website and rendered docs assets |

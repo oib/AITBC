@@ -2,7 +2,7 @@
 
 **Status**: Living document — updated through v0.9.0 (B4 HTLC contract integration).
 **Scope**: Cross-chain bridge attack surfaces across v0.7.0–v0.9.0, including proof verification, validator set management, Merkle proofs, finality, HTLC settlement, and fund movement.
-**Related**: [Bridge Security Audit](../releases/AUDIT.md) | [General Threat Model](../security/threat-model.md) | [Release Status](../releases/STATUS.md)
+**Related**: [Bridge Security Audit](../archive/releases/AUDIT.md) | [General Threat Model](../security/threat-model.md) | [Release Status](../releases/STATUS.md)
 
 > **Important — default operational model:** The bridge is deployed as a **trusted-custodian bridge** by default. `bridge_release_enabled`, `bridge_multisig_enabled`, and `bridge_require_merkle_proof` all default to `False`. The cryptographic verification layers listed below (multi-sig, Merkle proofs, block-header validation) are implemented and regression-tested, but they are only enforced when an operator explicitly enables the corresponding flags and supplies a validator set and source-chain block headers.
 
@@ -317,7 +317,7 @@ Remaining:
 
 ## 9. References
 
-- [Bridge Security Audit](../releases/AUDIT.md) — Bug #3, #4 findings and fixes
+- [Bridge Security Audit](../archive/releases/AUDIT.md) — Bug #3, #4 findings and fixes
 - [Release Status](../releases/STATUS.md) — All releases, config defaults, audit summary
 - [v0.9.0 Change Log](../releases/v0.9/v0.9.0_change.log) — Atomic settlement release
 - [v0.7.2 Change Log](../releases/v0.7/v0.7.2_change.log) — Bridge verification (Merkle proofs)
