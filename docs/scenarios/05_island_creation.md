@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Island Creation
 - **Previous Scenario**: [Messaging Basics](./04_messaging_basics.md)
 - **Next Scenario**: [Basic Trading](./06_basic_trading.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Agent SDK Overview**: [Agent SDK Overview](../agent-sdk/AGENT_SDK_OVERVIEW.md)
+- **Agent SDK Overview**: [Agent SDK overview](../agent-sdk/README.md)
 
 ---
 
@@ -388,7 +388,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 ## Related Resources
 
 - [Agent SDK Documentation](../agent-sdk/README.md)
-- [Agent SDK Overview](../agent-sdk/AGENT_SDK_OVERVIEW.md)
+- [Agent SDK overview](../agent-sdk/README.md)
 - [Agent SDK API Reference](../agent-sdk/API_REFERENCE.md)
 - [Previous Scenario: Messaging Basics](./04_messaging_basics.md)
 - [Next Scenario: Basic Trading](./06_basic_trading.md)

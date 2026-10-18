@@ -36,11 +36,11 @@ That is the cycle the software design should close. Everything else (bridge, exc
 
 ---
 
-## 2. What works today (live, 2026-08-20/21)
+## 2. What works today (snapshot: Aug–Sep 2026, five-host fleet; see `releases/STATUS.md` for current state)
 
-Proven on the two live nodes (see the IDE-local `LIVE_VALIDATION_SUMMARY.md` and scenario 34):
+Proven on the fleet (see the IDE-local `LIVE_VALIDATION_SUMMARY.md` and scenario 34):
 
-1. **Wallets.** `aitbc wallet create/list/balance/send/stake`. File wallets and daemon wallets merge in `wallet list`.
+1. **Wallets.** `aitbc wallet create/list/balance/send`. File wallets and daemon wallets merge in `wallet list`. (`stake` writes return 410 since v9 — see item 10.)
 2. **Chain.** Hub produces blocks (PoA). Shop follows over P2P (`aitbc-blockchain-p2p`). After a fork at height 6815, shop was reset and heads match.
 3. **Unpaid jobs.** Hub `POST /v1/jobs` (or `aitbc ai submit`) → shop miner completes on Ollama (`llama3.2:3b`).
 4. **Paid jobs + escrow.** `aitbc --api-key $JWT ai submit --payment 1.0 --wallet genesis --provider-address …` → `payment_status: escrowed` → miner runs → `released` → `ESCROW_RELEASE` on-chain (0.975 AIT after fee).
@@ -71,7 +71,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 6. Verify result | ZK + TEE attestation | TEE: registered enclave allowlist, owner-locked registration, `auto_attested` removed; unregistered/self-consistent quotes are `self_consistent` and do **not** release. ZK: new `receipt_model` circuit proves a committed deterministic model (`linear-1`) executed on committed input and produced committed output; `computation_correct` is only `True` when public signals match coordinator-derived values. `receipt_public` remains a receipt-binding artifact and does not imply computation correctness. | Partial -- trust model improved; independent roots still future work |
 | 7. Settle | Signed `ESCROW_RELEASE` | Live, signed by the dedicated non-genesis settlement key `0x477737bd028eeb38350c58e62f7a766ac061ce2e`. Fee ~2.5%. Release is refused up front when the settlement key and `ESCROW_RELEASE_ADDRESS` disagree, and a release that does not settle on-chain now reports `success: false` / `settlement_status: unsettled` instead of a silent no-op. | Done (multi-party key ceremony still future work) |
 | 8. Reputation | Auto-update + ratings in matching | `aitbc reputation *` works against coordinator. `acquire_next_job` enforces `min_reputation` and prefers higher-reputation online miners. | Done |
-| 9. Reinvest | Auto-stake / capacity | `aitbc wallet stake`, `aitbc reinvest policy/simulate`, and `--auto-reinvest-pct` live; not yet fully automatic. | Done |
+| 9. Reinvest | Auto-stake / capacity | `aitbc reinvest policy/simulate` and `--auto-reinvest-pct` live; not yet fully automatic. (`aitbc wallet stake` writes return 410 since v9 — see row 11.) | Done |
 | 10. Govern | Token-weighted votes change params | `aitbc governance propose/vote/execute` live-validated end-to-end on hub; parameter changes are on-chain after timelock. | Done |
 | 11. Agent stake / bounty | Stake on agent wallets; bounty contracts with on-chain reward locks | V23-42 routes live on hub; operator-signed; `Account.balance` debits/credits on create/add/complete and deploy/verify/expire; memos for performance/distribute/claim. Live-validated 2026-08-24. | Done |
 | Sync | Followers never fork | Shop forked at 6815; `import_block` now treats unknown parent as divergence; P2P is up; `aitbc sync status --hub-url` alerts on gap/hash mismatch | Operational health |

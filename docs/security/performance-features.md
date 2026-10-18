@@ -1,5 +1,8 @@
 # AITBC Security and Performance Features Guide
 
+> For a shorter worked-example tour of the same APIs, see
+> [security-performance-quickstart.md](security-performance-quickstart.md).
+
 ## Table of Contents
 
 - [Enhanced Secret Management](#enhanced-secret-management)
