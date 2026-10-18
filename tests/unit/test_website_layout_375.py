@@ -760,42 +760,63 @@ class TestLayout375Browser(unittest.TestCase):
             )
 
     def test_legend_toggle_at_375_and_1280(self) -> None:
-        """WEB-LEGEND-1: at <=640px the chart legend starts collapsed behind a
-        visible >=44px toggle reading Types (N=filtered items); above 640px
+        """WEB-LEGEND-1/2: at <=640px the chart legend starts collapsed behind
+        a visible >=44px toggle reading Types (N=filtered items); above 640px
         the legend renders and the toggle is display:none (desktop unchanged).
+        The toggle lives OUTSIDE the fixed-height chart container — the canvas
+        must stay inside #activity-chart-container and clear of #chart-source
+        in both collapsed and expanded states (WEB-LEGEND-1 v1 put it inside
+        and pushed the canvas 52px out of the box, over the source line).
         """
         expr = """
         (() => {
           const c = window.activityChartInstance;
           const btn = document.getElementById('legend-toggle');
-          if (!c || !btn) return JSON.stringify({err: 'no chart or toggle'});
-          const r = btn.getBoundingClientRect();
-          return JSON.stringify({
+          const box = document.getElementById('activity-chart-container');
+          const cv = document.getElementById('activity-chart');
+          const src = document.getElementById('chart-source');
+          if (!c || !btn || !box || !cv || !src) return JSON.stringify({err: 'missing node'});
+          const rect = (e) => { const b = e.getBoundingClientRect(); return {t: b.top, b: b.bottom}; };
+          const snap = () => ({
             legendH: c.legend ? c.legend.height : 0,
             display: c.options.plugins.legend.display,
-            btnH: r.height,
+            btnH: btn.getBoundingClientRect().height,
             hidden: btn.hidden,
             cssDisplay: getComputedStyle(btn).display,
             text: btn.textContent,
             ariaExpanded: btn.getAttribute('aria-expanded'),
+            canvasInBox: rect(cv).b <= rect(box).b + 0.5,
+            canvasClearOfSrc: rect(cv).b <= rect(src).t + 0.5,
           });
+          const collapsed = snap();
+          btn.click();
+          const expanded = snap();
+          return JSON.stringify({collapsed, expanded});
         })()
         """
         r375 = self._measure("explorer.html", 375, expr)
         self.assertIsNone(r375.get("err"), f"375px: {r375}")
-        self.assertFalse(r375["display"], "375px: legend must start collapsed")
-        self.assertLess(r375["legendH"], 40, "375px: collapsed legend box must free the space")
-        self.assertFalse(r375["hidden"], "375px: toggle must be visible with data")
-        self.assertNotEqual(r375["cssDisplay"], "none", "375px: toggle must render")
-        self.assertGreaterEqual(r375["btnH"], 44, "375px: toggle must be a 44px target")
-        self.assertEqual("false", r375["ariaExpanded"])
-        self.assertEqual("Types (2)", r375["text"], "N = active datasets (fixture: 3 sent, 1 zero)")
+        c375, e375 = r375["collapsed"], r375["expanded"]
+        self.assertFalse(c375["display"], "375px: legend must start collapsed")
+        self.assertLess(c375["legendH"], 40, "375px: collapsed legend box must free the space")
+        self.assertFalse(c375["hidden"], "375px: toggle must be visible with data")
+        self.assertNotEqual(c375["cssDisplay"], "none", "375px: toggle must render")
+        self.assertGreaterEqual(c375["btnH"], 44, "375px: toggle must be a 44px target")
+        self.assertEqual("false", c375["ariaExpanded"])
+        self.assertEqual("Types (2)", c375["text"], "N = active datasets (fixture: 3 sent, 1 zero)")
+        self.assertTrue(c375["canvasInBox"], "375px collapsed: canvas must stay in its box")
+        self.assertTrue(c375["canvasClearOfSrc"], "375px collapsed: canvas must clear the source line")
+        self.assertTrue(e375["display"], "375px: click expands the legend")
+        self.assertGreater(e375["legendH"], c375["legendH"])
+        self.assertTrue(e375["canvasInBox"], "375px expanded: canvas must stay in its box")
+        self.assertTrue(e375["canvasClearOfSrc"], "375px expanded: canvas must clear the source line")
 
         r1280 = self._measure("explorer.html", 1280, expr)
         self.assertIsNone(r1280.get("err"), f"1280px: {r1280}")
-        self.assertTrue(r1280["display"], "1280px: legend must render as before")
-        self.assertGreater(r1280["legendH"], 0, "1280px: legend has height as before")
-        self.assertEqual("none", r1280["cssDisplay"], "1280px: toggle hidden on desktop")
+        c1280 = r1280["collapsed"]
+        self.assertTrue(c1280["display"], "1280px: legend must render as before")
+        self.assertGreater(c1280["legendH"], 0, "1280px: legend has height as before")
+        self.assertEqual("none", c1280["cssDisplay"], "1280px: toggle hidden on desktop")
 
 
 if __name__ == "__main__":
