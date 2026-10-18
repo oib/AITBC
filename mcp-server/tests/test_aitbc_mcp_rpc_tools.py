@@ -112,3 +112,167 @@ if __name__ == "__main__":
     test_get_eth_bridge_status_redacted_omits_rpc_url()
     test_get_eth_bridge_status_redacted_falls_back_to_stdout()
     test_get_eth_bridge_status_redacted_reports_failure_without_leak()
+
+
+def _capture_write_body():
+    """Capture the body a write tool hands to _run_http."""
+    captured: dict[str, object] = {}
+
+    def fake(target, service, path, method, params, body, timeout, auth="none"):
+        captured.update({"target": target, "service": service, "path": path, "body": body})
+        return _run_http_with_status({"ok": True})
+
+    rpc_tools._run_http = fake
+    return captured
+
+
+def test_bridge_lock_forwards_replay_fields():
+    captured = _capture_write_body()
+    result = json.loads(
+        rpc_tools.bridge_lock(
+            target_chain="ait-side",
+            sender="0x" + "aa" * 20,
+            recipient="0x" + "bb" * 20,
+            amount=3600000,
+            signature="0x" + "ee" * 65,
+            issued_at=1760000000,
+            nonce="deadbeef",
+            dry_run=False,
+            confirm=True,
+            host="node.test",
+        )
+    )
+    body = captured["body"]
+    assert captured["path"] == "bridge/lock"
+    assert body["issued_at"] == 1760000000
+    assert body["nonce"] == "deadbeef"
+    assert body["signature"] == "0x" + "ee" * 65
+    assert "ok" in str(result)
+
+
+def test_bridge_lock_omits_replay_fields_when_unset():
+    captured = _capture_write_body()
+    rpc_tools.bridge_lock(
+        target_chain="ait-side",
+        sender="0x" + "aa" * 20,
+        recipient="0x" + "bb" * 20,
+        amount=3600000,
+        signature="0x" + "ee" * 65,
+        dry_run=False,
+        confirm=True,
+        host="node.test",
+    )
+    body = captured["body"]
+    assert "issued_at" not in body
+    assert "nonce" not in body
+
+
+def test_cross_chain_swap_sends_signature_and_replay_fields():
+    captured = _capture_write_body()
+    rpc_tools.create_cross_chain_swap(
+        from_chain="ait-hub",
+        to_chain="ait-side",
+        from_token="AIT",
+        to_token="AIT",
+        amount=100,
+        user_address="0x" + "aa" * 20,
+        signature="0x" + "ee" * 65,
+        issued_at=1760000000,
+        nonce="deadbeef",
+        dry_run=False,
+        confirm=True,
+        host="node.test",
+    )
+    body = captured["body"]
+    assert captured["path"] == "cross-chain/swap"
+    assert body["signature"] == "0x" + "ee" * 65
+    assert body["issued_at"] == 1760000000
+    assert body["nonce"] == "deadbeef"
+    assert body["user_address"] == "0x" + "aa" * 20
+
+
+def test_cross_chain_swap_omits_new_fields_when_unset():
+    captured = _capture_write_body()
+    rpc_tools.create_cross_chain_swap(
+        from_chain="ait-hub",
+        to_chain="ait-side",
+        from_token="AIT",
+        to_token="AIT",
+        amount=100,
+        user_address="0x" + "aa" * 20,
+        dry_run=False,
+        confirm=True,
+        host="node.test",
+    )
+    body = captured["body"]
+    assert "signature" not in body
+    assert "issued_at" not in body
+    assert "nonce" not in body
+
+
+def test_cross_chain_bridge_sends_sender_signature_and_replay_fields():
+    captured = _capture_write_body()
+    rpc_tools.create_cross_chain_bridge(
+        source_chain="ait-hub",
+        target_chain="ait-side",
+        token="AIT",
+        amount=100,
+        sender="0x" + "aa" * 20,
+        recipient_address="0x" + "bb" * 20,
+        signature="0x" + "ee" * 65,
+        issued_at=1760000000,
+        nonce="deadbeef",
+        dry_run=False,
+        confirm=True,
+        host="node.test",
+    )
+    body = captured["body"]
+    assert captured["path"] == "cross-chain/bridge"
+    assert body["sender"] == "0x" + "aa" * 20
+    assert body["signature"] == "0x" + "ee" * 65
+    assert body["issued_at"] == 1760000000
+    assert body["nonce"] == "deadbeef"
+
+
+def test_cross_chain_bridge_dry_run_stays_a_preview():
+    calls = []
+    rpc_tools._run_http = lambda *a, **kw: calls.append((a, kw))
+    result = json.loads(
+        rpc_tools.create_cross_chain_bridge(
+            source_chain="ait-hub",
+            target_chain="ait-side",
+            token="AIT",
+            amount=100,
+            sender="0x" + "aa" * 20,
+            recipient_address="0x" + "bb" * 20,
+            signature="0x" + "ee" * 65,
+            issued_at=1760000000,
+            nonce="deadbeef",
+            dry_run=True,
+            confirm=True,
+            host="node.test",
+        )
+    )
+    assert calls == []
+    assert result["dry_run"] is True
+    command = result["command"]
+    assert "cross-chain/bridge" in str(command)
+    assert "deadbeef" in json.dumps(command)
+
+
+def test_cross_chain_tools_require_confirmation():
+    rpc_tools._run_http = _fake_run_http
+    result = json.loads(
+        rpc_tools.create_cross_chain_swap(
+            from_chain="ait-hub",
+            to_chain="ait-side",
+            from_token="AIT",
+            to_token="AIT",
+            amount=100,
+            signature="0x" + "ee" * 65,
+            dry_run=False,
+            confirm=False,
+            host="node.test",
+        )
+    )
+    assert result["error"] == "Confirmation required"

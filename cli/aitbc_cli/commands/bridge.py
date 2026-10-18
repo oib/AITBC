@@ -188,17 +188,53 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
 @click.option("--amount", required=True, type=int, help="Amount to bridge (in compute-units)")
 @click.option("--asset", default="native", help="Asset type (default: native)")
 @click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
-@click.option("--signature", default="", help="Sender signature authorizing the lock (hex)")
-@click.option("--wallet-name", default=None, help="Wallet to sign the lock with")
+@click.option(
+    "--signature",
+    default="",
+    help="Sender signature authorizing the lock (hex). Sign the dict documented under --issued-at.",
+)
+@click.option(
+    "--issued-at",
+    default=None,
+    type=int,
+    help=(
+        "Epoch seconds the external signer stamped into the signed dict. With --signature, "
+        "--issued-at and --nonce must be given together; omit both for the legacy six-field form "
+        "(refused by nodes with BRIDGE_LOCK_REQUIRE_REPLAY_GUARD=true). The signed dict is "
+        '{"source_chain","target_chain","sender","recipient","amount","asset","issued_at","nonce"} '
+        "— canonical JSON (sort_keys, separators=(',',':')), keccak256, secp256k1. "
+        "amount is integer compute-units; source_chain is the resolved chain ID or empty string."
+    ),
+)
+@click.option(
+    "--nonce",
+    default=None,
+    help="Replay nonce the external signer included in the signed dict (non-empty string). Give together with --issued-at.",
+)
+@click.option("--wallet-name", default=None, help="Wallet to sign the lock with (generates issued_at/nonce itself)")
 @click.option("--wallet-password", default="", help="Password if the wallet is encrypted")
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
-def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, signature, wallet_name, wallet_password, rpc_url):
+def lock(
+    ctx,
+    target_chain,
+    sender,
+    recipient,
+    amount,
+    asset,
+    source_chain,
+    signature,
+    issued_at,
+    nonce,
+    wallet_name,
+    wallet_password,
+    rpc_url,
+):
     """Lock funds for a cross-chain bridge transfer."""
 
-    issued_at = None
-    nonce = None
     if wallet_name:
+        if issued_at is not None or nonce is not None:
+            raise click.ClickException("--issued-at/--nonce are generated automatically with --wallet-name; drop them")
         private_key = _load_private_key(wallet_name, wallet_password)
         # SEC-REPLAY-1: the replay guard fields ride inside the signed dict —
         # a captured signed body can no longer be re-posted.
@@ -215,6 +251,14 @@ def lock(ctx, target_chain, sender, recipient, amount, asset, source_chain, sign
             "nonce": nonce,
         }
         signature = _sign_dict(private_key, sign_data)
+    elif (issued_at is None) != (nonce is None):
+        raise click.ClickException("--issued-at and --nonce must be given together")
+    elif signature and issued_at is None:
+        info(
+            "warning: submitting an old-form (six-field) signed body — nodes with "
+            "BRIDGE_LOCK_REQUIRE_REPLAY_GUARD=true refuse it with 400; pass --issued-at/--nonce "
+            "matching the dict the external signer signed"
+        )
 
     async def _lock():
         client = _get_bridge_client(rpc_url)

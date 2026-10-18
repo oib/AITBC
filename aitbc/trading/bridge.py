@@ -83,6 +83,8 @@ class TradingBridgeClient:
         recipient: str,
         asset: str = "native",
         signature: str = "",
+        issued_at: int | float | str | None = None,
+        nonce: str | None = None,
     ) -> dict[str, Any]:
         """Lock funds on the source chain for an inter-chain trade.
 
@@ -100,6 +102,8 @@ class TradingBridgeClient:
             asset=asset,
             signature=signature,
             source_chain=source_chain,
+            issued_at=issued_at,
+            nonce=nonce,
         )
         return result
 

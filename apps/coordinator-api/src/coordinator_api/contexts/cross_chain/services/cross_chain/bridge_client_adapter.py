@@ -418,6 +418,8 @@ class BridgeClientAdapter:
         asset: str = "native",
         source_chain: str | None = None,
         signature: str = "",
+        issued_at: int | float | str | None = None,
+        nonce: str | None = None,
     ) -> dict[str, Any]:
         """Lock assets on the source chain for bridging to target chain.
 
@@ -432,6 +434,8 @@ class BridgeClientAdapter:
             asset=asset,
             source_chain=source_chain or self._config.chain_id,
             signature=signature,
+            issued_at=issued_at,
+            nonce=nonce,
         )
         logger.info("Bridge lock submitted: sender=%s, amount=%d, target=%s", sender, amount, target_chain)
         return result
