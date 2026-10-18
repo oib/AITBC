@@ -2705,6 +2705,9 @@ a.btn-secondary {
 .bridge-table td.bridge-amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bridge-when { white-space: nowrap; }
 .bridge-route { white-space: nowrap; }
+/* Table only: a long chain id (ait-shadow-soak…) must wrap inside its
+   stacked line instead of forcing the column wider than the wrap. */
+.bridge-table .bridge-route { white-space: normal; overflow-wrap: anywhere; }
 .bridge-when-note { display: block; color: var(--text-muted); font-size: 0.7rem; }
 /* Table only: date over time, source chain over "→ target chain", and
    address/hash halves over each other and the copy button. */
