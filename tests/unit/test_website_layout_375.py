@@ -385,6 +385,17 @@ _FIXTURES = {
         "recipient": "0x" + "cd" * 20,
         "block_height": 48690,
     },
+    # tx.js fetches /api/transactions/<hash> — the generic prefix must still
+    # lose to the longer by-hash/search keys (sorted longest-first in _STUB_JS).
+    "/api/transactions/": {
+        "tx_hash": "0x" + _HEX,
+        "hash": "0x" + _HEX,
+        "type": "TRANSFER",
+        "status": "confirmed",
+        "sender": "0x" + "ef" * 20,
+        "recipient": "0x" + "cd" * 20,
+        "block_height": 48690,
+    },
     "/api/transactions/search": {"transactions": [], "blocks": []},
     "/api/analytics/network-stats": {
         "total_ait": 0,
@@ -413,11 +424,9 @@ _FIXTURES = {
         "days_active": 30,
         "total_volume": 5,
     },
-    "/v1/market/gpu/list": {
-        "offers": [
-            {"id": "offer-1", "service_type": "ollama", "price_ait": "1.5", "provider": "0x" + "ef" * 20, "status": "open"}
-        ]
-    },
+    "/v1/market/gpu/list": [
+        {"id": "fixture-gpu", "model": "Fixture GPU", "memory_gb": 16, "status": "available", "miner_id": "fixture-miner"}
+    ],
     "/v1/market/offer": {"offers": []},
     "/v1/exchange/history": {"trades": []},
     "/exchange/price": {"price_ait": "1.0"},
@@ -609,6 +618,54 @@ _MEASURE_JS = """
 """
 
 
+_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; "
+    "connect-src 'self'; img-src 'self' data:; font-src 'self'; "
+    "object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
+)
+
+
+class _CspHandler(SimpleHTTPRequestHandler):
+    """Serve the website under the tightened production CSP."""
+
+    def end_headers(self) -> None:
+        self.send_header("Content-Security-Policy", _CSP)
+        super().end_headers()
+
+
+_VERIFY_JS = """
+(() => {
+  const shown = (el) => !!el && !el.hidden && getComputedStyle(el).display !== 'none';
+  const hidden = (el) => !!el && (el.hidden || getComputedStyle(el).display === 'none');
+  const chip = document.querySelector('.tx-chip');
+  const seg = document.querySelector('.tx-comp-seg');
+  const fn = document.querySelector('.faucet-notice');
+  const card = document.querySelector('#blocks-container .block-item');
+  return JSON.stringify({
+    cards: document.querySelectorAll('#blocks-container .block-item').length,
+    cardPadding: card ? getComputedStyle(card).padding : null,
+    chipColor: chip ? chip.style.getPropertyValue('--tx-color') : null,
+    chipComputedColor: chip ? getComputedStyle(chip).color : null,
+    segWidth: seg ? seg.style.width : null,
+    segComputedColor: seg ? getComputedStyle(seg).backgroundColor : null,
+    dashboardDataCells: document.querySelectorAll('.data-table td').length,
+    messageText: document.getElementById('messages-container') ? document.getElementById('messages-container').textContent : '',
+    chart: !!window.activityChartInstance,
+    loadMore: document.getElementById('load-more')
+        ? (shown(document.getElementById('load-more')) ? 'shown' : 'hidden') : null,
+    loadMoreContainer: document.getElementById('load-more-container')
+        ? (shown(document.getElementById('load-more-container')) ? 'shown' : 'hidden') : null,
+    cred: !!document.querySelector('#cust-cred-input, #shop-cred-input'),
+    faucetNoticeBorder: fn ? getComputedStyle(fn).borderTopWidth : null,
+    content: document.getElementById('content')
+        ? (shown(document.getElementById('content')) ? 'shown' : 'hidden') : null,
+    visibleRetries: [...document.querySelectorAll('.bridge-retry')].filter(shown).length,
+    visibleRetryIds: [...document.querySelectorAll('.bridge-retry')].filter(shown).map(b => b.id || b.className),
+  });
+})()
+"""
+
+
 def _find_browser() -> str | None:
     env = os.environ.get("AITBC_WEBSITE_BROWSER")
     if env:
@@ -629,6 +686,79 @@ def _websockets_available() -> bool:
         return False
 
 
+async def _cdp_send(ws, counter: list[int], events: list[dict], method: str, params: dict | None = None) -> dict:
+    counter[0] += 1
+    await ws.send(json.dumps({"id": counter[0], "method": method, "params": params or {}}))
+    while True:
+        msg = json.loads(await ws.recv())
+        if "id" not in msg:
+            events.append(msg)
+            continue
+        if msg.get("id") == counter[0]:
+            if "error" in msg:
+                raise AssertionError(f"CDP {method}: {msg['error']}")
+            return msg
+
+
+async def _cdp_drain(ws, events: list[dict], seconds: float = 1.0) -> None:
+    import asyncio
+
+    drain_until = time.monotonic() + seconds
+    while time.monotonic() < drain_until:
+        try:
+            msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=0.25))
+        except TimeoutError:
+            continue
+        if "id" not in msg:
+            events.append(msg)
+
+
+async def _cdp_measure(ws_url: str, url: str, width: int, expression: str, collect: bool) -> dict:
+    """One CDP session: optional Runtime/Log capture before navigation,
+    device-metrics override, fixture stub, navigate, evaluate, drain."""
+    import asyncio
+
+    import websockets
+
+    events: list[dict] = []
+    async with websockets.connect(ws_url, max_size=50 * 1024 * 1024) as ws:
+        mid = [0]
+
+        async def send(method: str, params: dict | None = None) -> dict:
+            return await _cdp_send(ws, mid, events, method, params)
+
+        await send("Page.enable")
+        if collect:
+            # Runtime.exceptionThrown and Log.entryAdded (CSP refusals
+            # arrive as error-level security entries) must be captured
+            # before navigation, not retrofitted after load.
+            await send("Runtime.enable")
+            await send("Log.enable")
+        # mobile=False pins innerWidth at the requested width — with
+        # mobile=True Chrome lets the layout viewport grow to fit
+        # wide content and scrollWidth==innerWidth passes vacuously.
+        await send(
+            "Emulation.setDeviceMetricsOverride",
+            {"width": width, "height": 800, "deviceScaleFactor": 1, "mobile": False},
+        )
+        await send("Page.addScriptToEvaluateOnNewDocument", {"source": _STUB_JS})
+        await send("Page.navigate", {"url": url})
+        await asyncio.sleep(2.5)
+        res = await send("Runtime.evaluate", {"expression": expression, "returnByValue": True})
+        if collect:
+            # Drain events queued behind the evaluate response — a short
+            # idle wait catches entries still in flight when the last
+            # command returned.
+            await _cdp_drain(ws, events)
+    val = res.get("result", {}).get("result", {}).get("value")
+    if val is None:
+        raise AssertionError(f"{url}: measurement produced no result")
+    out = json.loads(val)
+    if collect:
+        out["_events"] = events
+    return out
+
+
 _BROWSER = _find_browser()
 _HAS_WS = _websockets_available()
 
@@ -641,7 +771,7 @@ class TestLayout375Browser(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.tmp = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.tmp.cleanup)
-        handler = partial(SimpleHTTPRequestHandler, directory=str(WEBSITE))
+        handler = partial(_CspHandler, directory=str(WEBSITE))
         cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         cls.port = cls.httpd.server_address[1]
         cls.httpd_thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
@@ -685,42 +815,18 @@ class TestLayout375Browser(unittest.TestCase):
             s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
 
-    def _measure(self, path: str, width: int = 375, expression: str = "") -> dict:
+    def _measure(self, path: str, width: int = 375, expression: str = "", collect: bool = False) -> dict:
         import asyncio
-        import websockets
 
-        async def go() -> dict:
-            async with websockets.connect(self.ws_url, max_size=50 * 1024 * 1024) as ws:
-                mid = 0
-
-                async def send(method: str, params: dict | None = None) -> dict:
-                    nonlocal mid
-                    mid += 1
-                    await ws.send(json.dumps({"id": mid, "method": method, "params": params or {}}))
-                    while True:
-                        msg = json.loads(await ws.recv())
-                        if msg.get("id") == mid:
-                            if "error" in msg:
-                                raise AssertionError(f"CDP {method}: {msg['error']}")
-                            return msg
-
-                await send("Page.enable")
-                # mobile=False pins innerWidth at the requested width — with
-                # mobile=True Chrome lets the layout viewport grow to fit
-                # wide content and scrollWidth==innerWidth passes vacuously.
-                await send(
-                    "Emulation.setDeviceMetricsOverride",
-                    {"width": width, "height": 800, "deviceScaleFactor": 1, "mobile": False},
-                )
-                await send("Page.addScriptToEvaluateOnNewDocument", {"source": _STUB_JS})
-                await send("Page.navigate", {"url": f"http://127.0.0.1:{self.port}/{path}"})
-                await asyncio.sleep(2.5)
-                res = await send("Runtime.evaluate", {"expression": expression or _MEASURE_JS, "returnByValue": True})
-                val = res.get("result", {}).get("result", {}).get("value")
-                self.assertIsNotNone(val, f"{path}: measurement produced no result")
-                return json.loads(val)
-
-        return asyncio.run(go())
+        return asyncio.run(
+            _cdp_measure(
+                self.ws_url,
+                f"http://127.0.0.1:{self.port}/{path}",
+                width,
+                expression or _MEASURE_JS,
+                collect,
+            )
+        )
 
     def test_no_horizontal_overflow_at_375px(self) -> None:
         """Primary W5 assertion: whole-page scrollWidth <= innerWidth."""
@@ -817,6 +923,113 @@ class TestLayout375Browser(unittest.TestCase):
         self.assertTrue(c1280["display"], "1280px: legend must render as before")
         self.assertGreater(c1280["legendH"], 0, "1280px: legend has height as before")
         self.assertEqual("none", c1280["cssDisplay"], "1280px: toggle hidden on desktop")
+
+    def _csp_event_errors(self, r: dict) -> list[str]:
+        errs: list[str] = []
+        for e in r["_events"]:
+            m = e.get("method")
+            if m == "Runtime.exceptionThrown":
+                d = e["params"]["exceptionDetails"]
+                errs.append(f"exception: {d.get('text')} {d.get('exception', {}).get('description', '')}")
+            elif m == "Log.entryAdded":
+                en = e["params"]["entry"]
+                # CSP refusals surface as security-source Log entries
+                # ("Refused to ..."). Application console.error lines are
+                # app-handled fetch failures under the stub fixtures, not
+                # CSP violations — collected above but not a failure here.
+                if en.get("source") == "security" or re.search(r"Refused|Content Security Policy", en.get("text") or ""):
+                    errs.append(f"log[{en.get('source')}]: {en.get('text')}")
+        return errs
+
+    @staticmethod
+    def _failures_blocks(r: dict) -> list[str]:
+        bad: list[str] = []
+        if r["cards"] <= 0:
+            bad.append("no .block-item cards rendered")
+        if r["cardPadding"] != "0px":
+            bad.append(f".block-item padding={r['cardPadding']!r} (want 0px via .table-card)")
+        for key, want in (
+            ("chipColor", "#10b981"),
+            ("chipComputedColor", "rgb(16, 185, 129)"),
+            ("segComputedColor", "rgb(16, 185, 129)"),
+        ):
+            if r[key] != want:
+                bad.append(f"{key}={r[key]!r} (want {want})")
+        w = r["segWidth"] or ""
+        if not (w.endswith("%") and float(w[:-1]) > 0):
+            bad.append(f"tx-comp-seg width={w!r} unset/non-positive")
+        if r["loadMoreContainer"] != "shown":
+            bad.append("load-more container not shown after render")
+        return bad
+
+    @staticmethod
+    def _failures_explorer(r: dict) -> list[str]:
+        bad: list[str] = []
+        # Fixture timestamps are days old, so the feed is correctly marked
+        # disconnected — its reconnect button is the one expected visible
+        # retry, and pins the hidden=false path.
+        if set(r["visibleRetryIds"]) != {"feed-reconnect-btn"}:
+            bad.append(f"unexpected visible retries {r['visibleRetryIds']}")
+        if not r["chart"]:
+            bad.append("activityChartInstance missing")
+        return bad
+
+    @staticmethod
+    def _failures_dashboard(r: dict) -> list[str]:
+        bad: list[str] = []
+        if not r["cred"]:
+            bad.append("credential input missing")
+        if r["dashboardDataCells"] <= 0:
+            bad.append("no .data-table cells rendered")
+        return bad
+
+    @staticmethod
+    def _failures_messages(r: dict) -> list[str]:
+        bad: list[str] = []
+        if "fixture message body" not in r["messageText"]:
+            bad.append("messages container lacks fixture body text")
+        if r["loadMore"] != "hidden":
+            bad.append(f"load-more should stay hidden with no next cursor ({r['loadMore']})")
+        return bad
+
+    @staticmethod
+    def _strict_page_failures(page: str, r: dict) -> list[str]:
+        bad: list[str] = []
+        if page == "blocks.html":
+            bad += TestLayout375Browser._failures_blocks(r)
+        elif page == "explorer.html":
+            bad += TestLayout375Browser._failures_explorer(r)
+        elif page in ("customer-dashboard.html", "shop-dashboard.html"):
+            bad += TestLayout375Browser._failures_dashboard(r)
+        elif page in ("messages.html", "author.html", "topic.html"):
+            bad += TestLayout375Browser._failures_messages(r)
+        elif page == "index.html" and not r["visibleRetries"]:
+            bad.append("a retry should be visible for the fixture's probe state")
+        elif page == "follower-api-key-announcement.html" and r["faucetNoticeBorder"] != "2px":
+            bad.append(f".faucet-notice border={r['faucetNoticeBorder']!r} (want 2px)")
+        elif page in ("block.html", "tx.html", "search.html") and r["content"] != "shown":
+            bad.append(f"#content not shown after fixture load ({r['content']})")
+        return bad
+
+    def test_pages_render_under_strict_csp(self) -> None:
+        """style-src 'self' migration: every page loads under the tightened
+        policy (inline <style>/style= would be refused), the JS renders its
+        fixtures, and CSP/JS error events stay empty. CDP Runtime/Log are
+        enabled before navigation and events drained through the final
+        evaluate."""
+        strict_pages = PAGES | {
+            "author.html": "?a=0x" + "cd" * 20,
+            "topic.html": "?t=msg-fix",
+        }
+        bad: list[str] = []
+        for page, qs in strict_pages.items():
+            r = self._measure(page + qs, collect=True, expression=_VERIFY_JS)
+            errs = self._csp_event_errors(r)
+            if errs:
+                bad.append(f"{page}: {errs}")
+            else:
+                bad += [f"{page}: {x}" for x in self._strict_page_failures(page, r)]
+        self.assertEqual([], bad, "strict-CSP render failures:\n" + "\n".join(bad))
 
 
 if __name__ == "__main__":

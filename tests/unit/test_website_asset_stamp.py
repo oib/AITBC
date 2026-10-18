@@ -1,6 +1,7 @@
 """Guard: every local website asset reference carries the common ``?v=`` stamp.
 
-``style.css``/``*.js`` are served with ``Cache-Control: max-age=3600`` and the
+``.css``/``*.js`` references carrying the full 16-hex stamp are served with
+``Cache-Control: max-age=31536000, immutable`` and the
 browser cache key includes the query string, so a shared content-hash stamp is
 what actually busts stale assets after a deploy (WEB-FIX-1 W6). This test
 asserts:

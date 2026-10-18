@@ -60,10 +60,21 @@ function blockComposition(transactions) {
 }
 
 function txChipsHtml(comp) {
-    return comp.map(([type, n]) => {
-        const c = txTypeColor(type);
-        return `<span class="tx-chip" style="color:${c};border-color:${c};background:color-mix(in srgb, ${c} 15%, transparent)"><i class="tx-chip-dot" style="background:${c}"></i>${escapeHtml(type)}&nbsp;×${n}</span>`;
-    }).join('');
+    return comp.map(([type, n]) =>
+        `<span class="tx-chip" data-tx-type="${escapeHtml(type)}"><i class="tx-chip-dot"></i>${escapeHtml(type)}&nbsp;×${n}</span>`
+    ).join('');
+}
+
+// Applies the hash-derived tx colors and segment widths to rendered chip/bar
+// markup via trusted CSSOM writes (inline style attributes are CSP-blocked).
+function applyTxCompositionStyles(container) {
+    container.querySelectorAll('[data-tx-type]').forEach(el => {
+        el.style.setProperty('--tx-color', txTypeColor(el.getAttribute('data-tx-type') || 'UNKNOWN'));
+    });
+    container.querySelectorAll('[data-tx-percent]').forEach(el => {
+        const percent = Number(el.getAttribute('data-tx-percent'));
+        el.style.width = `${Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : 0}%`;
+    });
 }
 
 // Block content summary in the activity-timeline style: a thin stacked bar
@@ -75,7 +86,7 @@ function blockContentHtml(transactions) {
     }
     const total = comp.reduce((s, [, n]) => s + n, 0);
     const bar = comp.map(([type, n]) =>
-        `<span class="tx-comp-seg" style="width:${(n / total) * 100}%;background:${txTypeColor(type)}" title="${escapeHtml(type)} ×${n}"></span>`
+        `<span class="tx-comp-seg" data-tx-type="${escapeHtml(type)}" data-tx-percent="${(n / total) * 100}" title="${escapeHtml(type)} ×${n}"></span>`
     ).join('');
     return `<div class="tx-comp-bar">${bar}</div><div class="tx-chips">${txChipsHtml(comp)}</div>`;
 }
@@ -100,7 +111,7 @@ function renderBlockCard(block) {
         ? `<tr><td>Content</td><td class="tx-comp-cell">${blockContentHtml(block.transactions)}</td></tr>`
         : '';
     return `
-        <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" tabindex="0" role="link" data-href="/block.html?height=${encodeURIComponent(block.height)}">
+        <div class="endpoint table-card fade-in block-item" data-height="${escapeHtml(block.height)}" tabindex="0" role="link" data-href="/block.html?height=${encodeURIComponent(block.height)}">
             <div class="table-wrap">
             <table class="block-list-table" aria-label="Block summary">
                 <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
@@ -155,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
             src.dataset.lastGoodAt = String(Date.now());
             src.className = 'panel-source is-live';
             if (text) text.textContent = 'read just now';
-            if (retry) retry.style.display = 'none';
+            if (retry) retry.hidden = true;
             return;
         }
         if (state === 'stale') {
@@ -163,13 +174,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const when = t ? `last good read ${ageAgo(t)}` : 'keeping last data';
             src.className = 'panel-source is-stale';
             if (text) text.textContent = `${detail} — ${when}, checks again every 30 s`;
-            if (retry) retry.style.display = 'none';
+            if (retry) retry.hidden = true;
             return;
         }
         // failed — no good read has ever landed for this panel
         src.className = 'panel-source is-failed';
         if (text) text.textContent = `${detail} — checks again every 30 s`;
-        if (retry) retry.style.display = '';
+        if (retry) retry.hidden = false;
     }
 
     // One read, one outcome object: ok only for status-ok AND parseable JSON.
@@ -325,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function hideFeedDisconnect() {
         const box = document.getElementById('feed-disconnect');
-        if (box) box.style.display = 'none';
+        if (box) box.hidden = true;
     }
 
     function checkFeedDisconnected() {
@@ -338,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
             hideFeedDisconnect();
             return;
         }
-        box.style.display = '';
+        box.hidden = false;
         const ago = document.getElementById('feed-stopped-ago');
         if (ago) ago.textContent = ageAgo(feedLastOkAt);
         const lb = document.getElementById('feed-last-block');
@@ -438,6 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         }).join('');
+        applyTxCompositionStyles(container);
     }
 
     // Top addresses leaderboard
@@ -466,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">TXs</th><th scope="col">Volume (AIT)</th></tr></thead>
                 <tbody>
                     ${addresses.map((a, i) => `
-                        <tr tabindex="0" role="link" data-href="/search.html?query=${encodeURIComponent(a.address)}" style="cursor:pointer;">
+                        <tr tabindex="0" role="link" data-href="/search.html?query=${encodeURIComponent(a.address)}">
                             <td>${i + 1}</td>
                             <td>${escapeHtml(a.address)}</td>
                             <td>${escapeHtml(a.transaction_count)}</td>
@@ -486,7 +498,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setSearchRetry(visible) {
         const btn = document.getElementById('search-retry-btn');
-        if (btn) btn.style.display = visible ? '' : 'none';
+        if (btn) btn.hidden = !visible;
     }
 
     function showSearchAnswer(html, countText) {
@@ -495,7 +507,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const count = document.getElementById('results-count');
         if (!section || !container) return;
         section.classList.remove('hidden');
-        section.style.display = 'block';
+        section.hidden = false;
         container.innerHTML = html;
         if (count) count.textContent = countText || '';
     }
@@ -534,7 +546,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('search-input').value = '';
         const section = document.getElementById('results-section');
         section.classList.add('hidden');
-        section.style.display = 'none';
+        section.hidden = true;
         setSearchRetry(false);
     }
 

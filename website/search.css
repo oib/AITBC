@@ -1,0 +1,25 @@
+.search-query {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    overflow-wrap: break-word;
+    word-break: break-all;
+}
+.section-title {
+    margin: 1.5rem 0 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.dir-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+.dir-out { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.dir-in { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.dir-self { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }

@@ -13,19 +13,19 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/explorer.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=b557931f67a8e8c3">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=11e10bbdec146fe5">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=b557931f67a8e8c3">
+    <link rel="stylesheet" href="/style.css?v=11e10bbdec146fe5">
 
     <!-- External libraries for explorer functionality -->
-    <script src="/vendor/lucide.min.js?v=b557931f67a8e8c3" defer></script>
-    <script src="/vendor/chart.umd.min.js?v=b557931f67a8e8c3" defer></script>
-    <script src="config.js?v=b557931f67a8e8c3" defer></script>
-    <script src="copy.js?v=b557931f67a8e8c3" defer></script>
-    <script src="explorer.js?v=b557931f67a8e8c3" defer></script>
-    <script src="nav.js?v=b557931f67a8e8c3" defer></script>
-    <script src="status.js?v=b557931f67a8e8c3" defer></script>
+    <script src="/vendor/lucide.min.js?v=11e10bbdec146fe5" defer></script>
+    <script src="/vendor/chart.umd.min.js?v=11e10bbdec146fe5" defer></script>
+    <script src="config.js?v=11e10bbdec146fe5" defer></script>
+    <script src="copy.js?v=11e10bbdec146fe5" defer></script>
+    <script src="explorer.js?v=11e10bbdec146fe5" defer></script>
+    <script src="nav.js?v=11e10bbdec146fe5" defer></script>
+    <script src="status.js?v=11e10bbdec146fe5" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -75,7 +75,7 @@
         </div>
 
         <!-- Results Section -->
-        <div id="results-section" class="card hidden">
+        <div id="results-section" class="card" hidden>
             <div class="results-header">
                 <h2>Search Results</h2>
                 <span id="results-count" class="result-count"></span>
@@ -83,7 +83,7 @@
             <div id="results-container">
                 <!-- Results will be dynamically inserted here -->
             </div>
-            <button id="search-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button>
+            <button id="search-retry-btn" type="button" class="bridge-retry" hidden>Try again</button>
         </div>
 
         <!-- Activity Timeline -->
@@ -95,7 +95,7 @@
             <div id="activity-chart-container">
                 <canvas id="activity-chart"></canvas>
             </div>
-            <div class="panel-source" id="chart-source"><span class="panel-src-text"></span><button id="chart-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button></div>
+            <div class="panel-source" id="chart-source"><span class="panel-src-text"></span><button id="chart-retry-btn" type="button" class="bridge-retry" hidden>Try again</button></div>
         </div>
 
         <!-- Live Feed -->
@@ -108,14 +108,14 @@
             </div>
             <div id="live-feed-container">
                 <div id="live-feed-status" class="visually-hidden" role="status" aria-live="polite"></div>
-                <div id="feed-disconnect" class="feed-disconnect" style="display:none;" role="alert">
+                <div id="feed-disconnect" class="feed-disconnect" role="alert" hidden>
                     <span class="feed-disconnect-title">Disconnected — feed stopped <span id="feed-stopped-ago"></span></span>
                     <span class="feed-disconnect-detail" id="feed-last-block"></span>
                     <button id="feed-reconnect-btn" type="button" class="bridge-retry">Reconnect</button>
                 </div>
                 <div class="live-feed-list" id="live-feed-list"></div>
             </div>
-            <div class="panel-source" id="feed-source"><span class="panel-src-text"></span><button id="feed-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button></div>
+            <div class="panel-source" id="feed-source"><span class="panel-src-text"></span><button id="feed-retry-btn" type="button" class="bridge-retry" hidden>Try again</button></div>
         </div>
 
         <!-- Top Addresses -->
@@ -126,7 +126,7 @@
             <div class="top-addresses-table" id="top-addresses-container" role="region" tabindex="0" aria-label="Top addresses by volume">
                 <p class="loading-text">Loading leaderboard...</p>
             </div>
-            <div class="panel-source" id="ta-source"><span class="panel-src-text"></span><button id="ta-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button></div>
+            <div class="panel-source" id="ta-source"><span class="panel-src-text"></span><button id="ta-retry-btn" type="button" class="bridge-retry" hidden>Try again</button></div>
         </div>
         </main>
         <!-- aitbc-footer:start -->

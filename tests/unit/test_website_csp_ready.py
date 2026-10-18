@@ -23,6 +23,10 @@ KNOWN_DEBT: set[str] = set()
 
 INLINE_HANDLER = re.compile(r"""<[a-zA-Z][^<>]*\s(on[a-z]+)\s*=\s*(?:\\?["'])""")
 
+# style= as an HTML/SVG tag attribute (in static markup or JS template
+# strings), not an ordinary JS ``style`` variable or CSSOM write.
+INLINE_STYLE = re.compile(r"<[a-zA-Z][^<>]*\sstyle\s*=", re.I)
+
 
 class TestCspReady(unittest.TestCase):
     def test_no_inline_event_handler_attributes(self) -> None:
@@ -48,6 +52,24 @@ class TestCspReady(unittest.TestCase):
                 attrs = m.group(1)
                 if "src=" not in attrs and not re.search(r"type\s*=\s*[\"']application/(ld\+)?json", attrs, re.I):
                     bad.append(f"{p.name}: inline <script>")
+        self.assertEqual([], bad, "\n".join(bad))
+
+    def test_no_inline_style_attributes_or_style_tags(self) -> None:
+        # ``style-src 'self'`` blocks ``<style>`` bodies and ``style=``
+        # attributes (quoted or unquoted, in static markup or JS template
+        # strings). Trusted CSSOM writes from self scripts — ``.style.width``,
+        # ``.style.setProperty`` — are not markup and stay legal.
+        bad = []
+        for p in sorted([*WEBSITE.glob("*.html"), *WEBSITE.glob("*.js"), *WEBSITE.glob("*.svg")]):
+            if p.parent.name == "vendor" or p.name in KNOWN_DEBT:
+                continue
+            src = p.read_text(encoding="utf-8")
+            for m in re.finditer(r"<style\b", src, re.I):
+                line = src.count("\n", 0, m.start()) + 1
+                bad.append(f"{p.name}:{line}: inline <style>")
+            for m in INLINE_STYLE.finditer(src):
+                line = src.count("\n", 0, m.start()) + 1
+                bad.append(f"{p.name}:{line}: inline style= attribute")
         self.assertEqual([], bad, "\n".join(bad))
 
     def test_dashboard_tables_keep_value_casing(self) -> None:

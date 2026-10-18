@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Stamp one common ``?v=<content hash>`` on every local website asset reference.
 
-``style.css`` and friends are served with ``Cache-Control: max-age=3600``;
-the browser cache key includes the query string, so changing ``?v`` is what
+``.css``/``.js`` references carrying a full 16-hex stamp are served with
+``Cache-Control: max-age=31536000, immutable`` (one year); a bare, short or
+malformed ``?v`` falls back to ``max-age=3600``. The browser cache key
+includes the query string, so changing ``?v`` is what
 busts a stale stylesheet or script after a deploy. The pages historically
 carried a mix of hand-bumped versions (``?v=11`` .. ``?v=13``) and
 unversioned references — a visitor could get yesterday's JS against today's
@@ -72,8 +74,8 @@ def _local_asset(website: Path, url: str) -> Path | None:
         return None
     cand = website / path
     # is_file() follows symlinks on purpose: website/favicon.svg is a
-    # committed absolute symlink to /opt/aitbc/website/AITBC.svg — the link
-    # is the repo object, the web path is local either way.
+    # committed relative symlink to AITBC.svg and stays inside the checkout —
+    # the link is the repo object, the web path is local either way.
     return cand if cand.is_file() else None
 
 

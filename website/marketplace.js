@@ -289,7 +289,7 @@ function createOfferCard(offer) {
                 </div>
                 <div>
                     <span>Registered: ${escapeHtml(registeredDate)}</span>
-                    <span style="margin-left: 1rem;">Updated: ${escapeHtml(updatedDate)}</span>
+                    <span class="ml-1">Updated: ${escapeHtml(updatedDate)}</span>
                 </div>
             </div>
         </div>

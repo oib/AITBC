@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/bridges.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=b557931f67a8e8c3">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=11e10bbdec146fe5">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=b557931f67a8e8c3">
-    <script src="config.js?v=b557931f67a8e8c3" defer></script>
-    <script src="copy.js?v=b557931f67a8e8c3" defer></script>
-    <script src="bridges.js?v=b557931f67a8e8c3" defer></script>
-    <script src="nav.js?v=b557931f67a8e8c3" defer></script>
-    <script src="status.js?v=b557931f67a8e8c3" defer></script>
+    <link rel="stylesheet" href="/style.css?v=11e10bbdec146fe5">
+    <script src="config.js?v=11e10bbdec146fe5" defer></script>
+    <script src="copy.js?v=11e10bbdec146fe5" defer></script>
+    <script src="bridges.js?v=11e10bbdec146fe5" defer></script>
+    <script src="nav.js?v=11e10bbdec146fe5" defer></script>
+    <script src="status.js?v=11e10bbdec146fe5" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -60,9 +60,9 @@
         <div class="card">
             <h2>Recent Bridge Transfers</h2>
             <div id="recent-bridges-loading" class="muted-text">Loading...</div>
-            <div id="recent-bridges-empty" style="display:none;" class="muted-text">No bridges yet — <a href="/exchange.html">be the first</a>.</div>
-            <div id="recent-bridges-fail-note" class="bridge-fail-note" style="display:none;" role="status"></div>
-            <div id="recent-bridges-failed" class="bridge-failed" style="display:none;" role="alert">
+            <div id="recent-bridges-empty" class="muted-text" hidden>No bridges yet — <a href="/exchange.html">be the first</a>.</div>
+            <div id="recent-bridges-fail-note" class="bridge-fail-note" role="status" hidden></div>
+            <div id="recent-bridges-failed" class="bridge-failed" role="alert" hidden>
                 <p class="bridge-failed-title">Transfers could not be loaded.</p>
                 <p class="bridge-failed-detail" id="recent-bridges-failed-reason"></p>
                 <p class="bridge-failed-detail">This is not an empty list.</p>
