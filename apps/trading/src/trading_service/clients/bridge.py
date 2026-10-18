@@ -44,6 +44,8 @@ class BridgeClient:
         target_chain: str = "",
         asset: str = "native",
         signature: str = "",
+        issued_at: int | float | str | None = None,
+        nonce: str | None = None,
     ) -> dict[str, Any]:
         """Lock funds in escrow on the source chain.
 
@@ -59,6 +61,8 @@ class BridgeClient:
             amount=amount,
             asset=asset,
             signature=signature,
+            issued_at=issued_at,
+            nonce=nonce,
         )
 
     async def get_transfer_status(self, transfer_id: str) -> dict[str, Any]:

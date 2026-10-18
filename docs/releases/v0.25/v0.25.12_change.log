@@ -281,3 +281,20 @@ signers — and `legacy_refused` counts inside the flag's 400 path. First
 `legacy_accepted` per endpoint per process also logs one WARNING.
 Counter is process-local, resets on rpc restart, and is not live until a
 separate rollout.
+
+
+### CALLERS-NEWFORM-1 — callers can submit replay-guarded signed bodies
+
+The callers that could not send `issued_at`/`nonce` now can, while old-form
+bodies still work where the guard flags are off. `aitbc bridge lock
+--signature` gains `--issued-at`/`--nonce` (both-or-neither; a warning fires
+on the old form, which enforced nodes refuse with 400). MCP `bridge_lock`
+takes optional `issued_at`/`nonce`. MCP `create_cross_chain_swap` and
+`create_cross_chain_bridge` take `signature`/`issued_at`/`nonce` — they
+previously sent unsigned bodies and have answered 403 since signature
+verification landed; `create_cross_chain_bridge` also gains the `sender`
+field its body never carried. The dormant coordinator `BridgeClientAdapter`
+and trading `lock_escrow` wrappers forward both fields to
+`BridgeClient.lock()`. Server-side guard behavior, flags, nonce TTLs
+unchanged. Repo-only: nothing is deployed; CLI/MCP/coordinator rollout needs
+a separate operator step.
