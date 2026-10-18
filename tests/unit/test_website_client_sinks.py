@@ -57,7 +57,7 @@ ALLOWLIST: list[tuple[str, str, str]] = [
         "prebuilt escaped fragments or counts",
     ),
     ("marketplace.js", r"^\{?\s*(statusClass|confirmationBadge|ratingStars)\s*\}?$", "class literal / prebuilt fragments"),
-    ("search.html", r"^\{?\s*(dir|labels\[dir\]|dBadge)\s*\}?$", "direction constant / badge fragment"),
+    ("search.js", r"^\{?\s*(dir|labels\[dir\]|dBadge)\s*\}?$", "direction constant / badge fragment"),
 ]
 
 TEMPLATE = re.compile(r"`((?:[^`\\]|\\.)*)`", re.S)

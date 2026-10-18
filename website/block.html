@@ -6,8 +6,8 @@
     <title>Block Detail — AITBC</title>
     <meta name="robots" content="noindex">
     <meta name="description" content="Block detail for the AITBC explorer: height, hash, timestamp, and transactions of a single chain block.">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=dd3fc38f1ce6ec4a">
-    <link rel="stylesheet" href="/style.css?v=dd3fc38f1ce6ec4a">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=58c2f1b972714379">
+    <link rel="stylesheet" href="/style.css?v=58c2f1b972714379">
     <style>
         .detail-header {
             display: flex;
@@ -34,8 +34,10 @@
             text-decoration: underline;
         }
     </style>
-<script src="copy.js?v=dd3fc38f1ce6ec4a" defer></script>
-<script src="status.js?v=dd3fc38f1ce6ec4a" defer></script>
+<script src="copy.js?v=58c2f1b972714379" defer></script>
+<script src="nav.js?v=58c2f1b972714379" defer></script>
+<script src="block.js?v=58c2f1b972714379" defer></script>
+<script src="status.js?v=58c2f1b972714379" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -93,133 +95,5 @@
         <!-- aitbc-footer:end -->
     </div>
 
-    <script>
-        const EXPLORER_API_URL = '/explorer-api';
-
-        function escapeHtml(s) {
-            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-        }
-
-        function getParam(name) {
-            const url = new URL(window.location.href);
-            return url.searchParams.get(name);
-        }
-
-
-        function showError(msg, retry) {
-            const errEl = document.getElementById('error');
-            errEl.textContent = msg;
-            if (retry) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'bridge-retry';
-                btn.style.marginLeft = '0.75rem';
-                btn.textContent = 'Try again';
-                btn.addEventListener('click', retry);
-                errEl.appendChild(btn);
-            }
-            errEl.style.display = 'block';
-        }
-
-        async function loadBlock() {
-            const height = getParam('height');
-            const hash = getParam('hash');
-
-            if (!height && !hash) {
-                document.getElementById('loading').style.display = 'none';
-                showError('Missing block height or hash parameter');
-                return;
-            }
-
-            document.getElementById('loading').style.display = 'block';
-            try {
-                let data;
-                let resp;
-                if (height) {
-                    resp = await fetch(`${EXPLORER_API_URL}/api/blocks/${height}`);
-                } else {
-                    resp = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${hash}`);
-                }
-                // A failed reply is not "not found" — only a 404 or a proven
-                // body without a block is.
-                if (!resp.ok) {
-                    throw new Error(resp.status === 404
-                        ? 'Block not found'
-                        : `Block could not be loaded (HTTP ${resp.status}). This is not a "not found".`);
-                }
-                try {
-                    data = await resp.json();
-                } catch (e) {
-                    throw new Error('Block reply was not readable JSON');
-                }
-
-                // The route answers a real 404 for a missing block — an ok
-                // body without a height is a shape failure, not a not-found.
-                if (!data || data.height == null) {
-                    throw new Error('Block could not be loaded (reply was not the expected shape). This is not a "not found".');
-                }
-
-                document.title = `AITBC Block #${data.height}`;
-                document.getElementById('block-height-badge').textContent = `#${data.height}`;
-                document.getElementById('block-hash-display').textContent = data.hash || '';
-
-                function plainHash(hash) {
-                    if (!hash || hash === 'N/A') return 'N/A';
-                    return `<span style="font-family:var(--font-mono);">${escapeHtml(hash)}</span>`;
-                }
-                function addrLink(addr) {
-                    if (!addr || addr === 'N/A') return 'N/A';
-                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${escapeHtml(addr)}</a>`;
-                }
-
-                document.getElementById('block-details').innerHTML = `
-                    <div class="endpoint fade-in block-item" style="padding:0;">
-                        <table class="block-list-table" aria-label="Block details">
-                            <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(data.height)}</td></tr>
-                            <tr><th scope="row">Hash</th><td>${plainHash(data.hash)} ${aitbcCopyBtn(data.hash || '', 'block hash')}</td></tr>
-                            <tr><th scope="row">Proposer</th><td>${addrLink(data.proposer)} ${aitbcCopyBtn(data.proposer || '', 'proposer address')}</td></tr>
-                            <tr><th scope="row">Timestamp</th><td>${escapeHtml(data.timestamp ? aitbcFmt.date(data.timestamp) : 'N/A')}</td></tr>
-                            <tr><th scope="row">Transactions</th><td>${escapeHtml(data.txCount ?? data.transactions?.length ?? 0)}</td></tr>
-                            <tr><th scope="row">State Root</th><td>${plainHash(data.stateRoot)} ${aitbcCopyBtn(data.stateRoot || '', 'state root')}</td></tr>
-                        </table>
-                    </div>
-                `;
-
-                const txs = data.transactions || [];
-                document.getElementById('tx-count').textContent = `(${txs.length})`;
-                document.getElementById('tx-list').innerHTML = txs.map(tx => {
-                    // One malformed payload must not blank the whole block.
-                    let payloadAmount = 'N/A';
-                    try {
-                        payloadAmount = tx.payload ? (JSON.parse(tx.payload).amount || 'N/A') : 'N/A';
-                    } catch (e) { payloadAmount = 'N/A'; }
-                    const amount = tx.amount != null ? tx.amount : payloadAmount;
-                    return `
-                    <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
-                        <table class="block-list-table" aria-label="Block details">
-                            <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span></td></tr>
-                            <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash)} ${aitbcCopyBtn(tx.tx_hash, 'transaction hash')}</td></tr>
-                            <tr><th scope="row">From</th><td>${addrLink(tx.sender)}</td></tr>
-                            <tr><th scope="row">To</th><td>${addrLink(tx.recipient)}</td></tr>
-                            <tr><th scope="row">Amount</th><td><strong>${escapeHtml(amount)}</strong> AIT</td></tr>
-                            <tr><th scope="row">Fee</th><td>${escapeHtml(tx.fee != null ? tx.fee : 'N/A')}</td></tr>
-                            <tr><th scope="row">Nonce</th><td>${escapeHtml(tx.nonce != null ? tx.nonce : 'N/A')}</td></tr>
-                            <tr><th scope="row">Status</th><td>${escapeHtml(tx.status || 'N/A')}</td></tr>
-                            <tr><th scope="row">Time</th><td>${escapeHtml(tx.created_at ? aitbcFmt.date(tx.created_at) : 'N/A')}</td></tr>
-                        </table>
-                    </div>
-                    `;
-                }).join('') || '<p class="loading-text">No transactions in this block.</p>';
-
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('content').style.display = 'block';
-            } catch (err) {
-                document.getElementById('loading').style.display = 'none';
-                showError(err.message || 'Failed to load block', loadBlock);
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', loadBlock);
-    </script>
 </body>
 </html>
