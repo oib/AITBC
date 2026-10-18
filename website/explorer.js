@@ -61,7 +61,7 @@ function blockComposition(transactions) {
 
 function txChipsHtml(comp) {
     return comp.map(([type, n]) =>
-        `<span class="tx-chip" data-tx-type="${escapeHtml(type)}"><i class="tx-chip-dot"></i>${escapeHtml(type)}&nbsp;×${n}</span>`
+        `<span class="tx-chip" data-tx-type="${escapeHtml(type)}"><i class="tx-chip-dot"></i>${escapeHtml(aitbcFmt.type(type))}&nbsp;×${n}</span>`
     ).join('');
 }
 
@@ -345,6 +345,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         if (data.labels.length > 0) {
+            // Humanize dataset labels once — the canvas legend, tooltips and
+            // the collapsed-state chips all read ds.label (WEB-LEGEND-3).
+            (data.datasets || []).forEach(function (ds) {
+                if (ds && ds.label) ds.label = aitbcFmt.type(ds.label);
+            });
             const ctx = canvas.getContext('2d');
             // Destroy existing chart if any
             if (window.activityChartInstance) {
@@ -508,7 +513,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const statusEl = document.getElementById('live-feed-status');
         if (statusEl && liveFeedItems.length && liveFeedItems[0].hash !== lastAnnouncedFeedKey) {
             lastAnnouncedFeedKey = liveFeedItems[0].hash;
-            statusEl.textContent = `Live feed updated: ${liveFeedItems[0].type} ${liveFeedItems[0].label}`;
+            statusEl.textContent = `Live feed updated: ${aitbcFmt.type(liveFeedItems[0].type)} ${liveFeedItems[0].label}`;
         }
         if (liveFeedItems.length === 0) {
             container.innerHTML = '<p class="loading-text">Waiting for activity...</p>';
@@ -517,8 +522,8 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = liveFeedItems.map(item => {
             const timeStr = item.time ? aitbcFmt.time(item.time) : '';
             return `
-                <div class="live-feed-item" tabindex="0" role="link" aria-label="${escapeHtml(item.type)} ${escapeHtml(item.hash || '')}" data-href="${escapeHtml(item.url)}">
-                    <span class="live-feed-type">${escapeHtml(item.type)}</span>
+                <div class="live-feed-item" tabindex="0" role="link" aria-label="${escapeHtml(aitbcFmt.type(item.type))} ${escapeHtml(item.hash || '')}" data-href="${escapeHtml(item.url)}">
+                    <span class="live-feed-type">${escapeHtml(aitbcFmt.type(item.type))}</span>
                     <span class="live-feed-hash">${escapeHtml(item.label)}</span>
                     ${item.comp ? `<span class="live-feed-comp">${item.comp}</span>` : ''}
                     <span class="live-feed-time">${escapeHtml(timeStr)}</span>

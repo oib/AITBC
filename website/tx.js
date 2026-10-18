@@ -91,11 +91,11 @@ async function loadTransaction() {
         }
 
         document.title = `AITBC TX ${data.hash.substring(0, 16)}...`;
-        document.getElementById('tx-type-badge').textContent = data.type || 'TX';
+        document.getElementById('tx-type-badge').textContent = aitbcFmt.type(data.type || 'TX');
         document.getElementById('tx-hash-display').textContent = data.hash;
 
         const details = [
-            { label: 'Type', value: `<span class="badge badge-primary">${escapeHtml(data.type || 'TX')}</span>` },
+            { label: 'Type', value: `<span class="badge badge-primary">${escapeHtml(aitbcFmt.type(data.type || 'TX'))}</span>` },
             { label: 'Hash', value: plainHash(data.hash) + ' ' + aitbcCopyBtn(data.hash, 'transaction hash') },
             { label: 'Status', value: escapeHtml(data.status || 'Unknown') },
             { label: 'Block', value: `<a href="/block.html?height=${encodeURIComponent(data.block_height)}">#${escapeHtml(data.block_height)}</a>` },
