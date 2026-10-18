@@ -50,7 +50,7 @@ function renderMonitorStrip(data) {
     updateHealthItem('prometheus', !!data.prometheus_ok, data.prometheus_ok ? 'reachable' : 'unreachable');
     const w = data.watcher;
     if (!w) {
-        updateHealthItem('watcher', false, data.prometheus_ok ? '--' : 'unknown');
+        updateHealthItem('watcher', false, data.prometheus_ok ? 'not reported' : 'unknown');
     } else if (!w.present) {
         updateHealthItem('watcher', false, 'absent');
     } else if (w.stale) {
@@ -301,7 +301,7 @@ async function loadAlerts() {
     } catch (err) {
         renderSummary(null);
         updateHealthItem('prometheus', false, 'API unreachable');
-        updateHealthItem('watcher', false, '--');
+        updateHealthItem('watcher', false, 'unreachable');
         console.error('Alert API unreachable:', err);
     }
     await Promise.all([loadJournal(), loadJournalCounts()]);
@@ -316,26 +316,28 @@ async function checkServiceHealth() {
         { name: 'coordinator', url: '/c/health' },
     ];
 
-    for (const svc of services) {
+    // Probes run in parallel — a serial round would stretch the checking
+    // state to three times the slowest answer.
+    await Promise.all(services.map(async (svc) => {
         const start = performance.now();
         try {
             const response = await fetch(svc.url, { method: 'GET' });
             const latency = Math.round(performance.now() - start);
-            const up = response.ok;
-            updateHealthItem(svc.name, up, `${latency}ms`);
+            updateHealthItem(svc.name, response.ok, response.ok ? `${latency}ms` : `HTTP ${response.status}`);
         } catch (e) {
-            updateHealthItem(svc.name, false, 0);
+            updateHealthItem(svc.name, false, 'unreachable');
         }
-    }
+    }));
 }
 
 function updateHealthItem(name, up, latency) {
     const item = document.querySelector(`.health-item[data-service="${name}"]`);
     if (!item) return;
+    item.removeAttribute('aria-busy');
     const statusEl = item.querySelector('.health-status');
     const latencyEl = item.querySelector('.health-latency');
     statusEl.className = 'health-status ' + (up ? 'up' : 'down');
-    latencyEl.textContent = up ? latency : (latency || 'DOWN');
+    latencyEl.textContent = up ? latency : (latency || 'unreachable');
 }
 
 document.addEventListener('DOMContentLoaded', () => {

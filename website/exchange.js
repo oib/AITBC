@@ -59,6 +59,7 @@ let tickerLastGoodAt = null;
 
 function markStale(el, lastGoodAt, unavailableText) {
     if (!el) return;
+    el.removeAttribute('aria-busy');
     if (lastGoodAt) {
         // Render from the recorded good text — appending to textContent
         // would pile one "(stale …)" on the element per failed poll.
@@ -103,6 +104,7 @@ function updateHeroPrice(data) {
     if (heroEth && aitEth != null) {
         heroEth.dataset.lastGood = `≈ ${aitEth.toFixed(6)} ETH`;
         heroEth.textContent = heroEth.dataset.lastGood;
+        heroEth.removeAttribute('aria-busy');
     }
 
     // And the inverse: how many AIT 1 ETH buys (eth_eur / 0.25)
@@ -111,6 +113,7 @@ function updateHeroPrice(data) {
         const aitPerEth = ethEur / REF_EUR;
         heroRate.dataset.lastGood = `1 ETH ≈ ${Math.round(aitPerEth).toLocaleString('en-US')} AIT`;
         heroRate.textContent = heroRate.dataset.lastGood;
+        heroRate.removeAttribute('aria-busy');
     }
 }
 
