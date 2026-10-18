@@ -17,7 +17,7 @@ breadcrumb: Home > Scenarios > Mining Setup
 ## See Also
 
 - **Previous Scenario**: [Reputation Management](./12_reputation_management.md)
-- **Next Scenario**: [Staking Basics](./14_staking_basics.md)
+- **Next Scenario**: [Staking Basics](../archive/scenarios/14_staking_basics.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
 - **Feature Documentation**: [Mining CLI source](../../cli/aitbc_cli/commands/mining.py)
 
@@ -254,7 +254,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 - [Mining CLI source](../../cli/aitbc_cli/commands/mining.py)
 - [Wallet Basics](./01_wallet_basics.md)
-- Next: [Staking Basics](./14_staking_basics.md)
+- Next: [Staking Basics](../archive/scenarios/14_staking_basics.md)
 
 ---
 
