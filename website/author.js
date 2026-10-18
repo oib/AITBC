@@ -94,16 +94,25 @@
         });
     }
 
+    function retryButton(fn) {
+        const btn = el('button', 'bridge-retry', 'Try again');
+        btn.type = 'button';
+        btn.addEventListener('click', fn);
+        return btn;
+    }
+
     async function loadReputation() {
         const container = document.getElementById('reputation-container');
         try {
             const data = await fetchJson(`${API}/api/messages/reputation/${encodeURIComponent(author)}`);
+            const score = data && data.reputation !== undefined ? data.reputation : (data ? data.score : undefined);
+            if (score === undefined) throw new Error('reply was not the expected shape');
             container.textContent = '';
-            const score = data.reputation !== undefined ? data.reputation : data.score;
-            container.appendChild(el('p', '', `Score: ${score !== undefined ? score : 'n/a'}`));
+            container.appendChild(el('p', '', `Score: ${score}`));
         } catch (e) {
             container.textContent = '';
             container.appendChild(el('p', 'loading-text', `Reputation unavailable: ${e.message}`));
+            container.appendChild(retryButton(loadReputation));
         }
     }
 
@@ -116,7 +125,12 @@
             const qs = new URLSearchParams({ author, limit: String(PAGE_LIMIT) });
             if (!reset && nextCursor) qs.set('cursor', nextCursor);
             const data = await fetchJson(`${API}/api/messages?${qs}`);
-            renderMessages(data.messages || [], !reset);
+            // An ok reply without the array is a shape failure, not a
+            // proven-empty author.
+            if (!data || !Array.isArray(data.messages)) {
+                throw new Error('reply was not the expected shape');
+            }
+            renderMessages(data.messages, !reset);
             nextCursor = data.next_cursor || null;
             more.style.display = nextCursor ? 'inline-block' : 'none';
             announce(`${data.count || 0} messages loaded`);
@@ -125,10 +139,13 @@
             if (!c.children.length) {
                 c.textContent = '';
                 c.appendChild(el('p', 'error-text', `Messages unavailable: ${e.message}`));
+                c.appendChild(retryButton(() => loadMessages(true)));
             } else {
                 announce(`Messages failed to load: ${e.message}`);
+                // The failed page's cursor is still current — let the
+                // Load more button retry it.
+                if (!reset && nextCursor) more.style.display = 'inline-block';
             }
-            nextCursor = null;
         } finally {
             busy = false;
         }
