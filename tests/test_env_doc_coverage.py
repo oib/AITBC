@@ -2,7 +2,7 @@
 
 Every environment variable the blockchain node reads, and every variable
 `fleet-config-check.sh` watches for drift, must appear in
-`docs/blockchain/ENVIRONMENT_CONFIGURATION.md` (the canonical env doc).
+`docs/deployment/environment-configuration.md` (the canonical env doc).
 The doc uses lowercase names for some entries (`supported_chains`), so
 matching is case-insensitive. Docs drift fails at commit time — same
 pattern as the bridge_monitor TestDocsCoverage suite.
@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CHAIN_SRC = ROOT / "apps" / "blockchain-node" / "src" / "aitbc_chain"
 FLEET_CHECK = ROOT / "scripts" / "monitoring" / "fleet-config-check.sh"
-ENV_DOC = ROOT / "docs" / "blockchain" / "ENVIRONMENT_CONFIGURATION.md"
+ENV_DOC = ROOT / "docs" / "deployment" / "environment-configuration.md"
 
 # read by the interpreter/build or test scaffolding, not operator knobs
 ALLOWLIST = {
@@ -71,7 +71,7 @@ class TestChainEnvDocCoverage:
         doc = _doc_text()
         missing = sorted(n for n in _chain_env_names() if n.upper() not in doc)
         assert not missing, (
-            "env vars read by aitbc_chain but absent from docs/blockchain/ENVIRONMENT_CONFIGURATION.md: " + ", ".join(missing)
+            "env vars read by aitbc_chain but absent from docs/deployment/environment-configuration.md: " + ", ".join(missing)
         )
 
 
@@ -81,5 +81,5 @@ class TestFleetCheckVarsDocCoverage:
         missing = sorted(n for n in _fleet_check_names() if n.upper() not in doc)
         assert not missing, (
             "drift-watched vars in fleet-config-check.sh absent from "
-            "docs/blockchain/ENVIRONMENT_CONFIGURATION.md: " + ", ".join(missing)
+            "docs/deployment/environment-configuration.md: " + ", ".join(missing)
         )

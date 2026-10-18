@@ -1,0 +1,6 @@
+scripts/services/gpu/gpu_miner_host.py: docs/deployment/debian-miner-installation.md
+scripts/utils/check-documentation-requirements.sh: docs/10_plan/aitbc.md
+scripts/utils/run_master_planning_cleanup.sh: docs/CONVERSION_SUMMARY.md
+scripts/utils/run_master_planning_cleanup.sh: docs/DOCUMENTATION_INDEX.md
+scripts/workflow/23_scaling_preparation.sh: docs/scaling/scaling_procedures.md
+tests/conftest.py: docs/testing/README.md
