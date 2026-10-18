@@ -12,13 +12,13 @@
     <meta property="og:image" content="https://hub.aitbc.bubuit.net/favicon.svg">
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/customer-dashboard.html">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=7b6e57c22f17743d">
-    <link rel="stylesheet" href="/style.css?v=7b6e57c22f17743d">
-    <script src="config.js?v=7b6e57c22f17743d" defer></script>
-    <script src="copy.js?v=7b6e57c22f17743d" defer></script>
-    <script src="dashboard.js?v=7b6e57c22f17743d" defer></script>
-    <script src="nav.js?v=7b6e57c22f17743d" defer></script>
-    <script src="status.js?v=7b6e57c22f17743d" defer></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=928e5a4514906d19">
+    <link rel="stylesheet" href="/style.css?v=928e5a4514906d19">
+    <script src="config.js?v=928e5a4514906d19" defer></script>
+    <script src="copy.js?v=928e5a4514906d19" defer></script>
+    <script src="dashboard.js?v=928e5a4514906d19" defer></script>
+    <script src="nav.js?v=928e5a4514906d19" defer></script>
+    <script src="status.js?v=928e5a4514906d19" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -55,12 +55,12 @@
         <main id="main" tabindex="-1">
 
         <div class="card">
-            <h2>Operator Credential</h2>
+            <h2>Account Credential</h2>
             <p class="endpoint-note">Optional. Paste the auth token printed by <code>aitbc auth login</code> to see jobs for your account; without it this page shows market-wide public data.</p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
                 <input type="password" id="cust-cred-input" class="endpoint" aria-label="Auth token (JWT)" placeholder="auth token (JWT)" style="flex:1;min-width:16rem" autocomplete="off">
-                <button class="endpoint" data-cred-op="apply" data-cred-input="cust-cred-input">Apply</button>
-                <button class="endpoint" data-cred-op="clear" data-cred-input="cust-cred-input">Clear</button>
+                <button type="button" class="endpoint" data-cred-op="apply" data-cred-input="cust-cred-input">Apply</button>
+                <button type="button" class="endpoint" data-cred-op="clear" data-cred-input="cust-cred-input">Clear</button>
             </div>
             <p class="endpoint-note" id="cred-status"></p>
         </div>
