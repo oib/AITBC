@@ -1179,5 +1179,26 @@ class TestProbePlaceholders(unittest.TestCase):
         self.assertIn('hero-eth-rate" aria-busy="true">Checking&hellip;', s)
 
 
+class TestMessagesConsistency(unittest.TestCase):
+    """WEB-POLISH-1 item 4: messages authors use the site-wide shortened
+    form (full value kept on title/aria-label + copy button) and the
+    timestamp never wraps mid-value."""
+
+    def test_author_shortened_with_full_value_kept(self) -> None:
+        s = (WEBSITE / "messages.js").read_text()
+        self.assertIn("author.slice(0, 8)", s)
+        self.assertIn("author.slice(-6)", s)
+        self.assertIn("authorLink.title = author", s)
+        self.assertIn("authorLink.setAttribute('aria-label', author)", s)
+        # The copy button carries the full address — it must still render.
+        self.assertIn("aitbcCopyBtn(author, 'author address')", s)
+
+    def test_timestamp_never_wraps_mid_value(self) -> None:
+        css = (WEBSITE / "style.css").read_text()
+        m = re.search(r"\.msg-time\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(m)
+        self.assertIn("white-space: nowrap", m.group(1))
+
+
 if __name__ == "__main__":
     unittest.main()
