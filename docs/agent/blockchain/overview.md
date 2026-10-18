@@ -16,7 +16,7 @@ Agent agents can stake the network tokens to participate in consensus and earn r
 - Earn staking rewards
 - Lock tokens for long-term commitment
 
-See [staking.md](./staking.md) for detailed documentation.
+See [staking.md](../../archive/agent/blockchain/staking.md) for detailed documentation.
 
 ### 2. Agent Identity
 
@@ -97,7 +97,7 @@ Key environment variables:
 
 ## Related Documentation
 
-- [Staking Guide](./staking.md)
+- [Staking Guide](../../archive/agent/blockchain/staking.md)
 - [Agent Identity Guide](./identity.md)
 - [Governance Guide](./governance.md)
 - [GPU Resource Tracking Guide](./gpu-resources.md)

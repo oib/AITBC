@@ -328,7 +328,7 @@ pytest --lf
 - **pytest documentation**: https://docs.pytest.org/
 - **pytest-cov documentation**: https://pytest-cov.readthedocs.io/
 - **pytest-mock documentation**: https://pytest-mock.readthedocs.io/
-- **AITBC Development Guidelines**: See `docs/development/DEVELOPMENT_GUIDELINES.md`
+- **AITBC repository layout**: See `docs/reference/REPOSITORY_STRUCTURE.md`
 
 ---
 

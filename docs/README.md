@@ -99,8 +99,8 @@ Operator procedures for the live fleet:
 - [Security overview](security/SECURITY.md),
   [bridge custodian model](security/bridge-custodian.md),
   [key escrow threshold](security/KEY-ESCROW-THRESHOLD.md),
-  [remediation plan](security/remediation-plan.md) and its
-  [testing procedures](security/testing-procedures.md).
+  [remediation plan](archive/security/remediation-plan.md) and its
+  [testing procedures](archive/security/testing-procedures.md).
 - [Website CSP proposal](ops/website-csp-proposal.md) — a docs-only
   Content-Security-Policy draft for the hub website: report-only first,
   with the inventory of inline scripts/handlers/styles that block a
@@ -115,11 +115,11 @@ Operator procedures for the live fleet:
 - [Messaging spam economics](features/messaging-spam-economics.md) —
   MSG-9 measured storage growth, the cost model for spam at the current
   fee, and ranked non-consensus mitigations (report only).
-- Audits: [security audit summary](security/security_audit_summary.md),
+- Audits: [security audit summary](archive/security/security_audit_summary.md),
   [CLI audit findings](security/aitbc-audit-4-cli-findings.md),
   [audit framework](security/4_security-audit-framework.md),
   [chaos testing](security/3_chaos-testing.md),
-  [fixes summary](security/SECURITY_FIXES_SUMMARY.md).
+  [fixes summary](archive/security/SECURITY_FIXES_SUMMARY.md).
 
 ## Reference
 
@@ -140,8 +140,8 @@ Also: [glossary](GLOSSARY.md), [quick reference](QUICK_REFERENCE.md),
 [project guidelines](development/PROJECT_GUIDELINES.md),
 [API reference](development/api_reference.md),
 [validation patterns](development/validation-patterns.md),
-[coordinator-api exports](development/coordinator-api-exports.md),
-[CLI packaging plan](development/CLI_PACKAGING_PLAN.md),
+[coordinator-api exports](archive/development/coordinator-api-exports.md),
+[CLI packaging plan](archive/development/CLI_PACKAGING_PLAN.md),
 [workspace strategy](development/workspace/WORKSPACE_STRATEGY.md).
 GPU work: [refactoring guide](development/gpu/REFACTORING_GUIDE.md),
 [benchmarks](development/gpu/benchmarks.md),
@@ -150,7 +150,7 @@ GPU work: [refactoring guide](development/gpu/REFACTORING_GUIDE.md),
 Testing: [infrastructure](testing/test-infrastructure.md),
 [coverage requirements](testing/TEST_COVERAGE_REQUIREMENTS.md),
 [usage guide](testing/USAGE_GUIDE.md),
-[staking test plan](testing/staking_test_plan.md).
+[staking test plan](archive/testing/staking_test_plan.md).
 Docs standards live under [meta](meta/guides.md); UI notes in
 [theming](ui/theming.md).
 
@@ -168,10 +168,10 @@ Docs standards live under [meta](meta/guides.md); UI notes in
   [GPU monetization](apps/market/gpu_monetization_guide.md),
   [wallet daemon](apps/wallet/wallet.md).
 - Architecture: [active apps](architecture/active_apps.md),
-  [agent-service DI](architecture/agent-service-di-architecture.md).
+  [agent-service DI](archive/architecture/agent-service-di-architecture.md).
 - Deployment/infra: [SLA monitoring](deployment/sla-monitoring.md),
   [monitoring setup](infrastructure/monitoring-setup.md),
-  [app-shell classification](infrastructure/app-shell-classification.md).
+  [app-shell classification](archive/infrastructure/app-shell-classification.md).
 - Market: [advanced features](market/advanced-market-features.md),
   [Nemotron cloud inference](market/agent-nemotron-cloud-inference.md).
 - Design: [design system](design/DESIGN_SYSTEM.md).

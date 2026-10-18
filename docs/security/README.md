@@ -25,20 +25,20 @@ what remains is AITBC-specific.
 
 ## Audits and findings
 
-- [Security audit summary](security_audit_summary.md)
+- [Security audit summary](../archive/security/security_audit_summary.md)
 - [CLI audit findings](aitbc-audit-4-cli-findings.md)
 - [Audit framework](4_security-audit-framework.md)
 - [Chaos testing](3_chaos-testing.md)
-- [Remediation plan](remediation-plan.md) and
-  [testing procedures](testing-procedures.md)
-- [Fixes summary](SECURITY_FIXES_SUMMARY.md),
-  [cleanup guide](1_security-cleanup-guide.md),
-  [audit findings](audit-findings.md)
+- [Remediation plan](../archive/security/remediation-plan.md) and
+  [testing procedures](../archive/security/testing-procedures.md)
+- [Fixes summary](../archive/security/SECURITY_FIXES_SUMMARY.md),
+  [cleanup guide](../archive/security/1_security-cleanup-guide.md),
+  [audit findings](../archive/security/audit-findings.md)
 
 ## Wallets and economics
 
 - [Agent wallet protection](SECURITY_AGENT_WALLET_PROTECTION.md)
-- [Wallet security fixes summary](WALLET_SECURITY_FIXES_SUMMARY.md)
+- [Wallet security fixes summary](../archive/security/WALLET_SECURITY_FIXES_SUMMARY.md)
 - [Economic analysis](economic-analysis.md),
   [performance features](performance-features.md)
 

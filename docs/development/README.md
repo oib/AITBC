@@ -26,7 +26,7 @@
 
 - **[DEV_LOGS.md](DEV_LOGS.md)** - Development log tracking
 - **[DEV_LOGS_QUICK_REFERENCE.md](DEV_LOGS_QUICK_REFERENCE.md)** - Fast reference for common dev logs
-- **[mock-data-system.md](mock-data-system.md)** - Mock data system notes and workflow
+- **[mock-data-system.md](../archive/development/mock-data-system.md)** - Mock data system notes and workflow
 
 ---
 
