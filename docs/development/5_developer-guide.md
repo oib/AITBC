@@ -158,7 +158,7 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 - [Full API Documentation](../architecture/3_coordinator-api.md)
 - [Architecture Guide](../architecture/2_components-overview.md)
 - [Protocol Specification](../architecture/2_components-overview.md)
-- [Security Best Practices](../security/1_security-cleanup-guide.md)
+- [Security Best Practices](../archive/security/1_security-cleanup-guide.md)
 
 ### Tools & SDKs
 
@@ -176,7 +176,7 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 - [Getting Started](../getting-started/README.md)
 - [Scenarios](../scenarios/README.md)
 - Blog Posts
-- [Research Papers](../reference/5_zk-proofs.md)
+- [Research Papers](../archive/reference/5_zk-proofs.md)
 
 ## Example: Adding a New API Endpoint
 

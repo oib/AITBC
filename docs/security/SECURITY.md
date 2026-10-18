@@ -44,12 +44,12 @@ Safety, Bandit, CodeQL) and the local scan commands.
   [bridge threat model](../architecture/bridge-threat-model.md) —
   including the payout-monitor vectors (envelope nonce collision,
   head-of-line blocking, dust/funding confusion, hot-key exposure).
-- Audits and findings: [audit summary](security_audit_summary.md),
+- Audits and findings: [audit summary](../archive/security/security_audit_summary.md),
   [CLI audit findings](aitbc-audit-4-cli-findings.md),
   [audit framework](4_security-audit-framework.md),
   [chaos testing](3_chaos-testing.md),
-  [remediation plan](remediation-plan.md) +
-  [testing procedures](testing-procedures.md).
+  [remediation plan](../archive/security/remediation-plan.md) +
+  [testing procedures](../archive/security/testing-procedures.md).
 
 ## Operational hardening
 
@@ -62,5 +62,5 @@ Safety, Bandit, CodeQL) and the local scan commands.
   [dependency monitoring](DEPENDENCY_MONITORING.md).
 - Wallet specifics:
   [agent wallet protection](SECURITY_AGENT_WALLET_PROTECTION.md),
-  [wallet fixes summary](WALLET_SECURITY_FIXES_SUMMARY.md),
+  [wallet fixes summary](../archive/security/WALLET_SECURITY_FIXES_SUMMARY.md),
   [key escrow threshold](KEY-ESCROW-THRESHOLD.md).

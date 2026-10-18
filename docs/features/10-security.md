@@ -49,7 +49,7 @@
 | Audit Logging | Comprehensive audit logging for security events | [security overview](../security/SECURITY.md) | ✅ | — |
 | Security Architecture | Overall security architecture | [docs/security/2_security-architecture.md](../security/2_security-architecture.md) | ✅ | — |
 | Threat Model | Threat modeling documentation | [docs/security/threat-model.md](../security/threat-model.md) | ✅ | — |
-| Security Audits | Security audit framework and findings | [security overview](../security/SECURITY.md), [docs/releases/AUDIT.md](../releases/AUDIT.md) | ✅ | — |
+| Security Audits | Security audit framework and findings | [security overview](../security/SECURITY.md), [docs/releases/AUDIT.md](../archive/releases/AUDIT.md) | ✅ | — |
 | Route Security Matrix | Route-level security requirements | [docs/architecture/route_security_matrix.md](../architecture/route_security_matrix.md) | ✅ | — |
 
 ---

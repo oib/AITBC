@@ -1,7 +1,7 @@
 # AITBC Release Status Overview
 
 **Last updated:** 2026-10-16
-**Audit report:** [AUDIT.md](AUDIT.md)
+**Audit report:** [AUDIT.md](../archive/releases/AUDIT.md)
 
 ## Release Status Table
 
@@ -76,7 +76,7 @@
 
 ## Security Audit Summary
 
-See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
+See [AUDIT.md](../archive/releases/AUDIT.md) for the full bridge security audit report.
 
 | Bug | Severity | Status | Summary |
 |-----|----------|--------|---------|
