@@ -772,7 +772,9 @@ input[type="number"] {
 /* Explorer-specific styles */
 .explorer-container {
     max-width: 1200px;
-    padding: 2rem 1rem;
+    /* No padding of its own — it nests inside the page .container, and a
+       second inset pushed the cards ~1rem deeper than every other page. */
+    padding: 0;
 }
 .stat-card {
     display: flex;
