@@ -970,5 +970,121 @@ class TestDetailPageStates(unittest.TestCase):
         self.assertIn("loadTopic", js)
 
 
+# --- WEB-DETAIL-2: script dependencies + render-throw fixtures --------------
+
+_NODE_VM = r"""
+const fs = require('fs');
+const [file, mode] = process.argv.slice(1);
+const els = {}; const handlers = [];
+function el(tag) {
+    const self = {
+        style: {}, _html: '', children: [], className: '', _listeners: {}, _parent: null,
+        classList: { add(c){ self.className = (self.className+' '+c).trim(); }, remove(){}, contains(c){ return (self.className||'').split(/\s+/).includes(c); } },
+        set innerHTML(v){ self._html = v; self.children = []; }, get innerHTML(){ return self._html; },
+        set textContent(v){ self._text = v; if (v === '') { self.children = []; self._html = ''; } }, get textContent(){ return self._text || ''; },
+        setAttribute(){}, appendChild(c){ c._parent = self; self.children.push(c); return c; },
+        prepend(c){ c._parent = self; self.children.unshift(c); },
+        remove(){ if (self._parent) { const i = self._parent.children.indexOf(self); if (i >= 0) self._parent.children.splice(i, 1); } },
+        insertAdjacentHTML(p,h){ self._html += h; },
+        addEventListener(ev, fn){ self._listeners[ev] = fn; },
+        querySelector(sel){ const cls = sel.replace(/^\./,''); return self.children.find(c => c.classList && c.classList.contains(cls)) || null; },
+        click(){ if (self._listeners.click) self._listeners.click(); },
+    };
+    return self;
+}
+const document = {
+    getElementById: (id) => els[id] || (els[id] = el(id)),
+    createElement: (t) => el(t),
+    addEventListener: (ev, fn) => { if (ev === 'DOMContentLoaded') handlers.push(fn); },
+    querySelector: () => null, body: el('body'), title: '',
+};
+const resp = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => (body === 'BAD' ? Promise.reject(new Error('bad json')) : body) });
+const MODES = {
+    'blocks-render-throw': { fetch: () => Promise.resolve(resp(200, { blocks: [{ hash: '0x1', height: 1 }] })),
+        blockCardThrows: true, pre: { 'blocks-container': [Object.assign(el('p'), { textContent: 'Loading blocks...', className: 'loading-blocks' })] } },
+    'author-500': { fetch: (u) => Promise.resolve(u.includes('reputation') ? resp(200, { reputation: 5 }) : resp(500, {})),
+        pre: { 'messages-container': [Object.assign(el('p'), { textContent: 'Loading messages...', className: 'loading-text' })] } },
+    'author-shapeless': { fetch: (u) => Promise.resolve(u.includes('reputation') ? resp(200, { reputation: 5 }) : resp(200, {})),
+        pre: { 'messages-container': [Object.assign(el('p'), { textContent: 'Loading messages...', className: 'loading-text' })] } },
+    'author-empty': { fetch: (u) => Promise.resolve(u.includes('reputation') ? resp(200, { reputation: 5 }) : resp(200, { messages: [], count: 0 })),
+        pre: { 'messages-container': [Object.assign(el('p'), { textContent: 'Loading messages...', className: 'loading-text' })] } },
+    'author-loadmore-fail': { fetch: (u) => Promise.resolve(u.includes('reputation') ? resp(200, { reputation: 5 })
+        : (globalThis.__n++ === 0 ? resp(200, { messages: [{ kind: 'post', body: 'hi', tx_hash: '0x1' }], count: 1, next_cursor: 'c2' }) : resp(500, {}))),
+        pre: { 'messages-container': [Object.assign(el('p'), { textContent: 'Loading messages...', className: 'loading-text' })] }, loadMore: true },
+};
+globalThis.__n = 0;
+const m = MODES[mode];
+const sandbox = {
+    document, window: { location: { href: 'http://x/?a=0xabc' }, AITBC_CONFIG: { explorerApiUrl: '/explorer-api', chainId: 'c' } },
+    location: { href: 'http://x/?a=0xabc', searchParams: new URL('http://x/?a=0xabc').searchParams },
+    fetch: m.fetch, console: { log(){}, error(){}, warn(){} },
+    setInterval(){}, setTimeout: (f) => f(), URL, URLSearchParams, lucide: { createIcons(){} },
+    renderBlockCard: m.blockCardThrows ? () => { throw new Error('aitbcCopyBtn is not defined'); } : (b) => '<div class="endpoint">B' + b.height + '</div>',
+    aitbcFmt: { date: () => 'D', num: (n) => String(n) }, aitbcCopyBtn: () => '', alert(){}, prompt(){}, encodeURIComponent,
+};
+sandbox.window.fetch = m.fetch;
+Object.assign(sandbox, { globalThis: sandbox });
+vm_run: {
+    const vm = require('vm');
+    vm.createContext(sandbox);
+    for (const [id, kids] of Object.entries(m.pre || {})) kids.forEach((k) => document.getElementById(id).children.push(k));
+    (async () => {
+        vm.runInContext(fs.readFileSync(file, 'utf8'), sandbox);
+        for (const fn of handlers) { try { await fn(); } catch (e) {} }
+        if (m.loadMore) { const btn = document.getElementById('load-more'); if (btn._listeners.click) { try { await btn._listeners.click(); } catch (e) {} } }
+        await new Promise((r) => setImmediate(r));
+        const text = (o) => (o.textContent || '') + (o.children || []).map(text).join('|') + (o._html || '');
+        const target = mode.startsWith('blocks') ? 'blocks-container' : 'messages-container';
+        const out = { container: text(document.getElementById(target)), moreShown: (document.getElementById('load-more').style.display || 'none') };
+        console.log('JSON:' + JSON.stringify(out));
+    })();
+}
+"""
+
+
+def _run_vm(js_name: str, mode: str) -> dict:
+    """Drive a real website script in a node vm with a fake DOM/fetch."""
+    node = shutil.which("node")
+    if not node:
+        raise unittest.SkipTest("skipped: node not available for the vm fixture")
+    r = subprocess.run(
+        [node, "-e", _NODE_VM, str(WEBSITE / js_name), mode],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    line = next((x for x in r.stdout.splitlines() if x.startswith("JSON:")), None)
+    if not line:
+        raise AssertionError(f"vm fixture produced no JSON for {js_name}/{mode}: stderr={r.stderr[:300]}")
+    return json.loads(line[5:])
+
+
+class TestDetailVmFixtures(unittest.TestCase):
+    """WEB-DETAIL-2: real scripts in a node vm — a render throw and an
+    author first-load failure must surface a named state, not the
+    placeholder."""
+
+    def test_author_first_load_500_shows_failed(self) -> None:
+        r = _run_vm("author.js", "author-500")
+        self.assertIn("Messages unavailable: HTTP 500", r["container"])
+        self.assertIn("Try again", r["container"])
+        self.assertNotIn("Loading messages", r["container"])
+
+    def test_author_shapeless_ok_shows_failed(self) -> None:
+        r = _run_vm("author.js", "author-shapeless")
+        self.assertIn("reply was not the expected shape", r["container"])
+        self.assertIn("Try again", r["container"])
+        self.assertNotIn("Loading messages", r["container"])
+
+    def test_author_ok_empty_is_honest(self) -> None:
+        r = _run_vm("author.js", "author-empty")
+        self.assertIn("No messages by this author.", r["container"])
+
+    def test_author_loadmore_failure_keeps_rows(self) -> None:
+        r = _run_vm("author.js", "author-loadmore-fail")
+        self.assertIn("hi", r["container"])
+        self.assertNotIn("Loading messages", r["container"])
+
+
 if __name__ == "__main__":
     unittest.main()

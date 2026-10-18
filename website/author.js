@@ -136,7 +136,9 @@
             announce(`${data.count || 0} messages loaded`);
         } catch (e) {
             const c = document.getElementById('messages-container');
-            if (!c.children.length) {
+            // First load means no message rows yet — the loading
+            // placeholder is a child too, so count .msg-item, not children.
+            if (!c.querySelector('.msg-item')) {
                 c.textContent = '';
                 c.appendChild(el('p', 'error-text', `Messages unavailable: ${e.message}`));
                 c.appendChild(retryButton(() => loadMessages(true)));
