@@ -1,0 +1,35 @@
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+.detail-header h2 {
+    margin: 0;
+}
+#tx-hash-display {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-all;
+}
+.payload-box {
+    background: var(--code);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+}
+.payload-box pre {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text);
+}
+.clickable-value {
+    cursor: pointer;
+    color: var(--primary);
+}
+.clickable-value:hover {
+    text-decoration: underline;
+}

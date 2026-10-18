@@ -1,0 +1,24 @@
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+.detail-header h2 {
+    margin: 0;
+}
+#block-hash-display {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-all;
+}
+
+.clickable-value {
+    cursor: pointer;
+    color: var(--primary);
+}
+.clickable-value:hover {
+    text-decoration: underline;
+}

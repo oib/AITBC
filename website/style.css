@@ -1232,6 +1232,7 @@ a.btn-secondary {
 .tx-comp-seg {
     display: block;
     min-width: 2px;
+    background: var(--tx-color, var(--text-muted));
 }
 .tx-chips {
     display: flex;
@@ -1248,12 +1249,16 @@ a.btn-secondary {
     border: 1px solid;
     border-radius: 3px;
     white-space: nowrap;
+    color: var(--tx-color, var(--text-muted));
+    border-color: var(--tx-color, var(--text-muted));
+    background: color-mix(in srgb, var(--tx-color, var(--text-muted)) 15%, transparent);
 }
 .tx-chip-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
+    background: var(--tx-color, var(--text-muted));
 }
 .tx-comp-empty {
     color: var(--text-muted);
@@ -2879,3 +2884,28 @@ button.endpoint:hover {
     color: var(--primary);
     border-color: var(--primary);
 }
+
+/* Static presentation shared by CSP-compatible page markup. */
+[hidden] { display: none !important; }
+[data-href] { cursor: pointer; }
+.endpoint.table-card { padding: 0; }
+.mono-value { font-family: var(--font-mono); }
+.detail-hash { font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); }
+.text-xs { font-size: 0.75rem; }
+.text-center { text-align: center; }
+.mt-0-5 { margin-top: 0.5rem; }
+.mt-0-75 { margin-top: 0.75rem; }
+.mt-1 { margin-top: 1rem; }
+.mt-1-5 { margin-top: 1.5rem; }
+.my-0-5 { margin: 0.5rem 0; }
+.ml-1 { margin-left: 1rem; }
+.w-full { width: 100%; }
+.credential-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.credential-input { flex: 1; min-width: 16rem; }
+.market-filter-note { margin-left: 0.5rem; color: var(--text-muted); font-size: 0.875rem; }
+.detail-error { color: #ef4444; }
+.detail-retry { margin-left: 0.75rem; }
+#load-more.filter-btn { display: inline-block; }
+.block-list-table.data-table th,
+.block-list-table.data-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+.block-list-table.data-table th { text-align: left; }

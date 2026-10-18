@@ -65,6 +65,58 @@ console.log(JSON.stringify({
 """
 
 
+_NODE_VM_TX = r"""
+const fs = require('fs');
+const vm = require('vm');
+const explorerFile = process.argv[1];
+const document = {
+    getElementById: () => null,
+    createElement: () => ({ style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add(){}, toggle(){} } }),
+    addEventListener: () => {},
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    body: { appendChild() {} },
+    hidden: false,
+};
+const sandbox = {
+    document,
+    window: { addEventListener() {}, matchMedia: () => ({ matches: false }) },
+    fetch: () => Promise.reject(new Error('no fetch')),
+    console: { log() {}, error() {}, warn() {} },
+    setInterval: () => 0, setTimeout: () => 0, clearInterval() {}, clearTimeout() {},
+    Intl, Date, Promise, JSON, Object, Array, String, Number, Boolean, Math, isNaN, parseFloat, parseInt, encodeURIComponent, URL, URLSearchParams,
+    lucide: { createIcons() {} },
+};
+sandbox.window.AITBC_CONFIG = { explorerApiUrl: '/explorer-api', chainId: 'c' };
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(explorerFile, 'utf8'), sandbox);
+
+// Fake elements implementing just getAttribute + a CSSOM-like style surface.
+function fakeEl(attrs) {
+    return {
+        getAttribute: (n) => (n in attrs ? attrs[n] : null),
+        style: {
+            props: {},
+            width: '',
+            setProperty(k, v) { this.props[k] = v; },
+        },
+    };
+}
+const typed = ['TRANSFER', 'BOGUS_TYPE_X'].map(t => fakeEl({ 'data-tx-type': t }));
+const segs = ['37.5', '150', '-5', 'abc'].map(p => fakeEl({ 'data-tx-percent': p }));
+const container = {
+    querySelectorAll: (sel) => sel === '[data-tx-type]' ? typed : sel === '[data-tx-percent]' ? segs : [],
+};
+sandbox.applyTxCompositionStyles(container);
+console.log(JSON.stringify({
+    known: typed[0].style.props['--tx-color'],
+    unknown: typed[1].style.props['--tx-color'],
+    unknownExpected: sandbox.txTypeColor('BOGUS_TYPE_X'),
+    widths: segs.map(e => e.style.width),
+}));
+"""
+
+
 class TestBlocksPageSkipsExplorerInit(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -102,6 +154,21 @@ class TestBlocksPageSkipsExplorerInit(unittest.TestCase):
         self.assertIn(gate, src, "Explorer-page gate missing")
         self.assertLess(src.index(handler), src.index(gate), "gate sits outside DOMContentLoaded")
         self.assertLess(src.index(gate), src.index(icons), "gate must run before page init")
+
+    def test_apply_tx_composition_styles_vm(self) -> None:
+        # style-src 'self' forbids the old style= markup: colors/widths are
+        # applied by trusted CSSOM via applyTxCompositionStyles instead.
+        out = subprocess.run(
+            ["node", "-e", _NODE_VM_TX, str(WEBSITE / "explorer.js")],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(out.returncode, 0, f"vm failed: {out.stderr[:800]}")
+        r = json.loads(out.stdout.strip())
+        self.assertEqual("#10b981", r["known"], "TRANSFER lost its known color")
+        self.assertEqual(r["unknownExpected"], r["unknown"], "unknown type must get the hash-derived color")
+        self.assertEqual(["37.5%", "100%", "0%", "0%"], r["widths"], "percent segments must clamp to 0-100")
 
 
 if __name__ == "__main__":

@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=b557931f67a8e8c3">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=11e10bbdec146fe5">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=b557931f67a8e8c3">
-    <script src="copy.js?v=b557931f67a8e8c3" defer></script>
-    <script src="index.js?v=b557931f67a8e8c3" defer></script>
+    <link rel="stylesheet" href="/style.css?v=11e10bbdec146fe5">
+    <script src="copy.js?v=11e10bbdec146fe5" defer></script>
+    <script src="index.js?v=11e10bbdec146fe5" defer></script>
 
-    <script src="nav.js?v=b557931f67a8e8c3" defer></script>
-    <script src="status.js?v=b557931f67a8e8c3" defer></script>
+    <script src="nav.js?v=11e10bbdec146fe5" defer></script>
+    <script src="status.js?v=11e10bbdec146fe5" defer></script>
     <!-- Agent Discovery Links -->
     <link rel="alternate" type="application/json" href="/rpc/network-info" title="AITBC Network Discovery">
     <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
@@ -88,7 +88,7 @@
                 <span class="facts-strip-dot" aria-hidden="true"></span>
                 <span class="facts-strip-title">Reading network facts…</span>
                 <span class="facts-strip-detail" id="facts-detail"></span>
-                <button id="facts-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button>
+                <button id="facts-retry-btn" type="button" class="bridge-retry" hidden>Try again</button>
             </div>
             <div class="facts-cells">
                 <span class="fact">node <strong id="fact-node">…</strong></span>
@@ -172,7 +172,7 @@
                         <button type="submit" class="btn-primary" id="join-submit">Request peer key</button>
                     </form>
                     <div id="join-result"></div>
-                    <button id="join-retry-btn" type="button" class="bridge-retry" style="display:none;">Try again</button>
+                    <button id="join-retry-btn" type="button" class="bridge-retry" hidden>Try again</button>
                 </li>
 
                 <li id="join-step-3">
