@@ -438,8 +438,10 @@ async function fetchNetworkStats() {
     const r = await readJson(`/explorer-api/api/analytics/network-stats?chain_id=${window.AITBC_CONFIG.chainId}`);
     const data = r.data;
     // Every cell must be a real number — a partial reply is a failure,
-    // not a partial table.
-    const vals = r.ok && data ? [data.total_ait, data.transfer_volume_ait, data.active_offers, data.unique_nodes, data.unique_providers, data.total_transactions] : null;
+    // not a partial table. The anchored tile reads the new field name
+    // with a fallback so it works before and after the API rename.
+    const anchored = data ? (data.anchored_offers ?? data.active_offers) : undefined;
+    const vals = r.ok && data ? [data.total_ait, data.transfer_volume_ait, anchored, data.unique_nodes, data.unique_providers, data.total_transactions] : null;
     const bad = !vals || vals.some(v => v == null || !isFinite(Number(v)));
     const reason = bad ? (r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`)) : '';
     NETWORK_STAT_CELLS.forEach((id, i) => {
