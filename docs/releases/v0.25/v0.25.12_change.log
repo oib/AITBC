@@ -259,3 +259,12 @@ anchored across GPU_MARKET/GPU_MARKETPLACE/GPU_REGISTER) and keeps
 `active_offers` as a deprecated alias with the same value; removal waits
 on the website reading the new name (WEB-ANCHORED-1) and docs. Tests
 cover the dual-name shape and all three failure cases.
+
+### EXPL-STATS-2 — network-stats: _chain_db_path() OSError answers 503, not 500
+
+An `OSError` raised by `_chain_db_path()` itself (e.g. `PermissionError`
+on the data directory) previously escaped `api_network_stats` before the
+`try`, surfacing as an anonymous 500 while every other failure of the
+route answers 503. The path lookup now runs inside the `try`, so the
+same failure answers 503 "network stats unavailable" with no path or
+exception text in the body.
