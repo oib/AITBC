@@ -109,7 +109,7 @@ journalctl -u aitbc-blockchain-node -f | grep "Sync mode"
 
 ## Related Topics
 
-- [Quick Start](./setup-quick-start.md) - Installation and profiles
+- [Quick Start](./installation/quick-start.md) - One-command installation
 - [Service Selection](./setup-service-selection.md) - Role-based service configuration
 - [Configuration](./setup-configuration.md) - Runtime directories, secrets, and environment files
 - [Security](./setup-security.md) - Service user security

@@ -60,7 +60,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 870
+- **Markdown files under docs/**: 846
 
 | Directory | Files | Description |
 |---|---|---|
@@ -68,7 +68,7 @@ docs/
 | [agent-coordinator](agent-coordinator/) | 18 | Agent coordinator service and API docs |
 | [agent-sdk](agent-sdk/) | 13 | Agent SDK and communication guide |
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
-| [apps](apps/) | 34 | Application catalog and per-app landing pages |
+| [apps](apps/) | 15 | Application catalog and per-app landing pages |
 | [architecture](architecture/) | 15 | System architecture and design patterns |
 | [archive](archive/) | 50 | Historical documents and archive |
 | [audit](audit/) | 1 | Documentation audit and refresh status |
@@ -78,19 +78,19 @@ docs/
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
-| [deployment](deployment/) | 15 | Deployment and infrastructure setup |
+| [deployment](deployment/) | 14 | Deployment and infrastructure setup |
 | [design](design/) | 13 | Design documents and decisions |
-| [development](development/) | 23 | Developer guides and workflow |
+| [development](development/) | 22 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
-| [getting-started](getting-started/) | 30 | New-user onboarding and setup |
+| [getting-started](getting-started/) | 29 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 9 | Infrastructure and migration docs |
-| [market](market/) | 17 | Market, exchange, and trading docs |
+| [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 29 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
-| [reference](reference/) | 11 | Quick lookup: ports, glossary, FAQ |
+| [reference](reference/) | 10 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 54 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |

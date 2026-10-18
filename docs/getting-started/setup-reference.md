@@ -270,7 +270,7 @@ sudo systemctl enable aitbc-coordinator-api
 
 ## Related Topics
 
-- [Quick Start](./setup-quick-start.md) - Installation and profiles
+- [Quick Start](./installation/quick-start.md) - One-command installation
 - [Service Selection](./setup-service-selection.md) - Role-based service configuration
 - [Subscription System](./setup-subscription.md) - Lease-based block synchronization
 - [Configuration](./setup-configuration.md) - Runtime directories, secrets, and environment files
