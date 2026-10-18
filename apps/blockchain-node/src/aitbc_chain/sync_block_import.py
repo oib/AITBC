@@ -21,7 +21,7 @@ from .metrics import (
     sync_blocks_imported,
     sync_failures_total,
 )
-from .cross_chain import bridge_lock_guard
+from .cross_chain import bridge_lock_guard, bridge_root_shadow
 from .cross_chain.bridge_leaf import lock_leaf_value, unknown_lock_leaf
 from .state import side_root_shadow, state_root_utils
 from .state.block_deltas import (
@@ -148,6 +148,7 @@ class BlockImportMixin(SyncBase):
         """
         existing = block_data.get("bridge_state_root")
         if existing:
+            bridge_root_shadow.run_shadow_check(block_data, transactions, chain_id=self._chain_id, log=logger)
             return str(existing)
         from .base_models import CrossChainTransfer
         from .state.merkle_patricia_trie import MerklePatriciaTrie
