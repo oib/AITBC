@@ -2477,6 +2477,9 @@ a.btn-secondary {
 }
 .msg-time {
     margin-left: auto;
+    /* The stamp may drop to its own line as a unit — it must never
+       wrap mid-value. */
+    white-space: nowrap;
 }
 .msg-body {
     margin-top: 0.4rem;
