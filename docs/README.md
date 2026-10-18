@@ -172,7 +172,7 @@ Docs standards live under [meta](meta/guides.md); UI notes in
 - Deployment/infra: [SLA monitoring](deployment/sla-monitoring.md),
   [monitoring setup](infrastructure/monitoring-setup.md),
   [app-shell classification](archive/infrastructure/app-shell-classification.md).
-- Market: [advanced features](market/advanced-market-features.md),
+- Market: [advanced features](market/advanced-market/01-overview.md),
   [Nemotron cloud inference](market/agent-nemotron-cloud-inference.md).
 - Design: [design system](design/DESIGN_SYSTEM.md).
 - Governance: [DAO framework](blockchain/governance/openclaw-dao-governance.md),
