@@ -10,65 +10,112 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let skipEmptyBlocks = false;
     let blocksOffset = 0;
+    let blocksLastGoodAt = 0;
+
+    function ageAgo(ts) {
+        const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+        if (s < 5) return 'just now';
+        if (s < 90) return `${s} s ago`;
+        return `${Math.round(s / 60)} min ago`;
+    }
+
+    // One read, one outcome object: ok only for status-ok AND parseable JSON.
+    async function readJson(url) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) return { ok: false, status: resp.status };
+            try {
+                return { ok: true, status: resp.status, data: await resp.json() };
+            } catch (e) {
+                return { ok: false, status: resp.status, err: 'reply was not readable' };
+            }
+        } catch (e) {
+            return { ok: false, status: 0, err: 'network request failed' };
+        }
+    }
+
+    // The single read-state note for the block list — one element, never
+    // one line per poll.
+    function renderReadState(container, state, detail, retry) {
+        const prev = [...container.children].find(c => c.classList && c.classList.contains('blocks-read-note'));
+        if (prev) prev.remove();
+        if (state === 'live') return;
+        const note = document.createElement('div');
+        note.className = state === 'failed' ? 'msg-state blocks-read-note' : 'msg-state-note blocks-read-note';
+        note.setAttribute('role', state === 'failed' ? 'alert' : 'status');
+        const line = document.createElement(state === 'failed' ? 'p' : 'span');
+        if (state === 'failed') line.className = 'msg-state-title';
+        line.textContent = detail;
+        note.appendChild(line);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'bridge-retry';
+        btn.textContent = 'Try again';
+        btn.addEventListener('click', retry);
+        note.appendChild(btn);
+        container.prepend(note);
+    }
 
     async function loadLatestBlocks(reset = true) {
-        try {
-            if (reset) {
-                blocksOffset = 0;
-            }
-            const limit = 10;
-            const endpoint = skipEmptyBlocks
-                ? `${EXPLORER_API_URL}/api/blocks/non-empty?chain_id=${currentChain}&limit=${limit}&offset=${blocksOffset}`
-                : `${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=${limit}&offset=${blocksOffset}`;
-
-            const response = await fetch(endpoint);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            const data = await response.json();
-            if (!data || !Array.isArray(data.blocks)) {
-                throw new Error('unexpected reply');
-            }
-            const blocks = data.blocks;
-
-            const container = document.getElementById('blocks-container');
-            const loadMoreContainer = document.getElementById('load-more-container');
-
-            if (blocks.length > 0) {
-                const html = blocks.map(renderBlockCard).join('');
-                if (reset) {
-                    const feedStatus = document.getElementById('sr-announcer');
-                    const topHash = blocks[0] && blocks[0].hash;
-                    if (feedStatus && topHash && topHash !== window.__lastAnnouncedBlock) {
-                        window.__lastAnnouncedBlock = topHash;
-                        feedStatus.textContent = `Blocks updated — latest height ${blocks[0].height}`;
-                    }
-                    container.innerHTML = html;
-                } else {
-                    container.insertAdjacentHTML('beforeend', html);
-                }
-                blocksOffset += blocks.length;
-                loadMoreContainer.style.display = 'block';
-            } else if (reset) {
-                container.innerHTML = '<p class="loading-text">No blocks available</p>';
-                loadMoreContainer.style.display = 'none';
-            } else {
-                loadMoreContainer.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Error loading blocks:', error);
-            if (reset) {
-                document.getElementById('blocks-container').innerHTML = '<p class="error-text">Error loading blocks</p>';
-            }
+        if (reset) {
+            blocksOffset = 0;
         }
+        const limit = 10;
+        const endpoint = skipEmptyBlocks
+            ? `${EXPLORER_API_URL}/api/blocks/non-empty?chain_id=${currentChain}&limit=${limit}&offset=${blocksOffset}`
+            : `${EXPLORER_API_URL}/api/blocks/latest?chain_id=${currentChain}&limit=${limit}&offset=${blocksOffset}`;
+
+        const container = document.getElementById('blocks-container');
+        const loadMoreContainer = document.getElementById('load-more-container');
+        const r = await readJson(endpoint);
+        const blocks = r.ok && r.data && Array.isArray(r.data.blocks) ? r.data.blocks : null;
+        if (blocks === null) {
+            const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
+            const feedStatus = document.getElementById('sr-announcer');
+            if (feedStatus) feedStatus.textContent = `Blocks failed to load: ${reason}`;
+            if (blocksLastGoodAt) {
+                // Last-good rows stay; ONE note names the last good read.
+                renderReadState(container, 'stale', `Stale, last read ${ageAgo(blocksLastGoodAt)} — could not refresh (${reason})`, () => loadLatestBlocks(true));
+            } else {
+                container.textContent = '';
+                renderReadState(container, 'failed', `Blocks could not be loaded. (${reason})`, () => loadLatestBlocks(true));
+            }
+            return;
+        }
+        blocksLastGoodAt = Date.now();
+
+        if (blocks.length > 0) {
+            const html = blocks.map(renderBlockCard).join('');
+            if (reset) {
+                const feedStatus = document.getElementById('sr-announcer');
+                const topHash = blocks[0] && blocks[0].hash;
+                if (feedStatus && topHash && topHash !== window.__lastAnnouncedBlock) {
+                    window.__lastAnnouncedBlock = topHash;
+                    feedStatus.textContent = `Blocks updated — latest height ${blocks[0].height}`;
+                }
+                container.innerHTML = html;
+            } else {
+                container.insertAdjacentHTML('beforeend', html);
+            }
+            blocksOffset += blocks.length;
+            loadMoreContainer.style.display = 'block';
+        } else if (reset) {
+            container.innerHTML = '<p class="loading-text">No blocks available</p>';
+            loadMoreContainer.style.display = 'none';
+        } else {
+            loadMoreContainer.style.display = 'none';
+        }
+        renderReadState(container, 'live');
     }
 
     async function exportBlockchain() {
         try {
             const headResponse = await fetch(`${EXPLORER_API_URL}/api/chain/head?chain_id=${currentChain}`);
-            const headData = await headResponse.json();
-            if (!headData.height) {
-                alert('Unable to get blockchain height');
+            const headData = headResponse.ok ? await headResponse.json() : null;
+            if (!headData || headData.height == null) {
+                alert(headResponse.ok
+                    ? 'Unable to get blockchain height (reply was not the expected shape)'
+                    : `Unable to get blockchain height (HTTP ${headResponse.status})`);
                 return;
             }
             const maxHeight = headData.height;
@@ -84,6 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             const blocks = [];
+            let failedReads = 0;
             const startHeight = Math.max(maxHeight - count + 1, 1);
             for (let height = startHeight; height <= maxHeight; height++) {
                 try {
@@ -92,14 +140,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         const block = await response.json();
                         if (block.height) {
                             blocks.push(block);
+                        } else {
+                            failedReads++;
                         }
+                    } else {
+                        failedReads++;
                     }
                 } catch (error) {
+                    failedReads++;
                     console.error(`Error fetching block ${height}:`, error);
                 }
             }
             if (blocks.length === 0) {
-                alert('No blocks to export');
+                alert(failedReads
+                    ? `No blocks could be read (${failedReads} block reads failed)`
+                    : 'No blocks to export');
                 return;
             }
             if (format === 'csv') {
