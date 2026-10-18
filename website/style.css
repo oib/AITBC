@@ -2697,20 +2697,26 @@ a.btn-secondary {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding: 0.4rem 0.5rem;
+    padding: 0.4rem 0.3rem;
     border-bottom: 1px solid var(--border);
 }
-.bridge-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.bridge-table td { padding: 0.45rem 0.3rem; border-bottom: 1px solid var(--border); vertical-align: top; }
 .bridge-table th.bridge-col-amt,
 .bridge-table td.bridge-amt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bridge-when { white-space: nowrap; }
 .bridge-route { white-space: nowrap; }
 .bridge-when-note { display: block; color: var(--text-muted); font-size: 0.7rem; }
-/* Table only: date over time, and source chain over "→ target chain". */
+/* Table only: date over time, source chain over "→ target chain", and
+   address/hash halves over each other and the copy button. */
 .bridge-table .bridge-when-date,
 .bridge-table .bridge-when-time,
 .bridge-table .bridge-route-src,
-.bridge-table .bridge-route-tgt { display: block; }
+.bridge-table .bridge-route-tgt,
+.bridge-table .bridge-addr-a,
+.bridge-table .bridge-addr-b,
+.bridge-table .bridge-tx-a,
+.bridge-table .bridge-tx-b,
+.bridge-table .bridge-copy { display: block; }
 
 .bridge-cards { display: none; }
 .bridge-card-item {

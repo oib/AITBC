@@ -30,7 +30,9 @@ function shortAddr(a) {
     if (!a) return '-';
     const e = escapeHtml(a);
     if (a.length <= 14) return e;
-    return `<span aria-hidden="true">${escapeHtml(a.slice(0, 8))}...${escapeHtml(a.slice(-6))}</span><span class="visually-hidden">${e}</span> ${aitbcCopyBtn(a, 'address')}`;
+    // Address halves and the copy button are separate spans so the table
+    // can stack them on three short lines; cards keep them on one line.
+    return `<span aria-hidden="true"><span class="bridge-addr-a">${escapeHtml(a.slice(0, 8))}</span><span class="bridge-addr-b">...${escapeHtml(a.slice(-6))}</span></span><span class="visually-hidden">${e}</span> <span class="bridge-copy">${aitbcCopyBtn(a, 'address')}</span>`;
 }
 
 function fmtAit(units) {
@@ -159,7 +161,7 @@ function transferParts(d) {
     const recipientHtml = sameAsSender ? '<span class="muted-text">same as sender</span>' : shortAddr(d.recipient);
     const amount = escapeHtml(fmtAit(d.release_amount !== null && d.release_amount !== undefined ? d.release_amount : d.amount));
     const tx = d.transfer_id
-        ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener noreferrer" aria-label="Transaction ${escapeHtml(d.transfer_id)}">${escapeHtml(d.transfer_id.slice(0, 18))}...</a> ${aitbcCopyBtn(d.transfer_id, 'transaction hash')}`
+        ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener noreferrer" aria-label="Transaction ${escapeHtml(d.transfer_id)}"><span class="bridge-tx-a">${escapeHtml(d.transfer_id.slice(0, 8))}</span><span class="bridge-tx-b">${escapeHtml(d.transfer_id.slice(8, 18))}...</span></a> <span class="bridge-copy">${aitbcCopyBtn(d.transfer_id, 'transaction hash')}</span>`
         : '—';
     return { when, whenNote, routeHtml, senderHtml, recipientHtml, amount, tx };
 }
