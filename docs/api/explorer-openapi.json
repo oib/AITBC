@@ -251,7 +251,7 @@
     "/api/analytics/network-stats": {
       "get": {
         "summary": "Api Network Stats",
-        "description": "Get aggregate network stats: total AIT, active offers, unique nodes/providers",
+        "description": "Aggregate network stats: total AIT, transfer volume, distinct offers\never anchored on chain, unique nodes/providers, total transactions.\n\nA chain database that is missing or unreadable answers 503 \u2014 a failed\nread must never look like an empty chain.",
         "operationId": "api_network_stats_api_analytics_network_stats_get",
         "parameters": [
           {
@@ -291,6 +291,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "chain database unavailable / network stats unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
