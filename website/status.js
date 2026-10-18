@@ -39,8 +39,11 @@
         // SCREAMING_SNAKE ("BRIDGE_LOCK"); pages render "Bridge lock".
         // Idempotent, so a value that is already humanized passes through.
         type: function (v) {
+            var ACRONYMS = { ai: 'AI', api: 'API', gpu: 'GPU', nft: 'NFT', tx: 'TX' };
             var s = String(v == null ? '' : v).replace(/_/g, ' ').toLowerCase();
-            return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+            if (!s) return '';
+            var out = s.split(' ').map(function (w) { return ACRONYMS[w] || w; }).join(' ');
+            return out.charAt(0).toUpperCase() + out.slice(1);
         },
         // Short label for the viewer's local zone (e.g. "GMT+2", "CEST",
         // "EST" — engine-dependent), with a UTC±n fallback. Pairs with
