@@ -2682,6 +2682,30 @@ a.btn-secondary {
 }
 .bridge-retry:hover { border-color: var(--primary); }
 
+/* WEB-LEGEND-1: activity-chart legend toggle — same chrome as .bridge-retry.
+   Hidden above 640px so desktop is visually unchanged; hidden by the
+   [hidden] attribute until a chart instance exists. */
+.legend-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
+    margin: 0 0 0.5rem;
+    padding: 0.5rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--code);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px;
+    cursor: pointer;
+}
+.legend-toggle:hover { border-color: var(--primary); }
+.legend-toggle[hidden] { display: none; }
+@media (min-width: 641px) {
+    .legend-toggle { display: none; }
+}
+
 .bridge-badge-icon { margin-right: 0.15rem; }
 .bridge-status-pending   { background: #5a4d2d; color: #e0d8b0; }
 .bridge-status-confirmed { background: #2d5a2d; color: #b0e0b0; }

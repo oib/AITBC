@@ -189,6 +189,49 @@ document.addEventListener('DOMContentLoaded', function() {
         await loadTopAddresses();
     }
 
+    // The legend counts and filters only datasets that actually show bars —
+    // one predicate shared by the Chart.js labels.filter and the "Types (N)"
+    // toggle label so they can never disagree.
+    function datasetHasActivity(ds) {
+        return !!ds && Array.isArray(ds.data) && ds.data.some(function (v) { return Number(v) > 0; });
+    }
+
+    // null = "no user choice yet" — the media query decides. Once the user
+    // toggles, their choice survives the refresh rebuild and breakpoint
+    // crossings (the chart instance is destroyed and rebuilt every 30 s, so
+    // the choice must live outside it).
+    let legendCollapsed = null;
+
+    function legendAutoCollapsed() {
+        return !!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches);
+    }
+
+    function syncLegendToggle() {
+        const btn = document.getElementById('legend-toggle');
+        if (!btn) return;
+        const chart = window.activityChartInstance;
+        if (!chart) {
+            // No chart data at all — the failed/stale note stands alone and
+            // the toggle must never read "Types (0)".
+            btn.hidden = true;
+            return;
+        }
+        const collapsed = chart.options.plugins.legend.display === false;
+        const shown = (chart.data.datasets || []).filter(datasetHasActivity).length;
+        btn.hidden = false;
+        btn.textContent = `Types (${shown})`;
+        btn.setAttribute('aria-expanded', String(!collapsed));
+    }
+
+    function toggleLegend() {
+        const chart = window.activityChartInstance;
+        if (!chart) return;
+        legendCollapsed = !(chart.options.plugins.legend.display === false);
+        chart.options.plugins.legend.display = !legendCollapsed;
+        chart.update();
+        syncLegendToggle();
+    }
+
     // Load activity timeline chart
     function markChartStale(canvas) {
         if (!canvas || !canvas.parentElement) return;
@@ -217,6 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
             markChartStale(canvas);
             renderPanelSource('chart-source', window.activityChartInstance ? 'stale' : 'failed', `activity could not refresh (${reason})`);
+            syncLegendToggle();
             return;
         }
         if (data.labels.length > 0) {
@@ -240,6 +284,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     plugins: {
                         legend: {
+                            // Collapsed by default at <=640px (WEB-LEGEND-1):
+                            // the 17-item legend otherwise takes half the
+                            // 200px chart box. A user choice outlives the
+                            // refresh rebuild via legendCollapsed.
+                            display: !(legendCollapsed === null ? legendAutoCollapsed() : legendCollapsed),
                             labels: {
                                 color: '#e4e4e7',
                                 boxWidth: 10,
@@ -249,8 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 // Hide transaction types with no activity in this
                                 // window: the legend lists only what the bars show.
                                 filter: function (item, chartData) {
-                                    var ds = chartData.datasets[item.datasetIndex];
-                                    return !!ds && Array.isArray(ds.data) && ds.data.some(function (v) { return Number(v) > 0; });
+                                    return datasetHasActivity(chartData.datasets[item.datasetIndex]);
                                 },
                             },
                         },
@@ -258,6 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
             });
         }
+        syncLegendToggle();
         clearChartStale(canvas);
         renderPanelSource('chart-source', 'live');
     }
@@ -607,6 +656,7 @@ document.addEventListener('DOMContentLoaded', function() {
     wire('feed-reconnect-btn', updateLiveFeed);
     wire('feed-retry-btn', updateLiveFeed);
     wire('chart-retry-btn', loadActivityChart);
+    wire('legend-toggle', toggleLegend);
     wire('ta-retry-btn', loadTopAddresses);
 
     // Initial load
