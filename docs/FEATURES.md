@@ -1,17 +1,17 @@
 # AITBC Feature Catalog
 
-**Complete inventory of AITBC features with links to dedicated documentation.**
-
-**Last Updated:** 2026-07-01
-**Version:** 1.0
+**Entry point to the feature catalog — the per-feature inventory lives in
+the twelve section pages under [features/](features/).**
 
 ---
 
 ## How to Use This Catalog
 
-Each feature is listed with its dedicated documentation file (if one exists).
-Features without a dedicated doc are marked **No dedicated doc** — see the
-linked source file or the relevant release changelog for details.
+Each section page lists features with their status and dedicated
+documentation file (where one exists). Features without a dedicated doc
+are marked **No dedicated doc** — see the linked source file or the
+relevant release changelog. For a flat list of every documentation file
+see the generated [Master Index](MASTER_INDEX.md).
 
 **Status legend:**
 
