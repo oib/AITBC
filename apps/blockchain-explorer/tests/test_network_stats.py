@@ -90,6 +90,17 @@ def test_network_stats_unreadable_db_is_503(tmp_path, monkeypatch):
     assert excinfo.value.status_code == 503
 
 
+def test_network_stats_db_path_oserror_is_503(monkeypatch):
+    def _raise(*_args, **_kwargs):
+        raise PermissionError("[REDACTED simulated permission denied]")
+
+    monkeypatch.setattr(analytics, "_chain_db_path", _raise)
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(analytics.api_network_stats())
+    assert excinfo.value.status_code == 503
+    assert "permission" not in excinfo.value.detail.lower()
+
+
 def test_network_stats_provider_fields(chain_db):
     conn = sqlite3.connect(chain_db)
     conn.execute(
