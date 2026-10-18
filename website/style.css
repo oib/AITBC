@@ -2505,19 +2505,20 @@ a.btn-secondary {
 .msg-topic-list {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 0.4rem;
-    overflow-x: auto;
-    padding-bottom: 0.35rem;
+    min-width: 0;
 }
 .topic-item {
     display: inline-flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.45rem;
     min-height: 44px;
     flex: 0 0 auto;
-    white-space: nowrap;
+    max-width: 100%;
 }
-.topic-item-name { font-weight: 600; }
+.topic-item-name { font-weight: 600; overflow-wrap: anywhere; }
 .topic-item-meta {
     display: inline-flex;
     align-items: center;
