@@ -23,7 +23,7 @@ import httpx
 
 from aitbc.bridge import BridgeClient, BridgeConfig
 
-from ..utils import info, output
+from ..utils import info, output, warning
 from ..utils.error_handling import abort
 
 
@@ -254,8 +254,8 @@ def lock(
     elif (issued_at is None) != (nonce is None):
         raise click.ClickException("--issued-at and --nonce must be given together")
     elif signature and issued_at is None:
-        info(
-            "warning: submitting an old-form (six-field) signed body — nodes with "
+        warning(
+            "submitting an old-form (six-field) signed body — nodes with "
             "BRIDGE_LOCK_REQUIRE_REPLAY_GUARD=true refuse it with 400; pass --issued-at/--nonce "
             "matching the dict the external signer signed"
         )
