@@ -233,6 +233,19 @@ class TestLayoutHeuristics(unittest.TestCase):
         self.assertIsNotNone(sel, ".bridge-card-line a is missing from the phone tap-target block")
         self.assertIn("min-height: 44px", sel.group(1), ".bridge-card-line a lacks the 44px floor")
 
+    def test_web_polish1_topic_filter_pinned(self) -> None:
+        # WEB-POLISH-1: the messages topic filter truncated long chips into
+        # a horizontal scroll strip at 375 px. The fix wraps the row and
+        # caps each chip at the card's content width.
+        m = re.search(r"\.msg-topic-list\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m)
+        self.assertIn("flex-wrap: wrap", m.group(1), ".msg-topic-list must wrap, not scroll-truncate")
+        self.assertIn("min-width: 0", m.group(1), ".msg-topic-list needs min-width:0 inside the card")
+        m = re.search(r"\.topic-item\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m)
+        self.assertIn("max-width: 100%", m.group(1), ".topic-item must cap at the card's content width")
+        self.assertIn("min-height: 44px", m.group(1), ".topic-item lost the 44px touch target")
+
 
 # ---------------------------------------------------------------------------
 # Browser layer — skipped cleanly when no browser exists
@@ -378,11 +391,38 @@ _FIXTURES = {
         "chain_id": "aitbc-fixture",
         "index_height": 48865,
         "topics": [
-            {"topic": "msg-fix", "message_count": 2, "last_block_height": 48865, "last_timestamp": "2026-10-15T22:30:00Z"},
-            {"topic": "general", "message_count": 1, "last_block_height": 48860, "last_timestamp": "2026-10-15T22:00:00Z"},
+            # Long slugs + badges — the chip row must wrap inside its card
+            # at 375 px, not truncate into a hidden scroll strip.
+            {
+                "topic": "governance-proposals",
+                "message_count": 42,
+                "pinned_count": 2,
+                "locked": True,
+                "last_block_height": 48865,
+                "last_timestamp": "2026-10-15T22:30:00Z",
+            },
+            {
+                "topic": "hardware-benchmarks-rtx4090",
+                "message_count": 128,
+                "hidden_count": 1,
+                "last_block_height": 48860,
+                "last_timestamp": "2026-10-15T22:00:00Z",
+            },
+            {
+                "topic": "marketplace-offers-wrx",
+                "message_count": 7,
+                "last_block_height": 48850,
+                "last_timestamp": "2026-10-15T21:00:00Z",
+            },
+            {
+                "topic": "escrow-dispute-resolution",
+                "message_count": 3,
+                "last_block_height": 48840,
+                "last_timestamp": "2026-10-15T20:00:00Z",
+            },
         ],
-        "count": 2,
-        "total_topics": 2,
+        "count": 4,
+        "total_topics": 4,
         "scan_bounded": False,
     },
     "/api/messages": {
@@ -449,8 +489,19 @@ _MEASURE_JS = """
   const smallCtl = [...document.querySelectorAll(
     'input:not([type="checkbox"]):not([type="radio"]), select, textarea')]
     .filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).length;
+  // WEB-POLISH-1: topic chips must wrap inside their card — a chip whose
+  // rect runs past the topics box is truncated or bleeds (scroll-strip or
+  // overflow, both are the flagged defect).
+  const topicsBox = document.getElementById('topics-container');
+  let chipBleed = 0;
+  if (topicsBox) {
+    const cb = topicsBox.getBoundingClientRect();
+    chipBleed = [...topicsBox.querySelectorAll('.topic-item')]
+      .filter(b => { const r = b.getBoundingClientRect();
+                     return r.right > cb.right + 1 || r.left < cb.left - 1; }).length;
+  }
   return JSON.stringify({sw: document.documentElement.scrollWidth, vw,
-                         offenders: offenders.slice(0, 10), tap, smallCtl});
+                         offenders: offenders.slice(0, 10), tap, smallCtl, chipBleed});
 })()
 """
 
@@ -585,6 +636,12 @@ class TestLayout375Browser(unittest.TestCase):
             if r["tap"] or r["smallCtl"]:
                 bad.append(f"{page}: {r['tap']} targets <44px, {r['smallCtl']} controls <16px")
         self.assertEqual([], bad, "pages with undersized targets/fonts at 375px:\n" + "\n".join(bad))
+
+    def test_messages_topic_chips_stay_in_card_at_375px(self) -> None:
+        """WEB-POLISH-1: long topic chips must wrap inside the topics card —
+        none may have a rect running past #topics-container."""
+        r = self._measure("messages.html")
+        self.assertEqual(0, r["chipBleed"], f"topic chips escape the card: {r['offenders']}")
 
 
 if __name__ == "__main__":
