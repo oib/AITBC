@@ -69,8 +69,8 @@ Production Solidity contracts live in `contracts/contracts/`:
 - [CrossChainBridge deployment runbook](cross-chain-bridge-deployment.md) — BR-1: deploy paused, hand ownership to the 2-of-3 Safe in the same run
 - [Bridge Sepolia rehearsal runbook](bridge-sepolia-rehearsal.md) — BR-9: scripted 2-of-3 Safe rehearsal with throwaway signers (Sepolia only)
 - [ZK Verification Guide](ZK-VERIFICATION.md) — off-chain proof generation and on-chain verification
-- [pnpm Setup](PNPM_SETUP.md) — **superseded**: `contracts/` uses npm (`npm ci`, `npx hardhat`); kept for historical reference
-- [Hardhat Version Investigation](HARDHAT_VERSION_INVESTIGATION.md) — historical toolchain notes
+- [pnpm Setup](../archive/contracts/PNPM_SETUP.md) — **superseded**: `contracts/` uses npm (`npm ci`, `npx hardhat`); kept for historical reference
+- [Hardhat Version Investigation](../archive/contracts/HARDHAT_VERSION_INVESTIGATION.md) — historical toolchain notes
 
 ## See Also
 

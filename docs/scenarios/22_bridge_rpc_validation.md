@@ -18,7 +18,7 @@ breadcrumb: Home > Scenarios > Bridge RPC Input Validation
 
 - **Previous Scenario**: [Scenario 21 Service Startup & Connectivity](./21_service_startup_connectivity.md)
 - **Next Scenario**: [Scenario 23 Mempool Eviction Order](./23_mempool_eviction_order.md)
-- **Feature Documentation**: [Bridge Security Audit](../releases/AUDIT.md)
+- **Feature Documentation**: [Bridge Security Audit](../archive/releases/AUDIT.md)
 
 ---
 
@@ -173,7 +173,7 @@ aitbc bridge health --rpc-url http://127.0.0.1:8202/rpc
 
 ## Related Resources
 
-- [Bridge Security Audit](../releases/AUDIT.md)
+- [Bridge Security Audit](../archive/releases/AUDIT.md)
 - [Next Scenario: Mempool Eviction Order](./23_mempool_eviction_order.md)
 
 ---

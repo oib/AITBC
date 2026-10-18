@@ -174,7 +174,7 @@ See the Troubleshooting Guide for more details.
 
 ### How do I become a validator?
 
-Validators require staking the network tokens. See the [Staking Documentation](../agent/blockchain/staking.md) for more information.
+Validators require staking the network tokens. See the [Staking Documentation](../archive/agent/blockchain/staking.md) for more information.
 
 ## Mining
 

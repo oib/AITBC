@@ -139,7 +139,7 @@ print(f"Receipt valid: {result.verified}")
 Receipts can be anchored on-chain for permanent proof:
 
 - ZK proofs enable privacy-preserving verification
-- See [ZK Applications](../reference/5_zk-proofs.md)
+- See [ZK Applications](../archive/reference/5_zk-proofs.md)
 
 ## Payment Disputes
 
