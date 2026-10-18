@@ -126,7 +126,7 @@ sudo systemctl restart aitbc-coordinator-api
 
 ## Related Topics
 
-- [Quick Start](./setup-quick-start.md) - Installation and profiles
+- [Quick Start](./installation/quick-start.md) - One-command installation
 - [Service Selection](./setup-service-selection.md) - Role-based service configuration
 - [Subscription System](./setup-subscription.md) - Lease-based block synchronization
 - [Security](./setup-security.md) - Service user security

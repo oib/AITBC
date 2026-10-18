@@ -123,7 +123,7 @@ Operator procedures for the live fleet:
 
 ## Reference
 
-[Index](reference/0_index.md) —
+[Index](reference/README.md) —
 [all routes](reference/all-routes.md),
 [packages](reference/packages.md),
 [repository structure](reference/REPOSITORY_STRUCTURE.md),
@@ -136,7 +136,7 @@ Also: [glossary](GLOSSARY.md), [quick reference](QUICK_REFERENCE.md),
 
 ## Development
 
-[Index](development/0_index.md) —
+[Index](development/README.md) —
 [project guidelines](development/PROJECT_GUIDELINES.md),
 [API reference](development/api_reference.md),
 [validation patterns](development/validation-patterns.md),
@@ -173,7 +173,7 @@ Docs standards live under [meta](meta/guides.md); UI notes in
   [monitoring setup](infrastructure/monitoring-setup.md),
   [app-shell classification](archive/infrastructure/app-shell-classification.md).
 - Market: [advanced features](market/advanced-market/01-overview.md),
-  [Nemotron cloud inference](market/agent-nemotron-cloud-inference.md).
+  [Nemotron cloud inference](market/nemotron-quick-start.md).
 - Design: [design system](design/DESIGN_SYSTEM.md).
 - Governance: [DAO framework](blockchain/governance/openclaw-dao-governance.md),
   [GPU registration](contracts/GPU-REGISTRATION.md).
