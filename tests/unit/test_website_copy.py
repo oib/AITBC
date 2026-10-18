@@ -864,5 +864,34 @@ class TestCopyControlBrowser(unittest.TestCase):
         self.assertEqual("Copied to clipboard", r["ann"])
 
 
+class TestBlocksPageStates(unittest.TestCase):
+    """WEB-DETAIL-1: a failed poll keeps last-good rows with ONE stale note;
+    a failed first read shows a named reason + Try again."""
+
+    def test_readjson_and_single_note_shape(self) -> None:
+        js = _site_src("blocks.js")
+        self.assertIn("async function readJson", js)
+        self.assertIn("function renderReadState", js)
+        self.assertIn("blocks-read-note", js)
+
+    def test_stale_note_and_reason(self) -> None:
+        js = _site_src("blocks.js")
+        self.assertIn("blocksLastGoodAt", js)
+        self.assertIn("Stale, last read", js)
+        self.assertIn("reply was not the expected shape", js)
+        self.assertIn("network request failed", js)
+        self.assertIn("reply was not readable", js)
+
+    def test_retry_control_and_no_silent_fail(self) -> None:
+        js = _site_src("blocks.js")
+        self.assertIn("bridge-retry", js)
+        self.assertIn("Try again", js)
+        self.assertNotIn("Error loading blocks", js)
+
+    def test_export_names_failed_reads(self) -> None:
+        js = _site_src("blocks.js")
+        self.assertIn("block reads failed", js)
+
+
 if __name__ == "__main__":
     unittest.main()
