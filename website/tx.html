@@ -126,16 +126,31 @@
             return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${escapeHtml(addr)}</a>`;
         }
 
+        function showError(msg, retry) {
+            const errEl = document.getElementById('error');
+            errEl.textContent = msg;
+            if (retry) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'bridge-retry';
+                btn.style.marginLeft = '0.75rem';
+                btn.textContent = 'Try again';
+                btn.addEventListener('click', retry);
+                errEl.appendChild(btn);
+            }
+            errEl.style.display = 'block';
+        }
+
         async function loadTransaction() {
             const hash = getParam('hash');
 
             if (!hash) {
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').textContent = 'Missing transaction hash parameter';
-                document.getElementById('error').style.display = 'block';
+                showError('Missing transaction hash parameter');
                 return;
             }
 
+            document.getElementById('loading').style.display = 'block';
             try {
                 const resp = await fetch(`${EXPLORER_API_URL}/api/transactions/${hash}`);
                 // A failed reply is not "not found" — only a 404 or a proven
@@ -150,10 +165,16 @@
                     } catch (e) {
                         throw new Error('Transaction reply was not readable JSON');
                     }
+                    // The route answers a real 404 for a missing tx — an ok
+                    // body without a hash is a shape failure, not a probe
+                    // candidate.
+                    if (!data || !data.hash) {
+                        throw new Error('Transaction could not be loaded (reply was not the expected shape). This is not a "not found".');
+                    }
                 }
 
-                if (!data || !data.hash) {
-                    // Not a tx hash — try as block hash and redirect if found
+                if (!data) {
+                    // 404 — not a tx hash; try as block hash and redirect if found
                     const blockResp = await fetch(`${EXPLORER_API_URL}/api/blocks/by-hash/${hash}`);
                     if (!blockResp.ok && blockResp.status !== 404) {
                         throw new Error(`Transaction could not be loaded (HTTP ${blockResp.status}). This is not a "not found".`);
@@ -166,7 +187,10 @@
                             throw new Error('Transaction reply was not readable JSON');
                         }
                     }
-                    if (blockData && blockData.height) {
+                    if (blockResp.ok && (!blockData || blockData.height == null)) {
+                        throw new Error('Transaction could not be loaded (reply was not the expected shape). This is not a "not found".');
+                    }
+                    if (blockData && blockData.height != null) {
                         location.href = `/block.html?height=${blockData.height}`;
                         return;
                     }
@@ -233,8 +257,7 @@
                 document.getElementById('content').style.display = 'block';
             } catch (err) {
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').textContent = err.message || 'Failed to load transaction';
-                document.getElementById('error').style.display = 'block';
+                showError(err.message || 'Failed to load transaction', loadTransaction);
             }
         }
 

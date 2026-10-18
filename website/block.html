@@ -106,17 +106,32 @@
         }
 
 
+        function showError(msg, retry) {
+            const errEl = document.getElementById('error');
+            errEl.textContent = msg;
+            if (retry) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'bridge-retry';
+                btn.style.marginLeft = '0.75rem';
+                btn.textContent = 'Try again';
+                btn.addEventListener('click', retry);
+                errEl.appendChild(btn);
+            }
+            errEl.style.display = 'block';
+        }
+
         async function loadBlock() {
             const height = getParam('height');
             const hash = getParam('hash');
 
             if (!height && !hash) {
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').textContent = 'Missing block height or hash parameter';
-                document.getElementById('error').style.display = 'block';
+                showError('Missing block height or hash parameter');
                 return;
             }
 
+            document.getElementById('loading').style.display = 'block';
             try {
                 let data;
                 let resp;
@@ -138,8 +153,10 @@
                     throw new Error('Block reply was not readable JSON');
                 }
 
-                if (!data || !data.height) {
-                    throw new Error('Block not found');
+                // The route answers a real 404 for a missing block — an ok
+                // body without a height is a shape failure, not a not-found.
+                if (!data || data.height == null) {
+                    throw new Error('Block could not be loaded (reply was not the expected shape). This is not a "not found".');
                 }
 
                 document.title = `AITBC Block #${data.height}`;
@@ -198,8 +215,7 @@
                 document.getElementById('content').style.display = 'block';
             } catch (err) {
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').textContent = err.message || 'Failed to load block';
-                document.getElementById('error').style.display = 'block';
+                showError(err.message || 'Failed to load block', loadBlock);
             }
         }
 
