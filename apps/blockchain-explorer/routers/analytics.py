@@ -114,12 +114,16 @@ async def api_activity_timeline(
 
 @router.get("/api/analytics/network-stats")
 async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
-    """Get aggregate network stats: total AIT, active offers, unique nodes/providers"""
-    try:
-        chain_db_path = _chain_db_path()
-        if chain_db_path is None:
-            return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
+    """Aggregate network stats: total AIT, transfer volume, distinct offers
+    ever anchored on chain, unique nodes/providers, total transactions.
 
+    A chain database that is missing or unreadable answers 503 — a failed
+    read must never look like an empty chain.
+    """
+    chain_db_path = _chain_db_path()
+    if chain_db_path is None:
+        raise HTTPException(status_code=503, detail="chain database unavailable")
+    try:
         async with aiosqlite.connect(str(chain_db_path)) as conn:
             cursor = await conn.cursor()
 
@@ -149,7 +153,7 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
                 WHERE type IN ('GPU_MARKET', 'GPU_MARKETPLACE', 'GPU_REGISTER')
             """)
             row = await cursor.fetchone()
-            active_offers = (row[0] if row else 0) or 0
+            anchored_offers = (row[0] if row else 0) or 0
 
             # Unique sender addresses
             await cursor.execute("""
@@ -189,14 +193,21 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
         return {
             "total_ait": round(total_ait, 2),
             "transfer_volume_ait": round(transfer_volume, 2),
-            "active_offers": active_offers,
+            "anchored_offers": anchored_offers,
+            # Deprecated alias of anchored_offers, kept so existing readers
+            # do not break. Removal condition: the website reads
+            # anchored_offers (WEB-ANCHORED-1 live) and the CLI/MCP docs
+            # name the new field.
+            "active_offers": anchored_offers,
             "unique_nodes": unique_nodes,
             "unique_providers": unique_providers,
             "total_transactions": total_transactions,
         }
-    except Exception:
+    except HTTPException:
+        raise
+    except Exception as e:
         logger.exception("Error getting network stats")
-        return {"total_ait": 0, "active_offers": 0, "unique_nodes": 0, "unique_providers": 0, "total_transactions": 0}
+        raise HTTPException(status_code=503, detail="network stats unavailable") from e
 
 
 @router.get("/api/analytics/top-addresses")
