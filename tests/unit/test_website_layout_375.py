@@ -395,7 +395,17 @@ _FIXTURES = {
         "unique_providers": 3,
         "total_transactions": 100,
     },
-    "/api/analytics/activity": {"buckets": []},
+    # Real shape (routers/analytics.py): {labels, datasets:[{label,data,...}]}.
+    # One all-zero dataset exercises the labels.filter — the legend must show
+    # N=2 active types, not the 3 datasets returned.
+    "/api/analytics/activity": {
+        "labels": ["2026-10-16", "2026-10-17", "2026-10-18"],
+        "datasets": [
+            {"label": "TRANSFER", "data": [5, 7, 3], "backgroundColor": "#10b981"},
+            {"label": "ESCROW_LOCK", "data": [0, 0, 0], "backgroundColor": "#c4b5fd"},
+            {"label": "EXCHANGE", "data": [1, 0, 2], "backgroundColor": "#84cc16"},
+        ],
+    },
     "/api/analytics/provider-reputation/": {
         "score": 98,
         "level": "GOLD",
@@ -675,7 +685,7 @@ class TestLayout375Browser(unittest.TestCase):
             s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
 
-    def _measure(self, path: str, width: int = 375) -> dict:
+    def _measure(self, path: str, width: int = 375, expression: str = "") -> dict:
         import asyncio
         import websockets
 
@@ -705,7 +715,7 @@ class TestLayout375Browser(unittest.TestCase):
                 await send("Page.addScriptToEvaluateOnNewDocument", {"source": _STUB_JS})
                 await send("Page.navigate", {"url": f"http://127.0.0.1:{self.port}/{path}"})
                 await asyncio.sleep(2.5)
-                res = await send("Runtime.evaluate", {"expression": _MEASURE_JS, "returnByValue": True})
+                res = await send("Runtime.evaluate", {"expression": expression or _MEASURE_JS, "returnByValue": True})
                 val = res.get("result", {}).get("result", {}).get("value")
                 self.assertIsNotNone(val, f"{path}: measurement produced no result")
                 return json.loads(val)
@@ -748,6 +758,44 @@ class TestLayout375Browser(unittest.TestCase):
                 f"{w}px: bridge table scrolls inside .table-wrap "
                 f"({r['bridgeWrapSw']} > {r['bridgeWrapCw']}; table={r['bridgeTableSw']})",
             )
+
+    def test_legend_toggle_at_375_and_1280(self) -> None:
+        """WEB-LEGEND-1: at <=640px the chart legend starts collapsed behind a
+        visible >=44px toggle reading Types (N=filtered items); above 640px
+        the legend renders and the toggle is display:none (desktop unchanged).
+        """
+        expr = """
+        (() => {
+          const c = window.activityChartInstance;
+          const btn = document.getElementById('legend-toggle');
+          if (!c || !btn) return JSON.stringify({err: 'no chart or toggle'});
+          const r = btn.getBoundingClientRect();
+          return JSON.stringify({
+            legendH: c.legend ? c.legend.height : 0,
+            display: c.options.plugins.legend.display,
+            btnH: r.height,
+            hidden: btn.hidden,
+            cssDisplay: getComputedStyle(btn).display,
+            text: btn.textContent,
+            ariaExpanded: btn.getAttribute('aria-expanded'),
+          });
+        })()
+        """
+        r375 = self._measure("explorer.html", 375, expr)
+        self.assertIsNone(r375.get("err"), f"375px: {r375}")
+        self.assertFalse(r375["display"], "375px: legend must start collapsed")
+        self.assertLess(r375["legendH"], 40, "375px: collapsed legend box must free the space")
+        self.assertFalse(r375["hidden"], "375px: toggle must be visible with data")
+        self.assertNotEqual(r375["cssDisplay"], "none", "375px: toggle must render")
+        self.assertGreaterEqual(r375["btnH"], 44, "375px: toggle must be a 44px target")
+        self.assertEqual("false", r375["ariaExpanded"])
+        self.assertEqual("Types (2)", r375["text"], "N = active datasets (fixture: 3 sent, 1 zero)")
+
+        r1280 = self._measure("explorer.html", 1280, expr)
+        self.assertIsNone(r1280.get("err"), f"1280px: {r1280}")
+        self.assertTrue(r1280["display"], "1280px: legend must render as before")
+        self.assertGreater(r1280["legendH"], 0, "1280px: legend has height as before")
+        self.assertEqual("none", r1280["cssDisplay"], "1280px: toggle hidden on desktop")
 
 
 if __name__ == "__main__":
