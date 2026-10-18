@@ -247,3 +247,15 @@ Changelog and merge bookkeeping:
 - `e936458` docs(release): CHAIN-STALL-2 + deploy-rules.sh changelog entries
 - `62c2ac7` docs(release): cite the v0.25.9->v0.25.11 relocation in the v0.25.12 log
 - `4287c92` docs(release): CHAIN-STALL-1 changelog entry in a new v0.25.12 log
+
+### EXPL-STATS-1 — explorer-api network-stats: 503 on failed read + anchored_offers rename
+
+`GET /api/analytics/network-stats` no longer answers 200 with a
+zero-filled body when the chain database is missing or unreadable — both
+failure paths raise HTTP 503 ("chain database unavailable" / "network
+stats unavailable") so a failed read can never look like an empty chain.
+The success body adds `anchored_offers` (distinct offer keys ever
+anchored across GPU_MARKET/GPU_MARKETPLACE/GPU_REGISTER) and keeps
+`active_offers` as a deprecated alias with the same value; removal waits
+on the website reading the new name (WEB-ANCHORED-1) and docs. Tests
+cover the dual-name shape and all three failure cases.

@@ -1,9 +1,10 @@
 """Tests for GET /api/analytics/network-stats semantics.
 
 total_ait must be circulating supply (account balances converted from base
-units), transfer_volume_ait the labeled cumulative volume, and active_offers
+units), transfer_volume_ait the labeled cumulative volume, and anchored_offers
 the distinct offer anchors across GPU_MARKET/GPU_MARKETPLACE/GPU_REGISTER —
-the same keys the marketplace page uses for confirmation.
+the same keys the marketplace page uses for confirmation. A failed read
+answers 503, never zeros.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 from routers import analytics
 
@@ -52,10 +54,40 @@ def test_network_stats_supply_and_anchors(chain_db):
     stats = asyncio.run(analytics.api_network_stats())
     assert stats["total_ait"] == 3.0  # 108e6 units / 36e6
     assert stats["transfer_volume_ait"] == 1.0  # 36e6 units / 36e6
-    assert stats["active_offers"] == 3  # sw_1, sw_2, gpu-1 (distinct)
+    # new name and deprecated alias carry the same value
+    assert stats["anchored_offers"] == 3  # sw_1, sw_2, gpu-1 (distinct)
+    assert stats["active_offers"] == stats["anchored_offers"]
     assert stats["total_transactions"] == 5
     assert stats["unique_nodes"] == 1  # one sender
     assert stats["unique_providers"] == 0  # no provider fields in payloads
+
+
+def test_network_stats_no_db_path_is_503(monkeypatch):
+    monkeypatch.setattr(analytics, "_chain_db_path", lambda: None)
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(analytics.api_network_stats())
+    assert excinfo.value.status_code == 503
+
+
+def test_network_stats_db_without_table_is_503(tmp_path, monkeypatch):
+    db = tmp_path / "chain.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE account (chain_id VARCHAR, balance BIGINT)")
+    conn.commit()
+    conn.close()
+    monkeypatch.setattr(analytics, "_chain_db_path", lambda: db)
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(analytics.api_network_stats())
+    assert excinfo.value.status_code == 503
+
+
+def test_network_stats_unreadable_db_is_503(tmp_path, monkeypatch):
+    db = tmp_path / "chain.db"
+    db.write_bytes(b"not a sqlite database")
+    monkeypatch.setattr(analytics, "_chain_db_path", lambda: db)
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(analytics.api_network_stats())
+    assert excinfo.value.status_code == 503
 
 
 def test_network_stats_provider_fields(chain_db):
