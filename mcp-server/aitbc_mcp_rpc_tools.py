@@ -1614,7 +1614,7 @@ def create_cross_chain_swap(
     ],
     user_address: Annotated[
         str | None,
-        Field(description="User address."),
+        Field(description="User address (the swap's sender; the recipient defaults to this address)."),
     ] = None,
     slippage_tolerance: Annotated[
         float,
@@ -1622,7 +1622,35 @@ def create_cross_chain_swap(
     ] = 0.01,
     min_amount: Annotated[
         Decimal | None,
-        Field(description="Minimum acceptable output amount."),
+        Field(description="Minimum acceptable output amount (integer compute-units)."),
+    ] = None,
+    signature: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Sender signature authorizing the swap (hex). The route requires it — a body "
+                "without one is refused 403. Sign the dict "
+                '{"from_chain","to_chain","from_token","to_token","sender","recipient","amount",'
+                '"min_amount","slippage_tolerance"} plus "issued_at","nonce" when those are '
+                "supplied — canonical JSON (sort_keys, separators=(',',':')), keccak256, "
+                "secp256k1. sender is user_address; recipient defaults to sender; amount and "
+                "min_amount are integer compute-units (min_amount 0 when unset)."
+            )
+        ),
+    ] = None,
+    issued_at: Annotated[
+        int | None,
+        Field(
+            description=(
+                "Epoch seconds the signer stamped into the signed dict (±300 s of node time). "
+                "Required with nonce on nodes enforcing CROSS_CHAIN_REQUIRE_REPLAY_GUARD; omit "
+                "with nonce for the legacy form."
+            )
+        ),
+    ] = None,
+    nonce: Annotated[
+        str | None,
+        Field(description="Replay nonce included in the signed dict (non-empty string). Required with issued_at."),
     ] = None,
     dry_run: Annotated[
         bool,
@@ -1654,6 +1682,12 @@ def create_cross_chain_swap(
         body["user_address"] = user_address
     if min_amount is not None:
         body["min_amount"] = min_amount
+    if signature is not None:
+        body["signature"] = signature
+    if issued_at is not None:
+        body["issued_at"] = issued_at
+    if nonce is not None:
+        body["nonce"] = nonce
     return _http_write_tool(role, host, "blockchain-rpc", "cross-chain/swap", body, dry_run, confirm)
 
 
@@ -1673,12 +1707,43 @@ def create_cross_chain_bridge(
     ],
     amount: Annotated[
         Decimal,
-        Field(description="Amount to bridge.", gt=0),
+        Field(description="Amount to bridge (integer compute-units).", gt=0),
+    ],
+    sender: Annotated[
+        str,
+        Field(description="Sender address (source chain)."),
     ],
     recipient_address: Annotated[
         str,
         Field(description="Recipient address."),
     ],
+    signature: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Sender signature authorizing the bridge (hex). The route requires it — a body "
+                "without one is refused 403. Sign the dict "
+                '{"source_chain","target_chain","sender","recipient","amount","asset"} plus '
+                '"issued_at","nonce" when those are supplied — canonical JSON '
+                "(sort_keys, separators=(',',':')), keccak256, secp256k1. asset is the token "
+                "value; recipient is recipient_address; amount is integer compute-units."
+            )
+        ),
+    ] = None,
+    issued_at: Annotated[
+        int | None,
+        Field(
+            description=(
+                "Epoch seconds the signer stamped into the signed dict (±300 s of node time). "
+                "Required with nonce on nodes enforcing CROSS_CHAIN_REQUIRE_REPLAY_GUARD; omit "
+                "with nonce for the legacy form."
+            )
+        ),
+    ] = None,
+    nonce: Annotated[
+        str | None,
+        Field(description="Replay nonce included in the signed dict (non-empty string). Required with issued_at."),
+    ] = None,
     dry_run: Annotated[
         bool,
         Field(description="Show the command without executing it."),
@@ -1702,8 +1767,15 @@ def create_cross_chain_bridge(
         "target_chain": target_chain,
         "token": token,
         "amount": amount,
+        "sender": sender,
         "recipient_address": recipient_address,
     }
+    if signature is not None:
+        body["signature"] = signature
+    if issued_at is not None:
+        body["issued_at"] = issued_at
+    if nonce is not None:
+        body["nonce"] = nonce
     return _http_write_tool(role, host, "blockchain-rpc", "cross-chain/bridge", body, dry_run, confirm)
 
 
@@ -1727,7 +1799,15 @@ def bridge_lock(
     ],
     signature: Annotated[
         str,
-        Field(description="Sender signature authorizing the lock."),
+        Field(
+            description=(
+                "Sender signature authorizing the lock (hex). Sign the dict "
+                '{"source_chain","target_chain","sender","recipient","amount","asset"} plus '
+                '"issued_at","nonce" when those are supplied — canonical JSON '
+                "(sort_keys, separators=(',',':')), keccak256, secp256k1. amount is integer "
+                "compute-units; source_chain is the resolved chain ID or empty string."
+            )
+        ),
     ],
     asset: Annotated[
         str | None,
@@ -1736,6 +1816,20 @@ def bridge_lock(
     source_chain: Annotated[
         str | None,
         Field(description="Source chain ID (defaults to this chain)."),
+    ] = None,
+    issued_at: Annotated[
+        int | None,
+        Field(
+            description=(
+                "Epoch seconds the signer stamped into the signed dict (±300 s of node time). "
+                "Required with nonce on nodes enforcing BRIDGE_LOCK_REQUIRE_REPLAY_GUARD; omit "
+                "with nonce for the legacy six-field form."
+            )
+        ),
+    ] = None,
+    nonce: Annotated[
+        str | None,
+        Field(description="Replay nonce included in the signed dict (non-empty string). Required with issued_at."),
     ] = None,
     dry_run: Annotated[
         bool,
@@ -1765,6 +1859,10 @@ def bridge_lock(
     }
     if source_chain is not None:
         body["source_chain"] = source_chain
+    if issued_at is not None:
+        body["issued_at"] = issued_at
+    if nonce is not None:
+        body["nonce"] = nonce
     return _http_write_tool(role, host, "blockchain-rpc", "bridge/lock", body, dry_run, confirm)
 
 
