@@ -17,7 +17,7 @@
 ## See Also
 
 - **🔧 SETUP_PRODUCTION.md** - Production blockchain setup
-- **📋 [Advanced Deployment](../deployment/0_index.md)** - Advanced deployment topics
+- **📋 [Advanced Deployment](../deployment/README.md)** - Advanced deployment topics
 - **📚 [Contracts Directory](../../contracts/)** - Contract source code
 
 ---
