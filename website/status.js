@@ -35,6 +35,13 @@
             if (isNaN(t.getTime())) return '';
             return t.toLocaleTimeString('en-GB');
         },
+        // Transaction-type labels for display: API types arrive as
+        // SCREAMING_SNAKE ("BRIDGE_LOCK"); pages render "Bridge lock".
+        // Idempotent, so a value that is already humanized passes through.
+        type: function (v) {
+            var s = String(v == null ? '' : v).replace(/_/g, ' ').toLowerCase();
+            return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+        },
         // Short label for the viewer's local zone (e.g. "GMT+2", "CEST",
         // "EST" — engine-dependent), with a UTC±n fallback. Pairs with
         // date()/time() so a local-clock stamp is never labelled "UTC"
