@@ -192,5 +192,5 @@ The AITBC platform consists of:
 ## Related Documents
 
 - [Security Architecture](2_security-architecture.md)
-- [Audit Findings](audit-findings.md)
+- [Audit Findings](../archive/security/audit-findings.md)
 - [Economic Analysis](economic-analysis.md)

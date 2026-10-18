@@ -8,7 +8,7 @@ This directory contains documentation for Agent agents and their integrations wi
 
 - **[blockchain/](./blockchain/)** - Agent agent blockchain integration documentation
   - [Overview](./blockchain/overview.md) - Main overview and getting started
-  - [Staking](./blockchain/staking.md) - On-chain staking operations
+  - [Staking](../archive/agent/blockchain/staking.md) - On-chain staking operations
   - [Identity](./blockchain/identity.md) - Agent identity on-chain registration
   - [Governance](./blockchain/governance.md) - On-chain governance operations
   - [GPU Resources](./blockchain/gpu-resources.md) - GPU resource tracking on-chain
