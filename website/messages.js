@@ -181,8 +181,15 @@
             if (m.hidden) head.appendChild(el('span', 'msg-badge msg-badge-hidden', 'HIDDEN BY MODERATOR'));
 
             const author = m.author || m.sender || '';
-            const authorLink = el('a', 'clickable-value msg-author', sanitizeChainText(author));
+            // Same shortened form the other pages use — full value stays
+            // discoverable via title/aria-label and the copy button.
+            const authorShort = author.length > 14 ? `${author.slice(0, 8)}…${author.slice(-6)}` : author;
+            const authorLink = el('a', 'clickable-value msg-author', sanitizeChainText(authorShort));
             authorLink.href = `/author.html?a=${encodeURIComponent(author)}`;
+            if (authorShort !== author) {
+                authorLink.title = author;
+                authorLink.setAttribute('aria-label', author);
+            }
             head.appendChild(authorLink);
             if (author && typeof aitbcCopyBtn === 'function') {
                 head.insertAdjacentHTML('beforeend', aitbcCopyBtn(author, 'author address'));
