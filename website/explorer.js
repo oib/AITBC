@@ -531,10 +531,27 @@ document.addEventListener('DOMContentLoaded', function() {
             searchFailed(query, hardFail.err || `HTTP ${hardFail.status}`);
             return;
         }
-        const txN = txs.ok ? (txs.data.transactions || []).length : 0;
-        const blkN = blocks.ok ? (blocks.data.blocks || []).length : 0;
-        const msgLegFailed = !msgs.ok && msgs.status !== 404;
-        const msgN = msgs.ok ? (msgs.data.messages || []).length : 0;
+        // An ok reply is only a proven-empty when it carries the array —
+        // an ok body without it ("{}") is a shape failure, not a zero.
+        const legItems = (r, key) => (r.data && Array.isArray(r.data[key])) ? r.data[key] : null;
+        const txArr = txs.ok ? legItems(txs, 'transactions') : null;
+        const blkArr = blocks.ok ? legItems(blocks, 'blocks') : null;
+        const msgArr = msgs.ok ? legItems(msgs, 'messages') : null;
+        // A hard leg answered ok but without its list — inconclusive,
+        // not "nothing found".
+        if ((txs.ok && txArr === null) || (blocks.ok && blkArr === null)) {
+            searchFailed(query, 'reply was not the expected shape');
+            return;
+        }
+        // The messages leg is proxied: any non-ok (incl. 404 — a missing
+        // route cannot prove "no match") or shapeless ok degrades it.
+        const msgLegFailed = !msgs.ok || (msgs.ok && msgArr === null);
+        const msgLegReason = msgs.ok
+            ? 'reply was not the expected shape'
+            : (msgs.err || `HTTP ${msgs.status}`);
+        const txN = txArr ? txArr.length : 0;
+        const blkN = blkArr ? blkArr.length : 0;
+        const msgN = msgArr ? msgArr.length : 0;
         if (txN + blkN + msgN > 0) {
             const parts = [
                 txN ? plural(txN, 'transaction') : null,
@@ -550,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         if (msgLegFailed) {
-            searchFailed(query, `messages leg: ${msgs.err || `HTTP ${msgs.status}`}`);
+            searchFailed(query, `messages leg: ${msgLegReason}`);
             return;
         }
         searchNothingFound(query);

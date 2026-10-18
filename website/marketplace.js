@@ -91,16 +91,9 @@ function renderOffersFailed(reason) {
 }
 
 async function fetchOffers() {
-    // Build query parameters based on current filters
-    const params = new URLSearchParams();
-    if (currentFilter !== 'all') {
-        params.append('service_type', currentFilter);
-    }
-    if (currentStatusFilter !== 'all') {
-        params.append('status', currentStatusFilter);
-    }
-
-    const r = await readJson(`/v1/market/offer?${params.toString()}`);
+    // Always fetch the full list; filters are applied client-side so a
+    // filter that matches nothing can never be misread as an empty market.
+    const r = await readJson('/v1/market/offer');
     const data = r.data;
     if (!r.ok || !data || !Array.isArray(data.offers)) {
         const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
