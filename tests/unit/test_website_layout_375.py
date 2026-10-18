@@ -246,6 +246,19 @@ class TestLayoutHeuristics(unittest.TestCase):
         self.assertIn("max-width: 100%", m.group(1), ".topic-item must cap at the card's content width")
         self.assertIn("min-height: 44px", m.group(1), ".topic-item lost the 44px touch target")
 
+    def test_no_sub_11px_font_sizes(self) -> None:
+        # WEB-POLISH-1 item 3: nothing may render body text below ~11px.
+        # The --font-xs token (0.72rem ≈ 11.5px) is the floor; any literal
+        # rem/em/px size under it is a regression. rem→px at the 16px root.
+        self.assertIn("--font-xs: 0.72rem", self.css)
+        bad: list[str] = []
+        for m in re.finditer(r"font-size:\s*([0-9.]+)(px|rem|em)\b", self.css):
+            v, unit = float(m.group(1)), m.group(2)
+            px = v if unit == "px" else v * 16
+            if px < 11:
+                bad.append(f"font-size: {m.group(0)} ≈ {px:.1f}px")
+        self.assertEqual([], bad, "font sizes under 11px:\n" + "\n".join(bad))
+
 
 # ---------------------------------------------------------------------------
 # Browser layer — skipped cleanly when no browser exists
