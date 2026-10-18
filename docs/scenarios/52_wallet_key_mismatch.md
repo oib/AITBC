@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Wallet Key Mismatch Recovery
 
 ## See Also
 
-- **Previous Scenario**: [Scenario 49 Auto Reinvest Escrow](./49_auto_reinvest_escrow.md)
+- **Previous Scenario**: [Scenario 49 Auto Reinvest Escrow](../archive/scenarios/49_auto_reinvest_escrow.md)
 - **Feature Documentation**: [Wallet key mismatch guidance](../../AGENTS.md#wallet-key-mismatches)
 - **Closed cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) operations gap #12
 

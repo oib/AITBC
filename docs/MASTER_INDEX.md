@@ -60,7 +60,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 881
+- **Markdown files under docs/**: 876
 
 | Directory | Files | Description |
 |---|---|---|
@@ -70,7 +70,7 @@ docs/
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
 | [apps](apps/) | 34 | Application catalog and per-app landing pages |
 | [architecture](architecture/) | 15 | System architecture and design patterns |
-| [archive](archive/) | 47 | Historical documents and archive |
+| [archive](archive/) | 50 | Historical documents and archive |
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 17 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
@@ -92,7 +92,7 @@ docs/
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 62 | End-to-end usage scenarios |
+| [scenarios](scenarios/) | 54 | End-to-end usage scenarios |
 | [security](security/) | 23 | Security architecture and audits |
 | [testing](testing/) | 6 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |

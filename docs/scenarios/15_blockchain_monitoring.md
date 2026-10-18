@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Blockchain Monitoring
 
 ## See Also
 
-- **Previous Scenario**: [Staking Basics](./14_staking_basics.md)
+- **Previous Scenario**: [Staking Basics](../archive/scenarios/14_staking_basics.md)
 - **Next Scenario**: [Agent Registration](./16_agent_registration.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
 - **Feature Documentation**: [Monitor CLI source](../../cli/aitbc_cli/commands/monitor.py), [Explorer CLI source](../../cli/aitbc_cli/commands/explorer.py)
