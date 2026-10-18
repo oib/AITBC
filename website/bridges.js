@@ -143,11 +143,16 @@ function shortChain(c) {
 
 function transferParts(d) {
     const time = d.confirm_time || d.lock_time;
-    const when = time ? escapeHtml(aitbcFmt.date(time)) : '-';
+    // Date and time are separate spans so the table can stack them on two
+    // lines (aitbcFmt.date gives "YYYY-MM-DD HH:mm"); cards keep them inline.
+    const whenParts = time ? aitbcFmt.date(time).split(' ') : ['-'];
+    const when = whenParts.map((p, i) => `<span class="bridge-when-${i === 0 ? 'date' : 'time'}">${escapeHtml(p)}</span>`).join(' ');
     const whenNote = time ? (d.confirm_time ? 'confirmed' : 'locked') : '';
     const srcChain = String(d.source_chain || '-');
     const tgtChain = String(d.target_chain || '-');
-    const routeHtml = `<span title="${escapeHtml(srcChain)} &rarr; ${escapeHtml(tgtChain)}">${escapeHtml(shortChain(srcChain))} &rarr; ${escapeHtml(shortChain(tgtChain))}</span>`;
+    // Source and target are separate spans so the table can stack them
+    // (source, then "→ target"); cards keep them on one line.
+    const routeHtml = `<span title="${escapeHtml(srcChain)} &rarr; ${escapeHtml(tgtChain)}"><span class="bridge-route-src">${escapeHtml(shortChain(srcChain))}</span> <span class="bridge-route-tgt">&rarr; ${escapeHtml(shortChain(tgtChain))}</span></span>`;
     const senderHtml = shortAddr(d.sender);
     const sameAsSender = d.sender && d.recipient
         && String(d.sender).toLowerCase() === String(d.recipient).toLowerCase();
