@@ -57,9 +57,6 @@ print(f'GPU: {cuda.Device(0).name()}')
 "
 ```
 
-See also: [GPU Issues](../troubleshooting/gpu-issues.md) for troubleshooting
-`cuInit error 999` and other CUDA container problems.
-
 ### CUDA Installation
 
 ```bash

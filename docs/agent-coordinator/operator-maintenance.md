@@ -72,7 +72,6 @@ done
 ## Related Topics
 
 - [Deployment](./operator-deployment.md) - Installation and service configuration
-- [Backup and Recovery](./operator-backup.md) - Redis backup and service configuration backup
 - [Monitoring](./operator-monitoring.md) - Health checks and agent monitoring
 
 > Auth note: `/v1/agents/{id}/status` requires an authorized principal (agent-scoped credential or admin) — see `API.md`/`docs/security/agent-signed-envelopes.md` for the credential format.

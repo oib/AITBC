@@ -48,4 +48,3 @@ Use HTTPS in production.
 
 - [Deployment](./operator-deployment.md) - Installation and service configuration
 - [Performance Tuning](./operator-performance.md) - Load balancing and resource limits
-- [Scaling](./operator-scaling.md) - Horizontal scaling and Redis clustering
