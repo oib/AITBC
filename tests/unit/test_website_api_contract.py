@@ -336,7 +336,8 @@ def _server_level_text(text: str) -> str:
 # verbatim — a config sync that drops them fails the guard test.
 EXPECTED_SERVER_HEADERS = [
     'Referrer-Policy "strict-origin-when-cross-origin" always',
-    "Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report\" always",
+    "Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report; report-to csp-endpoint\" always",
+    'Reporting-Endpoints "csp-endpoint=\\"/csp-report\\"" always',
     'Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always',
     'Strict-Transport-Security "max-age=31536000; includeSubDomains" always',
 ]
@@ -1125,8 +1126,10 @@ http {{
     def _security_headers(self, hs: dict, ctx: str) -> list[str]:
         bad = []
         csp = " ".join(hs.get("content-security-policy", []))
-        if "style-src 'self'" not in csp or "report-uri /csp-report" not in csp:
+        if "style-src 'self'" not in csp or "report-uri /csp-report" not in csp or "report-to csp-endpoint" not in csp:
             bad.append(f"{ctx}: enforcing strict-style CSP missing ({csp})")
+        if 'csp-endpoint="/csp-report"' not in " ".join(hs.get("reporting-endpoints", [])):
+            bad.append(f"{ctx}: Reporting-Endpoints header missing")
         if not hs.get("strict-transport-security"):
             bad.append(f"{ctx}: HSTS missing")
         if "nosniff" not in " ".join(hs.get("x-content-type-options", [])):
