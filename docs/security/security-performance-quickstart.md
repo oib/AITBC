@@ -1,6 +1,6 @@
-# AITBC Quick Start Guide - New Security & Performance Features
+# AITBC Security & Performance APIs — Quick Start
 
-This guide helps you quickly get started with the new security and performance features in AITBC.
+This guide is a quick tour of the `aitbc.crypto.secrets`, `aitbc.security.validators`, `aitbc.caching` and `aitbc.database` APIs. It is not an installation guide — see [getting-started/installation/quick-start.md](../getting-started/installation/quick-start.md) for that. The full reference is [security/performance-features.md](performance-features.md).
 
 ## 🚀 5-Minute Quick Start
 

@@ -4,7 +4,7 @@ This is the documentation hub for AITBC. For the product overview and
 welcome page, see the root [README](../README.md); for the full file
 catalog, see the [master index](MASTER_INDEX.md). New to the network:
 [getting started](getting-started/README.md), then
-[quick start](getting-started/quick-start.md).
+[quick start](getting-started/installation/quick-start.md).
 
 ## Pick your path
 
@@ -66,9 +66,6 @@ Operator procedures for the live fleet:
 - [Manual escrow refund](ops/manual-refund-runbook.md) — the operator path
   for refunding a still-held escrow (no auto-refund sweeper): refundable
   states, the admin refund call, pre-checks, and the double-settlement stop.
-- [Legacy escrow residue payout](ops/legacy-escrow-residue-payout.md) —
-  the Option-A batch runbook: one authority-signed ESCROW_RELEASE per
-  legacy custody account, paid to the provider in the sealed lock.
 - [Legacy escrow residue payout](ops/legacy-escrow-residue-payout.md) —
   the Option-A batch runbook: one authority-signed ESCROW_RELEASE per
   legacy custody account, paid to the provider in the sealed lock.

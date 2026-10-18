@@ -19,7 +19,7 @@ breadcrumb: Home > Scenarios > Genesis Deployment
 - **Previous Scenario**: [Transaction Sending](./02_transaction_sending.md)
 - **Next Scenario**: [Messaging Basics](./04_messaging_basics.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Agent SDK Overview**: [Agent SDK Overview](../agent-sdk/AGENT_SDK_OVERVIEW.md)
+- **Agent SDK Overview**: [Agent SDK overview](../agent-sdk/README.md)
 
 ---
 
@@ -333,7 +333,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 ## Related Resources
 
 - [Agent SDK Documentation](../agent-sdk/README.md)
-- [Agent SDK Overview](../agent-sdk/AGENT_SDK_OVERVIEW.md)
+- [Agent SDK overview](../agent-sdk/README.md)
 - [Previous Scenario: Transaction Sending](./02_transaction_sending.md)
 - [Next Scenario: Messaging Basics](./04_messaging_basics.md)
 
