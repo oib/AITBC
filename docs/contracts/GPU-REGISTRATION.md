@@ -35,7 +35,7 @@ A GPU's registrant removes it from the market with a `GPU_DEREGISTER` transactio
 - The market service's default offer listing leaves deactivated GPUs out; `status=deactivated`
   lists them.
 - Active only from `STATE_TRANSITION_V10_HEIGHT` (see
-  [ENVIRONMENT_CONFIGURATION.md](../blockchain/ENVIRONMENT_CONFIGURATION.md)); the height is
+  [ENVIRONMENT_CONFIGURATION.md](../deployment/environment-configuration.md)); the height is
   baked into `config.py` as the default 32100 since the fleet-wide activation on
   2026-10-02, and an env value only overrides that default. Below the height the node
   refuses the transaction at admission, and a copy sealed below it replays as a plain

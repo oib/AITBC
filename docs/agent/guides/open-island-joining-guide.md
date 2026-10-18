@@ -124,7 +124,7 @@ credentials. Request them from the hub operator over an authenticated channel **
 also run `aitbc-wallet`, `aitbc-agent-coordinator`, or `aitbc-blockchain-event-bridge`, and
 install with `chmod 600`.
 
-> **For detailed environment configuration:** See [Environment Configuration Guide](../../blockchain/ENVIRONMENT_CONFIGURATION.md) for complete reference on all three environment files.
+> **For detailed environment configuration:** See [Environment Configuration Guide](../../deployment/environment-configuration.md) for complete reference on all three environment files.
 
 ### Step 3: Create Node Configuration
 
