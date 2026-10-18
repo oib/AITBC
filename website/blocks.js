@@ -82,8 +82,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return;
         }
-        blocksLastGoodAt = Date.now();
-
         if (blocks.length > 0) {
             // A throw while drawing cards is a named failure, never a page
             // that reads as still loading.
@@ -100,6 +98,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     container.insertAdjacentHTML('beforeend', html);
                 }
+                // Only a successful render marks "last good" — the stale
+                // note must age the rows actually on screen.
+                blocksLastGoodAt = Date.now();
             } catch (e) {
                 const reason = `display error: ${e.message}`;
                 const feedStatus = document.getElementById('sr-announcer');
