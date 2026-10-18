@@ -7,7 +7,7 @@
 # forced test packages into every production install and pinned
 # coverage==7.15.4 against the root lock's 7.13.5 -- so
 # `pip check` failed fleet-wide. They live in setup.py's extras_require["dev"]
-# and in the repo's requirements-test.txt tier instead. See docs/fleet-roles.md.
+# and in the repo's requirements-test.txt tier instead. See docs/deployment/fleet-roles.md.
 
 annotated-types==0.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 anyio==4.14.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"

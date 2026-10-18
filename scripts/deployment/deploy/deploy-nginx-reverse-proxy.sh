@@ -3,7 +3,7 @@
 # Deploy nginx reverse proxy for AITBC services
 # This replaces firehol/iptables port forwarding with nginx reverse proxy
 
-set -e
+set -euo pipefail
 
 # shellcheck source=scripts/deployment/deploy/deploy-env.sh
 source "$(dirname "$0")/deploy-env.sh"
@@ -81,7 +81,7 @@ EOF
 # This script no longer obtains or installs a certificate. AITBC runs no ACME
 # client: certificates belong to whoever operates the TLS terminator, which is
 # outside this repository. See docs/deployment/NETWORK_POLICY.md and
-# docs/deployment/ssl-tls-setup.md.
+# docs/security/ssl-tls-configuration.md.
 #
 # If the vhost just installed references a certificate path, that certificate
 # must already be present -- `nginx -t` above is what will tell you.

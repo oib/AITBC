@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Check for undocumented mypy: ignore-errors comments
-# This script ensures that any new # mypy: ignore-errors comments are documented in docs/TYPE_CHECKING.md
+# This script ensures that any new # mypy: ignore-errors comments are documented in docs/development/TYPE_CHECKING.md
 
 set -euo pipefail
 
@@ -28,10 +28,10 @@ echo "$TYPE_IGNORE_FILES"
 echo ""
 
 # Check if TYPE_CHECKING.md exists
-TYPE_CHECKING_MD="/opt/aitbc/docs/TYPE_CHECKING.md"
+TYPE_CHECKING_MD="/opt/aitbc/docs/development/TYPE_CHECKING.md"
 if [ ! -f "$TYPE_CHECKING_MD" ]; then
-    echo -e "${RED}✗ ERROR: docs/TYPE_CHECKING.md does not exist${NC}"
-    echo "Please create TYPE_CHECKING.md to document type checking debt"
+    echo -e "${RED}✗ ERROR: docs/development/TYPE_CHECKING.md does not exist${NC}"
+    echo "Please create docs/development/TYPE_CHECKING.md to document type checking debt"
     exit 1
 fi
 
@@ -46,7 +46,7 @@ while IFS= read -r line; do
 
     # Check if file is documented in TYPE_CHECKING.md
     if ! grep -q "$REL_PATH" "$TYPE_CHECKING_MD"; then
-        echo -e "${RED}✗ ERROR: $REL_PATH has # mypy: ignore-errors but is not documented in docs/TYPE_CHECKING.md${NC}"
+        echo -e "${RED}✗ ERROR: $REL_PATH has # mypy: ignore-errors but is not documented in docs/development/TYPE_CHECKING.md${NC}"
         ERRORS=$((ERRORS + 1))
     fi
 done <<< "$TYPE_IGNORE_FILES"
@@ -54,13 +54,13 @@ done <<< "$TYPE_IGNORE_FILES"
 if [ $ERRORS -gt 0 ]; then
     echo ""
     echo -e "${RED}✗ Found $ERRORS undocumented mypy: ignore-errors comment(s)${NC}"
-    echo "Please document these in docs/TYPE_CHECKING.md with:"
+    echo "Please document these in docs/development/TYPE_CHECKING.md with:"
     echo "  - File path"
     echo "  - Reason for the ignore"
     echo "  - Target fix date"
     echo "  - Action plan"
     exit 1
 else
-    echo -e "${GREEN}✓ All mypy: ignore-errors comments are documented in docs/TYPE_CHECKING.md${NC}"
+    echo -e "${GREEN}✓ All mypy: ignore-errors comments are documented in docs/development/TYPE_CHECKING.md${NC}"
     exit 0
 fi
