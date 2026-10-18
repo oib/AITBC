@@ -2,8 +2,11 @@
 
 The six-field lock dict is replayable; wallet-signed locks now add
 ``issued_at`` (epoch seconds) and ``nonce`` (random 16-byte hex) inside the
-signed dict, and send both in the request. The raw ``--signature`` path stays
-old-form for compatibility while the server flag is off.
+signed dict, and send both in the request.
+
+CALLERS-NEWFORM-1: the raw ``--signature`` path accepts ``--issued-at`` /
+``--nonce`` so an external signer can submit the replay-guarded form; both or
+neither is required, and the old form still sends with a warning.
 """
 
 import json
@@ -106,3 +109,64 @@ class TestLockWalletSign:
         kwargs = client.lock.call_args.kwargs
         assert kwargs["issued_at"] is None and kwargs["nonce"] is None
         assert kwargs["signature"] == "0x" + "ee" * 65
+
+    _RAW_ARGS = [
+        "--target-chain",
+        "ait-side",
+        "--sender",
+        "0x" + "dd" * 20,
+        "--recipient",
+        "0x" + "cc" * 20,
+        "--amount",
+        "3600000",
+        "--signature",
+        "0x" + "ee" * 65,
+    ]
+
+    def test_raw_signature_with_replay_fields(self, runner):
+        client = _fake_client()
+        with mock.patch.object(bridge_mod, "_get_bridge_client", return_value=client):
+            result = runner.invoke(
+                lock,
+                obj={"output_format": "table"},
+                args=[*self._RAW_ARGS, "--issued-at", "1760000000", "--nonce", "ab12cd34"],
+            )
+        assert result.exit_code == 0, result.output
+        kwargs = client.lock.call_args.kwargs
+        assert kwargs["issued_at"] == 1760000000
+        assert kwargs["nonce"] == "ab12cd34"
+
+    def test_raw_signature_old_form_warns(self, runner):
+        client = _fake_client()
+        with mock.patch.object(bridge_mod, "_get_bridge_client", return_value=client):
+            result = runner.invoke(
+                lock,
+                obj={"output_format": "table"},
+                args=self._RAW_ARGS,
+            )
+        assert result.exit_code == 0, result.output
+        assert "old-form" in result.output
+
+    def test_issued_at_without_nonce_fails(self, runner):
+        client = _fake_client()
+        with mock.patch.object(bridge_mod, "_get_bridge_client", return_value=client):
+            result = runner.invoke(
+                lock,
+                obj={"output_format": "table"},
+                args=[*self._RAW_ARGS, "--issued-at", "1760000000"],
+            )
+        assert result.exit_code != 0
+        assert "given together" in result.output
+        client.lock.assert_not_called()
+
+    def test_nonce_without_issued_at_fails(self, runner):
+        client = _fake_client()
+        with mock.patch.object(bridge_mod, "_get_bridge_client", return_value=client):
+            result = runner.invoke(
+                lock,
+                obj={"output_format": "table"},
+                args=[*self._RAW_ARGS, "--nonce", "ab12cd34"],
+            )
+        assert result.exit_code != 0
+        assert "given together" in result.output
+        client.lock.assert_not_called()
