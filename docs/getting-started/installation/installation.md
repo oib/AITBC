@@ -69,7 +69,7 @@ Architecture: x86_64/arm64
 
 Services load env files from `/etc/aitbc/` — per-app `.env` files inside
 `apps/` are not read by the packaged units. See
-[ENVIRONMENT_CONFIGURATION](../../blockchain/ENVIRONMENT_CONFIGURATION.md)
+[ENVIRONMENT_CONFIGURATION](../../deployment/environment-configuration.md)
 for the full reference.
 
 ### Coordinator API (`/etc/aitbc/aitbc-coordinator-api.env` + shared files)

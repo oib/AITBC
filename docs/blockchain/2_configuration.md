@@ -28,7 +28,7 @@ When run outside systemd, `ChainSettings` also auto-reads
 empty string to load no env file — used by tests).
 
 For the full field reference see
-[ENVIRONMENT_CONFIGURATION.md](./ENVIRONMENT_CONFIGURATION.md). The most
+[ENVIRONMENT_CONFIGURATION.md](../deployment/environment-configuration.md). The most
 commonly touched settings are summarized below.
 
 ## Chain Identity

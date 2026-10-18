@@ -9,7 +9,7 @@ variables with no fleet-specific defaults.
 
 This page is the reference for them. Nothing here is a node runtime setting —
 for `/etc/aitbc/*.env` see [configuration.md](./configuration.md) and
-[ENVIRONMENT_CONFIGURATION.md](../blockchain/ENVIRONMENT_CONFIGURATION.md).
+[ENVIRONMENT_CONFIGURATION.md](environment-configuration.md).
 
 ## Fleet addressing
 
@@ -80,4 +80,4 @@ keystore lives elsewhere.
 ## See also
 
 - [Deployment configuration](./configuration.md)
-- [Blockchain environment configuration](../blockchain/ENVIRONMENT_CONFIGURATION.md)
+- [Blockchain environment configuration](environment-configuration.md)
