@@ -2698,6 +2698,11 @@ a.btn-secondary {
 .bridge-when { white-space: nowrap; }
 .bridge-route { white-space: nowrap; }
 .bridge-when-note { display: block; color: var(--text-muted); font-size: 0.7rem; }
+/* Table only: date over time, and source chain over "→ target chain". */
+.bridge-table .bridge-when-date,
+.bridge-table .bridge-when-time,
+.bridge-table .bridge-route-src,
+.bridge-table .bridge-route-tgt { display: block; }
 
 .bridge-cards { display: none; }
 .bridge-card-item {
