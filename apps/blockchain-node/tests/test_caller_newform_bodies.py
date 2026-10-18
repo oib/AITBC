@@ -206,3 +206,36 @@ class TestCallerShapedBodiesFlagsOn:
         _fund(engine, "chain-a", sender_account.address.lower(), 10_000_000)
         resp = client.post("/cross-chain/bridge", json=_mcp_cc_bridge_body(sender_account, guarded=False))
         assert resp.status_code == 400, resp.text
+
+
+class TestOmittedSourceChainResolution:
+    """CLI-SRCCHAIN-1: a body omitting ``source_chain`` is verified against the
+    node's resolved chain ID — sign that value, never ``""`` (live 403)."""
+
+    def _body(self, sender: EthAccount, *, signed_chain: str) -> dict[str, Any]:
+        sign_data: dict[str, Any] = {
+            "source_chain": signed_chain,
+            "target_chain": "chain-b",
+            "sender": sender.address,
+            "recipient": "0x" + "cc" * 20,
+            "amount": 3_600_000,
+            "asset": "native",
+            "issued_at": int(time.time()),
+            "nonce": "srcchain-1",
+        }
+        body = dict(sign_data)
+        del body["source_chain"]  # the field the old CLI omitted from the body
+        body["signature"] = _sign(sender.key.hex(), sign_data)
+        return body
+
+    def test_resolved_chain_id_signed_accepted(self, client: TestClient, engine, sender_account, monkeypatch) -> None:
+        monkeypatch.setattr("aitbc_chain.config.settings.chain_id", "chain-a")
+        _fund(engine, "chain-a", sender_account.address.lower(), 10_000_000)
+        resp = client.post("/bridge/lock", json=self._body(sender_account, signed_chain="chain-a"))
+        assert resp.status_code == 200, resp.text
+
+    def test_empty_string_signed_refused(self, client: TestClient, engine, sender_account, monkeypatch) -> None:
+        monkeypatch.setattr("aitbc_chain.config.settings.chain_id", "chain-a")
+        _fund(engine, "chain-a", sender_account.address.lower(), 10_000_000)
+        resp = client.post("/bridge/lock", json=self._body(sender_account, signed_chain=""))
+        assert resp.status_code == 403, resp.text
