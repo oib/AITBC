@@ -222,6 +222,65 @@ document.addEventListener('DOMContentLoaded', function() {
     // the choice must live outside it).
     let legendCollapsed = null;
 
+    // WEB-LEGEND-3: dataset labels the user hid — lives outside the chart
+    // like legendCollapsed so per-type choices survive the 30 s rebuild.
+    const hiddenTypes = new Set();
+
+    function chartDatasetVisible(chart, i) {
+        return chart.isDatasetVisible ? chart.isDatasetVisible(i) : !(chart.data.datasets[i] || {}).hidden;
+    }
+
+    function setChartDatasetVisible(chart, i, visible) {
+        if (chart.setDatasetVisibility) chart.setDatasetVisibility(i, visible);
+        else chart.data.datasets[i].hidden = !visible;
+    }
+
+    function rememberDatasetVisible(chart, i) {
+        const ds = chart.data.datasets[i];
+        if (!ds || !ds.label) return;
+        if (chartDatasetVisible(chart, i)) hiddenTypes.delete(ds.label);
+        else hiddenTypes.add(ds.label);
+    }
+
+    // Compact per-type filter rendered only while the canvas legend is
+    // collapsed (display === false) — the expanded Chart.js legend already
+    // toggles series natively, so the chips never sit next to it.
+    function syncLegendChips() {
+        const box = document.getElementById('legend-chips');
+        if (!box) return;
+        const chart = window.activityChartInstance;
+        if (!chart || chart.options.plugins.legend.display !== false) {
+            box.hidden = true;
+            box.innerHTML = '';
+            return;
+        }
+        box.innerHTML = '';
+        (chart.data.datasets || []).forEach(function (ds, i) {
+            if (!datasetHasActivity(ds)) return;
+            const visible = chartDatasetVisible(chart, i);
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'legend-chip';
+            chip.setAttribute('aria-pressed', String(visible));
+            const swatch = document.createElement('span');
+            swatch.className = 'legend-chip-swatch';
+            swatch.style.setProperty('--chip-color', ds.backgroundColor || '#71717a');
+            chip.appendChild(swatch);
+            const label = document.createElement('span');
+            label.className = 'legend-chip-label';
+            label.textContent = String(ds.label || `Type ${i + 1}`);
+            chip.appendChild(label);
+            chip.addEventListener('click', function () {
+                setChartDatasetVisible(chart, i, !chartDatasetVisible(chart, i));
+                rememberDatasetVisible(chart, i);
+                chart.update();
+                syncLegendChips();
+            });
+            box.appendChild(chip);
+        });
+        box.hidden = false;
+    }
+
     function legendAutoCollapsed() {
         return !!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches);
     }
@@ -234,6 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // No chart data at all — the failed/stale note stands alone and
             // the toggle must never read "Types (0)".
             btn.hidden = true;
+            syncLegendChips();
             return;
         }
         const collapsed = chart.options.plugins.legend.display === false;
@@ -241,6 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.hidden = false;
         btn.textContent = `Types (${shown})`;
         btn.setAttribute('aria-expanded', String(!collapsed));
+        syncLegendChips();
     }
 
     function toggleLegend() {
@@ -321,9 +382,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                     return datasetHasActivity(chartData.datasets[item.datasetIndex]);
                                 },
                             },
+                            // Same toggling as the default handler, plus
+                            // recording into hiddenTypes so the choice also
+                            // survives the next rebuild like chip clicks do.
+                            onClick: function (_e, item, legend) {
+                                const c = legend.chart;
+                                const i = item.datasetIndex;
+                                setChartDatasetVisible(c, i, !chartDatasetVisible(c, i));
+                                rememberDatasetVisible(c, i);
+                                c.update();
+                            },
                         },
                     },
                 },
+            });
+            // Reapply per-type hides recorded before this rebuild.
+            const built = window.activityChartInstance;
+            (built.data.datasets || []).forEach(function (ds, i) {
+                if (ds && hiddenTypes.has(ds.label)) setChartDatasetVisible(built, i, false);
             });
         }
         syncLegendToggle();
