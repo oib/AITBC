@@ -1,13 +1,16 @@
 # Content-Security-Policy proposal for the hub website
 
-Status: **report-only deployed on the hub** (15 Oct 2026, operator-named
-nginx edit, card-attested). The deployed policy is stricter than the draft
-below — it has `script-src 'self'` (no `unsafe-inline`), `base-uri 'none'`,
-`frame-ancestors 'self'`, and no `form-action` — so every inline script and
-`on*=` handler reports as a violation, which is the intended discovery mode.
-The exact deployed directives are mirrored in
+Status: **enforcing on the hub** (18 Oct 2026 — `Content-Security-Policy`
+live after the WEB-CSP-2 externalization removed every inline script and
+`on*=` handler; verified by browser click-through under enforcement: an
+injected inline `<script>` was refused by `script-src 'self'`, and the
+Explorer legend toggle and dashboard Apply/Clear all work). The deployed
+policy is stricter than the draft below — it has `script-src 'self'` (no
+`unsafe-inline`), `base-uri 'none'`, `frame-ancestors 'self'`, and no
+`form-action`. The exact deployed directives are mirrored in
 `examples/nginx/nginx-aitbc.conf.example` and guarded by
-`tests/unit/test_website_api_contract.py`.
+`tests/unit/test_website_api_contract.py`. The inventories below are kept
+as the historical record of what blocked enforcement.
 
 All scripts and styles are same-origin or inline; there are no third-party
 includes, so a strict policy is achievable with modest markup work.
@@ -21,8 +24,8 @@ location. The hub therefore has two distinct header layers:
 - **Static pages** (`location /` — the catch-all serving the HTML site)
   define no `add_header`, so they inherit the server-level set:
   `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy:
-  strict-origin-when-cross-origin`, `Content-Security-Policy-Report-Only`
-  and `Permissions-Policy`. `location = /dashboard/` and `location = /shop/`
+  strict-origin-when-cross-origin`, `Content-Security-Policy`
+  (enforcing since 18 Oct 2026) and `Permissions-Policy`. `location = /dashboard/` and `location = /shop/`
   carry their own `add_header Cache-Control`, which shadows **all**
   server-level headers — so each block repeats the full security set
   verbatim (deployed on hub 15 Oct; verified live — both dashboards serve
@@ -47,13 +50,16 @@ define no `add_header` at all or repeat the server-level set — there is no
 Report-only has no collection endpoint: violations are visible only in
 browser devtools. A `report-to` endpoint is a possible later step.
 
-## Roll-forward: enforcing the policy
+## Roll-forward: enforcing the policy — done 18 Oct 2026
 
-Flipping `Content-Security-Policy-Report-Only` to `Content-Security-Policy`
-is **blocked** on externalizing the inline `<script>` blocks, the ~100
-`on*=` handlers and the `style` attributes (inventoried below). Until then,
-an enforcing policy would break every page. That work is a separate WEB
-task, not started.
+The blocker (externalizing the inline `<script>` blocks and the `on*=`
+handlers inventoried below) shipped in WEB-CSP-2; the `style=` attributes
+remain and are covered by `style-src 'self' 'unsafe-inline'`. The hub
+vhost was flipped to enforcing `Content-Security-Policy` in one edit,
+`nginx -t` + reload, followed by a full-page click-through with the dev
+console open — no legitimate resource was refused; an injected inline
+`<script>` was blocked as intended. The `report-only` era below is kept
+for the record.
 
 ## Proposed policy (report-only first)
 
