@@ -48,13 +48,9 @@ docs/
 ├── CONTRIBUTING.md
 ├── DESIGN_CYCLE.md
 ├── FEATURES.md
-├── fleet-roles.md
-├── GLOSSARY.md
 ├── MASTER_INDEX.md
-├── QUICK_REFERENCE.md
 ├── README.md
-├── support.md
-└── TYPE_CHECKING.md
+└── support.md
 ```
 
 ## Directory stats
@@ -72,15 +68,15 @@ docs/
 | [architecture](architecture/) | 15 | System architecture and design patterns |
 | [archive](archive/) | 50 | Historical documents and archive |
 | [audit](audit/) | 1 | Documentation audit and refresh status |
-| [blockchain](blockchain/) | 17 | Blockchain node, consensus, networking |
+| [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
 | [cli](cli/) | 5 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
-| [deployment](deployment/) | 14 | Deployment and infrastructure setup |
+| [deployment](deployment/) | 16 | Deployment and infrastructure setup |
 | [design](design/) | 13 | Design documents and decisions |
-| [development](development/) | 22 | Developer guides and workflow |
+| [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 29 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
@@ -90,7 +86,7 @@ docs/
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 29 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
-| [reference](reference/) | 10 | Quick lookup: ports, glossary, FAQ |
+| [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 54 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |

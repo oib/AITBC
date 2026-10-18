@@ -169,7 +169,7 @@ The `.pre-commit-config.yaml` includes MyPy checking for the 12 clean applicatio
 - [MyPy Documentation](https://mypy.readthedocs.io/)
 - [PEP 484 - Type Hints](https://www.python.org/dev/peps/pep-0484/)
 - [PEP 561 - Distribution of Type Information](https://www.python.org/dev/peps/pep-0561/)
-- [AITBC Release Notes](./releases/README.md) - Current release documentation
+- [AITBC Release Notes](../releases/README.md) - Current release documentation
 
 ---
 

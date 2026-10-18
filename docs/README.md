@@ -129,9 +129,9 @@ Operator procedures for the live fleet:
 [repository structure](reference/REPOSITORY_STRUCTURE.md),
 [plugin spec](reference/PLUGIN_SPEC.md),
 [backend](reference/backend.md).
-Also: [glossary](GLOSSARY.md), [quick reference](QUICK_REFERENCE.md),
-[fleet roles](fleet-roles.md), [features](FEATURES.md),
-[changelog](CHANGELOG.md), [type checking](TYPE_CHECKING.md),
+Also: [glossary](reference/GLOSSARY.md), [quick reference](reference/QUICK_REFERENCE.md),
+[fleet roles](deployment/fleet-roles.md), [features](FEATURES.md),
+[changelog](CHANGELOG.md), [type checking](development/TYPE_CHECKING.md),
 [support](support.md).
 
 ## Development
