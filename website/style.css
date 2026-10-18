@@ -2711,6 +2711,43 @@ a.btn-secondary {
     .legend-toggle { display: none; }
 }
 
+/* WEB-LEGEND-3: per-type chips, shown only while the chart legend is
+   collapsed — the expanded canvas legend already toggles each series
+   natively, so the chips fill exactly the state where no per-type DOM
+   control exists (mobile default, and the edge case of a collapse choice
+   surviving a widen to desktop where the toggle itself is display:none).
+   Hidden state persists across the 30 s chart rebuild via hiddenTypes. */
+.legend-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 0.5rem;
+}
+.legend-chips[hidden] { display: none; }
+.legend-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--code);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.legend-chip:hover { border-color: var(--primary); }
+.legend-chip-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex: none;
+    background: var(--chip-color, var(--border));
+}
+.legend-chip[aria-pressed="false"] { opacity: 0.45; }
+
 .bridge-badge-icon { margin-right: 0.15rem; }
 .bridge-status-pending   { background: #5a4d2d; color: #e0d8b0; }
 .bridge-status-confirmed { background: #2d5a2d; color: #b0e0b0; }
