@@ -330,7 +330,8 @@ _FIXTURES = {
     "/api/analytics/network-stats": {
         "total_ait": 0,
         "transfer_volume_ait": 0,
-        "active_offers": 0,
+        "active_offers": 5,
+        "anchored_offers": 5,
         "unique_nodes": 5,
         "unique_providers": 3,
         "total_transactions": 100,

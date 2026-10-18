@@ -383,8 +383,14 @@ class TestMarketplaceStates(unittest.TestCase):
         html = _site_src("marketplace.html")
         self.assertIn('id="stat-listed-offers"', html)
         self.assertIn('id="stat-active-offers"', html)
-        self.assertIn("Anchored on chain", html)
+        self.assertIn("Distinct offers ever anchored", html)
+        self.assertIn("Counts every offer ever recorded on chain", html)
+        self.assertNotIn("Anchored on chain", html)
         self.assertNotIn("Anchored Offers", html)
+
+    def test_anchored_dual_name_read(self) -> None:
+        js = _site_src("marketplace.js")
+        self.assertIn("data.anchored_offers ?? data.active_offers", js)
 
     def test_offer_failure_states(self) -> None:
         js = _site_src("marketplace.js")
