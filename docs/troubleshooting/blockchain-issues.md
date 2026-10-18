@@ -105,6 +105,5 @@ systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
 
 ## See Also
 
-- [Network Issues](network-issues.md) - Network connectivity and firewall issues
 - [Service Management](service-management.md) - General service troubleshooting
 - [Database Issues](database-issues.md) - Database-related blockchain issues

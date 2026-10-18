@@ -95,4 +95,3 @@ cache = TTLCache(maxsize=1000, ttl=300)
 
 - [Database Issues](database-issues.md) - Database query optimization
 - [Service Management](service-management.md) - High CPU and memory issues
-- [Network Issues](network-issues.md) - Network latency problems
