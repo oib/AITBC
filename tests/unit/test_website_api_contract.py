@@ -326,12 +326,14 @@ def _server_level_text(text: str) -> str:
 
 
 # Server-level security headers deployed on the hub (15 Oct 2026,
-# card-attested operator decision). They apply to the static pages through
-# `location /`, which defines no add_header of its own. Mirrored verbatim —
-# a config sync that drops them fails the guard test.
+# card-attested operator decision; CSP flipped to enforcing 18 Oct 2026
+# after WEB-CSP-2 externalized all inline scripts/handlers — verified by
+# browser click-through under enforcement). They apply to the static pages
+# through `location /`, which defines no add_header of its own. Mirrored
+# verbatim — a config sync that drops them fails the guard test.
 EXPECTED_SERVER_HEADERS = [
     'Referrer-Policy "strict-origin-when-cross-origin" always',
-    "Content-Security-Policy-Report-Only \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'\" always",
+    "Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'\" always",
     'Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always',
 ]
 
