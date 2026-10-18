@@ -50,6 +50,33 @@ class TestCspReady(unittest.TestCase):
                     bad.append(f"{p.name}: inline <script>")
         self.assertEqual([], bad, "\n".join(bad))
 
+    def test_dashboard_tables_keep_value_casing(self) -> None:
+        # WEB-DASH-1 payload: .block-list-table's first-column rule is a label
+        # style (small/muted/uppercase); data tables emitted by renderTable get
+        # the data-table modifier so real values keep their casing and colour.
+        js = (WEBSITE / "dashboard.js").read_text(encoding="utf-8")
+        css = (WEBSITE / "style.css").read_text(encoding="utf-8")
+        self.assertIn('class="block-list-table data-table"', js)
+        rule = re.search(r"\.block-list-table\.data-table td:first-child\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(rule, "data-table first-column override missing")
+        self.assertIn("text-transform: none", rule.group(1))
+        btn = re.search(r"button\.endpoint\s*\{([^}]*)\}", css)
+        self.assertIsNotNone(btn, "button.endpoint color rule missing")
+        self.assertIn("color: var(--text)", btn.group(1))
+
+    def test_dashboard_dates_are_zone_labelled_and_tokens_humanized(self) -> None:
+        # WEB-DASH-1 ASK answer: dates are viewer-local with a short zone label
+        # (never bare — Explorer's literal " UTC" suffix on local output is the
+        # mislabelling this avoids). Machine tokens (settlement_failed,
+        # per_audio_min) render as words via humanize().
+        js = (WEBSITE / "dashboard.js").read_text(encoding="utf-8")
+        self.assertIn("timeZoneName", js)
+        self.assertIn("function tzLabel", js)
+        self.assertIn("function humanize", js)
+        self.assertIn("humanize(job.payment_status)", js)
+        self.assertIn("humanize(o.price_unit", js)
+        self.assertNotIn("toISOString().slice(0, 19)", js, "bare UTC formatting must not come back")
+
     def test_clickable_rows_use_data_href(self) -> None:
         # nav.js carries the one delegated listener pair; the emitter scripts
         # must only ever emit data-href attributes, never inline handlers.

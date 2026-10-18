@@ -133,9 +133,33 @@ async function apiPostOrGet(path, params, opts) {
     return apiGet(path + query, opts);
 }
 
+function tzLabel(d) {
+    try {
+        const part = new Intl.DateTimeFormat('en', { timeZoneName: 'short' })
+            .formatToParts(d).find(p => p.type === 'timeZoneName');
+        if (part && part.value) return part.value;
+    } catch (e) { /* older engines */ }
+    const off = -d.getTimezoneOffset() / 60;
+    return 'UTC' + (off >= 0 ? '+' : '') + off;
+}
+
 function formatDate(ts) {
     if (!ts) return 'N/A';
-    return new Date(ts).toISOString().slice(0, 19).replace('T', ' ');
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return 'N/A';
+    // Site convention (status.js): "YYYY-MM-DD HH:mm" in the viewer's local
+    // clock — labelled with the zone so the clock's origin stays unambiguous.
+    // status.js loads after this file but is defined by the time rows render;
+    // the UTC fallback only covers a page where status.js failed to load.
+    const stamp = (window.aitbcFmt && typeof window.aitbcFmt.date === 'function')
+        ? window.aitbcFmt.date(ts)
+        : d.toISOString().slice(0, 16).replace('T', ' ');
+    return stamp === '-' ? 'N/A' : `${stamp} ${tzLabel(d)}`;
+}
+
+// Machine tokens (settlement_failed, per_audio_min) read as words in the UI.
+function humanize(v) {
+    return String(v).replace(/_/g, ' ');
 }
 
 function renderTable(containerId, rows, columns, failed, label) {
@@ -147,7 +171,7 @@ function renderTable(containerId, rows, columns, failed, label) {
         return;
     }
     const ariaLabel = label || 'data table';
-    let html = `<div class="table-wrap" role="region" tabindex="0" aria-label="${escapeHtml(ariaLabel)}"><table class="block-list-table" aria-label="${escapeHtml(ariaLabel)}">`;
+    let html = `<div class="table-wrap" role="region" tabindex="0" aria-label="${escapeHtml(ariaLabel)}"><table class="block-list-table data-table" aria-label="${escapeHtml(ariaLabel)}">`;
     html += '<tr>' + columns.map(c => `<th scope="col" style="text-align:left;padding:0.5rem;border-bottom:1px solid var(--border);">${escapeHtml(c.label)}</th>`).join('') + '</tr>';
     rows.forEach(row => {
         html += '<tr>' + columns.map(c => {
@@ -239,7 +263,7 @@ function jobRow(job) {
     return {
         id: job.job_id || job.id || 'N/A',
         state: job.state || 'N/A',
-        payment: job.payment_status || 'N/A',
+        payment: job.payment_status ? humanize(job.payment_status) : 'N/A',
         model: model,
         escrow: job.escrow_contract_id
             ? `<span aria-hidden="true">${escapeHtml(shortHex(job.escrow_contract_id))}</span><span class="visually-hidden">${escapeHtml(job.escrow_contract_id)}</span> ${aitbcCopyBtn(job.escrow_contract_id, 'escrow contract id')}`
@@ -288,7 +312,7 @@ async function loadCustomerDashboard() {
     setDot('cust-dot-payments', jobsDot);
     setText('cust-total-jobs', jobsFailed ? 'unavailable' : jobs.length);
     setText('cust-job-states', Object.entries(states).map(([k, v]) => `${k}: ${v}`).join(', ') || '—');
-    setText('cust-payment-statuses', Object.entries(payments).map(([k, v]) => `${k}: ${v}`).join(', ') || '—');
+    setText('cust-payment-statuses', Object.entries(payments).map(([k, v]) => `${humanize(k)}: ${v}`).join(', ') || '—');
     setText('cust-jobs-scope', scopedView ? 'your account' : 'market-wide');
 
     renderTable('cust-jobs-table', rows, JOB_COLUMNS, jobsFailed, 'Jobs');
@@ -426,7 +450,7 @@ async function loadShopDashboard() {
     renderTable('shop-offers-table', shopOffers.map(o => ({
         plugin: o.plugin_id || 'N/A',
         model: o.model || 'N/A',
-        price: `${o.price || 0} ${o.price_unit || 'units'}`,
+        price: `${o.price || 0} ${humanize(o.price_unit || 'units')}`,
         status: o.status || 'unknown',
         rating: `${(o.avg_rating || 0).toFixed(1)} (${o.rating_count || 0})`,
     })), [
