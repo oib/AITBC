@@ -120,10 +120,10 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
     A chain database that is missing or unreadable answers 503 — a failed
     read must never look like an empty chain.
     """
-    chain_db_path = _chain_db_path()
-    if chain_db_path is None:
-        raise HTTPException(status_code=503, detail="chain database unavailable")
     try:
+        chain_db_path = _chain_db_path()
+        if chain_db_path is None:
+            raise HTTPException(status_code=503, detail="chain database unavailable")
         async with aiosqlite.connect(str(chain_db_path)) as conn:
             cursor = await conn.cursor()
 
