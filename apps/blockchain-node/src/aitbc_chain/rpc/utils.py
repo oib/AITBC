@@ -467,12 +467,42 @@ def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
     return True
 
 
+_LEGACY_ACCEPT_WARNED: set[str] = set()
+
+
+def record_guard_outcome(endpoint: str, *, guarded: bool) -> None:
+    """Count one replay-guarded request whose signature already verified.
+
+    Called strictly after the signature (and freshness, when guarded) check
+    passed, so unauthenticated traffic cannot inflate the old-form reading.
+    ``guarded=True`` counts ``new_form``; ``guarded=False`` counts
+    ``legacy_accepted`` and logs one WARNING per endpoint per process so the
+    journal shows old-form signers are still live. Never raises into the
+    request path — the counter must not break the routes it watches.
+    """
+    from .. import metrics
+
+    form = "new_form" if guarded else "legacy_accepted"
+    try:
+        metrics.replay_guard_requests_total.labels(endpoint=endpoint, form=form).inc()
+    except Exception:  # pragma: no cover - metrics must never break a route
+        _logger.exception("replay-guard counter increment failed")
+    if not guarded and endpoint not in _LEGACY_ACCEPT_WARNED:
+        _LEGACY_ACCEPT_WARNED.add(endpoint)
+        _logger.warning(
+            "[REPLAY-GUARD] legacy unsigned-window body accepted on %s — an old-form signer is live "
+            "(counted in blockchain_replay_guard_requests_total{form=legacy_accepted})",
+            endpoint,
+        )
+
+
 def apply_replay_guard_fields(
     request_data: dict[str, Any],
     sign_data: dict[str, Any],
     *,
     require_guard: bool,
     label: str,
+    endpoint: str,
 ) -> tuple[dict[str, Any], bool]:
     """Attach ``issued_at``/``nonce`` from the request body to the signed dict.
 
@@ -490,6 +520,12 @@ def apply_replay_guard_fields(
         sign_data["nonce"] = nonce
         return sign_data, True
     if require_guard:
+        from .. import metrics
+
+        try:
+            metrics.replay_guard_requests_total.labels(endpoint=endpoint, form="legacy_refused").inc()
+        except Exception:  # pragma: no cover - metrics must never break a route
+            _logger.exception("replay-guard counter increment failed")
         raise HTTPException(
             status_code=400,
             detail=f"{label} require a replay-guarded signature (issued_at + nonce)",

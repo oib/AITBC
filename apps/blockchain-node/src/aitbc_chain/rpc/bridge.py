@@ -20,6 +20,7 @@ from .utils import (
     apply_replay_guard_fields,
     check_signed_request_freshness,
     get_chain_id,
+    record_guard_outcome,
     verify_admin_signature,
     verify_request_signature,
 )
@@ -99,11 +100,13 @@ def _verify_lock_signature(
         sign_data,
         require_guard=getattr(settings, "bridge_lock_require_replay_guard", False),
         label="Bridge locks",
+        endpoint="bridge_lock",
     )
     if not verify_request_signature(cast(str, sender), signature, sign_data):
         raise HTTPException(status_code=403, detail="Invalid sender signature")
     if replay_guarded:
         _check_lock_freshness(cast(str, sender), sign_data)
+    record_guard_outcome("bridge_lock", guarded=replay_guarded)
 
 
 @rate_limit(rate=20, per=60)
