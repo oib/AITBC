@@ -175,6 +175,27 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
     return private_key
 
 
+def _resolve_node_chain_id(rpc_url: str) -> str:
+    """Resolve the node's own chain ID via the public ``GET /rpc/proposer``.
+
+    The /bridge/lock route verifies signatures against ``get_chain_id(None)``
+    = ``settings.chain_id or "ait-mainnet"`` when the body omits
+    ``source_chain``, so the wallet path must sign — and send — that same
+    resolved value rather than an empty string.
+    """
+    try:
+        resp = httpx.get(f"{rpc_url.rstrip('/')}/proposer", timeout=5.0)
+        resp.raise_for_status()
+        chain_id = resp.json().get("chain_id") or "ait-mainnet"
+    except Exception as e:
+        raise click.ClickException(
+            f"Could not resolve the node's chain ID from {rpc_url} ({e}); pass --source-chain explicitly"
+        ) from e
+    if not chain_id:
+        raise click.ClickException(f"Node at {rpc_url} reported an empty chain ID; pass --source-chain explicitly")
+    return chain_id
+
+
 @bridge.command(
     epilog="""Examples:
 
@@ -187,7 +208,11 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
 @click.option("--recipient", required=True, help="Recipient address (target chain)")
 @click.option("--amount", required=True, type=int, help="Amount to bridge (in compute-units)")
 @click.option("--asset", default="native", help="Asset type (default: native)")
-@click.option("--source-chain", default=None, help="Source chain ID (defaults to node's chain)")
+@click.option(
+    "--source-chain",
+    default=None,
+    help="Source chain ID (defaults to the node's own chain, resolved from --rpc-url before signing)",
+)
 @click.option(
     "--signature",
     default="",
@@ -203,7 +228,9 @@ def _load_private_key(wallet_name: str, password: str = "") -> str:
         "(refused by nodes with BRIDGE_LOCK_REQUIRE_REPLAY_GUARD=true). The signed dict is "
         '{"source_chain","target_chain","sender","recipient","amount","asset","issued_at","nonce"} '
         "— canonical JSON (sort_keys, separators=(',',':')), keccak256, secp256k1. "
-        "amount is integer compute-units; source_chain is the resolved chain ID or empty string."
+        "amount is integer compute-units; source_chain must equal what the server verifies: "
+        "the body's source_chain when --source-chain is given, else the node's own chain ID "
+        "(see GET /rpc/proposer)."
     ),
 )
 @click.option(
@@ -236,12 +263,14 @@ def lock(
         if issued_at is not None or nonce is not None:
             raise click.ClickException("--issued-at/--nonce are generated automatically with --wallet-name; drop them")
         private_key = _load_private_key(wallet_name, wallet_password)
+        if not source_chain:
+            source_chain = _resolve_node_chain_id(rpc_url)
         # SEC-REPLAY-1: the replay guard fields ride inside the signed dict —
         # a captured signed body can no longer be re-posted.
         issued_at = int(time.time())
         nonce = secrets.token_hex(16)
         sign_data = {
-            "source_chain": source_chain or "",
+            "source_chain": source_chain,
             "target_chain": target_chain,
             "sender": sender,
             "recipient": recipient,

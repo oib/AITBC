@@ -298,3 +298,16 @@ and trading `lock_escrow` wrappers forward both fields to
 `BridgeClient.lock()`. Server-side guard behavior, flags, nonce TTLs
 unchanged. Repo-only: nothing is deployed; CLI/MCP/coordinator rollout needs
 a separate operator step.
+
+### CLI-SRCCHAIN-1 — `bridge lock --wallet-name` signs the resolved chain ID
+
+Without `--source-chain`, the wallet-signed path signed `""` for
+`source_chain` while the `/bridge/lock` route verifies against the node's
+own resolved chain ID — a correct signature answered 403. The wallet path
+now resolves the node's chain ID once via `GET /rpc/proposer`, signs it,
+and sends it in the body; an unresolvable node errors out instead of
+signing an empty string. The raw `--signature` path is unchanged, and its
+help text (plus the MCP `bridge_lock`/`source_chain` descriptions) now
+states the truth: the signed `source_chain` must equal the body's value
+when sent, else the node's resolved chain ID. Server-side verification and
+defaults untouched. Repo-only: no rollout.
