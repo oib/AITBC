@@ -893,5 +893,34 @@ class TestBlocksPageStates(unittest.TestCase):
         self.assertIn("block reads failed", js)
 
 
+class TestSearchPageStates(unittest.TestCase):
+    """WEB-DETAIL-1: an ok reply without its array is a shape failure, not
+    a proven-empty; the proxied messages leg makes 'nothing found'
+    inconclusive when it fails."""
+
+    def test_readjson_and_legitems_shape(self) -> None:
+        html = _site_src("search.html")
+        self.assertIn("async function readJson", html)
+        self.assertIn("legItems", html)
+
+    def test_shape_failure_is_not_nothing_found(self) -> None:
+        html = _site_src("search.html")
+        self.assertIn("reply was not the expected shape", html)
+        self.assertNotIn("txData.transactions || []", html)
+        self.assertNotIn("blockData.blocks || []", html)
+        self.assertNotIn("msgData.messages || []", html)
+
+    def test_degraded_msg_leg_is_inconclusive(self) -> None:
+        html = _site_src("search.html")
+        self.assertIn("msgLegFailed", html)
+        self.assertIn("messages leg:", html)
+
+    def test_failure_offers_try_again(self) -> None:
+        html = _site_src("search.html")
+        self.assertIn("function showError", html)
+        self.assertIn("Try again", html)
+        self.assertIn("bridge-retry", html)
+
+
 if __name__ == "__main__":
     unittest.main()
