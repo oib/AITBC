@@ -125,7 +125,7 @@ pip install -r "$REQ_FILE.filtered" || {
 #                cannot be verified after a deploy.
 #   dev  tier -- the IDE host and the designated dev nodes only. mypy, ruff,
 #                pre-commit, bandit, pip-audit, ipython, types-*.
-#                Which hosts are dev nodes is deployment-specific -- see docs/fleet-roles.md.
+#                Which hosts are dev nodes is deployment-specific -- see docs/deployment/fleet-roles.md.
 #
 # Versions for the test tier come from requirements-dev.txt used as a
 # constraints file, so both tiers stay pinned to the same poetry.lock export.
