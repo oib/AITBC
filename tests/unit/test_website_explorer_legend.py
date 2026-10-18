@@ -126,7 +126,12 @@ const sandbox = {
     setInterval() {}, setTimeout: (f) => f(),
     URL, URLSearchParams, Intl, encodeURIComponent,
     Date, isNaN, Boolean, String, Number, Array, Object, JSON, Promise, Math,
-    aitbcFmt: { time: () => '12:00', date: () => '2026-10-18 12:00', num: (n) => String(n) },
+    aitbcFmt: {
+        time: () => '12:00',
+        date: () => '2026-10-18 12:00',
+        num: (n) => String(n),
+        type: (v) => { const s = String(v == null ? '' : v).replace(/_/g, ' ').toLowerCase(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; },
+    },
     aitbcCopyBtn: () => '',
     sessionStorage: { getItem: () => '', setItem() {}, removeItem() {} },
 };
@@ -260,9 +265,9 @@ class TestExplorerLegendChips(unittest.TestCase):
         r = _run_vm("chips")
         self.assertFalse(r["chipsHidden"], "chips missing while legend collapsed")
         self.assertEqual(
-            ["TRANSFER", "EXCHANGE"],
+            ["Transfer", "Exchange"],
             [c["label"] for c in r["chips"]],
-            "chips must list only datasets with activity — same predicate as the legend filter",
+            "chips must list only datasets with activity, humanized like the canvas legend",
         )
         self.assertTrue(all(c["pressed"] == "true" for c in r["chips"]), "all types start visible")
         self.assertEqual("#10b981", r["chips"][0]["swatch"], "chip swatch lost the dataset color")
@@ -301,6 +306,32 @@ class TestExplorerLegendChips(unittest.TestCase):
         r = _run_vm("http500")
         self.assertTrue(r["chipsHidden"], "chips must not render with no chart data")
         self.assertEqual([], r["chips"])
+
+
+class TestTypeLabelsHumanized(unittest.TestCase):
+    """aitbcFmt.type() is the single humanizer — every type rendered to a
+    page goes through it (raw values stay for logic and color lookups)."""
+
+    def test_type_helper_shape(self) -> None:
+        src = (WEBSITE / "status.js").read_text()
+        self.assertIn("type: function", src, "aitbcFmt.type missing")
+        self.assertIn("replace(/_/g, ' ')", src, "humanizer does not split snake_case")
+
+    def test_display_sites_use_the_humanizer(self) -> None:
+        sites = {
+            "tx.js": "aitbcFmt.type(data.type",
+            "block.js": "aitbcFmt.type(tx.type",
+            "search.js": "aitbcFmt.type(tx.type",
+            "explorer.js": "aitbcFmt.type(ds.label)",
+        }
+        for name, needle in sites.items():
+            self.assertIn(needle, (WEBSITE / name).read_text(), f"{name} renders a raw type")
+
+    def test_logic_keeps_raw_types(self) -> None:
+        src = (WEBSITE / "explorer.js").read_text()
+        # Color lookup keys off the raw API type — humanizing it would lose
+        # the TX_TYPE_COLORS match and hash out wrong colors.
+        self.assertIn('data-tx-type="${escapeHtml(type)}"', src)
 
 
 if __name__ == "__main__":

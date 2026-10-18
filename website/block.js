@@ -100,7 +100,7 @@ async function loadBlock() {
             return `
             <div class="endpoint table-card fade-in block-item" tabindex="0" role="link" data-href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">
                 <div class="table-wrap"><table class="block-list-table" aria-label="Block details">
-                    <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span></td></tr>
+                    <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(aitbcFmt.type(tx.type || 'TX'))}</span></td></tr>
                     <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash)} ${aitbcCopyBtn(tx.tx_hash, 'transaction hash')}</td></tr>
                     <tr><th scope="row">From</th><td>${addrLink(tx.sender)}</td></tr>
                     <tr><th scope="row">To</th><td>${addrLink(tx.recipient)}</td></tr>
