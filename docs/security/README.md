@@ -18,7 +18,6 @@ what remains is AITBC-specific.
 ## Architecture and models
 
 - [Security architecture](2_security-architecture.md)
-- [Security-first architecture](SECURITY_FIRST_ARCHITECTURE.md)
 - [Threat model](threat-model.md) and
   [bridge threat model](../architecture/bridge-threat-model.md)
 - [Bridge custodian](bridge-custodian.md) — payout wallet, envelope model

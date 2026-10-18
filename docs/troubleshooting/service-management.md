@@ -168,4 +168,3 @@ engine = create_engine(
 
 - [Database Issues](database-issues.md) - Database connection and performance issues
 - [Performance Issues](performance-issues.md) - High CPU, memory, disk I/O issues
-- [Network Issues](network-issues.md) - Network connectivity problems

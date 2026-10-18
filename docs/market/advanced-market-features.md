@@ -18,7 +18,6 @@ This document describes the advanced market features implemented for the AITBC G
 - **[Analytics](./advanced-market/05-analytics.md)** - Real-time metrics and forecasting
 - **[External Providers](./advanced-market/06-external-providers.md)** - AWS/GCP/Azure integrations
 - **[Plugin System](./advanced-market/07-plugin-system.md)** - Extensible plugin architecture
-- ~~**[Database Schema](./advanced-market/08-database-schema.md)**~~ - ~~Tables and migration~~ (contains deprecated auction tables)
 - ~~**[API Endpoints](./advanced-market/09-api-endpoints.md)**~~ - ~~REST API reference~~ (contains deprecated auction endpoints)
 - **[Architecture & Security](./advanced-market/10-architecture.md)** - Architecture patterns and security
 - **[Troubleshooting](./advanced-market/11-troubleshooting.md)** - Common issues and solutions
