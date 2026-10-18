@@ -335,6 +335,7 @@ EXPECTED_SERVER_HEADERS = [
     'Referrer-Policy "strict-origin-when-cross-origin" always',
     "Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'\" always",
     'Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always',
+    'Strict-Transport-Security "max-age=31536000; includeSubDomains" always',
 ]
 
 # Locations serving the HTML pages that must NOT define their own
