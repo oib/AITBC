@@ -37,6 +37,34 @@
         }
     };
 
+    // Back-to-top button (shared by every page that loads status.js).
+    // Injected here so no page needs extra markup; hidden until the visitor
+    // has scrolled a screen or so. Placed before the .status-strip early
+    // return so pages without a strip still get it.
+    (function backToTop() {
+        if (document.querySelector('.back-to-top')) { return; }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'back-to-top';
+        btn.setAttribute('aria-label', 'Back to top');
+        btn.title = 'Back to top';
+        btn.textContent = '↑';
+        btn.addEventListener('click', function () {
+            // scroll-behavior is neutralised by prefers-reduced-motion in CSS.
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        var ticking = false;
+        function update() {
+            ticking = false;
+            btn.classList.toggle('back-to-top-on', window.scrollY > 400);
+        }
+        window.addEventListener('scroll', function () {
+            if (!ticking) { ticking = true; window.requestAnimationFrame(update); }
+        }, { passive: true });
+        document.body.appendChild(btn);
+        update();
+    })();
+
     var POLL_MS = 45000;            // one request per endpoint per cycle; >= 30 s
     var JITTER_MS = 8000;           // desynchronize visitors
     var STALE_AFTER_MS = 300000;    // ~4.5x the ~67 s block cadence -> "stale"
