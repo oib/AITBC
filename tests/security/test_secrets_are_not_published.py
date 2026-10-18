@@ -103,7 +103,7 @@ def test_the_hubs_live_secret_is_not_committed() -> None:
     exactly why it stopped being a sample: the hub's deployed values matched it byte for byte.
     Examples must be visibly unusable.
     """
-    doc = _read("docs/blockchain/ENVIRONMENT_CONFIGURATION.md")
+    doc = _read("docs/deployment/environment-configuration.md")
 
     assignments = re.findall(r"^\s*(COORDINATOR_API_KEY|SECRET_KEY)\s*=\s*(\S+)", doc, re.MULTILINE)
     assert assignments, "the example block disappeared; this test no longer guards anything"

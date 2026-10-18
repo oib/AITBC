@@ -16,7 +16,7 @@
 # The rest of requirements-dev.txt -- mypy, ruff, pre-commit, bandit,
 # pip-audit, ipython, types-* -- is the DEV tier and belongs only on the IDE
 # host and the designated dev nodes. See scripts/deployment/install-profiles.sh
-# for the mechanism and docs/fleet-roles.md for who is what.
+# for the mechanism and docs/deployment/fleet-roles.md for who is what.
 
 pytest
 pytest-asyncio
