@@ -1805,7 +1805,8 @@ def bridge_lock(
                 '{"source_chain","target_chain","sender","recipient","amount","asset"} plus '
                 '"issued_at","nonce" when those are supplied — canonical JSON '
                 "(sort_keys, separators=(',',':')), keccak256, secp256k1. amount is integer "
-                "compute-units; source_chain is the resolved chain ID or empty string."
+                "compute-units; source_chain must equal what the server verifies: the body's "
+                "source_chain when supplied, else the node's own chain ID (see GET /rpc/proposer)."
             )
         ),
     ],
@@ -1815,7 +1816,12 @@ def bridge_lock(
     ] = "native",
     source_chain: Annotated[
         str | None,
-        Field(description="Source chain ID (defaults to this chain)."),
+        Field(
+            description=(
+                "Source chain ID. When omitted the field is left out of the body and the node "
+                "verifies the signature against its own resolved chain ID — sign that value."
+            )
+        ),
     ] = None,
     issued_at: Annotated[
         int | None,

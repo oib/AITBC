@@ -274,7 +274,10 @@ def aitbc_bridge_lock(
     recipient: Annotated[str, Field(description="Recipient address (target chain)")],
     amount: Annotated[int, Field(description="Amount to bridge (in compute-units)")],
     asset: Annotated[str | None, Field(description="Asset type (default: native)")] = None,
-    source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to node's chain)")] = None,
+    source_chain: Annotated[
+        str | None,
+        Field(description="Source chain ID (defaults to the node's own chain, resolved from --rpc-url before signing)"),
+    ] = None,
     signature: Annotated[
         str | None,
         Field(description="Sender signature authorizing the lock (hex). Sign the dict documented under --issued-at."),
@@ -282,7 +285,7 @@ def aitbc_bridge_lock(
     issued_at: Annotated[
         int | None,
         Field(
-            description='Epoch seconds the external signer stamped into the signed dict. With --signature, --issued-at and --nonce must be given together; omit both for the legacy six-field form (refused by nodes with BRIDGE_LOCK_REQUIRE_REPLAY_GUARD=true). The signed dict is {"source_chain","target_chain","sender","recipient","amount","asset","issued_at","nonce"} — canonical JSON (sort_keys, separators=(\',\',\':\')), keccak256, secp256k1. amount is integer compute-units; source_chain is the resolved chain ID or empty string.'
+            description='Epoch seconds the external signer stamped into the signed dict. With --signature, --issued-at and --nonce must be given together; omit both for the legacy six-field form (refused by nodes with BRIDGE_LOCK_REQUIRE_REPLAY_GUARD=true). The signed dict is {"source_chain","target_chain","sender","recipient","amount","asset","issued_at","nonce"} — canonical JSON (sort_keys, separators=(\',\',\':\')), keccak256, secp256k1. amount is integer compute-units; source_chain must equal what the server verifies: the body\'s source_chain when --source-chain is given, else the node\'s own chain ID (see GET /rpc/proposer).'
         ),
     ] = None,
     nonce: Annotated[
