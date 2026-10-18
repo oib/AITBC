@@ -157,6 +157,12 @@ function pickList(data, keys) {
 }
 
 function tzLabel(d) {
+    // Shared home since WEB-TZ-1: aitbcFmt.zone in status.js is the single
+    // source so pages can't drift. The Intl copy below is only the fallback
+    // for a page where status.js failed to load.
+    if (window.aitbcFmt && typeof window.aitbcFmt.zone === 'function') {
+        return window.aitbcFmt.zone(d);
+    }
     try {
         const part = new Intl.DateTimeFormat('en', { timeZoneName: 'short' })
             .formatToParts(d).find(p => p.type === 'timeZoneName');
