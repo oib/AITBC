@@ -3,7 +3,7 @@
 **Last Updated**: 2026-09-01
 **Version**: 2.1 (refreshed live service ports and CLI examples)
 
-A condensed reference for common AITBC commands. For the full CLI, see [cli/README.md](../cli/README.md). For authoritative ports, see [reference/SERVICE_PORTS.md](./reference/SERVICE_PORTS.md).
+A condensed reference for common AITBC commands. For the full CLI, see [cli/README.md](../cli/README.md). For authoritative ports, see [reference/SERVICE_PORTS.md](./SERVICE_PORTS.md).
 
 ## Service ports
 
@@ -129,5 +129,5 @@ cd apps/coordinator-api && PYTHONPATH=src ../../venv/bin/python -m pytest tests 
 ## See also
 
 - [CLI README](../cli/README.md) — full command reference
-- [Service Ports Reference](./reference/SERVICE_PORTS.md) — authoritative ports
+- [Service Ports Reference](./SERVICE_PORTS.md) — authoritative ports
 - [Getting Started](./getting-started/) — hub/shop/client paths
