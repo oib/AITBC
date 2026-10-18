@@ -85,17 +85,32 @@ document.addEventListener('DOMContentLoaded', function() {
         blocksLastGoodAt = Date.now();
 
         if (blocks.length > 0) {
-            const html = blocks.map(renderBlockCard).join('');
-            if (reset) {
-                const feedStatus = document.getElementById('sr-announcer');
-                const topHash = blocks[0] && blocks[0].hash;
-                if (feedStatus && topHash && topHash !== window.__lastAnnouncedBlock) {
-                    window.__lastAnnouncedBlock = topHash;
-                    feedStatus.textContent = `Blocks updated — latest height ${blocks[0].height}`;
+            // A throw while drawing cards is a named failure, never a page
+            // that reads as still loading.
+            try {
+                const html = blocks.map(renderBlockCard).join('');
+                if (reset) {
+                    const feedStatus = document.getElementById('sr-announcer');
+                    const topHash = blocks[0] && blocks[0].hash;
+                    if (feedStatus && topHash && topHash !== window.__lastAnnouncedBlock) {
+                        window.__lastAnnouncedBlock = topHash;
+                        feedStatus.textContent = `Blocks updated — latest height ${blocks[0].height}`;
+                    }
+                    container.innerHTML = html;
+                } else {
+                    container.insertAdjacentHTML('beforeend', html);
                 }
-                container.innerHTML = html;
-            } else {
-                container.insertAdjacentHTML('beforeend', html);
+            } catch (e) {
+                const reason = `display error: ${e.message}`;
+                const feedStatus = document.getElementById('sr-announcer');
+                if (feedStatus) feedStatus.textContent = `Blocks failed to load: ${reason}`;
+                if (container.querySelector('.endpoint')) {
+                    renderReadState(container, 'stale', `Stale, last read ${ageAgo(blocksLastGoodAt)} — could not refresh (${reason})`, () => loadLatestBlocks(true));
+                } else {
+                    container.textContent = '';
+                    renderReadState(container, 'failed', `Blocks could not be loaded. (${reason})`, () => loadLatestBlocks(true));
+                }
+                return;
             }
             blocksOffset += blocks.length;
             loadMoreContainer.style.display = 'block';
