@@ -2,6 +2,31 @@ function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// Clickable rows carry data-href instead of inline onclick/onkeydown, so the
+// page works under a Content-Security-Policy with script-src 'self' (inline
+// event handlers are blocked there). One delegated pair of listeners covers
+// block items, live-feed items and address rows, including ones rendered later.
+// Only same-site paths ("/..." but not "//...") are followed. Clicks on nested
+// controls are left alone; copy buttons already stop propagation in copy.js.
+(function () {
+    function target(ev) {
+        var row = ev.target && ev.target.closest ? ev.target.closest('[data-href]') : null;
+        if (!row) return null;
+        var href = row.getAttribute('data-href') || '';
+        return /^\/(?!\/)/.test(href) ? href : null;
+    }
+    document.addEventListener('click', function (ev) {
+        if (ev.target.closest && ev.target.closest('a, button, input, select, textarea, summary')) return;
+        var href = target(ev);
+        if (href) location.href = href;
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter' || !ev.target.hasAttribute || !ev.target.hasAttribute('data-href')) return;
+        var href = target(ev);
+        if (href) location.href = href;
+    });
+})();
+
 function formatHash(hash) {
     if (!hash) return 'N/A';
     return escapeHtml(hash);
@@ -97,7 +122,7 @@ function renderBlockCard(block) {
         ? `<tr><td>Content</td><td class="tx-comp-cell">${blockContentHtml(block.transactions)}</td></tr>`
         : '';
     return `
-        <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
+        <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" tabindex="0" role="link" data-href="/block.html?height=${encodeURIComponent(block.height)}">
             <div class="table-wrap">
             <table class="block-list-table" aria-label="Block summary">
                 <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
@@ -239,7 +264,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         y: { stacked: true, ticks: { color: '#71717a' }, grid: { color: '#27272a' } },
                     },
                     plugins: {
-                        legend: { labels: { color: '#e4e4e7' } },
+                        legend: {
+                            labels: {
+                                color: '#e4e4e7',
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                padding: 8,
+                                font: { size: 11 },
+                                // Hide transaction types with no activity in this
+                                // window: the legend lists only what the bars show.
+                                filter: function (item, chartData) {
+                                    var ds = chartData.datasets[item.datasetIndex];
+                                    return !!ds && Array.isArray(ds.data) && ds.data.some(function (v) { return Number(v) > 0; });
+                                },
+                            },
+                        },
                     },
                 },
             });
@@ -358,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = liveFeedItems.map(item => {
             const timeStr = item.time ? aitbcFmt.time(item.time) : '';
             return `
-                <div class="live-feed-item" tabindex="0" role="link" aria-label="${escapeHtml(item.type)} ${escapeHtml(item.hash || '')}" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='${escapeHtml(item.url)}'">
+                <div class="live-feed-item" tabindex="0" role="link" aria-label="${escapeHtml(item.type)} ${escapeHtml(item.hash || '')}" data-href="${escapeHtml(item.url)}">
                     <span class="live-feed-type">${escapeHtml(item.type)}</span>
                     <span class="live-feed-hash">${escapeHtml(item.label)}</span>
                     ${item.comp ? `<span class="live-feed-comp">${item.comp}</span>` : ''}
@@ -394,7 +433,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">TXs</th><th scope="col">Volume (AIT)</th></tr></thead>
                 <tbody>
                     ${addresses.map((a, i) => `
-                        <tr tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
+                        <tr tabindex="0" role="link" data-href="/search.html?query=${encodeURIComponent(a.address)}" style="cursor:pointer;">
                             <td>${i + 1}</td>
                             <td>${escapeHtml(a.address)}</td>
                             <td>${escapeHtml(a.transaction_count)}</td>
