@@ -259,6 +259,24 @@ class TestLayoutHeuristics(unittest.TestCase):
                 bad.append(f"font-size: {m.group(0)} ≈ {px:.1f}px")
         self.assertEqual([], bad, "font sizes under 11px:\n" + "\n".join(bad))
 
+    def test_web_bridges4_table_stacking_pinned(self) -> None:
+        # WEB-BRIDGES-4: the bridge table scrolled inside .table-wrap at
+        # desktop widths (861px in a 786px wrap). The fix stacks the address
+        # and tx-hash halves and the copy button inside table cells — cards
+        # keep everything on one line. Pin the CSS group, the emitted
+        # classes, and the padding step that closes the last gap at 768px.
+        m = re.search(r"([^{}]*\.bridge-table\s+\.bridge-copy[^{}]*)\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m, "no .bridge-table .bridge-copy rule — the table lost its stacking group")
+        self.assertIn("display: block", m.group(2), ".bridge-copy must stack under the value in table cells")
+        for cls in (".bridge-addr-a", ".bridge-addr-b", ".bridge-tx-a", ".bridge-tx-b"):
+            self.assertIn(f".bridge-table {cls}", m.group(1), f"{cls} missing from the table stacking group")
+        js = (WEBSITE / "bridges.js").read_text(encoding="utf-8")
+        for cls in ("bridge-addr-a", "bridge-addr-b", "bridge-tx-a", "bridge-tx-b", "bridge-copy"):
+            self.assertIn(cls, js, f"bridges.js no longer emits {cls}")
+        m = re.search(r"\.bridge-table\s+td\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m)
+        self.assertIn("padding: 0.45rem 0.3rem", m.group(1), "td padding step-down is part of the 768px fit")
+
     def test_explorer_inner_container_adds_no_inset(self) -> None:
         # WEB-POLISH-1 item 5: explorer.html nests a second .container
         # inside the page one — it must not re-pad or the cards sit deeper
@@ -386,6 +404,9 @@ _FIXTURES = {
     "/v1/market/offer": {"offers": []},
     "/v1/exchange/history": {"trades": []},
     "/exchange/price": {"price_ait": "1.0"},
+    # WEB-BRIDGES-4: realistic row mix — 42-char 0x addresses, 66-char
+    # transfer ids, a refunded row — so the desktop-width table-fit guard
+    # exercises the widest cells, not a trivially short dataset.
     "/rpc/bridge/transfers": {
         "transfers": [
             {
@@ -399,7 +420,42 @@ _FIXTURES = {
                 "release_amount": "35900000",
                 "asset": "native",
                 "status": "completed",
-            }
+            },
+            {
+                "transfer_id": "0x" + "12" * 32,
+                "confirm_time": "2026-10-15T18:10:00Z",
+                "source_chain": "sepolia",
+                "target_chain": "aitbc",
+                "sender": "0x" + "aa" * 20,
+                "recipient": "0x" + "aa" * 20,
+                "amount": "12000000",
+                "release_amount": "0",
+                "asset": "native",
+                "status": "refunded",
+            },
+            {
+                "transfer_id": "0x" + "34" * 32,
+                "confirm_time": "2026-10-14T09:00:00Z",
+                "source_chain": "aitbc",
+                "target_chain": "bsc",
+                "sender": "0x" + "bb" * 20,
+                "recipient": "0x" + "99" * 20,
+                "amount": "5000000",
+                "release_amount": "4990000",
+                "asset": "native",
+                "status": "failed",
+            },
+            {
+                "transfer_id": "0x" + "56" * 32,
+                "confirm_time": "2026-10-15T20:00:00Z",
+                "source_chain": "bsc",
+                "target_chain": "aitbc",
+                "sender": "0x" + "77" * 20,
+                "recipient": "0x" + "11" * 20,
+                "amount": "8000000",
+                "asset": "native",
+                "status": "pending",
+            },
         ]
     },
     "/v1/bridge/status": {},
@@ -521,8 +577,15 @@ _MEASURE_JS = """
       .filter(b => { const r = b.getBoundingClientRect();
                      return r.right > cb.right + 1 || r.left < cb.left - 1; }).length;
   }
+  // WEB-BRIDGES-4: the bridge table must fit inside its .table-wrap at
+  // desktop widths — before the fix it measured 861px in a 786px wrap.
+  const bt = document.querySelector('.bridge-table');
+  const bw = bt ? bt.closest('.table-wrap') : null;
   return JSON.stringify({sw: document.documentElement.scrollWidth, vw,
-                         offenders: offenders.slice(0, 10), tap, smallCtl, chipBleed});
+                         offenders: offenders.slice(0, 10), tap, smallCtl, chipBleed,
+                         bridgeWrapCw: bw ? bw.clientWidth : 0,
+                         bridgeWrapSw: bw ? bw.scrollWidth : 0,
+                         bridgeTableSw: bt ? bt.scrollWidth : 0});
 })()
 """
 
@@ -603,7 +666,7 @@ class TestLayout375Browser(unittest.TestCase):
             s.bind(("127.0.0.1", 0))
             return s.getsockname()[1]
 
-    def _measure(self, path: str) -> dict:
+    def _measure(self, path: str, width: int = 375) -> dict:
         import asyncio
         import websockets
 
@@ -623,12 +686,12 @@ class TestLayout375Browser(unittest.TestCase):
                             return msg
 
                 await send("Page.enable")
-                # mobile=False pins innerWidth at 375 — with mobile=True
-                # Chrome lets the layout viewport grow to fit wide content
-                # and scrollWidth==innerWidth passes vacuously.
+                # mobile=False pins innerWidth at the requested width — with
+                # mobile=True Chrome lets the layout viewport grow to fit
+                # wide content and scrollWidth==innerWidth passes vacuously.
                 await send(
                     "Emulation.setDeviceMetricsOverride",
-                    {"width": 375, "height": 800, "deviceScaleFactor": 1, "mobile": False},
+                    {"width": width, "height": 800, "deviceScaleFactor": 1, "mobile": False},
                 )
                 await send("Page.addScriptToEvaluateOnNewDocument", {"source": _STUB_JS})
                 await send("Page.navigate", {"url": f"http://127.0.0.1:{self.port}/{path}"})
@@ -663,6 +726,19 @@ class TestLayout375Browser(unittest.TestCase):
         none may have a rect running past #topics-container."""
         r = self._measure("messages.html")
         self.assertEqual(0, r["chipBleed"], f"topic chips escape the card: {r['offenders']}")
+
+    def test_bridge_table_fits_wrap_at_desktop_widths(self) -> None:
+        """WEB-BRIDGES-4: .table-wrap may keep overflow-x:auto as a safety
+        net but must not need it — the table fits at every served width."""
+        for w in (768, 1024, 1280, 1440):
+            r = self._measure("bridges.html", width=w)
+            self.assertGreater(r["bridgeWrapCw"], 0, f"{w}px: .bridge-table not rendered")
+            self.assertLessEqual(
+                r["bridgeWrapSw"],
+                r["bridgeWrapCw"],
+                f"{w}px: bridge table scrolls inside .table-wrap "
+                f"({r['bridgeWrapSw']} > {r['bridgeWrapCw']}; table={r['bridgeTableSw']})",
+            )
 
 
 if __name__ == "__main__":
