@@ -60,7 +60,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 876
+- **Markdown files under docs/**: 870
 
 | Directory | Files | Description |
 |---|---|---|
@@ -78,22 +78,22 @@ docs/
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
-| [deployment](deployment/) | 17 | Deployment and infrastructure setup |
+| [deployment](deployment/) | 15 | Deployment and infrastructure setup |
 | [design](design/) | 13 | Design documents and decisions |
-| [development](development/) | 25 | Developer guides and workflow |
-| [features](features/) | 93 | Feature specifications and deep dives |
+| [development](development/) | 23 | Developer guides and workflow |
+| [features](features/) | 92 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 30 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 9 | Infrastructure and migration docs |
-| [market](market/) | 18 | Market, exchange, and trading docs |
+| [market](market/) | 17 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 29 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
-| [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
+| [reference](reference/) | 11 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 54 | End-to-end usage scenarios |
-| [security](security/) | 23 | Security architecture and audits |
+| [security](security/) | 24 | Security architecture and audits |
 | [testing](testing/) | 6 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |
