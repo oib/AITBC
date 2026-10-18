@@ -311,3 +311,21 @@ help text (plus the MCP `bridge_lock`/`source_chain` descriptions) now
 states the truth: the signed `source_chain` must equal the body's value
 when sent, else the node's resolved chain ID. Server-side verification and
 defaults untouched. Repo-only: no rollout.
+
+### Website: strict styles, CSP diagnostics and stamped-asset caching
+
+- Move website inline style blocks and attributes into external stylesheets
+  and classes. Native hidden state preserves panel visibility; trusted
+  CSSOM assignments retain dynamic transaction colors and depth widths.
+- Add a bounded same-origin CSP report collector to the Explorer service.
+  It validates legacy and Reporting API envelopes and logs sanitized
+  diagnostics through the existing logger, excluding URL queries,
+  fragments, userinfo, referrers and script samples.
+- Prepare nginx rules for strict style-src self and report-uri /csp-report,
+  with a 16 KiB body limit and per-client reporting rate limit. Preserve
+  the existing HSTS policy and security-header inheritance.
+- Cache static JS/CSS carrying the shared 16-hex version stamp for one
+  year with immutable. Keep other assets at one hour and HTML no-cache.
+  The reference now includes the HTML revalidation rule already live.
+- Activation requires the reviewed hub fast-forward, Explorer restart
+  and nginx configuration rollout; this entry does not assert deployment.

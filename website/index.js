@@ -60,7 +60,7 @@ function renderFactsState(state, detailText) {
     const detail = document.getElementById('facts-detail');
     if (detail) detail.textContent = detailText || '';
     const retry = document.getElementById('facts-retry-btn');
-    if (retry) retry.style.display = state === 'unknown' ? '' : 'none';
+    if (retry) retry.hidden = state !== 'unknown';
 }
 
 function setFact(id, value) {
@@ -138,7 +138,7 @@ function escapeHtml(s) {
 
 function setJoinRetry(visible) {
     const retry = document.getElementById('join-retry-btn');
-    if (retry) retry.style.display = visible ? '' : 'none';
+    if (retry) retry.hidden = !visible;
 }
 
 function joinFailed(reason, detail) {

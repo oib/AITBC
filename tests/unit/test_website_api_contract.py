@@ -28,6 +28,9 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import subprocess
+import time
 import unittest
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -333,7 +336,7 @@ def _server_level_text(text: str) -> str:
 # verbatim — a config sync that drops them fails the guard test.
 EXPECTED_SERVER_HEADERS = [
     'Referrer-Policy "strict-origin-when-cross-origin" always',
-    "Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'\" always",
+    "Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report\" always",
     'Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always',
     'Strict-Transport-Security "max-age=31536000; includeSubDomains" always',
 ]
@@ -672,7 +675,15 @@ def analyze() -> list[Row]:
             row.verdict = "denied"
         elif loc.return_code and loc.return_code < 400:
             row.verdict, row.detail = "denied", f"returns {loc.return_code}"
-        elif loc.static_root or (loc.is_prefix and loc.pattern == "/" and not loc.proxy_upstream):
+        elif loc.static_root or (
+            not loc.proxy_upstream
+            and (
+                (loc.is_prefix and loc.pattern == "/")
+                # Nested regex locations inside `location /` (e.g. the .html
+                # no-cache override) still fall through to the server root.
+                or loc.modifier in ("~", "~*")
+            )
+        ):
             row.verdict, row.app_path, row.detail = _static_check(call.pattern)
         elif loc.proxy_upstream:
             _proxy_row(row, call, loc, allow)
@@ -896,3 +907,295 @@ class TestMessagingRateLimit(unittest.TestCase):
 if __name__ == "__main__":
     print(_fmt(analyze()))
     print(f"\nconfig: {NGINX_CONF}")
+
+
+def _extract_directive_block(text: str, start_marker: str) -> str:
+    """Extract a `marker { ... }` directive block verbatim (comments kept out
+    is fine — nginx ignores them)."""
+    text_stripped = text
+    idx = text_stripped.find(start_marker)
+    if idx < 0:
+        raise AssertionError(f"{start_marker!r} not found in {NGINX_CONF.name}")
+    brace = text_stripped.find("{", idx)
+    body = _brace_block(text_stripped, brace)
+    return text_stripped[idx : brace + len(body) + 2]
+
+
+def _extract_location(text: str, pattern: str) -> str:
+    """Extract a complete `location <pattern> { ... }` block verbatim."""
+    for m in _LOC_RE.finditer(text):
+        if (m.group(3) or m.group(2) or "") == pattern:
+            brace = text.find("{", m.start())
+            body = _brace_block(text, brace)
+            return text[m.start() : brace + len(body) + 2]
+    raise AssertionError(f"location {pattern!r} not found in {NGINX_CONF.name}")
+
+
+class _ReportStub:
+    """Tiny loopback HTTP stub recording requests; stands in for the
+    blockchain_explorer upstream."""
+
+    def __init__(self) -> None:
+        self.posts: list[tuple[str, bytes]] = []
+        self.httpd = None
+        self.port = 0
+        self.thread = None
+
+    def start(self) -> None:
+        import http.server
+        import threading
+
+        outer = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def _reply(self, code: int, ctype: str, body: bytes, extra: dict | None = None) -> None:
+                self.send_response(code)
+                for k, v in (extra or {}).items():
+                    self.send_header(k, v)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self) -> None:  # noqa: N802
+                n = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(n)
+                outer.posts.append((self.path, body))
+                if self.path == "/api/csp-report":
+                    self._reply(204, "text/plain", b"", {"Cache-Control": "no-store"})
+                else:
+                    self._reply(200, "application/json", b"{}")
+
+            def do_GET(self) -> None:  # noqa: N802
+                self._reply(200, "application/json", b"{}")
+
+            def log_message(self, *a) -> None:
+                pass
+
+        self.httpd = http.server.HTTPServer(("127.0.0.1", 0), H)
+        self.port = self.httpd.server_address[1]
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread.start()
+
+    def stop(self) -> None:
+        if self.httpd:
+            self.httpd.shutdown()
+
+
+_NGINX_BIN = shutil.which("nginx")
+
+
+@unittest.skipUnless(_NGINX_BIN, "skipped: no nginx binary on PATH")
+class TestNginxRuntime(unittest.TestCase):
+    """Run the actual cache/report directives from NGINX_CONF in a real,
+    temporary nginx instance — no hand-copied policy reimplementation."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import tempfile
+        import urllib.request
+
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.tmp.cleanup)
+        tmp = Path(cls.tmp.name)
+        # nginx workers run as `nobody`; mkdtemp is 0700.
+        tmp.chmod(0o755)
+        www = tmp / "www"
+        www.mkdir()
+        (www / "index.html").write_text("<html><body>ok</body></html>")
+        (www / "sample.js").write_text("console.log(1);")
+        (www / "sample.css").write_text("body{}")
+        (www / "image.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>")
+
+        cls.stub = _ReportStub()
+        cls.stub.start()
+        cls.addClassCleanup(cls.stub.stop)
+
+        raw = NGINX_CONF.read_text(encoding="utf-8")
+
+        # ── http-context pieces, verbatim from the reference ──
+        http_bits = [
+            _extract_directive_block(raw, "map $arg_v $aitbc_asset_expires"),
+            _extract_directive_block(raw, 'map "$aitbc_static_asset:$arg_v:$status" $aitbc_asset_immutable'),
+            "limit_req_zone $binary_remote_addr zone=aitbc_csp_reports:1m rate=1r/s;",
+        ]
+
+        # ── server-level add_header set + static-asset marker ──
+        server_text = _server_level_text(raw)
+        server_directives = [
+            ln
+            for ln in (line.strip() for line in server_text.splitlines())
+            if ln.startswith("add_header ") or ln == "set $aitbc_static_asset 0;"
+        ]
+
+        # ── report + blocked-alias + root locations, verbatim ──
+        report_loc = _extract_location(raw, "/csp-report").replace(
+            "http://blockchain_explorer", f"http://127.0.0.1:{cls.stub.port}"
+        )
+        blocked_1 = _extract_location(raw, "/explorer-api/api/csp-report")
+        blocked_2 = _extract_location(raw, "/explorer-api/api/csp-report/")
+        root_loc = _extract_location(raw, "/")
+
+        # Test-only upstream route that deliberately does NOT set the static
+        # marker — proves proxied .js URLs stay out of the immutable policy.
+        test_api = f"""location /test-api/ {{
+            proxy_pass http://127.0.0.1:{cls.stub.port}/;
+        }}"""
+
+        cls.port = cls._free_port()
+        conf = tmp / "nginx.conf"
+        conf.write_text(
+            f"""pid {tmp}/nginx.pid;
+error_log {tmp}/error.log warn;
+worker_processes 1;
+events {{ worker_connections 128; }}
+http {{
+    types {{
+        text/html html;
+        text/css css;
+        application/javascript js;
+        image/svg+xml svg;
+        application/json json;
+    }}
+    default_type application/octet-stream;
+    access_log {tmp}/access.log;
+    client_body_temp_path {tmp}/body;
+    proxy_temp_path {tmp}/proxy;
+    fastcgi_temp_path {tmp}/fcgi;
+    uwsgi_temp_path {tmp}/uwsgi;
+    scgi_temp_path {tmp}/scgi;
+    {chr(10).join(http_bits)}
+    server {{
+        listen 127.0.0.1:{cls.port};
+        server_name _;
+        root {www};
+        index index.html;
+        {chr(10).join(server_directives)}
+        {report_loc}
+        {blocked_1}
+        {blocked_2}
+        {test_api}
+        {root_loc}
+    }}
+}}
+"""
+        )
+        cls.conf = conf
+        t = subprocess.run([_NGINX_BIN, "-t", "-c", str(conf), "-p", str(tmp)], capture_output=True, text=True)
+        if t.returncode != 0:
+            raise unittest.SkipTest(f"nginx -t failed on generated config: {t.stderr[:600]}")
+        p = subprocess.Popen([_NGINX_BIN, "-c", str(conf), "-p", str(tmp)])
+        cls.addClassCleanup(p.terminate)
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{cls.port}/", timeout=1) as r:
+                    if r.status == 200:
+                        break
+            except Exception:
+                time.sleep(0.15)
+        else:
+            raise unittest.SkipTest("nginx test instance did not become ready")
+
+    @staticmethod
+    def _free_port() -> int:
+        import socket
+
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+    def _req(self, method: str, path: str, body: bytes | None = None, headers: dict | None = None) -> tuple[int, dict]:
+        import http.client
+
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request(method, path, body=body, headers=headers or {})
+        r = c.getresponse()
+        r.read()
+        hs: dict[str, list[str]] = {}
+        for k, v in r.getheaders():
+            hs.setdefault(k.lower(), []).append(v)
+        c.close()
+        return r.status, hs
+
+    @staticmethod
+    def _cache_control(hs: dict) -> str:
+        return ", ".join(hs.get("cache-control", []))
+
+    def _security_headers(self, hs: dict, ctx: str) -> list[str]:
+        bad = []
+        csp = " ".join(hs.get("content-security-policy", []))
+        if "style-src 'self'" not in csp or "report-uri /csp-report" not in csp:
+            bad.append(f"{ctx}: enforcing strict-style CSP missing ({csp})")
+        if not hs.get("strict-transport-security"):
+            bad.append(f"{ctx}: HSTS missing")
+        if "nosniff" not in " ".join(hs.get("x-content-type-options", [])):
+            bad.append(f"{ctx}: nosniff missing")
+        return bad
+
+    _STAMP = "0123456789abcdef"
+    _REPORT = b'{"csp-report":{"document-uri":"https://x.invalid/a.html","effective-directive":"style-src"}}'
+    _CT = {"Content-Type": "application/csp-report"}
+
+    def _check_static_caching(self, bad: list[str]) -> None:
+        # (path, want_status, required CC tokens, forbidden CC tokens)
+        cases = [
+            (f"/sample.js?v={self._STAMP}", 200, ["max-age=31536000", "immutable"], []),
+            (f"/sample.css?v={self._STAMP}", 200, ["max-age=31536000", "immutable"], []),
+            ("/sample.js", 200, ["max-age=3600"], ["immutable"]),
+            ("/sample.css?v=1", 200, ["max-age=3600"], ["immutable"]),
+            ("/sample.css?v=not-a-stamp", 200, ["max-age=3600"], ["immutable"]),
+            (f"/image.svg?v={self._STAMP}", 200, ["max-age=3600"], ["immutable"]),
+            ("/", 200, ["no-cache"], ["immutable"]),
+            ("/index.html", 200, ["no-cache"], ["immutable"]),
+            (f"/index.html?v={self._STAMP}", 200, ["no-cache"], ["immutable"]),
+            (f"/missing.js?v={self._STAMP}", 404, [], ["immutable", "max-age=31536000"]),
+            (f"/test-api/data.js?v={self._STAMP}", 200, [], ["immutable", "max-age=31536000"]),
+        ]
+        for path, want_status, want, forbidden in cases:
+            s, hs = self._req("GET", path)
+            cc = self._cache_control(hs)
+            if s != want_status or not all(w in cc for w in want) or any(f in cc for f in forbidden):
+                bad.append(f"{path}: {s} Cache-Control={cc!r} (want {want_status} +{want} -{forbidden})")
+            bad += self._security_headers(hs, path)
+
+    def _check_conditional_request(self, bad: list[str]) -> None:
+        # A 304 on the stamped asset keeps the same immutable policy.
+        _, hs = self._req("GET", f"/sample.js?v={self._STAMP}")
+        etag = hs.get("etag", [None])[0]
+        s2, hs2 = self._req("GET", f"/sample.js?v={self._STAMP}", headers={"If-None-Match": etag})
+        cc2 = self._cache_control(hs2)
+        if s2 != 304 or "immutable" not in cc2:
+            bad.append(f"304 sample.js: {s2} Cache-Control={cc2!r} (want immutable kept)")
+        bad += self._security_headers(hs2, "304 sample.js")
+
+    def _check_report_route(self, bad: list[str]) -> None:
+        self.stub.posts.clear()
+        s, hs = self._req("POST", "/csp-report", body=self._REPORT, headers=self._CT)
+        if s != 204 or self._cache_control(hs) != "no-store":
+            bad.append(f"POST /csp-report: {s} CC={self._cache_control(hs)!r} (want 204/no-store)")
+        if self.stub.posts != [("/api/csp-report", self._REPORT)]:
+            bad.append(f"upstream saw {self.stub.posts!r}, want one /api/csp-report POST with same body")
+
+        # GET and oversized bodies are refused before any upstream call.
+        for method, path, body, want in (
+            ("GET", "/csp-report", None, 403),
+            ("POST", "/csp-report", b" " * 20000, 413),
+            ("POST", "/explorer-api/api/csp-report", self._REPORT, 404),
+            ("POST", "/explorer-api/api/csp-report/", self._REPORT, 404),
+        ):
+            self.stub.posts.clear()
+            s, _ = self._req(method, path, body=body, headers=self._CT if body is not None else {})
+            if s != want or self.stub.posts:
+                bad.append(f"{method} {path}: {s} (want {want}, no upstream call)")
+
+        codes = [self._req("POST", "/csp-report", body=self._REPORT, headers=self._CT)[0] for _ in range(30)]
+        if 429 not in codes:
+            bad.append(f"burst of 30 POSTs produced no 429: {sorted(set(codes))}")
+
+    def test_cache_and_report_behaviour(self) -> None:
+        bad: list[str] = []
+        self._check_static_caching(bad)
+        self._check_conditional_request(bad)
+        self._check_report_route(bad)
+        self.assertEqual([], bad, "nginx runtime failures:\n" + "\n".join(bad))

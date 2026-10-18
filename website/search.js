@@ -34,13 +34,12 @@ function showError(msg, retry) {
     if (retry) {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'bridge-retry';
-        btn.style.marginLeft = '0.75rem';
+        btn.className = 'bridge-retry detail-retry';
         btn.textContent = 'Try again';
         btn.addEventListener('click', retry);
         errEl.appendChild(btn);
     }
-    errEl.style.display = 'block';
+    errEl.hidden = false;
 }
 
 function addrLink(addr) {
@@ -70,9 +69,9 @@ function dirBadge(tx, searchedAddr) {
 async function loadSearch() {
     const query = getParam('query') || getParam('search') || '';
     if (!query) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').hidden = true;
         document.getElementById('error').textContent = 'Missing search query';
-        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').hidden = false;
         return;
     }
 
@@ -128,7 +127,7 @@ async function loadSearch() {
         const msgList = msgArr || [];
 
         if (txList.length === 0 && blockList.length === 0 && msgList.length === 0) {
-            document.getElementById('loading').style.display = 'none';
+            document.getElementById('loading').hidden = true;
             if (msgLegFailed) {
                 showError(`Search could not be completed (messages leg: ${msgLegReason}). This is not a "not found".`, loadSearch);
             } else {
@@ -138,9 +137,9 @@ async function loadSearch() {
         }
 
         if (blockList.length > 0) {
-            document.getElementById('blocks-section').style.display = 'block';
+            document.getElementById('blocks-section').hidden = false;
             document.getElementById('blocks-list').innerHTML = blockList.map(b => `
-                <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" data-href="/block.html?height=${encodeURIComponent(b.height)}">
+                <div class="endpoint table-card fade-in block-item" tabindex="0" role="link" data-href="/block.html?height=${encodeURIComponent(b.height)}">
                     <div class="table-wrap"><table class="block-list-table" aria-label="Result details">
                         <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(b.height)}</td></tr>
                         <tr><th scope="row">Hash</th><td>${escapeHtml(b.hash || 'N/A')} ${aitbcCopyBtn(b.hash || '', 'block hash')}</td></tr>
@@ -153,11 +152,11 @@ async function loadSearch() {
         }
 
         if (txList.length > 0) {
-            document.getElementById('txs-section').style.display = 'block';
+            document.getElementById('txs-section').hidden = false;
             document.getElementById('txs-list').innerHTML = txList.map(tx => {
                 const dBadge = dirBadge(tx, query);
                 return `
-                <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" data-href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">
+                <div class="endpoint table-card fade-in block-item" tabindex="0" role="link" data-href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">
                     <div class="table-wrap"><table class="block-list-table" aria-label="Result details">
                         <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span> ${dBadge}</td></tr>
                         <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash || 'N/A')} ${aitbcCopyBtn(tx.tx_hash || '', 'transaction hash')}</td></tr>
@@ -202,13 +201,13 @@ async function loadSearch() {
                 item.appendChild(hashLine);
                 list.appendChild(item);
             });
-            document.getElementById('messages-section').style.display = 'block';
+            document.getElementById('messages-section').hidden = false;
         }
 
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
+        document.getElementById('loading').hidden = true;
+        document.getElementById('content').hidden = false;
     } catch (err) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').hidden = true;
         showError(err.message || 'Search failed', loadSearch);
     }
 }

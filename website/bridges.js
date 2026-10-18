@@ -51,19 +51,19 @@ function showTransfersFailure(reason) {
     const failed = document.getElementById('recent-bridges-failed');
     const reasonEl = document.getElementById('recent-bridges-failed-reason');
     const note = document.getElementById('recent-bridges-fail-note');
-    if (loading) loading.style.display = 'none';
-    if (empty) empty.style.display = 'none';
+    if (loading) loading.hidden = true;
+    if (empty) empty.hidden = true;
     if (renderedTransfers > 0) {
-        if (failed) failed.style.display = 'none';
+        if (failed) failed.hidden = true;
         if (note) {
-            note.style.display = 'block';
+            note.hidden = false;
             note.textContent = `Could not refresh: ${reason} Showing transfers last loaded ${aitbcFmt.time(lastTransfersReadAt)}.`;
         }
         return;
     }
-    if (note) note.style.display = 'none';
+    if (note) note.hidden = true;
     if (reasonEl) reasonEl.textContent = reason;
-    if (failed) failed.style.display = 'block';
+    if (failed) failed.hidden = false;
 }
 
 async function loadRecentBridges() {
@@ -101,21 +101,21 @@ async function loadRecentBridges() {
         showTransfersFailure(reason);
         return;
     }
-    if (loading) loading.style.display = 'none';
-    if (failed) failed.style.display = 'none';
-    if (note) note.style.display = 'none';
+    if (loading) loading.hidden = true;
+    if (failed) failed.hidden = true;
+    if (note) note.hidden = true;
     lastTransfersReadAt = Date.now();
     const visible = transfers.filter(d => d && typeof d === 'object' && !Array.isArray(d));
     const skipped = transfers.length - visible.length;
     renderedTransfers = visible.length;
     if (visible.length === 0) {
         if (container) container.innerHTML = '';
-        if (empty) empty.style.display = transfers.length === 0 ? 'block' : 'none';
+        if (empty) empty.hidden = transfers.length !== 0;
     } else {
-        if (empty) empty.style.display = 'none';
+        if (empty) empty.hidden = true;
     }
     if (skipped > 0 && note) {
-        note.style.display = 'block';
+        note.hidden = false;
         note.textContent = `${skipped} item${skipped === 1 ? '' : 's'} in the reply could not be shown.`;
     }
     if (visible.length === 0 || !container) return;
