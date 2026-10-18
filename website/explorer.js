@@ -84,10 +84,13 @@ function blockContentHtml(transactions) {
 function renderBlockCard(block) {
     let timestamp = 'N/A';
     if (block.timestamp) {
-        if (typeof block.timestamp === 'string') {
-            timestamp = aitbcFmt.date(block.timestamp);
-        } else if (typeof block.timestamp === 'number') {
-            timestamp = aitbcFmt.date(block.timestamp * 1000);
+        const raw = typeof block.timestamp === 'number' ? block.timestamp * 1000 : block.timestamp;
+        const stamp = aitbcFmt.date(raw);
+        // Local-clock stamp carries its real zone label — never a hard-coded
+        // UTC word (WEB-TZ-1). stamp === '-' means unparseable → stays N/A
+        // with no zone word.
+        if (stamp !== '-') {
+            timestamp = stamp + (typeof aitbcFmt.zone === 'function' ? ' ' + aitbcFmt.zone(raw) : '');
         }
     }
     const txCount = block.txCount || 0;
@@ -105,7 +108,7 @@ function renderBlockCard(block) {
                 <tr><th scope="row">Proposer</th><td>${escapeHtml(proposer)}</td></tr>
                 <tr><th scope="row">Transactions</th><td>${escapeHtml(txCount)}</td></tr>
                 ${contentRow}
-                <tr><th scope="row">Timestamp</th><td>${escapeHtml(timestamp)} UTC</td></tr>
+                <tr><th scope="row">Timestamp</th><td>${escapeHtml(timestamp)}</td></tr>
             </table>
             </div>
         </div>

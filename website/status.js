@@ -34,6 +34,21 @@
             var t = (v == null) ? new Date() : (v instanceof Date) ? v : new Date(v);
             if (isNaN(t.getTime())) return '';
             return t.toLocaleTimeString('en-GB');
+        },
+        // Short label for the viewer's local zone (e.g. "GMT+2", "CEST",
+        // "EST" — engine-dependent), with a UTC±n fallback. Pairs with
+        // date()/time() so a local-clock stamp is never labelled "UTC"
+        // (WEB-TZ-1). '' when unparseable — matches date()'s '-'.
+        zone: function (v) {
+            var t = (v == null) ? new Date() : (v instanceof Date) ? v : new Date(v);
+            if (isNaN(t.getTime())) return '';
+            try {
+                var part = new Intl.DateTimeFormat('en', { timeZoneName: 'short' })
+                    .formatToParts(t).find(function (p) { return p.type === 'timeZoneName'; });
+                if (part && part.value) return part.value;
+            } catch (e) { /* older engines */ }
+            var off = -t.getTimezoneOffset() / 60;
+            return 'UTC' + (off >= 0 ? '+' : '') + off;
         }
     };
 
