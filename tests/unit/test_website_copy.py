@@ -922,5 +922,22 @@ class TestSearchPageStates(unittest.TestCase):
         self.assertIn("bridge-retry", html)
 
 
+class TestAuthorPageStates(unittest.TestCase):
+    """WEB-DETAIL-1: an ok reply without a messages array is a shape
+    failure, not a proven-empty author; failures offer Try again."""
+
+    def test_messages_array_is_required(self) -> None:
+        js = _site_src("author.js")
+        self.assertIn("Array.isArray(data.messages)", js)
+        self.assertNotIn("data.messages || []", js)
+
+    def test_failures_offer_try_again(self) -> None:
+        js = _site_src("author.js")
+        self.assertIn("function retryButton", js)
+        self.assertIn("bridge-retry", js)
+        self.assertIn("Try again", js)
+        self.assertIn("reply was not the expected shape", js)
+
+
 if __name__ == "__main__":
     unittest.main()
