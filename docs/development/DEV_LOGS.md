@@ -55,3 +55,8 @@ archivelogs          # Archive current logs
 3. **Use** log aliases for common operations
 4. **Clean** up old logs regularly
 5. **Archive** important logs before cleanup
+## History
+
+The `wget-log` file was moved from the project root to
+`dev/logs/tools/` when this layout was introduced; the aliases above are
+the prevention measure that keeps logs out of the root.

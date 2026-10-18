@@ -70,4 +70,4 @@ hardcoded hosts. See [script-environment.md](./script-environment.md).
 
 - [Prerequisites](../getting-started/installation/prerequisites.md) - System requirements
 - [Local Setup](local-setup.md) - Local development configuration
-- [SSL/TLS Setup](ssl-tls-setup.md) - SSL configuration
+- [SSL/TLS Configuration](../security/ssl-tls-configuration.md) - SSL configuration

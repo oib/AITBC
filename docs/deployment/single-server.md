@@ -99,5 +99,5 @@ server {
 ## See Also
 
 - [Prerequisites](../getting-started/installation/prerequisites.md) - System requirements
-- [SSL/TLS Setup](ssl-tls-setup.md) - SSL configuration
+- [SSL/TLS Configuration](../security/ssl-tls-configuration.md) - SSL configuration
 - [Configuration](configuration.md) - Environment configuration

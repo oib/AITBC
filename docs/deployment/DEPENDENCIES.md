@@ -251,7 +251,7 @@ listens on `443`.
 
 TLS terminates on the proxy host in front of the fleet; see
 [Network Policy](NETWORK_POLICY.md) for which surfaces are public and
-[SSL/TLS Configuration](ssl-tls-setup.md) for what that means when deploying.
+[SSL/TLS Configuration](../security/ssl-tls-configuration.md) for what that means when deploying.
 Certificates for that host are an operator concern, outside this repository.
 
 ## Storage Requirements

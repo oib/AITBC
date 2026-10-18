@@ -8,7 +8,6 @@ Build on the AITBC platform: APIs, SDKs, and contribution guides.
 |---|------|----------------|
 | 1 | [1_overview.md](./1_overview.md) | Platform architecture for developers |
 | 2 | [2_setup.md](./2_setup.md) | Dev environment setup |
-| 3 | [3_contributing.md](./3_contributing.md) | How to contribute |
 | 4 | [4_examples.md](./4_examples.md) | Code examples |
 | 5 | [5_developer-guide.md](./5_developer-guide.md) | SDKs, APIs, bounties |
 | 6 | [6_api-authentication.md](./6_api-authentication.md) | Auth flow and tokens |
