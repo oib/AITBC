@@ -2829,3 +2829,29 @@ a.btn-secondary {
         min-height: 44px;
     }
 }
+
+/* Data tables built by dashboard.js renderTable(). .block-list-table's
+   first-column rule is a label style for key/value block rows (small, muted,
+   uppercase); in a data table that column holds real values (addresses, job
+   IDs, GPU and plugin names), so keep their casing and normal text style. */
+.block-list-table.data-table td:first-child {
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+    width: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* Dashboard Apply / Clear buttons: buttons do not inherit the page text
+   color, so the default black sat on --code (#18181b) at ~1.2:1. */
+button.endpoint {
+    color: var(--text);
+    cursor: pointer;
+}
+button.endpoint:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+}
