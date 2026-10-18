@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-10-16
+**Last Updated**: 2026-10-18
 
 ---
 
@@ -60,13 +60,13 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 894
+- **Markdown files under docs/**: 893
 
 | Directory | Files | Description |
 |---|---|---|
 | [agent](agent/) | 10 | Single agent integration and coordination |
 | [agent-coordinator](agent-coordinator/) | 21 | Agent coordinator service and API docs |
-| [agent-sdk](agent-sdk/) | 14 | Agent SDK and communication guide |
+| [agent-sdk](agent-sdk/) | 13 | Agent SDK and communication guide |
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
 | [apps](apps/) | 34 | Application catalog and per-app landing pages |
 | [architecture](architecture/) | 16 | System architecture and design patterns |
@@ -82,7 +82,7 @@ docs/
 | [design](design/) | 13 | Design documents and decisions |
 | [development](development/) | 31 | Developer guides and workflow |
 | [features](features/) | 93 | Feature specifications and deep dives |
-| [getting-started](getting-started/) | 31 | New-user onboarding and setup |
+| [getting-started](getting-started/) | 30 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |
 | [market](market/) | 19 | Market, exchange, and trading docs |
@@ -93,7 +93,7 @@ docs/
 | [reference](reference/) | 19 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 62 | End-to-end usage scenarios |
-| [security](security/) | 30 | Security architecture and audits |
+| [security](security/) | 31 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 11 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |
