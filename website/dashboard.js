@@ -23,7 +23,7 @@ function escapeHtml(s) {
 // ---------- Operator credential ----------
 
 const CRED_KEY = 'aitbc_credential';
-let lastAuthRejected = false;
+let lastAuthStatus = 0;  // 0 = none; else the 401/403 the coordinator answered
 
 function getCredential() {
     try { return sessionStorage.getItem(CRED_KEY) || ''; } catch (e) { return ''; }
@@ -55,8 +55,8 @@ function refreshCredentialStatus() {
     if (!el) return;
     if (!getCredential()) {
         el.textContent = 'No credential — showing public network data.';
-    } else if (lastAuthRejected) {
-        el.textContent = 'Credential rejected by the coordinator — check the key/token. Public data shown where available.';
+    } else if (lastAuthStatus) {
+        el.textContent = `Credential rejected (HTTP ${lastAuthStatus}) — check the key/token, then Clear and Apply.`;
     } else {
         el.textContent = `Credential active (${credentialLabel()}).`;
     }
@@ -76,7 +76,7 @@ function clearCredential(inputId) {
 }
 
 function reloadCurrentDashboard() {
-    lastAuthRejected = false;
+    lastAuthStatus = 0;
     refreshCredentialStatus();
     if (document.getElementById('cust-jobs-table')) loadCustomerDashboard();
     if (document.getElementById('shop-jobs-table')) loadShopDashboard();
@@ -85,52 +85,75 @@ function reloadCurrentDashboard() {
 // ---------- Fetch helpers ----------
 
 function noteAuth(res) {
-    if (res && (res.status === 401 || res.status === 403)) lastAuthRejected = true;
+    if (res && (res.status === 401 || res.status === 403)) lastAuthStatus = res.status;
 }
 
-async function apiGet(path, opts) {
+// Every read returns {ok, status, data, err}. ok means HTTP-ok AND parseable;
+// err names the failure plainly ("HTTP 503", "network request failed",
+// "reply was not readable", "Credential rejected (HTTP 401)") — a failed read
+// is never a silent null that a table could render as an empty list.
+function readResult(useAuth, res) {
+    if (useAuth && (res.status === 401 || res.status === 403)) {
+        lastAuthStatus = res.status;
+        return { ok: false, status: res.status, err: `Credential rejected (HTTP ${res.status})` };
+    }
+    if (!res.ok) return { ok: false, status: res.status, err: `HTTP ${res.status}` };
+    return null;  // ok — caller parses
+}
+
+async function readApi(path, opts) {
     const useAuth = opts && opts.auth;
+    let res;
     try {
-        const res = await fetch(path, useAuth ? { headers: authHeaders() } : undefined);
-        if (useAuth) noteAuth(res);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
+        res = await fetch(path, useAuth ? { headers: authHeaders() } : undefined);
     } catch (e) {
         console.error(`GET ${path} failed:`, e);
-        return null;
+        return { ok: false, status: 0, err: 'network request failed' };
     }
-}
-
-async function apiPost(path, body, opts) {
-    const useAuth = opts && opts.auth;
-    const headers = { 'Content-Type': 'application/json', ...(useAuth ? authHeaders() : {}) };
+    const bad = readResult(useAuth, res);
+    if (bad) return bad;
     try {
-        const res = await fetch(path, { method: 'POST', headers: headers, body: JSON.stringify(body || {}) });
-        if (useAuth) noteAuth(res);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
+        return { ok: true, status: res.status, data: await res.json() };
     } catch (e) {
-        console.error(`POST ${path} failed:`, e);
-        return null;
+        return { ok: false, status: res.status, err: 'reply was not readable' };
     }
 }
 
-async function apiPostOrGet(path, params, opts) {
+async function readApiPostOrGet(path, params, opts) {
     // The coordinator-api registers the miner job/earnings reads as POST, but a
     // deployment or proxy may expose them GET-only; retry as GET on a 405.
     const useAuth = opts && opts.auth;
     const headers = { 'Content-Type': 'application/json', ...(useAuth ? authHeaders() : {}) };
+    let res;
     try {
-        const res = await fetch(path, { method: 'POST', headers: headers, body: JSON.stringify(params || {}) });
-        if (useAuth) noteAuth(res);
-        if (res.ok) return await res.json();
-        if (res.status !== 405) throw new Error(`HTTP ${res.status}`);
+        res = await fetch(path, { method: 'POST', headers: headers, body: JSON.stringify(params || {}) });
     } catch (e) {
         console.error(`POST ${path} failed:`, e);
-        return null;
+        return { ok: false, status: 0, err: 'network request failed' };
+    }
+    if (res.ok) {
+        try {
+            return { ok: true, status: res.status, data: await res.json() };
+        } catch (e) {
+            return { ok: false, status: res.status, err: 'reply was not readable' };
+        }
+    }
+    if (res.status !== 405) {
+        const bad = readResult(useAuth, res);
+        return bad || { ok: false, status: res.status, err: `HTTP ${res.status}` };
     }
     const query = params ? (path.includes('?') ? '&' : '?') + new URLSearchParams(params).toString() : '';
-    return apiGet(path + query, opts);
+    return readApi(path + query, opts);
+}
+
+// An ok reply that lacks the field a panel needs is a shape failure, not a
+// proven-empty list. pickList returns the array or null (wrong shape).
+function pickList(data, keys) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object') {
+        for (const k of keys) if (Array.isArray(data[k])) return data[k];
+    }
+    return null;
 }
 
 function tzLabel(d) {
@@ -162,12 +185,47 @@ function humanize(v) {
     return String(v).replace(/_/g, ' ');
 }
 
-function renderTable(containerId, rows, columns, failed, label) {
+// A failed read keeps last-good rows when they exist and shows exactly one
+// note naming the reason plus a Try again; a rejected credential gets no
+// retry — reloading cannot help until the credential changes.
+function renderFailure(container, label, reason) {
+    if (!container) return;
+    const prior = container.querySelector('.dash-note');
+    if (prior) prior.remove();
+    const stale = container.querySelector('.table-wrap');
+    const p = document.createElement('p');
+    p.className = 'endpoint-note dash-note';
+    const retry = /^Credential rejected/.test(reason)
+        ? ''
+        : ' <button type="button" class="bridge-retry dash-retry">Try again</button>';
+    p.innerHTML = stale
+        ? `Stale — last good ${escapeHtml(label)} shown (${escapeHtml(reason)}).` + retry
+        : `${escapeHtml(label)} unavailable: ${escapeHtml(reason)}.` + retry;
+    if (stale) container.prepend(p); else container.appendChild(p);
+}
+
+// A note that coexists with rendered content (e.g. "credential rejected —
+// showing public network data"): written once, removed on next render.
+function panelNote(containerId, html) {
     const container = document.getElementById(containerId);
+    if (!container) return;
+    const prior = container.querySelector('.dash-note');
+    if (prior) prior.remove();
+    if (!html) return;
+    const p = document.createElement('p');
+    p.className = 'endpoint-note dash-note';
+    p.innerHTML = html;
+    container.prepend(p);
+}
+
+function renderTable(containerId, rows, columns, failReason, label) {
+    const container = document.getElementById(containerId);
+    if (failReason) {
+        renderFailure(container, label || 'Data', failReason);
+        return;
+    }
     if (!rows || rows.length === 0) {
-        container.innerHTML = failed
-            ? '<p class="endpoint-note">Endpoint unavailable.</p>'
-            : '<p class="endpoint-note">No data.</p>';
+        container.innerHTML = '<p class="endpoint-note">No data.</p>';
         return;
     }
     const ariaLabel = label || 'data table';
@@ -217,21 +275,22 @@ async function loadAddressRows(limit) {
     // reach them. Show the public view instead: the most active on-chain
     // addresses from the explorer, with live balances from the public RPC.
     const explorerBase = AITBC.explorerApiUrl || '/explorer-api';
-    const data = await apiGet(`${explorerBase}/api/analytics/top-addresses?chain_id=${AITBC.chainId}&limit=${limit}`);
-    if (data === null) return null;
-    const entries = Array.isArray(data) ? data : (data.addresses || []);
+    const r = await readApi(`${explorerBase}/api/analytics/top-addresses?chain_id=${AITBC.chainId}&limit=${limit}`);
+    if (!r.ok) return { ok: false, err: r.err };
+    const entries = pickList(r.data, ['addresses']);
+    if (entries === null) return { ok: false, err: 'reply was not the expected shape' };
     const rows = [];
     for (const entry of entries.slice(0, limit)) {
         if (!entry || typeof entry !== 'object') continue;
         const address = entry.address || 'N/A';
-        const account = address !== 'N/A' ? await apiGet(`/rpc/account/${encodeURIComponent(address)}`) : null;
+        const acct = address !== 'N/A' ? await readApi(`/rpc/account/${encodeURIComponent(address)}`) : { ok: false };
         rows.push({
             address: address,
-            balance: account && account.balance != null ? formatAit(account.balance) : 'N/A',
+            balance: acct.ok && acct.data && acct.data.balance != null ? formatAit(acct.data.balance) : 'N/A',
             txs: entry.transaction_count != null ? entry.transaction_count : 'N/A',
         });
     }
-    return rows;
+    return { ok: true, rows: rows };
 }
 
 function shortHex(v, keep) {
@@ -284,16 +343,36 @@ async function loadCustomerDashboard() {
     // market service and carrying the same state/payment_status fields.
     let jobs = [];
     let scopedView = false;
-    let jobsFailed = false;
+    let jobsFailed = null;   // null | named reason
+    let keyedErr = null;     // why the keyed view fell back (null = not tried)
     if (cred) {
-        const jobsData = await apiGet('/v1/jobs?limit=20', { auth: true });
-        jobs = Array.isArray(jobsData) ? jobsData : ((jobsData || {}).items || []);
-        scopedView = jobs.length > 0 && !lastAuthRejected;
+        const r = await readApi('/v1/jobs?limit=20', { auth: true });
+        if (r.ok) {
+            const list = pickList(r.data, ['items', 'jobs']);
+            if (list === null) {
+                keyedErr = 'reply was not the expected shape';
+            } else {
+                jobs = list;
+                // An approved credential with zero jobs is honestly empty —
+                // scope stays "your account"; only failures fall back.
+                scopedView = !lastAuthStatus;
+            }
+        } else {
+            keyedErr = r.err;
+        }
     }
     if (!scopedView) {
-        const marketJobs = await apiGet('/v1/market/jobs?limit=20');
-        jobsFailed = marketJobs === null;
-        jobs = Array.isArray(marketJobs) ? marketJobs : ((marketJobs || {}).items || (marketJobs || {}).jobs || []);
+        const r = await readApi('/v1/market/jobs?limit=20');
+        if (r.ok) {
+            const list = pickList(r.data, ['items', 'jobs']);
+            if (list === null) {
+                jobsFailed = 'reply was not the expected shape';
+            } else {
+                jobs = list;
+            }
+        } else {
+            jobsFailed = r.err;
+        }
     }
 
     const states = {};
@@ -316,18 +395,26 @@ async function loadCustomerDashboard() {
     setText('cust-jobs-scope', scopedView ? 'your account' : 'market-wide');
 
     renderTable('cust-jobs-table', rows, JOB_COLUMNS, jobsFailed, 'Jobs');
+    // When the keyed view failed but public data rendered, say so plainly —
+    // a silent fallback would let the market list masquerade as yours.
+    if (!jobsFailed && keyedErr) {
+        const rejected = /^Credential rejected/.test(keyedErr);
+        panelNote('cust-jobs-table', rejected
+            ? `${escapeHtml(keyedErr)} — showing public network data. Check the key/token, then Clear and Apply.`
+            : `Couldn't load your view (${escapeHtml(keyedErr)}) — showing public network data instead. <button type="button" class="bridge-retry dash-retry">Try again</button>`);
+    }
 
     // Payments are reflected in the job payment_status column. The wallet
     // daemon's routes are admin-gated and loopback-only on the public vhost,
     // so the panel lists the most active on-chain addresses instead.
-    const walletRows = await loadAddressRows(10);
-    setDot('cust-dot-wallets', walletRows === null ? 'down' : 'up');
-    setText('cust-wallet-count', walletRows === null ? 'unavailable' : walletRows.length);
-    renderTable('cust-wallets-table', walletRows || [], [
+    const wallets = await loadAddressRows(10);
+    setDot('cust-dot-wallets', wallets.ok ? 'up' : 'down');
+    setText('cust-wallet-count', wallets.ok ? wallets.rows.length : 'unavailable');
+    renderTable('cust-wallets-table', wallets.ok ? wallets.rows : [], [
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
         { label: 'Transactions', key: 'txs' },
-    ], walletRows === null, 'Wallets');
+    ], wallets.ok ? null : wallets.err, 'Wallets');
     refreshCredentialStatus();
 }
 
@@ -348,59 +435,99 @@ async function loadShopDashboard() {
     const cred = getCredential();
     const canQueryMiner = Boolean(cred && minerId);
     const explorerBase = AITBC.explorerApiUrl || '/explorer-api';
+    // One note slot per card; every failed read appends its named reason.
+    const panelNotes = { stats: [], earnings: [] };
 
     if (canQueryMiner) {
-        const metrics = await apiGet('/v1/monitoring/metrics', { auth: true });
-        const jobsMetrics = (metrics || {}).jobs || {};
-        const minersMetrics = (metrics || {}).miners || {};
-        const metricsDot = metrics === null ? 'down' : 'up';
+        const metrics = await readApi('/v1/monitoring/metrics', { auth: true });
+        const metricsOk = metrics.ok && metrics.data && typeof metrics.data === 'object';
+        const metricsReason = metrics.ok
+            ? (metricsOk ? null : 'reply was not the expected shape')
+            : metrics.err;
+        const jobsMetrics = (metricsOk && metrics.data.jobs) || {};
+        const minersMetrics = (metricsOk && metrics.data.miners) || {};
+        const metricsDot = metricsReason ? 'down' : 'up';
         setDot('shop-dot-jobs', metricsDot);
         setDot('shop-dot-released', metricsDot);
         setDot('shop-dot-queued', metricsDot);
         setDot('shop-dot-refunded', metricsDot);
         setDot('shop-dot-miners', metricsDot);
 
-        setText('shop-network-jobs', jobsMetrics.total != null ? jobsMetrics.total : '—');
-        setText('shop-network-released', jobsMetrics.completed != null ? jobsMetrics.completed : '—');
-        setText('shop-network-queued', jobsMetrics.pending != null ? jobsMetrics.pending : '—');
-        setText('shop-network-refunded', jobsMetrics.failed != null ? jobsMetrics.failed : '—');
-        setText('shop-miners-online', minersMetrics.online != null ? `${minersMetrics.online} / ${minersMetrics.total}` : '—');
+        setText('shop-network-jobs', metricsReason ? 'unavailable' : (jobsMetrics.total != null ? jobsMetrics.total : '—'));
+        setText('shop-network-released', metricsReason ? 'unavailable' : (jobsMetrics.completed != null ? jobsMetrics.completed : '—'));
+        setText('shop-network-queued', metricsReason ? 'unavailable' : (jobsMetrics.pending != null ? jobsMetrics.pending : '—'));
+        setText('shop-network-refunded', metricsReason ? 'unavailable' : (jobsMetrics.failed != null ? jobsMetrics.failed : '—'));
+        setText('shop-miners-online', metricsReason ? 'unavailable'
+            : (minersMetrics.online != null ? `${minersMetrics.online} / ${minersMetrics.total}` : '—'));
+        if (metricsReason) panelNotes.stats.push(`Network stats: ${metricsReason}`);
 
-        const jobsResp = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/jobs?limit=20`, {}, { auth: true });
-        const assignedJobs = Array.isArray(jobsResp) ? jobsResp : ((jobsResp || {}).jobs || (jobsResp || {}).items || []);
-        const jobRows = assignedJobs.map(jobRow);
-        setText('shop-jobs-scope', `${jobRows.length} jobs — ${minerId}`);
-        renderTable('shop-jobs-table', jobRows, JOB_COLUMNS, jobsResp === null, 'Jobs');
+        const jobsR = await readApiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/jobs?limit=20`, {}, { auth: true });
+        let jobsErr = null;
+        let assignedJobs = null;
+        if (jobsR.ok) {
+            assignedJobs = pickList(jobsR.data, ['jobs', 'items']);
+            if (assignedJobs === null) jobsErr = 'reply was not the expected shape';
+        } else {
+            jobsErr = jobsR.err;
+        }
+        const jobRows = (assignedJobs || []).map(jobRow);
+        setText('shop-jobs-scope', jobsErr ? `unavailable — ${minerId}` : `${jobRows.length} jobs — ${minerId}`);
+        renderTable('shop-jobs-table', jobRows, JOB_COLUMNS, jobsErr, 'Jobs');
 
-        const earnings = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/earnings`, {}, { auth: true });
-        setText('shop-earnings-total', earnings && earnings.total_earnings != null ? earnings.total_earnings : 'N/A');
-        setText('shop-earnings-paid', earnings && earnings.paid_earnings != null ? earnings.paid_earnings : 'N/A');
-        setText('shop-earnings-pending', earnings && earnings.pending_earnings != null ? earnings.pending_earnings : 'N/A');
+        const earnings = await readApiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/earnings`, {}, { auth: true });
+        const earningsOk = earnings.ok && earnings.data && typeof earnings.data === 'object';
+        const earningsReason = earnings.ok
+            ? (earningsOk ? null : 'reply was not the expected shape')
+            : earnings.err;
+        setText('shop-earnings-total', earningsReason ? 'unavailable' : (earnings.data.total_earnings != null ? earnings.data.total_earnings : 'N/A'));
+        setText('shop-earnings-paid', earningsReason ? 'unavailable' : (earnings.data.paid_earnings != null ? earnings.data.paid_earnings : 'N/A'));
+        setText('shop-earnings-pending', earningsReason ? 'unavailable' : (earnings.data.pending_earnings != null ? earnings.data.pending_earnings : 'N/A'));
+        if (earningsReason) panelNotes.earnings.push(`Earnings: ${earningsReason}`);
     } else {
         // Public network view: state counts over the open market-jobs feed plus
         // the explorer's network analytics — no credential needed. The market
         // service settles jobs to QUEUED/RELEASED/REFUNDED/CANCELED; counts
         // are over the fetched page only.
-        const marketJobs = await apiGet('/v1/market/jobs?limit=100');
-        const jobs = Array.isArray(marketJobs) ? marketJobs : (marketJobs && (marketJobs.items || marketJobs.jobs)) || [];
-        const jobsDot = marketJobs === null ? 'down' : 'up';
+        const marketR = await readApi('/v1/market/jobs?limit=100');
+        let jobsReason = null;
+        let jobs = null;
+        if (marketR.ok) {
+            jobs = pickList(marketR.data, ['items', 'jobs']);
+            if (jobs === null) jobsReason = 'reply was not the expected shape';
+        } else {
+            jobsReason = marketR.err;
+        }
+        const jobsDot = jobsReason ? 'down' : 'up';
         setDot('shop-dot-jobs', jobsDot);
         setDot('shop-dot-released', jobsDot);
         setDot('shop-dot-queued', jobsDot);
         setDot('shop-dot-refunded', jobsDot);
 
-        const released = jobs.filter(j => j.state === 'RELEASED').length;
-        const queued = jobs.filter(j => j.state === 'QUEUED').length;
-        const refunded = jobs.filter(j => j.state === 'REFUNDED' || j.state === 'CANCELED').length;
-        setText('shop-network-jobs', marketJobs === null ? 'unavailable' : `${jobs.length} (latest)`);
-        setText('shop-network-released', released);
-        setText('shop-network-queued', queued);
-        setText('shop-network-refunded', refunded);
+        if (jobsReason) {
+            // A failed or shapeless feed must not render as real zeros.
+            setText('shop-network-jobs', 'unavailable');
+            setText('shop-network-released', 'unavailable');
+            setText('shop-network-queued', 'unavailable');
+            setText('shop-network-refunded', 'unavailable');
+            panelNotes.stats.push(`Jobs feed: ${jobsReason}`);
+        } else {
+            const released = jobs.filter(j => j.state === 'RELEASED').length;
+            const queued = jobs.filter(j => j.state === 'QUEUED').length;
+            const refunded = jobs.filter(j => j.state === 'REFUNDED' || j.state === 'CANCELED').length;
+            setText('shop-network-jobs', `${jobs.length} (latest)`);
+            setText('shop-network-released', released);
+            setText('shop-network-queued', queued);
+            setText('shop-network-refunded', refunded);
+        }
 
-        const stats = await apiGet(`${explorerBase}/api/analytics/network-stats?chain_id=${encodeURIComponent(AITBC.chainId)}`);
-        setDot('shop-dot-miners', stats === null ? 'down' : 'up');
-        setText('shop-miners-online', stats && stats.unique_providers != null ? stats.unique_providers : '—');
-
+        const stats = await readApi(`${explorerBase}/api/analytics/network-stats?chain_id=${encodeURIComponent(AITBC.chainId)}`);
+        const statsOk = stats.ok && stats.data && typeof stats.data === 'object';
+        setDot('shop-dot-miners', statsOk ? 'up' : 'down');
+        if (stats.ok && !statsOk) panelNotes.stats.push('Network stats: reply was not the expected shape');
+        if (!stats.ok) panelNotes.stats.push(`Network stats: ${stats.err}`);
+        setText('shop-miners-online', statsOk
+            ? (stats.data.unique_providers != null ? stats.data.unique_providers : '—')
+            : 'unavailable');
         setText('shop-earnings-total', '—');
         setText('shop-earnings-paid', '—');
         setText('shop-earnings-pending', '—');
@@ -413,21 +540,36 @@ async function loadShopDashboard() {
     // Miner uptime: the pool-hub SLA feed is public and works without a
     // credential whenever a miner ID is entered.
     if (minerId) {
-        const sla = await apiGet(`/pool-hub/v1/sla/metrics/${encodeURIComponent(minerId)}`);
-        const upRows = Array.isArray(sla) ? sla.filter(r => r && r.metric_type === 'uptime_pct') : [];
-        const latest = upRows.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))[0];
-        setText('shop-miner-uptime', latest && latest.metric_value != null ? `${latest.metric_value}%` : 'no SLA data');
+        const sla = await readApi(`/pool-hub/v1/sla/metrics/${encodeURIComponent(minerId)}`);
+        if (!sla.ok) {
+            setText('shop-miner-uptime', 'unavailable');
+            panelNotes.earnings.push(`Miner uptime: ${sla.err}`);
+        } else if (!Array.isArray(sla.data)) {
+            setText('shop-miner-uptime', 'unavailable');
+            panelNotes.earnings.push('Miner uptime: reply was not the expected shape');
+        } else {
+            const upRows = sla.data.filter(r => r && r.metric_type === 'uptime_pct');
+            const latest = upRows.sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))[0];
+            setText('shop-miner-uptime', latest && latest.metric_value != null ? `${latest.metric_value}%` : 'no SLA data');
+        }
     } else {
         setText('shop-miner-uptime', 'enter a miner ID');
     }
 
     // GPUs: the coordinator's public gpu list carries miner_id, so it serves
     // both the anonymous view (all registered GPUs) and a miner-scoped view.
-    const gpuData = await apiGet('/v1/market/gpu/list');
-    const allGpus = Array.isArray(gpuData) ? gpuData.filter(g => g && typeof g === 'object') : [];
-    const gpus = minerId ? allGpus.filter(g => g.miner_id === minerId || (g.miner_id || '').includes(minerId)) : allGpus;
-    setDot('shop-dot-gpus', gpuData === null ? 'down' : 'up');
-    setText('shop-gpu-count', gpuData === null ? 'unavailable' : gpus.length);
+    const gpuR = await readApi('/v1/market/gpu/list');
+    let gpuErr = null;
+    let allGpus = null;
+    if (gpuR.ok) {
+        allGpus = Array.isArray(gpuR.data) ? gpuR.data.filter(g => g && typeof g === 'object') : null;
+        if (allGpus === null) gpuErr = 'reply was not the expected shape';
+    } else {
+        gpuErr = gpuR.err;
+    }
+    const gpus = minerId && allGpus ? allGpus.filter(g => g.miner_id === minerId || (g.miner_id || '').includes(minerId)) : (allGpus || []);
+    setDot('shop-dot-gpus', gpuErr ? 'down' : 'up');
+    setText('shop-gpu-count', gpuErr ? 'unavailable' : gpus.length);
     renderTable('shop-gpus-table', gpus.map(g => ({
         name: g.model || g.name || 'N/A',
         device: g.id || g.uuid || g.device || g.device_id || 'N/A',
@@ -438,15 +580,22 @@ async function loadShopDashboard() {
         { label: 'Device', key: 'device' },
         { label: 'Memory', key: 'memory' },
         { label: 'Status', key: 'status' },
-    ], gpuData === null, 'GPUs');
+    ], gpuErr, 'GPUs');
 
-    const offersData = await apiGet('/v1/market/offer?limit=20');
-    const allOffers = Array.isArray(offersData) ? offersData : ((offersData || {}).offers || []);
-    const shopOffers = minerId
+    const offersR = await readApi('/v1/market/offer?limit=20');
+    let offersErr = null;
+    let allOffers = null;
+    if (offersR.ok) {
+        allOffers = pickList(offersR.data, ['offers']);
+        if (allOffers === null) offersErr = 'reply was not the expected shape';
+    } else {
+        offersErr = offersR.err;
+    }
+    const shopOffers = minerId && allOffers
         ? allOffers.filter(o => (o.node_id || o.provider_address || '').includes(minerId))
-        : allOffers;
-    setDot('shop-dot-offers', offersData === null ? 'down' : 'up');
-    setText('shop-offer-count', offersData === null ? 'unavailable' : shopOffers.length);
+        : (allOffers || []);
+    setDot('shop-dot-offers', offersErr ? 'down' : 'up');
+    setText('shop-offer-count', offersErr ? 'unavailable' : shopOffers.length);
     renderTable('shop-offers-table', shopOffers.map(o => ({
         plugin: o.plugin_id || 'N/A',
         model: o.model || 'N/A',
@@ -459,16 +608,18 @@ async function loadShopDashboard() {
         { label: 'Price', key: 'price' },
         { label: 'Status', key: 'status' },
         { label: 'Rating', key: 'rating' },
-    ], offersData === null, 'Offers');
+    ], offersErr, 'Offers');
 
-    const walletRows = await loadAddressRows(5);
-    setDot('shop-dot-wallets', walletRows === null ? 'down' : 'up');
-    setText('shop-wallet-count', walletRows === null ? 'unavailable' : walletRows.length);
-    renderTable('shop-wallets-table', walletRows || [], [
+    const shopWallets = await loadAddressRows(5);
+    setDot('shop-dot-wallets', shopWallets.ok ? 'up' : 'down');
+    setText('shop-wallet-count', shopWallets.ok ? shopWallets.rows.length : 'unavailable');
+    renderTable('shop-wallets-table', shopWallets.ok ? shopWallets.rows : [], [
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
         { label: 'Transactions', key: 'txs' },
-    ], walletRows === null, 'Wallets');
+    ], shopWallets.ok ? null : shopWallets.err, 'Wallets');
+    setText('shop-stats-note', panelNotes.stats.join('; '));
+    setText('shop-earnings-note', panelNotes.earnings.join('; '));
     refreshCredentialStatus();
 }
 
@@ -486,6 +637,13 @@ function bindCredentialButtons() {
         });
     });
 }
+
+// Try-again buttons rendered by renderFailure carry .dash-retry.
+document.addEventListener('click', ev => {
+    if (ev.target && ev.target.closest && ev.target.closest('.dash-retry')) {
+        reloadCurrentDashboard();
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     bindCredentialButtons();
