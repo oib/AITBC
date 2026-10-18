@@ -289,6 +289,11 @@ class TestExplorerLegendChips(unittest.TestCase):
         r = _run_vm("chippersist")
         self.assertEqual(2, r["instances"], "retry fired a second loadActivityChart")
         self.assertEqual([False, True, True], r["visible"], "the hidden type must stay hidden across the 30 s rebuild")
+        self.assertEqual(
+            1,
+            r["updates"],
+            "reapplied hides need chart.update() — setDatasetVisibility only writes meta.hidden",
+        )
         self.assertEqual("false", r["chips"][0]["pressed"], "rebuilt chips must reflect the hidden type")
 
     def test_chip_then_expand_keeps_hide(self) -> None:
