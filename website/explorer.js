@@ -118,6 +118,12 @@ function renderBlockCard(block) {
 
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', function() {
+    // explorer.js is also loaded on blocks.html for the shared renderBlockCard
+    // helper. On a page without the Explorer's live-feed panel none of this
+    // init applies — running it anyway threw on the missing search controls
+    // and started three intervals polling the explorer API for nothing.
+    if (!document.getElementById('live-feed-list')) return;
+
     // Initialize icons
     lucide.createIcons();
 
