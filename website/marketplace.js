@@ -370,16 +370,10 @@ function setupFilterButtons() {
     }
 }
 
-function updateTimestamp() {
-    const now = new Date();
-    document.getElementById('last-updated').textContent = `Last updated: ${aitbcFmt.date(now)}`;
-}
-
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', function() {
     fetchOffers();
     setupFilterButtons();
-    updateTimestamp();
 
     const confirmedToggle = document.getElementById('confirmed-only-toggle');
     if (confirmedToggle) {
@@ -391,7 +385,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-refresh every 30 seconds
     setInterval(fetchOffers, 30000);
-    setInterval(updateTimestamp, 30000);
     setInterval(fetchNetworkStats, 30000);
     fetchNetworkStats();
 });
