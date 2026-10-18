@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     container.insertAdjacentHTML('beforeend', html);
                 }
+                applyTxCompositionStyles(container);
                 // Only a successful render marks "last good" — the stale
                 // note must age the rows actually on screen.
                 blocksLastGoodAt = Date.now();
@@ -114,12 +115,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             blocksOffset += blocks.length;
-            loadMoreContainer.style.display = 'block';
+            loadMoreContainer.hidden = false;
         } else if (reset) {
             container.innerHTML = '<p class="loading-text">No blocks available</p>';
-            loadMoreContainer.style.display = 'none';
+            loadMoreContainer.hidden = true;
         } else {
-            loadMoreContainer.style.display = 'none';
+            loadMoreContainer.hidden = true;
         }
         renderReadState(container, 'live');
     }

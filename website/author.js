@@ -120,7 +120,7 @@
         if (busy) return;
         busy = true;
         const more = document.getElementById('load-more');
-        more.style.display = 'none';
+        more.hidden = true;
         try {
             const qs = new URLSearchParams({ author, limit: String(PAGE_LIMIT) });
             if (!reset && nextCursor) qs.set('cursor', nextCursor);
@@ -132,7 +132,7 @@
             }
             renderMessages(data.messages, !reset);
             nextCursor = data.next_cursor || null;
-            more.style.display = nextCursor ? 'inline-block' : 'none';
+            more.hidden = !nextCursor;
             announce(`${data.count || 0} messages loaded`);
         } catch (e) {
             const c = document.getElementById('messages-container');
@@ -146,7 +146,7 @@
                 announce(`Messages failed to load: ${e.message}`);
                 // The failed page's cursor is still current — let the
                 // Load more button retry it.
-                if (!reset && nextCursor) more.style.display = 'inline-block';
+                if (!reset && nextCursor) more.hidden = false;
             }
         } finally {
             busy = false;

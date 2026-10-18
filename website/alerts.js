@@ -166,9 +166,9 @@ function renderFiring(data) {
     const pending = (data && data.prometheus_ok === true && data.pending) || [];
     const pbox = document.getElementById('pending-container');
     if (pending.length === 0) {
-        pbox.style.display = 'none';
+        pbox.hidden = true;
     } else {
-        pbox.style.display = 'block';
+        pbox.hidden = false;
         document.getElementById('pending-list').innerHTML = pending.map(a => alertCard(a, 'alert-pending')).join('');
     }
 }

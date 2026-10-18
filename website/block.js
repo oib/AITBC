@@ -16,13 +16,12 @@ function showError(msg, retry) {
     if (retry) {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'bridge-retry';
-        btn.style.marginLeft = '0.75rem';
+        btn.className = 'bridge-retry detail-retry';
         btn.textContent = 'Try again';
         btn.addEventListener('click', retry);
         errEl.appendChild(btn);
     }
-    errEl.style.display = 'block';
+    errEl.hidden = false;
 }
 
 async function loadBlock() {
@@ -30,12 +29,12 @@ async function loadBlock() {
     const hash = getParam('hash');
 
     if (!height && !hash) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').hidden = true;
         showError('Missing block height or hash parameter');
         return;
     }
 
-    document.getElementById('loading').style.display = 'block';
+    document.getElementById('loading').hidden = false;
     try {
         let data;
         let resp;
@@ -69,7 +68,7 @@ async function loadBlock() {
 
         function plainHash(hash) {
             if (!hash || hash === 'N/A') return 'N/A';
-            return `<span style="font-family:var(--font-mono);">${escapeHtml(hash)}</span>`;
+            return `<span class="mono-value">${escapeHtml(hash)}</span>`;
         }
         function addrLink(addr) {
             if (!addr || addr === 'N/A') return 'N/A';
@@ -77,7 +76,7 @@ async function loadBlock() {
         }
 
         document.getElementById('block-details').innerHTML = `
-            <div class="endpoint fade-in block-item" style="padding:0;">
+            <div class="endpoint table-card fade-in block-item">
                 <div class="table-wrap"><table class="block-list-table" aria-label="Block details">
                     <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(data.height)}</td></tr>
                     <tr><th scope="row">Hash</th><td>${plainHash(data.hash)} ${aitbcCopyBtn(data.hash || '', 'block hash')}</td></tr>
@@ -99,7 +98,7 @@ async function loadBlock() {
             } catch (e) { payloadAmount = 'N/A'; }
             const amount = tx.amount != null ? tx.amount : payloadAmount;
             return `
-            <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" data-href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">
+            <div class="endpoint table-card fade-in block-item" tabindex="0" role="link" data-href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">
                 <div class="table-wrap"><table class="block-list-table" aria-label="Block details">
                     <tr><th scope="row">Type</th><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span></td></tr>
                     <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash)} ${aitbcCopyBtn(tx.tx_hash, 'transaction hash')}</td></tr>
@@ -115,10 +114,10 @@ async function loadBlock() {
             `;
         }).join('') || '<p class="loading-text">No transactions in this block.</p>';
 
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
+        document.getElementById('loading').hidden = true;
+        document.getElementById('content').hidden = false;
     } catch (err) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').hidden = true;
         showError(err.message || 'Failed to load block', loadBlock);
     }
 }

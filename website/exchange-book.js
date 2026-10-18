@@ -32,7 +32,7 @@
         const combined = bookState === 'empty' && tapeState === 'empty';
         const set = (id, on) => {
             const e = document.getElementById(id);
-            if (e) e.style.display = on ? 'block' : 'none';
+            if (e) e.hidden = !on;
         };
         set('ob-empty', combined);
         set('ob-book-empty', bookState === 'empty' && !combined);
@@ -168,7 +168,7 @@
         if (bidsBody) bidsBody.replaceChildren();
 
         const hasLive = askLevels.length + bidLevels.length > 0;
-        if (wrapEl) wrapEl.style.display = hasLive ? '' : 'none';
+        if (wrapEl) wrapEl.hidden = !hasLive;
         bookState = hasLive ? 'live' : 'empty';
         updateEmptyLines();
 
@@ -184,7 +184,7 @@
         const detLabel = document.getElementById('ob-inactive-label');
         if (det && detBody) {
             if (staleCount > 0) {
-                det.style.display = 'block';
+                det.hidden = false;
                 if (detLabel) detLabel.textContent = `Inactive test data: ${staleCount} earlier entr${staleCount === 1 ? 'y' : 'ies'}, units are not ETH per AIT`;
                 detBody.replaceChildren();
                 const all = [...asks.stale, ...bids.stale]
@@ -199,7 +199,7 @@
                     detBody.appendChild(tr);
                 }
             } else {
-                det.style.display = 'none';
+                det.hidden = true;
             }
         }
     }
@@ -215,7 +215,7 @@
         if (body) body.replaceChildren();
 
         const show = live.slice(0, TAPE_MAX);
-        if (tableEl) tableEl.style.display = show.length ? '' : 'none';
+        if (tableEl) tableEl.hidden = show.length === 0;
         tapeState = show.length ? 'live' : 'empty';
         updateEmptyLines();
 
@@ -237,7 +237,7 @@
         const detLabel = document.getElementById('ob-tape-inactive-label');
         if (det && detBody) {
             if (stale.length) {
-                det.style.display = 'block';
+                det.hidden = false;
                 if (detLabel) detLabel.textContent = `Inactive test data: ${stale.length} earlier entr${stale.length === 1 ? 'y' : 'ies'}, units are not ETH per AIT`;
                 detBody.replaceChildren();
                 for (const t of stale.slice(0, TAPE_MAX)) {
@@ -248,7 +248,7 @@
                     detBody.appendChild(tr);
                 }
             } else {
-                det.style.display = 'none';
+                det.hidden = true;
             }
         }
     }
@@ -257,8 +257,8 @@
     function setError(which, msg) {
         const e = document.getElementById(which);
         if (!e) return;
-        if (msg) { e.textContent = msg; e.style.display = 'block'; }
-        else e.style.display = 'none';
+        if (msg) { e.textContent = msg; e.hidden = false; }
+        else e.hidden = true;
     }
 
     async function fetchJson(url) {

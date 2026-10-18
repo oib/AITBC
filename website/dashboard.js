@@ -236,12 +236,12 @@ function renderTable(containerId, rows, columns, failReason, label) {
     }
     const ariaLabel = label || 'data table';
     let html = `<div class="table-wrap" role="region" tabindex="0" aria-label="${escapeHtml(ariaLabel)}"><table class="block-list-table data-table" aria-label="${escapeHtml(ariaLabel)}">`;
-    html += '<tr>' + columns.map(c => `<th scope="col" style="text-align:left;padding:0.5rem;border-bottom:1px solid var(--border);">${escapeHtml(c.label)}</th>`).join('') + '</tr>';
+    html += '<tr>' + columns.map(c => `<th scope="col">${escapeHtml(c.label)}</th>`).join('') + '</tr>';
     rows.forEach(row => {
         html += '<tr>' + columns.map(c => {
             const v = row[c.key];
-            if (c.html) return `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${v != null ? v : 'N/A'}</td>`;
-            return `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${v != null ? escapeHtml(v) : 'N/A'}</td>`;
+            if (c.html) return `<td>${v != null ? v : 'N/A'}</td>`;
+            return `<td>${v != null ? escapeHtml(v) : 'N/A'}</td>`;
         }).join('') + '</tr>';
     });
     html += '</table></div>';

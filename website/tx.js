@@ -12,7 +12,7 @@ function getParam(name) {
 
 function plainHash(hash) {
     if (!hash || hash === 'N/A') return 'N/A';
-    return `<span style="font-family:var(--font-mono);">${escapeHtml(hash)}</span>`;
+    return `<span class="mono-value">${escapeHtml(hash)}</span>`;
 }
 
 function addrLink(addr) {
@@ -26,25 +26,24 @@ function showError(msg, retry) {
     if (retry) {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'bridge-retry';
-        btn.style.marginLeft = '0.75rem';
+        btn.className = 'bridge-retry detail-retry';
         btn.textContent = 'Try again';
         btn.addEventListener('click', retry);
         errEl.appendChild(btn);
     }
-    errEl.style.display = 'block';
+    errEl.hidden = false;
 }
 
 async function loadTransaction() {
     const hash = getParam('hash');
 
     if (!hash) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').hidden = true;
         showError('Missing transaction hash parameter');
         return;
     }
 
-    document.getElementById('loading').style.display = 'block';
+    document.getElementById('loading').hidden = false;
     try {
         const resp = await fetch(`${EXPLORER_API_URL}/api/transactions/${hash}`);
         // A failed reply is not "not found" — only a 404 or a proven
@@ -129,7 +128,7 @@ async function loadTransaction() {
         }
 
         document.getElementById('tx-details').innerHTML = `
-            <div class="endpoint fade-in block-item" style="padding:0;">
+            <div class="endpoint table-card fade-in block-item">
                 <div class="table-wrap"><table class="block-list-table" aria-label="Transaction details">
                     ${details.map(d => `<tr><th scope="row">${d.label}</th><td>${d.value}</td></tr>`).join('')}
                 </table></div>
@@ -144,13 +143,13 @@ async function loadTransaction() {
                 payloadText = String(data.payload);
             }
             document.getElementById('payload-content').textContent = payloadText;
-            document.getElementById('payload-card').style.display = 'block';
+            document.getElementById('payload-card').hidden = false;
         }
 
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
+        document.getElementById('loading').hidden = true;
+        document.getElementById('content').hidden = false;
     } catch (err) {
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById('loading').hidden = true;
         showError(err.message || 'Failed to load transaction', loadTransaction);
     }
 }

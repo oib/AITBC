@@ -53,6 +53,21 @@ map $http_upgrade $connection_upgrade {
     ""      close;
 }
 
+# Only the repository's 16-hex asset stamps opt static JS/CSS into a long cache.
+map $arg_v $aitbc_asset_expires {
+    default 1h;
+    "~^[0-9a-f]{16}$" 1y;
+}
+
+# Empty values are omitted by add_header. The location marker keeps this out
+# of API/proxy responses, even when their URL happens to end in .js or .css.
+map "$aitbc_static_asset:$arg_v:$status" $aitbc_asset_immutable {
+    default "";
+    "~^1:[0-9a-f]{16}:(200|206|304)$" "immutable";
+}
+
+limit_req_zone $binary_remote_addr zone=aitbc_csp_reports:1m rate=1r/s;
+
 server {
     listen 80;
     listen [::]:80;
@@ -75,15 +90,19 @@ server {
     # include /etc/nginx/aitbc-remote-write-token.conf;
     root /opt/aitbc/website;
     index index.html;
+    set $aitbc_static_asset 0;
 
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report" always;
     add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
     # HSTS stage 2 — applied 18 Oct 2026 after the CSP rollout check; 1-year max-age + includeSubDomains.
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # Server-level, no `always`: the map emits "immutable" only for stamped
+    # static JS/CSS successes, and the location marker keeps it off proxies.
+    add_header Cache-Control $aitbc_asset_immutable;
 
     # Compression -- gzip on is set at http level; without gzip_types only
     # text/html qualifies, and without gzip_proxied nothing is compressed at
@@ -512,6 +531,28 @@ server {
     }
 
     # ── Blockchain Explorer API ────────────────────────────────
+
+    # Browser reports share this bounded, rate-limited same-origin endpoint.
+    location = /csp-report {
+        limit_except POST { deny all; }
+        limit_req zone=aitbc_csp_reports burst=20 nodelay;
+        limit_req_status 429;
+        client_max_body_size 16k;
+        client_body_timeout 10s;
+        proxy_read_timeout 5s;
+        proxy_pass http://blockchain_explorer/api/csp-report;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        # The application logs only sanitized report fields, without a raw
+        # request URL or Referer copied into the nginx access log.
+        access_log off;
+    }
+
+    # Keep the general Explorer proxy from bypassing the report rate limit.
+    location = /explorer-api/api/csp-report { return 404; }
+    location = /explorer-api/api/csp-report/ { return 404; }
 
     # Exact-match messaging reads share the messaging_rpc zone (see the
     # /rpc/messaging/ blocks above and the http-context zone declaration).
@@ -963,7 +1004,7 @@ server {
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report" always;
         add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
@@ -976,17 +1017,25 @@ server {
         add_header X-Frame-Options "SAMEORIGIN" always;
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report" always;
         add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location / {
-        # expires sets Expires + Cache-Control: max-age -- unlike add_header
-        # it does not suppress the server-level security headers for this
-        # location. 1h bound since asset filenames are not fingerprinted.
+        # expires preserves the server-level security headers. Unversioned
+        # assets stay at one hour; HTML must revalidate its stamped references.
         expires 1h;
         try_files $uri $uri/ =404;
+
+        location ~* \.html$ {
+            expires -1;
+        }
+
+        location ~* \.(js|css)$ {
+            set $aitbc_static_asset 1;
+            expires $aitbc_asset_expires;
+        }
     }
 
     # Optional host tooling (log analytics) — enable only if present.

@@ -190,11 +190,11 @@ function setDepositFormEnabled(enabled, reason) {
     }
     const noteEl = document.getElementById('bridge-offline-note');
     if (noteEl) {
-        noteEl.style.display = enabled ? 'none' : 'block';
+        noteEl.hidden = enabled;
         noteEl.textContent = enabled ? '' : reason;
     }
     const retryEl = document.getElementById('bridge-retry-btn');
-    if (retryEl) retryEl.style.display = enabled ? 'none' : '';
+    if (retryEl) retryEl.hidden = enabled;
 }
 
 async function fetchBridgeStatus() {
@@ -262,7 +262,7 @@ async function connectWallet() {
         console.error('Wallet connection failed:', error);
         const errEl = document.getElementById('deposit-error');
         if (errEl) {
-            errEl.style.display = 'block';
+            errEl.hidden = false;
             errEl.textContent = 'Wallet connection rejected or failed';
         }
     }
@@ -278,7 +278,7 @@ function showConnectedAccount(account) {
     }
     const buyBtn = document.getElementById('buy-with-eth-btn');
     if (buyBtn && lastEstimate) {
-        buyBtn.style.display = 'block';
+        buyBtn.hidden = false;
     }
     updateExchangeStep();
 }
@@ -286,7 +286,7 @@ function showConnectedAccount(account) {
 async function sendBridgeTransaction() {
     if (!window.ethereum || !connectedAccount || !lastEstimate) return;
     const errEl = document.getElementById('deposit-error');
-    if (errEl) errEl.style.display = 'none';
+    if (errEl) errEl.hidden = true;
 
     const { instructions, estimate } = lastEstimate;
     const ethAmount = estimate.eth_amount;
@@ -309,12 +309,12 @@ async function sendBridgeTransaction() {
         const hashEl = document.getElementById('eth-tx-hash');
         if (resultEl && hashEl) {
             hashEl.textContent = txHash;
-            resultEl.style.display = 'block';
+            resultEl.hidden = false;
         }
     } catch (error) {
         console.error('Send transaction failed:', error);
         if (errEl) {
-            errEl.style.display = 'block';
+            errEl.hidden = false;
             errEl.textContent = error.message || 'Transaction rejected or failed';
         }
     }
@@ -325,14 +325,14 @@ async function calculateDeposit() {
     const ethAmount = document.getElementById('eth-amount').value;
     const aitAddress = document.getElementById('ait-address').value;
 
-    document.getElementById('deposit-estimate').style.display = 'none';
-    document.getElementById('deposit-error').style.display = 'none';
-    document.getElementById('deposit-instructions').style.display = 'none';
-    document.getElementById('deposit-tx-result').style.display = 'none';
+    document.getElementById('deposit-estimate').hidden = true;
+    document.getElementById('deposit-error').hidden = true;
+    document.getElementById('deposit-instructions').hidden = true;
+    document.getElementById('deposit-tx-result').hidden = true;
 
     if (!ethAmount || !aitAddress) {
         const errEl = document.getElementById('deposit-error');
-        errEl.style.display = 'block';
+        errEl.hidden = false;
         errEl.textContent = 'Please enter both ETH amount and AIT address';
         updateExchangeStep();
         return;
@@ -349,7 +349,7 @@ async function calculateDeposit() {
 
         if (response.ok && data.status === 'ready') {
             lastEstimate = data;
-            document.getElementById('deposit-estimate').style.display = 'block';
+            document.getElementById('deposit-estimate').hidden = false;
             document.getElementById('estimated-ait').textContent = data.estimate.estimated_ait_amount || '-';
             document.getElementById('estimate-address').textContent = data.estimate.ait_recipient || '-';
             document.getElementById('est-eth').textContent = data.estimate.eth_amount || '-';
@@ -360,9 +360,9 @@ async function calculateDeposit() {
 
             // Show buy button if wallet connected, otherwise manual instructions
             if (window.ethereum && connectedAccount) {
-                document.getElementById('buy-with-eth-btn').style.display = 'block';
+                document.getElementById('buy-with-eth-btn').hidden = false;
             } else {
-                document.getElementById('deposit-instructions').style.display = 'block';
+                document.getElementById('deposit-instructions').hidden = false;
                 document.getElementById('deposit-address').textContent = data.instructions.send_eth_to;
                 document.getElementById('instruction-eth-amount').textContent = data.instructions.amount_eth;
                 document.getElementById('tx-data-hex').textContent = data.instructions.transaction_data_hex || '';
@@ -370,13 +370,13 @@ async function calculateDeposit() {
             }
         } else {
             const errEl = document.getElementById('deposit-error');
-            errEl.style.display = 'block';
+            errEl.hidden = false;
             errEl.textContent = data.error || data.message || 'Failed to calculate deposit';
         }
     } catch (error) {
         console.error('Error calculating deposit:', error);
         const errEl = document.getElementById('deposit-error');
-        errEl.style.display = 'block';
+        errEl.hidden = false;
         errEl.textContent = 'Failed to connect to server';
     }
     updateExchangeStep();
@@ -399,7 +399,7 @@ function renderDeposit(deposit) {
         ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener noreferrer" aria-label="AIT transaction ${escapeHtml(deposit.ait_tx_hash)}">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a> ${aitbcCopyBtn(deposit.ait_tx_hash, 'transaction hash')}`
         : '<span class="muted-text">pending</span>';
     const errLine = deposit.status === 'failed' && deposit.error_message
-        ? `<p class="error-box" style="margin-top:0.5rem;">${escapeHtml(deposit.error_message)}</p>`
+        ? `<p class="error-box mt-0-5">${escapeHtml(deposit.error_message)}</p>`
         : '';
     const fromShort = deposit.eth_from_address
         ? `<span aria-hidden="true">${escapeHtml(deposit.eth_from_address.slice(0, 6))}...${escapeHtml(deposit.eth_from_address.slice(-4))}</span><span class="visually-hidden">${escapeHtml(deposit.eth_from_address)}</span> ${aitbcCopyBtn(deposit.eth_from_address, 'sender address')}`
@@ -408,27 +408,27 @@ function renderDeposit(deposit) {
         <p><strong>Status:</strong> ${statusBadge(deposit.status)}</p>
         <p><strong>ETH amount:</strong> ${escapeHtml(deposit.eth_amount || '-')} ETH</p>
         <p><strong>AIT amount:</strong> ${escapeHtml(deposit.ait_amount || '-')} AIT</p>
-        <p><strong>From:</strong> <span style="font-family:var(--font-mono);">${fromShort}</span></p>
-        <p><strong>AIT recipient:</strong> <span style="font-family:var(--font-mono);">${escapeHtml(deposit.ait_recipient || '-')}</span></p>
+        <p><strong>From:</strong> <span class="mono-value">${fromShort}</span></p>
+        <p><strong>AIT recipient:</strong> <span class="mono-value">${escapeHtml(deposit.ait_recipient || '-')}</span></p>
         <p><strong>AIT tx:</strong> ${aitTxLink}</p>
         <p class="muted-text">Created: ${escapeHtml(deposit.created_at || '-')} &middot; Processed: ${escapeHtml(deposit.processed_at || '-')}</p>
         ${errLine}
     `;
-    resultEl.style.display = 'block';
+    resultEl.hidden = false;
 }
 
 async function trackDeposit() {
     const input = document.getElementById('track-input').value.trim();
     const errEl = document.getElementById('track-error');
     const resultEl = document.getElementById('track-result');
-    errEl.style.display = 'none';
-    resultEl.style.display = 'none';
+    errEl.hidden = true;
+    resultEl.hidden = true;
     setTrackRetry(false);
 
     if (trackPollHandle) { clearInterval(trackPollHandle); trackPollHandle = null; }
 
     if (!input) {
-        errEl.style.display = 'block';
+        errEl.hidden = false;
         errEl.textContent = 'Enter a 0x ETH tx hash (66 chars) or 0x AIT address (42 chars)';
         return;
     }
@@ -462,7 +462,7 @@ function setExchangeStep(name) {
 function updateExchangeStep() {
     const shown = id => {
         const e = document.getElementById(id);
-        return e && e.style.display !== 'none' && e.style.display !== '';
+        return e && !e.hidden;
     };
     setExchangeStep(
         shown('deposit-tx-result') ? 'track'
@@ -475,7 +475,7 @@ function updateExchangeStep() {
 // only — it must not outlive its error line on later poll outcomes.
 function setTrackRetry(visible) {
     const btn = document.getElementById('track-retry-btn');
-    if (btn) btn.style.display = visible ? '' : 'none';
+    if (btn) btn.hidden = !visible;
 }
 
 async function lookupDeposit(input) {
@@ -485,7 +485,7 @@ async function lookupDeposit(input) {
     try {
         let deposit = null;
         const queryFailed = (resp) => {
-            errEl.style.display = 'block';
+            errEl.hidden = false;
             errEl.textContent = `Could not query deposit status (HTTP ${resp.status}). This is not a "not found".`;
             setTrackRetry(true);
             // A failed poll keeps the last shown deposit — hide the result
@@ -497,9 +497,9 @@ async function lookupDeposit(input) {
             if (resp.ok) {
                 deposit = await resp.json();
             } else if (resp.status === 404) {
-                errEl.style.display = 'block';
+                errEl.hidden = false;
                 errEl.textContent = 'Deposit not found for this tx hash';
-                resultEl.style.display = 'none';
+                resultEl.hidden = true;
                 setTrackRetry(false);
                 return;
             } else {
@@ -514,16 +514,16 @@ async function lookupDeposit(input) {
                 const data = await resp.json();
                 deposit = (data.deposits || [])[0] || null;
                 if (!deposit) {
-                    errEl.style.display = 'block';
+                    errEl.hidden = false;
                     errEl.textContent = 'No deposit found for this AIT address';
-                    resultEl.style.display = 'none';
+                    resultEl.hidden = true;
                     setTrackRetry(false);
                     return;
                 }
             } else if (resp.status === 404) {
-                errEl.style.display = 'block';
+                errEl.hidden = false;
                 errEl.textContent = 'No deposit found for this AIT address';
-                resultEl.style.display = 'none';
+                resultEl.hidden = true;
                 setTrackRetry(false);
                 return;
             } else {
@@ -531,9 +531,9 @@ async function lookupDeposit(input) {
                 return;
             }
         } else {
-            errEl.style.display = 'block';
+            errEl.hidden = false;
             errEl.textContent = 'Enter a 0x ETH tx hash (66 chars) or 0x AIT address (42 chars)';
-            resultEl.style.display = 'none';
+            resultEl.hidden = true;
             setTrackRetry(false);
             return;
         }
@@ -542,7 +542,7 @@ async function lookupDeposit(input) {
             // Normalize: detail endpoint returns a Row dict, list returns plain dict
             const d = deposit.dict ? deposit.dict() : deposit;
             resultEl.dataset.status = d.status;
-            errEl.style.display = 'none';   // a good poll clears a prior failure line
+            errEl.hidden = true;   // a good poll clears a prior failure line
             setTrackRetry(false);
             renderDeposit(d);
             // Stop polling if terminal
@@ -552,7 +552,7 @@ async function lookupDeposit(input) {
         }
     } catch (error) {
         console.error('Error tracking deposit:', error);
-        errEl.style.display = 'block';
+        errEl.hidden = false;
         errEl.textContent = `Could not query deposit status (${errReason(error)}). This is not a "not found".`;
         setTrackRetry(true);
     }
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Wallet detection
     if (window.ethereum) {
-        document.getElementById('wallet-connect-row').style.display = 'flex';
+        document.getElementById('wallet-connect-row').hidden = false;
         // Auto-reconnect if already authorized
         window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
             if (accounts.length > 0) {
