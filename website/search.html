@@ -110,6 +110,40 @@
             return new URL(window.location.href).searchParams.get(name);
         }
 
+        // One read, one outcome object: ok only for status-ok AND parseable
+        // JSON (same shape as explorer.js/messages.js).
+        async function readJson(url) {
+            try {
+                const resp = await fetch(url);
+                if (!resp.ok) return { ok: false, status: resp.status };
+                try {
+                    return { ok: true, status: resp.status, data: await resp.json() };
+                } catch (e) {
+                    return { ok: false, status: resp.status, err: 'reply was not readable' };
+                }
+            } catch (e) {
+                return { ok: false, status: 0, err: 'network request failed' };
+            }
+        }
+
+        // An ok reply is only a proven-empty when it carries the array —
+        // an ok body without it ("{}") is a shape failure, not a zero.
+        const legItems = (r, key) => (r.data && Array.isArray(r.data[key])) ? r.data[key] : null;
+
+        function showError(msg, retry) {
+            const errEl = document.getElementById('error');
+            errEl.textContent = msg;
+            if (retry) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'bridge-retry';
+                btn.style.marginLeft = '0.75rem';
+                btn.textContent = 'Try again';
+                btn.addEventListener('click', retry);
+                errEl.appendChild(btn);
+            }
+            errEl.style.display = 'block';
+        }
 
         function addrLink(addr) {
             if (!addr || addr === 'N/A') return 'N/A';
@@ -162,37 +196,52 @@
             document.getElementById('query-display').textContent = query;
 
             try {
-                const [txResp, blockResp, msgResp] = await Promise.all([
-                    fetch(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(query)}&limit=50`),
-                    fetch(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}?limit=50`),
-                    // MSG-17: body-text search over the messaging index. A
-                    // failed search degrades to no section, not a page error.
-                    fetch(`${EXPLORER_API_URL}/api/messages/search?q=${encodeURIComponent(query)}&limit=50`).catch(() => null),
+                const [txs, blocks, msgs] = await Promise.all([
+                    readJson(`${EXPLORER_API_URL}/api/transactions/search?address=${encodeURIComponent(query)}&limit=50`),
+                    readJson(`${EXPLORER_API_URL}/api/blocks/by-address/${encodeURIComponent(query)}?limit=50`),
+                    // MSG-17: body-text search over the messaging index —
+                    // a proxied route, so a non-ok or shapeless leg degrades
+                    // the answer to inconclusive, not "nothing found".
+                    readJson(`${EXPLORER_API_URL}/api/messages/search?q=${encodeURIComponent(query)}&limit=50`),
                 ]);
-                // A failed reply is not "no results" — only 404s and proven
-                // empty lists are. Message search already degrades to no
-                // section on failure (MSG-17), not a page error.
-                const failed = [txResp, blockResp].find(r => !r.ok && r.status !== 404);
-                if (failed) {
-                    throw new Error(`Search could not be completed (HTTP ${failed.status}). This is not a "not found".`);
+                // A failed reply is not "no results" — only a 404 or a
+                // proven empty list is.
+                const hardFail = [txs, blocks].find(r => !r.ok && r.status !== 404);
+                if (hardFail) {
+                    throw new Error(`Search could not be completed (${hardFail.err || `HTTP ${hardFail.status}`}). This is not a "not found".`);
                 }
-                const txData = txResp.ok ? await txResp.json() : {};
-                const blockData = blockResp.ok ? await blockResp.json() : {};
-                const msgData = msgResp && msgResp.ok ? await msgResp.json() : {};
-                const txs = txData.transactions || [];
-                const blocks = blockData.blocks || [];
-                const messages = msgData.messages || [];
+                const txArr = txs.ok ? legItems(txs, 'transactions') : null;
+                const blkArr = blocks.ok ? legItems(blocks, 'blocks') : null;
+                const msgArr = msgs.ok ? legItems(msgs, 'messages') : null;
+                // A hard leg answered ok but without its list — inconclusive,
+                // not "nothing found".
+                if ((txs.ok && txArr === null) || (blocks.ok && blkArr === null)) {
+                    throw new Error('Search could not be completed (reply was not the expected shape). This is not a "not found".');
+                }
+                // The messages leg is proxied: any non-ok (incl. 404 — a
+                // route miss cannot prove "no match") or shapeless ok
+                // degrades it.
+                const msgLegFailed = !msgs.ok || (msgs.ok && msgArr === null);
+                const msgLegReason = msgs.ok
+                    ? 'reply was not the expected shape'
+                    : (msgs.err || `HTTP ${msgs.status}`);
+                const txList = txArr || [];
+                const blockList = blkArr || [];
+                const msgList = msgArr || [];
 
-                if (txs.length === 0 && blocks.length === 0 && messages.length === 0) {
+                if (txList.length === 0 && blockList.length === 0 && msgList.length === 0) {
                     document.getElementById('loading').style.display = 'none';
-                    document.getElementById('error').textContent = 'No transactions, blocks or messages found for this query.';
-                    document.getElementById('error').style.display = 'block';
+                    if (msgLegFailed) {
+                        showError(`Search could not be completed (messages leg: ${msgLegReason}). This is not a "not found".`, loadSearch);
+                    } else {
+                        showError('No transactions, blocks or messages found for this query.');
+                    }
                     return;
                 }
 
-                if (blocks.length > 0) {
+                if (blockList.length > 0) {
                     document.getElementById('blocks-section').style.display = 'block';
-                    document.getElementById('blocks-list').innerHTML = blocks.map(b => `
+                    document.getElementById('blocks-list').innerHTML = blockList.map(b => `
                         <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/block.html?height=${encodeURIComponent(b.height)}'">
                             <table class="block-list-table" aria-label="Result details">
                                 <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(b.height)}</td></tr>
@@ -205,9 +254,9 @@
                     `).join('');
                 }
 
-                if (txs.length > 0) {
+                if (txList.length > 0) {
                     document.getElementById('txs-section').style.display = 'block';
-                    document.getElementById('txs-list').innerHTML = txs.map(tx => {
+                    document.getElementById('txs-list').innerHTML = txList.map(tx => {
                         const dBadge = dirBadge(tx, query);
                         return `
                         <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" tabindex="0" role="link" onkeydown="if(event.key==='Enter'&&event.target===this)this.click()" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
@@ -225,7 +274,7 @@
                     }).join('');
                 }
 
-                if (messages.length > 0) {
+                if (msgList.length > 0) {
                     // MSG-17: chain-sourced text renders through DOM APIs only
                     // (textContent/attributes) — the same rule as messages.js.
                     const NEUTRAL_RE = /[\u0080-\u009F\p{Cf}\u061C\u180E\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}\u3164\u115F\u1160\uFFA0\u2800]/gu;
@@ -233,7 +282,7 @@
                     const make = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
                     const list = document.getElementById('messages-list');
                     list.textContent = '';
-                    messages.forEach((m) => {
+                    msgList.forEach((m) => {
                         const item = make('div', 'msg-item');
                         const head = make('div', 'msg-item-head');
                         const topicLink = make('a', 'msg-topic-chip', clean(m.topic || ''));
@@ -262,8 +311,7 @@
                 document.getElementById('content').style.display = 'block';
             } catch (err) {
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').textContent = err.message || 'Search failed';
-                document.getElementById('error').style.display = 'block';
+                showError(err.message || 'Search failed', loadSearch);
             }
         }
 
