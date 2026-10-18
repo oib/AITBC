@@ -10,8 +10,6 @@ This directory contains troubleshooting guides for common issues encountered whe
 - [Wallet Issues](wallet-issues.md) - Wallet daemon problems, transaction signing, and key management
 - [Market Issues](market-issues.md) - Market matching problems and offer configuration
 - [Database Issues](database-issues.md) - Database connection, slow queries, and corruption issues
-- [Network Issues](network-issues.md) - Network connectivity, DNS, and firewall problems
-- [GPU Issues](gpu-issues.md) - GPU detection, CUDA errors, and memory problems
 - [Performance Issues](performance-issues.md) - High CPU, memory, disk I/O, and latency issues
 - [Security Issues](security-issues.md) - Authentication, API key, and access control problems
 

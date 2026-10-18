@@ -111,7 +111,6 @@ systemctl start aitbc-*
 ## See Also
 
 - [Wallet Issues](wallet-issues.md) - Key management and wallet security
-- [Network Issues](network-issues.md) - Firewall and access control
 - [Service Management](service-management.md) - General service troubleshooting
 
 ## Getting Help

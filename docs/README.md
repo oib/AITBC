@@ -128,8 +128,7 @@ Operator procedures for the live fleet:
 [packages](reference/packages.md),
 [repository structure](reference/REPOSITORY_STRUCTURE.md),
 [plugin spec](reference/PLUGIN_SPEC.md),
-[backend](reference/backend.md),
-[enterprise](reference/enterprise.md).
+[backend](reference/backend.md).
 Also: [glossary](GLOSSARY.md), [quick reference](QUICK_REFERENCE.md),
 [fleet roles](fleet-roles.md), [features](FEATURES.md),
 [changelog](CHANGELOG.md), [type checking](TYPE_CHECKING.md),
@@ -139,7 +138,6 @@ Also: [glossary](GLOSSARY.md), [quick reference](QUICK_REFERENCE.md),
 
 [Index](development/0_index.md) —
 [project guidelines](development/PROJECT_GUIDELINES.md),
-[contributing](development/contributing.md),
 [API reference](development/api_reference.md),
 [validation patterns](development/validation-patterns.md),
 [coordinator-api exports](development/coordinator-api-exports.md),

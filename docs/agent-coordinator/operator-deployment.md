@@ -82,7 +82,4 @@ redis-cli
 - [Troubleshooting](./operator-troubleshooting.md) - Common issues and solutions
 - [Performance Tuning](./operator-performance.md) - Load balancing and resource limits
 - [Security](./operator-security.md) - Network security and authentication
-- [Backup and Recovery](./operator-backup.md) - Redis backup and service configuration backup
-- [Scaling](./operator-scaling.md) - Horizontal scaling and Redis clustering
 - [Maintenance](./operator-maintenance.md) - Regular maintenance tasks and agent cleanup
-- [Alerting](./operator-alerting.md) - Recommended alerts and monitoring tools
