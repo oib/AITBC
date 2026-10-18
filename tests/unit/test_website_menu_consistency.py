@@ -217,11 +217,12 @@ SITEMAP_PAGES = {
     "exchange.html": "https://hub.aitbc.bubuit.net/exchange.html",
     "bridges.html": "https://hub.aitbc.bubuit.net/bridges.html",
     "alerts.html": "https://hub.aitbc.bubuit.net/alerts.html",
-    "customer-dashboard.html": "https://hub.aitbc.bubuit.net/customer-dashboard.html",
-    "shop-dashboard.html": "https://hub.aitbc.bubuit.net/shop-dashboard.html",
     "follower-api-key-announcement.html": "https://hub.aitbc.bubuit.net/follower-api-key-announcement.html",
 }
 DYNAMIC_PAGES = {"block.html", "tx.html", "search.html", "messages.html", "author.html", "topic.html"}
+# WEB-DASH-1: operator credential pages — kept reachable but deliberately
+# deindexed (noindex, out of sitemap, no canonical; one footer link).
+NOINDEX_PAGES = {"customer-dashboard.html", "shop-dashboard.html"}
 # Title exceptions to the "<Page name> — AITBC" pattern (index keeps its
 # descriptive title for discovery — operator decision, WEB-2 ASK).
 TITLE_EXCEPTIONS = {"index.html"}
@@ -235,6 +236,7 @@ EXPECTED_FOOTER = [
     ("/llms.txt", "llms.txt"),
     ("/openapi.json", "Coordinator API"),
     ("/explorer-api/openapi.json", "Explorer API"),
+    ("/customer-dashboard.html", "Operator tools"),
 ]
 
 
@@ -422,7 +424,7 @@ class TestWebsiteHygiene(unittest.TestCase):
 
     def test_noindex_on_dynamic_pages(self) -> None:
         for name, p in self.parsed.items():
-            if name in DYNAMIC_PAGES:
+            if name in DYNAMIC_PAGES | NOINDEX_PAGES:
                 self.assertTrue(p.noindex, f'{name}: dynamic page missing <meta name="robots" content="noindex">')
             else:
                 self.assertFalse(p.noindex, f"{name}: unexpected noindex")
