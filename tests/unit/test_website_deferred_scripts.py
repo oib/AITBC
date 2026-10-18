@@ -1,12 +1,14 @@
 """Guard: inline <script> blocks must not use deferred names at parse time.
 
 WEB-2 made the per-page scripts ``defer`` (they run after HTML parsing). Two
-dashboard pages still did ``document.addEventListener('DOMContentLoaded',
+dashboard pages did ``document.addEventListener('DOMContentLoaded',
 loadXDashboard)`` in an inline script — the bare identifier is evaluated at
 parse time, before the deferred file has executed, so it throws
 ``ReferenceError`` and the page never initialises. The safe forms are a
 callback (``() => loadXDashboard()`` or ``function () { ... }``) — the name
 is only looked up when the event fires — or an inline-defined name.
+(WEB-CSP-1 later removed inline scripts entirely; this guard now pins the
+zero-debt state so a reintroduced block fails at parse-time review.)
 
 This test parses every ``website/*.html`` and fails when an inline script
 references, outside any function/callback body, a name declared at top level

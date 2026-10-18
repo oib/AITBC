@@ -60,16 +60,16 @@ TRUNCATION_SITES = [
     # explorer.js — the block-hash row in renderBlockCard. The search-result
     # sites were removed with the dead search functions (WEB-DEADCODE-1).
     ("explorer.js", r"aitbcCopyBtn\(blockHash, 'block hash'\)"),
-    # detail pages — inline emitters inside <script> blocks.
-    ("block.html", r"aitbcCopyBtn\(data\.hash \|\| '', 'block hash'\)"),
-    ("block.html", r"aitbcCopyBtn\(data\.proposer \|\| '', 'proposer address'\)"),
-    ("block.html", r"aitbcCopyBtn\(data\.stateRoot \|\| '', 'state root'\)"),
-    ("block.html", r"aitbcCopyBtn\(tx\.tx_hash, 'transaction hash'\)"),
-    ("tx.html", r"aitbcCopyBtn\(data\.hash, 'transaction hash'\)"),
-    ("tx.html", r"aitbcCopyBtn\(data\.from \|\| data\.sender \|\| '', 'sender address'\)"),
-    ("tx.html", r"aitbcCopyBtn\(data\.to \|\| data\.recipient \|\| '', 'recipient address'\)"),
-    ("search.html", r"aitbcCopyBtn\(b\.hash \|\| '', 'block hash'\)"),
-    ("search.html", r"aitbcCopyBtn\(tx\.tx_hash \|\| '', 'transaction hash'\)"),
+    # detail pages — emitters extracted to per-page scripts (WEB-CSP-1).
+    ("block.js", r"aitbcCopyBtn\(data\.hash \|\| '', 'block hash'\)"),
+    ("block.js", r"aitbcCopyBtn\(data\.proposer \|\| '', 'proposer address'\)"),
+    ("block.js", r"aitbcCopyBtn\(data\.stateRoot \|\| '', 'state root'\)"),
+    ("block.js", r"aitbcCopyBtn\(tx\.tx_hash, 'transaction hash'\)"),
+    ("tx.js", r"aitbcCopyBtn\(data\.hash, 'transaction hash'\)"),
+    ("tx.js", r"aitbcCopyBtn\(data\.from \|\| data\.sender \|\| '', 'sender address'\)"),
+    ("tx.js", r"aitbcCopyBtn\(data\.to \|\| data\.recipient \|\| '', 'recipient address'\)"),
+    ("search.js", r"aitbcCopyBtn\(b\.hash \|\| '', 'block hash'\)"),
+    ("search.js", r"aitbcCopyBtn\(tx\.tx_hash \|\| '', 'transaction hash'\)"),
     # join flow — the peer key is shown once and must be storable.
     ("index.js", r"aitbcCopyBtn\(data\.peer_key, 'peer key'\)"),
     # bridges — truncated sender/recipient and the transfer-id link.
@@ -582,9 +582,9 @@ class TestCopyControlStatic(unittest.TestCase):
             emitters = {
                 "index.html": "index.js",
                 "explorer.html": "explorer.js",
-                "block.html": None,
-                "tx.html": None,
-                "search.html": None,
+                "block.html": "block.js",
+                "tx.html": "tx.js",
+                "search.html": "search.js",
                 "bridges.html": "bridges.js",
                 "marketplace.html": "marketplace.js",
                 "exchange.html": "exchange.js",
@@ -641,7 +641,7 @@ _FIXTURES = {
             }
         ]
     },
-    # search.html — real .block-item rows carrying inline onclick navigation
+    # search.html — real .block-item rows carrying data-href navigation
     # with a copy button inside (the WEB-FIX-2b defect class).
     "/api/transactions/search": {"transactions": []},
     "/api/blocks/by-address/": {
@@ -704,24 +704,24 @@ new Promise(resolve => {
 })
 """
 
-# WEB-FIX-2b: the real defect site — a .copy-btn inside a row whose inline
-# onclick navigates (search.html block/tx result rows). The row's own
-# handler is instrumented to count rather than navigate; on the unfixed
-# bubble-phase handler the row fires first (nav=1), on the fix the capture
-# listener stops the event before it reaches the row (nav stays 0).
+# WEB-FIX-2b / WEB-CSP-1: the defect site — a .copy-btn inside a row that
+# navigates (search.html block/tx result rows, now via data-href instead of
+# inline onclick). copy.js's capture-phase stop keeps the click off the
+# delegated row listener entirely: the copy lands AND the page must not
+# navigate. Navigation would destroy the eval context — the test then fails
+# on "produced no result", which is itself the regression signal.
 _CLICK_IN_ROW_JS = """
 new Promise(resolve => {
-  const rows = document.querySelectorAll('.block-item[onclick]');
+  const rows = document.querySelectorAll('.block-item[data-href]');
   const btn = document.querySelector('.block-item button.copy-btn');
   if (!rows.length || !btn) {
-    resolve(JSON.stringify({err: 'no clickable row with copy button'}));
+    resolve(JSON.stringify({err: 'no data-href row with copy button'}));
     return;
   }
-  rows.forEach(el => el.setAttribute('onclick', 'window.__nav=(window.__nav||0)+1'));
   btn.click();
   setTimeout(() => resolve(JSON.stringify({
     copied: window.__copied,
-    nav: window.__nav || 0,
+    stillHere: location.pathname.endsWith('/search.html'),
     btnText: btn.textContent,
     ann: (document.getElementById('sr-announcer') || {}).textContent || ''
   })), 300);
@@ -855,12 +855,13 @@ class TestCopyControlBrowser(unittest.TestCase):
         self.assertIn("Copy failed", r["ann"])
 
     def test_click_inside_nav_row_does_not_navigate(self) -> None:
-        """Real .block-item onclick row (search.html results): the copy click
-        must copy the full value and must NOT reach the row's navigation."""
+        """Real .block-item data-href row (search.html results): the copy
+        click must copy the full value and must NOT reach the delegated
+        navigation listener."""
         r = self._click_and_read(_SPY_OK_JS, "search.html?query=0x" + "cd" * 20, _CLICK_IN_ROW_JS)
         self.assertNotIn("err", r, r.get("err"))
         self.assertEqual(["0x" + _HEX], r["copied"], "must copy the FULL block hash")
-        self.assertEqual(0, r["nav"], "row navigation handler must not fire on a copy click")
+        self.assertTrue(r["stillHere"], "copy click must not navigate away from the results page")
         self.assertEqual("Copied to clipboard", r["ann"])
 
 
@@ -899,24 +900,24 @@ class TestSearchPageStates(unittest.TestCase):
     inconclusive when it fails."""
 
     def test_readjson_and_legitems_shape(self) -> None:
-        html = _site_src("search.html")
+        html = _site_src("search.js")
         self.assertIn("async function readJson", html)
         self.assertIn("legItems", html)
 
     def test_shape_failure_is_not_nothing_found(self) -> None:
-        html = _site_src("search.html")
+        html = _site_src("search.js")
         self.assertIn("reply was not the expected shape", html)
         self.assertNotIn("txData.transactions || []", html)
         self.assertNotIn("blockData.blocks || []", html)
         self.assertNotIn("msgData.messages || []", html)
 
     def test_degraded_msg_leg_is_inconclusive(self) -> None:
-        html = _site_src("search.html")
+        html = _site_src("search.js")
         self.assertIn("msgLegFailed", html)
         self.assertIn("messages leg:", html)
 
     def test_failure_offers_try_again(self) -> None:
-        html = _site_src("search.html")
+        html = _site_src("search.js")
         self.assertIn("function showError", html)
         self.assertIn("Try again", html)
         self.assertIn("bridge-retry", html)
@@ -945,7 +946,7 @@ class TestDetailPageStates(unittest.TestCase):
     failure — never a not-found. Failures offer Try again."""
 
     def test_block_shape_failure_is_not_not_found(self) -> None:
-        html = _site_src("block.html")
+        html = _site_src("block.js")
         self.assertIn("reply was not the expected shape", html)
         self.assertIn("data.height == null", html)
         self.assertIn("Block not found", html)  # still the 404 answer
@@ -954,7 +955,7 @@ class TestDetailPageStates(unittest.TestCase):
         self.assertIn("bridge-retry", html)
 
     def test_tx_shape_failure_is_not_not_found(self) -> None:
-        html = _site_src("tx.html")
+        html = _site_src("tx.js")
         self.assertIn("reply was not the expected shape", html)
         self.assertIn("No transaction or block found for this hash", html)
         self.assertIn("function showError", html)
