@@ -24,7 +24,7 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Health Checks | Health check endpoints for all services | [docs/features/health-checks.md](./health-checks.md) | ✅ | — |
+| Health Checks | Health check endpoints for all services | [docs/deployment/health-checks.md](../deployment/health-checks.md) | ✅ | — |
 | Readiness Checks | Readiness checks for database connectivity | [docs/features/readiness-checks.md](./readiness-checks.md) | ✅ | — |
 | Prometheus Metrics | Prometheus metrics endpoints | [docs/features/prometheus-metrics.md](./prometheus-metrics.md) | ✅ | — |
 | Request Logging | Structured request logging with request ID correlation | [docs/features/request-logging.md](./request-logging.md) | ✅ | — |

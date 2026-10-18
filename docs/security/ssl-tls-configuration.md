@@ -25,3 +25,15 @@ not TLS, is what limits reach on that plane.
 ## See also
 
 - [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists
+
+## Deployment notes
+
+- AITBC services speak plain HTTP and bind to loopback or a
+  container-internal address. None of them listen on `443`, and none
+  should be given a certificate.
+- Do not add `ssl_certificate` directives to a service's own nginx vhost.
+  The vhosts shipped under `infra/nginx/` proxy cleartext to the service
+  and expect TLS to have been handled upstream.
+- If a service needs to know it is being reached over TLS, read the
+  forwarded headers. Services are started with uvicorn's
+  `--proxy-headers`.

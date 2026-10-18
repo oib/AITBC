@@ -25,7 +25,6 @@
 ## 📦 **Contents**
 
 - **[DEV_LOGS.md](DEV_LOGS.md)** - Development log tracking
-- **[DEV_LOGS_QUICK_REFERENCE.md](DEV_LOGS_QUICK_REFERENCE.md)** - Fast reference for common dev logs
 - **[mock-data-system.md](../archive/development/mock-data-system.md)** - Mock data system notes and workflow
 
 ---
@@ -43,7 +42,7 @@ This directory collects operational development notes that help contributors:
 
 ## 🚀 **Next Steps**
 
-- Use `DEV_LOGS_QUICK_REFERENCE.md` for the fastest log lookup path.
+- Use `DEV_LOGS.md` for the log lookup path.
 - Keep development notes aligned with `../meta/DOCUMENTATION_TEMPLATE_STANDARD.md`.
 
 ---

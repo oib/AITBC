@@ -11,7 +11,7 @@ Specifications, audits, and implementation records for AITBC internals.
 | 3 | [3_wallet-coordinator-integration.md](../archive/reference/3_wallet-coordinator-integration.md) *(archived)* | Wallet ↔ coordinator flow |
 | 4 | [4_confidential-transactions.md](./4_confidential-transactions.md) | Confidential tx architecture + implementation |
 | 5 | [5_zk-proofs.md](../archive/reference/5_zk-proofs.md) *(archived)* | ZK receipt attestation design + comparison |
-| 6 | [7_threat-modeling.md](./7_threat-modeling.md) | Privacy feature threat model |
+| 6 | [threat-model-privacy.md](../security/threat-model-privacy.md) | Privacy feature threat model |
 | 7 | [8_blockchain-deployment-summary.md](../archive/reference/8_blockchain-deployment-summary.md) *(archived)* | Node deployment record |
 | 8 | [9_payment-integration-complete.md](../archive/reference/9_payment-integration-complete.md) *(archived)* | Payment integration status |
 | 9 | [10_implementation-complete-summary.md](../releases/v0.4/v0.4.0_10_implementation-complete-summary.md) | Feature completion record |
