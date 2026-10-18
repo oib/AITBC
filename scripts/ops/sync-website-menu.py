@@ -70,6 +70,8 @@ FOOTER_LINKS = [
     ("/llms.txt", "llms.txt"),
     ("/openapi.json", "Coordinator API"),
     ("/explorer-api/openapi.json", "Explorer API"),
+    # Operator-only credential pages: deliberately low-key — footer, not menu.
+    ("/customer-dashboard.html", "Operator tools"),
 ]
 
 LEGACY_NAV_RE = re.compile(
