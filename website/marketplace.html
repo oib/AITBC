@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/marketplace.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=b557931f67a8e8c3">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=11e10bbdec146fe5">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=b557931f67a8e8c3">
-    <script src="config.js?v=b557931f67a8e8c3" defer></script>
-    <script src="copy.js?v=b557931f67a8e8c3" defer></script>
-    <script src="marketplace.js?v=b557931f67a8e8c3" defer></script>
-    <script src="nav.js?v=b557931f67a8e8c3" defer></script>
-    <script src="status.js?v=b557931f67a8e8c3" defer></script>
+    <link rel="stylesheet" href="/style.css?v=11e10bbdec146fe5">
+    <script src="config.js?v=11e10bbdec146fe5" defer></script>
+    <script src="copy.js?v=11e10bbdec146fe5" defer></script>
+    <script src="marketplace.js?v=11e10bbdec146fe5" defer></script>
+    <script src="nav.js?v=11e10bbdec146fe5" defer></script>
+    <script src="status.js?v=11e10bbdec146fe5" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -54,7 +54,7 @@
         <!-- Network Stats -->
         <div class="card">
             <h2>Network Stats</h2>
-            <div class="endpoint fade-in" style="padding:0;" role="region" tabindex="0" aria-label="Network statistics">
+            <div class="endpoint table-card fade-in" role="region" tabindex="0" aria-label="Network statistics">
                 <table class="block-list-table" aria-label="Network statistics">
                     <tr><th scope="row">Total AIT (Supply)</th><td id="stat-total-ait">--</td></tr>
                     <tr><th scope="row">Transfer Volume (AIT)</th><td id="stat-transfer-volume">--</td></tr>
@@ -88,12 +88,12 @@
                     <option value="inactive">Inactive</option>
                 </select>
             </div>
-            <div class="status-filter" style="margin-top: 0.75rem;">
+            <div class="status-filter mt-0-75">
                 <label class="toggle-switch">
                     <input type="checkbox" id="confirmed-only-toggle" aria-label="Show confirmed offers only">
                     <span class="toggle-slider"></span>
                 </label>
-                <span style="margin-left: 0.5rem; color: var(--text-muted); font-size: 0.875rem;">Blockchain confirmed only</span>
+                <span class="market-filter-note">Blockchain confirmed only</span>
             </div>
             <p class="endpoint-note" id="offer-count">Loading offers...</p>
         </div>

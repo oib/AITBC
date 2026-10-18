@@ -1012,7 +1012,7 @@ const [file, mode] = process.argv.slice(1);
 const els = {}; const handlers = [];
 function el(tag) {
     const self = {
-        style: {}, _html: '', children: [], className: '', _listeners: {}, _parent: null,
+        style: {}, _html: '', children: [], className: '', _listeners: {}, _parent: null, hidden: false,
         classList: { add(c){ self.className = (self.className+' '+c).trim(); }, remove(){}, contains(c){ return (self.className||'').split(/\s+/).includes(c); } },
         set innerHTML(v){ self._html = v; self.children = []; const m2 = v.match(/class="([^"]+)"/); if (m2) { const c = el('div'); c.className = m2[1]; c._parent = self; self.children.push(c); } }, get innerHTML(){ return self._html; },
         set textContent(v){ self._text = v; if (v === '') { self.children = []; self._html = ''; } }, get textContent(){ return self._text || ''; },
@@ -1057,6 +1057,7 @@ const sandbox = {
     location: { href: 'http://x/?a=0xabc', searchParams: new URL('http://x/?a=0xabc').searchParams },
     fetch: m.fetch, console: { log(){}, error(){}, warn(){} },
     setInterval: (f) => { sandbox.__poll = f; }, setTimeout: (f) => f(), URL, URLSearchParams, lucide: { createIcons(){} },
+    applyTxCompositionStyles: () => {},
     renderBlockCard: (b) => {
         cardCalls++;
         if (m.blockCardThrows || (m.cardThrowAfter !== undefined && cardCalls > m.cardThrowAfter)) {
@@ -1083,7 +1084,7 @@ vm_run: {
         await new Promise((r) => setImmediate(r));
         const text = (o) => (o.textContent || '') + (o.children || []).map(text).join('|') + (o._html || '');
         const target = mode.startsWith('blocks') ? 'blocks-container' : 'messages-container';
-        const out = { container: text(document.getElementById(target)), moreShown: (document.getElementById('load-more').style.display || 'none') };
+        const out = { container: text(document.getElementById(target)), moreShown: (document.getElementById('load-more').hidden ? 'none' : 'inline-block') };
         console.log('JSON:' + JSON.stringify(out));
     })();
 }

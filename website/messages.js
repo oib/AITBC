@@ -268,7 +268,7 @@
         if (busy) return;
         busy = true;
         const more = document.getElementById('load-more');
-        more.style.display = 'none';
+        more.hidden = true;
         const container = document.getElementById('messages-container');
         try {
             const qs = new URLSearchParams({ limit: String(PAGE_LIMIT) });
@@ -295,7 +295,7 @@
             renderMessages(data.messages, !reset);
             renderReadState(container, 'live');
             nextCursor = data.next_cursor || null;
-            more.style.display = nextCursor ? 'inline-block' : 'none';
+            more.hidden = !nextCursor;
             announce(`${data.count || 0} messages loaded`);
         } finally {
             busy = false;

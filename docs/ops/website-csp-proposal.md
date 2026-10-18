@@ -15,6 +15,49 @@ as the historical record of what blocked enforcement.
 All scripts and styles are same-origin or inline; there are no third-party
 includes, so a strict policy is achievable with modest markup work.
 
+## Current repository configuration (proposed — not yet deployed)
+
+The repository now carries the next enforcement step. These changes live in
+the checkout and `examples/nginx/nginx-aitbc.conf.example`; they are **not
+live on the hub** until a separate deployment approval applies the vhost
+diff and restarts the Explorer service.
+
+- **Strict `style-src 'self'`** — the `'unsafe-inline'` token is removed
+  from the deployed `style-src`. Every inline `<style>` body moved to a
+  per-page stylesheet (`block.css`, `tx.css`, `search.css`,
+  `follower-api-key-announcement.css`) and every static `style=` attribute
+  moved to shared utility classes in `style.css`. Dynamic chart and
+  tx-composition values are still set by trusted first-party JavaScript
+  through direct CSSOM writes (`el.style.setProperty` / `el.style.width`),
+  which CSP does not block. `tests/unit/test_website_csp_ready.py` bans
+  style attributes and `<style>` blocks in first-party HTML/SVG/JS source.
+- **Versioned asset caching** — a `map` keyed on `?v=<16-hex>` (the
+  `stamp-website-assets.py` stamp) gives `Cache-Control: max-age=31536000,
+  immutable` to `.js`/`.css` only. Bare or malformed versions and `.svg`
+  get one hour (`max-age=3600`, matching the previous JS/CSS behavior).
+  HTML stays `no-cache` even when it carries a `v` query. The maps check
+  `$status` so error responses (404 etc.) never get the immutable policy.
+- **CSP reporting** — the strict policy gains
+  `report-uri /csp-report`. nginx routes POSTs to a new
+  `POST /api/csp-report` collector inside the existing blockchain-explorer
+  service (`apps/blockchain-explorer/routers/csp.py`) at
+  1 request/second per client, burst 20, `client_max_body_size 16k`.
+  The collector is POST-only, accepts both the legacy `csp-report`
+  envelope and the modern `reports+json` batch (max 16 reports), and
+  emits one bounded, sanitized `csp_violation` event through the app
+  logger (inspect the Explorer journal for `csp_violation`, or the
+  structured logger's `event` field). Reports are untrusted, best-effort
+  diagnostics and may be rate limited or rejected. It retains **no** raw
+  body, script sample, referrer, URL credentials, query string, or
+  fragment; URLs are sanitized to scheme/host/path, capped at 512 chars.
+- **Ordering** — the Explorer service must be restarted with the new
+  router *before* nginx advertises `report-uri`, or reports 404. HSTS,
+  the disabled unrelated routes, and all other host-specific config are
+  unchanged.
+- **Rollback** — if a page breaks under strict `style-src`, restoring
+  `style-src 'self' 'unsafe-inline'` in the vhost CSP string is a
+  one-line change; the collector and cache maps do not depend on it.
+
 ## Two header layers (verified live, 15 Oct 2026)
 
 nginx `add_header` is **not inherited**: once a `location` block defines any

@@ -12,13 +12,13 @@
     <meta property="og:url" content="https://hub.aitbc.bubuit.net/customer-dashboard.html">
     <meta property="og:image" content="https://hub.aitbc.bubuit.net/favicon.svg">
     <meta name="twitter:card" content="summary">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=b557931f67a8e8c3">
-    <link rel="stylesheet" href="/style.css?v=b557931f67a8e8c3">
-    <script src="config.js?v=b557931f67a8e8c3" defer></script>
-    <script src="copy.js?v=b557931f67a8e8c3" defer></script>
-    <script src="dashboard.js?v=b557931f67a8e8c3" defer></script>
-    <script src="nav.js?v=b557931f67a8e8c3" defer></script>
-    <script src="status.js?v=b557931f67a8e8c3" defer></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=11e10bbdec146fe5">
+    <link rel="stylesheet" href="/style.css?v=11e10bbdec146fe5">
+    <script src="config.js?v=11e10bbdec146fe5" defer></script>
+    <script src="copy.js?v=11e10bbdec146fe5" defer></script>
+    <script src="dashboard.js?v=11e10bbdec146fe5" defer></script>
+    <script src="nav.js?v=11e10bbdec146fe5" defer></script>
+    <script src="status.js?v=11e10bbdec146fe5" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -57,8 +57,8 @@
         <div class="card">
             <h2>Account Credential</h2>
             <p class="endpoint-note">Optional. Paste the auth token printed by <code>aitbc auth login</code> to see jobs for your account; without it this page shows market-wide public data.</p>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
-                <input type="password" id="cust-cred-input" class="endpoint" aria-label="Auth token (JWT)" placeholder="auth token (JWT)" style="flex:1;min-width:16rem" autocomplete="off">
+            <div class="credential-controls">
+                <input type="password" id="cust-cred-input" class="endpoint credential-input" aria-label="Auth token (JWT)" placeholder="auth token (JWT)" autocomplete="off">
                 <button type="button" class="endpoint" data-cred-op="apply" data-cred-input="cust-cred-input">Apply</button>
                 <button type="button" class="endpoint" data-cred-op="clear" data-cred-input="cust-cred-input">Clear</button>
             </div>
@@ -76,12 +76,12 @@
                 <div class="health-item">
                     <div class="health-status loading" id="cust-dot-states"></div>
                     <div class="health-name">Job States</div>
-                    <div class="health-latency" id="cust-job-states" style="font-size:0.75rem">--</div>
+                    <div class="health-latency text-xs" id="cust-job-states">--</div>
                 </div>
                 <div class="health-item">
                     <div class="health-status loading" id="cust-dot-payments"></div>
                     <div class="health-name">Payment Statuses</div>
-                    <div class="health-latency" id="cust-payment-statuses" style="font-size:0.75rem">--</div>
+                    <div class="health-latency text-xs" id="cust-payment-statuses">--</div>
                 </div>
                 <div class="health-item">
                     <div class="health-status loading" id="cust-dot-wallets"></div>

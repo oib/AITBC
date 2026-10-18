@@ -46,6 +46,7 @@ function el(tag) {
         insertBefore(c){ c._parent = self; self.children.unshift(c); return c; },
         remove(){ if (self._parent) { const i = self._parent.children.indexOf(self); if (i >= 0) self._parent.children.splice(i, 1); } },
         querySelector(sel){ const cls = sel.replace(/^\./, ''); return self.children.find(c => c.classList && c.classList.contains(cls)) || null; },
+        querySelectorAll(){ return []; },
         addEventListener(ev, fn){ (self._listeners[ev] = self._listeners[ev] || []).push(fn); },
         getContext(){ return {}; },
         click(){ (self._listeners.click || []).forEach(fn => { try { fn(); } catch (e) { self._err = String(e); } }); },
