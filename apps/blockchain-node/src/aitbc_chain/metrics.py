@@ -146,6 +146,16 @@ gossip_tx_rejected_total = Counter(
     ["reason"],
 )
 
+# OLDFORM-COUNTER-1: who still signs old-form (unguarded) lock bodies.
+# Counted only after the signature verifies, so unauthenticated traffic
+# cannot inflate the "live old-form signer" reading. Process-local to the
+# rpc worker — resets on an rpc restart and is per host.
+replay_guard_requests_total = Counter(
+    "blockchain_replay_guard_requests_total",
+    "Replay-guarded lock requests by endpoint and body form (process-local; resets on rpc restart)",
+    ["endpoint", "form"],
+)
+
 # Liveness, as opposed to the counters above. An auth counter only says a peer
 # authenticated at some point since this process started; it stays high after
 # the peer drops and reads zero for a healthy peer just after an RPC restart.
