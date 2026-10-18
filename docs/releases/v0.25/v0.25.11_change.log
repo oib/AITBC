@@ -2512,3 +2512,24 @@ changelog-coverage section reports zero.
 - `af1b2adaaa` fix(ci): TEST-1 — shared worktree-aware repo-python resolver for hooks
 - `d75f144d4f` test(wallet): TEST-1 — conftest env isolation + ambient scrub
 - `6d0d57b8eb` test(exchange): TEST-1 — adapter attribute contract + proxy_headers pin
+
+### HSTS stage 2: 1-year max-age + includeSubDomains on every response path
+
+- The deployed hub vhost carried `Strict-Transport-Security "max-age=300"` at
+  server level and inside the self-headered `/dashboard/` and `/shop/`
+  locations, but nginx `add_header` is not inherited — the ~40 locations that
+  define their own `add_header` (CORS and Cache-Control lines) emitted no HSTS
+  at all. On 18 Oct 2026 the live vhost moved to
+  `max-age=31536000; includeSubDomains` at server level and inside every
+  location block that carries its own `add_header`, after the CSP rollout
+  check passed. Verified live: `/`, `/explorer.html`, `/dashboard/`, `/shop/`,
+  `/v1/market/status`, `/health` all return the raised header. `/health`
+  additionally passes through the upstream app's own identical STS header
+  (harmless per RFC 6797 — UAs process the first).
+- `examples/nginx/nginx-aitbc.conf.example` now mirrors the STS lines —
+  HSTS joins the mirrored server-level set for the first time (it was absent
+  from the example entirely while the live vhost already carried stage 1).
+- `tests/unit/test_website_api_contract.py` pins
+  `Strict-Transport-Security "max-age=31536000; includeSubDomains"` in
+  `EXPECTED_SERVER_HEADERS`; the self-headered-location check inherits it,
+  so a config sync that drops or weakens HSTS fails loudly.

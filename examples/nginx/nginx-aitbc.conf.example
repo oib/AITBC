@@ -82,6 +82,8 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
     add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
+    # HSTS stage 2 — applied 18 Oct 2026 after the CSP rollout check; 1-year max-age + includeSubDomains.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Compression -- gzip on is set at http level; without gzip_types only
     # text/html qualifies, and without gzip_proxied nothing is compressed at
@@ -97,6 +99,7 @@ server {
         proxy_set_header Host $host;
         add_header Access-Control-Allow-Origin * always;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /openapi.json {
@@ -104,6 +107,7 @@ server {
         proxy_set_header Host $host;
         add_header Access-Control-Allow-Origin * always;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /agent/openapi.json {
@@ -111,6 +115,7 @@ server {
         proxy_set_header Host $host;
         add_header Access-Control-Allow-Origin * always;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /v1/reputation/ {
@@ -122,6 +127,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
 
@@ -135,6 +141,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
     location /v1/payments {
         proxy_pass http://coordinator_api;
@@ -145,6 +152,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
 
@@ -157,6 +165,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /v1/monitoring/ {
@@ -168,6 +177,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # 2026-09-25: /v1/bridge/deposits and /v1/bridge/withdrawals enumerate every
@@ -214,6 +224,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # Agent-coordinator's public /v1 families — the old /v1/ catch-all sent
@@ -226,6 +237,7 @@ server {
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
         add_header Access-Control-Allow-Origin * always;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /v1/ {
@@ -243,12 +255,14 @@ server {
         alias /etc/aitbc/bootstrap.env;
         add_header Content-Type "text/plain; charset=utf-8";
         add_header Access-Control-Allow-Origin * always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location = /agent/genesis.json {
         alias /etc/aitbc/genesis.json;
         add_header Content-Type "application/json; charset=utf-8";
         add_header Access-Control-Allow-Origin * always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # Everything else env/secret-like under /agent stays dead: the real
@@ -357,6 +371,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # ── Blockchain RPC Reverse Proxy ────────────────────────
@@ -406,6 +421,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
 # HTTP RPC routes (subscribe, heartbeat, blocks, head, etc.)
@@ -425,6 +441,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         proxy_connect_timeout 10s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
@@ -441,6 +458,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         proxy_connect_timeout 10s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
@@ -458,6 +476,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # ── Coordinator API (Legacy Failover) ─────────────────────
@@ -473,6 +492,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # ── Exchange API (simple_exchange :8106) ─────────────────────
@@ -488,6 +508,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # ── Blockchain Explorer API ────────────────────────────────
@@ -505,6 +526,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location = /explorer-api/api/messages/topics {
@@ -518,6 +540,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location = /explorer-api/api/messages/state {
@@ -531,6 +554,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /explorer-api/ {
@@ -542,6 +566,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # ── Marketplace Service Ports (GPU Services) ─────────────────────
@@ -568,6 +593,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # Whisper service (speech recognition)
@@ -580,6 +606,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # FFmpeg service (video transcoding)
@@ -592,6 +619,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # PeerTube Pruner service
@@ -604,6 +632,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # ── Marketplace API ───────────────────────────────────────
@@ -621,6 +650,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # Coordinator owns the public /v1/market/offers + /plugins names
@@ -635,6 +665,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location = /v1/market/plugins {
@@ -646,6 +677,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /v1/market/ {
@@ -657,6 +689,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # ── Exchange API (Bridge, Price, History) ─────────────────────
@@ -670,6 +703,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location /v1/exchange/history {
@@ -681,6 +715,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
 
@@ -694,6 +729,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
     # ── Exchange read-only board endpoints (ETH-11) ──────────────────
     # Two exact-match GET-only aliases into simple_exchange. Deliberately
@@ -715,6 +751,7 @@ server {
         proxy_hide_header Set-Cookie;
         add_header Cache-Control "public, max-age=10" always;
         add_header X-Cache-Status $upstream_cache_status always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -733,6 +770,7 @@ server {
         proxy_hide_header Set-Cookie;
         add_header Cache-Control "public, max-age=10" always;
         add_header X-Cache-Status $upstream_cache_status always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -830,6 +868,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
 
@@ -845,6 +884,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # Public coin-request endpoints for open-island funding
@@ -858,6 +898,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # Paid agent-to-agent delegation messaging (send/inbox/read).
@@ -873,6 +914,7 @@ server {
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         client_max_body_size 5M;
     }
 
@@ -923,6 +965,7 @@ server {
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
         add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location = /shop { return 301 /shop/; }
@@ -935,6 +978,7 @@ server {
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
         add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'" always;
         add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location / {
