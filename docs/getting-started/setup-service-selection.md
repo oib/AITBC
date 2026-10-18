@@ -190,9 +190,60 @@ The backup script reads the governance database password from `/etc/aitbc/creden
 
 The password is **never** read from `blockchain-secrets.env`. That file used to be published on the website, so it was kept free of database credentials; publishing it was itself the defect and stopped in v0.23 (V23-58). Keep DB credentials out of it regardless — it is distributed to every node running the wallet or agent-coordinator, which is a far wider audience than needs Postgres.
 
+## Install Profiles
+
+AITBC provides pre-configured dependency profiles for different deployment scenarios. The setup script automatically detects the appropriate profile based on your node configuration, or you can manually install a specific profile.
+
+### Available Profiles
+
+Profiles are mapped from the three role axes (`BLOCKCHAIN_MODE` + `MARKET_ROLE` + `HARDWARE_PROFILE`) to one of four install profiles:
+
+| Profile | Role Mapping | Description | Use Case |
+|---------|-------------|-------------|----------|
+| **customer-no-gpu** | follower + customer + nogpu | Lightweight client | Standard follower node consuming resources |
+| **server-no-gpu** | follower + shop + nogpu | Core blockchain services | Follower that provides market services, no GPU |
+| **hub** | hub + any + nogpu | Full blockchain hub | Central hub node with all services + dev deps |
+| **provider-gpu** | any + any + gpu | GPU service provider | Any node with GPU (gets AI/ML deps including pycuda) |
+
+### Manual Profile Installation
+
+```bash
+# Activate virtual environment first
+source /opt/aitbc/venv/bin/activate
+
+# Install specific profile
+./scripts/deployment/install-profiles.sh customer-no-gpu
+./scripts/deployment/install-profiles.sh provider-gpu
+
+# List all available profiles
+./scripts/deployment/install-profiles.sh
+```
+
+### Automatic Profile Detection
+
+The setup.sh script automatically selects the appropriate profile based on your `/etc/aitbc/blockchain.env` configuration:
+
+- `HARDWARE_PROFILE=gpu` → **provider-gpu** (regardless of other axes)
+- `BLOCKCHAIN_MODE=hub` + `HARDWARE_PROFILE=nogpu` → **hub**
+- `MARKET_ROLE=customer` + `HARDWARE_PROFILE=nogpu` → **customer-no-gpu**
+- `MARKET_ROLE=shop` + `HARDWARE_PROFILE=nogpu` → **server-no-gpu**
+- Default → **customer-no-gpu**
+
+### Profile Dependencies
+
+Each profile installs different dependency sets:
+
+All profiles install the locked base dependencies. GPU and ML extras are added on top for
+`provider-gpu`; the others get base dependencies only.
+
+- **customer-no-gpu**: base dependencies
+- **server-no-gpu**: base dependencies
+- **hub**: base dependencies
+- **provider-gpu**: base dependencies + `gpu` and `ml` extras
+
 ## Related Topics
 
-- [Quick Start](./setup-quick-start.md) - Installation and profiles
+- [Quick Start](./installation/quick-start.md) - One-command installation
 - [Subscription System](./setup-subscription.md) - Lease-based block synchronization
 - [Configuration](./setup-configuration.md) - Runtime directories, secrets, and environment files
 - [Security](./setup-security.md) - Service user security
