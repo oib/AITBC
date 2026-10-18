@@ -11,7 +11,7 @@
     "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_service.py": {
       "lines": 316,
       "verdict": "keep",
-      "why": "Named by docs/architecture/agent-service-di-architecture.md as a design target."
+      "why": "Named by docs/archive/architecture/agent-service-di-architecture.md as a design target."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/market/services/external_providers.py": {
       "lines": 159,
