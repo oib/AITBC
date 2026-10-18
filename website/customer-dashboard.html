@@ -12,12 +12,13 @@
     <meta property="og:image" content="https://hub.aitbc.bubuit.net/favicon.svg">
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/customer-dashboard.html">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=dd3fc38f1ce6ec4a">
-    <link rel="stylesheet" href="/style.css?v=dd3fc38f1ce6ec4a">
-    <script src="config.js?v=dd3fc38f1ce6ec4a" defer></script>
-    <script src="copy.js?v=dd3fc38f1ce6ec4a" defer></script>
-    <script src="dashboard.js?v=dd3fc38f1ce6ec4a" defer></script>
-    <script src="status.js?v=dd3fc38f1ce6ec4a" defer></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=58c2f1b972714379">
+    <link rel="stylesheet" href="/style.css?v=58c2f1b972714379">
+    <script src="config.js?v=58c2f1b972714379" defer></script>
+    <script src="copy.js?v=58c2f1b972714379" defer></script>
+    <script src="dashboard.js?v=58c2f1b972714379" defer></script>
+    <script src="nav.js?v=58c2f1b972714379" defer></script>
+    <script src="status.js?v=58c2f1b972714379" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -58,8 +59,8 @@
             <p class="endpoint-note">Optional. Paste the auth token printed by <code>aitbc auth login</code> to see jobs for your account; without it this page shows market-wide public data.</p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
                 <input type="password" id="cust-cred-input" class="endpoint" aria-label="Auth token (JWT)" placeholder="auth token (JWT)" style="flex:1;min-width:16rem" autocomplete="off">
-                <button class="endpoint" onclick="applyCredential('cust-cred-input')">Apply</button>
-                <button class="endpoint" onclick="clearCredential('cust-cred-input')">Clear</button>
+                <button class="endpoint" data-cred-op="apply" data-cred-input="cust-cred-input">Apply</button>
+                <button class="endpoint" data-cred-op="clear" data-cred-input="cust-cred-input">Clear</button>
             </div>
             <p class="endpoint-note" id="cred-status"></p>
         </div>
@@ -130,8 +131,5 @@
         <!-- aitbc-footer:end -->
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => loadCustomerDashboard());
-    </script>
 </body>
 </html>

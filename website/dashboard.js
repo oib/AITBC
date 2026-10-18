@@ -447,3 +447,24 @@ async function loadShopDashboard() {
     ], walletRows === null, 'Wallets');
     refreshCredentialStatus();
 }
+
+// ---------- Init ----------
+// The two dashboard pages share this file; each is detected by a page-only
+// table id (the same check reloadCurrentDashboard uses). Credential buttons
+// carry data-cred-op/data-cred-input instead of inline onclick so the
+// pages work under a script-src 'self' CSP.
+function bindCredentialButtons() {
+    document.querySelectorAll('[data-cred-op]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const inputId = btn.getAttribute('data-cred-input');
+            if (btn.getAttribute('data-cred-op') === 'apply') applyCredential(inputId);
+            else clearCredential(inputId);
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    bindCredentialButtons();
+    if (document.getElementById('cust-jobs-table')) loadCustomerDashboard();
+    if (document.getElementById('shop-jobs-table')) loadShopDashboard();
+});

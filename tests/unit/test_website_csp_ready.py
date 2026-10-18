@@ -16,16 +16,10 @@ WEBSITE = Path(__file__).resolve().parents[2] / "website"
 
 # on<event>= as an HTML attribute (in static markup or JS template strings),
 # not the DOM property assignment ``el.onclick = fn``.
-# Pages that still carry inline <script> blocks and/or inline handlers. They must
-# be moved to external files (and this set emptied) BEFORE the CSP header is
-# switched from Report-Only to enforcing, or these pages will stop working.
-KNOWN_DEBT = {
-    "block.html",
-    "customer-dashboard.html",
-    "search.html",
-    "shop-dashboard.html",
-    "tx.html",
-}
+# Pages that still carry inline <script> blocks and/or inline handlers would
+# live here as known debt — kept empty: every page was externalized, and a
+# re-added entry is a deliberate exemption that must be argued for in review.
+KNOWN_DEBT: set[str] = set()
 
 INLINE_HANDLER = re.compile(r"""<[a-zA-Z][^<>]*\s(on[a-z]+)\s*=\s*(?:\\?["'])""")
 
@@ -57,9 +51,28 @@ class TestCspReady(unittest.TestCase):
         self.assertEqual([], bad, "\n".join(bad))
 
     def test_clickable_rows_use_data_href(self) -> None:
-        src = (WEBSITE / "explorer.js").read_text(encoding="utf-8")
-        self.assertIn("data-href=", src)
+        # nav.js carries the one delegated listener pair; the emitter scripts
+        # must only ever emit data-href attributes, never inline handlers.
+        src = (WEBSITE / "nav.js").read_text(encoding="utf-8")
         self.assertIn("closest('[data-href]')", src)
+        self.assertIn("getAttribute('data-href')", src)
+        for emitter in ("explorer.js", "block.js", "search.js"):
+            self.assertIn("data-href=", (WEBSITE / emitter).read_text(encoding="utf-8"), f"{emitter} lost its data-href rows")
+
+    def test_nav_js_is_loaded_where_rows_exist(self) -> None:
+        # A page emitting data-href rows without nav.js would silently die —
+        # pin the pairing, not just the files.
+        import re as _re
+
+        nav_pages = set()
+        for p in WEBSITE.glob("*.html"):
+            if _re.search(r'<script src="nav\.js\?v=[0-9a-f]+" defer>', p.read_text(encoding="utf-8")):
+                nav_pages.add(p.name)
+        # Every page with scripts must load nav.js; the static notice page
+        # (follower-api-key-announcement) has no scripts and is exempt.
+        for p in WEBSITE.glob("*.html"):
+            has_scripts = '<script src="' in p.read_text(encoding="utf-8")
+            self.assertEqual(has_scripts, p.name in nav_pages, f"{p.name}: nav.js loading must match 'has scripts'")
 
 
 if __name__ == "__main__":
