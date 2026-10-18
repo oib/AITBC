@@ -39,7 +39,7 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 11 | [IPFS Storage](./11_ipfs_storage.md) | Store and retrieve content-addressed artifacts | `aitbc ipfs`, `aitbc oracle` |
 | 12 | [Reputation Management](./12_reputation_management.md) | Query and contribute reputation | `aitbc reputation` |
 | 13 | [Mining Setup](./13_mining_setup.md) | Start and monitor mining | `aitbc mining` |
-| 14 | [Staking Basics](./14_staking_basics.md) | Stake and unstake tokens | `aitbc wallet` |
+| 14 | [Staking Basics](../archive/scenarios/14_staking_basics.md) *(retired — archived)* | Stake and unstake tokens | `aitbc wallet` |
 | 15 | [Blockchain Monitoring](./15_blockchain_monitoring.md) | Dashboards, metrics, alerts | `aitbc monitor`, `aitbc explorer` |
 | 16 | [Agent Registration](./16_agent_registration.md) | Register on the coordinator network | `aitbc agent-comm` |
 | 17 | [Governance Voting](./17_governance_voting.md) | Propose and vote | `aitbc governance`, `aitbc operations governance` (deprecated/hidden) |
@@ -71,8 +71,6 @@ These are operator hardening plays (21–35). The A/B task ids in each play are 
 | 34 | [Hub↔Customer Node End-to-End](./34_hub_customer_node_e2e.md) | A6 | `aitbc config`, `aitbc ai`, `aitbc wallet`, `aitbc market`, `aitbc bridge`, `aitbc exchange-island` |
 | 35 | [Fire-and-Forget Logging (B10/B11)](./35_fire_and_forget_logging_b10_b11.md) | B10, B11 | `aitbc system`, `aitbc agent-comm` |
 | 36 | [Pool Hub SLA End-to-End](./36_pool_hub_sla_e2e.md) | — | `aitbc pool-hub`, `aitbc mining` |
-| 37 | [On-Chain Performance Bonds](./37_performance_bonds.md) | P2.3 | `aitbc bond`, `aitbc market` |
-|| 38 | [ZK Proofs for High-Value Jobs](./38_zk_high_value_jobs.md) | P2.1 | `aitbc ai` |
 
 ---
 
@@ -155,19 +153,15 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 
 | # | Scenario | Focus | CLI group |
 |---|---|----------|-------|-----------|
-|| 37 | [ZK Proof for High-Value Jobs](./37_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai` |
-|| 38 | [ZK High-Value Jobs (variant)](./38_zk_high_value_jobs.md) | ZK-required job flow | `aitbc ai` |
-|| 39 | [TEE Attestation for Confidential Jobs](./39_tee_attestation.md) | Confidential jobs require and verify a TEE attestation | `aitbc ai`, `aitbc tee` |
-|| 40 | [Automatic Reinvestment from Released Escrow](./40_auto_reinvestment.md) | Auto-stake provider earnings on escrow release | `aitbc ai` |
+|| 40 | [Automatic Reinvestment from Released Escrow](../archive/scenarios/40_auto_reinvestment.md) *(retired — archived)* | Auto-stake provider earnings on escrow release | `aitbc ai` |
 || 41 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via market offers | `aitbc market` |
-|| 42 | [Real IPFS Daemon behind `aitbc ipfs`](./42_ipfs_daemon.md) | Use Kubo for real CIDs and cross-node retrieval | `aitbc ipfs` |
 || 43 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
 || 44 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |
 || 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
 || 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | Confidential jobs require and verify a TEE attestation via the new CLI surface | `aitbc ai`, `aitbc tee` (registered; simulated attestation path) |
 || 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
 || 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
-|| 49 | [Auto-Reinvest from Released Escrow](./49_auto_reinvest_escrow.md) | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
+|| 49 | [Auto-Reinvest from Released Escrow](../archive/scenarios/49_auto_reinvest_escrow.md) *(retired — archived)* | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
 || 51 | [Multi-Validator PoA Soak](./51_multi_validator_poa_soak.md) | P1.4 multi-validator consensus soak before live enablement | `aitbc blockchain status`, `aitbc monitor metrics` |
 || 52 | [Wallet Key Mismatch Recovery](./52_wallet_key_mismatch.md) | Recover or deprecate a wallet whose key does not match its expected address | `aitbc wallet info`, `aitbc wallet import-wallet` |
 || 53 | [Customer and Shop Dashboards](./53_dashboards.md) | P1.2 live customer/shop dashboards via `aitbc dashboard` | `aitbc dashboard customer`, `aitbc dashboard shop` |
