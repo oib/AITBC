@@ -972,6 +972,39 @@ class TestDetailPageStates(unittest.TestCase):
 
 # --- WEB-DETAIL-2: script dependencies + render-throw fixtures --------------
 
+_COPY_USE_RE = re.compile(r"aitbcCopyBtn|aitbcCopyToClipboard|\bcopyBtn\(|\bcopyToClipboard\(")
+_SCRIPT_SRC_RE = re.compile(r'<script[^>]+src="([^"?]+\.js)[^"]*"')
+
+
+class TestCopyHelperDependency(unittest.TestCase):
+    """WEB-DETAIL-2: any page whose code path reaches the copy helpers —
+    inline or through a <script src> it loads — must also load copy.js.
+    blocks.html missed it while explorer.js calls aitbcCopyBtn
+    unguarded (ab4ae1af9), leaving the page on 'Loading blocks...'."""
+
+    def test_pages_using_copy_helpers_load_copy_js(self) -> None:
+        failures = []
+        for html_file in sorted(WEBSITE.glob("*.html")):
+            src = html_file.read_text(encoding="utf-8")
+            scripts = _SCRIPT_SRC_RE.findall(src)
+            uses = bool(_COPY_USE_RE.search(src))
+            if not uses:
+                for js_name in scripts:
+                    js_path = WEBSITE / js_name.lstrip("/")
+                    if js_path.name == "copy.js" or not js_path.exists():
+                        continue
+                    if _COPY_USE_RE.search(js_path.read_text(encoding="utf-8")):
+                        uses = True
+                        break
+            if uses and not any(s.endswith("copy.js") for s in scripts):
+                failures.append(html_file.name)
+        self.assertEqual([], failures)
+
+    def test_blocks_html_loads_copy_before_explorer(self) -> None:
+        html = _site_src("blocks.html")
+        self.assertLess(html.index('src="copy.js'), html.index('src="explorer.js'))
+
+
 _NODE_VM = r"""
 const fs = require('fs');
 const [file, mode] = process.argv.slice(1);
@@ -1063,6 +1096,12 @@ class TestDetailVmFixtures(unittest.TestCase):
     """WEB-DETAIL-2: real scripts in a node vm — a render throw and an
     author first-load failure must surface a named state, not the
     placeholder."""
+
+    def test_blocks_render_throw_shows_failed(self) -> None:
+        r = _run_vm("blocks.js", "blocks-render-throw")
+        self.assertIn("Blocks could not be loaded. (display error:", r["container"])
+        self.assertIn("Try again", r["container"])
+        self.assertNotIn("Loading blocks", r["container"])
 
     def test_author_first_load_500_shows_failed(self) -> None:
         r = _run_vm("author.js", "author-500")
