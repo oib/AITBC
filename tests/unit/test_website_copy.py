@@ -1148,5 +1148,36 @@ class TestDetailVmFixtures(unittest.TestCase):
         self.assertNotIn("Loading messages", r["container"])
 
 
+class TestProbePlaceholders(unittest.TestCase):
+    """WEB-POLISH-1: a probe in flight must read as checking, never as
+    unknown/down/zero — and a failed probe names its failure."""
+
+    def test_alerts_health_items_say_checking(self) -> None:
+        s = (WEBSITE / "alerts.html").read_text()
+        self.assertNotIn('<div class="health-latency">--</div>', s)
+        self.assertEqual(5, s.count('health-latency">Checking&hellip;'))
+        self.assertEqual(5, s.count('health-item" aria-busy="true"'))
+
+    def test_alerts_probes_run_parallel_and_name_failures(self) -> None:
+        s = (WEBSITE / "alerts.js").read_text()
+        body = s[s.index("async function checkServiceHealth") :]
+        body = body[: body.index("function updateHealthItem")]
+        self.assertIn("Promise.all", body)
+        self.assertNotIn("for (const svc", body)
+        self.assertIn("`HTTP ${response.status}`", body)
+        self.assertIn("'unreachable'", body)
+        self.assertNotIn("'--'", s)
+
+    def test_alerts_outcome_clears_busy(self) -> None:
+        s = (WEBSITE / "alerts.js").read_text()
+        self.assertIn("removeAttribute('aria-busy')", s)
+
+    def test_exchange_hero_placeholders_say_checking(self) -> None:
+        s = (WEBSITE / "exchange.html").read_text()
+        self.assertNotIn("&asymp; ... ", s)
+        self.assertIn('hero-eth-equivalent" aria-busy="true">Checking&hellip;', s)
+        self.assertIn('hero-eth-rate" aria-busy="true">Checking&hellip;', s)
+
+
 if __name__ == "__main__":
     unittest.main()
