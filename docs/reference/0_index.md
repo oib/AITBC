@@ -11,11 +11,10 @@ Specifications, audits, and implementation records for AITBC internals.
 | 3 | [3_wallet-coordinator-integration.md](./3_wallet-coordinator-integration.md) | Wallet ↔ coordinator flow |
 | 4 | [4_confidential-transactions.md](./4_confidential-transactions.md) | Confidential tx architecture + implementation |
 | 5 | [5_zk-proofs.md](./5_zk-proofs.md) | ZK receipt attestation design + comparison |
-| 6 | [6_enterprise-sla.md](./6_enterprise-sla.md) | Enterprise SLA definitions |
-| 7 | [7_threat-modeling.md](./7_threat-modeling.md) | Privacy feature threat model |
-| 8 | [8_blockchain-deployment-summary.md](./8_blockchain-deployment-summary.md) | Node deployment record |
-| 9 | [9_payment-integration-complete.md](./9_payment-integration-complete.md) | Payment integration status |
-| 10 | [10_implementation-complete-summary.md](../releases/v0.4/v0.4.0_10_implementation-complete-summary.md) | Feature completion record |
+| 6 | [7_threat-modeling.md](./7_threat-modeling.md) | Privacy feature threat model |
+| 7 | [8_blockchain-deployment-summary.md](./8_blockchain-deployment-summary.md) | Node deployment record |
+| 8 | [9_payment-integration-complete.md](./9_payment-integration-complete.md) | Payment integration status |
+| 9 | [10_implementation-complete-summary.md](../releases/v0.4/v0.4.0_10_implementation-complete-summary.md) | Feature completion record |
 | 11–14 | `11_`–`14_` | Integration test fixes, updates, status reports |
 | 15 | [15_skipped-tests-roadmap.md](../releases/v0.4/v0.4.0_15_skipped-tests-roadmap.md) | Skipped tests plan |
 | 16 | [16_security-audit-2026-02-13.md](../releases/v0.4/v0.4.0_16_security-audit-2026-02-13.md) | Security audit results |

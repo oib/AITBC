@@ -60,12 +60,12 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 893
+- **Markdown files under docs/**: 882
 
 | Directory | Files | Description |
 |---|---|---|
 | [agent](agent/) | 10 | Single agent integration and coordination |
-| [agent-coordinator](agent-coordinator/) | 21 | Agent coordinator service and API docs |
+| [agent-coordinator](agent-coordinator/) | 18 | Agent coordinator service and API docs |
 | [agent-sdk](agent-sdk/) | 13 | Agent SDK and communication guide |
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
 | [apps](apps/) | 34 | Application catalog and per-app landing pages |
@@ -80,22 +80,22 @@ docs/
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 17 | Deployment and infrastructure setup |
 | [design](design/) | 13 | Design documents and decisions |
-| [development](development/) | 31 | Developer guides and workflow |
+| [development](development/) | 29 | Developer guides and workflow |
 | [features](features/) | 93 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 30 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |
-| [market](market/) | 19 | Market, exchange, and trading docs |
+| [market](market/) | 18 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 29 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
-| [reference](reference/) | 19 | Quick lookup: ports, glossary, FAQ |
+| [reference](reference/) | 17 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 62 | End-to-end usage scenarios |
-| [security](security/) | 31 | Security architecture and audits |
+| [security](security/) | 30 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
-| [troubleshooting](troubleshooting/) | 11 | Troubleshooting guides |
+| [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |
 | [web](web/) | 1 | Website and rendered docs assets |
 

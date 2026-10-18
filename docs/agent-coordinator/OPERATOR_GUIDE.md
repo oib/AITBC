@@ -19,10 +19,7 @@ This guide has been split into topic-focused files for easier navigation:
 - **[Troubleshooting](./operator-troubleshooting.md)** - Common issues, solutions, and troubleshooting checklist
 - **[Performance Tuning](./operator-performance.md)** - Load balancing strategies, priority queues, and resource limits
 - **[Security](./operator-security.md)** - Network security, authentication, and data encryption
-- **[Backup and Recovery](./operator-backup.md)** - Redis backup, service configuration backup, and restore procedures
-- **[Scaling](./operator-scaling.md)** - Horizontal scaling and Redis clustering
 - **[Maintenance](./operator-maintenance.md)** - Regular maintenance tasks, agent cleanup, and service restart procedures
-- **[Alerting](./operator-alerting.md)** - Recommended alerts and monitoring tools
 
 ## Quick Navigation
 
@@ -36,7 +33,6 @@ This guide has been split into topic-focused files for easier navigation:
 
 1. Check [Performance Tuning](./operator-performance.md) for optimization
 2. Review [Security](./operator-security.md) for hardening
-3. Configure [Alerting](./operator-alerting.md) for proactive monitoring
 
 **For Troubleshooting:**
 

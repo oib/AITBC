@@ -17,7 +17,6 @@ This document describes the advanced market features implemented for the AITBC G
 4. [Market Analytics](./05-analytics.md)
 5. [External Provider Integrations](./06-external-providers.md)
 6. [Plugin System](./07-plugin-system.md)
-7. ~~[Database Schema](./08-database-schema.md)~~ ~~(contains deprecated auction tables)~~
 8. ~~[API Endpoints](./09-api-endpoints.md)~~ ~~(contains deprecated auction endpoints)~~
 9. [Architecture & Security](./10-architecture.md)
 10. [Troubleshooting](./11-troubleshooting.md)
