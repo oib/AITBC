@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/alerts.html">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=9435c5cb9db6eaee">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=cbd9f070c48c5d8a">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=9435c5cb9db6eaee">
+    <link rel="stylesheet" href="/style.css?v=cbd9f070c48c5d8a">
 
     <!-- External libraries -->
-    <script src="config.js?v=9435c5cb9db6eaee" defer></script>
-    <script src="alerts.js?v=9435c5cb9db6eaee" defer></script>
-    <script src="status.js?v=9435c5cb9db6eaee" defer></script>
+    <script src="config.js?v=cbd9f070c48c5d8a" defer></script>
+    <script src="alerts.js?v=cbd9f070c48c5d8a" defer></script>
+    <script src="status.js?v=cbd9f070c48c5d8a" defer></script>
 </head>
 <body>
     <!-- aitbc-skip:start -->
@@ -74,30 +74,30 @@
         <div class="card">
             <h2>Service Health</h2>
             <div class="health-grid" id="health-grid">
-                <div class="health-item" data-service="marketplace">
+                <div class="health-item" aria-busy="true" data-service="marketplace">
                     <div class="health-status loading"></div>
                     <div class="health-name">Marketplace API</div>
-                    <div class="health-latency">--</div>
+                    <div class="health-latency">Checking&hellip;</div>
                 </div>
-                <div class="health-item" data-service="explorer">
+                <div class="health-item" aria-busy="true" data-service="explorer">
                     <div class="health-status loading"></div>
                     <div class="health-name">Explorer API</div>
-                    <div class="health-latency">--</div>
+                    <div class="health-latency">Checking&hellip;</div>
                 </div>
-                <div class="health-item" data-service="coordinator">
+                <div class="health-item" aria-busy="true" data-service="coordinator">
                     <div class="health-status loading"></div>
                     <div class="health-name">Coordinator API</div>
-                    <div class="health-latency">--</div>
+                    <div class="health-latency">Checking&hellip;</div>
                 </div>
-                <div class="health-item" data-service="prometheus">
+                <div class="health-item" aria-busy="true" data-service="prometheus">
                     <div class="health-status loading"></div>
                     <div class="health-name">Prometheus</div>
-                    <div class="health-latency">--</div>
+                    <div class="health-latency">Checking&hellip;</div>
                 </div>
-                <div class="health-item" data-service="watcher">
+                <div class="health-item" aria-busy="true" data-service="watcher">
                     <div class="health-status loading"></div>
                     <div class="health-name">Alert Watcher</div>
-                    <div class="health-latency">--</div>
+                    <div class="health-latency">Checking&hellip;</div>
                 </div>
             </div>
         </div>
