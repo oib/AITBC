@@ -181,6 +181,10 @@
         } catch (e) {
             container.textContent = '';
             container.appendChild(el('p', 'loading-text', `Topic details unavailable: ${e.message}`));
+            const btn = el('button', 'bridge-retry', 'Try again');
+            btn.type = 'button';
+            btn.addEventListener('click', loadTopic);
+            container.appendChild(btn);
         }
     }
 

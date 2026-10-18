@@ -961,6 +961,14 @@ class TestDetailPageStates(unittest.TestCase):
         self.assertIn("Try again", html)
         self.assertIn("bridge-retry", html)
 
+    def test_topic_moderation_failure_retries(self) -> None:
+        """WEB-DETAIL-1: topic.js parity with messages.js — the failed
+        moderation read offers Try again like every other read failure."""
+        js = _site_src("topic.js")
+        self.assertIn("Topic details unavailable:", js)
+        self.assertIn("bridge-retry", js)
+        self.assertIn("loadTopic", js)
+
 
 if __name__ == "__main__":
     unittest.main()
