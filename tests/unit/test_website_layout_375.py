@@ -276,6 +276,13 @@ class TestLayoutHeuristics(unittest.TestCase):
         m = re.search(r"\.bridge-table\s+td\s*\{([^}]*)\}", self.css)
         self.assertIsNotNone(m)
         self.assertIn("padding: 0.45rem 0.3rem", m.group(1), "td padding step-down is part of the 768px fit")
+        # WEB-BRIDGES-5: long live chain ids (ait-shadow-soak…) made the
+        # Route cell 148px and re-broke the 768px fit — the td must be able
+        # to wrap inside its stacked spans.
+        m = re.search(r"\.bridge-table\s+\.bridge-route\s*\{([^}]*)\}", self.css)
+        self.assertIsNotNone(m, "no .bridge-table .bridge-route wrap rule")
+        self.assertIn("white-space: normal", m.group(1))
+        self.assertIn("overflow-wrap: anywhere", m.group(1))
 
     def test_explorer_inner_container_adds_no_inset(self) -> None:
         # WEB-POLISH-1 item 5: explorer.html nests a second .container
@@ -404,16 +411,18 @@ _FIXTURES = {
     "/v1/market/offer": {"offers": []},
     "/v1/exchange/history": {"trades": []},
     "/exchange/price": {"price_ait": "1.0"},
-    # WEB-BRIDGES-4: realistic row mix — 42-char 0x addresses, 66-char
-    # transfer ids, a refunded row — so the desktop-width table-fit guard
-    # exercises the widest cells, not a trivially short dataset.
+    # WEB-BRIDGES-4/-5: realistic row mix — 42-char 0x addresses, 66-char
+    # transfer ids, a refunded row, and the live chain names
+    # (ait-hub/ait-shadow-soak/ait-v2-leaf-test, full ids ending
+    # .aitbc.bubuit.net) so the desktop-width table-fit guard exercises
+    # the widest Route cell, not a trivially short dataset.
     "/rpc/bridge/transfers": {
         "transfers": [
             {
                 "transfer_id": "0x" + _HEX,
                 "confirm_time": "2026-10-15T19:30:00Z",
-                "source_chain": "aitbc",
-                "target_chain": "sepolia",
+                "source_chain": "ait-hub.aitbc.bubuit.net",
+                "target_chain": "ait-shadow-soak.aitbc.bubuit.net",
                 "sender": "0x" + "ef" * 20,
                 "recipient": "0x" + "cd" * 20,
                 "amount": "36000000",
@@ -424,8 +433,8 @@ _FIXTURES = {
             {
                 "transfer_id": "0x" + "12" * 32,
                 "confirm_time": "2026-10-15T18:10:00Z",
-                "source_chain": "sepolia",
-                "target_chain": "aitbc",
+                "source_chain": "ait-hub.aitbc.bubuit.net",
+                "target_chain": "ait-v2-leaf-test.aitbc.bubuit.net",
                 "sender": "0x" + "aa" * 20,
                 "recipient": "0x" + "aa" * 20,
                 "amount": "12000000",
@@ -436,8 +445,8 @@ _FIXTURES = {
             {
                 "transfer_id": "0x" + "34" * 32,
                 "confirm_time": "2026-10-14T09:00:00Z",
-                "source_chain": "aitbc",
-                "target_chain": "bsc",
+                "source_chain": "ait-shop-island.aitbc.bubuit.net",
+                "target_chain": "ait-hub.aitbc.bubuit.net",
                 "sender": "0x" + "bb" * 20,
                 "recipient": "0x" + "99" * 20,
                 "amount": "5000000",
@@ -448,8 +457,8 @@ _FIXTURES = {
             {
                 "transfer_id": "0x" + "56" * 32,
                 "confirm_time": "2026-10-15T20:00:00Z",
-                "source_chain": "bsc",
-                "target_chain": "aitbc",
+                "source_chain": "ait-hub.aitbc.bubuit.net",
+                "target_chain": "sepolia",
                 "sender": "0x" + "77" * 20,
                 "recipient": "0x" + "11" * 20,
                 "amount": "8000000",
