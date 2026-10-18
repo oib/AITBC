@@ -8,6 +8,11 @@ predicate as the Chart.js labels.filter); a user choice survives the
 refresh destroy/rebuild and breakpoint crossings; before any choice the
 state may follow the media query; a failed or shapeless read with no
 chart instance hides the toggle and never renders "Types (0)".
+
+WEB-LEGEND-3 adds per-type chips: DOM buttons shown only while the chart
+legend is collapsed (the expanded canvas legend toggles series natively),
+one chip per dataset with activity, aria-pressed tracking visibility,
+and hidden-type choices surviving the 30 s rebuild via hiddenTypes.
 """
 
 import json
@@ -25,7 +30,8 @@ const [file, mode] = process.argv.slice(1);
 const els = {}; const handlers = [];
 function el(tag) {
     const self = {
-        style: {}, _html: '', children: [], className: '', _listeners: {},
+        style: { props: {}, setProperty(k, v) { this.props[k] = v; } },
+        _html: '', children: [], className: '', _listeners: {},
         _parent: null, value: '', dataset: {}, hidden: false,
         classList: {
             add(c){ self.className = (self.className + ' ' + c).trim(); },
@@ -79,6 +85,12 @@ const MODES = {
     'http500':    { narrow: true,  activity: () => resp(500, {}) },
     'shapefail':  { narrow: true,  activity: () => resp(200, { buckets: [] }) },
     'empty':      { narrow: true,  activity: () => resp(200, { labels: [], datasets: [] }) },
+    'chips':      { narrow: true,  activity: () => resp(200, ACT) },
+    'chipswide':  { narrow: false, activity: () => resp(200, ACT) },
+    'chipclick':  { narrow: true,  activity: () => resp(200, ACT), chip: 0 },
+    'chippersist':{ narrow: true,  activity: () => resp(200, ACT), chip: 0, retry: true },
+    'chipexpand': { narrow: true,  activity: () => resp(200, ACT), chip: 0, click: true },
+    'legendclick':{ narrow: false, activity: () => resp(200, ACT), legendItem: 0, retry: true },
 };
 const m = MODES[mode];
 const narrow = { matches: m.narrow };
@@ -86,10 +98,13 @@ class ChartStub {
     constructor(ctx, cfg) {
         this.ctx = ctx; this.cfg = cfg; this.options = cfg.options; this.data = cfg.data;
         this.updates = 0; this.destroyed = false; this.legend = { height: 0 };
+        this._hiddenIdx = new Set();
         ChartStub.instances.push(this);
     }
     update() { this.updates++; }
     destroy() { this.destroyed = true; }
+    isDatasetVisible(i) { return !this._hiddenIdx.has(i); }
+    setDatasetVisibility(i, v) { if (v) { this._hiddenIdx.delete(i); } else { this._hiddenIdx.add(i); } }
 }
 ChartStub.instances = [];
 const sandbox = {
@@ -122,11 +137,36 @@ const sandbox = {
     for (const fn of handlers) { try { await fn(); } catch (e) { console.log('HANDLER-ERR:' + e); } }
     await flush();
     const btn = document.getElementById('legend-toggle');
+    const chipsBox = document.getElementById('legend-chips');
+    let chipErr = null, legendErr = null;
+    if (m.chip != null) {
+        const chip = chipsBox.children[m.chip];
+        if (chip) { chip.click(); chipErr = chip._err || null; }
+        await flush();
+    }
+    if (m.legendItem != null) {
+        const chart0 = sandbox.window.activityChartInstance;
+        const onClick = chart0 && chart0.options.plugins.legend.onClick;
+        if (onClick) {
+            try { onClick({}, { datasetIndex: m.legendItem }, { chart: chart0 }); }
+            catch (e) { legendErr = String(e); }
+        }
+        await flush();
+    }
     if (m.click) { btn.click(); await flush(); }
     if (m.flip) { narrow.matches = !narrow.matches; }
     if (m.retry) { document.getElementById('chart-retry-btn').click(); await flush(); }
     const chart = sandbox.window.activityChartInstance || null;
     const out = {
+        chipsHidden: chipsBox.hidden,
+        chips: (chipsBox.children || []).map(c => ({
+            label: c.children[1] ? c.children[1].textContent : '',
+            pressed: c.getAttribute('aria-pressed'),
+            swatch: c.children[0] && c.children[0].style ? c.children[0].style.props['--chip-color'] : null,
+        })),
+        visible: chart ? chart.data.datasets.map((_, i) => chart.isDatasetVisible(i)) : null,
+        chipErr,
+        legendErr,
         instances: ChartStub.instances.length,
         display: chart ? chart.options.plugins.legend.display : null,
         updates: chart ? chart.updates : -1,
@@ -209,6 +249,58 @@ class TestExplorerLegendToggle(unittest.TestCase):
     def test_empty_labels_hide_toggle(self) -> None:
         r = _run_vm("empty")
         self.assertTrue(r["btnHidden"], "empty labels: no chart built, toggle stays hidden")
+
+
+class TestExplorerLegendChips(unittest.TestCase):
+    """WEB-LEGEND-3: per-type chips rendered while the chart legend is
+    collapsed — the expanded canvas legend toggles series natively, so the
+    chips must only exist where no per-type DOM control is reachable."""
+
+    def test_chips_render_for_active_types_when_collapsed(self) -> None:
+        r = _run_vm("chips")
+        self.assertFalse(r["chipsHidden"], "chips missing while legend collapsed")
+        self.assertEqual(
+            ["TRANSFER", "EXCHANGE"],
+            [c["label"] for c in r["chips"]],
+            "chips must list only datasets with activity — same predicate as the legend filter",
+        )
+        self.assertTrue(all(c["pressed"] == "true" for c in r["chips"]), "all types start visible")
+        self.assertEqual("#10b981", r["chips"][0]["swatch"], "chip swatch lost the dataset color")
+
+    def test_chips_hidden_when_legend_expanded(self) -> None:
+        r = _run_vm("chipswide")
+        self.assertTrue(r["chipsHidden"], "chips must not duplicate the expanded canvas legend")
+        self.assertEqual([], r["chips"])
+
+    def test_chip_click_hides_one_series(self) -> None:
+        r = _run_vm("chipclick")
+        self.assertIsNone(r["chipErr"], f"chip click threw: {r['chipErr']}")
+        self.assertEqual([False, True, True], r["visible"], "chip click must hide only its own series")
+        self.assertEqual(1, r["updates"], "one chart.update() per chip click")
+        self.assertEqual(["false", "true"], [c["pressed"] for c in r["chips"]], "chip aria-pressed must track visibility")
+        self.assertFalse(r["chipsHidden"], "chips stay visible after a hide — how else to undo it")
+
+    def test_hidden_type_survives_refresh_rebuild(self) -> None:
+        r = _run_vm("chippersist")
+        self.assertEqual(2, r["instances"], "retry fired a second loadActivityChart")
+        self.assertEqual([False, True, True], r["visible"], "the hidden type must stay hidden across the 30 s rebuild")
+        self.assertEqual("false", r["chips"][0]["pressed"], "rebuilt chips must reflect the hidden type")
+
+    def test_chip_then_expand_keeps_hide(self) -> None:
+        r = _run_vm("chipexpand")
+        self.assertIs(r["display"], True, "toggle expands the canvas legend")
+        self.assertTrue(r["chipsHidden"], "chips make way for the expanded legend")
+        self.assertEqual([False, True, True], r["visible"], "the hide survives the expand")
+
+    def test_legend_click_choice_survives_rebuild(self) -> None:
+        r = _run_vm("legendclick")
+        self.assertIsNone(r["legendErr"], f"canvas legend click threw: {r['legendErr']}")
+        self.assertEqual([False, True, True], r["visible"], "a canvas-legend hide must also survive the rebuild")
+
+    def test_no_chart_no_chips(self) -> None:
+        r = _run_vm("http500")
+        self.assertTrue(r["chipsHidden"], "chips must not render with no chart data")
+        self.assertEqual([], r["chips"])
 
 
 if __name__ == "__main__":
