@@ -467,6 +467,40 @@ class TestMessagesStates(unittest.TestCase):
         self.assertIn("No messages in ${topic} yet", tjs)
 
 
+class TestWebfixes2(unittest.TestCase):
+    """WEB-FIXES-2: a filter matching nothing must never read as an
+    empty market, and a body without its array must never read as a
+    proven-empty search leg."""
+
+    def test_marketplace_fetches_unfiltered_list(self) -> None:
+        js = _site_src("marketplace.js")
+        self.assertIn("const r = await readJson('/v1/market/offer')", js)
+        # server-side filter params must stay out of fetchOffers — a
+        # status/service_type query returning {"offers":[]} would falsify
+        # the proven-empty state and the Listed tile
+        fetch = js[js.index("async function fetchOffers") : js.index("const r = await readJson")]
+        self.assertNotIn("URLSearchParams", fetch)
+        self.assertNotIn("service_type", fetch)
+        self.assertNotIn("params.append('status'", fetch)
+
+    def test_explorer_search_legs_shape_proven(self) -> None:
+        js = _site_src("explorer.js")
+        self.assertIn("legItems", js)
+        self.assertIn("txs.ok && txArr === null", js)
+        self.assertIn("blocks.ok && blkArr === null", js)
+        # the old coerce-missing-to-zero pattern must stay gone
+        self.assertNotIn("(txs.data.transactions || []).length", js)
+        self.assertNotIn("(blocks.data.blocks || []).length", js)
+        self.assertNotIn("(msgs.data.messages || []).length", js)
+
+    def test_explorer_messages_leg_never_proves_empty_on_error(self) -> None:
+        js = _site_src("explorer.js")
+        # any non-ok (incl. 404 — a proxied route miss cannot prove "no
+        # match") or shapeless ok makes the leg inconclusive, not empty
+        self.assertIn("const msgLegFailed = !msgs.ok || (msgs.ok && msgArr === null)", js)
+        self.assertIn("messages leg:", js)
+
+
 class TestCopyControlStatic(unittest.TestCase):
     def test_single_shared_implementation(self) -> None:
         src = _site_src("copy.js")
