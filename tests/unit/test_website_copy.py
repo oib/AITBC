@@ -939,5 +939,28 @@ class TestAuthorPageStates(unittest.TestCase):
         self.assertIn("reply was not the expected shape", js)
 
 
+class TestDetailPageStates(unittest.TestCase):
+    """WEB-DETAIL-1: block.html and tx.html answer a real 404 with
+    'not found', but an ok body without its field is a named shape
+    failure — never a not-found. Failures offer Try again."""
+
+    def test_block_shape_failure_is_not_not_found(self) -> None:
+        html = _site_src("block.html")
+        self.assertIn("reply was not the expected shape", html)
+        self.assertIn("data.height == null", html)
+        self.assertIn("Block not found", html)  # still the 404 answer
+        self.assertIn("function showError", html)
+        self.assertIn("Try again", html)
+        self.assertIn("bridge-retry", html)
+
+    def test_tx_shape_failure_is_not_not_found(self) -> None:
+        html = _site_src("tx.html")
+        self.assertIn("reply was not the expected shape", html)
+        self.assertIn("No transaction or block found for this hash", html)
+        self.assertIn("function showError", html)
+        self.assertIn("Try again", html)
+        self.assertIn("bridge-retry", html)
+
+
 if __name__ == "__main__":
     unittest.main()
