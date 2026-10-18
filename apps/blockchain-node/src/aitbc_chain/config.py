@@ -692,6 +692,13 @@ class ChainSettings(BaseSettings):
     # Operator-chosen activation boundary (2026-10-08): below it an
     # underivable lock is grandfathered; at/above it is a would-refuse.
     bridge_lock_guard_boundary: int = 30000
+    # Follower-side bridge_state_root shadow check (BRIDGE-ROOT-FOLLOW-1):
+    # when a P2P/bulk block carries a bridge_state_root, re-derive it from the
+    # sealed BRIDGE_LOCK transactions (payload → envelope, never the local
+    # CrossChainTransfer table) and log/count mismatches. Compare-only — never
+    # rejects, never stores a different root; blocks below the V-4 boundary
+    # are skipped. Default OFF — enable with BRIDGE_ROOT_SHADOW_CHECK=true.
+    bridge_root_shadow_check: bool = False
     # F1: from this source-chain height the bridge_state_root leaf also commits
     # to the recipient — ``lock:<transfer_id>:<amount>:<target_chain>:<recipient>``
     # instead of ``lock:<transfer_id>:<amount>:<target_chain>``. It changes the
