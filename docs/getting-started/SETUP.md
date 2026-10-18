@@ -53,7 +53,7 @@ This guide has been split into topic-focused files for easier navigation:
 
 ### Core Topics
 
-- **[Quick Start](./setup-quick-start.md)** - 5-minute quick start, install profiles, and node profiles
+- **[Quick Start](./installation/quick-start.md)** - One-command installation
 - **[Service Selection](./setup-service-selection.md)** - Role-based service selection and backup service
 - **[Subscription System](./setup-subscription.md)** - Lease-based subscription system and sync modes
 - **[Configuration](./setup-configuration.md)** - Runtime directories, secrets, and per-service environment files
@@ -64,7 +64,7 @@ This guide has been split into topic-focused files for easier navigation:
 
 **For New Users:**
 
-1. Start with [Quick Start](./setup-quick-start.md)
+1. Start with [Quick Start](./installation/quick-start.md)
 2. Review [Service Selection](./setup-service-selection.md) for your node type
 3. Configure [Subscription System](./setup-subscription.md) if joining as follower
 

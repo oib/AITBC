@@ -7,7 +7,7 @@ GPU market and pool hub services.
 ## Applications
 
 - [Market](market.md) - GPU market for compute resources
-- [Pool Hub](../pool-hub/README.md) - Pool hub for resource pooling
+- [Pool Hub](../../../apps/pool-hub/README.md) - Pool hub for resource pooling
 
 ## Features
 
