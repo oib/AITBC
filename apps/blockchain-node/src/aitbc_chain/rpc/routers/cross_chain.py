@@ -35,6 +35,7 @@ from ...models import CrossChainSwap, CrossChainTransfer, Transaction
 from ..utils import (
     apply_replay_guard_fields,
     get_supported_chains,
+    record_guard_outcome,
     validate_chain_id,
     verify_signed_request_with_freshness,
 )
@@ -177,6 +178,7 @@ def _lock_transfer(
         sign_data,
         require_guard=getattr(settings, "cross_chain_require_replay_guard", False),
         label="Cross-chain locks",
+        endpoint="cross_chain_lock",
     )
     verify_signed_request_with_freshness(
         sender,
@@ -185,6 +187,7 @@ def _lock_transfer(
         guarded=guarded,
         nonce_key=f"crosschain-lock:{sender.lower()}:{sign_data.get('nonce')}",
     )
+    record_guard_outcome("cross_chain_lock", guarded=guarded)
     try:
         return bridge.initiate_transfer(
             source_chain=source_chain,
