@@ -1013,7 +1013,7 @@ function el(tag) {
     const self = {
         style: {}, _html: '', children: [], className: '', _listeners: {}, _parent: null,
         classList: { add(c){ self.className = (self.className+' '+c).trim(); }, remove(){}, contains(c){ return (self.className||'').split(/\s+/).includes(c); } },
-        set innerHTML(v){ self._html = v; self.children = []; }, get innerHTML(){ return self._html; },
+        set innerHTML(v){ self._html = v; self.children = []; const m2 = v.match(/class="([^"]+)"/); if (m2) { const c = el('div'); c.className = m2[1]; c._parent = self; self.children.push(c); } }, get innerHTML(){ return self._html; },
         set textContent(v){ self._text = v; if (v === '') { self.children = []; self._html = ''; } }, get textContent(){ return self._text || ''; },
         setAttribute(){}, appendChild(c){ c._parent = self; self.children.push(c); return c; },
         prepend(c){ c._parent = self; self.children.unshift(c); },
@@ -1035,6 +1035,8 @@ const resp = (status, body) => ({ ok: status >= 200 && status < 300, status, jso
 const MODES = {
     'blocks-render-throw': { fetch: () => Promise.resolve(resp(200, { blocks: [{ hash: '0x1', height: 1 }] })),
         blockCardThrows: true, pre: { 'blocks-container': [Object.assign(el('p'), { textContent: 'Loading blocks...', className: 'loading-blocks' })] } },
+    'blocks-stale-age': { fetch: () => Promise.resolve(resp(200, { blocks: [{ hash: '0x1', height: 1 }] })),
+        cardThrowAfter: 1, advanceMs: 95000, pollAgain: true },
     'author-500': { fetch: (u) => Promise.resolve(u.includes('reputation') ? resp(200, { reputation: 5 }) : resp(500, {})),
         pre: { 'messages-container': [Object.assign(el('p'), { textContent: 'Loading messages...', className: 'loading-text' })] } },
     'author-shapeless': { fetch: (u) => Promise.resolve(u.includes('reputation') ? resp(200, { reputation: 5 }) : resp(200, {})),
@@ -1046,14 +1048,23 @@ const MODES = {
         pre: { 'messages-container': [Object.assign(el('p'), { textContent: 'Loading messages...', className: 'loading-text' })] }, loadMore: true },
 };
 globalThis.__n = 0;
+globalThis.__now = 1000000;
+let cardCalls = 0;
 const m = MODES[mode];
 const sandbox = {
     document, window: { location: { href: 'http://x/?a=0xabc' }, AITBC_CONFIG: { explorerApiUrl: '/explorer-api', chainId: 'c' } },
     location: { href: 'http://x/?a=0xabc', searchParams: new URL('http://x/?a=0xabc').searchParams },
     fetch: m.fetch, console: { log(){}, error(){}, warn(){} },
-    setInterval(){}, setTimeout: (f) => f(), URL, URLSearchParams, lucide: { createIcons(){} },
-    renderBlockCard: m.blockCardThrows ? () => { throw new Error('aitbcCopyBtn is not defined'); } : (b) => '<div class="endpoint">B' + b.height + '</div>',
+    setInterval: (f) => { sandbox.__poll = f; }, setTimeout: (f) => f(), URL, URLSearchParams, lucide: { createIcons(){} },
+    renderBlockCard: (b) => {
+        cardCalls++;
+        if (m.blockCardThrows || (m.cardThrowAfter !== undefined && cardCalls > m.cardThrowAfter)) {
+            throw new Error('aitbcCopyBtn is not defined');
+        }
+        return '<div class="endpoint">B' + b.height + '</div>';
+    },
     aitbcFmt: { date: () => 'D', num: (n) => String(n) }, aitbcCopyBtn: () => '', alert(){}, prompt(){}, encodeURIComponent,
+    Date: { now: () => globalThis.__now },
 };
 sandbox.window.fetch = m.fetch;
 Object.assign(sandbox, { globalThis: sandbox });
@@ -1064,6 +1075,9 @@ vm_run: {
     (async () => {
         vm.runInContext(fs.readFileSync(file, 'utf8'), sandbox);
         for (const fn of handlers) { try { await fn(); } catch (e) {} }
+        await new Promise((r) => setImmediate(r));
+        if (m.advanceMs) globalThis.__now += m.advanceMs;
+        if (m.pollAgain && sandbox.__poll) { try { await sandbox.__poll(); } catch (e) {} }
         if (m.loadMore) { const btn = document.getElementById('load-more'); if (btn._listeners.click) { try { await btn._listeners.click(); } catch (e) {} } }
         await new Promise((r) => setImmediate(r));
         const text = (o) => (o.textContent || '') + (o.children || []).map(text).join('|') + (o._html || '');
@@ -1102,6 +1116,15 @@ class TestDetailVmFixtures(unittest.TestCase):
         self.assertIn("Blocks could not be loaded. (display error:", r["container"])
         self.assertIn("Try again", r["container"])
         self.assertNotIn("Loading blocks", r["container"])
+
+    def test_blocks_stale_note_ages_rendered_rows(self) -> None:
+        """WEB-DETAIL-3: after a good render and a clock advance, a poll
+        whose render throws must age the rows on screen — not the read."""
+        r = _run_vm("blocks.js", "blocks-stale-age")
+        self.assertIn("Stale, last read", r["container"])
+        self.assertIn("min ago", r["container"])
+        self.assertNotIn("just now", r["container"])
+        self.assertIn("Try again", r["container"])
 
     def test_author_first_load_500_shows_failed(self) -> None:
         r = _run_vm("author.js", "author-500")
