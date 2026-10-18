@@ -2716,18 +2716,23 @@ a.btn-secondary {
    natively, so the chips fill exactly the state where no per-type DOM
    control exists (mobile default, and the edge case of a collapse choice
    surviving a widen to desktop where the toggle itself is display:none).
-   Hidden state persists across the 30 s chart rebuild via hiddenTypes. */
+   Hidden state persists across the 30 s chart rebuild via hiddenTypes.
+   One horizontally scrolling row — never wrap: 17 wrapped 44px chips
+   stood 644px tall at 375px and pushed the chart a screenful down. */
 .legend-chips {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     gap: 6px;
     margin: 0 0 0.5rem;
+    padding-bottom: 4px;
 }
 .legend-chips[hidden] { display: none; }
 .legend-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+    flex: none;
     min-height: 44px;
     padding: 0 0.7rem;
     border: 1px solid var(--border);

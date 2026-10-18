@@ -883,6 +883,7 @@ class TestLayout375Browser(unittest.TestCase):
           const src = document.getElementById('chart-source');
           if (!c || !btn || !box || !cv || !src) return JSON.stringify({err: 'missing node'});
           const rect = (e) => { const b = e.getBoundingClientRect(); return {t: b.top, b: b.bottom}; };
+          const chipsBox = document.getElementById('legend-chips');
           const snap = () => ({
             legendH: c.legend ? c.legend.height : 0,
             display: c.options.plugins.legend.display,
@@ -893,11 +894,27 @@ class TestLayout375Browser(unittest.TestCase):
             ariaExpanded: btn.getAttribute('aria-expanded'),
             canvasInBox: rect(cv).b <= rect(box).b + 0.5,
             canvasClearOfSrc: rect(cv).b <= rect(src).t + 0.5,
+            chipsHidden: chipsBox ? chipsBox.hidden : null,
+            chipsH: chipsBox ? chipsBox.getBoundingClientRect().height : null,
           });
           const collapsed = snap();
+          // WEB-LEGEND-3 bound check: pad the collapsed chips row to the real
+          // 17-type count and confirm it stays one scrollable strip under
+          // 100px instead of a 644px wrapped block pushing the chart down.
+          let padded = { chipsH: null, scrollable: null, chipH: null, chipCount: null };
+          if (chipsBox && !chipsBox.hidden && chipsBox.children.length) {
+            while (chipsBox.children.length < 17) chipsBox.appendChild(chipsBox.children[0].cloneNode(true));
+            const chipRect = chipsBox.children[0].getBoundingClientRect();
+            padded = {
+              chipsH: chipsBox.getBoundingClientRect().height,
+              scrollable: chipsBox.scrollWidth > chipsBox.clientWidth,
+              chipH: chipRect.height,
+              chipCount: chipsBox.children.length,
+            };
+          }
           btn.click();
           const expanded = snap();
-          return JSON.stringify({collapsed, expanded});
+          return JSON.stringify({collapsed, expanded, padded});
         })()
         """
         r375 = self._measure("explorer.html", 375, expr)
@@ -916,6 +933,16 @@ class TestLayout375Browser(unittest.TestCase):
         self.assertGreater(e375["legendH"], c375["legendH"])
         self.assertTrue(e375["canvasInBox"], "375px expanded: canvas must stay in its box")
         self.assertTrue(e375["canvasClearOfSrc"], "375px expanded: canvas must clear the source line")
+        # WEB-LEGEND-3: chips exist only while collapsed, and even at the full
+        # 17-type count the row must be one scrollable strip under 100px —
+        # a wrapped block stood 644px tall and pushed the chart off-screen.
+        p = r375["padded"]
+        self.assertEqual(17, p["chipCount"], "padding step failed to reach 17 chips")
+        self.assertLess(p["chipsH"], 100, f"17-chip row must stay under 100px, got {p['chipsH']}")
+        self.assertTrue(p["scrollable"], "17 chips must overflow horizontally (scroll), not wrap")
+        self.assertGreaterEqual(p["chipH"], 44, "chips must keep the 44px tap target")
+        self.assertFalse(c375["chipsHidden"], "collapsed: chips row must render")
+        self.assertTrue(e375["chipsHidden"], "expanded: chips must yield to the canvas legend")
 
         r1280 = self._measure("explorer.html", 1280, expr)
         self.assertIsNone(r1280.get("err"), f"1280px: {r1280}")
