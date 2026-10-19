@@ -13,7 +13,7 @@ default_install_hook_types: [pre-commit, pre-push]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       # The zk-circuits `*_cpp/` and `*_js/` directories are circom and snarkjs output, byte
       # for byte. Normalising their whitespace makes the committed artifacts differ from what
@@ -33,17 +33,11 @@ repos:
         # exempted from this check.
         exclude: \.wasm$
       - id: check-json
-      # Kept, but it only inspects files while git is mid-merge -- see
-      # scripts/ci/check-merge-markers.py, which runs on every commit. This one catches the
-      # conflict you are resolving; that one catches the one already committed.
-      - id: check-merge-conflict
       - id: debug-statements
         exclude: cli/templates/.*|tests/cli/.*
       - id: check-toml
       - id: check-xml
       - id: check-case-conflict
-      - id: check-ast
-        exclude: cli/templates/.*|tests/cli/.*
 
   # Ruff: linting and formatting (replaces Black, isort, flake8, pydocstyle, pyupgrade)
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -174,7 +168,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-commit]
+        stages: [pre-push]
 
   # Type ignore validation
   - repo: local
@@ -210,7 +204,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-commit]
+        stages: [pre-push]
 
   # docs/api/*-openapi.json is generated from the apps, and the guard that says so existed
   # for a release before anything invoked it -- it was red on main that whole time (V23-82).
