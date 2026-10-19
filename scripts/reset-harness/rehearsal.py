@@ -396,7 +396,11 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "BRIDGE_MULTISIG_THRESHOLD": "2",
         "ENABLE_BLOCK_PRODUCTION": "true" if inst.role == "proposer" else "false",
         "MAX_EMPTY_BLOCK_INTERVAL": "10",
-        "CONSENSUS_PROPOSER_ROUND_SECONDS": "10",
+        # A completed PBFT round measured ~13s across the gossip mesh; each
+        # slot needs a window comfortably past that or every propose_and_wait
+        # outlives its own rotation.
+        "CONSENSUS_PROPOSER_ROUND_SECONDS": "25",
+        "PBFT_VIEW_CHANGE_TIMEOUT": "20",
         "DEFAULT_PEER_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
         # Literal CSV: 'genesis' admits the genesis producer row; the four
         # validator addresses admit every rotated proposal on import.
