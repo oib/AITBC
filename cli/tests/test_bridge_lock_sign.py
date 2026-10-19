@@ -133,8 +133,8 @@ class TestLockWalletSign:
         client.lock.assert_not_called()
 
     def test_resolve_node_chain_id_mirrors_server_default(self, runner, monkeypatch):
-        """/rpc/proposer returning an empty/absent chain_id falls back to the
-        server's own get_chain_id(None) default so sign and verify still agree."""
+        """/rpc/proposer returning an empty/absent chain_id must fail loudly —
+        signing with a guessed id would produce a signature the node rejects."""
         resp = mock.Mock()
         resp.json.return_value = {"chain_id": "ait-from-node"}
         resp.raise_for_status = lambda: None
@@ -144,7 +144,8 @@ class TestLockWalletSign:
 
         resp.json.return_value = {"proposer_id": "0x0"}
         with mock.patch.object(bridge_mod.httpx, "get", return_value=resp):
-            assert bridge_mod._resolve_node_chain_id("http://n:8202/rpc") == "ait-mainnet"
+            with pytest.raises(click.ClickException, match="chain ID"):
+                bridge_mod._resolve_node_chain_id("http://n:8202/rpc")
 
     def test_raw_signature_stays_old_form(self, runner, tmp_path):
         client = _fake_client()
