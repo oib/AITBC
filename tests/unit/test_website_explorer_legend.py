@@ -16,6 +16,7 @@ and hidden-type choices surviving the 30 s rebuild via hiddenTypes.
 """
 
 import json
+import re
 import shutil
 import subprocess
 import unittest
@@ -337,6 +338,20 @@ class TestTypeLabelsHumanized(unittest.TestCase):
         # Color lookup keys off the raw API type — humanizing it would lose
         # the TX_TYPE_COLORS match and hash out wrong colors.
         self.assertIn('data-tx-type="${escapeHtml(type)}"', src)
+
+    def test_no_raw_type_literal_in_badges(self) -> None:
+        # A badge is user-visible type vocabulary: it must come from
+        # aitbcFmt.type(), not a raw UPPER_SNAKE literal. Allowlist non-type
+        # tokens (state badges like LOCKED/PINNED are not type names).
+        allowed = {"LOCKED", "PINNED"}
+        pat = re.compile(r"badge[^>]*>\s*([A-Z][A-Z_ ]{2,})\s*<")
+        offenders = []
+        for path in sorted(WEBSITE.glob("*.js")) + sorted(WEBSITE.glob("*.html")):
+            for i, line in enumerate(path.read_text().splitlines(), 1):
+                for m in pat.finditer(line):
+                    if m.group(1).strip() not in allowed:
+                        offenders.append(f"{path.name}:{i} {m.group(1)!r}")
+        self.assertEqual([], offenders, "raw type literal in a badge")
 
 
 if __name__ == "__main__":

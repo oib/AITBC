@@ -63,6 +63,7 @@ async function loadBlock() {
         }
 
         document.title = `AITBC Block #${data.height}`;
+        document.getElementById('block-kind-badge').textContent = aitbcFmt.type('BLOCK');
         document.getElementById('block-height-badge').textContent = `#${data.height}`;
         document.getElementById('block-hash-display').textContent = data.hash || '';
 
@@ -78,7 +79,7 @@ async function loadBlock() {
         document.getElementById('block-details').innerHTML = `
             <div class="endpoint table-card fade-in block-item">
                 <div class="table-wrap"><table class="block-list-table" aria-label="Block details">
-                    <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(data.height)}</td></tr>
+                    <tr><th scope="row">Height</th><td><span class="badge badge-primary">${escapeHtml(aitbcFmt.type('BLOCK'))}</span> #${escapeHtml(data.height)}</td></tr>
                     <tr><th scope="row">Hash</th><td>${plainHash(data.hash)} ${aitbcCopyBtn(data.hash || '', 'block hash')}</td></tr>
                     <tr><th scope="row">Proposer</th><td>${addrLink(data.proposer)} ${aitbcCopyBtn(data.proposer || '', 'proposer address')}</td></tr>
                     <tr><th scope="row">Timestamp</th><td>${escapeHtml(data.timestamp ? aitbcFmt.date(data.timestamp) : 'N/A')}</td></tr>
