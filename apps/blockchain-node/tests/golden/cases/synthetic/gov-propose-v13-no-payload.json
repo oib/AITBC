@@ -1,0 +1,37 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x6f5bd32db42e040958cb8a4133f378ed1c8fdb54b8d197056961a3d371331e29",
+  "height": 47000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-propose-v13-no-payload",
+ "description": "GOVERNANCE_PROPOSE without execution_payload at v13 \u2014 refused.",
+ "gate": "v13",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "nonce": 0,
+  "payload": {
+   "proposal_id": "prop-bare",
+   "title": "t"
+  },
+  "signature": "0x12265f7b608437ac38e118b1c6f97fd209e5a66ee1c6fc91fc239ade8ae7846d1d8b88485b48188a54cd7db699d9d8e598c41562e0d69bc095963b3f5af2050b01",
+  "to": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "tx_hash": "0xc949d14fff61f3fb172c4015fe4d5c4b4f45d3db49976f05d2ea91c2bcc6e1c8",
+  "type": "GOVERNANCE_PROPOSE",
+  "value": 0
+ }
+}

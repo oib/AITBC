@@ -1,0 +1,42 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x6f5bd32db42e040958cb8a4133f378ed1c8fdb54b8d197056961a3d371331e29",
+  "height": 47000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-propose-v13-with-payload",
+ "description": "GOVERNANCE_PROPOSE with a dict execution_payload at 47000 \u2014 accepted and bound for a later execute.",
+ "gate": "v13",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {
+    "action": "parameter_change",
+    "parameter": "bond_slash_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   },
+   "proposal_id": "prop-ok",
+   "title": "t"
+  },
+  "signature": "0x151697d0196b4fa420ec298ab9a359da4325f79c69fdeb5278fa84d3949533512a7c5d79de542db97b96bb0f9cce1b7a68d0249260389046476afb324ade9b0a00",
+  "to": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "tx_hash": "0x4591be75487edceba0e5d44db2239ddb2273128b68533e1ab5b8e7f2fb99cf71",
+  "type": "GOVERNANCE_PROPOSE",
+  "value": 0
+ }
+}

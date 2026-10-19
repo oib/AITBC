@@ -1,0 +1,48 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x33dc514281d3276c677d2df76827a9fd04de3e7a8241671a0d0f0f6c971321a5",
+  "height": 50000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "bridge-lock-v14-leaf",
+ "description": "v14 BRIDGE_LOCK with derivable leaf data in payload \u2014 accepted; derived root recorded (leaf-v1 below 51000).",
+ "gate": "v14",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "bridge_release_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 5000,
+  "bridge_signature": "0x519cb2e386e12c7b659fc2b913dd0345b33221db28e3dc7f7001dda17efa6b98624cc98bfc35622d6a567219718872159237964c3537a34eba2b478052e4ba1100",
+  "chain_id": "gv-synth",
+  "fee": 0,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "amount": 5000,
+   "asset": "AIT",
+   "target_chain": "sep",
+   "target_recipient": "0xabababababababababababababababababababab",
+   "transfer_id": "0x6c48e6e423f24e836965b7a52b298a314a4e8272df72cfeb9b85c125aa96aacf"
+  },
+  "to": "bridge_lock",
+  "tx_hash": "0xcdcca369fcb6617fe083e63c1ed572f754d5b77b907a99ab490dd274f3bca6f4",
+  "type": "BRIDGE_LOCK",
+  "value": 5000
+ }
+}

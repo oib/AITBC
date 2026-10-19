@@ -1,0 +1,34 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x111cd69b152e06b7163204dd21af82b66e9111a3325a34713fcd34696c681e03",
+  "height": 31000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "transfer-v9-badsig",
+ "description": "TRANSFER signed by a different key \u2014 signature verification refuses before the v9 verdict.",
+ "gate": "v9",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 100,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "signature": "0x33b18b689943be8c79795ea08b990eb10844a50598fbbfa95e973d8fc8701b8a197450e586f0270511349b967882de458b5868146eff24fbfa0740e75790ce7c00",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x1f16a15fcf33aed0d7c11e70d6cebf8fd4995167d48dfa7e4fe3e96445458731",
+  "type": "TRANSFER",
+  "value": 100
+ }
+}
