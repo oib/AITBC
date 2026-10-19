@@ -118,8 +118,11 @@ def _bootstrap_accounts(db: sqlite3.Connection, chain_id: str) -> list[dict[str,
             peak[recipient] = max(peak.get(recipient, 0), -cumulative[recipient])
     bootstrap_accounts = []
     tip_by_lower = {a.lower(): a for a in tip_accounts}
-    for addr in sorted(set(tip_accounts) | set(sent) | set(peak)):
-        addr = addr.lower()
+    # Union on the lowercased form: tip rows and flow strings disagree in
+    # case on this chain — without the fold the same account is emitted
+    # twice, once per case-variant.
+    candidates = {a.lower() for a in tip_accounts} | set(sent) | set(peak)
+    for addr in sorted(candidates):
         if not (addr.startswith("0x") and len(addr) == 42):
             # bridge_release/bridge_refund pseudo-senders carry ledger rows
             # but never an account row — seeding one would poison the root.
