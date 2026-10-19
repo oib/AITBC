@@ -11,6 +11,7 @@ from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.utils.chain_id import resolve_chain_id  # noqa: E402
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.rate_limiting import RateLimitMiddleware
 
@@ -56,7 +57,7 @@ async def _import_genesis_wallet_from_env() -> None:
                     env[k.strip()] = v.strip()
     private_key_hex = env.get("GENESIS_PRIVATE_KEY", "")
     address = env.get("GENESIS_ADDRESS", "")
-    chain_id = env.get("CHAIN_ID", "ait-localnet")
+    chain_id = env.get("CHAIN_ID") or resolve_chain_id()
     if not private_key_hex or not address:
         return
     daemon_url = "http://localhost:8108"
@@ -165,7 +166,7 @@ async def _import_file_wallets() -> None:
                         # 'x' characters -- e.g. "0x00ab..." became "ab...", corrupting a
                         # key that legitimately starts with zero bytes.
                         private_key_hex = raw_private_key[2:] if raw_private_key[:2] in ("0x", "0X") else raw_private_key
-                        chain_id = data.get("chain_id", "ait-localnet")
+                        chain_id = data.get("chain_id") or resolve_chain_id()
                         if wallet_id in existing:
                             continue
                         if not private_key_hex:
