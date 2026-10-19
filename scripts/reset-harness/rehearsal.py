@@ -840,7 +840,14 @@ def phase_stores(root: Path, python: str) -> None:
     ):
         db_dir = root / "svc" / svc
         db_dir.mkdir(parents=True, exist_ok=True)
-        child_env = dict(os.environ, AITBC_DATA_DIR=str(db_dir), **env)
+        child_env = dict(
+            os.environ,
+            AITBC_DATA_DIR=str(db_dir),
+            # alembic env.py imports the app's own package (e.g.
+            # trading_service) — <app>/src must be importable.
+            PYTHONPATH=f"{app_dir}/src:{REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src",
+            **env,
+        )
         # Clear inherited live DB env so nothing leaks to the live store.
         for stale in ("DATABASE_URL", "SQLITE_URL", "DB_HOST", "DB_NAME", "DB_USER", "DB_PASS"):
             child_env.pop(stale, None)
@@ -863,11 +870,16 @@ def phase_stores(root: Path, python: str) -> None:
 
 
 def phase_golden(root: Path, python: str) -> None:
-    runner = REPO_ROOT / "apps" / "blockchain-node" / "tests" / "golden" / "runner.py"
-    env = dict(os.environ, AITBC_DATA_DIR=str(root / "golden-data"), CHAIN_ID=CHAIN_ID)
+    # Module-style invocation — runner.py does `from . import engine, profiles`.
+    env = dict(
+        os.environ,
+        AITBC_DATA_DIR=str(root / "golden-data"),
+        CHAIN_ID=CHAIN_ID,
+        PYTHONPATH=(f"{REPO_ROOT}/apps/blockchain-node/tests:{REPO_ROOT}/apps/blockchain-node/src:{REPO_ROOT}"),
+    )
     for run in (1, 2):
         r = subprocess.run(
-            [python, str(runner), "check", "--profile", "gates1"],
+            [python, "-m", "golden.runner", "check", "--profile", "gates1"],
             cwd=str(REPO_ROOT / "apps" / "blockchain-node"),
             env=env,
             capture_output=True,
