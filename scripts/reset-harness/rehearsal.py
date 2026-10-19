@@ -201,7 +201,8 @@ def _mint_key() -> dict[str, str]:
     return {
         "address": account.address,
         "private_key": account.key.hex(),
-        "public_key": "0x" + private.public_key.to_hex(),
+        # eth_keys' to_hex() already carries the 0x prefix.
+        "public_key": private.public_key.to_hex(),
     }
 
 
