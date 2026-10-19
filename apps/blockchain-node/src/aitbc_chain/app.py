@@ -232,7 +232,10 @@ def _start_mempool_sweeper() -> asyncio.Task[None] | None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Resolve the chain id before any database file is opened: an unconfigured
     # node must refuse to start rather than fall back to a hard-coded chain.
-    default_chain_id = settings.supported_chains.split(",")[0].strip() or resolve_chain_id()
+    # CHAIN_ID (settings.chain_id) is the node's own chain and wins over the
+    # supported_chains list — that matches what init_db() did before, when it
+    # resolved settings.chain_id directly.
+    default_chain_id = settings.chain_id.strip() or settings.supported_chains.split(",")[0].strip() or resolve_chain_id()
     init_db(default_chain_id)
     from .contracts.escrow import create_escrow_manager
 
