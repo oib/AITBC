@@ -143,14 +143,20 @@ def name_index(authority: dict[str, int]) -> list[tuple[str, str]]:
     return sorted(names.items(), key=lambda kv: -len(kv[0]))
 
 
-def _service_positions(text: str, names: list[tuple[str, str]]) -> list[tuple[int, str]]:
+def _compiled_names(names: list[tuple[str, str]]) -> list[tuple[re.Pattern[str], str]]:
+    """Precompile the per-name boundary patterns once per run."""
+    return [
+        (re.compile(r"(?<![a-z0-9_-])" + re.escape(literal) + r"(?![a-z0-9_-])"), canonical) for literal, canonical in names
+    ]
+
+
+def _service_positions(text: str, names: list[tuple[str, str]], compiled=None) -> list[tuple[int, str]]:
     """Return (position, canonical) for every service name found in text."""
     low = text.lower()
     found: list[tuple[int, str]] = []
     taken: list[tuple[int, int]] = []
-    for literal, canonical in names:
-        pattern = r"(?<![a-z0-9_-])" + re.escape(literal) + r"(?![a-z0-9_-])"
-        for m in re.finditer(pattern, low):
+    for pattern, canonical in compiled if compiled is not None else _compiled_names(names):
+        for m in pattern.finditer(low):
             if any(m.start() < end and start < m.end() for start, end in taken):
                 continue
             taken.append((m.start(), m.end()))
@@ -287,6 +293,9 @@ def _inline_port_hits(
                 yield canonical, port, pos
 
 
+_COMPILED_NAMES: list | None = None
+
+
 def inline_hits(line: str, authority: dict[str, int], names: list[tuple[str, str]], prev_lines: list[str]):
     """Yield (canonical_name, port, position) for ports written outside a table.
 
@@ -304,10 +313,16 @@ def inline_hits(line: str, authority: dict[str, int], names: list[tuple[str, str
     env_hits, seen = _env_hits(clean, authority)
     yield from env_hits
 
+    # A line with no inline-port-shaped candidate can contribute no claims, so
+    # the per-name position scan -- the dominant cost of this hook -- is
+    # skipped for it.
+    if not any(rx.search(clean) for rx in INLINE_RES):
+        return
+
     context = _context_lines(prev_lines)
     search_text = "\n".join(context) + "\n" + clean
     context_offset = sum(len(prev) + 1 for prev in context)
-    positions = _service_positions(search_text, names)
+    positions = _service_positions(search_text, names, _COMPILED_NAMES)
 
     yield from _inline_port_hits(clean, context_offset, positions, authority, seen)
 
@@ -470,6 +485,8 @@ def main() -> int:
         return 1
 
     names = name_index(authority)
+    global _COMPILED_NAMES
+    _COMPILED_NAMES = _compiled_names(names)
     bad: list[tuple[str, int, str, int, int]] = []
     checked = 0
     for path, tables in _iter_files(repo, authority_file):
