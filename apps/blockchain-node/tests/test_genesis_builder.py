@@ -198,11 +198,10 @@ def _built_doc(**overrides):
 
 async def test_loader_loads_built_doc_and_seeds_params_and_validators(session_factory) -> None:
     node = _proposer(session_factory)
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     with (
         patch.object(PoAProposer, "_load_genesis_data_from_file", lambda self: _built_doc()),
-        patch.object(PoAProposer, "_load_genesis_block_from_rpc", AsyncMock(return_value=None)),
     ):
         await node._ensure_genesis_block()
 
@@ -228,11 +227,10 @@ async def test_digest_mismatch_is_refused(session_factory) -> None:
     doc = _built_doc()
     doc["bridge_validators_digest"] = "0x" + "ff" * 32
     node = _proposer(session_factory)
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     with (
         patch.object(PoAProposer, "_load_genesis_data_from_file", lambda self: doc),
-        patch.object(PoAProposer, "_load_genesis_block_from_rpc", AsyncMock(return_value=None)),
     ):
         with pytest.raises(RuntimeError, match="digest mismatch"):
             await node._ensure_genesis_block()
@@ -246,11 +244,10 @@ async def test_validators_without_digest_are_refused(session_factory) -> None:
     doc = _built_doc()
     del doc["bridge_validators_digest"]
     node = _proposer(session_factory)
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     with (
         patch.object(PoAProposer, "_load_genesis_data_from_file", lambda self: doc),
-        patch.object(PoAProposer, "_load_genesis_block_from_rpc", AsyncMock(return_value=None)),
     ):
         with pytest.raises(RuntimeError, match="no bridge_validators_digest"):
             await node._ensure_genesis_block()
@@ -261,11 +258,10 @@ async def test_legacy_doc_without_validator_keys_still_loads(session_factory) ->
     del doc["bridge_validators"]
     del doc["bridge_validators_digest"]
     node = _proposer(session_factory)
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     with (
         patch.object(PoAProposer, "_load_genesis_data_from_file", lambda self: doc),
-        patch.object(PoAProposer, "_load_genesis_block_from_rpc", AsyncMock(return_value=None)),
     ):
         await node._ensure_genesis_block()
 

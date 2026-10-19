@@ -286,10 +286,10 @@ class BlockchainNode:
         validation on the node doing the bootstrapping.
 
         Nothing is trusted by doing this. ``_ensure_genesis_block`` takes the hash and
-        state_root from genesis.json (or the hub's RPC bootstrap) rather than recomputing
-        them, so the block written here is the hub's block 0 or it is nothing: a mismatched
-        genesis.json produces a different hash, and the first synced block fails its
-        parent_hash check immediately rather than silently forking.
+        state_root from genesis.json after recomputing them, so the block written here is
+        the hub's block 0 or it is nothing: a mismatched genesis.json produces a
+        different hash, and the first synced block fails its parent_hash check
+        immediately rather than silently forking.
 
         Failure is logged, not raised. Followers that already sync with ``TRUSTED_PROPOSERS``
         set and no local genesis.json keep working exactly as before.
@@ -298,8 +298,10 @@ class BlockchainNode:
             await self._ensure_genesis_for_chains()
         except Exception as exc:
             logger.error(
-                "Could not bootstrap genesis locally: %s. Falling back to syncing block 0 from the hub, "
-                "which requires TRUSTED_PROPOSERS to include 'genesis'. Supply genesis.json to avoid that.",
+                "Could not bootstrap genesis locally: %s. A follower without genesis.json falls back to "
+                "syncing the unsigned block 0 from the hub, which requires TRUSTED_PROPOSERS to include "
+                "'genesis'. Supply genesis.json to avoid that — a peer serves the canonical document at "
+                "/agent/genesis.json.",
                 exc,
             )
 
