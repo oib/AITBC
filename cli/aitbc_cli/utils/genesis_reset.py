@@ -23,7 +23,6 @@ from eth_keys import keys
 
 from . import error, success
 
-DEFAULT_CHAIN_ID = "ait-localnet"
 DEFAULT_DATA_DIR = Path("/var/lib/aitbc/data")
 DEFAULT_WALLET_DIR = Path("/var/lib/aitbc/wallets")
 DEFAULT_ETC_DIR = Path("/etc/aitbc")
@@ -348,8 +347,12 @@ def reset_genesis(
     The caller is responsible for any confirmation prompts; ``yes`` only
     suppresses internal safety checks here.
     """
-    if not chain_id:
-        chain_id = os.environ.get("CHAIN_ID", DEFAULT_CHAIN_ID)
+    # Lazy import for the same reason as reset_guard below: a worktree or dev
+    # shell may not resolve the `aitbc` package, and module import must not
+    # kill the command group. The call itself fails closed when unset.
+    from aitbc.utils.chain_id import resolve_chain_id
+
+    chain_id = resolve_chain_id(chain_id)
 
     data_dir = data_dir or DEFAULT_DATA_DIR
     etc_dir = etc_dir or DEFAULT_ETC_DIR

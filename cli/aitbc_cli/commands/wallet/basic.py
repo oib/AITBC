@@ -593,7 +593,7 @@ def balance(ctx, name: str | None):
     canonical = to_eip55(address)
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
-    chain_id = ctx.obj.get("chain_id", config.chain_id) or "ait-localnet"
+    chain_id = ctx.obj.get("chain_id") or config.chain_id or "unconfigured"
 
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
