@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
 
-from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN, USE_DATA_LAYER, get_data_layer
+from chain_client import USE_DATA_LAYER, default_chain_id, get_data_layer, rpc_url_for
 
 logger = get_logger(__name__)
 
@@ -25,14 +25,14 @@ async def search_transactions(
     until: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
     """Advanced transaction search"""
     try:
         if USE_DATA_LAYER:
             # Use data layer with toggle support
             data_layer = get_data_layer()
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            rpc_url = rpc_url_for(chain_id if chain_id else default_chain_id())
             result = await data_layer.get_transactions(
                 address, amount_min, amount_max, tx_type, since, until, limit, offset, chain_id or "", rpc_url
             )
@@ -55,9 +55,9 @@ async def search_transactions(
                 params["until"] = until
             params["limit"] = limit
             params["offset"] = offset
-            params["chain_id"] = chain_id if chain_id else DEFAULT_CHAIN
+            params["chain_id"] = chain_id if chain_id else default_chain_id()
 
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            rpc_url = rpc_url_for(chain_id if chain_id else default_chain_id())
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
                 if response.status_code == 200:
@@ -88,14 +88,14 @@ async def search_blocks(
     min_tx: int | None = None,
     limit: int = 50,
     offset: int = 0,
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
     """Advanced block search"""
     try:
         if USE_DATA_LAYER:
             # Use data layer with toggle support
             data_layer = get_data_layer()
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            rpc_url = rpc_url_for(chain_id if chain_id else default_chain_id())
             result = await data_layer.get_blocks(validator, since, until, min_tx, limit, offset, chain_id or "", rpc_url)
             return result if isinstance(result, dict) else {"blocks": result}  # type: ignore[unreachable]
         else:
@@ -111,9 +111,9 @@ async def search_blocks(
                 params["min_tx"] = min_tx
             params["limit"] = limit
             params["offset"] = offset
-            params["chain_id"] = chain_id if chain_id else DEFAULT_CHAIN
+            params["chain_id"] = chain_id if chain_id else default_chain_id()
 
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id if chain_id else DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            rpc_url = rpc_url_for(chain_id if chain_id else default_chain_id())
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
                 if response.status_code == 200:

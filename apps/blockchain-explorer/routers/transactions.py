@@ -1,7 +1,6 @@
 """Transaction routes — transaction by hash, transaction search, transaction details."""
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +11,8 @@ from fastapi import APIRouter, HTTPException
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
 
-from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN, get_transaction
+from aitbc.utils.chain_id import resolve_chain_id
+from chain_client import default_chain_id, get_transaction, rpc_url_for
 from .common import like_pattern
 from validation import validate_tx_hash
 
@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 @router.get("/api/transactions/by-hash/{hash}")
-async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """API endpoint for transaction by hash"""
     if not validate_tx_hash(hash):
         raise HTTPException(status_code=400, detail="Invalid transaction hash")
@@ -30,7 +30,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -64,9 +64,10 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
                 }
 
         # Fallback to RPC method
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id or DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        chain_id = chain_id or default_chain_id()
+        rpc_url = rpc_url_for(chain_id)
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/tx/{hash}", params={"chain_id": chain_id or DEFAULT_CHAIN})
+            response = await client.get(f"{rpc_url}/rpc/tx/{hash}", params={"chain_id": chain_id})
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
 
@@ -81,12 +82,12 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
 @router.get("/api/transactions/search")
 async def api_search_transactions(
     address: str,
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
     limit: int = 100,
 ) -> dict[str, Any]:
     """Search transactions by address or node ID in blockchain database"""
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -136,9 +137,9 @@ async def api_search_transactions(
 
 
 @router.get("/api/transactions/{tx_hash}")
-async def api_transaction(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """API endpoint for transaction data, normalized for frontend"""
-    tx = await get_transaction(tx_hash, chain_id if chain_id else DEFAULT_CHAIN)
+    tx = await get_transaction(tx_hash, chain_id if chain_id else default_chain_id())
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Try to parse payload for additional fields
