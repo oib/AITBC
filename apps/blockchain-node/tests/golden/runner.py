@@ -322,16 +322,17 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="command", required=True)
     for cmd in ("record", "check"):
         p = sub.add_parser(cmd)
-        p.add_argument("--profile", required=True, choices=["deployed", "gates0"])
+        p.add_argument("--profile", required=True, choices=["deployed", "gates0", "gates1"])
     pprime = sub.add_parser(
         "prime", help="iterate the stream, topping up bootstrap balances until no insufficiency rejects remain"
     )
-    pprime.add_argument("--profile", default="deployed", choices=["deployed", "gates0"])
+    pprime.add_argument("--profile", default="deployed", choices=["deployed", "gates0", "gates1"])
     pdiff = sub.add_parser("diff")
     pdiff.add_argument("a")
     pdiff.add_argument("b")
     sub.add_parser("coverage")
     sub.add_parser("code-commit")
+    sub.add_parser("dump-cases", help="regenerate cases/synthetic/*.json from synthetic_cases.cases()")
     args = ap.parse_args(argv)
 
     workdir = Path(tempfile.mkdtemp(prefix="golden-vectors-"))
@@ -340,6 +341,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "code-commit":
         print(subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip())
+        return 0
+    if args.command == "dump-cases":
+        from golden import synthetic_cases
+
+        syn_dir = args.cases_dir / "synthetic"
+        syn_dir.mkdir(parents=True, exist_ok=True)
+        for case in synthetic_cases.cases():
+            (syn_dir / f"{case['case_id']}.json").write_text(json.dumps(case, sort_keys=True, indent=1) + "\n")
+        print(json.dumps({"written": len(synthetic_cases.cases())}))
         return 0
     if args.command == "coverage":
         print(json.dumps(_coverage(args.cases_dir, args.expected_dir), indent=1, sort_keys=True))

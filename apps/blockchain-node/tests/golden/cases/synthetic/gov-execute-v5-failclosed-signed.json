@@ -1,0 +1,37 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x98186926ebeac511e1dc34a81a245e8a964af3b3f0734ed149a40353d1442f88",
+  "height": 24500,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-execute-v5-failclosed-signed",
+ "description": "Signed GOVERNANCE_EXECUTE with governance_executors unset \u2014 under gates1 the signature verifies and the v5 executors gate fails closed; under deployed (v5 height) the same gate refuses.",
+ "gate": "v5 / gates1",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {},
+   "proposal_id": "p1"
+  },
+  "signature": "0xc7e52bacfc35da094784faeac5a7a253ba6ce86f4e196d3b507f03a172c51e4333c9ae5fff92d77cb26945855e9a92486d5943c4548c04050446b0bea8bea49a01",
+  "to": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "tx_hash": "0x0bf243265f01aff07ffeca19a0c2ed180ab44f5863840f1606d58d47cd3b9983",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}

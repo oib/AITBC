@@ -1,0 +1,103 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x899b513d535736f317880074f8cea668384f37ebbb33a40ad7478b7793d0bc2c",
+  "height": 3,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "firstblock-gov-execute-h3",
+ "description": "GOVERNANCE_EXECUTE at height 3 binding the h2 propose \u2014 executor-signed, execution_payload matches the sealed proposal; applies the parameter_change.",
+ "gate": "gates1 boundary",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": null,
+    "chain_id": "gv-synth",
+    "hash": "0x2363f175ad917a2f2aad08243c7f2c8dfea9792f36306d3c3e876581d44b253c",
+    "height": 2,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "bridge_release_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   },
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "escrow_settlement_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   },
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "governance_executors",
+    "value": "0x7564105E977516C53bE337314c7E53838967bDaC"
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 2,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "execution_payload": {
+      "action": "parameter_change",
+      "parameter": "bond_slash_authority",
+      "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+     },
+     "proposal_id": "prop-first",
+     "title": "p"
+    },
+    "recipient": "",
+    "sender": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "status": "confirmed",
+    "tx_hash": "0x15b4a9d9433b1231ff319a4c5f1fc3f9c45705b92e1cf3d2653a9e76cc437900",
+    "type": "GOVERNANCE_PROPOSE",
+    "value": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {
+    "action": "parameter_change",
+    "parameter": "bond_slash_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   },
+   "proposal_id": "prop-first"
+  },
+  "signature": "0x538e7976e96b6dba2b8c8a0a3dc60cba49d26f6e77a1cb0c3aac610a59dfa3a81d349c7d69186d2d4dbbc7dfa9e1ce93b1cc46556ea94f262b0f995e56f45d2101",
+  "to": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "tx_hash": "0xf176ba8750b0bc7f8b7726e31795577658fe86f8e256e75629a12544c0606578",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}
