@@ -1,0 +1,27 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x98186926ebeac511e1dc34a81a245e8a964af3b3f0734ed149a40353d1442f88",
+  "height": 24500,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "bridge-release-v5-no-authority",
+ "description": "BRIDGE_RELEASE at 24500 with bridge_release_authority unset \u2014 fail-closed refusal.",
+ "gate": "v5",
+ "prestate": {},
+ "tx": {
+  "amount": 500,
+  "chain_id": "gv-synth",
+  "fee": 0,
+  "from": "bridge_release",
+  "nonce": 0,
+  "payload": {
+   "remote_chain": "sep",
+   "remote_tx": "0xr"
+  },
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x7060625ff7ddcbd1e6e6a72800d7862a3669d3bac752eba4be26b11c337090ec",
+  "type": "BRIDGE_RELEASE",
+  "value": 500
+ }
+}

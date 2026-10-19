@@ -1,0 +1,42 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x33dc514281d3276c677d2df76827a9fd04de3e7a8241671a0d0f0f6c971321a5",
+  "height": 50000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "bridge-lock-v14-unreadable",
+ "description": "v14 BRIDGE_LOCK with no leaf fields in payload or envelope \u2014 refused.",
+ "gate": "v14",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "bridge_release_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 5000,
+  "bridge_signature": "0x35f56742f3cf6e81fb7f74a88f0db8f2134a39d9fb0fa57737ec40f5c3ae0bd343e888af2b63cf53cfa4aa33d8225cc22659ed585d6aa780cbf4a6110d11767200",
+  "chain_id": "gv-synth",
+  "fee": 0,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "to": "bridge_lock",
+  "tx_hash": "0xdbac32690bb1c2fa468a4a0f86940cd5d184bd5ea29e3d1aedd0f8e41c1f914d",
+  "type": "BRIDGE_LOCK",
+  "value": 5000
+ }
+}

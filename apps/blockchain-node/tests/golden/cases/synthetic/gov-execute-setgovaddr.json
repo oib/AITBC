@@ -1,0 +1,48 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x74b65e03bb4adc47c5481f89096548a4f576908d566ee80e96b6b82585b74027",
+  "height": 38000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-execute-setgovaddr",
+ "description": "set_governance_address is named-but-unimplemented \u2014 refused explicitly.",
+ "gate": "v5+",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "governance_executors",
+    "value": "0x7564105E977516C53bE337314c7E53838967bDaC"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {
+    "action": "set_governance_address",
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508"
+   },
+   "proposal_id": "psetgov"
+  },
+  "signature": "0xd564e4ecadaedc1410a1d5d450b25fda3846e1fdda351a2d5c437ef033e239d9150b9b4d047d2911020c7fd06db6d08956ccac5da62006fa96cf93699e2bb50801",
+  "to": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "tx_hash": "0xd16fb02a47b4ae2f053007c87c21ce767ff049624d5a861faeff9cd5fb4a8cd2",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}

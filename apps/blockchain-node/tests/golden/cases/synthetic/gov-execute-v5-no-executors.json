@@ -1,0 +1,36 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x98186926ebeac511e1dc34a81a245e8a964af3b3f0734ed149a40353d1442f88",
+  "height": 24500,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-execute-v5-no-executors",
+ "description": "GOVERNANCE_EXECUTE at 24500 with governance_executors unset \u2014 fail-closed refusal.",
+ "gate": "v5",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {},
+   "proposal_id": "p1"
+  },
+  "to": "",
+  "tx_hash": "0xf3c463e6e54ba09897f8fc10598dc735d80ed73e4eecdc69f0e93cdbb82cec3e",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}

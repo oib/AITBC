@@ -1,0 +1,51 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0xb13f3dd2a9fd9cf19ff0be25bfe5ebf5606712c6fbd04adece00a3ff3fbc72e3",
+  "height": 33000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gpu-deregister-v10",
+ "description": "Registrant deregisters its active GPU at 33000 \u2014 accepted.",
+ "gate": "v10",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "gpu_registration": [
+   {
+    "capabilities": [],
+    "chain_id": "gv-synth",
+    "cuda_version": "12.4",
+    "gpu_id": "gpu-1",
+    "memory_gb": 24,
+    "miner_id": "miner-1",
+    "model": "test-gpu",
+    "price_per_hour": "1.0",
+    "region": "test",
+    "registered_by": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "active"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "gpu_id": "gpu-1"
+  },
+  "signature": "0x457d65e8ed39b6cf095fb302f4d25673af72aaefb0366394e4dcd8c588ca760e1299c7c13a164ac1d9320a532b722eccff84913a76054eec3ed351bfc3abf6bb01",
+  "to": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "tx_hash": "0x4d12dc90afbe34fb4acca4ab4f32f13f515391379f7434fa78e96663234269af",
+  "type": "GPU_DEREGISTER",
+  "value": 0
+ }
+}
