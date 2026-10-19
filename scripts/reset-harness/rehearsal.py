@@ -480,32 +480,41 @@ def _spawn(inst: Instance, python: str) -> None:
     env_file = inst.dir / "instance.env"
     # PYTHONPATH mirrors the live unit; HOME is the instance dir, never
     # /var/lib/aitbc.
-    inner = (
-        f"export HOME={inst.dir} PYTHONPATH={REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src; "
-        f"set -a; . {env_file}; set +a; "
-        f"exec {python} -m aitbc_chain.main >>{inst.dir}/logs/node.log 2>&1"
+    prelude = (
+        f"export HOME={inst.dir} PYTHONPATH={REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src; set -a; . {env_file}; set +a; "
     )
-    subprocess.run(
-        [
-            # Transient systemd-run unit (service form): detached, capped via
-            # cgroup properties, stops via `systemctl stop`. (`--scope` would
-            # instead run the node in the *foreground* of this process.)
-            "systemd-run",
-            "--collect",
-            f"--unit={inst.name}",
-            f"--property=MemoryMax={UNIT_MEMORY_MAX}",
-            f"--property=CPUQuota={UNIT_CPU_QUOTA}",
-            f"--property=TasksMax={UNIT_TASKS_MAX}",
-            "--",
-            "bash",
-            "-c",
-            inner,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
+    # Consensus/production process (mirrors aitbc-blockchain-node) + the RPC
+    # service (mirrors aitbc-blockchain-rpc: uvicorn aitbc_chain.app:app).
+    units = (
+        (inst.name, f"exec {python} -m aitbc_chain.main >>{inst.dir}/logs/node.log 2>&1"),
+        (
+            f"{inst.name}-rpc",
+            f"exec {python} -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port {inst.rpc_port} "
+            f"--workers 1 --log-level warning >>{inst.dir}/logs/rpc.log 2>&1",
+        ),
     )
+    for unit, cmd in units:
+        subprocess.run(
+            [
+                # Transient systemd-run unit (service form): detached, capped via
+                # cgroup properties, stops via `systemctl stop`. (`--scope` would
+                # instead run the node in the *foreground* of this process.)
+                "systemd-run",
+                "--collect",
+                f"--unit={unit}",
+                f"--property=MemoryMax={UNIT_MEMORY_MAX}",
+                f"--property=CPUQuota={UNIT_CPU_QUOTA}",
+                f"--property=TasksMax={UNIT_TASKS_MAX}",
+                "--",
+                "bash",
+                "-c",
+                prelude + cmd,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
 
 
 def _spawn_redis(root: Path) -> None:
@@ -695,6 +704,7 @@ def phase_check(root: Path) -> list[str]:
 
 def _stop_instance(inst: Instance) -> None:
     subprocess.run(["systemctl", "stop", inst.name], capture_output=True, timeout=15)
+    subprocess.run(["systemctl", "stop", f"{inst.name}-rpc"], capture_output=True, timeout=15)
 
 
 def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
@@ -788,7 +798,7 @@ def phase_golden(root: Path, python: str) -> None:
 
 def phase_teardown(root: Path) -> None:
     for inst in instances(root):
-        subprocess.run(["systemctl", "stop", inst.name], capture_output=True, timeout=15)
+        _stop_instance(inst)
     subprocess.run(["systemctl", "stop", "bc2-redis"], capture_output=True, timeout=15)
     for inst in instances(root):
         for _ in range(20):
