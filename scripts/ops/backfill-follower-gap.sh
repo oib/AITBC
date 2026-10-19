@@ -21,7 +21,7 @@
 
 set -euo pipefail
 
-CHAIN_ID="${CHAIN_ID:-ait-localnet}"
+CHAIN_ID="${CHAIN_ID:?CHAIN_ID is not set}"
 DB="${DB:-/var/lib/aitbc/data/${CHAIN_ID}/chain.db}"
 HUB="${HUB:-https://hub.aitbc.invalid}"
 ANCHOR="${ANCHOR:-105627}"   # last block that cannot verify; sync resumes at ANCHOR+1

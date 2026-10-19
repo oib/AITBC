@@ -180,7 +180,9 @@ def _seed_chain_db(chain_id: str, genesis_address: str, allocations: list[dict[s
 
 
 def main() -> int:
-    chain_id = os.environ.get("CHAIN_ID", "ait-localnet")
+    from aitbc.utils.chain_id import resolve_chain_id
+
+    chain_id = resolve_chain_id()
     db_path = Path(os.environ.get("DB_PATH", f"/var/lib/aitbc/data/{chain_id}/chain.db"))
     data_dir = db_path.parent
     genesis_json = data_dir / "genesis.json"

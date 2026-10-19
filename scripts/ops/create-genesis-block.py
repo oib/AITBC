@@ -72,7 +72,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Create a new AITBC genesis.json")
     parser.add_argument(
         "--chain-id",
-        default="ait-localnet",
+        required=True,
         help="Chain identifier for the new genesis",
     )
     parser.add_argument(
