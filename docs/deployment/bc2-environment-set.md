@@ -39,11 +39,11 @@ Scope rules for this document:
 | `ENABLE_BLOCK_PRODUCTION` | `true` on the proposer units, `false` on followers | per-role |
 | `MAX_EMPTY_BLOCK_INTERVAL` | `60` | fleet value (node0 drifts) |
 | `BLOCK_TIME_SECONDS` | `60` | fleet value |
-| `PARALLEL_TX_VALIDATION` | `true` | fleet value; selects the alternate apply implementation for block versions 2–8 — golden corpus re-run with the flag on: 0 mismatches on both `deployed` and `gates1` profiles |
+| `PARALLEL_TX_VALIDATION` | `true` | fleet value; selects the alternate apply implementation for block versions 2–8 — **inert on bc-2**: under the `1` gate values every produced height resolves v14, outside the 2–8 window. The flag-on golden re-run returned 0 mismatches on both profiles; the `deployed` run is the evidence that the two implementations agree on the old history (`gates1` is vacuous for this flag) |
 | `GOSSIP_BACKEND` | `mesh` | node-unit value (see RPC unit for the fleet split) |
 | `GOSSIP_AUTH_ENABLED` | unset → `true` (default) | publish-side only; see harness items |
 | `GOSSIP_PROTOCOL_VERSION` | unset → `2` | code default |
-| `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | `256` | fleet floor is 64; node0 already runs 256 and the rehearsal hit the cap at low values |
+| `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | `256` recommended | live differs per host (64 on hub/node1/node2, 128 on hub1, 256 on node0); the rehearsal hit a low cap — `256` uniform is a recommendation and an operator choice, not a fleet fact |
 | `GOSSIP_MESH_PEER_URLS` | the bc-2 peer WS list (per node, self excluded) | deployment wiring |
 | `GOSSIP_WEBSOCKET_URL` | the bc-2 hub gossip WS URL | deployment wiring |
 | `SYNC_MANAGER_ENABLED` | `true` | fleet value |
@@ -51,7 +51,7 @@ Scope rules for this document:
 | `SYNC_VALIDATE_SIGNATURES` | unset → default | code default |
 | `AUTO_SYNC_ENABLED` | `true` | fleet value (node0, hub1 drift) |
 | `AUTO_SYNC_THRESHOLD` | `0` | fleet value; `0` makes any nonzero gap trigger bulk pull — node0 currently runs the `10` default, a 1–10-block dead zone for a follower whose push paths fail |
-| `STATE_SYNC_MAX_GAP` | `-1` | fleet value; disables snapshot pull and delta state-sync entirely (post-V23-90 hardening); node0's `10` would accept snapshots when ≤10 behind |
+| `STATE_SYNC_MAX_GAP` | `-1` on the four pinning hosts | `-1` disables snapshot pull and delta state-sync entirely (post-V23-90 hardening); `0` permits only gap-0 head rechecks; `10` permits syncs within 10 blocks. node0 currently runs the `10` code default — its value is an operator decision (see below) |
 | `SUBSCRIPTION_ENABLED` | `true` | code default equals fleet value |
 | `SUBSCRIPTION_TRANSPORT` | `websocket` | fleet value |
 | `P2P_NODE_ID` | per-node stable id (e.g. `node-<name>`) | bound identity for peer keys and subscription |
@@ -137,7 +137,7 @@ decision and is proposed by nothing here.
 | `VALIDATOR_SET` | JSON list of `{address, stake}` — the post-rotation validator addresses (the rehearsal used 4 entries, stake 1000 each) |
 | `VALIDATOR_KEYS` | JSON map `address → private key` on each proposer unit (secret) |
 | `PROPOSER_ID` / `PROPOSER_KEY` | the unit's own validator address / key (secret); only `aitbc-blockchain-node` reads them — needed also for gossip publish auth on restricted topics |
-| `TRUSTED_PROPOSERS` | `genesis,<validator addresses>` — empty skips the membership check but makes unsigned blocks fail closed; bc-2's unsigned genesis must import on any node that bulk-pulls from 0, so `genesis` is required (`sync_validator.py`) |
+| `TRUSTED_PROPOSERS` | `genesis,<validator addresses>` or unset — a non-empty set turns on a membership check for **every** imported block (only listed proposers accepted, so any later validator-set change must also update it or the new proposer's blocks are refused) and lets unsigned blocks through only for listed proposers; unset is today's live behaviour (unsigned blocks fail closed). Every bc-2 node file-loads genesis, so block 0 never reaches the import validator — `genesis` matters only for a node that bulk-pulls from height 0 without the file. Operator decision; recommended `genesis,<validator addresses>` to keep that joiner path open (`sync_validator.py`) |
 | `GENESIS_ADDRESS` / `GENESIS_WALLET_ADDRESS` | the new genesis identity per the allocation plan |
 | `BRIDGE_ADMIN_ADDRESSES` | operator admin set |
 | `BRIDGE_RELEASE_AUTHORITY` | operator authority (consensus-visible release admission) |
@@ -146,6 +146,7 @@ decision and is proposed by nothing here.
 | `ESCROW_RELEASE_ADDRESS` | operator address; live value `0x11741E1A…` is already public in repo docs |
 | `ESCROW_FEE_RECIPIENT` | operator address; live value `0x34FFfAd1…` is already public in repo docs |
 | `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | carry the live identities — the two init-time bond system accounts must be allocated at balance `0` in genesis (init rows win over funded allocations — rehearsal evidence) |
+| `STATE_SYNC_MAX_GAP` (node0 only) | `-1` disables snapshot pull and delta state-sync entirely; `10` (node0's current code-default value, unset in its env) allows them whenever the node is ≤10 blocks behind. Whether node0 converges to the fleet's `-1` or keeps a small-gap window is an operator decision — recommended `-1` to match the fleet |
 | `GOSSIP_MESH_PEER_URLS`, `GOSSIP_WEBSOCKET_URL`, hub/sync URL names | bc-2 hostnames/ports — deployment wiring |
 | All `*KEY*` / `*SECRET*` / `*PASS*` / `*TOKEN*` / `*MNEMONIC*` / `*SEED*` / `*PRIVATE*` names | presence-only; values supplied by the operator at the cut |
 
@@ -207,8 +208,10 @@ Named actions only — order and timing are deliberately absent:
   `ATTESTATION_POST_QUORUM_LINGER_SECONDS=2.0`,
   `PBFT_VIEW_CHANGE_TIMEOUT=30`, `MAX_EMPTY_BLOCK_INTERVAL=60`,
   `AUTO_SYNC_ENABLED=true`, `AUTO_SYNC_THRESHOLD=0`,
-  `STATE_SYNC_MAX_GAP=-1`, `P2P_NODE_ID`, `P2P_BIND_PORT`).
-- Keep `AUTO_SYNC_THRESHOLD=0` and `STATE_SYNC_MAX_GAP=-1` on every host.
+  `P2P_NODE_ID`, `P2P_BIND_PORT`).
+- Keep `AUTO_SYNC_THRESHOLD=0` on every host and
+  `STATE_SYNC_MAX_GAP=-1` on the four hosts that pin it today
+  (node0's value is an operator decision — see the table above).
 - Provision fresh data directories (service stores start as fresh
   SQLite; pool-hub keeps PostgreSQL; `peer_keys.db` starts empty —
   re-enroll any issued-key joiners).
