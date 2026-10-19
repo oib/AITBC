@@ -206,6 +206,44 @@ def genesis_block_hash(chain_id: str, timestamp: str, state_root: str) -> str:
     )
 
 
+def _normalize_allocations(allocations: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """Checksummed, deduplicated allocation rows plus their base-unit total."""
+    if not allocations:
+        raise GenesisBuildError("allocations must be a non-empty list")
+    norm: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    total = 0
+    for i, alloc in enumerate(allocations):
+        if not isinstance(alloc, dict):
+            raise GenesisBuildError(f"allocations[{i}]: not an object")
+        address = _require_checksum_address(alloc.get("address"), field=f"allocations[{i}].address")
+        if address.lower() in seen:
+            raise GenesisBuildError(f"allocations[{i}]: duplicated address {address}")
+        seen.add(address.lower())
+        norm.append(
+            {
+                "address": address,
+                "balance": _require_int(alloc.get("balance"), field=f"allocations[{i}].balance", minimum=1),
+                "nonce": _require_int(alloc.get("nonce", 0), field=f"allocations[{i}].nonce"),
+            }
+        )
+        total += norm[-1]["balance"]
+    return norm, total
+
+
+def _normalize_parameters(parameters: dict[str, Any] | None) -> dict[str, Any]:
+    """Parameter map with str|int|None values (``None`` is a deliberate clear)."""
+    norm: dict[str, Any] = {}
+    for name, value in (parameters or {}).items():
+        key = str(name).strip()
+        if not key:
+            raise GenesisBuildError("parameters: empty parameter name")
+        if isinstance(value, bool) or (value is not None and not isinstance(value, (str, int))):
+            raise GenesisBuildError(f"parameters[{key!r}]: value must be str, int or null")
+        norm[key] = value
+    return norm
+
+
 def build_genesis_doc(
     *,
     chain_id: str,
@@ -229,51 +267,21 @@ def build_genesis_doc(
         raise GenesisBuildError(f"chain_id must be non-empty [A-Za-z0-9._-]: {chain_id!r}")
     if cid in LIVE_CHAIN_IDS:
         raise GenesisBuildError(f"refusing to build a genesis for live chain id {cid!r}")
-    if not allocations:
-        raise GenesisBuildError("allocations must be a non-empty list")
 
-    norm_allocs: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    total = 0
-    for i, alloc in enumerate(allocations):
-        if not isinstance(alloc, dict):
-            raise GenesisBuildError(f"allocations[{i}]: not an object")
-        address = _require_checksum_address(alloc.get("address"), field=f"allocations[{i}].address")
-        if address.lower() in seen:
-            raise GenesisBuildError(f"allocations[{i}]: duplicated address {address}")
-        seen.add(address.lower())
-        balance = _require_int(alloc.get("balance"), field=f"allocations[{i}].balance", minimum=1)
-        nonce = _require_int(alloc.get("nonce", 0), field=f"allocations[{i}].nonce")
-        norm_allocs.append({"address": address, "balance": balance, "nonce": nonce})
-        total += balance
-
+    norm_allocs, total = _normalize_allocations(allocations)
     if expected_total is not None and total != int(expected_total):
         raise GenesisBuildError(f"allocation total {total} does not match the manifest's expected_total {int(expected_total)}")
 
-    if timestamp is None:
-        ts = datetime.now(UTC).isoformat()
-    else:
-        ts = _require_timestamp(timestamp)
-
-    norm_params: dict[str, Any] = {}
-    for name, value in (parameters or {}).items():
-        key = str(name).strip()
-        if not key:
-            raise GenesisBuildError("parameters: empty parameter name")
-        if isinstance(value, bool) or (value is not None and not isinstance(value, (str, int))):
-            raise GenesisBuildError(f"parameters[{key!r}]: value must be str, int or null")
-        norm_params[key] = value
-
+    ts = datetime.now(UTC).isoformat() if timestamp is None else _require_timestamp(timestamp)
     doc: dict[str, Any] = {
         "chain_id": cid,
         "timestamp": ts,
         "allocations": norm_allocs,
-        "parameters": norm_params,
+        "parameters": _normalize_parameters(parameters),
     }
 
     if bridge_validators:
-        rows = canonical_bridge_validators(bridge_validators, chain_id=cid)
-        doc["bridge_validators"] = rows
+        doc["bridge_validators"] = canonical_bridge_validators(bridge_validators, chain_id=cid)
         doc["bridge_validators_digest"] = bridge_validators_digest(bridge_validators, chain_id=cid, require_checksum=True)
 
     doc["state_root"] = allocations_state_root(norm_allocs)
