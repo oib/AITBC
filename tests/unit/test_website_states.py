@@ -92,6 +92,26 @@ def _security_log_entries(events: list[dict]) -> list[str]:
     return bad
 
 
+async def _cdp_call(
+    ws, counters: dict, events: list, method: str, params: dict | None = None, session: str | None = None
+) -> dict:
+    counter = counters["session" if session is not None else "browser"]
+    counter[0] += 1
+    payload = {"id": counter[0], "method": method, "params": params or {}}
+    if session is not None:
+        payload["sessionId"] = session
+    await ws.send(json.dumps(payload))
+    while True:
+        msg = json.loads(await ws.recv())
+        if "id" not in msg:
+            events.append(msg)
+            continue
+        if msg["id"] == counter[0]:
+            if "error" in msg:
+                raise AssertionError(f"CDP {method}: {msg['error']}")
+            return msg
+
+
 async def _wait_truthy(send, expr: str, timeout: float = 10.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -128,25 +148,11 @@ async def _cdp_steps(ws_url: str, url: str, stub_js: str, steps: list, width: in
     last: dict = {}
     results: list = []
     async with websockets.connect(ws_url, max_size=50 * 1024 * 1024) as ws:
-        mid = [0]
+        counters = {"browser": [0], "session": [10000]}
 
         async def send(method: str, params: dict | None = None, session: str | None = None) -> dict:
-            counter = mid if session is None else session_ids
-            if session is not None:
-                counter[0] += 1
-                await ws.send(json.dumps({"id": counter[0], "method": method, "params": params or {}, "sessionId": session}))
-                while True:
-                    msg = json.loads(await ws.recv())
-                    if "id" not in msg:
-                        events.append(msg)
-                        continue
-                    if msg.get("id") == counter[0]:
-                        if "error" in msg:
-                            raise AssertionError(f"CDP {method}: {msg['error']}")
-                        return msg
-            return await base._cdp_send(ws, mid, events, method, params)
+            return await _cdp_call(ws, counters, events, method, params, session)
 
-        session_ids = [10000]
         target = await send("Target.createTarget", {"url": "about:blank"})
         target_id = target["result"]["targetId"]
         attached = await send("Target.attachToTarget", {"targetId": target_id, "flatten": True})
