@@ -37,13 +37,10 @@ LITERAL = "ait-localnet"
 _DISPLAY_KWARGS = {"help", "epilog", "description", "short_help"}
 
 # (occurrence count, reason) — count must match exactly or the test fails.
-ALLOWLIST: dict[str, tuple[int, str]] = {
-    "config.py": (1, "TODO: CLIConfig.chain_id default only; native_chain_id now defaults empty and resolves per command"),
-    "core/analytics.py": (3, "TODO: display/reporting defaults only"),
-    "utils/genesis_reset.py": (1, "TODO: DEFAULT_CHAIN_ID for the reset tool"),
-    "commands/wallet/basic.py": (1, "TODO: read-only balance display default"),
-    "commands/market/__init__.py": (1, "TODO: usage-example text inside an error() message, not a default"),
-}
+# RESET-W2B-2 (#307) zeroed this list: no ait-localnet literal remains in
+# executable position under aitbc_cli; usage examples live in docstrings,
+# comments and help kwargs, which the scan never sees.
+ALLOWLIST: dict[str, tuple[int, str]] = {}
 
 
 def _docstring_ids(tree: ast.AST) -> set[int]:
