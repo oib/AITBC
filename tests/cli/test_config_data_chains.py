@@ -186,6 +186,7 @@ class TestGetChainRegistry:
         assert registry1 is registry2
 
     @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_chain_registry_initializes(self):
         """Test that chain registry initializes on first call"""
         from config_data.chains import get_chain_registry

@@ -21,6 +21,9 @@ os.environ.setdefault("MARKET_HEALTH_URL", "http://127.0.0.1:8102/health")
 os.environ.setdefault("MARKET_HEALTH_URL_ALT", "http://127.0.0.1:8104/health")
 os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
 os.environ.setdefault("COORDINATOR_HEALTH_URL", "http://127.0.0.1:8203/health")
+# The suite runs as a configured service: chain-id resolution fails loudly
+# without one since #307, so tests pin an explicit test id up front.
+os.environ.setdefault("CHAIN_ID", "ait-testchain")
 
 from coordinator_api.main import app  # noqa: E402
 from coordinator_api.storage import get_session  # noqa: E402
