@@ -32,6 +32,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from aitbc_chain.genesis_builder import (
     FORBIDDEN_WRITE_PREFIXES,
@@ -41,7 +42,7 @@ from aitbc_chain.genesis_builder import (
 )
 
 
-def _load_json(path: str | None, *, what: str) -> object:
+def _load_json(path: str | None, *, what: str) -> Any:
     if not path:
         return None
     try:
@@ -58,6 +59,75 @@ def _forbidden(path: Path) -> str | None:
         if resolved == prefix or resolved.startswith(prefix + os.sep):
             return prefix
     return None
+
+
+def _read_inputs(args: argparse.Namespace) -> tuple[dict, list, dict, list | None]:
+    manifest = _load_json(args.manifest, what="manifest") or {}
+    if not isinstance(manifest, dict):
+        raise GenesisBuildError("manifest must be a JSON object")
+    allocations = _load_json(args.allocations, what="allocations")
+    if not isinstance(allocations, list):
+        raise GenesisBuildError("allocations file must be a JSON list")
+    parameters = _load_json(args.parameters, what="parameters") or {}
+    if not isinstance(parameters, dict):
+        raise GenesisBuildError("parameters file must be a JSON object")
+    validators = _load_json(args.bridge_validators, what="bridge-validators")
+    if validators is not None and not isinstance(validators, list):
+        raise GenesisBuildError("bridge-validators file must be a JSON list")
+    return manifest, allocations, parameters, validators
+
+
+def _target_paths(args: argparse.Namespace, chain_id: str) -> tuple[Path, Path, Path]:
+    data_dir = args.data_dir or os.environ.get("AITBC_DATA_DIR")
+    if not data_dir:
+        raise GenesisBuildError("no output dir: pass --data-dir or set AITBC_DATA_DIR")
+    data_root = Path(data_dir).resolve()
+    target_dir = data_root / "data" / chain_id
+    return data_root, target_dir, target_dir / "genesis.json"
+
+
+def _run_live(chain_id: str, manifest: dict, target_dir: Path, operator_line: str | None) -> None:
+    """Evaluate the designed reset-day gate; this build always refuses."""
+    unmet = check_live_conditions(
+        doc={"chain_id": chain_id},
+        manifest=manifest,
+        target_dir_exists=target_dir.exists(),
+        operator_line=operator_line,
+    )
+    if unmet:
+        raise GenesisBuildError("live-mode preconditions unmet: " + "; ".join(unmet))
+    raise GenesisBuildError(
+        "live-mode preconditions met, but the live write is designed, not enabled, in this build — refused"
+    )
+
+
+def _check_scratch(data_root: Path, target_dir: Path, target: Path, *, force: bool) -> None:
+    bad = _forbidden(data_root)
+    if bad:
+        raise GenesisBuildError(f"scratch output dir {data_root} is under the forbidden prefix {bad}")
+    if target.exists() and not force:
+        raise GenesisBuildError(f"target {target} already exists (pass --force to overwrite)")
+    chain_db = target_dir / "chain.db"
+    if chain_db.exists() and not force:
+        raise GenesisBuildError(
+            f"{chain_db} already exists — the chain dir is not empty; refusing to seed a genesis over existing state"
+        )
+
+
+def _write_outputs(target_dir: Path, target: Path, doc: dict, chain_id: str, operator_line: str | None) -> None:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
+    provenance = {
+        "mode": "scratch",
+        "chain_id": chain_id,
+        "operator_line": operator_line,
+        "genesis_file": str(target),
+    }
+    (target_dir / "genesis.manifest.json").write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
+    print(f"wrote {target}")
+    print(f"genesis_hash={doc['genesis_hash']} state_root={doc['state_root']}")
+    if operator_line:
+        print(f"operator_line={operator_line}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -79,53 +149,15 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     try:
-        manifest = _load_json(args.manifest, what="manifest") or {}
-        if not isinstance(manifest, dict):
-            raise GenesisBuildError("manifest must be a JSON object")
-        allocations = _load_json(args.allocations, what="allocations")
-        if not isinstance(allocations, list):
-            raise GenesisBuildError("allocations file must be a JSON list")
-        parameters = _load_json(args.parameters, what="parameters") or {}
-        if not isinstance(parameters, dict):
-            raise GenesisBuildError("parameters file must be a JSON object")
-        validators = _load_json(args.bridge_validators, what="bridge-validators")
-        if validators is not None and not isinstance(validators, list):
-            raise GenesisBuildError("bridge-validators file must be a JSON list")
-
+        manifest, allocations, parameters, validators = _read_inputs(args)
         chain_id = str(manifest.get("chain_id") or "").strip()
         if not chain_id:
             raise GenesisBuildError("manifest does not name a chain_id")
-
-        data_dir = args.data_dir or os.environ.get("AITBC_DATA_DIR")
-        if not data_dir:
-            raise GenesisBuildError("no output dir: pass --data-dir or set AITBC_DATA_DIR")
-        data_root = Path(data_dir).resolve()
-        target_dir = data_root / "data" / chain_id
-        target = target_dir / "genesis.json"
+        data_root, target_dir, target = _target_paths(args, chain_id)
 
         if args.live:
-            unmet = check_live_conditions(
-                doc={"chain_id": chain_id},
-                manifest=manifest,
-                target_dir_exists=target_dir.exists(),
-                operator_line=args.operator_line,
-            )
-            if unmet:
-                raise GenesisBuildError("live-mode preconditions unmet: " + "; ".join(unmet))
-            raise GenesisBuildError(
-                "live-mode preconditions met, but the live write is designed, not enabled, in this build — refused"
-            )
-
-        bad = _forbidden(data_root)
-        if bad:
-            raise GenesisBuildError(f"scratch output dir {data_root} is under the forbidden prefix {bad}")
-        if target.exists() and not args.force:
-            raise GenesisBuildError(f"target {target} already exists (pass --force to overwrite)")
-        chain_db = target_dir / "chain.db"
-        if chain_db.exists() and not args.force:
-            raise GenesisBuildError(
-                f"{chain_db} already exists — the chain dir is not empty; refusing to seed a genesis over existing state"
-            )
+            _run_live(chain_id, manifest, target_dir, args.operator_line)
+        _check_scratch(data_root, target_dir, target, force=args.force)
 
         doc = build_genesis_doc(
             chain_id=chain_id,
@@ -135,21 +167,7 @@ def main(argv: list[str] | None = None) -> int:
             timestamp=manifest.get("timestamp"),
             expected_total=manifest.get("expected_total_units"),
         )
-
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
-        provenance = {
-            "mode": "scratch",
-            "chain_id": chain_id,
-            "operator_line": args.operator_line,
-            "genesis_file": str(target),
-        }
-        manifest_out = target_dir / "genesis.manifest.json"
-        manifest_out.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
-        print(f"wrote {target}")
-        print(f"genesis_hash={doc['genesis_hash']} state_root={doc['state_root']}")
-        if args.operator_line:
-            print(f"operator_line={args.operator_line}")
+        _write_outputs(target_dir, target, doc, chain_id, args.operator_line)
         return 0
     except GenesisBuildError as exc:
         print(f"refused: {exc}", file=sys.stderr)
