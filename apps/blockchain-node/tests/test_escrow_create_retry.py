@@ -45,7 +45,7 @@ def mgr() -> EscrowManager:
 def patched(monkeypatch, engine, mgr) -> EscrowManager:
     """Point the route at a fresh manager and the in-memory chain DB, with no lock on-chain."""
     monkeypatch.setattr(escrow_routes, "_NODE_WALLET", NODE_WALLET)
-    monkeypatch.setattr(escrow_routes, "_CHAIN_ID", CHAIN_ID)
+    monkeypatch.setattr(escrow_routes, "_chain_id", lambda: CHAIN_ID)
     # Keyed like a settlement node: the create guard refuses on keyless nodes.
     monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", SETTLEMENT_KEY)
     monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
