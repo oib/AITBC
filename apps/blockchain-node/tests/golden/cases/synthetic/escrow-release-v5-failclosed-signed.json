@@ -1,0 +1,73 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x98186926ebeac511e1dc34a81a245e8a964af3b3f0734ed149a40353d1442f88",
+  "height": 24500,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "escrow-release-v5-failclosed-signed",
+ "description": "Signed release of a custody lock with escrow_settlement_authority unset \u2014 v5 fail-closed refusal.",
+ "gate": "v5 / gates1",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0xb604075b90073b314EE5Bee570C8bE484E6ba51F",
+    "balance": 1000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": null,
+    "chain_id": "gv-synth",
+    "hash": "0x0fbec0788e665135fedbd86a9b644b3ade691f49bcf5906c830ca0be648deace",
+    "height": 2,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 2,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "job_id": "job-v2-era",
+     "provider": "0x1563915e194D8CfBA1943570603F7606A3115508"
+    },
+    "recipient": "",
+    "sender": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "confirmed",
+    "tx_hash": "0xa965664c98f154ff182e8cebc68590cb0b3a405ace3a64bf91867bcdeea94296",
+    "type": "ESCROW_LOCK",
+    "value": 1000
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "job_id": "job-v2-era"
+  },
+  "signature": "0x405a3961045921d6cd6120c399425d290fcd76c9d969a8e6614a3d2f941771c3222094f2067f6526f5477ef6f0c32f3bb79ea2b922912974917b78f01eab42e000",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0xfab68880d2e4d913c88b0ee9adeac8fa374e1619321dab2ea0ae9e06e6f09e62",
+  "type": "ESCROW_RELEASE",
+  "value": 1000
+ }
+}

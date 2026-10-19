@@ -1,0 +1,39 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x12304875c9eb73df29899120424014736626191065502a5948e0847498a1d877",
+  "height": 1,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "firstblock-transfer-unsigned-h1",
+ "description": "Unsigned TRANSFER at height 1 \u2014 refused under gates1 (v9 live), accepted under deployed (v1 era).",
+ "gate": "gates1 boundary",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 100,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x4ac631fd9167dc4673cdb7b11d04258caa77b369e4ff39858191f23c9af91c71",
+  "type": "TRANSFER",
+  "value": 100
+ }
+}

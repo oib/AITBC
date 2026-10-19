@@ -5,8 +5,8 @@
 ``V3=5470``, ``V11=35400``, ``V12=37500``, ``BRIDGE_LOCK_LEAF_V2_HEIGHT=51000``;
 every other gate takes its ``config.py`` default, which is what the chain ran).
 
-``gates0`` sets every gate height to 0 — the ``bc-2`` configuration decided for
-the reset. On unmodified code this is *not* "all rules on from genesis":
+``gates0`` sets every gate height to 0 — the pre-correction ``bc-2`` reading.
+On unmodified code this is *not* "all rules on from genesis":
 ``get_block_version`` treats a falsy threshold as unset, so the height cascade
 returns **1** at every height for an unstamped block (the proposer-side
 ``get_block_version_for_height`` would return 2), the v8 stamp-vs-height fork
@@ -14,9 +14,18 @@ never activates (its ``> 0`` gate fails), and a recorded
 ``state_transition_version`` stamp is therefore honoured at *every* height.
 ``bridge_lock_leaf_v2_height`` and ``escrow_fee_sweep_pass_min_height`` have
 the opposite convention — a ``>=`` compare against the pin, so 0 activates
-them from the first block. The corpus records exactly what the code does under
-each profile; any bc-2 release that collapses the gates in code must still
-match ``deployed`` on this corpus.
+them from the first block. Kept unchanged: it documents the trap.
+
+``gates1`` sets every gate height to 1 — the corrected ``bc-2`` reading.
+Every falsy-skip threshold fires from block 1 (``height >= 1``), the ``>=``
+gates activate on the same boundary, and the producer stamps
+``state_transition_version=14`` into every block it builds from height 1 on.
+Block 0 is the sole exception on both paths: replay honours its recorded
+stamp (v8 advisory mode needs ``height >= v8_threshold``, so h0 stays in the
+stamp-wins branch) and the producer stamps 1 into it — genesis carries no
+transactions, so v1 there is structural, not a rule bypass. The corpus records
+exactly what the code does under each profile; any bc-2 release that
+collapses the gates in code must still match ``deployed`` on this corpus.
 """
 
 from __future__ import annotations
@@ -61,10 +70,12 @@ DEPLOYED_PINS: dict[str, int] = {
 }
 
 GATES0_PINS: dict[str, int] = dict.fromkeys(GATE_ATTRS, 0)
+GATES1_PINS: dict[str, int] = dict.fromkeys(GATE_ATTRS, 1)
 
 PROFILES: dict[str, dict[str, int]] = {
     "deployed": DEPLOYED_PINS,
     "gates0": GATES0_PINS,
+    "gates1": GATES1_PINS,
 }
 
 
