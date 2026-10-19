@@ -188,8 +188,13 @@ class TestGetChainRegistry:
     @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_chain_registry_initializes(self):
         """Test that chain registry initializes on first call"""
+        import config_data.chains as chains_module
         from config_data.chains import get_chain_registry
 
+        # The registry is a process-wide singleton: an earlier test may have
+        # already built it with no CHAIN_ID set, which now yields an empty
+        # registry. Reset it so this test exercises initialization itself.
+        chains_module._chain_registry = None
         registry = get_chain_registry()
 
         assert registry is not None
