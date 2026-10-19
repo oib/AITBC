@@ -88,7 +88,6 @@ async def api_activity_timeline(
             "GPU_ALLOCATE": "#6366f1",
             "GPU_DEREGISTER": "#f97316",
             "GPU_MARKET": "#3b82f6",
-            "GPU_MARKETPLACE": "#60a5fa",
             "GPU_REGISTER": "#ef4444",
             "IPFS_SUBSCRIPTION": "#14b8a6",
             "STAKE_LOCK": "#fb7185",
@@ -150,7 +149,7 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
                     json_extract(payload, '$.offer_id'),
                     json_extract(payload, '$.gpu_id')))
                 FROM "transaction"
-                WHERE type IN ('GPU_MARKET', 'GPU_MARKETPLACE', 'GPU_REGISTER')
+                WHERE type IN ('GPU_MARKET', 'GPU_REGISTER')
             """)
             row = await cursor.fetchone()
             anchored_offers = (row[0] if row else 0) or 0
@@ -165,7 +164,7 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
             # Unique providers across all offer anchor types
             await cursor.execute("""
                 SELECT payload FROM "transaction"
-                WHERE type IN ('GPU_MARKET', 'GPU_MARKETPLACE', 'GPU_REGISTER')
+                WHERE type IN ('GPU_MARKET', 'GPU_REGISTER')
             """)
             providers = set()
             rows = await cursor.fetchall()

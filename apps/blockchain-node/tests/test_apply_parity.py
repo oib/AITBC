@@ -357,8 +357,11 @@ def _cases() -> list[dict[str, Any]]:
         BUYER_KEY,
     )
     add(
-        "gpu_marketplace",
-        lambda: _tx(BUYER, PROVIDER, 100, "GPU_MARKETPLACE", {"action": "software_offer", "offer_id": "sw-1"}),
+        "unknown_type_generic_path",
+        # A type with no apply branch takes the generic debit/credit path in
+        # both implementations (the legacy GPU_MARKETPLACE rows did exactly
+        # this); "UNKNOWN_LEGACY_TYPE" is deliberately not a real tx type.
+        lambda: _tx(BUYER, PROVIDER, 100, "UNKNOWN_LEGACY_TYPE", {"action": "software_offer", "offer_id": "sw-1"}),
         BUYER_KEY,
     )
     add(
