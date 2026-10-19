@@ -398,7 +398,9 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "MAX_EMPTY_BLOCK_INTERVAL": "10",
         "CONSENSUS_PROPOSER_ROUND_SECONDS": "10",
         "DEFAULT_PEER_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
-        "TRUSTED_PROPOSERS": "genesis",
+        # Literal CSV: 'genesis' admits the genesis producer row; the four
+        # validator addresses admit every rotated proposal on import.
+        "TRUSTED_PROPOSERS": "genesis," + ",".join(k["address"] for k in keys["proposers"]),
         "SYNC_MANAGER_ENABLED": "true",
         "SYNC_STATE_ROOT_VALIDATION_ENABLED": "true",
         "SUBSCRIPTION_ENABLED": "false",
