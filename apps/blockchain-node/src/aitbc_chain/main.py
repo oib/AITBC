@@ -43,14 +43,20 @@ except ImportError as e:
 # Multi-chain manager (v0.6.4)
 _multi_chain_manager_available = False
 create_multi_chain_manager: Callable[..., "MultiChainManager"] | None
+base_ports_from_env: Callable[[], tuple[int, int]] | None
 try:
-    from .network.multi_chain_manager import MultiChainManager, create_multi_chain_manager
+    from .network.multi_chain_manager import (
+        MultiChainManager,
+        base_ports_from_env,
+        create_multi_chain_manager,
+    )
 
     _multi_chain_manager_available = True
 except ImportError as e:
     logger.warning("Multi-chain manager module not available: %s", e)
     _multi_chain_manager_available = False
     create_multi_chain_manager = None
+    base_ports_from_env = None
 
 
 def _sanitize_url(url: str) -> str:
@@ -599,15 +605,16 @@ class BlockchainNode:
             else:
                 logger.debug("P2P service not available in-process — peer capability callback not wired")
         # Multi-chain manager: start secondary chains from island_chains config (v0.6.4)
-        if _multi_chain_manager_available and create_multi_chain_manager is not None:
+        if _multi_chain_manager_available and create_multi_chain_manager is not None and base_ports_from_env is not None:
             try:
                 default_chain_id = self._supported_chains()[0]
                 base_db_path = Path(settings.get_db_path(default_chain_id))
+                base_rpc_port, base_p2p_port = base_ports_from_env()
                 self._multi_chain_manager = create_multi_chain_manager(
                     default_chain_id=default_chain_id,
                     base_db_path=base_db_path,
-                    base_rpc_port=int(os.getenv("RPC_PORT", "8202")),
-                    base_p2p_port=int(os.getenv("P2P_PORT", "8007")),
+                    base_rpc_port=base_rpc_port,
+                    base_p2p_port=base_p2p_port,
                 )
                 # Start secondary chains (default chain is managed by main proposer logic)
                 await self._multi_chain_manager.start_secondary_chains()
