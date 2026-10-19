@@ -282,3 +282,101 @@ def test_generated_mcp_genesis_tools_carry_guard():
         + (PROJECT_ROOT / "cli" / "aitbc_cli" / "commands" / "genesis.py").read_text()
     )
     assert "reset_guard" in guarded
+
+
+# --- Scratch-root depth -----------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", ["/", "/tmp", "/var", "/home", "/etc"])
+def test_scratch_root_shallow_refuses(bad):
+    """Filesystem root and top-level dirs are refused even though they sit
+    outside the live prefixes: a scratch root must be a dedicated
+    subdirectory (e.g. ``/tmp/<name>``)."""
+    with pytest.raises(reset_guard.ResetGuardError, match="fewer than three"):
+        reset_guard.scratch_root({"AITBC_RESET_SCRATCH": bad})
+
+
+def test_scratch_root_symlink_to_root_refuses(tmp_path):
+    link = tmp_path / "scratch-link"
+    link.symlink_to("/")
+    with pytest.raises(reset_guard.ResetGuardError, match="fewer than three"):
+        reset_guard.scratch_root({"AITBC_RESET_SCRATCH": str(link)})
+
+
+def test_scratch_root_dotdot_normalised_then_refused():
+    # "/tmp/../tmp" resolves to /tmp — shallow after normalisation.
+    with pytest.raises(reset_guard.ResetGuardError, match="fewer than three"):
+        reset_guard.scratch_root({"AITBC_RESET_SCRATCH": "/tmp/../tmp"})
+
+
+@pytest.mark.parametrize("ok", ["/tmp/bc2-rehearsal", "/tmp/a/b", "/var/tmp/scratch"])
+def test_scratch_root_dedicated_subdir_accepted(ok):
+    assert reset_guard.scratch_root({"AITBC_RESET_SCRATCH": ok}) == Path(ok)
+
+
+def test_scratch_root_trailing_slash_accepted():
+    assert reset_guard.scratch_root({"AITBC_RESET_SCRATCH": "/tmp/bc2-rehearsal/"}) == Path("/tmp/bc2-rehearsal")
+
+
+# --- CLI refusal exit codes -------------------------------------------------
+
+
+@pytest.fixture
+def runner():
+    from click.testing import CliRunner
+
+    return CliRunner()
+
+
+def test_sync_from_hub_refusal_exits_1(no_scratch, runner, tmp_path):
+    """A reset-guard refusal exits 1 and writes nothing."""
+    from aitbc_cli.core.main import cli
+
+    data_dir = tmp_path / "data"
+    result = runner.invoke(
+        cli,
+        ["genesis", "sync-from-hub", "--chain-id", "bc-2", "--data-dir", str(data_dir)],
+    )
+    assert result.exit_code == 1
+    assert "reset-guard" in result.output or "AITBC_RESET_SCRATCH" in result.output
+    assert not (data_dir / "bc-2" / "genesis.json").exists()
+
+
+def test_sync_from_hub_existing_no_force_exits_1(scratch, runner):
+    """Existing genesis.json without --force is a refusal too: exit 1, file
+    left byte-identical."""
+    from aitbc_cli.core.main import cli
+
+    data_dir = scratch / "data"
+    genesis_path = data_dir / "bc-2" / "genesis.json"
+    genesis_path.parent.mkdir(parents=True)
+    genesis_path.write_text('{"sentinel": true}')
+    result = runner.invoke(
+        cli,
+        ["genesis", "sync-from-hub", "--chain-id", "bc-2", "--data-dir", str(data_dir)],
+    )
+    assert result.exit_code == 1
+    assert genesis_path.read_text() == '{"sentinel": true}'
+
+
+def test_genesis_reset_refusal_exits_1(no_scratch, runner):
+    """`genesis reset` on an unguarded context exits 1 (reset_genesis returns
+    None; the command must not report success)."""
+    from aitbc_cli.core.main import cli
+
+    result = runner.invoke(cli, ["genesis", "reset", "--chain-id", "bc-2", "--yes"])
+    assert result.exit_code == 1
+
+
+def test_genesis_reset_unknown_chain_id_exits_1(no_scratch, runner, monkeypatch):
+    """No --chain-id and nothing resolvable: refusal exit 1, not 0."""
+    import aitbc_cli.config as cli_config
+    from aitbc_cli.core.main import cli
+
+    class _EmptyConfig:
+        chain_id = ""
+
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    monkeypatch.setattr(cli_config, "get_config", lambda: _EmptyConfig())
+    result = runner.invoke(cli, ["genesis", "reset", "--yes"])
+    assert result.exit_code == 1
