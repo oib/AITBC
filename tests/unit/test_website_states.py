@@ -131,6 +131,22 @@ async def _eval_step(send, expr: str, results: list, last: dict) -> dict:
     return parsed
 
 
+async def _run_step(kind: str, arg: object, ssend: object, results: list, last: dict) -> dict:
+    if kind == "sleep":
+        await asyncio.sleep(arg)
+    elif kind == "vt":
+        await ssend(
+            "Emulation.setVirtualTimePolicy",
+            {"policy": "pauseIfNetworkFetchesPending", "budget": arg},
+        )
+        await asyncio.sleep(4)
+    elif kind == "wait":
+        await _wait_truthy(ssend, arg)
+    else:
+        last = await _eval_step(ssend, arg, results, last)
+    return last
+
+
 async def _cdp_steps(ws_url: str, url: str, stub_js: str, steps: list, width: int = 375) -> dict:
     """One CDP session running sequential steps on a FRESH tab per call —
     virtual-time overrides and init scripts must not bleed across sessions
@@ -175,18 +191,7 @@ async def _cdp_steps(ws_url: str, url: str, stub_js: str, steps: list, width: in
                 return await send(method, params, session=session)
 
             for kind, arg in steps:
-                if kind == "sleep":
-                    await asyncio.sleep(arg)
-                elif kind == "vt":
-                    await ssend(
-                        "Emulation.setVirtualTimePolicy",
-                        {"policy": "pauseIfNetworkFetchesPending", "budget": arg},
-                    )
-                    await asyncio.sleep(4)
-                elif kind == "wait":
-                    await _wait_truthy(ssend, arg)
-                else:
-                    last = await _eval_step(ssend, arg, results, last)
+                last = await _run_step(kind, arg, ssend, results, last)
             await base._cdp_drain(ws, events)
         finally:
             try:
@@ -419,7 +424,8 @@ class TestStatesBrowser(unittest.TestCase):
             ("wait", "location.pathname === '/block.html'"),
             (
                 "wait",
-                "document.getElementById('block-kind-badge') && document.getElementById('block-kind-badge').textContent.trim() !== ''",
+                "document.getElementById('block-kind-badge') && "
+                "document.getElementById('block-kind-badge').textContent.trim() !== ''",
             ),
             (
                 "eval",
