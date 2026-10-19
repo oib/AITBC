@@ -574,7 +574,13 @@ def _prelude(inst: Instance) -> str:
 
 
 def _rpc_cmd(inst: Instance, python: str) -> str:
+    # Fleet split (live values): the node unit runs GOSSIP_BACKEND=mesh while
+    # the RPC unit runs gossip over the shared redis broker — the /subscribe/ws
+    # block-push path subscribes the process-local broker, which must see the
+    # broker-carried blocks to forward them. Overriding after the env file
+    # mirrors the live units, where the secrets file wins the same key.
     return (
+        f"export GOSSIP_BACKEND=redis; "
         f"exec {python} -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port {inst.rpc_port} "
         f"--workers 1 --log-level warning --timeout-graceful-shutdown 3 "
         f">>{inst.dir}/logs/rpc.log 2>&1"
