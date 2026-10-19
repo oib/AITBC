@@ -20,8 +20,13 @@ import hashlib
 import json
 import os
 import re
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from aitbc.utils import reset_guard
 
 
 def _derive_ethereum_address(private_key: str) -> str:
@@ -43,6 +48,24 @@ def _canonicalize(address: str) -> str:
 
 def _chain_style(address: str) -> str:
     return address.lower().replace("0x", "ait1")
+
+
+def _reset_guard_check(args) -> None:
+    """Scratch-only reset guard: --out and the keystore this tool reads must
+    resolve under AITBC_RESET_SCRATCH — a scratch run must never read a live
+    keystore. --update-env only ever rewrote live /etc/aitbc files and has
+    no scratch path, so it is refused outright."""
+    if args.update_env:
+        raise SystemExit(
+            "reset-guard: --update-env rewrites /etc/aitbc live files and has no "
+            "scratch path — refused. Env changes for a reset go through "
+            "scripts/ops/build-genesis.py."
+        )
+    try:
+        reset_guard.assert_scratch_targets(args.out, args.keystore)
+        reset_guard.assert_not_live_chain(args.chain_id)
+    except reset_guard.ResetGuardError as exc:
+        raise SystemExit(f"reset-guard: {exc}") from exc
 
 
 def main() -> None:
@@ -74,6 +97,8 @@ def main() -> None:
         help="Also update /etc/aitbc/blockchain.env and /etc/aitbc/node.env",
     )
     args = parser.parse_args()
+
+    _reset_guard_check(args)
 
     keystore_path = Path(args.keystore)
     if not keystore_path.exists():
