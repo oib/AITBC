@@ -1,0 +1,81 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x98186926ebeac511e1dc34a81a245e8a964af3b3f0734ed149a40353d1442f88",
+  "height": 24500,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "escrow-release-wrong-authority-signed",
+ "description": "Signed release by a funded non-authority \u2014 signature verifies, the settlement-authority check refuses.",
+ "gate": "v5 / gates1",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x5b790eA168DA01926162Be7BF0A16458e446DF6f",
+    "balance": 1000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": null,
+    "chain_id": "gv-synth",
+    "hash": "0xecfaef2a68058fb046399add65aa2515fb632651a98482d9e250767636f69410",
+    "height": 2,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "escrow_settlement_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 2,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "job_id": "job-wa",
+     "provider": "0x1563915e194D8CfBA1943570603F7606A3115508"
+    },
+    "recipient": "",
+    "sender": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "confirmed",
+    "tx_hash": "0x85a0b5b8947811f137534b97d1ba4521fe51192ebe04028c56b9064bc16d16f2",
+    "type": "ESCROW_LOCK",
+    "value": 1000
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "job_id": "job-wa"
+  },
+  "signature": "0x6ab75322a04c28272fe3e1182647556a413d8b28c273c234b61dc670c5e6974542db31f69cc93fe100f40e2b34a2cacf5c0f80106edc8b69eb4504ace6b1084d00",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0xc8795ea4d1adfc985ebd3b283213a9865f3063bc18ed27fd6d17881d8da02ac2",
+  "type": "ESCROW_RELEASE",
+  "value": 1000
+ }
+}

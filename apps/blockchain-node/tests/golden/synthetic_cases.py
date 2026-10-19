@@ -465,7 +465,328 @@ def cases() -> list[dict[str, Any]]:
     ]
     cases += _bridge_cases() + _v5_cases() + _v9_cases() + _v10_cases()
     cases += _governance_cases() + _v14_cases() + _stake_cases() + _boundary_cases()
+    cases += _first_block_cases() + _gates1_signed_cases()
     return cases
+
+
+def _gates1_signed_cases() -> list[dict[str, Any]]:
+    """Signed twins of cases whose unsigned forms hit the v9 signature gate
+    first under ``gates1``. Signing moves the rejection back onto the rule the
+    case was written for, so the gates1 tree still records the actual v5
+    fail-closed, wrong-authority, and v4 maturity verdicts — not just
+    ``missing_signature``."""
+    exec_no_param = _tx(
+        "gov-execute-v5-failclosed-signed",
+        0,
+        "GOVERNANCE_EXECUTE",
+        sender=ADDR_A,
+        to=ADDR_A,
+        value=0,
+        payload={"proposal_id": "p1", "execution_payload": {}},
+    )
+    _sign(exec_no_param, KEY_A)
+
+    rel_failclosed = _tx(
+        "escrow-release-v5-failclosed-signed",
+        0,
+        "ESCROW_RELEASE",
+        sender=ADDR_A,
+        to=ADDR_B,
+        value=1000,
+        payload={"job_id": "job-v2-era"},
+    )
+    _sign(rel_failclosed, KEY_A)
+    failclosed_lock = _escrow_lock_row(
+        "escrow-release-v5-failclosed-signed", "lock", 2, job="job-v2-era", provider=ADDR_B, sender=ADDR_A, value=1000
+    )
+
+    rel_wrongauth = _tx(
+        "escrow-release-wrong-authority-signed",
+        0,
+        "ESCROW_RELEASE",
+        sender=ADDR_A,
+        to=ADDR_B,
+        value=1000,
+        payload={"job_id": "job-wa"},
+    )
+    _sign(rel_wrongauth, KEY_A)
+    wrongauth_lock = _escrow_lock_row(
+        "escrow-release-wrong-authority-signed", "lock", 2, job="job-wa", provider=ADDR_B, sender=ADDR_A, value=1000
+    )
+
+    lock_matured = _sealed_tx(
+        "stake-release-signed-matured", "lock", "STAKE_LOCK", height=2, sender=ADDR_B, recipient=ADDR_B, value=1000, payload={}
+    )
+    lock_immature = _sealed_tx(
+        "stake-release-signed-immature",
+        "lock",
+        "STAKE_LOCK",
+        height=2,
+        sender=ADDR_B,
+        recipient=ADDR_B,
+        value=1000,
+        payload={"lock_days": 30},
+    )
+    prior_release = _sealed_tx(
+        "stake-release-signed-spent",
+        "prior",
+        "STAKE_RELEASE",
+        height=3,
+        sender=ADDR_B,
+        recipient=ADDR_B,
+        value=1000,
+        payload={"lock_tx_hashes": [lock_matured["tx_hash"]]},
+    )
+
+    def rel(case_id: str, hashes: list[str] | None) -> dict[str, Any]:
+        tx = _tx(case_id, 0, "STAKE_RELEASE", sender=ADDR_B, to=ADDR_B, value=1000, payload={})
+        if hashes is not None:
+            tx["payload"]["lock_tx_hashes"] = hashes
+        _sign(tx, KEY_B)
+        return tx
+
+    head = [_sealed_block("stake-release-signed", "head", 4)]
+    return [
+        {
+            "case_id": "gov-execute-v5-failclosed-signed",
+            "gate": "v5 / gates1",
+            "description": "Signed GOVERNANCE_EXECUTE with governance_executors "
+            "unset — under gates1 the signature verifies and the v5 executors "
+            "gate fails closed; under deployed (v5 height) the same gate refuses.",
+            "prestate": {"account": [_acct(ADDR_A, 10_000)]},
+            "block": _block(24500),
+            "tx": exec_no_param,
+        },
+        {
+            "case_id": "escrow-release-v5-failclosed-signed",
+            "gate": "v5 / gates1",
+            "description": "Signed release of a custody lock with escrow_settlement_authority unset — v5 fail-closed refusal.",
+            "prestate": {
+                "account": [_acct(ADDR_A, 10_000), _acct(_escrow_address("job-v2-era"), 1000)],
+                "transaction": [failclosed_lock],
+                "block": [_sealed_block("escrow-release-v5-failclosed-signed", "lock", 2)],
+            },
+            "block": _block(24500),
+            "tx": rel_failclosed,
+        },
+        {
+            "case_id": "escrow-release-wrong-authority-signed",
+            "gate": "v5 / gates1",
+            "description": "Signed release by a funded non-authority — signature "
+            "verifies, the settlement-authority check refuses.",
+            "prestate": {
+                "account": [_acct(ADDR_A, 10_000), _acct(_escrow_address("job-wa"), 1000)],
+                "transaction": [wrongauth_lock],
+                "block": [_sealed_block("escrow-release-wrong-authority-signed", "lock", 2)],
+                "chain_parameter": [_param("escrow_settlement_authority", ADDR_AUTH)],
+            },
+            "block": _block(24500),
+            "tx": rel_wrongauth,
+        },
+        {
+            "case_id": "stake-release-signed-no-locks",
+            "gate": "v4 / gates1",
+            "description": "Signed STAKE_RELEASE with no lock_tx_hashes — refused.",
+            "prestate": {"account": [_acct(ADDR_B, 10_000)]},
+            "block": _block(5),
+            "tx": rel("stake-release-signed-no-locks", None),
+        },
+        {
+            "case_id": "stake-release-signed-matured",
+            "gate": "v4 / gates1",
+            "description": "Signed release of a matured sealed STAKE_LOCK — accepted.",
+            "prestate": {"account": [_acct(ADDR_B, 10_000)], "transaction": [lock_matured], "block": head},
+            "block": _block(5),
+            "tx": rel("stake-release-signed-matured", [lock_matured["tx_hash"]]),
+        },
+        {
+            "case_id": "stake-release-signed-immature",
+            "gate": "v4 / gates1",
+            "description": "Signed release of a lock with lock_days=30 — still locked.",
+            "prestate": {"account": [_acct(ADDR_B, 10_000)], "transaction": [lock_immature], "block": head},
+            "block": _block(5),
+            "tx": rel("stake-release-signed-immature", [lock_immature["tx_hash"]]),
+        },
+        {
+            "case_id": "stake-release-signed-spent",
+            "gate": "v4 / gates1",
+            "description": "Signed release of a lock already spent by a sealed STAKE_RELEASE — refused.",
+            "prestate": {
+                "account": [_acct(ADDR_B, 10_000)],
+                "transaction": [lock_matured, prior_release],
+                "block": head,
+            },
+            "block": _block(5),
+            "tx": rel("stake-release-signed-spent", [lock_matured["tx_hash"]]),
+        },
+    ]
+
+
+def _first_block_cases() -> list[dict[str, Any]]:
+    """bc-2 first-block probes (RESET-VECTORS-2 item 4): under ``gates1`` every
+    block at height >= 1 resolves to v14 on both the replay and the producer
+    path, so these cases record whether the newest rules really are live from
+    the first produced block. Under ``deployed`` the same heights sit below
+    every pin and replay as v1 — the flip is era-dependent by design."""
+    auth_params = [
+        _param("bridge_release_authority", ADDR_AUTH),
+        _param("escrow_settlement_authority", ADDR_AUTH),
+        _param("governance_executors", ADDR_EXEC),
+    ]
+    accts = [_acct(ADDR_A, 10_000), _acct(ADDR_EXEC, 10_000)]
+
+    transfer_signed = _tx("firstblock-transfer-h1", 0, "TRANSFER", sender=ADDR_A, to=ADDR_B, value=100)
+    _sign(transfer_signed, KEY_A)
+    transfer_unsigned = _tx("firstblock-transfer-unsigned-h1", 0, "TRANSFER", sender=ADDR_A, to=ADDR_B, value=100)
+
+    escrow_lock = _tx(
+        "firstblock-escrow-lock-h2",
+        0,
+        "ESCROW_LOCK",
+        sender=ADDR_A,
+        to=ADDR_B,
+        value=1000,
+        payload={"job_id": "job-first", "provider": ADDR_B},
+    )
+    _sign(escrow_lock, KEY_A)
+
+    bridge_lock = _tx(
+        "firstblock-bridge-lock-h2",
+        0,
+        "BRIDGE_LOCK",
+        sender=ADDR_A,
+        to="bridge_lock",
+        value=500,
+        fee=0,
+        payload={
+            "transfer_id": _tx_hash("firstblock-bridge-lock-h2", "tid"),
+            "amount": 500,
+            "target_chain": "sep",
+            "target_recipient": "0x" + "ab" * 20,
+            "asset": "AIT",
+        },
+    )
+    bridge_lock["bridge_signature"] = sign_bridge_lock(bridge_lock, bridge_lock["tx_hash"], KEY_AUTH)
+
+    propose = _tx(
+        "firstblock-gov-propose-h2",
+        0,
+        "GOVERNANCE_PROPOSE",
+        sender=ADDR_EXEC,
+        to=ADDR_EXEC,
+        value=0,
+        payload={
+            "proposal_id": "prop-first",
+            "title": "first",
+            "execution_payload": {"action": "parameter_change", "parameter": "bond_slash_authority", "value": ADDR_AUTH},
+        },
+    )
+    _sign(propose, KEY_EXEC)
+
+    execute = _tx(
+        "firstblock-gov-execute-h3",
+        0,
+        "GOVERNANCE_EXECUTE",
+        sender=ADDR_EXEC,
+        to=ADDR_EXEC,
+        value=0,
+        payload={
+            "proposal_id": "prop-first",
+            "execution_payload": {"action": "parameter_change", "parameter": "bond_slash_authority", "value": ADDR_AUTH},
+        },
+    )
+    _sign(execute, KEY_EXEC)
+
+    return [
+        {
+            "case_id": "firstblock-empty-h1",
+            "gate": "gates1 boundary",
+            "description": "Empty block at height 1 — records the version the "
+            "unstamped replay path resolves (gates1: 14; deployed: 1) and the "
+            "committed fingerprint on an empty apply.",
+            "prestate": {},
+            "block": _block(1),
+            "txs": [],
+        },
+        {
+            "case_id": "firstblock-transfer-h1",
+            "gate": "gates1 boundary",
+            "description": "Signed TRANSFER at height 1 — v9 signature rule must be live from the first block under gates1.",
+            "prestate": {"account": accts},
+            "block": _block(1),
+            "tx": transfer_signed,
+        },
+        {
+            "case_id": "firstblock-transfer-unsigned-h1",
+            "gate": "gates1 boundary",
+            "description": "Unsigned TRANSFER at height 1 — refused under gates1 (v9 live), accepted under deployed (v1 era).",
+            "prestate": {"account": accts},
+            "block": _block(1),
+            "tx": transfer_unsigned,
+        },
+        {
+            "case_id": "firstblock-escrow-lock-h2",
+            "gate": "gates1 boundary",
+            "description": "ESCROW_LOCK with job_id+provider at height 2 — v3 "
+            "custody form live; value goes to the derived escrow address.",
+            "prestate": {"account": accts, "chain_parameter": auth_params},
+            "block": _block(2),
+            "tx": escrow_lock,
+        },
+        {
+            "case_id": "firstblock-bridge-lock-h2",
+            "gate": "gates1 boundary",
+            "description": "BRIDGE_LOCK carrying the authority bridge_signature "
+            "at height 2 — v9 lock rule live; leaf-v2 binds the recipient "
+            "(bridge_lock_leaf_v2_height=1).",
+            "prestate": {"account": accts, "chain_parameter": auth_params},
+            "block": _block(2),
+            "tx": bridge_lock,
+        },
+        {
+            "case_id": "firstblock-gov-propose-h2",
+            "gate": "gates1 boundary",
+            "description": "GOVERNANCE_PROPOSE carrying an explicit execution_payload at height 2 — v13 binding live.",
+            "prestate": {"account": accts, "chain_parameter": auth_params},
+            "block": _block(2),
+            "tx": propose,
+        },
+        {
+            "case_id": "firstblock-gov-execute-h3",
+            "gate": "gates1 boundary",
+            "description": "GOVERNANCE_EXECUTE at height 3 binding the h2 "
+            "propose — executor-signed, execution_payload matches the sealed "
+            "proposal; applies the parameter_change.",
+            "prestate": {
+                "account": accts,
+                "chain_parameter": auth_params,
+                "transaction": [
+                    _propose_row(
+                        "firstblock-gov-execute-h3",
+                        "p",
+                        2,
+                        "prop-first",
+                        {"action": "parameter_change", "parameter": "bond_slash_authority", "value": ADDR_AUTH},
+                    )
+                ],
+                "block": [_sealed_block("firstblock-gov-execute-h3", "p", 2)],
+            },
+            "block": _block(3),
+            "tx": execute,
+        },
+        {
+            "case_id": "firstblock-stamp-v1-h1",
+            "gate": "gates1 boundary",
+            "description": "A block stamped state_transition_version=1 at "
+            "height 1: under gates1 the v8 advisory mode is already active "
+            "(1 >= v8_height), so the stamp is ignored and the block replays "
+            "as v14 — stamps cannot downgrade a post-genesis block. Under "
+            "deployed the stamp wins and the block replays as v1.",
+            "prestate": {"account": accts},
+            "block": _block(1, version=1),
+            "tx": transfer_signed | {"tx_hash": _tx_hash("firstblock-stamp-v1-h1", 0)},
+        },
+    ]
 
 
 def _bridge_cases() -> list[dict[str, Any]]:
