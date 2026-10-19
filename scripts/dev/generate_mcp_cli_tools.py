@@ -327,6 +327,15 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     # Raw /metrics read of one named metric — pure read of the node's own
     # loopback exposition endpoint.
     ("prometheus", "metric"),
+    # Pure reads: a local log file (alert-history) or Prometheus GET
+    # endpoints (query/rules/series/targets). None of these paths carry a
+    # mutating option, so the dry_run/confirm gate only hid them from the
+    # reset-day watcher that needs to call them freely.
+    ("prometheus", "alert-history"),
+    ("prometheus", "query"),
+    ("prometheus", "rules"),
+    ("prometheus", "series"),
+    ("prometheus", "targets"),
 }
 
 FORCE_DESTRUCTIVE_PATHS: set[tuple[str, ...]] = {

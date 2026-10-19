@@ -14,18 +14,12 @@ from pydantic import Field
 from aitbc_mcp_server import (
     NodeRole,
     _aitbc_cli_read_tool,
-    _build_aitbc_cli_command,
-    _build_dry_run,
     _collect_options,
-    _execution_context,
-    _host_for_role,
-    _json,
-    _run_aitbc_cli,
     mcp,
 )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_alert_history(
     log_path: Annotated[str | None, Field(description="Watcher alert log to read (default: the service's own log)")] = None,
     since: Annotated[
@@ -43,8 +37,6 @@ def aitbc_prometheus_alert_history(
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Read the watcher's alert log: matching events plus the set still firing at end of log.."""
     options: dict[str, Any] = _collect_options(
@@ -60,35 +52,14 @@ def aitbc_prometheus_alert_history(
         },
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "prometheus",
         subcommand=["alert-history"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "prometheus",
-            subcommand=["alert-history"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
@@ -237,7 +208,7 @@ def aitbc_prometheus_metric(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_query(
     expr: Annotated[str, Field(description="The Expr.")],
     prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
@@ -246,8 +217,6 @@ def aitbc_prometheus_query(
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run a PromQL query against Prometheus.."""
     options: dict[str, Any] = _collect_options(
@@ -256,46 +225,23 @@ def aitbc_prometheus_query(
         values={"expr": "expr", "prometheus_url": "prometheus-url", "time": "time", "timeout_opt": "timeout"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "prometheus",
         subcommand=["query"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "prometheus",
-            subcommand=["query"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_rules(
     prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List loaded Prometheus recording and alerting rules.."""
     options: dict[str, Any] = _collect_options(
@@ -304,46 +250,23 @@ def aitbc_prometheus_rules(
         values={"prometheus_url": "prometheus-url"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "prometheus",
         subcommand=["rules"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "prometheus",
-            subcommand=["rules"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_series(
     prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the count of currently loaded metric series for cardinality.."""
     options: dict[str, Any] = _collect_options(
@@ -352,46 +275,23 @@ def aitbc_prometheus_series(
         values={"prometheus_url": "prometheus-url"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "prometheus",
         subcommand=["series"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "prometheus",
-            subcommand=["series"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_targets(
     prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the health of every Prometheus scrape target.."""
     options: dict[str, Any] = _collect_options(
@@ -400,33 +300,12 @@ def aitbc_prometheus_targets(
         values={"prometheus_url": "prometheus-url"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "prometheus",
         subcommand=["targets"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "prometheus",
-            subcommand=["targets"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
