@@ -29,7 +29,7 @@ class Settings(ServiceSettings):
     # Blockchain integration
     blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
     blockchain_rpc_api_key: str = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
-    default_chain_id: str = "ait-localnet"
+    default_chain_id: str = ""
 
     # Agent coordinator integration (v0.6.6 matching → task queue)
     agent_coordinator_url: str = "http://localhost:8107"

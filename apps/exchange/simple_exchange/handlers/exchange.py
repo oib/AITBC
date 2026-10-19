@@ -24,6 +24,7 @@ _REPO_ROOT = str(Path(__file__).resolve().parents[4])
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import _SETTLEMENT_STATES, get_db_path, ticks_to_decimal, to_ticks
@@ -49,7 +50,6 @@ logger = get_logger(__name__)
 # not exist before.
 
 EXCHANGE_ORDER_PAIR = "AIT/ETH"
-_EXCHANGE_CHAIN_DEFAULT = "ait-localnet"  # design section 1 literal
 
 # The order envelope's field set is pinned by design section 1.
 _ORDER_ENVELOPE_FIELDS = frozenset(
@@ -223,8 +223,8 @@ def _cancel_settlement_effects(cursor, order_id: int, result: dict) -> None:
 
 
 def _exchange_chain_id() -> str:
-    """Expected envelope chain_id: EXCHANGE_CHAIN_ID > CHAIN_ID > design literal."""
-    return os.getenv("EXCHANGE_CHAIN_ID") or os.getenv("CHAIN_ID") or _EXCHANGE_CHAIN_DEFAULT
+    """Expected envelope chain_id: EXCHANGE_CHAIN_ID > CHAIN_ID > raise."""
+    return os.getenv("EXCHANGE_CHAIN_ID") or resolve_chain_id()
 
 
 def _env_decimal(name: str, default: str) -> Decimal:

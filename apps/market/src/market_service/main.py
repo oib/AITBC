@@ -30,6 +30,7 @@ from aitbc.crypto.signature_recovery import canonical_address  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.market import OfferStatus  # noqa: E402
 from aitbc.market.job_request_signature import verify_jobs_request_signature  # noqa: E402
+from aitbc.utils.chain_id import resolve_chain_id  # noqa: E402
 from aitbc.operations import BeginStatus, OperationLedger, request_hash  # noqa: E402
 from aitbc.env_compat import market_getenv  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
@@ -305,7 +306,7 @@ def _signed_jobs_request(
         issued_at=issued_at,
         route=route,
         signature=signature,
-        expected_chain_id=settings.default_chain_id,
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
     )
     if error or not signer:
         return None, JSONResponse(status_code=403, content={"error": error or "invalid job request signature"})
@@ -1127,7 +1128,7 @@ async def confirm_market_job_pin(
                 issued_at=confirm_data.get("issued_at"),
                 route=f"/v1/market/jobs/{job_id}/pin-confirm",
                 signature=confirm_data.get("signature"),
-                expected_chain_id=settings.default_chain_id,
+                expected_chain_id=settings.default_chain_id or resolve_chain_id(),
             )
             if error or not signer:
                 return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
