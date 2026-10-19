@@ -507,7 +507,8 @@ def _spawn(inst: Instance, python: str) -> None:
         (
             f"{inst.name}-rpc",
             f"exec {python} -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port {inst.rpc_port} "
-            f"--workers 1 --log-level warning >>{inst.dir}/logs/rpc.log 2>&1",
+            f"--workers 1 --log-level warning --timeout-graceful-shutdown 3 "
+            f">>{inst.dir}/logs/rpc.log 2>&1",
         ),
     )
     for unit, cmd in units:
@@ -720,8 +721,8 @@ def phase_check(root: Path) -> list[str]:
 
 
 def _stop_instance(inst: Instance) -> None:
-    subprocess.run(["systemctl", "stop", inst.name], capture_output=True, timeout=15)
-    subprocess.run(["systemctl", "stop", f"{inst.name}-rpc"], capture_output=True, timeout=15)
+    subprocess.run(["systemctl", "stop", inst.name], capture_output=True, timeout=60)
+    subprocess.run(["systemctl", "stop", f"{inst.name}-rpc"], capture_output=True, timeout=60)
 
 
 def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
@@ -816,7 +817,7 @@ def phase_golden(root: Path, python: str) -> None:
 def phase_teardown(root: Path) -> None:
     for inst in instances(root):
         _stop_instance(inst)
-    subprocess.run(["systemctl", "stop", "bc2-redis"], capture_output=True, timeout=15)
+    subprocess.run(["systemctl", "stop", "bc2-redis"], capture_output=True, timeout=60)
     for inst in instances(root):
         for _ in range(20):
             if _unit_pid(inst.name) is None:
