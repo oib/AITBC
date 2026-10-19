@@ -771,6 +771,12 @@ class TestStatesBrowser(unittest.TestCase):
   overflow: document.documentElement.scrollWidth > window.innerWidth,
   scrollW: document.documentElement.scrollWidth,
   innerW: window.innerWidth,
+  // Page width alone is masked by the card's overflow:hidden — assert the
+  // value actually fits inside its own box (validator finding, follow-up 1).
+  valueSpill: [...document.querySelectorAll('.offer-list-item .offer-list-value')]
+      .map(v => v.scrollWidth - v.clientWidth),
+  rowSpill: [...document.querySelectorAll('.offer-list-item')]
+      .map(v => v.scrollWidth - v.clientWidth),
   csp: window.__csp,
   errs: window.__errors,
 })""",
@@ -780,6 +786,8 @@ class TestStatesBrowser(unittest.TestCase):
         self.assertIn("Endpoint:", r["listLabels"], "Endpoint must be an offer-list-item row")
         self.assertNotIn("Endpoint", r["detailLabels"], "Endpoint must not be a detail tile")
         self.assertFalse(r["overflow"], f"horizontal overflow at 375 px: scrollW {r['scrollW']} > innerW {r['innerW']}")
+        spill = [s for s in r["valueSpill"] + r["rowSpill"] if s > 0]
+        self.assertEqual([], spill, f"offer-list content spills its box: {r['valueSpill']} {r['rowSpill']}")
         self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
         self.assertEqual([], r["errs"], f"uncaught errors: {r['errs']}")
 
