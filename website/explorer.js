@@ -549,7 +549,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!r.ok || !data || !Array.isArray(data.addresses)) {
             const reason = r.ok ? 'reply was not the expected shape' : (r.err || `HTTP ${r.status}`);
             // Keep the last good table — a failed read never becomes an
-            // empty table or a zero.
+            // empty table or a zero. With no last good, the first-load
+            // "Loading leaderboard…" placeholder must not stay beside the note.
+            if (container.dataset.taLoaded !== '1') container.textContent = '';
             renderPanelSource('ta-source', container.dataset.taLoaded === '1' ? 'stale' : 'failed', `could not load top addresses (${reason})`);
             return;
         }
