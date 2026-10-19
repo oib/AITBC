@@ -695,9 +695,9 @@ def phase_wait(root: Path, height: int, timeout: int, max_load: float, min_avail
     raise _fail(f"timed out waiting for height {height}; pending instances: {sorted(pending)}")
 
 
-def _sql(db: Path, query: str) -> list[tuple]:
+def _sql(db: Path, query: str, params: tuple = ()) -> list[tuple]:
     with sqlite3.connect(f"file:{db}?mode=ro", uri=True) as conn:
-        return conn.execute(query).fetchall()
+        return conn.execute(query, params).fetchall()
 
 
 def _check_block0(insts: list[Instance], failures: list[str]) -> None:
