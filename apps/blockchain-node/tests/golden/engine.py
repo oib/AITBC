@@ -107,28 +107,48 @@ def seed_rows(session: Session, table: str, rows: list[dict[str, Any]]) -> None:
 
 
 def seed_genesis(session: Session, chain_id: str, genesis_state: dict[str, Any]) -> None:
-    """Seed block 0 + allocation accounts + chain parameters — same seeding as
-    ``replay-chain.py``: the block row comes from the snapshot, allocations and
-    parameters from the genesis document."""
+    """Seed block 0 + the initial account set + chain parameters.
+
+    The block row comes from the snapshot. The account set comes from the
+    extractor's inference: when the genesis document's hash matches sealed
+    block 0 the doc's allocations are honoured; ``bootstrap_accounts`` (the
+    inferred off-ledger credits — on this chain the whole effective initial
+    set, since the doc postdates a re-genesis) are always seeded on top,
+    skipping addresses an allocation already covered."""
     conn = session.connection().connection
     cols = {r[1] for r in conn.execute('PRAGMA table_info("block")')}
     block0 = {k: v for k, v in genesis_state["block0"].items() if k in cols}
     block0.setdefault("chain_id", chain_id)
     block0.setdefault("height", 0)
     seed_rows(session, "block", [block0])
-    for alloc in genesis_state.get("allocations", []):
+    seeded: set[str] = set()
+    if genesis_state.get("source", {}).get("doc_allocations_applied"):
+        for alloc in genesis_state.get("allocations", []):
+            session.add(
+                Account(
+                    chain_id=chain_id,
+                    address=alloc["address"],
+                    balance=int(alloc["balance"]),
+                    nonce=int(alloc.get("nonce", 0)),
+                )
+            )
+            seeded.add(str(alloc["address"]).lower())
+    for boot in genesis_state.get("bootstrap_accounts", []):
+        if str(boot["address"]).lower() in seeded:
+            continue
         session.add(
             Account(
                 chain_id=chain_id,
-                address=alloc["address"],
-                balance=int(alloc["balance"]),
-                nonce=int(alloc.get("nonce", 0)),
+                address=boot["address"],
+                balance=int(boot["balance"]),
+                nonce=int(boot.get("nonce", 0)),
             )
         )
-    for name, value in (genesis_state.get("parameters") or {}).items():
-        stored_value = "" if value is None else str(value)
-        session.add(ChainParameter(chain_id=chain_id, parameter=str(name), value=stored_value, applied_height=0))
-        record_chain_parameter_history(session, chain_id, str(name), stored_value, None, 0)
+    if genesis_state.get("source", {}).get("doc_allocations_applied"):
+        for name, value in (genesis_state.get("parameters") or {}).items():
+            stored_value = "" if value is None else str(value)
+            session.add(ChainParameter(chain_id=chain_id, parameter=str(name), value=stored_value, applied_height=0))
+            record_chain_parameter_history(session, chain_id, str(name), stored_value, None, 0)
     session.commit()
 
 
