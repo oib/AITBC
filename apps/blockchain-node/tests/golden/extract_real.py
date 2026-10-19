@@ -101,41 +101,70 @@ def extract(snapshot: Path, genesis: Path, outdir: Path, chain_id: str | None = 
         allocations = genesis_doc.get("allocations", genesis_block_data.get("allocations", []))
         parameters = genesis_doc.get("parameters", {})
 
-        # The real initial account set: the doc's allocations only counted when
+        # The real initial account set: the doc's allocations only count when
         # the doc's hash matches sealed block 0 (this chain's doc postdates a
         # re-genesis — it describes nothing the chain actually ran). Off-ledger
-        # credits (direct account-row writes) are inferred as
-        # balance - (received - spent) over the sealed tx history; a positive
-        # remainder is value that entered the ledger outside any sealed tx.
+        # credits (direct account-row writes) are inferred from the sealed
+        # history itself: bootstrap balance is the LARGEST cumulative
+        # (spent - received) the account ever ran, floored by the tip-implied
+        # net credit — the minimum opening balance that lets every sealed send
+        # apply. The flow set is unioned over both the account table and the
+        # senders recorded in history, so an account whose row was deleted
+        # off-ledger still gets a bootstrap.
         hash_match = bool(genesis_doc_hash) and genesis_doc_hash == block0.get("hash")
-        bootstrap_accounts = []
-        flow = db.execute(
-            """
-            SELECT a.address, a.balance, a.nonce,
-                   (SELECT COALESCE(SUM(t.value), 0) FROM "transaction" t
-                    WHERE t.chain_id = a.chain_id AND t.recipient = a.address AND t.status = 'confirmed') AS received,
-                   (SELECT COALESCE(SUM(t.value + t.fee), 0) FROM "transaction" t
-                    WHERE t.chain_id = a.chain_id AND t.sender = a.address AND t.status = 'confirmed') AS spent,
-                   (SELECT COUNT(*) FROM "transaction" t
-                    WHERE t.chain_id = a.chain_id AND t.sender = a.address AND t.status = 'confirmed') AS sent
-            FROM account a WHERE a.chain_id = ?
-            """,
+        tip_accounts = {
+            str(r[0]): {"balance": int(r[1]), "nonce": int(r[2])}
+            for r in db.execute(
+                "SELECT address, balance, nonce FROM account WHERE chain_id = ?",
+                (chain_id,),
+            )
+        }
+        # Replay the sealed flow to get each address's peak outflow and
+        # confirmed send count — the bootstrap credit floor and the nonce
+        # accounting evidence.
+        cumulative: dict[str, int] = {}
+        peak: dict[str, int] = {}
+        sent: dict[str, int] = {}
+        flow_rows = db.execute(
+            'SELECT sender, recipient, value, fee FROM "transaction" '
+            "WHERE chain_id = ? AND status = 'confirmed' "
+            "ORDER BY block_height, id",
             (chain_id,),
-        ).fetchall()
-        for addr, balance, nonce, received, spent, sent in flow:
-            offchain_net = int(balance) - (int(received) - int(spent))
-            if offchain_net > 0:
-                # Nonce likewise: confirmed sends each consumed one; any
-                # remainder was bumped off-ledger. Booking it at bootstrap
-                # keeps v9+ strict-nonce checks right at the heights they ran.
-                bootstrap_nonce = max(0, int(nonce) - int(sent))
-                bootstrap_accounts.append(
-                    {
-                        "address": addr,
-                        "balance": offchain_net,
-                        "nonce": bootstrap_nonce,
-                    }
-                )
+        )
+        for sender, recipient, value, fee in flow_rows:
+            amt = int(value or 0)
+            cost = amt + int(fee or 0)
+            if sender:
+                cumulative[sender] = cumulative.get(sender, 0) - cost
+                sent[sender] = sent.get(sender, 0) + 1
+                peak[sender] = max(peak.get(sender, 0), -cumulative[sender])
+            if recipient:
+                cumulative[recipient] = cumulative.get(recipient, 0) + amt
+                peak[recipient] = max(peak.get(recipient, 0), -cumulative[recipient])
+        bootstrap_accounts = []
+        for addr in sorted(set(tip_accounts) | set(sent) | set(peak)):
+            tip = tip_accounts.get(addr)
+            # The cumulative column is (received - spent); off-ledger net is
+            # what the tip holds beyond it. Senders missing an account row
+            # get balance 0 at tip.
+            offchain_net = (tip["balance"] if tip else 0) - cumulative.get(addr, 0)
+            bootstrap_balance = max(peak.get(addr, 0), offchain_net, 0)
+            if bootstrap_balance == 0:
+                continue
+            bootstrap_accounts.append(
+                {
+                    "address": addr,
+                    "balance": bootstrap_balance,
+                    "nonce": 0,
+                    # Provenance: the tip-implied net credit and the peak
+                    # deficit — a bootstrap above offchain_net means the
+                    # account saw off-ledger *debits* mid-history (its net
+                    # hides the larger gross credit); an unbooked nonce is a
+                    # nonce gap not explainable by sealed sends.
+                    "offchain_net": offchain_net,
+                    "unbooked_nonce": (tip["nonce"] - sent.get(addr, 0)) if tip else None,
+                }
+            )
 
         genesis_state = {
             "source": {
