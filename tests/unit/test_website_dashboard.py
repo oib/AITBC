@@ -30,6 +30,7 @@ function el(tag) {
         prepend(c){ c._parent = self; self.children.unshift(c); },
         remove(){ if (self._parent) { const i = self._parent.children.indexOf(self); if (i >= 0) self._parent.children.splice(i, 1); } },
         querySelector(sel){ const cls = sel.replace(/^\./,''); return self.children.find(c => c.classList && c.classList.contains(cls)) || null; },
+        querySelectorAll(sel){ const cls = sel.split(',').map(t => t.trim().replace(/^\./,'')); const out = []; const walk = (n) => { for (const c of (n.children || [])) { if (c.classList && cls.some(k => c.classList.contains(k))) out.push(c); walk(c); } }; walk(self); return out; },
     };
     return self;
 }

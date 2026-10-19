@@ -269,9 +269,17 @@ function renderJournal(body) {
     sel.innerHTML = '<option value="">all aitbc units</option>' +
         known.map(u => `<option${u === wanted ? ' selected' : ''} value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
     if (body.__journal_error) {
-        if (!box.querySelector('.table-wrap')) {
-            box.innerHTML = `<p class="alerts-unknown">Journal unavailable (${escapeHtml(body.__journal_error)}).</p>`;
+        if (box.querySelector('.table-wrap')) {
+            let note = box.querySelector('.endpoint-note');
+            if (!note) {
+                note = document.createElement('p');
+                note.className = 'endpoint-note';
+                box.prepend(note);
+            }
+            note.textContent = `Refresh failed (${body.__journal_error}) — showing last good journal.`;
+            return;
         }
+        box.innerHTML = `<p class="alerts-unknown">Journal unavailable (${escapeHtml(body.__journal_error)}).</p>`;
         return;
     }
     if (entries.length === 0) {
