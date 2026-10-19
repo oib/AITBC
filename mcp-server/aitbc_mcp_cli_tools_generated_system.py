@@ -121,6 +121,18 @@ def aitbc_system_env_names(
     names: Annotated[
         list[str] | None, Field(description="Report only whether each named variable is set (repeatable)")
     ] = None,
+    process_env: Annotated[
+        bool | None,
+        Field(
+            description="Read the running process environment via /proc/<MainPID>/environ — names only — instead of the declared env files; combined output flags declared_only/process_only drift"
+        ),
+    ] = None,
+    value_name: Annotated[
+        str | None,
+        Field(
+            description="Print the value of ONE named variable from the process environment (requires --process; the deny-list and length cap below apply — a refusal names the rule, never the value)"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -128,8 +140,8 @@ def aitbc_system_env_names(
     """List environment variable NAMES declared in a service's env files.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
-        values={"service": "service", "names": "names"},
+        flags={"process_env": "process"},
+        values={"service": "service", "names": "names", "value_name": "value"},
     )
     args = None
     return _aitbc_cli_read_tool(
