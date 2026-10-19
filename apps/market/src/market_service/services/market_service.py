@@ -706,7 +706,7 @@ class MarketService:
         """Mark offers as confirmed by joining them to sealed anchor txs.
 
         GPU bundle offers anchor as GPU_REGISTER (payload.gpu_id) and software
-        bundle offers as GPU_MARKET/GPU_MARKETPLACE (payload.offer_id); the
+        bundle offers as GPU_MARKET (payload.offer_id); the
         state-table endpoints (e.g. /rpc/gpus) do not expose the sealing
         block, so confirmation is derived from the sealed transaction itself.
         Anchors are namespaced per tx type — a GPU_REGISTER seal can never
@@ -773,7 +773,6 @@ class MarketService:
             offer_anchors: dict[str, list[dict[str, Any]]] = {}
             for tx_type, anchors, field in (
                 ("GPU_MARKET", offer_anchors, "offer_id"),
-                ("GPU_MARKETPLACE", offer_anchors, "offer_id"),
                 ("GPU_REGISTER", gpu_anchors, "gpu_id"),
             ):
                 for tx in await self._rpc_client.query_transactions(transaction_type=tx_type, chain_id=chain_id, limit=1000):
