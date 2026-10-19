@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from eth_utils import keccak
-from sqlmodel import func, select
+from sqlmodel import Session, func, select
 
 from aitbc.bridge import ValidatorInfo, ValidatorSet
 
@@ -18,6 +18,39 @@ from ..models import BridgeValidator
 from .bridge_base import BridgeBase
 
 logger = get_logger(__name__)
+
+
+def insert_bridge_validator(session: Session, chain_id: str, address: str, public_key: str, epoch: int) -> BridgeValidator:
+    """Insert or refresh one ``bridge_validators`` row; the caller commits.
+
+    Shared by the register route (via ``register_validator``) and genesis
+    seeding, so both paths write identical rows: upsert on
+    ``(chain_id, address, epoch)`` — an existing row gets the new pubkey,
+    ``is_active=True`` and a fresh ``registered_at``.
+    """
+    # Check if validator already exists for this chain+address+epoch
+    existing = session.exec(
+        select(BridgeValidator).where(
+            BridgeValidator.chain_id == chain_id,
+            BridgeValidator.address == address,
+            BridgeValidator.epoch == epoch,
+        )
+    ).first()
+    if existing:
+        existing.public_key = public_key
+        existing.is_active = True
+        existing.registered_at = datetime.now(UTC)
+        session.add(existing)
+        return existing
+    record = BridgeValidator(
+        chain_id=chain_id,
+        address=address,
+        public_key=public_key,
+        epoch=epoch,
+        is_active=True,
+    )
+    session.add(record)
+    return record
 
 
 class BridgeValidatorMixin(BridgeBase):
@@ -35,28 +68,7 @@ class BridgeValidatorMixin(BridgeBase):
         Replaces any existing registration for the same (chain_id, address, epoch).
         """
         with self._session_for(chain_id) as session:
-            # Check if validator already exists for this chain+address+epoch
-            existing = session.exec(
-                select(BridgeValidator).where(
-                    BridgeValidator.chain_id == chain_id,
-                    BridgeValidator.address == address,
-                    BridgeValidator.epoch == epoch,
-                )
-            ).first()
-            if existing:
-                existing.public_key = public_key
-                existing.is_active = True
-                existing.registered_at = datetime.now(UTC)
-                session.add(existing)
-            else:
-                record = BridgeValidator(
-                    chain_id=chain_id,
-                    address=address,
-                    public_key=public_key,
-                    epoch=epoch,
-                    is_active=True,
-                )
-                session.add(record)
+            insert_bridge_validator(session, chain_id, address, public_key, epoch)
             session.commit()
 
         # Update in-memory registry
