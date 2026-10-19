@@ -21,7 +21,9 @@ os.environ.pop("DATABASE_URL", None)
 os.environ.pop("DB_TYPE", None)
 # The suite runs as a configured service: default_chain_id no longer
 # substitutes a literal chain since #307, so tests pin an explicit test id.
-os.environ.setdefault("DEFAULT_CHAIN_ID", "ait-testchain")
+# CHAIN_ID feeds the strict resolver; DEFAULT_CHAIN_ID must stay unset so the
+# settings field keeps its empty default (the v066 config tests assert that).
+os.environ.setdefault("CHAIN_ID", "ait-testchain")
 
 _SRC = str(Path(__file__).resolve().parent.parent / "src")
 if _SRC not in sys.path:
