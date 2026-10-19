@@ -28,6 +28,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "blockchain-node" / "src"))
 
+from aitbc.utils import reset_guard
 from aitbc.utils.genesis_accounts import (
     SERVICE_ACCOUNT_NAMES,
     derived_key_error,
@@ -41,7 +42,9 @@ from aitbc_chain.base_models import Account, Block
 from aitbc_chain.state.state_root_utils import compute_state_root_full
 
 
-SERVICE_KEYS_FILE = Path("/var/lib/aitbc/keystore/service_accounts.json")
+def _service_keys_file() -> Path:
+    return Path(os.environ.get("AITBC_SERVICE_KEYS_FILE", "/var/lib/aitbc/keystore/service_accounts.json"))
+
 
 ALLOW_DERIVED_ENV = "AITBC_ALLOW_DERIVED_GENESIS"
 
@@ -123,7 +126,7 @@ def _build_allocations(
         allocations.append({"address": addr, "balance": ait_to_units(1_000_000), "nonce": 0})
     for addr, balance in sorted(service_balances.items()):
         allocations.append({"address": addr, "balance": balance, "nonce": 0})
-    for _name, addr in sorted(_service_accounts(SERVICE_KEYS_FILE).items()):
+    for _name, addr in sorted(_service_accounts(_service_keys_file()).items()):
         allocations.append({"address": addr, "balance": ait_to_units(1_000_000), "nonce": 0})
     return allocations
 
@@ -182,15 +185,31 @@ def main() -> int:
     data_dir = db_path.parent
     genesis_json = data_dir / "genesis.json"
 
-    node_env = _load_env(Path("/etc/aitbc/node.env"))
-    blockchain_env = _load_env(Path("/etc/aitbc/blockchain.env"))
+    # Scratch-only reset guard: this tool rewrites a chain DB and reads env
+    # files, wallet files, and the service-account keystore. Every one of
+    # those paths must resolve under AITBC_RESET_SCRATCH — the defaults below
+    # are live paths, so an unset marker refuses before anything is touched.
+    etc_dir = Path(os.environ.get("AITBC_ETC_DIR", "/etc/aitbc"))
+    wallets_dir = Path(os.environ.get("AITBC_WALLETS_DIR", "/var/lib/aitbc/wallets"))
+    service_keys = _service_keys_file()
+    genesis_prod = Path(os.environ.get("GENESIS_YAML_OUT", "/opt/aitbc/genesis_prod.yaml"))
+    try:
+        reset_guard.assert_scratch_targets(db_path, genesis_json, etc_dir, wallets_dir, service_keys, genesis_prod)
+        reset_guard.assert_data_dir_env()
+        reset_guard.assert_not_live_chain(chain_id)
+    except reset_guard.ResetGuardError as exc:
+        print(f"[!] {exc}", file=sys.stderr)
+        return 1
+
+    node_env = _load_env(etc_dir / "node.env")
+    blockchain_env = _load_env(etc_dir / "blockchain.env")
     genesis_address = node_env.get("GENESIS_ADDRESS") or blockchain_env.get("GENESIS_WALLET_ADDRESS") or ""
 
     if not genesis_address:
         print("[!] GENESIS_ADDRESS not found in env", file=sys.stderr)
         return 1
 
-    wallets = _wallet_addresses(Path("/var/lib/aitbc/wallets"))
+    wallets = _wallet_addresses(wallets_dir)
     wallets.discard(genesis_address)
 
     allocations = _build_allocations(node_env, blockchain_env, genesis_address, wallets)
@@ -211,7 +230,7 @@ def main() -> int:
 
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    genesis_prod = Path("/opt/aitbc/genesis_prod.yaml")
+    genesis_prod.parent.mkdir(parents=True, exist_ok=True)
     genesis_prod.write_text(yaml.safe_dump({"genesis": {"accounts": allocations}}, sort_keys=False))
     os.chmod(genesis_prod, 0o600)
     print(f"[+] Wrote {genesis_prod}")

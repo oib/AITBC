@@ -336,6 +336,20 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
     genesis_dir = Path(data_dir) / chain_id
     genesis_path = genesis_dir / "genesis.json"
 
+    # Scratch-only reset guard: syncing a genesis file replaces chain state
+    # under the data dir, so it shares the guard with the other reset tools.
+    try:
+        from aitbc.utils import reset_guard
+    except ImportError as exc:
+        error(f"reset-guard: cannot load aitbc.utils.reset_guard ({exc}) — refusing")
+        return
+    try:
+        reset_guard.assert_scratch_targets(genesis_path)
+        reset_guard.assert_not_live_chain(chain_id)
+    except reset_guard.ResetGuardError as exc:
+        error(str(exc))
+        return
+
     # Check if genesis.json already exists
     if genesis_path.exists() and not force:
         error(f"Genesis file already exists: {genesis_path}")

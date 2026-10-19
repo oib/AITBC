@@ -37,6 +37,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from eth_account import Account
 from eth_keys import keys
 
+from aitbc.utils import reset_guard
 from aitbc.utils.units import units_to_ait
 
 try:
@@ -250,20 +251,51 @@ def register_wallet_with_service(wallet_address: str, wallet_data: dict, service
         return False
 
 
+def _resolve_and_guard_paths(args) -> tuple[Path, Path, Path]:
+    """Resolve output paths under the scratch root and run the reset guard.
+
+    Every path this tool writes to or reads from (keystore, genesis.json,
+    chain DB, and the node library's data dir via ``init_db``) must resolve
+    under ``AITBC_RESET_SCRATCH``. With the marker set and no explicit paths,
+    scratch-relative defaults apply so ``aitbc genesis init`` (which forwards
+    no paths) still works. Exits 1 on refusal — a bare ``return`` reported a
+    false success to the CLI wrapper.
+    """
+    try:
+        scratch = reset_guard.scratch_root()
+    except reset_guard.ResetGuardError as exc:
+        print(f"[!] {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+
+    db_path = Path(args.db_path or scratch / "data" / args.chain_id / "chain.db")
+    keystore_path = Path(args.keystore_path or scratch / "keystore" / "genesis.json")
+    genesis_path = Path(args.genesis_path or scratch / "data" / args.chain_id / "genesis.json")
+    try:
+        reset_guard.assert_scratch_targets(db_path, keystore_path, genesis_path)
+        reset_guard.assert_data_dir_env()
+        reset_guard.assert_not_live_chain(args.chain_id)
+    except reset_guard.ResetGuardError as exc:
+        print(f"[!] {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+    return db_path, keystore_path, genesis_path
+
+
 def main():
     parser = argparse.ArgumentParser(description="Unified Genesis Block and Wallet Generation")
     parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID")
     parser.add_argument("--proposer", help="Proposer address (defaults to genesis wallet)")
     parser.add_argument("--create-wallet", action="store_true", help="Create genesis wallet")
     parser.add_argument("--password", help="Wallet password (auto-generated if not provided)")
-    parser.add_argument("--db-path", default="/var/lib/aitbc/data/chain.db", help="Database path")
-    parser.add_argument("--keystore-path", default="/var/lib/aitbc/keystore/genesis.json", help="Keystore path")
-    parser.add_argument("--genesis-path", default="/var/lib/aitbc/data/ait-mainnet/genesis.json", help="Genesis config path")
+    parser.add_argument("--db-path", help="Database path (default: scratch data/chain.db)")
+    parser.add_argument("--keystore-path", help="Keystore path (default: scratch keystore/genesis.json)")
+    parser.add_argument("--genesis-path", help="Genesis config path (default: scratch data/<chain>/genesis.json)")
     parser.add_argument("--force", action="store_true", help="Force overwrite existing genesis")
     parser.add_argument("--register-service", action="store_true", help="Register with wallet service")
     parser.add_argument("--service-url", default="http://localhost:8108", help="Wallet service URL")
 
     args = parser.parse_args()
+
+    db_path, keystore_path, genesis_path = _resolve_and_guard_paths(args)
 
     # The CLI hands the secret through the environment (AITBC_GENESIS_PASSWORD)
     # so it never sits on the subprocess argv; --password remains for direct use.
@@ -280,8 +312,8 @@ def main():
         print(f"Address: {wallet_result['address']}")
         print(f"Public key: {wallet_result['public_key']}")
 
-        save_genesis_wallet(wallet_result["wallet"], Path(args.keystore_path), wallet_result["password"])
-        print(f"Wallet saved to: {args.keystore_path}")
+        save_genesis_wallet(wallet_result["wallet"], keystore_path, wallet_result["password"])
+        print(f"Wallet saved to: {keystore_path}")
         print("⚠️  IMPORTANT: The private key and password are saved to the keystore file.")
         print("⚠️  NEVER share or print the private key or password.")
 
@@ -311,8 +343,8 @@ def main():
 
     # Save genesis configuration
     print("\n💾 Saving Genesis Configuration...")
-    save_genesis_json(genesis_block, allocations, Path(args.genesis_path))
-    print(f"Genesis config saved to: {args.genesis_path}")
+    save_genesis_json(genesis_block, allocations, genesis_path)
+    print(f"Genesis config saved to: {genesis_path}")
 
     # Initialize database
     print("\n🗄️  Initializing Database...")
@@ -321,8 +353,8 @@ def main():
             init_db(args.chain_id)
         except Exception as exc:
             print(f"⚠️  Could not initialize database schema via node: {exc}")
-    if initialize_genesis_database(genesis_block, allocations, Path(args.db_path)):
-        print(f"Database initialized: {args.db_path}")
+    if initialize_genesis_database(genesis_block, allocations, db_path):
+        print(f"Database initialized: {db_path}")
 
     # Register with wallet service
     if args.register_service and wallet_result:
@@ -337,8 +369,8 @@ def main():
         print(f"  Genesis Wallet: {wallet_result['address']}")
         print("  ⚠️  IMPORTANT: The wallet password is saved to the keystore file.")
         print("  ⚠️  NEVER share or print the password.")
-    print(f"  Database: {args.db_path}")
-    print(f"  Config: {args.genesis_path}")
+    print(f"  Database: {db_path}")
+    print(f"  Config: {genesis_path}")
 
 
 if __name__ == "__main__":
