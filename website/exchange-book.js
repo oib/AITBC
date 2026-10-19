@@ -299,14 +299,23 @@
         }
         const lu = document.getElementById('ob-updated');
         if (lu) {
+            // status.js is the LAST deferred script on this page — an instantly
+            // settled fetch can reach this block before it defines aitbcFmt.
+            // The fallback must match aitbcFmt.time's fixed 24h HH:MM:SS.
+            const fmtTime = (t) => {
+                if (window.aitbcFmt) return window.aitbcFmt.time(t);
+                const d = new Date(t || Date.now());
+                const p = (n) => String(n).padStart(2, '0');
+                return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+            };
             // "updated" is a claim — only stamp it on a good read.
             if (ok) {
                 lastGoodAt = Date.now();
-                lu.textContent = 'updated ' + aitbcFmt.time(lastGoodAt);
+                lu.textContent = 'updated ' + fmtTime(lastGoodAt);
             } else if (lastGoodAt) {
-                lu.textContent = `last attempt failed ${aitbcFmt.time()}, showing data from ${aitbcFmt.time(lastGoodAt)}`;
+                lu.textContent = `last attempt failed ${fmtTime()}, showing data from ${fmtTime(lastGoodAt)}`;
             } else {
-                lu.textContent = 'last attempt failed ' + aitbcFmt.time() + ' — no data yet';
+                lu.textContent = 'last attempt failed ' + fmtTime() + ' — no data yet';
             }
         }
         backoffMs = ok ? REFRESH_MS : Math.min(backoffMs * 2, MAX_BACKOFF_MS);
