@@ -101,6 +101,23 @@ def test_non_hex_address_is_refused() -> None:
         build_genesis_doc(chain_id=CHAIN_ID, allocations=[{"address": ADDR_A.lower(), "balance": 1}])
 
 
+def test_zero_balance_allocation_is_accepted_negative_refused() -> None:
+    """Init-created system rows (the two bond accounts) exist at balance 0;
+    the loader's skip-if-present semantics mean they must appear in the
+    allocation list at 0 or their row wins over a funded allocation."""
+    doc = build_genesis_doc(
+        chain_id=CHAIN_ID,
+        allocations=[{"address": ADDR_A, "balance": 0}],
+        expected_total=0,
+    )
+    assert [r["balance"] for r in doc["allocations"]] == [0]
+    with pytest.raises(GenesisBuildError, match="balance"):
+        build_genesis_doc(
+            chain_id=CHAIN_ID,
+            allocations=[{"address": ADDR_A, "balance": -1}],
+        )
+
+
 def test_total_mismatch_is_refused() -> None:
     with pytest.raises(GenesisBuildError, match="expected_total"):
         build_genesis_doc(chain_id=CHAIN_ID, allocations=ALLOCS, expected_total=999)

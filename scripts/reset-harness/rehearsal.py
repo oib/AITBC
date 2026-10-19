@@ -7,8 +7,10 @@ genesis with ``scripts/ops/build-genesis.py`` + ``aitbc_chain.genesis_builder``
 4 bridge validators = the rehearsal proposers), launches four proposer
 instances plus one customer-style follower as ``systemd-run`` transient units
 processes with per-instance data dirs, loopback ports and cgroup caps, and
-runs the acceptance checks: identical block-0 hash, proposer rotation, PBFT
-3-of-4 certificates, restart/rejoin, stopped-proposer skip, fresh SQLite
+runs the acceptance checks: identical block-0 hash, proposer rotation,
+attestation quorum (>=2) on produced blocks — the fleet runs
+``PBFT_CONSENSUS_ENABLED=false``, so no PBFT certificate exists in this mode —
+restart/rejoin, stopped-proposer skip, fresh SQLite
 service stores, and the gates1 golden replay.
 
 Nothing here touches a live unit, env file, port, data dir, wallet or
@@ -382,32 +384,39 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "SYNC_MANAGER_HTTP_PORT": str(inst.sync_port),
         "GOSSIP_BACKEND": "mesh",
         "GOSSIP_MESH_PEER_URLS": ",".join(mesh),
-        "GOSSIP_AUTH_ENABLED": "false",  # rehearsal mesh on loopback only
+        # GOSSIP_AUTH_ENABLED left unset — fleet default (true). Proposers
+        # carry PROPOSER_ID/PROPOSER_KEY so the challenge/response on the
+        # restricted topics (blocks.*, pbft.*, consensus.*) signs with the
+        # rehearsal validator key. The follower touches only public topics.
         # All five instances share one source IP; the default per-IP ws cap
         # (32) is below 4 peers x ~9 topics — excess connections get a
-        # pre-accept close that surfaces as HTTP 403.
+        # pre-accept close that surfaces as HTTP 403. Single-host transport
+        # necessity, not a consensus-mode deviation.
         "GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP": "256",
+        # Fleet consensus mode (node2 /etc/aitbc/blockchain.env, anchored
+        # reads): PBFT off, multi-validator attestation 2-of-3 non-proposers,
+        # subscription on, fleet timing values.
         "MULTI_VALIDATOR_CONSENSUS_ENABLED": "true",
         "MULTI_VALIDATOR_MIN_ATTESTATIONS": "2",
-        "MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS": "3",
-        "PBFT_CONSENSUS_ENABLED": "true",
+        "MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS": "15",
+        "PBFT_CONSENSUS_ENABLED": "false",
         "VALIDATOR_SET": validator_set,
         "BRIDGE_MULTISIG_ENABLED": "true",
         "BRIDGE_MULTISIG_THRESHOLD": "2",
         "ENABLE_BLOCK_PRODUCTION": "true" if inst.role == "proposer" else "false",
-        "MAX_EMPTY_BLOCK_INTERVAL": "10",
-        # A completed PBFT round measured ~13s across the gossip mesh; each
-        # slot needs a window comfortably past that or every propose_and_wait
-        # outlives its own rotation.
-        "CONSENSUS_PROPOSER_ROUND_SECONDS": "25",
-        "PBFT_VIEW_CHANGE_TIMEOUT": "20",
+        "MAX_EMPTY_BLOCK_INTERVAL": "60",
+        # Flag pins per GATES.md deployed column (commit 3697e778a): the three
+        # env-observed-true switches; all other flags keep code defaults.
+        "BRIDGE_LOCK_REQUIRE_REPLAY_GUARD": "true",
+        "CROSS_CHAIN_REQUIRE_REPLAY_GUARD": "true",
+        "SIDE_ROOT_SHADOW_ENABLED": "true",
         "DEFAULT_PEER_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
         # Literal CSV: 'genesis' admits the genesis producer row; the four
         # validator addresses admit every rotated proposal on import.
         "TRUSTED_PROPOSERS": "genesis," + ",".join(k["address"] for k in keys["proposers"]),
         "SYNC_MANAGER_ENABLED": "true",
         "SYNC_STATE_ROOT_VALIDATION_ENABLED": "true",
-        "SUBSCRIPTION_ENABLED": "false",
+        "SUBSCRIPTION_ENABLED": "true",  # fleet value (node2 blockchain.env)
         # i0 doubles as the hub: follower's sync source, import URL and hub
         # discovery all resolve to its rehearsal RPC.
         "HUB_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
@@ -744,19 +753,21 @@ def _block_rows(db: Path) -> list[tuple]:
 
 
 def _check_certificates_and_rotation(root: Path, db: Path, rows: list[tuple], failures: list[str]) -> None:
-    cert_heights = 0
+    attested_heights = 0
     proposers_seen: set[str] = set()
     for _height, proposer, meta in rows:
         m = json.loads(meta or "{}")
-        cert = m.get("pbft_certificate") or []
-        if len(cert) >= 3:
-            cert_heights += 1
+        # Fleet mode: no pbft_certificate exists; the quorum evidence is the
+        # ``attestations`` list the proposer stamps at MIN_ATTESTATIONS (2).
+        attestations = m.get("attestations") or []
+        if len(attestations) >= 2:
+            attested_heights += 1
         if proposer:
             proposers_seen.add(proposer.lower())
-    if rows and cert_heights == 0:
-        failures.append("no pbft_certificate with >=3 commits found on any produced block")
+    if rows and attested_heights == 0:
+        failures.append("no attestation quorum (>=2 signatures) found on any produced block")
     else:
-        print(f"[+] pbft certificates >=3 commits on {cert_heights}/{len(rows)} produced blocks")
+        print(f"[+] attestation quorum >=2 on {attested_heights}/{len(rows)} produced blocks")
 
     key_file = root / "keystore" / "keys.json"
     want = {k["address"].lower() for k in json.loads(key_file.read_text())["proposers"]}
@@ -806,8 +817,10 @@ def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_ava
     inst = instances(root)[3]
     h0 = _head(inst)
     _stop_instance(inst)
+    # Fleet MAX_EMPTY_BLOCK_INTERVAL is 60s — sleep past one round so the
+    # chain provably advanced while the node was down, then restart it.
     print(f"[*] stopped {inst.name} at head {h0}; waiting one round, then restarting")
-    time.sleep(12)
+    time.sleep(70)
     _spawn(inst, python)
     deadline = time.time() + timeout
     while time.time() < deadline:
