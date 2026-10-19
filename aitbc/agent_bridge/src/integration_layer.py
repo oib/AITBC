@@ -142,22 +142,23 @@ class AgentServiceBridge:
                 endpoint_port = 8000 + len(self.active_agents) + 10
 
             # Register agent with coordinator
+            registration: dict[str, Any] = {
+                "agent_id": agent_id,
+                "agent_type": agent_config.get("type", "generic"),
+                "capabilities": agent_config.get("capabilities", []),
+                "services": agent_config.get("services", []),
+                "endpoints": agent_config.get(
+                    "endpoints",
+                    {"http": agent_config.get("endpoint", f"http://localhost:{endpoint_port}")},
+                ),
+                "metadata": agent_config.get("metadata", {}),
+                "island_id": agent_config.get("island_id"),
+            }
+            # chain_id only when configured — never a hard-coded default.
+            if agent_config.get("chain_id"):
+                registration["chain_id"] = agent_config["chain_id"]
             async with self.integration as integration:
-                registration_result = await integration.register_agent_with_coordinator(
-                    {
-                        "agent_id": agent_id,
-                        "agent_type": agent_config.get("type", "generic"),
-                        "capabilities": agent_config.get("capabilities", []),
-                        "services": agent_config.get("services", []),
-                        "endpoints": agent_config.get(
-                            "endpoints",
-                            {"http": agent_config.get("endpoint", f"http://localhost:{endpoint_port}")},
-                        ),
-                        "metadata": agent_config.get("metadata", {}),
-                        "chain_id": agent_config.get("chain_id", "ait-mainnet"),
-                        "island_id": agent_config.get("island_id"),
-                    }
-                )
+                registration_result = await integration.register_agent_with_coordinator(registration)
 
             # The registry returns {"status": "success", "agent_id": ...} on success
             if registration_result and registration_result.get("agent_id") == agent_id:

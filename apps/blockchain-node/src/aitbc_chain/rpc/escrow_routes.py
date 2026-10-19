@@ -29,6 +29,7 @@ from aitbc.market.energy_pricing import (
 from aitbc.utils import ait_to_units, units_to_ait, UNITS_PER_AIT
 from eth_utils import keccak
 
+from ..chain_id import resolve_chain_id
 from ..config import settings
 from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager
 from ..database import session_scope
@@ -40,7 +41,18 @@ from .utils import _unsigned_tx_fields
 
 _raw_rpc_url = os.getenv("HUB_RPC_URL", BLOCKCHAIN_RPC_URL).rstrip("/")
 _HUB_RPC_URL = _raw_rpc_url if _raw_rpc_url.endswith("/rpc") else f"{_raw_rpc_url}/rpc"
-_CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-localnet"))
+
+
+def _chain_id() -> str:
+    """This node's chain id, resolved lazily per call.
+
+    Resolved per call rather than at import so a misconfigured process fails at
+    the request site (503 via the ChainIdNotConfigured handler), not at module
+    load, and so tests can set the id after import.
+    """
+    return resolve_chain_id()
+
+
 _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRESS", ""))
 _logger = get_logger(__name__)
 
@@ -383,7 +395,7 @@ def _build_lock_tx(
         "fee": fee,
         "nonce": nonce,
         "type": "ESCROW_LOCK",
-        "chain_id": _CHAIN_ID,
+        "chain_id": _chain_id(),
         "payload": payload,
     }
     return tx, amount_units
@@ -515,7 +527,7 @@ async def _verify_funding_lock(tx_hash: str, *, job_id: str, buyer: str, amount_
 
     try:
         r = await SharedHttpClient.get(
-            f"{_HUB_RPC_URL}/mempool?chain_id={_CHAIN_ID}&limit={_FUNDING_LOCK_MEMPOOL_LIMIT}", timeout=5.0
+            f"{_HUB_RPC_URL}/mempool?chain_id={_chain_id()}&limit={_FUNDING_LOCK_MEMPOOL_LIMIT}", timeout=5.0
         )
         if r.status_code == 200:
             for tx in r.json().get("transactions") or []:
@@ -711,7 +723,7 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
             "fee": max(36, amount_int // 100),
             "nonce": nonce,
             "type": "ESCROW_RELEASE",
-            "chain_id": _CHAIN_ID,
+            "chain_id": _chain_id(),
             "payload": {
                 "action": "escrow_release",
                 "job_id": job_id,
@@ -812,7 +824,7 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
             "fee": max(36, amount_int // 100),
             "nonce": nonce,
             "type": "ESCROW_REFUND",
-            "chain_id": _CHAIN_ID,
+            "chain_id": _chain_id(),
             "payload": {
                 "action": "escrow_refund",
                 "job_id": job_id,
@@ -962,7 +974,7 @@ async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int
             "fee": _fee_for(residue_units),
             "nonce": nonce,
             "type": "ESCROW_FEE_SWEEP",
-            "chain_id": _CHAIN_ID,
+            "chain_id": _chain_id(),
             "payload": {
                 "action": "escrow_fee_sweep",
                 "job_id": job_id,
@@ -1416,9 +1428,9 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         with session_scope() as session:
             for addr in (buyer, provider):
                 ait_addr = _to_canonical(addr)
-                account = session.get(Account, (_CHAIN_ID, ait_addr))
+                account = session.get(Account, (_chain_id(), ait_addr))
                 if account is None:
-                    session.add(Account(chain_id=_CHAIN_ID, address=ait_addr, balance=0, nonce=0))
+                    session.add(Account(chain_id=_chain_id(), address=ait_addr, balance=0, nonce=0))
             existing = session.get(Escrow, job_id)
             if existing:
                 existing.status = "locked"
@@ -1440,7 +1452,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             else:
                 escrow_record = Escrow(
                     job_id=job_id,
-                    chain_id=_CHAIN_ID,
+                    chain_id=_chain_id(),
                     buyer=_to_canonical(buyer),
                     provider=_to_canonical(provider),
                     amount=amount_units,
@@ -1823,7 +1835,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     if reinvest_amount_ait > 0:
                         reinvest_amount_units = ait_to_units(reinvest_amount_ait)
                         if reinvest_amount_units > 0:
-                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_units, _CHAIN_ID, job_id)
+                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_units, _chain_id(), job_id)
                             reinvest_amount = reinvest_amount_ait
                         _logger.info(
                             "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",

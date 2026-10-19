@@ -56,6 +56,10 @@ def _allow_test_chain_ids(monkeypatch) -> None:
     existing = {c.strip() for c in settings.supported_chains.split(",") if c.strip()}
     supported = ",".join(sorted(existing | _TEST_CHAIN_IDS))
     monkeypatch.setattr(settings, "supported_chains", supported)
+    # Explicit test-only default chain id: tests run as a *configured* node so
+    # resolve_chain_id() never raises here unless a test unsets it on purpose.
+    # "ait-mainnet" is kept as the id so existing tests need no rename.
+    monkeypatch.setattr(settings, "chain_id", "ait-mainnet")
 
 
 # A `pytest_runtest_setup` hook used to sit here. It walked SQLModel's global metadata before

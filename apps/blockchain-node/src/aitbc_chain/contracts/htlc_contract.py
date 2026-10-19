@@ -112,7 +112,7 @@ class HTLCContract:
         htlc.refund_swap(swap.swap_id)              # returns to initiator
     """
 
-    def __init__(self, chain_id: str = "") -> None:
+    def __init__(self, chain_id: str) -> None:
         self.chain_id = chain_id
 
     def initiate_swap(

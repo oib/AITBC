@@ -41,7 +41,7 @@ class AtomicSettlementCoordinator:
     5. settle (happy path) OR refund (timeout path)
     """
 
-    def __init__(self, chain_id: str = "ait-hub"):
+    def __init__(self, chain_id: str):
         self.chain_id = chain_id
         self._service = CrossChainSettlementService(chain_id)
         self._running = False
