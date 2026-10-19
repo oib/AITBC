@@ -97,6 +97,37 @@ def test_app_startup_refuses_unconfigured(unconfigured, monkeypatch):
     assert calls == []
 
 
+def test_init_db_prefers_chain_id_over_supported_chains(monkeypatch, tmp_path):
+    """CHAIN_ID names the node's own chain and wins over SUPPORTED_CHAINS[0]:
+    with SUPPORTED_CHAINS=first,second and CHAIN_ID=second, init_db must open
+    data/second-chain/chain.db — that is what init_db() did before, when it
+    resolved settings.chain_id directly."""
+    from fastapi.testclient import TestClient
+
+    from aitbc_chain import app as app_mod
+
+    monkeypatch.setattr(settings, "chain_id", "second-chain")
+    monkeypatch.setattr(settings, "supported_chains", "first-chain,second-chain")
+    monkeypatch.setattr(database, "_default_chain_id", "")
+    monkeypatch.setenv("AITBC_DATA_DIR", str(tmp_path))
+
+    class _Sentinel(Exception):
+        pass
+
+    seen: dict[str, str] = {}
+
+    def fake_init_db(chain_id: str = ""):
+        seen["chain_id"] = chain_id
+        raise _Sentinel()
+
+    monkeypatch.setattr(app_mod, "init_db", fake_init_db)
+    app = app_mod.create_app()
+    with pytest.raises(_Sentinel):
+        with TestClient(app):
+            pass
+    assert seen["chain_id"] == "second-chain"
+
+
 def test_admin_replay_guard_fails_closed_unconfigured(unconfigured):
     import time
 
