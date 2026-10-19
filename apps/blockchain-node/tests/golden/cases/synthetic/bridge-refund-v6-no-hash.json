@@ -1,0 +1,39 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x2cbe29a6a20ce9db0731e19ae8ec11767ddeb4a730c0f7b8a4645901c34c564f",
+  "height": 25000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "bridge-refund-v6-no-hash",
+ "description": "Post-v7 BRIDGE_REFUND without lock_tx_hash \u2014 refused even with a valid authority signature.",
+ "gate": "v6",
+ "prestate": {
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "bridge_release_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 5000,
+  "bridge_signature": "0x9319c4a169157103e373c86926eece9a335688f2473bc385e710e3d4916a718b01a8035b177c818e07c0109405cd84f744be86a68a09b18423d9d918d56fa51900",
+  "chain_id": "gv-synth",
+  "fee": 0,
+  "from": "bridge_refund",
+  "nonce": 0,
+  "payload": {
+   "amount": 5000,
+   "recipient": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+   "remote_chain": "sep",
+   "remote_tx": "0xremote"
+  },
+  "to": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "tx_hash": "0x11d95a88f4c78f91b63db61e2846369fbd01d71706c96d8a03ead9922027a644",
+  "type": "BRIDGE_REFUND",
+  "value": 5000
+ }
+}

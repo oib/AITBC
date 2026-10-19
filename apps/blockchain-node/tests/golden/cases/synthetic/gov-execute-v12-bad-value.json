@@ -1,0 +1,49 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x74b65e03bb4adc47c5481f89096548a4f576908d566ee80e96b6b82585b74027",
+  "height": 38000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-execute-v12-bad-value",
+ "description": "v12 authority-parameter check: a parameter_change to escrow_settlement_authority with a non-address value is refused. v13 binding is shadow-only at this height so no sealed propose is needed.",
+ "gate": "v12",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "governance_executors",
+    "value": "0x7564105E977516C53bE337314c7E53838967bDaC"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {
+    "action": "parameter_change",
+    "parameter": "escrow_settlement_authority",
+    "value": "not-an-address"
+   },
+   "proposal_id": "p12bad"
+  },
+  "signature": "0xb762cce841f2ad9979d90417e4382dce89fddd0e4cf62d98b43e4f64e682fa8b46124f1624b0882858928ec03925b7b067e93f8f352b1896cdd26899f123bd4100",
+  "to": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "tx_hash": "0x29f1ff819366d442a22bd1533495be97bb4c1c81700097669d54940846c7777b",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}

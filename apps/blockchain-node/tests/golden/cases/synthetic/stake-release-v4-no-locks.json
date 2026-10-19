@@ -1,0 +1,33 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x7e687ef78a802f17a3d3b8c96eb444780f5dc1d60cf5eea012ebc84aa4994f37",
+  "height": 13000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "stake-release-v4-no-locks",
+ "description": "STAKE_RELEASE with no lock_tx_hashes \u2014 refused.",
+ "gate": "v4",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "nonce": 0,
+  "payload": {},
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0xb5db84d71fff0f2c5cace7e6c6c150f7e5b8a859e3bbde9929e48d70ca6a9073",
+  "type": "STAKE_RELEASE",
+  "value": 1000
+ }
+}

@@ -1,0 +1,66 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0xd2e7e59651385af5f3b49ab807015721a3b4b93b6c0372bb16c718e00cd878a7",
+  "height": 6000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "escrow-release-v2lock",
+ "description": "Release at v3 height of a lock sealed below 5470: lock_version resolves to the pre-v3 fallback and value comes from the SENDER, not the custody address. Lenient authority (pre-v5).",
+ "gate": "v2-era lock / v3 apply",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": null,
+    "chain_id": "gv-synth",
+    "hash": "0x05624b5532c07a97fc4a8b2ffd6ea6c5b56ebd8d65fcd2cdc972dd3bb46f73a2",
+    "height": 3000,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 3000,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "job_id": "job-v2-era",
+     "provider": "0x1563915e194D8CfBA1943570603F7606A3115508"
+    },
+    "recipient": "",
+    "sender": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "confirmed",
+    "tx_hash": "0xe6f66ef44e2e1de9df67053086ded7b883d334f05adf350d7ef0a56ba9bb6221",
+    "type": "ESCROW_LOCK",
+    "value": 1000
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "job_id": "job-v2-era"
+  },
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x4d019fbf114cf145a1d8c789f28e47e35ef660f60f1208fe1a87901659ddfc3c",
+  "type": "ESCROW_RELEASE",
+  "value": 1000
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x6f5bd32db42e040958cb8a4133f378ed1c8fdb54b8d197056961a3d371331e29",
+  "height": 47000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-execute-v13-empty-nonexecutor",
+ "description": "The same empty-payload execute from a funded non-executor \u2014 refused at the executors gate.",
+ "gate": "v13",
+ "prestate": {
+  "account": [
+   {
+    "address": "0xe1fAE9b4fAB2F5726677ECfA912d96b0B683e6a9",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "governance_executors",
+    "value": "0x7564105E977516C53bE337314c7E53838967bDaC"
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 46500,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "execution_payload": {},
+     "proposal_id": "prop-empty",
+     "title": "p"
+    },
+    "recipient": "",
+    "sender": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "status": "confirmed",
+    "tx_hash": "0x823768faf154a626d8a66ce9201fd2fd8bebee81e4a30e7534269484143b2925",
+    "type": "GOVERNANCE_PROPOSE",
+    "value": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0xe1fAE9b4fAB2F5726677ECfA912d96b0B683e6a9",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {},
+   "proposal_id": "prop-empty"
+  },
+  "signature": "0x32fee05fd851e9c42ae382b3178cf3c355353d1e2b5193b99d57071386e6c395151289681dd2ee9ca4b6739ea4acabc244925d577487f6f87ca3ac8f95ddde7300",
+  "to": "0xe1fAE9b4fAB2F5726677ECfA912d96b0B683e6a9",
+  "tx_hash": "0x0330a20cf171954c3124a524f20ed27552b271a7569862b27b4800fdab5b4ad2",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}

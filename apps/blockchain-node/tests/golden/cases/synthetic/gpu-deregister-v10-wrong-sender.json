@@ -1,0 +1,51 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0xb13f3dd2a9fd9cf19ff0be25bfe5ebf5606712c6fbd04adece00a3ff3fbc72e3",
+  "height": 33000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gpu-deregister-v10-wrong-sender",
+ "description": "Non-registrant deregister \u2014 refused.",
+ "gate": "v10",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "gpu_registration": [
+   {
+    "capabilities": [],
+    "chain_id": "gv-synth",
+    "cuda_version": "12.4",
+    "gpu_id": "gpu-1",
+    "memory_gb": 24,
+    "miner_id": "miner-1",
+    "model": "test-gpu",
+    "price_per_hour": "1.0",
+    "region": "test",
+    "registered_by": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "active"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "nonce": 0,
+  "payload": {
+   "gpu_id": "gpu-1"
+  },
+  "signature": "0x84639eac6f15bff1102339daeac985032d715f9fd7e33a53f7f8f9b1e77a63266d5d38258b862c083cac790ee356ec6363eecfa096cc32673a4112a11c863d3101",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x726c2dc9ec0be2bb6cd8b3b9164c141efd8ff577e9ef9fe89d8fd8ef9a4c8636",
+  "type": "GPU_DEREGISTER",
+  "value": 0
+ }
+}

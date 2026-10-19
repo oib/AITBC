@@ -1,0 +1,35 @@
+{
+ "block": {
+  "block_metadata": {
+   "state_transition_version": 14
+  },
+  "hash": "0x199bf7987c00d2cb5ff99a4da199d1ed0fea2e955d6ad096654e22a0898f05b0",
+  "height": 100,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "aux-root-v14-stamped-low",
+ "description": "Stamped v14 at height 100 \u2014 recorded metadata wins below the v8 pin under deployed and everywhere under gates0.",
+ "gate": "v14 / stamp",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 100,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x9786e6eec18f400781c201ce019a3851f5ccfae5cae43bdf734ad56874d35abb",
+  "type": "TRANSFER",
+  "value": 100
+ }
+}
