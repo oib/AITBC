@@ -271,15 +271,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # /rpc/chains and /rpc/chains/start|stop endpoints work without the
     # separate blockchain-node service process.
     try:
-        from .network.multi_chain_manager import create_multi_chain_manager
+        from .network.multi_chain_manager import base_ports_from_env, create_multi_chain_manager
 
         _mcm_chain_id = default_chain_id
         base_db_path = Path(settings.get_db_path(_mcm_chain_id))
+        base_rpc_port, base_p2p_port = base_ports_from_env()
         create_multi_chain_manager(
             default_chain_id=_mcm_chain_id,
             base_db_path=base_db_path,
-            base_rpc_port=int(os.getenv("RPC_PORT", "8202")),
-            base_p2p_port=int(os.getenv("P2P_PORT", "8200")),
+            base_rpc_port=base_rpc_port,
+            base_p2p_port=base_p2p_port,
         )
         _app_logger.info("Multi-chain manager initialized in RPC service")
     except Exception as e:
