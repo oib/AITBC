@@ -888,6 +888,83 @@ def _declared_key_names(files: list[tuple[Path, bool]]) -> set[str]:
     return declared
 
 
+def _env_names_process(
+    ctx: click.Context, service_name: str, files: list[tuple[Path, bool]], wanted: list[str], value_name: str | None
+) -> None:
+    """``env-names --process``: names (or one approved value) from /proc/<MainPID>/environ."""
+    pid, active_enter = _unit_main_pid(service_name)
+    if pid <= 0:
+        raise click.ClickException(f"{service_name} is not running (MainPID={pid}) — no process environment")
+    env = _process_environ(pid)
+    process_names = set(env)
+
+    if value_name is not None:
+        if _field_name_denied(value_name):
+            raise click.ClickException(f"--value refused (deny-listed name): {value_name}")
+        if value_name not in env:
+            raise click.ClickException(f"{value_name} is not set in the process environment of {service_name}")
+        value = env[value_name]
+        if len(value) > _FIELD_MAX_VALUE:
+            raise click.ClickException(f"--value refused (value over {_FIELD_MAX_VALUE} characters): {value_name}")
+        # The single approved value is the ONLY content ever printed from environ.
+        click.echo(value.decode("utf-8", "replace"))
+        return
+
+    fmt = ctx.obj.get("output_format", "table")
+    declared = _declared_key_names(files)
+    if wanted:
+        name_report: dict[str, dict[str, Any]] = {}
+        for n in sorted(set(wanted)):
+            name_entry: dict[str, Any] = {"set": n in process_names}
+            if n in process_names and n not in declared:
+                name_entry["drift"] = "process_only"
+            elif n not in process_names and n in declared:
+                name_entry["drift"] = "declared_only"
+            name_report[n] = name_entry
+        output(
+            {"source": "process", "main_pid": pid, "active_enter_timestamp": active_enter, "names": name_report},
+            fmt,
+        )
+    else:
+        output(
+            {
+                "source": "process",
+                "main_pid": pid,
+                "active_enter_timestamp": active_enter,
+                "names": sorted(process_names),
+                "declared_only": sorted(declared - process_names),
+                "process_only": sorted(process_names - declared),
+            },
+            fmt,
+        )
+
+
+def _env_names_files(ctx: click.Context, files: list[tuple[Path, bool]], wanted: list[str]) -> None:
+    """``env-names`` default mode: per-file declared names, or set/unset for --names."""
+    report: list[dict[str, Any]] = []
+    present: set[str] = set()
+    for path, optional in files:
+        entry: dict[str, Any] = {"file": str(path)}
+        if optional:
+            entry["optional"] = True
+        if not path.exists():
+            entry["missing"] = True
+            report.append(entry)
+            continue
+        key_names, bad_lines = _env_file_key_names(path)
+        present |= key_names
+        entry["names"] = sorted(key_names if not wanted else (key_names & set(wanted)))
+        if bad_lines:
+            entry["unparsed_lines"] = bad_lines
+        report.append(entry)
+
+    fmt = ctx.obj.get("output_format", "table")
+    if wanted:
+        output({n: n in present for n in sorted(set(wanted))}, fmt)
+    else:
+        output(report, fmt)
+
+
 @system.command(
     "env-names",
     epilog="""Examples:
@@ -953,73 +1030,10 @@ def env_names(ctx, service: str, names: tuple[str, ...], process_env: bool, valu
     wanted = list(names)
 
     if process_env:
-        pid, active_enter = _unit_main_pid(service_name)
-        if pid <= 0:
-            raise click.ClickException(f"{service_name} is not running (MainPID={pid}) — no process environment")
-        env = _process_environ(pid)
-        process_names = set(env)
-
-        if value_name is not None:
-            if _field_name_denied(value_name):
-                raise click.ClickException(f"--value refused (deny-listed name): {value_name}")
-            if value_name not in env:
-                raise click.ClickException(f"{value_name} is not set in the process environment of {service_name}")
-            value = env[value_name]
-            if len(value) > _FIELD_MAX_VALUE:
-                raise click.ClickException(f"--value refused (value over {_FIELD_MAX_VALUE} characters): {value_name}")
-            # The single approved value is the ONLY content ever printed from environ.
-            click.echo(value.decode("utf-8", "replace"))
-            return
-
-        declared = _declared_key_names(files)
-        if wanted:
-            name_report: dict[str, dict[str, Any]] = {}
-            for n in sorted(set(wanted)):
-                name_entry: dict[str, Any] = {"set": n in process_names}
-                if n in process_names and n not in declared:
-                    name_entry["drift"] = "process_only"
-                elif n not in process_names and n in declared:
-                    name_entry["drift"] = "declared_only"
-                name_report[n] = name_entry
-            output(
-                {"source": "process", "main_pid": pid, "active_enter_timestamp": active_enter, "names": name_report},
-                ctx.obj.get("output_format", "table"),
-            )
-        else:
-            output(
-                {
-                    "source": "process",
-                    "main_pid": pid,
-                    "active_enter_timestamp": active_enter,
-                    "names": sorted(process_names),
-                    "declared_only": sorted(declared - process_names),
-                    "process_only": sorted(process_names - declared),
-                },
-                ctx.obj.get("output_format", "table"),
-            )
+        _env_names_process(ctx, service_name, files, wanted, value_name)
         return
 
-    report: list[dict[str, Any]] = []
-    present: set[str] = set()
-    for path, optional in files:
-        entry: dict[str, Any] = {"file": str(path)}
-        if optional:
-            entry["optional"] = True
-        if not path.exists():
-            entry["missing"] = True
-            report.append(entry)
-            continue
-        key_names, bad_lines = _env_file_key_names(path)
-        present |= key_names
-        entry["names"] = sorted(key_names if not wanted else (key_names & set(wanted)))
-        if bad_lines:
-            entry["unparsed_lines"] = bad_lines
-        report.append(entry)
-
-    if wanted:
-        output({n: n in present for n in sorted(set(wanted))}, ctx.obj.get("output_format", "table"))
-    else:
-        output(report, ctx.obj.get("output_format", "table"))
+    _env_names_files(ctx, files, wanted)
 
 
 @system.command(
