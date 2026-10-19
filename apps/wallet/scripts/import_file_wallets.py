@@ -25,6 +25,8 @@ def _auth_headers() -> dict[str, str]:
 
 
 def import_wallets():
+    from aitbc.utils.chain_id import resolve_chain_id
+
     if not WALLET_DIR.exists():
         print(f"Wallet directory not found: {WALLET_DIR}")
         sys.exit(1)
@@ -77,7 +79,7 @@ def import_wallets():
             wallet_id = data.get("wallet_id") or wallet_file.stem
             address = data.get("address", "")
             private_key_hex = data.get("private_key", "").lstrip("0x")
-            chain_id = data.get("chain_id", "ait-localnet")
+            chain_id = data.get("chain_id") or resolve_chain_id()
 
             if wallet_id in existing:
                 print(f"  SKIP  {wallet_id} (already in daemon)")

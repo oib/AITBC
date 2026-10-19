@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-CHAIN_ID="${CHAIN_ID:-ait-localnet}"
+CHAIN_ID="${CHAIN_ID:?CHAIN_ID is not set}"
 HUB="${HUB:-hub.aitbc.invalid}"
 SSH_USER="${SSH_USER:-root}"
 DB_DIR="${DB_DIR:-/var/lib/aitbc/data}"
