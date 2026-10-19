@@ -7,7 +7,6 @@ import re
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -1670,6 +1669,11 @@ class PoAProposer:
                             genesis_state_root=genesis_state_root,
                             allocations=genesis_allocations,
                         )
+                        # Today's /rpc/genesis_allocations endpoint serves no
+                        # bridge_validators, so this check is a no-op now; if the
+                        # payload ever carries them they get verified the same
+                        # way the file path verifies them.
+                        self._verify_bridge_validators_claim(rpc_genesis_data)
                         session.commit()
                         self._logger.info(
                             "Successfully created genesis block from RPC bootstrap: hash=%s, state_root=%s",
@@ -1680,6 +1684,7 @@ class PoAProposer:
                             self._create_accounts_from_allocations(session, genesis_allocations)
                             self._logger.info("Initialized %s accounts from RPC bootstrap", len(genesis_allocations))
                         self._seed_chain_parameters(session, rpc_genesis_data.get("parameters"))
+                        self._seed_bridge_validators(session, rpc_genesis_data)
                         return
                     except Exception as e:
                         self._logger.warning(
@@ -1691,12 +1696,15 @@ class PoAProposer:
             self._logger.info("Loading genesis block from local file for chain %s", self._config.chain_id)
             local_genesis_data = self._load_genesis_data_from_file()
             if not local_genesis_data:
+                from aitbc.constants import DATA_DIR
+
                 self._logger.error(
-                    "Genesis file not found at /var/lib/aitbc/data/%s/genesis.json. Cannot create genesis block without genesis.json file.",
-                    self._config.chain_id,
+                    "Genesis file not found at %s. Cannot create genesis block without genesis.json file.",
+                    DATA_DIR / "data" / self._config.chain_id / "genesis.json",
                 )
                 raise RuntimeError(
-                    f"Genesis file required but not found for chain {self._config.chain_id}. Please create genesis.json at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json"
+                    f"Genesis file required but not found for chain {self._config.chain_id}. "
+                    f"Please create genesis.json at {DATA_DIR / 'data' / self._config.chain_id / 'genesis.json'}"
                 )
             block_data = local_genesis_data.get("block", {})
             genesis_hash = local_genesis_data.get("genesis_hash") or block_data.get("hash")
@@ -1704,9 +1712,12 @@ class PoAProposer:
             genesis_state_root = local_genesis_data.get("state_root") or block_data.get("state_root")
             genesis_allocations = local_genesis_data.get("allocations", block_data.get("allocations", []))
             if not genesis_hash or not genesis_timestamp or (not genesis_state_root):
+                from aitbc.constants import DATA_DIR
+
+                genesis_file = DATA_DIR / "data" / self._config.chain_id / "genesis.json"
                 self._logger.error("Genesis file missing required fields: genesis_hash, timestamp, or state_root")
                 raise RuntimeError(
-                    f"Genesis file at /var/lib/aitbc/data/{self._config.chain_id}/genesis.json is missing required fields (genesis_hash, timestamp, state_root)"
+                    f"Genesis file at {genesis_file} is missing required fields (genesis_hash, timestamp, state_root)"
                 )
             try:
                 if isinstance(genesis_timestamp, str):
@@ -1737,6 +1748,7 @@ class PoAProposer:
                     genesis_hash=genesis_hash,
                     timestamp=timestamp,
                 )
+                self._verify_bridge_validators_claim(local_genesis_data)
                 session.commit()
                 self._logger.info(
                     "Successfully created genesis block from genesis.json: hash=%s, state_root=%s, timestamp=%s",
@@ -1748,6 +1760,7 @@ class PoAProposer:
                     self._create_accounts_from_allocations(session, genesis_allocations)
                     self._logger.info("Initialized %s accounts from genesis.json", len(genesis_allocations))
                 self._seed_chain_parameters(session, local_genesis_data.get("parameters"))
+                self._seed_bridge_validators(session, local_genesis_data)
             except Exception as e:
                 self._logger.error("Failed to create genesis block from genesis.json: %s", e)
                 session.rollback()
@@ -1837,6 +1850,47 @@ class PoAProposer:
                     f"{computed_hash[:10]}… over the fields the block row would carry; refusing to bootstrap"
                 )
 
+    def _verify_bridge_validators_claim(self, genesis_data: dict[str, Any]) -> None:
+        """Refuse a genesis whose ``bridge_validators`` rows don't match their digest.
+
+        ``genesis_hash`` binds the allocation set but has no validator term, so
+        without this check two nodes could start from files whose validator
+        rows silently differ. The digest is verified *before* the genesis block
+        commits; a file without the keys is a legacy document and is skipped.
+        """
+        from ..genesis_builder import GenesisBuildError, verify_bridge_validators_claim
+
+        try:
+            verify_bridge_validators_claim(genesis_data, chain_id=self._config.chain_id)
+        except GenesisBuildError as e:
+            raise RuntimeError(f"Genesis file (chain {self._config.chain_id}): {e}") from e
+
+    def _seed_bridge_validators(self, session: Session, genesis_data: dict[str, Any]) -> None:
+        """Insert ``bridge_validators`` rows carried by the genesis document.
+
+        Runs after the block-0 commit — i.e. after ``init_db``'s schema
+        creation and before the proposers start (block 1). ``bridge_validators``
+        is not one of the aux-root-fingerprinted tables, so each node writing
+        its own ``registered_at`` wall time cannot diverge consensus. Rows go
+        through the same ``insert_bridge_validator`` the register route uses,
+        so seeded and registered rows are identical by construction.
+        """
+        rows = genesis_data.get("bridge_validators") or []
+        if not rows:
+            return
+        from ..cross_chain.bridge_validator import insert_bridge_validator
+
+        for row in rows:
+            insert_bridge_validator(
+                session,
+                chain_id=self._config.chain_id,
+                address=str(row["address"]).lower(),
+                public_key=str(row["public_key"]),
+                epoch=int(row.get("epoch", 0)),
+            )
+        session.commit()
+        self._logger.info("Seeded %d bridge validators from genesis", len(rows))
+
     async def _initialize_genesis_allocations(self, session: Session) -> None:
         """Create Account entries from the genesis allocations file or RPC bootstrap."""
         self._logger.info("Initializing genesis allocations for chain: %s", self._config.chain_id)
@@ -1872,14 +1926,20 @@ class PoAProposer:
             )
 
     def _load_genesis_data_from_file(self) -> dict[str, Any]:
-        """Load complete genesis data from local file."""
-        genesis_paths = [Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json")]
-        genesis_path = None
-        for path in genesis_paths:
-            if path.exists():
-                genesis_path = path
-                break
-        if not genesis_path:
+        """Load complete genesis data from local file.
+
+        The path is the per-chain candidate ``DATA_DIR/data/<chain_id>/genesis.json``
+        (``aitbc.constants.DATA_DIR`` honours ``AITBC_DATA_DIR``). The chain-less
+        ``data/genesis.json`` candidate ``ChainSettings.get_genesis_candidates``
+        lists first is deliberately not used: a stray shared file would shadow the
+        per-chain one. Byte-identical to the old hardcoded path when
+        ``AITBC_DATA_DIR`` is unset. Resolved lazily so tests can patch the
+        constant.
+        """
+        from aitbc.constants import DATA_DIR
+
+        genesis_path = DATA_DIR / "data" / self._config.chain_id / "genesis.json"
+        if not genesis_path.exists():
             return {}
         try:
             with open(genesis_path) as f:
