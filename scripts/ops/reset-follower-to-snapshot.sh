@@ -9,7 +9,7 @@
 #   sudo bash /opt/aitbc/scripts/ops/reset-follower-to-snapshot.sh
 #
 # Environment:
-#   CHAIN_ID   - chain id (default: ait-localnet)
+#   CHAIN_ID   - chain id (required; refuses when unset)
 #   HUB        - hub host for snapshot (default: hub.aitbc.invalid)
 #   SSH_USER   - ssh user on hub (default: root)
 #   DB_DIR     - local data directory (default: /var/lib/aitbc/data)
