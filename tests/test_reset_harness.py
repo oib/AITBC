@@ -132,6 +132,24 @@ def test_env_no_live_env_file_leak(tmp_path):
         assert env["BRIDGE_MULTISIG_THRESHOLD"] == "2"
 
 
+def test_env_fleet_mode_profile(tmp_path):
+    """Phase 2: the rehearsal runs the fleet's consensus mode — PBFT off,
+    attestation 2, subscription on, fleet timing. GOSSIP_AUTH_ENABLED stays
+    unset so the code default (true) applies."""
+    env = _parse_env(rh._env_lines(tmp_path, rh.instances(tmp_path)[0], _keys()))
+    assert env["PBFT_CONSENSUS_ENABLED"] == "false"
+    assert env["MULTI_VALIDATOR_CONSENSUS_ENABLED"] == "true"
+    assert env["MULTI_VALIDATOR_MIN_ATTESTATIONS"] == "2"
+    assert env["MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS"] == "15"
+    assert env["SUBSCRIPTION_ENABLED"] == "true"
+    assert env["MAX_EMPTY_BLOCK_INTERVAL"] == "60"
+    assert "GOSSIP_AUTH_ENABLED" not in env, "auth must ride the code default (true)"
+    # Deployed-true flags from GATES.md's table; the rest keep code defaults.
+    assert env["SIDE_ROOT_SHADOW_ENABLED"] == "true"
+    assert env["BRIDGE_LOCK_REQUIRE_REPLAY_GUARD"] == "true"
+    assert env["CROSS_CHAIN_REQUIRE_REPLAY_GUARD"] == "true"
+
+
 def test_env_proposer_has_keys_follower_does_not(tmp_path):
     insts = rh.instances(tmp_path)
     keys = _keys()
