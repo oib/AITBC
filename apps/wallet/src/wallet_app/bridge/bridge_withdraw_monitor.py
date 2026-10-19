@@ -23,6 +23,7 @@ from eth_account import Account as EthAccount
 from aitbc.aitbc_logging import get_logger
 from aitbc.network import SharedHttpClient
 from aitbc.utils import ait_to_units, units_to_ait
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
 
 from .bridge_db import (
@@ -363,7 +364,7 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
         # credits the user. The BRIDGE_* credit types are issued inside the
         # node and are refused at public transaction intake.
         "type": "TRANSFER",
-        "chain_id": os.getenv("CHAIN_ID", "ait-localnet"),
+        "chain_id": resolve_chain_id(),
         "from": canonical_address(GENESIS_WALLET_ADDRESS),
         "to": canonical_address(recipient),
         "amount": value,
