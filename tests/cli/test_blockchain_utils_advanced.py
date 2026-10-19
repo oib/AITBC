@@ -121,15 +121,20 @@ class TestGetBlockchainAnalytics:
         assert result["type"] == "blocks"
         assert result["current_height"] == 1000
 
-    def test_get_analytics_supply(self):
+    @patch("aitbc_cli.utils.blockchain.AITBCHTTPClient")
+    def test_get_analytics_supply(self, mock_client_class):
         """Test analytics for supply type"""
         from aitbc_cli.utils.blockchain import get_blockchain_analytics
+
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.return_value = {"allocations": [{"balance": 36000000000}]}
 
         result = get_blockchain_analytics("supply", 10, "http://localhost:8202")
 
         assert result is not None
         assert result["type"] == "supply"
-        assert result["total_supply"] == "1000000000"
+        assert result["total_supply"] == "1000"
 
     def test_get_analytics_accounts(self):
         """Test analytics for accounts type"""

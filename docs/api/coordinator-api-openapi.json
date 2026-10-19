@@ -30343,7 +30343,7 @@
           "blockchain"
         ],
         "summary": "Get Supply",
-        "description": "Get token supply.",
+        "description": "Get token supply, based on the genesis allocation sum.\n\n``total_supply`` is the amount minted at genesis: fee burns and any\nlater mints are not reflected. ``circulating_supply`` currently mirrors\nthe same figure (a true circulating number needs a live account-balance\naggregate, which the node RPC does not offer). AIT values are decimal\nstrings; the ``*_units`` fields carry the raw base-unit integers\n(``units_per_ait`` per AIT).",
         "operationId": "get_supply_v1_supply_get",
         "responses": {
           "200": {
