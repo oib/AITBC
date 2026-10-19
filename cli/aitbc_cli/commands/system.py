@@ -783,60 +783,6 @@ def _env_file_key_names(path: Path) -> tuple[set[str], list[int]]:
     return names, bad_lines
 
 
-@system.command(
-    "env-names",
-    epilog="""Examples:
-
-  aitbc system env-names --service aitbc-coordinator-api
-
-  aitbc system env-names --service blockchain-node --names LOG_LEVEL SYNC_INTERVAL""",
-)
-@click.option("--service", required=True, help="Unit name (with or without the aitbc- prefix/.service suffix)")
-@click.option("--names", multiple=True, help="Report only whether each named variable is set (repeatable)")
-@click.pass_context
-def env_names(ctx, service: str, names: tuple[str, ...]):
-    """List environment variable NAMES declared in a service's env files.
-
-    Reads the unit's full ``EnvironmentFiles`` list via ``systemctl show``
-    so drop-in files are included. Names only — values and ``Environment=``
-    inline assignments are never printed.
-    """
-    service_name = _service_unit_name(service)
-    files = _unit_env_files(service_name)
-    if not files:
-        fallback = Path("/etc/aitbc") / f"{service_name.removesuffix('.service')}.env"
-        if fallback.exists():
-            files = [(fallback, False)]
-    if not files:
-        raise click.ClickException(
-            f"{service_name} declares no EnvironmentFile and no /etc/aitbc/{service_name.removesuffix('.service')}.env exists"
-        )
-
-    # Environment variable names are case-sensitive — report each exactly as given.
-    wanted = list(names)
-    report: list[dict[str, Any]] = []
-    present: set[str] = set()
-    for path, optional in files:
-        entry: dict[str, Any] = {"file": str(path)}
-        if optional:
-            entry["optional"] = True
-        if not path.exists():
-            entry["missing"] = True
-            report.append(entry)
-            continue
-        key_names, bad_lines = _env_file_key_names(path)
-        present |= key_names
-        entry["names"] = sorted(key_names if not wanted else (key_names & set(wanted)))
-        if bad_lines:
-            entry["unparsed_lines"] = bad_lines
-        report.append(entry)
-
-    if wanted:
-        output({n: n in present for n in sorted(set(wanted))}, ctx.obj.get("output_format", "table"))
-    else:
-        output(report, ctx.obj.get("output_format", "table"))
-
-
 _FIELD_DENY_NAMES = frozenset({"private_key", "secret", "password", "token", "mnemonic", "seed", "key", "api_key"})
 # Exact match after stripping '-'/'_' and lowercasing — catches spellings the
 # '_' form misses (e.g. "privatekey", "api-key", "pass_phrase").
@@ -847,7 +793,7 @@ _FIELD_DENY_KEY_PREFIXES = ("private", "secret", "api", "auth", "signing", "acce
 _FIELD_MAX_VALUE = 200
 # Generated from the constants above so --help can never drift from the code.
 _FIELD_DENY_EPILOG = (
-    "--field refused names: "
+    "--field/--value refused names: "
     + ", ".join(sorted(_FIELD_DENY_NAMES))
     + "; any name ending in '_key'; separator-insensitive forms "
     + ", ".join(sorted(_FIELD_DENY_NORMALIZED))
@@ -873,6 +819,207 @@ def _subtree_has_denied(value: Any) -> bool:
     if isinstance(value, list):
         return any(_subtree_has_denied(v) for v in value)
     return False
+
+
+_PROC_ROOT = Path("/proc")
+
+
+def _unit_main_pid(service_name: str) -> tuple[int, str | None]:
+    """``(MainPID, ActiveEnterTimestamp)`` for a unit via one ``systemctl show`` call.
+
+    Clean one-line failures — never a traceback, never partial output.
+    """
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", service_name, "-p", "MainPID,ActiveEnterTimestamp", "--value"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        raise click.ClickException(f"cannot query systemd for {service_name}: {e}") from e
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+        raise click.ClickException(f"systemctl show failed for {service_name}: {detail}")
+    lines = result.stdout.splitlines()
+    try:
+        pid = int(lines[0].strip()) if lines and lines[0].strip() else 0
+    except ValueError:
+        raise click.ClickException(f"unparseable MainPID in systemctl output for {service_name}") from None
+    active_enter = None
+    if len(lines) > 1 and lines[1].strip():
+        active_enter = lines[1].strip()
+    return pid, active_enter
+
+
+def _process_environ(pid: int, proc_root: Path | None = None) -> dict[str, bytes]:
+    """The ``/proc/<pid>/environ`` table, decoded lazily.
+
+    Returned as name -> raw value bytes so a names-only caller never decodes
+    value content. The mapping must never be logged, persisted or printed
+    wholesale — callers pick names, or the single ``--value`` lookup.
+    """
+    root = proc_root if proc_root is not None else _PROC_ROOT
+    environ_path = root / str(pid) / "environ"
+    try:
+        raw = environ_path.read_bytes()
+    except PermissionError as e:
+        raise click.ClickException(f"cannot read {environ_path}: permission denied (run as root or the unit's user)") from e
+    except FileNotFoundError as e:
+        raise click.ClickException(f"{environ_path} vanished — the process exited between the two reads") from e
+    except OSError as e:
+        raise click.ClickException(f"cannot read {environ_path}: {e}") from e
+    env: dict[str, bytes] = {}
+    for item in raw.split(b"\x00"):
+        name, sep, value = item.partition(b"=")
+        if item and sep:
+            env[name.decode("utf-8", "replace")] = value
+    return env
+
+
+def _declared_key_names(files: list[tuple[Path, bool]]) -> set[str]:
+    """Union of variable names across declared env files (missing files skipped)."""
+    declared: set[str] = set()
+    for path, _optional in files:
+        if path.exists():
+            names, _bad = _env_file_key_names(path)
+            declared |= names
+    return declared
+
+
+@system.command(
+    "env-names",
+    epilog="""Examples:
+
+  aitbc system env-names --service aitbc-coordinator-api
+
+  aitbc system env-names --service blockchain-node --names LOG_LEVEL SYNC_INTERVAL
+
+  aitbc system env-names --service blockchain-node --process --names BRIDGE_ROOT_SHADOW_CHECK
+
+  aitbc system env-names --service blockchain-node --process --value BRIDGE_ROOT_SHADOW_CHECK
+
+"""
+    + _FIELD_DENY_EPILOG,
+)
+@click.option("--service", required=True, help="Unit name (with or without the aitbc- prefix/.service suffix)")
+@click.option("--names", multiple=True, help="Report only whether each named variable is set (repeatable)")
+@click.option(
+    "--process",
+    "process_env",
+    is_flag=True,
+    help="Read the running process environment via /proc/<MainPID>/environ — names only — instead of the "
+    "declared env files; combined output flags declared_only/process_only drift",
+)
+@click.option(
+    "--value",
+    "value_name",
+    default=None,
+    metavar="NAME",
+    help="Print the value of ONE named variable from the process environment (requires --process; the "
+    "deny-list and length cap below apply — a refusal names the rule, never the value)",
+)
+@click.pass_context
+def env_names(ctx, service: str, names: tuple[str, ...], process_env: bool, value_name: str | None):
+    """List environment variable NAMES declared in a service's env files.
+
+    Reads the unit's full ``EnvironmentFiles`` list via ``systemctl show``
+    so drop-in files are included. Names only — values and ``Environment=``
+    inline assignments are never printed.
+
+    ``--process`` switches the source to the running process environment
+    (``/proc/<MainPID>/environ``) — the only place variables set outside any
+    ``EnvironmentFile`` (e.g. injected by a drop-in ``Environment=`` or a
+    wrapper) show up. Still names only unless ``--value`` picks ONE
+    non-deny-listed name.
+    """
+    service_name = _service_unit_name(service)
+
+    if value_name is not None and not process_env:
+        raise click.ClickException("--value requires --process (env files never print values)")
+
+    files = _unit_env_files(service_name)
+    if not files:
+        fallback = Path("/etc/aitbc") / f"{service_name.removesuffix('.service')}.env"
+        if fallback.exists():
+            files = [(fallback, False)]
+    if not files and not process_env:
+        raise click.ClickException(
+            f"{service_name} declares no EnvironmentFile and no /etc/aitbc/{service_name.removesuffix('.service')}.env exists"
+        )
+
+    # Environment variable names are case-sensitive — report each exactly as given.
+    wanted = list(names)
+
+    if process_env:
+        pid, active_enter = _unit_main_pid(service_name)
+        if pid <= 0:
+            raise click.ClickException(f"{service_name} is not running (MainPID={pid}) — no process environment")
+        env = _process_environ(pid)
+        process_names = set(env)
+
+        if value_name is not None:
+            if _field_name_denied(value_name):
+                raise click.ClickException(f"--value refused (deny-listed name): {value_name}")
+            if value_name not in env:
+                raise click.ClickException(f"{value_name} is not set in the process environment of {service_name}")
+            value = env[value_name]
+            if len(value) > _FIELD_MAX_VALUE:
+                raise click.ClickException(f"--value refused (value over {_FIELD_MAX_VALUE} characters): {value_name}")
+            # The single approved value is the ONLY content ever printed from environ.
+            click.echo(value.decode("utf-8", "replace"))
+            return
+
+        declared = _declared_key_names(files)
+        if wanted:
+            name_report: dict[str, dict[str, Any]] = {}
+            for n in sorted(set(wanted)):
+                name_entry: dict[str, Any] = {"set": n in process_names}
+                if n in process_names and n not in declared:
+                    name_entry["drift"] = "process_only"
+                elif n not in process_names and n in declared:
+                    name_entry["drift"] = "declared_only"
+                name_report[n] = name_entry
+            output(
+                {"source": "process", "main_pid": pid, "active_enter_timestamp": active_enter, "names": name_report},
+                ctx.obj.get("output_format", "table"),
+            )
+        else:
+            output(
+                {
+                    "source": "process",
+                    "main_pid": pid,
+                    "active_enter_timestamp": active_enter,
+                    "names": sorted(process_names),
+                    "declared_only": sorted(declared - process_names),
+                    "process_only": sorted(process_names - declared),
+                },
+                ctx.obj.get("output_format", "table"),
+            )
+        return
+
+    report: list[dict[str, Any]] = []
+    present: set[str] = set()
+    for path, optional in files:
+        entry: dict[str, Any] = {"file": str(path)}
+        if optional:
+            entry["optional"] = True
+        if not path.exists():
+            entry["missing"] = True
+            report.append(entry)
+            continue
+        key_names, bad_lines = _env_file_key_names(path)
+        present |= key_names
+        entry["names"] = sorted(key_names if not wanted else (key_names & set(wanted)))
+        if bad_lines:
+            entry["unparsed_lines"] = bad_lines
+        report.append(entry)
+
+    if wanted:
+        output({n: n in present for n in sorted(set(wanted))}, ctx.obj.get("output_format", "table"))
+    else:
+        output(report, ctx.obj.get("output_format", "table"))
 
 
 @system.command(
