@@ -298,7 +298,14 @@ def phase_genesis(root: Path, *, force: bool = False) -> Path:
     ]
     if force:
         cmd.append("--force")
-    child_env = dict(os.environ, PYTHONPATH=f"{REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src")
+    child_env = dict(
+        os.environ,
+        PYTHONPATH=f"{REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src",
+        # The builder imports ChainSettings — keep it off the host env file
+        # and off the live redis, same policy as the rehearsal instances.
+        AITBC_CHAIN_ENV_FILE="",
+        REDIS_URL="redis://127.0.0.1:16379",
+    )
     subprocess.run(cmd, check=True, env=child_env)
     built = build_dir / "out" / "data" / CHAIN_ID / "genesis.json"
     if not built.exists():
