@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.ethereum_rpc import EthereumRPCClient
 from aitbc.oracles.price_oracle import get_price_oracle
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 
 from .storage import (
@@ -256,7 +257,7 @@ class BridgeMonitor:
                 return None
             nonce = int(sender_response.json().get("nonce", 0))
 
-            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+            chain_id = resolve_chain_id()
             tx_amount = ait_to_units(amount)
             transaction = {
                 "type": "TRANSFER",
