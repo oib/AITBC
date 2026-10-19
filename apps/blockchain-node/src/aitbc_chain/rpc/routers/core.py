@@ -11,6 +11,7 @@ from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
 
+from ...chain_id import resolve_chain_id
 from ...config import settings
 from ...database import session_scope
 from ...logger import get_logger
@@ -186,7 +187,7 @@ async def get_info_route(request: Request, chain_id: str | None = None) -> dict[
     }
 
     return {
-        "chain_id": getattr(settings, "chain_id", "ait-localnet"),
+        "chain_id": resolve_chain_id(),
         "height": head.get("height", 0),
         "total_transactions": total_transactions,
         "total_accounts": total_accounts,
@@ -248,7 +249,7 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
 
     # 4. Identity and chain metadata from settings.
     p2p_node_id = settings.p2p_node_id or settings.proposer_id or "unknown"
-    chain_id = settings.chain_id or "ait-localnet"
+    chain_id = resolve_chain_id()
     supported = [c.strip() for c in settings.supported_chains.split(",") if c.strip()]
     if not supported and chain_id:
         supported = [chain_id]

@@ -273,14 +273,10 @@ def unlock_wallet(
     finally:
         if "secret" in locals():
             wipe_buffer(secret)
-    # Get chain_id from ledger
-    chain_id = "ait-mainnet"
+    # Get chain_id from ledger; no literal default — omit when not recorded.
+    chain_id = os.getenv("CHAIN_ID", "")
     if ledger_record := ledger.get_wallet(wallet_id):
-        chain_id = (
-            ledger_record.metadata.get("chain_id", "ait-mainnet")
-            if isinstance(ledger_record.metadata, dict)
-            else "ait-mainnet"
-        )
+        chain_id = ledger_record.metadata.get("chain_id", chain_id) if isinstance(ledger_record.metadata, dict) else chain_id
     # We don't expose the secret in response
     return WalletUnlockResponse(wallet_id=wallet_id, chain_id=chain_id, unlocked=True)
 
@@ -311,13 +307,9 @@ def sign_payload(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials") from None
 
     signature_b64 = base64.b64encode(signature).decode()
-    chain_id = "ait-mainnet"
+    chain_id = os.getenv("CHAIN_ID", "")
     if ledger_record := ledger.get_wallet(wallet_id):
-        chain_id = (
-            ledger_record.metadata.get("chain_id", "ait-mainnet")
-            if isinstance(ledger_record.metadata, dict)
-            else "ait-mainnet"
-        )
+        chain_id = ledger_record.metadata.get("chain_id", chain_id) if isinstance(ledger_record.metadata, dict) else chain_id
     return WalletSignResponse(wallet_id=wallet_id, chain_id=chain_id, signature_base64=signature_b64)
 
 

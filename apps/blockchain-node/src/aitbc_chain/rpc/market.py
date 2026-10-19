@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from aitbc.security import SecurityAuditor, SecurityValidator
 
+from ..chain_id import resolve_chain_id
 from ..config import settings
 from ..metrics import metrics_registry
 from .utils import withdrawn_listing_ids
@@ -98,7 +98,7 @@ class MarketCreateRequest(BaseModel):
 
 def _chain_db_path() -> Path:
     """The chain.db the listing reader opens: the configured chain's, else the legacy single-chain file."""
-    path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+    path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
     if not path.exists():
         path = Path("/var/lib/aitbc/data/chain.db")
     return path

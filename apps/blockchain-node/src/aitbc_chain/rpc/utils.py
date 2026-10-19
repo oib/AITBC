@@ -16,6 +16,7 @@ from fastapi import HTTPException
 from aitbc.constants import DATA_DIR
 
 from ..base_models import _to_ait_address
+from ..chain_id import ChainIdNotConfigured, resolve_chain_id
 from ..config import settings
 from ..logger import get_logger
 
@@ -249,10 +250,12 @@ def get_poa_proposer(chain_id: str | None = None) -> Any:
 
 
 def get_chain_id(chain_id: str | None = None) -> str:
-    """Get chain_id from parameter or use default from settings"""
-    if not chain_id:
-        return settings.chain_id or "ait-mainnet"
-    return chain_id
+    """Get chain_id from parameter or the configured default.
+
+    Raises ``ChainIdNotConfigured`` when no chain id is configured instead
+    of returning a hard-coded fallback.
+    """
+    return resolve_chain_id(chain_id)
 
 
 def validate_chain_id(chain_id: str) -> bool:
@@ -444,7 +447,13 @@ def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
     if issued is None or abs(time.time() - issued) > _ADMIN_MAX_SKEW_SECS:
         _logger.warning("Rejected admin request: missing, non-finite or stale issued_at")
         return False
-    local_chain = settings.chain_id or "ait-mainnet"
+    try:
+        local_chain = resolve_chain_id()
+    except ChainIdNotConfigured:
+        # Fail closed: with no configured chain this node cannot prove the
+        # request targets it.
+        _logger.warning("Rejected admin request: no chain id configured on this node")
+        return False
     target_chain = sign_payload.get("target_chain_id")
     if not isinstance(target_chain, str) or not target_chain or target_chain != local_chain:
         _logger.warning("Rejected admin request: target_chain_id '%s' does not match chain '%s'", target_chain, local_chain)
