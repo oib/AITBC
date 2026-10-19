@@ -1,0 +1,1 @@
+{"kind":"stream-manifest","profile":"deployed","source":{"chain_id":"ait-hub.aitbc.bubuit.net","empty_block_state_root_breaks":[],"empty_blocks":52960,"kind":"stream-manifest","source_snapshot_sha256":"56f1a076152dca501e23dd1fe79cda97152a0fceab9fa59c06de4cd4d20243cb","tip_height":53348,"transactions":434,"tx_bearing_blocks":389}}
