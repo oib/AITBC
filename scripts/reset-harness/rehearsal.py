@@ -46,6 +46,7 @@ once (a ``<scratch>/.lock`` plus a systemd unit-name check).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import secrets
@@ -417,6 +418,11 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "SYNC_MANAGER_ENABLED": "true",
         "SYNC_STATE_ROOT_VALIDATION_ENABLED": "true",
         "SUBSCRIPTION_ENABLED": "true",  # fleet value (node2 blockchain.env)
+        # Sync-manager node identity (settings.proposer_id or p2p_node_id or
+        # "unknown"): proposers win on PROPOSER_ID; the follower needs this or
+        # its /rpc/subscribe body presents "unknown" and the peer-key binding
+        # (issued for this name at join) can never match.
+        "P2P_NODE_ID": inst.name,
         # i0 doubles as the hub: follower's sync source, import URL and hub
         # discovery all resolve to its rehearsal RPC.
         "HUB_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
@@ -451,6 +457,49 @@ def _write_instance_envs(root: Path, keys: dict) -> None:
         env_file = inst.dir / "instance.env"
         env_file.write_text(_env_lines(root, inst, keys))
         env_file.chmod(0o600)
+    _seed_follower_peer_key(root)
+
+
+def _seed_follower_peer_key(root: Path) -> None:
+    """Pre-issue the follower's RPC peer key directly into the hub's
+    ``peer_keys.db`` — the same row ``POST /rpc/join`` writes (SHA-256 of the
+    key, bound to the follower's ``P2P_NODE_ID``).
+
+    Two fleet behaviours make the seed necessary. Subscription delivery is
+    push-only: ``/rpc/subscribe`` needs a node-bound peer key, and the
+    websocket streams only new seals — a follower that joins after block 1
+    gets no backlog, while pull sync fires only above ``auto_sync_threshold``
+    (10). And a follower whose RPC bootstrap wins the genesis race mints its
+    own block-0 timestamp, which skews ``proposer_round`` on every later
+    block — so the follower must load genesis from its file like the
+    proposers, which means all five node units start before any RPC unit
+    exists to bootstrap from. A pre-issued key lets the follower authenticate
+    from its first process start instead of joining mid-flight.
+    """
+    hub, follower = instances(root)[0], instances(root)[-1]
+    key = f"aitbc-peer-{secrets.token_hex(24)}"
+    env_file = follower.dir / "instance.env"
+    env_file.write_text(env_file.read_text() + f"BLOCKCHAIN_RPC_API_KEY={key}\n")
+    db = hub.dir / "data" / "peer_keys.db"
+    with sqlite3.connect(str(db)) as conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS peer_keys ("
+            " key_hash TEXT PRIMARY KEY,"
+            " node_id TEXT NOT NULL,"
+            " issued_ip TEXT NOT NULL,"
+            " contact TEXT,"
+            " created_at REAL NOT NULL,"
+            " revoked_at REAL"
+            ")"
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_peer_keys_active_node ON peer_keys(node_id) WHERE revoked_at IS NULL"
+        )
+        conn.execute(
+            "INSERT INTO peer_keys (key_hash, node_id, issued_ip, contact, created_at, revoked_at)"
+            " VALUES (?, ?, ?, ?, ?, NULL)",
+            (hashlib.sha256(key.encode()).hexdigest(), follower.name, "rehearsal-seed", None, time.time()),
+        )
 
 
 def _live_snapshot() -> dict[str, dict[str, str]]:
@@ -660,11 +709,15 @@ def phase_up(root: Path, python: str, max_load: float, min_avail_mib: int) -> No
     _write_instance_envs(root, keys)
     _spawn_redis(root)
     insts = instances(root)
-    # Nodes first, RPC units only after every node has loaded genesis from its
-    # own file. Otherwise later starters bootstrap block 0 over i0's
-    # /rpc/genesis_allocations — a payload that serves allocations but no
-    # chain_parameter/bridge_validator rows, so their aux fingerprint diverges
-    # and every imported block fails the v14 aux-state-root check.
+
+    # All five node units start before any RPC unit exists: genesis then
+    # comes from each instance's own genesis.json — the RPC bootstrap path
+    # serves allocations only (no chain_parameter/bridge_validator rows and a
+    # locally-minted block-0 timestamp that skews proposer_round), so letting
+    # it win makes a late starter diverge on the schedule and the v14 aux
+    # root. The follower's peer key was already seeded into i0's
+    # peer_keys.db at env-write time, so its subscription authenticates from
+    # the first connection — no enrollment window is needed.
     for inst in insts:
         _spawn(inst, python, with_rpc=False)
         time.sleep(0.5)
