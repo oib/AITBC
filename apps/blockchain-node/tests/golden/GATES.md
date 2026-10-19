@@ -77,17 +77,31 @@ consistent with apply.
 | `rpc/transactions.py:206` | v11 via `get_block_version_for_height` | `< 11` ⇒ refuse | ESCROW_FEE_SWEEP admission |
 | `rpc/transactions.py:216` | v10 via `get_block_version_for_height` | `< 10` ⇒ refuse | GPU_DEREGISTER admission |
 
-## Boolean flags — not height gates, keep at release values
+## Boolean flags — not height gates; the release sets each deliberately
 
-`bridge_lock_require_replay_guard` (`config.py:535`),
-`cross_chain_require_replay_guard` (`:542`), `bridge_root_shadow_check`
-(`:701`), `side_root_shadow_enabled` (`:718`),
-`parallel_tx_validation` (`:638`), `consensus_enforce_proposer_schedule`
-(`:970`), `proposal_freshness_check_enabled` (`:976`), plus
-`bridge_release_enabled` (`:516`), `bridge_multisig_enabled` (`:585`) and the
-sync/gossip flag family. These are on/off switches, not activation heights —
-do not fold them into the "every gate at 1" statement; the release sets each
-deliberately.
+On/off switches, not activation heights — do not fold them into the "every
+gate at 1" statement. Deployed values sampled from the live service envs
+(node2 + hub `aitbc-blockchain-{node,rpc,p2p}` and bridge units); anything
+not listed as observed carries its code default.
+
+| setting | code default | deployed (observed) | suggested bc-2 | source |
+|---|---|---|---|---|
+| `bridge_lock_require_replay_guard` | false | **true** (env) | true | `config.py:535` |
+| `cross_chain_require_replay_guard` | false | **true** (env) | true | `config.py:542` |
+| `side_root_shadow_enabled` | false | **true** (env) | true | `config.py:718` |
+| `bridge_root_shadow_check` | false | unset → false | false | `config.py:701` |
+| `parallel_tx_validation` | false | unset → false | false | `config.py:638` |
+| `consensus_enforce_proposer_schedule` | true | unset → true | true | `config.py:970` |
+| `proposal_freshness_check_enabled` | true | unset → true | true | `config.py:976` |
+| `bridge_release_enabled` | false | unset → false | false (release decision) | `config.py:516` |
+| `bridge_relayer_enabled` | true | unset → true | true | `config.py:569` |
+| `bridge_multisig_enabled` | false | unset → false (env comment says "production fleet: true" — not observed in sampled envs; decide at release) | release decision | `config.py:585` |
+| `multi_validator_min_attestations` | — | **2** (env) | 2 (3-of-4 rehearsal) | env observed |
+
+The sync/gossip flag family (`sync_*_enabled`, `gossip_auth_enabled`,
+`auto_resync_enabled`, `periodic_sync_enabled`, `subscription_enabled`,
+`cross_site_sync_enabled` — `config.py:92-404`) is operational plumbing, not
+consensus: inherit live values unless the release decides otherwise.
 
 ## Proven answers (gates1 profile, 67-case synthetic + 389-block real stream)
 
@@ -116,9 +130,11 @@ deliberately.
   wrong-recipient fee sweep (v11), unreadable bridge leaf (v14),
   immature/spent stake release (v4) — all recorded in
   `expected/gates1/synthetic/`.
-- **Era-dependent diffs vs `deployed`:** 48 of 60 original cases differ —
+- **Era-dependent diffs vs `deployed`:** 55 of 67 cases differ —
   every one because the case deliberately sits below a deployed pin
   (unsigned txs at v1-v8 heights, executes before v13 binding, sweeps
-  before v11). No unexpected diff exists; the 12 post-gate cases
-  (v13/v14/leafv2/aux-root band) are byte-identical between `deployed`
-  and `gates1`.
+  before v11, stake releases in the v1 era). Breakdown: **12 identical**
+  (the post-gate v13/v14/leafv2/aux band — byte-identical between
+  `deployed` and `gates1`), **30 version-only** (same verdict, same
+  reason, different resolved version), **21 verdict flips**,
+  **4 state-only**. No unexpected diff exists.
