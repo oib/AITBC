@@ -1,7 +1,7 @@
 """Bootstrap-time verification of genesis claims (V-5).
 
 ``_ensure_genesis_block`` wrote whatever hash and state_root a genesis file or the
-RPC bootstrap claimed, and every fleet genesis.json turned out to be an abandoned
+(removed) RPC bootstrap claimed, and every fleet genesis.json turned out to be an abandoned
 pre-migration stub — a fresh node would write the wrong block 0 and only notice
 when the next synced block failed its parent_hash check. ``_verify_genesis_claims``
 recomputes the allocation state root (the same ``StateManager.update_account``
@@ -109,18 +109,12 @@ def _proposer(session_factory) -> PoAProposer:
     return PoAProposer(config=config, session_factory=session_factory)
 
 
-def _patches(*, genesis_file: dict | None, rpc_payload: dict | None = None):
-    file_patch = patch.object(
+def _patch_file(*, genesis_file: dict | None):
+    return patch.object(
         PoAProposer,
         "_load_genesis_data_from_file",
         lambda self: genesis_file,
     )
-    rpc_patch = patch.object(
-        PoAProposer,
-        "_load_genesis_block_from_rpc",
-        AsyncMock(return_value=rpc_payload),
-    )
-    return file_patch, rpc_patch
 
 
 def _genesis_block(session_factory) -> Block | None:
@@ -130,8 +124,8 @@ def _genesis_block(session_factory) -> Block | None:
 
 async def test_self_consistent_genesis_file_bootstraps(session_factory) -> None:
     node = _proposer(session_factory)
-    file_patch, rpc_patch = _patches(genesis_file=_make_genesis([ALLOC_A, ALLOC_B]))
-    with file_patch, rpc_patch:
+    file_patch = _patch_file(genesis_file=_make_genesis([ALLOC_A, ALLOC_B]))
+    with file_patch:
         await node._ensure_genesis_block()
 
     genesis = _genesis_block(session_factory)
@@ -146,8 +140,8 @@ async def test_self_consistent_genesis_file_bootstraps(session_factory) -> None:
 
 async def test_wrong_state_root_is_refused_and_writes_nothing(session_factory) -> None:
     node = _proposer(session_factory)
-    file_patch, rpc_patch = _patches(genesis_file=_make_genesis([ALLOC_A], root="0x00"))
-    with file_patch, rpc_patch:
+    file_patch = _patch_file(genesis_file=_make_genesis([ALLOC_A], root="0x00"))
+    with file_patch:
         with pytest.raises(RuntimeError, match="state_root mismatch"):
             await node._ensure_genesis_block()
 
@@ -160,8 +154,8 @@ async def test_wrong_state_root_is_refused_and_writes_nothing(session_factory) -
 
 async def test_wrong_block_hash_is_refused_and_writes_nothing(session_factory) -> None:
     node = _proposer(session_factory)
-    file_patch, rpc_patch = _patches(genesis_file=_make_genesis([ALLOC_A], block_hash="0x" + "ab" * 32))
-    with file_patch, rpc_patch:
+    file_patch = _patch_file(genesis_file=_make_genesis([ALLOC_A], block_hash="0x" + "ab" * 32))
+    with file_patch:
         with pytest.raises(RuntimeError, match="hash mismatch"):
             await node._ensure_genesis_block()
 
@@ -173,15 +167,15 @@ async def test_empty_allocations_must_claim_the_empty_root(session_factory) -> N
     # the pre-migration stub shape. A self-consistent empty genesis still
     # passes, so a brand-new island that allocates nothing is not broken.
     node = _proposer(session_factory)
-    file_patch, rpc_patch = _patches(genesis_file=_make_genesis([], root="0x" + "11" * 32))
-    with file_patch, rpc_patch:
+    file_patch = _patch_file(genesis_file=_make_genesis([], root="0x" + "11" * 32))
+    with file_patch:
         with pytest.raises(RuntimeError, match="state_root mismatch"):
             await node._ensure_genesis_block()
     assert _genesis_block(session_factory) is None
 
     node2 = _proposer(session_factory)
-    file_patch, rpc_patch = _patches(genesis_file=_make_genesis([]))
-    with file_patch, rpc_patch:
+    file_patch = _patch_file(genesis_file=_make_genesis([]))
+    with file_patch:
         await node2._ensure_genesis_block()
     genesis = _genesis_block(session_factory)
     assert genesis is not None
@@ -191,25 +185,33 @@ async def test_empty_allocations_must_claim_the_empty_root(session_factory) -> N
 async def test_duplicated_allocation_address_is_refused(session_factory) -> None:
     dup = {"address": ALLOC_A["address"].lower(), "balance": 5, "nonce": 0}
     node = _proposer(session_factory)
-    file_patch, rpc_patch = _patches(genesis_file=_make_genesis([ALLOC_A, dup]))
-    with file_patch, rpc_patch:
+    file_patch = _patch_file(genesis_file=_make_genesis([ALLOC_A, dup]))
+    with file_patch:
         with pytest.raises(RuntimeError, match="duplicated allocation"):
             await node._ensure_genesis_block()
     assert _genesis_block(session_factory) is None
 
 
-async def test_rpc_bootstrap_root_mismatch_falls_back_to_file(session_factory) -> None:
-    """A bad RPC payload is rejected and the local file is tried instead."""
-    bad_rpc = {
-        "allocations": [ALLOC_A],
-        "genesis_hash": "0x" + "ab" * 32,
-        "genesis_state_root": "0x" + "11" * 32,
-    }
+async def test_missing_file_refuses_without_any_rpc_call(session_factory) -> None:
+    """RPC genesis bootstrap is removed: no file means a loud refusal, an
+    untouched database, and zero network traffic — a partial RPC payload
+    (no timestamp, parameters or bridge validators) can never be seeded."""
     node = _proposer(session_factory)
-    file_patch, rpc_patch = _patches(genesis_file=_make_genesis([ALLOC_B]), rpc_payload=bad_rpc)
-    with file_patch, rpc_patch:
+    fetch = AsyncMock(side_effect=AssertionError("genesis RPC must not be called"))
+    with (
+        _patch_file(genesis_file=None),
+        patch("aitbc_chain.consensus.poa.SharedHttpClient.get", fetch),
+        pytest.raises(RuntimeError, match="agent/genesis.json"),
+    ):
         await node._ensure_genesis_block()
 
-    genesis = _genesis_block(session_factory)
-    assert genesis is not None
-    assert genesis.state_root == _alloc_root([ALLOC_B])
+    fetch.assert_not_called()
+    assert _genesis_block(session_factory) is None
+    with session_factory() as session:
+        from aitbc_chain.base_models import ChainParameter
+        from aitbc_chain.cross_chain.bridge_validator import BridgeValidator
+        from aitbc_chain.models import Account
+
+        assert session.exec(select(Account).where(Account.chain_id == CHAIN_ID)).all() == []
+        assert session.exec(select(ChainParameter).where(ChainParameter.chain_id == CHAIN_ID)).all() == []
+        assert session.exec(select(BridgeValidator).where(BridgeValidator.chain_id == CHAIN_ID)).all() == []
