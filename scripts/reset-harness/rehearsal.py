@@ -408,16 +408,18 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "SYNC_MANAGER_ENABLED": "true",
         "SYNC_STATE_ROOT_VALIDATION_ENABLED": "true",
         "SUBSCRIPTION_ENABLED": "false",
+        # i0 doubles as the hub: follower's sync source, import URL and hub
+        # discovery all resolve to its rehearsal RPC.
+        "HUB_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
+        "HUB_BLOCKCHAIN_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
+        "AITBC_SYNC_SOURCE": f"http://127.0.0.1:{PORT_BASE + 2}",
+        "AITBC_SYNC_IMPORT_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
         # Dead loopback ports for every live-adjacent client default — anything
         # that ignores our backend choice fails fast rather than touching the
-        # live redis (6379), coordinator (8203), hub RPC (8202) or metrics (9009).
+        # live redis (6379) or coordinator (8203).
         "REDIS_URL": REHEARSAL_REDIS_URL,
         "GOSSIP_BROADCAST_URL": REHEARSAL_REDIS_URL,
         "COORDINATOR_API_URL": "http://127.0.0.1:18203",
-        "HUB_RPC_URL": "http://127.0.0.1:18202",
-        "HUB_BLOCKCHAIN_RPC_URL": "http://127.0.0.1:18202",
-        "AITBC_SYNC_SOURCE": "http://127.0.0.1:18202",
-        "AITBC_SYNC_IMPORT_URL": "http://127.0.0.1:18202",
         "AITBC_NODE_METRICS_HOST": "127.0.0.1",
         "AITBC_NODE_METRICS_PORT": str(PORT_BASE + inst.idx * PORT_STRIDE + 6),
         "MEMPOOL_DB_URL": "",
