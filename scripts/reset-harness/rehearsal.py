@@ -137,6 +137,12 @@ LIVE_UNITS = [
     "aitbc-wallet",
 ]
 
+# Rehearsal redis: lease_tracker requires a working broker on producers, and
+# pointing GOSSIP_BROADCAST_URL at a dead port crashes them. A dedicated
+# scratch instance on 16379 — never the live 6379 broker.
+REHEARSAL_REDIS_PORT = 16379
+REHEARSAL_REDIS_URL = f"redis://127.0.0.1:{REHEARSAL_REDIS_PORT}"
+
 DEFAULT_LOAD_CEILING = 24.0  # 1-min loadavg; node2 has 32 cores, live ~<10
 DEFAULT_MIN_AVAIL_MIB = 4096
 
@@ -374,7 +380,18 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "SYNC_MANAGER_ENABLED": "true",
         "SYNC_STATE_ROOT_VALIDATION_ENABLED": "true",
         "SUBSCRIPTION_ENABLED": "false",
-        "REDIS_URL": "redis://127.0.0.1:16379",
+        # Dead loopback ports for every live-adjacent client default — anything
+        # that ignores our backend choice fails fast rather than touching the
+        # live redis (6379), coordinator (8203), hub RPC (8202) or metrics (9009).
+        "REDIS_URL": REHEARSAL_REDIS_URL,
+        "GOSSIP_BROADCAST_URL": REHEARSAL_REDIS_URL,
+        "COORDINATOR_API_URL": "http://127.0.0.1:18203",
+        "HUB_RPC_URL": "http://127.0.0.1:18202",
+        "HUB_BLOCKCHAIN_RPC_URL": "http://127.0.0.1:18202",
+        "AITBC_SYNC_SOURCE": "http://127.0.0.1:18202",
+        "AITBC_SYNC_IMPORT_URL": "http://127.0.0.1:18202",
+        "AITBC_NODE_METRICS_HOST": "127.0.0.1",
+        "AITBC_NODE_METRICS_PORT": str(PORT_BASE + inst.idx * PORT_STRIDE + 6),
         "MEMPOOL_DB_URL": "",
         "DB_KEEPER_CONNECTION": "false",
         **GATE_ENV,
@@ -491,6 +508,41 @@ def _spawn(inst: Instance, python: str) -> None:
     )
 
 
+def _spawn_redis(root: Path) -> None:
+    """Dedicated scratch redis — no persistence, loopback only, scratch dir."""
+    redis_dir = root / "redis"
+    redis_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            "systemd-run",
+            "--collect",
+            "--unit=bc2-redis",
+            "--property=MemoryMax=256M",
+            "--property=TasksMax=64",
+            "--",
+            "redis-server",
+            "--bind",
+            "127.0.0.1",
+            "--port",
+            str(REHEARSAL_REDIS_PORT),
+            "--dir",
+            str(redis_dir),
+            "--save",
+            "",
+            "--appendonly",
+            "no",
+            "--protected-mode",
+            "yes",
+            # Loopback-only + protected mode; no requirepass — the rehearsal
+            # URLs carry no credentials.
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    print(f"[+] bc2-redis up on 127.0.0.1:{REHEARSAL_REDIS_PORT} (scratch-only broker)")
+
+
 def _unit_pid(name: str) -> str | None:
     out = subprocess.run(
         ["systemctl", "show", name, "-p", "MainPID", "--value"],
@@ -527,6 +579,7 @@ def phase_up(root: Path, python: str, max_load: float, min_avail_mib: int) -> No
     _check_host_budget(max_load, min_avail_mib)
     keys = _load_keys(root)
     _write_instance_envs(root, keys)
+    _spawn_redis(root)
     for inst in instances(root):
         _spawn(inst, python)
         print(f"[+] {inst.name} ({inst.role}) up: rpc=127.0.0.1:{inst.rpc_port} dir={inst.dir}")
@@ -736,6 +789,7 @@ def phase_golden(root: Path, python: str) -> None:
 def phase_teardown(root: Path) -> None:
     for inst in instances(root):
         subprocess.run(["systemctl", "stop", inst.name], capture_output=True, timeout=15)
+    subprocess.run(["systemctl", "stop", "bc2-redis"], capture_output=True, timeout=15)
     for inst in instances(root):
         for _ in range(20):
             if _unit_pid(inst.name) is None:
