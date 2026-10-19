@@ -150,7 +150,10 @@ def _run_subprocess(
     )
 
 
-def _stop_services() -> None:
+def _stop_services(scratch_only: bool) -> None:
+    if scratch_only:
+        success("Scratch reset: not touching live systemd units.")
+        return
     for unit in SERVICE_UNITS:
         try:
             _run_subprocess(["systemctl", "stop", unit], check=False)
@@ -158,7 +161,9 @@ def _stop_services() -> None:
             pass
 
 
-def _start_services() -> None:
+def _start_services(scratch_only: bool) -> None:
+    if scratch_only:
+        return
     for unit in SERVICE_UNITS:
         try:
             _run_subprocess(["systemctl", "start", unit], check=False)
@@ -166,8 +171,10 @@ def _start_services() -> None:
             pass
 
 
-def _service_status() -> dict[str, str]:
+def _service_status(scratch_only: bool) -> dict[str, str]:
     status: dict[str, str] = {}
+    if scratch_only:
+        return status
     for unit in SERVICE_UNITS:
         try:
             r = _run_subprocess(["systemctl", "is-active", unit], check=False)
@@ -232,11 +239,14 @@ def _generate_wallet(
     return address, public_key_hex
 
 
-def _clear_wallet_dbs() -> None:
-    """Clear the wallet daemon DBs so they re-import from env/files on restart."""
-    wallet_db = Path("/var/lib/aitbc/data/wallet_ledger.db")
-    keystore_db = Path("/var/lib/aitbc/data/keystore.db")
-    for db in (wallet_db, keystore_db):
+def _clear_wallet_dbs(data_dir: Path) -> None:
+    """Clear the wallet daemon DBs so they re-import from env/files on restart.
+
+    Honour the reset's data dir — under the reset guard every target is
+    scratch-confined, so this must never reach the live
+    ``/var/lib/aitbc/data`` from a scratch run.
+    """
+    for db in (data_dir / "wallet_ledger.db", data_dir / "keystore.db"):
         try:
             if db.exists():
                 db.unlink()
@@ -280,13 +290,21 @@ def _genesis_wallet(
     return address, ""
 
 
-def _run_reset_script(reset_script: Path, db_path: Path, chain_id: str) -> bool:
+def _run_reset_script(
+    reset_script: Path, db_path: Path, chain_id: str, data_dir: Path, etc_dir: Path, wallet_dir: Path
+) -> bool:
     """Run reset_chain_0x.py against the chain DB. False on failure — the caller
     is responsible for restarting services before bailing out."""
     success("Running genesis reset script...")
     env_override = {
         "CHAIN_ID": chain_id,
         "DB_PATH": str(db_path),
+        # ChainSettings derives db_path as AITBC_DATA_DIR/"data"/<chain>/chain.db,
+        # while this module's --data-dir already names the "data" leaf — pass
+        # the parent so the child lands on the same chain.db.
+        "AITBC_DATA_DIR": str(data_dir.parent),
+        "AITBC_ETC_DIR": str(etc_dir),
+        "AITBC_WALLETS_DIR": str(wallet_dir),
     }
     try:
         r = _run_subprocess([sys.executable, str(reset_script)], env=env_override)
@@ -321,11 +339,14 @@ def reset_genesis(
     etc_dir: Path | None = None,
     wallet_dir: Path | None = None,
 ) -> dict[str, Any] | None:
-    """Reset the local chain with a new genesis block and optional new wallet.
+    """Reset a chain with a new genesis block and optional new wallet — scratch only.
 
-    This is a destructive operation: it stops services, backs up the old chain
-    data, and rewrites the genesis block.  The caller is responsible for any
-    confirmation prompts; ``yes`` only suppresses internal safety checks here.
+    This is a destructive operation: it backs up the old chain data and
+    rewrites the genesis block.  Under the shared reset guard the tool has no
+    live mode: ``AITBC_RESET_SCRATCH`` must name the scratch root and every
+    target must resolve under it.  Scratch runs never touch systemd units.
+    The caller is responsible for any confirmation prompts; ``yes`` only
+    suppresses internal safety checks here.
     """
     if not chain_id:
         chain_id = os.environ.get("CHAIN_ID", DEFAULT_CHAIN_ID)
@@ -341,14 +362,42 @@ def reset_genesis(
         error(f"Reset script not found: {reset_script}")
         return None
 
-    backup_root = DEFAULT_BACKUP_ROOT / f"aitbc-genesis-reset-{_now_str()}"
+    try:
+        # Lazy import: the guard lives in the shared `aitbc` package and a
+        # worktree/dev shell can resolve that package to a different checkout
+        # than this CLI — module import must not kill the command group. The
+        # entry point still refuses (fail closed) when it cannot be loaded.
+        from aitbc.utils import reset_guard
+    except ImportError as exc:
+        error(f"reset-guard: cannot load aitbc.utils.reset_guard ({exc}) — refusing")
+        return None
+
+    try:
+        scratch = reset_guard.scratch_root()
+        backup_root = scratch / f"aitbc-genesis-reset-{_now_str()}"
+        reset_guard.assert_scratch_targets(
+            data_dir,
+            etc_dir,
+            wallet_dir,
+            db_path,
+            backup_root,
+            data_dir / "wallet_ledger.db",
+            data_dir / "keystore.db",
+        )
+        reset_guard.assert_not_live_chain(chain_id)
+        if new_wallet:
+            reset_guard.assert_single_proposer(etc_dir)
+    except reset_guard.ResetGuardError as exc:
+        error(str(exc))
+        return None
+
     backup_root.mkdir(parents=True, exist_ok=True)
 
     success(f"Stopping AITBC services for chain {chain_id}...")
-    _stop_services()
+    _stop_services(scratch_only=True)
 
     # Clear the wallet daemon DB so it re-imports from env/files on restart.
-    _clear_wallet_dbs()
+    _clear_wallet_dbs(data_dir)
 
     # Back up env.
     _backup_env(etc_dir, backup_root)
@@ -356,13 +405,13 @@ def reset_genesis(
     # Generate or load wallet.
     wallet = _genesis_wallet(new_wallet, etc_dir, wallet_dir, chain_id, password)
     if wallet is None:
-        _start_services()
+        _start_services(scratch_only=True)
         return None
     address, public_key = wallet
 
     # Run the genesis reset script.
-    if not _run_reset_script(reset_script, db_path, chain_id):
-        _start_services()
+    if not _run_reset_script(reset_script, db_path, chain_id, data_dir, etc_dir, wallet_dir):
+        _start_services(scratch_only=True)
         return None
 
     # Fix ownership of the new chain DB so the aitbc user can write it.
@@ -371,10 +420,10 @@ def reset_genesis(
 
     # Restart services.
     success("Restarting services...")
-    _start_services()
+    _start_services(scratch_only=True)
     time.sleep(3)
 
-    status = _service_status()
+    status = _service_status(scratch_only=True)
     return {
         "chain_id": chain_id,
         "genesis_address": address,
