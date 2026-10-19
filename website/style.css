@@ -1497,6 +1497,24 @@ a.btn-secondary {
     flex: 1;
     margin-left: 1rem;
 }
+@media (max-width: 640px) {
+    /* Phone: a 100px label column leaves ~106px for long endpoint/record
+       values — stack the label above the value so the row stays readable. */
+    .offer-list-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+    }
+    .offer-list-label {
+        min-width: 0;
+    }
+    .offer-list-value {
+        margin-left: 0;
+        text-align: left;
+        min-width: 0;
+        max-width: 100%;
+    }
+}
 .offer-description {
     color: var(--text-muted);
     font-size: 0.875rem;
