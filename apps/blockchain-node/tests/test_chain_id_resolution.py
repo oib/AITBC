@@ -59,10 +59,11 @@ def test_get_engine_opens_no_file_when_unconfigured(unconfigured, monkeypatch):
         "get_db_path",
         lambda self, chain_id="": calls.append(chain_id) or Path("/nonexistent/chain.db"),
     )
+    before = set(database._engines)
     with pytest.raises(ChainIdNotConfigured):
         get_engine()
     assert calls == []  # resolution failed before any path was consulted
-    assert database._engines == {}
+    assert set(database._engines) == before  # no new engine was opened
 
 
 def test_init_db_refuses_before_creating_anything(unconfigured, monkeypatch):
