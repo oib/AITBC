@@ -19,6 +19,9 @@ import pytest
 # Pop them so the test suite builds its own throwaway SQLite+aiosqlite database.
 os.environ.pop("DATABASE_URL", None)
 os.environ.pop("DB_TYPE", None)
+# The suite runs as a configured service: default_chain_id no longer
+# substitutes a literal chain since #307, so tests pin an explicit test id.
+os.environ.setdefault("DEFAULT_CHAIN_ID", "ait-testchain")
 
 _SRC = str(Path(__file__).resolve().parent.parent / "src")
 if _SRC not in sys.path:
