@@ -88,22 +88,6 @@ _SEQUENTIAL_ONLY_TX_TYPES = SEQUENTIAL_ONLY_TX_TYPES
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 
 
-def _with_scheme(url: str) -> str:
-    """Return ``url`` with an HTTP scheme, preserving one it already has (V23-60).
-
-    The previous form tested only for ``http://`` before prepending ``http://``, so an
-    ``https://`` peer fell through the strip and came out as
-    ``http://https://hub.example.net`` — a hostname that cannot resolve. RPC genesis
-    bootstrap was therefore dead against any TLS-fronted hub, and the failure read as DNS
-    ("Name or service not known") rather than as a malformed URL.
-
-    Matches the idiom already used in ``aitbc/sync/source_resolver.py`` and ``sync_bulk.py``.
-    """
-    if url.startswith(("http://", "https://")):
-        return url
-    return f"http://{url}"
-
-
 def _escrow_addresses_from_txs(tx_datas: list[dict[str, Any]]) -> set[str]:
     """Return the per-escrow addresses for any ESCROW_RELEASE/REFUND txs."""
     escrow_addrs: set[str] = set()
@@ -1638,61 +1622,12 @@ class PoAProposer:
                     genesis.proposer,
                 )
                 return
-            self._logger.info("Attempting RPC bootstrap for genesis block for chain %s", self._config.chain_id)
-            rpc_genesis_data = await self._load_genesis_block_from_rpc()
-            if rpc_genesis_data:
-                self._logger.info("Using RPC-provided genesis block data for chain %s", self._config.chain_id)
-                genesis_allocations = rpc_genesis_data.get("allocations", [])
-                genesis_hash = rpc_genesis_data.get("genesis_hash")
-                genesis_state_root = rpc_genesis_data.get("genesis_state_root")
-                if genesis_hash and genesis_state_root:
-                    timestamp = datetime.now(UTC)
-                    genesis = Block(
-                        chain_id=self._config.chain_id,
-                        height=0,
-                        hash=genesis_hash,
-                        parent_hash="0x00",
-                        proposer="genesis",
-                        timestamp=timestamp,
-                        tx_count=0,
-                        state_root=genesis_state_root,
-                        bridge_state_root=self._empty_bridge_root(),
-                        block_metadata=json.dumps({"allocations": genesis_allocations}) if genesis_allocations else None,
-                    )
-                    session.add(genesis)
-                    try:
-                        # The RPC payload carries no canonical timestamp (the row gets
-                        # datetime.now()), so the claimed hash cannot recompute here;
-                        # only the allocations/state_root claim is checked.
-                        self._verify_genesis_claims(
-                            source="RPC bootstrap",
-                            genesis_state_root=genesis_state_root,
-                            allocations=genesis_allocations,
-                        )
-                        # Today's /rpc/genesis_allocations endpoint serves no
-                        # bridge_validators, so this check is a no-op now; if the
-                        # payload ever carries them they get verified the same
-                        # way the file path verifies them.
-                        self._verify_bridge_validators_claim(rpc_genesis_data)
-                        session.commit()
-                        self._logger.info(
-                            "Successfully created genesis block from RPC bootstrap: hash=%s, state_root=%s",
-                            genesis_hash,
-                            genesis_state_root,
-                        )
-                        if genesis_allocations:
-                            self._create_accounts_from_allocations(session, genesis_allocations)
-                            self._logger.info("Initialized %s accounts from RPC bootstrap", len(genesis_allocations))
-                        self._seed_chain_parameters(session, rpc_genesis_data.get("parameters"))
-                        self._seed_bridge_validators(session, rpc_genesis_data)
-                        return
-                    except Exception as e:
-                        self._logger.warning(
-                            "Failed to create genesis block from RPC bootstrap: %s, falling back to local creation", e
-                        )
-                        session.rollback()
-                else:
-                    self._logger.warning("RPC bootstrap returned incomplete genesis data, falling back to local creation")
+            # No RPC bootstrap: a partial genesis payload (allocations + claimed
+            # hash/state_root but no canonical timestamp, parameters or
+            # bridge_validators) minted a node-local block-0 timestamp that skewed
+            # the proposer round and diverged the aux root. The canonical
+            # document is the genesis file — fetchable over the network at
+            # /agent/genesis.json — and every node must file-load it.
             self._logger.info("Loading genesis block from local file for chain %s", self._config.chain_id)
             local_genesis_data = self._load_genesis_data_from_file()
             if not local_genesis_data:
@@ -1703,8 +1638,9 @@ class PoAProposer:
                     DATA_DIR / "data" / self._config.chain_id / "genesis.json",
                 )
                 raise RuntimeError(
-                    f"Genesis file required but not found for chain {self._config.chain_id}. "
-                    f"Please create genesis.json at {DATA_DIR / 'data' / self._config.chain_id / 'genesis.json'}"
+                    f"Genesis file required but not found for chain {self._config.chain_id}: "
+                    f"supply {DATA_DIR / 'data' / self._config.chain_id / 'genesis.json'} — a peer serves "
+                    "the canonical document at /agent/genesis.json."
                 )
             block_data = local_genesis_data.get("block", {})
             genesis_hash = local_genesis_data.get("genesis_hash") or block_data.get("hash")
@@ -1793,13 +1729,14 @@ class PoAProposer:
         """Refuse to bootstrap from genesis claims that do not recompute (V-5).
 
         ``_ensure_genesis_block`` historically wrote whatever hash and state_root a
-        genesis file or the RPC bootstrap claimed. The fleet's genesis.json files
-        turned out to be abandoned pre-migration stubs carrying a placeholder
-        ``0x00`` root, and nothing noticed until a fresh node's first synced block
-        failed its parent_hash check. Recomputing the claims *before* anything is
-        committed turns that silent fork into a clear refusal at the moment it
-        happens — a RuntimeError here propagates out of ``_ensure_genesis_block``
-        and refuses startup instead of writing a genesis the chain will reject.
+        genesis file or the (now removed) RPC bootstrap claimed. The fleet's
+        genesis.json files turned out to be abandoned pre-migration stubs
+        carrying a placeholder ``0x00`` root, and nothing noticed until a fresh
+        node's first synced block failed its parent_hash check. Recomputing the
+        claims *before* anything is committed turns that silent fork into a
+        clear refusal at the moment it happens — a RuntimeError here propagates
+        out of ``_ensure_genesis_block`` and refuses startup instead of writing
+        a genesis the chain will reject.
 
         The root is rebuilt with ``StateManager.update_account`` over the
         allocation set — the same code path ``compute_state_root_full`` uses —
@@ -1810,9 +1747,7 @@ class PoAProposer:
         would claim a root the seeded state can never match.
 
         The hash check runs only when ``timestamp`` is what the block row will
-        carry. The RPC bootstrap stamps ``datetime.now()`` instead of a
-        transported timestamp, so its claimed hash can never recompute locally;
-        callers pass no hash/timestamp for that path.
+        carry — the genesis file transports one, so the file path always runs it.
         """
         seen: set[str] = set()
         for alloc in allocations or []:
@@ -1891,40 +1826,6 @@ class PoAProposer:
         session.commit()
         self._logger.info("Seeded %d bridge validators from genesis", len(rows))
 
-    async def _initialize_genesis_allocations(self, session: Session) -> None:
-        """Create Account entries from the genesis allocations file or RPC bootstrap."""
-        self._logger.info("Initializing genesis allocations for chain: %s", self._config.chain_id)
-        local_genesis_data = self._load_genesis_data_from_file()
-        if local_genesis_data:
-            local_allocations = local_genesis_data.get("allocations", [])
-            self._logger.info("Using local genesis file for chain %s", self._config.chain_id)
-            self._create_accounts_from_allocations(session, local_allocations)
-            return
-        self._logger.info("Local genesis file not found for chain %s, attempting RPC bootstrap", self._config.chain_id)
-        try:
-            rpc_allocations, rpc_genesis_state_root = await self._load_genesis_allocations_from_rpc()
-            if rpc_allocations:
-                self._logger.info(
-                    "Loaded %s allocations via RPC bootstrap for chain %s", len(rpc_allocations), self._config.chain_id
-                )
-                self._create_accounts_from_allocations(session, rpc_allocations)
-                if rpc_genesis_state_root:
-                    self._rpc_genesis_state_root = rpc_genesis_state_root
-                    self._logger.info("Stored RPC genesis state_root: %s", rpc_genesis_state_root)
-                else:
-                    self._logger.info(
-                        "RPC bootstrap completed successfully for chain %s, but no state_root provided", self._config.chain_id
-                    )
-            else:
-                self._logger.warning(
-                    "RPC bootstrap returned no allocations for chain %s, skipping account initialization",
-                    self._config.chain_id,
-                )
-        except Exception as e:
-            self._logger.warning(
-                "RPC bootstrap failed for chain %s: %s, skipping account initialization", self._config.chain_id, e
-            )
-
     def _load_genesis_data_from_file(self) -> dict[str, Any]:
         """Load complete genesis data from local file.
 
@@ -1948,70 +1849,6 @@ class PoAProposer:
         except Exception as e:
             self._logger.warning("Failed to load genesis file: %s", e)
             return {}
-
-    def _load_genesis_allocations_for_metadata(self) -> list[Any]:
-        """Load genesis allocations from file for embedding in genesis block metadata."""
-        return []
-
-    async def _load_genesis_block_from_rpc(self) -> dict[str, Any] | None:
-        """Load genesis block data from trusted peer via RPC.
-
-        Returns:
-            Dict with genesis block data (allocations, genesis_hash, genesis_state_root) or None if failed
-        """
-        trusted_peers = []
-        if self._config.default_peer_rpc_url:
-            trusted_peers.append(_with_scheme(self._config.default_peer_rpc_url))
-        self._logger.info("Attempting RPC bootstrap for genesis block from peers: %s", trusted_peers)
-        for peer_url in trusted_peers:
-            try:
-                self._logger.info("Trying to fetch genesis block from %s", peer_url)
-                response = await SharedHttpClient.get(
-                    f"{peer_url}/rpc/genesis_allocations", params={"chain_id": self._config.chain_id}, timeout=5.0
-                )
-                response.raise_for_status()
-                data = response.json()
-                self._logger.info("RPC response from %s: %s", peer_url, data)
-                return data  # type: ignore[no-any-return]
-            except Exception as e:
-                self._logger.error("Failed to fetch genesis block from %s: %s", peer_url, e)
-                continue
-        self._logger.error("RPC bootstrap for genesis block failed for all peers")
-        return None
-
-    async def _load_genesis_allocations_from_rpc(self) -> tuple[list[Any], str | None]:
-        """Load genesis allocations and state_root from trusted peer via RPC.
-
-        Returns:
-            Tuple of (allocations list, genesis_state_root string or None)
-        """
-        trusted_peers = []
-        if self._config.default_peer_rpc_url:
-            trusted_peers.append(_with_scheme(self._config.default_peer_rpc_url))
-        self._logger.info("Attempting RPC bootstrap from peers: %s", trusted_peers)
-        for peer_url in trusted_peers:
-            try:
-                self._logger.info("Trying to fetch allocations from %s", peer_url)
-                response = await SharedHttpClient.get(
-                    f"{peer_url}/rpc/genesis_allocations", params={"chain_id": self._config.chain_id}, timeout=5.0
-                )
-                response.raise_for_status()
-                data = response.json()
-                self._logger.info("RPC response from %s: %s", peer_url, data)
-                allocations = data.get("allocations", [])
-                genesis_state_root = data.get("genesis_state_root")
-                if allocations:
-                    self._logger.info("Successfully loaded %s allocations from %s", len(allocations), peer_url)
-                    if genesis_state_root:
-                        self._logger.info("RPC provided genesis state_root: %s", genesis_state_root)
-                    return (allocations, genesis_state_root)
-                else:
-                    self._logger.warning("RPC returned empty allocations from %s", peer_url)
-            except Exception as e:
-                self._logger.error("Failed to fetch allocations from %s: %s", peer_url, e)
-                continue
-        self._logger.error("RPC bootstrap failed for all peers")
-        return ([], None)
 
     def _create_accounts_from_allocations(self, session: Session, allocations: list[Any]) -> None:
         """Create Account entries from allocation data."""
