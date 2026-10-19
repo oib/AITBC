@@ -4,6 +4,7 @@ Manages parallel bilateral/micro-chains running alongside the default chain
 """
 
 import asyncio
+import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -381,6 +382,20 @@ multi_chain_manager_instance: MultiChainManager | None = None
 def get_multi_chain_manager() -> MultiChainManager | None:
     """Get global multi-chain manager instance"""
     return multi_chain_manager_instance
+
+
+def base_ports_from_env() -> tuple[int, int]:
+    """Return the (rpc, p2p) base ports for the multi-chain manager.
+
+    Reads the documented ``RPC_BIND_PORT``/``P2P_BIND_PORT`` names. The
+    defaults match the live deployment: the RPC service binds 8202 and the
+    p2p relay (``aitbc-blockchain-p2p`` wrapper) binds 7070 when
+    ``P2P_BIND_PORT`` is unset.
+    """
+    return (
+        int(os.getenv("RPC_BIND_PORT", "8202")),
+        int(os.getenv("P2P_BIND_PORT", "7070")),
+    )
 
 
 def create_multi_chain_manager(
