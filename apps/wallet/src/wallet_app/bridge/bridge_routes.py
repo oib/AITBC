@@ -610,6 +610,14 @@ async def bridge_withdraw_estimate(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _configured_chain_id() -> str:
+    """Resolve the service chain id, surfacing misconfiguration as a 503."""
+    try:
+        return resolve_chain_id()
+    except ChainIdNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @bridge_router.post("/withdraw/build")
 async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
     """Build an unsigned BRIDGE_WITHDRAW transaction for the caller to sign."""
@@ -646,10 +654,7 @@ async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="Failed to calculate ETH amount")
 
     blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-    try:
-        chain_id = resolve_chain_id()
-    except ChainIdNotConfigured as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    chain_id = _configured_chain_id()
 
     try:
         account_resp = await SharedHttpClient.get(f"{blockchain_rpc_url}/rpc/account/{from_address}", timeout=10.0)
