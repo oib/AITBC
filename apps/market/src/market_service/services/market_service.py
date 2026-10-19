@@ -19,6 +19,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus
 from aitbc.market.offer_registration import verify_offer_registration
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
 
 from ..config import settings
@@ -857,7 +858,7 @@ class MarketService:
             # row is written — otherwise any caller could squat a provider's
             # plugin_id and inherit its anchors.
             data["plugin_id"] = plugin_id
-            auth_error, signer = verify_offer_registration(data, settings.default_chain_id)
+            auth_error, signer = verify_offer_registration(data, settings.default_chain_id or resolve_chain_id())
             if auth_error:
                 raise PermissionError(auth_error)
             # Ephemeral proof fields are not service columns.
@@ -932,7 +933,9 @@ class MarketService:
                 "issued_at": proof.get("issued_at"),
                 "signature": proof.get("signature"),
             }
-            auth_error, signer = verify_offer_registration(data, settings.default_chain_id, action="unregister")
+            auth_error, signer = verify_offer_registration(
+                data, settings.default_chain_id or resolve_chain_id(), action="unregister"
+            )
             if auth_error:
                 raise PermissionError(auth_error)
             query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
@@ -1266,7 +1269,7 @@ class MarketService:
                     "message": "Bid already completed",
                 }
 
-            resolved_chain_id = chain_id or settings.default_chain_id
+            resolved_chain_id = chain_id or settings.default_chain_id or resolve_chain_id()
             tx = await self._rpc_client.get_transaction(tx_hash, chain_id=resolved_chain_id)
             self._verify_bid_payment_tx(bid, offer, tx, tx_hash, resolved_chain_id)
 

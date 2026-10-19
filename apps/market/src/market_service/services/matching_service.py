@@ -9,6 +9,7 @@ from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.market import OfferFSM, OfferStatus
+from aitbc.utils.chain_id import resolve_chain_id
 
 from ..config import settings
 from ..domain.market import MarketOffer
@@ -168,7 +169,7 @@ class MatchingService:
             try:
                 task_payload: dict[str, Any] = {
                     "task_data": {
-                        "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
+                        "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id or resolve_chain_id(),
                         "offer_id": best_offer.id,
                         "provider": best_offer.provider,
                         "price_per_hour": str(best_offer.price_per_hour) if best_offer.price_per_hour is not None else None,
@@ -176,7 +177,7 @@ class MatchingService:
                     },
                     "priority": "normal",
                     "requirements": requirements,
-                    "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id,
+                    "chain_id": chain_id or best_offer.chain_id or settings.default_chain_id or resolve_chain_id(),
                     "payment": None,
                 }
                 if max_price is not None:

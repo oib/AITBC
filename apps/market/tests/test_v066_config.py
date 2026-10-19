@@ -38,7 +38,7 @@ class TestMarketConfig:
         from market_service.config import settings
 
         assert hasattr(settings, "default_chain_id")
-        assert settings.default_chain_id == "ait-localnet"
+        assert settings.default_chain_id == ""
 
     def test_market_config_agent_coordinator_url(self):
         """Config has agent_coordinator_url field."""
