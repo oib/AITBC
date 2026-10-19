@@ -1,7 +1,10 @@
 # BNT-1 — protocol transfers that cannot seal at v9
 
-**Status:** audit + options paper; no consensus code. Decision owed by the
-operator (see options below). Pinned by strict-xfail cases in
+**Status:** audit + options paper; no consensus code. BNT-2 (operator
+decision 2026-10-12) took option 3 — the five RPC surfaces refuse up front
+with HTTP 410 (the HTLC mutators raise `RetiredProtocolTransfer`) and the
+handler bodies are removed outright; apply code and the replay pins below
+are untouched. Pinned by strict-xfail cases in
 `tests/unit/test_v9_type_coverage_replay.py`
 (`test_protocol_transfer_production_shape_seals_at_v9[*]`).
 

@@ -512,18 +512,17 @@ class TestSettlementService:
 
 
 class TestRefundTerminality:
-    @pytest.fixture(autouse=True)
-    def _unretire(self, unretired_protocol_transfers):
-        """BNT-2 retired refund_swap; these pin the sweeper semantics for revival."""
+    """A refused refund must never mark the escrow terminal.
 
-    """The sweeper's wall-clock timeout fires ``margin_blocks`` before the
-    HTLC's block-height timelock matures, so ``refund_swap`` legitimately
-    raises ``ValueError("Swap timelock not yet expired")`` on the first sweep.
-    The old code swallowed that, substituted a simulated tx hash, and marked
-    the escrow REFUNDED — terminal — while the funds stayed locked forever.
-    The record must stay non-terminal so the next tick retries, and a
-    never-locked escrow must report ``tx_hash=None`` rather than a
-    fabricated hash.
+    The sweeper's wall-clock timeout fires ``margin_blocks`` before the
+    HTLC's block-height timelock matures, so ``refund_swap`` can legitimately
+    refuse. The old code swallowed that, substituted a simulated tx hash, and
+    marked the escrow REFUNDED — terminal — while the funds stayed locked
+    forever. The record must stay non-terminal so the next tick retries, and
+    a never-locked escrow must report ``tx_hash=None`` rather than a
+    fabricated hash. The HTLC mutators are retired and raise
+    ``RetiredProtocolTransfer`` — the terminality invariant holds regardless
+    of why the refund refuses.
     """
 
     def _service(self):
@@ -557,8 +556,11 @@ class TestRefundTerminality:
             setattr(rec, key, value)
         return rec
 
-    async def test_not_yet_expired_refund_stays_non_terminal(self, mock_session):
-        """Timelock not matured → ValueError propagates, no REFUNDED, no proof."""
+    async def test_refused_refund_stays_non_terminal(self, mock_session):
+        """The retired HTLC mutator raises — the refusal propagates, no
+        REFUNDED, no proof."""
+        from aitbc_chain.rpc.retired import RetiredProtocolTransfer
+
         mock_session.add(self._record())
         mock_session.add(
             HTLCSwapState(
@@ -571,7 +573,7 @@ class TestRefundTerminality:
                 status="open",
             )
         )
-        with pytest.raises(ValueError, match="not refundable yet"):
+        with pytest.raises(RetiredProtocolTransfer):
             await self._service().refund("esc_refund")
         assert mock_session.escrows["esc_refund"].status == "locked"
         assert mock_session.proofs == []
