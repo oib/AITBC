@@ -504,24 +504,32 @@ def _claim_rehearsal(root: Path) -> None:
         raise _fail("rehearsal units still active: " + "; ".join(u.split()[0] for u in live))
 
 
-def _spawn(inst: Instance, python: str) -> None:
+def _prelude(inst: Instance) -> str:
     env_file = inst.dir / "instance.env"
     # PYTHONPATH mirrors the live unit; HOME is the instance dir, never
     # /var/lib/aitbc.
-    prelude = (
+    return (
         f"export HOME={inst.dir} PYTHONPATH={REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src; set -a; . {env_file}; set +a; "
     )
+
+
+def _rpc_cmd(inst: Instance, python: str) -> str:
+    return (
+        f"exec {python} -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port {inst.rpc_port} "
+        f"--workers 1 --log-level warning --timeout-graceful-shutdown 3 "
+        f">>{inst.dir}/logs/rpc.log 2>&1"
+    )
+
+
+def _spawn(inst: Instance, python: str, *, with_rpc: bool = True) -> None:
     # Consensus/production process (mirrors aitbc-blockchain-node) + the RPC
     # service (mirrors aitbc-blockchain-rpc: uvicorn aitbc_chain.app:app).
-    units = (
+    units = [
         (inst.name, f"exec {python} -m aitbc_chain.main >>{inst.dir}/logs/node.log 2>&1"),
-        (
-            f"{inst.name}-rpc",
-            f"exec {python} -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port {inst.rpc_port} "
-            f"--workers 1 --log-level warning --timeout-graceful-shutdown 3 "
-            f">>{inst.dir}/logs/rpc.log 2>&1",
-        ),
-    )
+    ]
+    if with_rpc:
+        units.append((f"{inst.name}-rpc", _rpc_cmd(inst, python)))
+    prelude = _prelude(inst)
     for unit, cmd in units:
         subprocess.run(
             [
@@ -544,6 +552,28 @@ def _spawn(inst: Instance, python: str) -> None:
             text=True,
             cwd=str(REPO_ROOT),
         )
+
+
+def _spawn_rpc(inst: Instance, python: str) -> None:
+    """The uvicorn RPC unit on its own — delayed until after file genesis load."""
+    subprocess.run(
+        [
+            "systemd-run",
+            "--collect",
+            f"--unit={inst.name}-rpc",
+            f"--property=MemoryMax={UNIT_MEMORY_MAX}",
+            f"--property=CPUQuota={UNIT_CPU_QUOTA}",
+            f"--property=TasksMax={UNIT_TASKS_MAX}",
+            "--",
+            "bash",
+            "-c",
+            _prelude(inst) + _rpc_cmd(inst, python),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
 
 
 def _spawn_redis(root: Path) -> None:
@@ -618,10 +648,32 @@ def phase_up(root: Path, python: str, max_load: float, min_avail_mib: int) -> No
     keys = _load_keys(root)
     _write_instance_envs(root, keys)
     _spawn_redis(root)
-    for inst in instances(root):
-        _spawn(inst, python)
+    insts = instances(root)
+    # Nodes first, RPC units only after every node has loaded genesis from its
+    # own file. Otherwise later starters bootstrap block 0 over i0's
+    # /rpc/genesis_allocations — a payload that serves allocations but no
+    # chain_parameter/bridge_validator rows, so their aux fingerprint diverges
+    # and every imported block fails the v14 aux-state-root check.
+    for inst in insts:
+        _spawn(inst, python, with_rpc=False)
+        time.sleep(0.5)
+    deadline = time.time() + 90
+    pending = set(range(N_INSTANCES))
+    while pending and time.time() < deadline:
+        for i in list(pending):
+            log = insts[i].dir / "logs" / "node.log"
+            if log.exists() and (
+                "Successfully created genesis block from genesis.json" in log.read_text()
+                or "Genesis block already exists" in log.read_text()
+            ):
+                pending.discard(i)
+        if pending:
+            time.sleep(1)
+    if pending:
+        raise _fail(f"genesis file load not observed for: {sorted(pending)} — refusing to start RPC units")
+    for inst in insts:
+        _spawn_rpc(inst, python)
         print(f"[+] {inst.name} ({inst.role}) up: rpc=127.0.0.1:{inst.rpc_port} dir={inst.dir}")
-        time.sleep(1)
 
 
 def phase_wait(root: Path, height: int, timeout: int, max_load: float, min_avail_mib: int) -> None:
