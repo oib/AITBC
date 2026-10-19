@@ -60,6 +60,8 @@ def _extract(doc: dict[str, Any]) -> dict[str, Any]:
         "timestamp": doc.get("timestamp") or block.get("timestamp"),
         "proposer": block.get("proposer") or "genesis",
         "parent_hash": block.get("parent_hash") or "0x00",
+        "bridge_validators": doc.get("bridge_validators") or [],
+        "claimed_validators_digest": doc.get("bridge_validators_digest"),
     }
 
 
@@ -67,9 +69,10 @@ def _chain_modules():
     """Lazy import — keeps this file importable (and tests collectable) on a
     host where aitbc_chain is not on sys.path."""
     from aitbc_chain.consensus.block_hash import compute_block_hash
+    from aitbc_chain.genesis_builder import verify_bridge_validators_claim
     from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie, StateManager
 
-    return compute_block_hash, MerklePatriciaTrie, StateManager
+    return compute_block_hash, MerklePatriciaTrie, StateManager, verify_bridge_validators_claim
 
 
 def _check_allocations(allocs: list[Any], report: dict[str, Any]) -> None:
@@ -99,7 +102,19 @@ def _check_allocations(allocs: list[Any], report: dict[str, Any]) -> None:
 def _check_roots(f: dict[str, Any], allocs: list[Any], report: dict[str, Any]) -> None:
     """Recompute the trie root and the canonical block hash over the file's
     claimed fields, and compare both with what the file claims."""
-    compute_block_hash, MerklePatriciaTrie, StateManager = _chain_modules()
+    compute_block_hash, MerklePatriciaTrie, StateManager, verify_bridge_validators_claim = _chain_modules()
+
+    # --- bridge validator digest: genesis_hash does not cover the rows, so the
+    # document carries a digest claim that must recompute over the canonical
+    # sorted rows (the same check the loader runs before inserting them). ---
+    doc_for_check = {
+        "bridge_validators": f["bridge_validators"],
+        "bridge_validators_digest": f["claimed_validators_digest"],
+    }
+    try:
+        verify_bridge_validators_claim(doc_for_check, chain_id=f["chain_id"])
+    except Exception as exc:  # noqa: BLE001 - a failed claim is a reported problem
+        report["problems"].append(str(exc))
 
     # --- root: same code path as the node's compute_state_root_full ---
     state = StateManager()
