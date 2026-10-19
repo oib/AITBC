@@ -80,6 +80,64 @@ def _tx_wire(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _bootstrap_accounts(db: sqlite3.Connection, chain_id: str) -> list[dict[str, Any]]:
+    """Infer the effective genesis account set from the sealed flow plus the
+    tip account table (see ``extract``'s docstring for the why)."""
+    tip_accounts = {
+        str(r[0]): {"balance": int(r[1]), "nonce": int(r[2])}
+        for r in db.execute(
+            "SELECT address, balance, nonce FROM account WHERE chain_id = ?",
+            (chain_id,),
+        )
+    }
+    # Replay the sealed flow in apply order to get each address's peak
+    # cumulative outflow — the bootstrap credit floor — and its confirmed
+    # send count for nonce provenance.
+    cumulative: dict[str, int] = {}
+    peak: dict[str, int] = {}
+    sent: dict[str, int] = {}
+    flow_rows = db.execute(
+        'SELECT sender, recipient, value, fee FROM "transaction" '
+        "WHERE chain_id = ? AND status = 'confirmed' "
+        "ORDER BY block_height, id",
+        (chain_id,),
+    )
+    for sender, recipient, value, fee in flow_rows:
+        amt = int(value or 0)
+        cost = amt + int(fee or 0)
+        if sender:
+            cumulative[sender] = cumulative.get(sender, 0) - cost
+            sent[sender] = sent.get(sender, 0) + 1
+            peak[sender] = max(peak.get(sender, 0), -cumulative[sender])
+        if recipient:
+            cumulative[recipient] = cumulative.get(recipient, 0) + amt
+            peak[recipient] = max(peak.get(recipient, 0), -cumulative[recipient])
+    bootstrap_accounts = []
+    for addr in sorted(set(tip_accounts) | set(sent) | set(peak)):
+        tip = tip_accounts.get(addr)
+        # The cumulative column is (received - spent); off-ledger net is what
+        # the tip holds beyond it. Senders missing an account row get 0.
+        offchain_net = (tip["balance"] if tip else 0) - cumulative.get(addr, 0)
+        bootstrap_balance = max(peak.get(addr, 0), offchain_net, 0)
+        if bootstrap_balance == 0:
+            continue
+        bootstrap_accounts.append(
+            {
+                "address": addr,
+                "balance": bootstrap_balance,
+                "nonce": 0,
+                # Provenance: the tip-implied net credit — a bootstrap above
+                # offchain_net means the account saw off-ledger *debits*
+                # mid-history (its net hides the larger gross credit); an
+                # unbooked nonce is a nonce gap not explainable by sealed
+                # sends.
+                "offchain_net": offchain_net,
+                "unbooked_nonce": (tip["nonce"] - sent.get(addr, 0)) if tip else None,
+            }
+        )
+    return bootstrap_accounts
+
+
 def extract(snapshot: Path, genesis: Path, outdir: Path, chain_id: str | None = None) -> dict[str, Any]:
     snapshot = snapshot.resolve()
     genesis = genesis.resolve()
@@ -112,59 +170,7 @@ def extract(snapshot: Path, genesis: Path, outdir: Path, chain_id: str | None = 
         # senders recorded in history, so an account whose row was deleted
         # off-ledger still gets a bootstrap.
         hash_match = bool(genesis_doc_hash) and genesis_doc_hash == block0.get("hash")
-        tip_accounts = {
-            str(r[0]): {"balance": int(r[1]), "nonce": int(r[2])}
-            for r in db.execute(
-                "SELECT address, balance, nonce FROM account WHERE chain_id = ?",
-                (chain_id,),
-            )
-        }
-        # Replay the sealed flow to get each address's peak outflow and
-        # confirmed send count — the bootstrap credit floor and the nonce
-        # accounting evidence.
-        cumulative: dict[str, int] = {}
-        peak: dict[str, int] = {}
-        sent: dict[str, int] = {}
-        flow_rows = db.execute(
-            'SELECT sender, recipient, value, fee FROM "transaction" '
-            "WHERE chain_id = ? AND status = 'confirmed' "
-            "ORDER BY block_height, id",
-            (chain_id,),
-        )
-        for sender, recipient, value, fee in flow_rows:
-            amt = int(value or 0)
-            cost = amt + int(fee or 0)
-            if sender:
-                cumulative[sender] = cumulative.get(sender, 0) - cost
-                sent[sender] = sent.get(sender, 0) + 1
-                peak[sender] = max(peak.get(sender, 0), -cumulative[sender])
-            if recipient:
-                cumulative[recipient] = cumulative.get(recipient, 0) + amt
-                peak[recipient] = max(peak.get(recipient, 0), -cumulative[recipient])
-        bootstrap_accounts = []
-        for addr in sorted(set(tip_accounts) | set(sent) | set(peak)):
-            tip = tip_accounts.get(addr)
-            # The cumulative column is (received - spent); off-ledger net is
-            # what the tip holds beyond it. Senders missing an account row
-            # get balance 0 at tip.
-            offchain_net = (tip["balance"] if tip else 0) - cumulative.get(addr, 0)
-            bootstrap_balance = max(peak.get(addr, 0), offchain_net, 0)
-            if bootstrap_balance == 0:
-                continue
-            bootstrap_accounts.append(
-                {
-                    "address": addr,
-                    "balance": bootstrap_balance,
-                    "nonce": 0,
-                    # Provenance: the tip-implied net credit and the peak
-                    # deficit — a bootstrap above offchain_net means the
-                    # account saw off-ledger *debits* mid-history (its net
-                    # hides the larger gross credit); an unbooked nonce is a
-                    # nonce gap not explainable by sealed sends.
-                    "offchain_net": offchain_net,
-                    "unbooked_nonce": (tip["nonce"] - sent.get(addr, 0)) if tip else None,
-                }
-            )
+        bootstrap_accounts = _bootstrap_accounts(db, chain_id)
 
         genesis_state = {
             "source": {
