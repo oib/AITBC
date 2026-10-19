@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import logging.handlers
@@ -14,8 +15,10 @@ import sys
 import tempfile
 import time
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import click
 import httpx
@@ -927,6 +930,146 @@ def query(ctx: click.Context, expr: str, prometheus_url: str | None, time: str |
         params["time"] = time
     data = _prometheus_get(url, "/api/v1/query", params=params, timeout=timeout + 5)
     output(data.get("data", {}), ctx.obj["output_format"])
+
+
+_METRIC_NAME_RE = re.compile(r"^[a-zA-Z_:][a-zA-Z0-9_:]*$")
+_SAMPLE_RE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(.*)\})?\s+(\S+?)(?:\s+(-?\d+))?\s*$")
+_LABEL_PAIR_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"')
+DEFAULT_METRICS_URL = "http://127.0.0.1:9009/metrics"
+
+
+def _is_loopback_url(url: str) -> bool:
+    """True when the URL host is loopback only — the raw scrape stays on-node."""
+    host = urlsplit(url).hostname
+    if not host:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _parse_sample_labels(text: str) -> dict[str, str]:
+    labels: dict[str, str] = {}
+    for key, raw in _LABEL_PAIR_RE.findall(text or ""):
+        labels[key] = raw.replace('\\"', '"').replace("\\n", "\n").replace("\\\\", "\\")
+    return labels
+
+
+def _parse_metric_value(text: str) -> int | Decimal | str:
+    """Counters stay integers; other numerics stay Decimal — never float."""
+    try:
+        return int(text)
+    except ValueError:
+        pass
+    try:
+        return Decimal(text)
+    except InvalidOperation:
+        return text
+
+
+def _exposition_samples(text: str) -> tuple[list[dict[str, Any]], int]:
+    """Parse Prometheus exposition text into samples; malformed lines are counted, not fatal."""
+    samples: list[dict[str, Any]] = []
+    bad = 0
+    for line in text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        m = _SAMPLE_RE.match(line)
+        if not m:
+            bad += 1
+            continue
+        sample: dict[str, Any] = {"name": m.group(1), "value": _parse_metric_value(m.group(3))}
+        if m.group(2):
+            sample["labels"] = _parse_sample_labels(m.group(2))
+        if m.group(4) is not None:
+            sample["timestamp_ms"] = int(m.group(4))
+        samples.append(sample)
+    return samples, bad
+
+
+@prometheus.command(
+    epilog="""Examples:
+
+  aitbc prometheus metric --name v9_would_reject_total
+
+  aitbc prometheus metric --name blockchain_bridge_pending_transfers --url http://127.0.0.1:8202/metrics"""
+)
+@click.option("--name", "metric_name", required=True, help="Exact metric name — ONE metric per call, no prefix match")
+@click.option(
+    "--url",
+    "metrics_url",
+    default=DEFAULT_METRICS_URL,
+    help=f"Metrics exposition URL (default: {DEFAULT_METRICS_URL}; loopback only unless --allow-remote)",
+)
+@click.option(
+    "--label",
+    "label_filters",
+    multiple=True,
+    metavar="K=V",
+    help="Keep only samples carrying this label pair (repeatable)",
+)
+@click.option(
+    "--allow-remote",
+    is_flag=True,
+    help="Permit a non-loopback --url (the node's own endpoint is the intended source; MCP tools never set this)",
+)
+@click.option("--timeout", default=10, help="Request timeout in seconds")
+@click.pass_context
+def metric(
+    ctx: click.Context,
+    metric_name: str,
+    metrics_url: str,
+    label_filters: tuple[str, ...],
+    allow_remote: bool,
+    timeout: int,
+):
+    """Read ONE named metric straight from a node's own /metrics endpoint.
+
+    This is the raw exposition the service exposes right now — not what
+    Prometheus last scraped — so a counter bumped since the last scrape (or
+    reset by a restart) reads truthfully. Exact name match only: ``foo_total``
+    never returns ``foo_total_bucket``.
+    """
+    if not _METRIC_NAME_RE.match(metric_name):
+        raise click.ClickException(f"invalid metric name: {metric_name!r}")
+    if not _is_loopback_url(metrics_url) and not allow_remote:
+        raise click.ClickException(
+            f"--url {metrics_url} is not loopback — the node's own metrics endpoint is the only default source; "
+            "pass --allow-remote to override"
+        )
+    wanted: dict[str, str] = {}
+    for item in label_filters:
+        key, sep, value = item.partition("=")
+        if not sep or not key:
+            raise click.ClickException(f"--label expects K=V, got {item!r}")
+        wanted[key] = value
+
+    try:
+        response = httpx.get(metrics_url, timeout=timeout)
+        response.raise_for_status()
+    except httpx.RequestError as e:
+        raise click.ClickException(f"could not reach metrics endpoint {metrics_url}: {e}") from e
+    except httpx.HTTPStatusError as e:
+        raise click.ClickException(f"metrics endpoint {metrics_url} returned {e.response.status_code}") from e
+
+    samples, malformed = _exposition_samples(response.text)
+    matched = [
+        s for s in samples if s["name"] == metric_name and all(s.get("labels", {}).get(k) == v for k, v in wanted.items())
+    ]
+    output(
+        {
+            "name": metric_name,
+            "url": metrics_url,
+            "read_at": datetime.now(UTC).isoformat(),
+            "samples": matched,
+            "matched": len(matched),
+            "malformed_lines": malformed,
+        },
+        ctx.obj["output_format"],
+    )
 
 
 @prometheus.command(
