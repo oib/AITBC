@@ -5,7 +5,6 @@ from collections import defaultdict, deque
 from contextlib import closing
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-import os
 from pathlib import Path
 from typing import TypedDict
 
@@ -13,6 +12,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.network import AITBCHTTPClient
 
 from ....config import settings
@@ -265,7 +265,7 @@ class ExplorerService:
         """Get block details by hash from blockchain database"""
         try:
             # Try blockchain database first
-            chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+            chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
             if not chain_db_path.exists():
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -306,7 +306,7 @@ class ExplorerService:
         """Get transaction details by hash from blockchain database"""
         try:
             # Try blockchain database first
-            chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+            chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
             if not chain_db_path.exists():
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
