@@ -63,6 +63,12 @@ def scratch_root(environ: dict[str, str] | None = None) -> Path:
     if not root.is_absolute():
         raise ResetGuardError(f"{SCRATCH_ENV} must be an absolute path: {raw}")
     resolved = root.resolve()
+    if len(resolved.parts) < 3:
+        raise ResetGuardError(
+            f"{SCRATCH_ENV}={resolved} has fewer than three path components — "
+            "the scratch root must be a dedicated subdirectory, not a "
+            "filesystem root or top-level directory."
+        )
     for prefix in LIVE_PREFIXES:
         if resolved == prefix or prefix in resolved.parents:
             raise ResetGuardError(
