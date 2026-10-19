@@ -335,7 +335,9 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "CHAIN_ID": CHAIN_ID,
         "SUPPORTED_CHAINS": CHAIN_ID,
         "BLOCK_PRODUCTION_CHAINS": CHAIN_ID,
-        "AITBC_DATA_DIR": str(inst.dir / "data"),
+        # DATA_DIR is the base; the db resolves to <dir>/data/<chain>/chain.db
+        # and genesis.json sits beside it — the same layout the fleet uses.
+        "AITBC_DATA_DIR": str(inst.dir),
         "AITBC_LOG_DIR": str(inst.dir / "logs"),
         "AITBC_CONFIG_DIR": str(inst.dir / "etc"),
         "AITBC_RESET_SCRATCH": str(root),
