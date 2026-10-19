@@ -13,8 +13,13 @@ Two things keep that safe, and both matter (V23-69):
   the repo-root `tests` package, which is already in `sys.modules`.
 """
 
+import os
 import sys
 from pathlib import Path
+
+# The suite runs as a configured service: chain-id resolution fails loudly
+# without one since #307, so tests pin an explicit test id up front.
+os.environ.setdefault("CHAIN_ID", "ait-testchain")
 
 _APP_ROOT = str(Path(__file__).resolve().parent.parent)
 if _APP_ROOT not in sys.path:
