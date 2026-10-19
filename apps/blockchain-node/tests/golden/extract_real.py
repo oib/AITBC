@@ -4,9 +4,15 @@ Runs against a checksum-verified, read-only COPY on scratch — never a live
 data directory. Produces three corpus artifacts:
 
 - ``genesis-state.json`` — the snapshot's block 0 verbatim plus the genesis
-  document's allocations and parameters (the same split ``replay-chain.py``
-  uses), with the file checksums and the genesis-hash-vs-block-0 comparison
-  recorded for provenance.
+  document's allocations and parameters, with the file checksums and the
+  genesis-hash-vs-block-0 comparison recorded for provenance, plus the
+  inferred ``bootstrap_accounts``: on this chain the genesis document is
+  decorative (its block hash does not match sealed block 0 — the doc
+  postdates a re-genesis), so the real initial account set is reconstructed
+  as ``tip_balance - received + spent`` per account. Every account that
+  ever received an off-ledger credit (direct row writes — service-account
+  seeding, validator floats) shows up there; replaying on that bootstrap
+  is verified per block against the sealed ``state_root``.
 - ``stream-manifest.json`` — counts, checksums, and any empty block whose
   sealed state_root breaks the run (drift exceptions — normally none).
 - ``stream/<height>.json`` — one file per *tx-bearing* block: the sealed
@@ -95,6 +101,42 @@ def extract(snapshot: Path, genesis: Path, outdir: Path, chain_id: str | None = 
         allocations = genesis_doc.get("allocations", genesis_block_data.get("allocations", []))
         parameters = genesis_doc.get("parameters", {})
 
+        # The real initial account set: the doc's allocations only counted when
+        # the doc's hash matches sealed block 0 (this chain's doc postdates a
+        # re-genesis — it describes nothing the chain actually ran). Off-ledger
+        # credits (direct account-row writes) are inferred as
+        # balance - (received - spent) over the sealed tx history; a positive
+        # remainder is value that entered the ledger outside any sealed tx.
+        hash_match = bool(genesis_doc_hash) and genesis_doc_hash == block0.get("hash")
+        bootstrap_accounts = []
+        flow = db.execute(
+            """
+            SELECT a.address, a.balance, a.nonce,
+                   (SELECT COALESCE(SUM(t.value), 0) FROM "transaction" t
+                    WHERE t.chain_id = a.chain_id AND t.recipient = a.address AND t.status = 'confirmed') AS received,
+                   (SELECT COALESCE(SUM(t.value + t.fee), 0) FROM "transaction" t
+                    WHERE t.chain_id = a.chain_id AND t.sender = a.address AND t.status = 'confirmed') AS spent,
+                   (SELECT COUNT(*) FROM "transaction" t
+                    WHERE t.chain_id = a.chain_id AND t.sender = a.address AND t.status = 'confirmed') AS sent
+            FROM account a WHERE a.chain_id = ?
+            """,
+            (chain_id,),
+        ).fetchall()
+        for addr, balance, nonce, received, spent, sent in flow:
+            offchain_net = int(balance) - (int(received) - int(spent))
+            if offchain_net > 0:
+                # Nonce likewise: confirmed sends each consumed one; any
+                # remainder was bumped off-ledger. Booking it at bootstrap
+                # keeps v9+ strict-nonce checks right at the heights they ran.
+                bootstrap_nonce = max(0, int(nonce) - int(sent))
+                bootstrap_accounts.append(
+                    {
+                        "address": addr,
+                        "balance": offchain_net,
+                        "nonce": bootstrap_nonce,
+                    }
+                )
+
         genesis_state = {
             "source": {
                 "chain_id": chain_id,
@@ -102,11 +144,13 @@ def extract(snapshot: Path, genesis: Path, outdir: Path, chain_id: str | None = 
                 "genesis_json_sha256": _sha256_file(genesis),
                 "genesis_doc_hash": genesis_doc_hash,
                 "block0_hash": block0.get("hash"),
-                "genesis_hash_matches_block0": bool(genesis_doc_hash) and genesis_doc_hash == block0.get("hash"),
+                "genesis_hash_matches_block0": hash_match,
+                "doc_allocations_applied": hash_match,
             },
             "block0": block0,
             "allocations": allocations,
             "parameters": parameters,
+            "bootstrap_accounts": sorted(bootstrap_accounts, key=lambda a: a["address"].lower()),
         }
         (outdir / "genesis-state.json").write_text(json.dumps(genesis_state, sort_keys=True, indent=1) + "\n")
 
