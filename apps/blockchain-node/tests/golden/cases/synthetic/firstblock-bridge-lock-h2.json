@@ -1,0 +1,66 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0xf8163f774e721cedcfa73e7298cff242803bf0bc7b2677e9e280f7154a8ac1b8",
+  "height": 2,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "firstblock-bridge-lock-h2",
+ "description": "BRIDGE_LOCK carrying the authority bridge_signature at height 2 \u2014 v9 lock rule live; leaf-v2 binds the recipient (bridge_lock_leaf_v2_height=1).",
+ "gate": "gates1 boundary",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "bridge_release_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   },
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "escrow_settlement_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   },
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "governance_executors",
+    "value": "0x7564105E977516C53bE337314c7E53838967bDaC"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 500,
+  "bridge_signature": "0xa22be43aae39755ff2d279ddf130b6b1d9653778de4b23064a5b2a4841806cb06a9a000e9c30a1f9ac1c7abde6e772a0651ecde416a04c5b2ed7d44eaadf7d9401",
+  "chain_id": "gv-synth",
+  "fee": 0,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "amount": 500,
+   "asset": "AIT",
+   "target_chain": "sep",
+   "target_recipient": "0xabababababababababababababababababababab",
+   "transfer_id": "0xe929fea570bb693f613f5cee77ea1db31a1ed0ec26c65a5bba07709da15268ae"
+  },
+  "to": "bridge_lock",
+  "tx_hash": "0x90cc21d796559b5afb66e908c0cabff45550ad49b6d9b9514931b58ededea27c",
+  "type": "BRIDGE_LOCK",
+  "value": 500
+ }
+}
