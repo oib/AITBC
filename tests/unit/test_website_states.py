@@ -51,6 +51,11 @@ _HAS_WS = base._websockets_available()
 def _stub_js(fixtures: dict) -> str:
     return f"""
 window.__csp = [];
+window.__errors = [];
+window.addEventListener('error', e =>
+  window.__errors.push('error:' + (e.message || '?') + ' @' + (e.filename || '?') + ':' + (e.lineno || 0)));
+window.addEventListener('unhandledrejection', e =>
+  window.__errors.push('unhandledrejection:' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))));
 document.addEventListener('securitypolicyviolation', e =>
   window.__csp.push((e.violatedDirective || '?') + '|' + (e.blockedURI || '?')));
 window.fetch = ((u, opts) => {{
@@ -61,6 +66,9 @@ window.fetch = ((u, opts) => {{
   for (const k of keys) {{
     if (p === k || p.startsWith(k)) {{
       const v = F[k];
+      if (v && typeof v === 'object' && '__reject' in v) {{
+        return Promise.reject(new Error(v.__reject === true ? 'fixture reject' : String(v.__reject)));
+      }}
       if (v && typeof v === 'object' && '__status' in v) {{
         return Promise.resolve(new Response(JSON.stringify(v.body || {{}}),
           {{status: v.__status, headers: {{'Content-Type': 'application/json'}}}}));
@@ -79,6 +87,17 @@ def _fixtures(**overrides):
     f = copy.deepcopy(base._FIXTURES)
     f.update(overrides)
     return f
+
+
+def _exceptions(events: list[dict]) -> list[str]:
+    out = []
+    for ev in events:
+        if ev.get("method") != "Runtime.exceptionThrown":
+            continue
+        det = ev.get("params", {}).get("exceptionDetails", {})
+        exc = det.get("exception", {})
+        out.append(exc.get("description") or det.get("text", "uncaught"))
+    return out
 
 
 def _security_log_entries(events: list[dict]) -> list[str]:
@@ -568,6 +587,153 @@ class TestStatesBrowser(unittest.TestCase):
         self.assertTrue(r["retryShown"], "no retry offered after a 500 status")
         # The trust rule: a failed state must never look like a healthy 0.
         self.assertNotIn((r["statusText"] or "").strip(), ("", "0", "unknown — "), "bare/empty status after 500")
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+
+    # ── 4. WEB-FAILSTATES-1: failure must not render as empty or stuck ──
+
+    _VIS_LOADING_JS = """(() => {
+  const vis = el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const sels = SELS;
+  return JSON.stringify({
+    stillLoading: [...document.querySelectorAll(sels)]
+      .filter(vis).map(e => e.textContent.trim().slice(0, 80)),
+  });
+})()"""
+
+    def _visible_loading(self, container_selector: str) -> str:
+        return self._VIS_LOADING_JS.replace(
+            "SELS", json.dumps(container_selector + " .loading, " + container_selector + " .loading-text")
+        )
+
+    def test_alerts_history_500_not_shown_as_empty(self) -> None:
+        stub = _stub_js(_fixtures(**{"/api/alerts/history": {"__status": 500, "body": {"detail": "boom"}}}))
+        steps = [
+            ("wait", "(document.getElementById('events-container')||{textContent:''}).textContent.length > 0"),
+            ("sleep", 0.5),
+            (
+                "eval",
+                """(() => {
+  const box = document.getElementById('events-container');
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  return JSON.stringify({
+    text: box ? box.textContent.trim() : null,
+    stillLoading: box ? [...box.querySelectorAll('.loading')].filter(vis).map(e => e.textContent.trim()) : null,
+    csp: window.__csp,
+  });
+})()""",
+            ),
+        ]
+        r = self._run("alerts.html", stub, steps)
+        self.assertIsNotNone(r["text"])
+        self.assertNotIn("No alert events recorded", r["text"], "history 500 rendered as a healthy empty list")
+        self.assertRegex(r["text"], r"unavailable|HTTP 500|failed", "history failure not named")
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+
+    def test_alerts_unreachable_replaces_placeholders(self) -> None:
+        stub = _stub_js(
+            _fixtures(
+                **{
+                    "/api/alerts/history": {"__reject": True},
+                    "/api/alerts": {"__reject": True},
+                    "/api/journal/recent": {"__reject": True},
+                    "/api/journal/counts": {"__reject": True},
+                }
+            )
+        )
+        steps = [
+            ("wait", "(document.getElementById('firing-container')||{textContent:''}).textContent.length > 0"),
+            ("sleep", 1.0),
+            ("eval", self._visible_loading("#firing-container")),
+            ("eval", self._visible_loading("#events-container")),
+        ]
+        r = self._run("alerts.html", stub, steps)
+        firing = r["_steps"][-2]["stillLoading"]
+        events = r["_steps"][-1]["stillLoading"]
+        self.assertEqual([], firing, f"firing placeholders never replaced: {firing}")
+        self.assertEqual([], events, f"events placeholders never replaced: {events}")
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+
+    def test_alerts_journal_500_names_the_reason(self) -> None:
+        stub = _stub_js(_fixtures(**{"/api/journal/recent": {"__status": 503, "body": {}}}))
+        steps = [
+            ("wait", "(document.getElementById('journal-container')||{textContent:''}).textContent.length > 0"),
+            ("sleep", 0.5),
+            (
+                "eval",
+                """(() => {
+  const box = document.getElementById('journal-container');
+  return JSON.stringify({text: box ? box.textContent.trim() : null, csp: window.__csp});
+})()""",
+            ),
+        ]
+        r = self._run("alerts.html", stub, steps)
+        self.assertIsNotNone(r["text"])
+        self.assertNotIn("deploying", r["text"], "journal 503 presented a made-up deploying reason")
+        self.assertRegex(r["text"], r"HTTP 503|unavailable", "journal failure not named")
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+
+    def _dashboard_no_placeholder(self, page: str, containers: list[str], overrides: dict) -> dict:
+        stub = _stub_js(_fixtures(**overrides))
+        steps = [("sleep", 3.0)] + [("eval", self._visible_loading(sel)) for sel in containers]
+        r = self._run(page, stub, steps)
+        for sel, res in zip(containers, r["_steps"][1:], strict=False):
+            self.assertEqual(
+                [], res["stillLoading"], f"{page} {sel}: placeholder left beside failure note: {res['stillLoading']}"
+            )
+        return r
+
+    def test_customer_dashboard_500_clears_placeholders(self) -> None:
+        r = self._dashboard_no_placeholder(
+            "customer-dashboard.html",
+            ["#cust-jobs-table", "#cust-wallets-table"],
+            {"/v1/market/jobs": {"__status": 500, "body": {}}, "/api/analytics/top-addresses": {"__status": 500, "body": {}}},
+        )
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+
+    def test_shop_dashboard_500_clears_placeholders(self) -> None:
+        r = self._dashboard_no_placeholder(
+            "shop-dashboard.html",
+            ["#shop-jobs-table", "#shop-gpus-table", "#shop-offers-table", "#shop-wallets-table"],
+            {
+                "/v1/market/jobs": {"__status": 500, "body": {}},
+                "/v1/market/gpu/list": {"__status": 500, "body": {}},
+                "/v1/market/offer": {"__status": 500, "body": {}},
+                "/api/analytics/top-addresses": {"__status": 500, "body": {}},
+            },
+        )
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+
+    def test_explorer_top_addresses_500_clears_placeholder(self) -> None:
+        stub = _stub_js(_fixtures(**{"/api/analytics/top-addresses": {"__status": 500, "body": {}}}))
+        steps = [
+            ("wait", "(document.getElementById('ta-source')||{textContent:''}).textContent.length > 0"),
+            ("sleep", 0.5),
+            ("eval", self._visible_loading("#top-addresses-container")),
+        ]
+        r = self._run("explorer.html", stub, steps)
+        self.assertEqual([], r["stillLoading"], f"leaderboard placeholder left beside failure note: {r['stillLoading']}")
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+
+    def test_exchange_book_instant_failure_no_uncaught(self) -> None:
+        # Every fetch rejects in the same microtask — exchange-book.js runs
+        # before status.js defines aitbcFmt, so the refresh() failure path
+        # must not touch it unguarded (WEB-FAILSTATES-1 item 4).
+        reject_all = {
+            "/v1/": {"__reject": True},
+            "/api/": {"__reject": True},
+            "/explorer-api": {"__reject": True},
+            "/exchange-api": {"__reject": True},
+        }
+        stub = _stub_js(_fixtures(**reject_all))
+        steps = [
+            ("sleep", 2.5),
+            ("eval", "JSON.stringify({errs: window.__errors || null, csp: window.__csp})"),
+        ]
+        r = self._run("exchange.html", stub, steps)
+        self.assertEqual([], r["errs"] or _exceptions(r["_events"]), "uncaught error on instantly failing fetch")
         self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
 
 
