@@ -22,7 +22,7 @@ NODE_WALLET_CANONICAL = canonical_address(NODE_WALLET)
 
 def _patch_env(monkeypatch):
     monkeypatch.setattr(escrow_routes, "_NODE_WALLET", NODE_WALLET)
-    monkeypatch.setattr(escrow_routes, "_CHAIN_ID", "ait-test")
+    monkeypatch.setattr(escrow_routes, "_chain_id", lambda: "ait-test")
 
 
 class TestEscrowLockRoutes:
