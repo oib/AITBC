@@ -23,6 +23,7 @@ from eth_account import Account
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
 from sqlmodel import Session, select
 
@@ -111,7 +112,7 @@ class BondSlashingService:
             os.getenv("BOND_SLASH_PRIVATE_KEY", ""), self.slash_authority
         )
         self.bond_burn_address = _env_evm_address("BOND_BURN_ADDRESS")
-        self.chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+        self.chain_id = resolve_chain_id()
         self.tx_fee = int(os.getenv("BOND_SLASH_TX_FEE", "36"))
 
     @staticmethod
