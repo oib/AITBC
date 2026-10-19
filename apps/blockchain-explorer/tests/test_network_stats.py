@@ -38,7 +38,7 @@ def chain_db_fixture(tmp_path: Path, monkeypatch) -> Path:
         "INSERT INTO \"transaction\" (chain_id, tx_hash, sender, recipient, payload, value, type, status) VALUES ('c', ?, '0xs', '0xr', ?, ?, ?, 'confirmed')",
         [
             ("0xt1", '{"offer_id": "sw_1"}', 0, "GPU_MARKET"),
-            ("0xt2", '{"offer_id": "sw_2"}', 0, "GPU_MARKETPLACE"),
+            ("0xt2", '{"offer_id": "sw_2"}', 0, "GPU_MARKET"),
             ("0xt3", '{"gpu_id": "gpu-1"}', 0, "GPU_REGISTER"),
             ("0xt4", '{"gpu_id": "gpu-1"}', 0, "GPU_REGISTER"),  # re-register: counts once
             ("0xt5", "{}", 36_000_000, "TRANSFER"),  # 1 AIT volume
