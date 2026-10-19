@@ -105,16 +105,26 @@ def _bootstrap_accounts(db: sqlite3.Connection, chain_id: str) -> list[dict[str,
     for sender, recipient, value, fee in flow_rows:
         amt = int(value or 0)
         cost = amt + int(fee or 0)
+        # Sealed sender/recipient strings predate address canonicalization —
+        # both "0x02B8…" and "0x02b8…" forms appear for the same account.
         if sender:
+            sender = sender.lower()
             cumulative[sender] = cumulative.get(sender, 0) - cost
             sent[sender] = sent.get(sender, 0) + 1
             peak[sender] = max(peak.get(sender, 0), -cumulative[sender])
         if recipient:
+            recipient = recipient.lower()
             cumulative[recipient] = cumulative.get(recipient, 0) + amt
             peak[recipient] = max(peak.get(recipient, 0), -cumulative[recipient])
     bootstrap_accounts = []
+    tip_by_lower = {a.lower(): a for a in tip_accounts}
     for addr in sorted(set(tip_accounts) | set(sent) | set(peak)):
-        tip = tip_accounts.get(addr)
+        addr = addr.lower()
+        if not (addr.startswith("0x") and len(addr) == 42):
+            # bridge_release/bridge_refund pseudo-senders carry ledger rows
+            # but never an account row — seeding one would poison the root.
+            continue
+        tip = tip_accounts.get(tip_by_lower.get(addr, addr))
         # The cumulative column is (received - spent); off-ledger net is what
         # the tip holds beyond it. Senders missing an account row get 0.
         offchain_net = (tip["balance"] if tip else 0) - cumulative.get(addr, 0)
@@ -123,7 +133,7 @@ def _bootstrap_accounts(db: sqlite3.Connection, chain_id: str) -> list[dict[str,
             continue
         bootstrap_accounts.append(
             {
-                "address": addr,
+                "address": tip_by_lower.get(addr, addr),
                 "balance": bootstrap_balance,
                 "nonce": 0,
                 # Provenance: the tip-implied net credit — a bootstrap above

@@ -134,16 +134,18 @@ def seed_genesis(session: Session, chain_id: str, genesis_state: dict[str, Any])
             )
             seeded.add(str(alloc["address"]).lower())
     for boot in genesis_state.get("bootstrap_accounts", []):
-        if str(boot["address"]).lower() in seeded:
+        addr = _to_ait_address(boot["address"]) or boot["address"]
+        if addr.lower() in seeded:
             continue
         session.add(
             Account(
                 chain_id=chain_id,
-                address=boot["address"],
+                address=addr,
                 balance=int(boot["balance"]),
                 nonce=int(boot.get("nonce", 0)),
             )
         )
+        seeded.add(addr.lower())
     if genesis_state.get("source", {}).get("doc_allocations_applied"):
         for name, value in (genesis_state.get("parameters") or {}).items():
             stored_value = "" if value is None else str(value)
