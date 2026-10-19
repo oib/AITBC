@@ -237,7 +237,7 @@ def test_reset_follower_refuses_without_marker(no_scratch):
         capture_output=True,
         text=True,
         timeout=30,
-        env={k: v for k, v in os.environ.items() if k != "AITBC_RESET_SCRATCH"},
+        env={k: v for k, v in os.environ.items() if k != "AITBC_RESET_SCRATCH"} | {"CHAIN_ID": "test-chain"},
     )
     assert r.returncode == 1
     assert "AITBC_RESET_SCRATCH" in r.stderr
@@ -249,7 +249,7 @@ def test_reset_follower_live_defaults_refuse(scratch):
         capture_output=True,
         text=True,
         timeout=30,
-        env={**os.environ, "AITBC_RESET_SCRATCH": str(scratch)},
+        env={**os.environ, "AITBC_RESET_SCRATCH": str(scratch), "CHAIN_ID": "test-chain"},
     )
     assert r.returncode == 1  # /var/lib/aitbc + /etc/aitbc defaults refuse
 
