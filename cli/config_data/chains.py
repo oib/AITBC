@@ -43,15 +43,9 @@ class ChainRegistry:
                 native_currency="AITBC",
             )
 
-        # AITBC Hub (actual chain on this hub)
-        self.chains["ait-localnet"] = ChainConfig(
-            chain_id="ait-localnet",
-            name="AITBC Hub Network",
-            rpc_url="http://localhost:8202",
-            explorer_url=None,
-            is_testnet=False,
-            native_currency="AITBC",
-        )
+        # No hard-coded builtin chain: a chain id is deployment configuration,
+        # not a default a client may silently invent. The registry holds only
+        # the CHAIN_ID-derived entry above plus whatever callers register.
 
     def get_chain(self, chain_id: str) -> ChainConfig | None:
         """Get chain configuration by ID"""
