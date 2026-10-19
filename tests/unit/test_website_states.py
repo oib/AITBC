@@ -648,10 +648,11 @@ class TestStatesBrowser(unittest.TestCase):
             ("sleep", 1.0),
             ("eval", self._visible_loading("#firing-container")),
             ("eval", self._visible_loading("#events-container")),
+            ("eval", "JSON.stringify({csp: window.__csp})"),
         ]
         r = self._run("alerts.html", stub, steps)
-        firing = r["_steps"][-2]["stillLoading"]
-        events = r["_steps"][-1]["stillLoading"]
+        firing = r["_steps"][-3]["stillLoading"]
+        events = r["_steps"][-2]["stillLoading"]
         self.assertEqual([], firing, f"firing placeholders never replaced: {firing}")
         self.assertEqual([], events, f"events placeholders never replaced: {events}")
         self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
@@ -678,8 +679,9 @@ class TestStatesBrowser(unittest.TestCase):
     def _dashboard_no_placeholder(self, page: str, containers: list[str], overrides: dict) -> dict:
         stub = _stub_js(_fixtures(**overrides))
         steps = [("sleep", 3.0)] + [("eval", self._visible_loading(sel)) for sel in containers]
+        steps += [("eval", "JSON.stringify({csp: window.__csp})")]
         r = self._run(page, stub, steps)
-        for sel, res in zip(containers, r["_steps"][1:], strict=False):
+        for sel, res in zip(containers, r["_steps"][1:-1], strict=False):
             self.assertEqual(
                 [], res["stillLoading"], f"{page} {sel}: placeholder left beside failure note: {res['stillLoading']}"
             )
@@ -712,9 +714,11 @@ class TestStatesBrowser(unittest.TestCase):
             ("wait", "(document.getElementById('ta-source')||{textContent:''}).textContent.length > 0"),
             ("sleep", 0.5),
             ("eval", self._visible_loading("#top-addresses-container")),
+            ("eval", "JSON.stringify({csp: window.__csp})"),
         ]
         r = self._run("explorer.html", stub, steps)
-        self.assertEqual([], r["stillLoading"], f"leaderboard placeholder left beside failure note: {r['stillLoading']}")
+        still = r["_steps"][-2]["stillLoading"]
+        self.assertEqual([], still, f"leaderboard placeholder left beside failure note: {still}")
         self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
 
     def test_exchange_book_instant_failure_no_uncaught(self) -> None:
