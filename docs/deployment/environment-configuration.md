@@ -139,7 +139,7 @@ GOSSIP_BACKEND=websocket
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | No | - | PostgreSQL URL (if using PostgreSQL) |
-| `db_encryption_enabled` | No | `false` | Enable SQLCipher encryption (ait-mainnet only) |
+| `db_encryption_enabled` | No | `false` | Enable SQLCipher encryption (applies to the configured chain when the key file exists) |
 | `MEMPOOL_DB_URL` | No | - | PostgreSQL URL for mempool backend |
 
 ### Redis & Gossip

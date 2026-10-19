@@ -46,6 +46,7 @@ from .base_models import (  # noqa: F401
     _to_ait_address,
     canonical_address,
 )
+from .chain_id import resolve_chain_id
 from .config import settings
 from .mempool import MempoolEntry  # noqa: F401
 from .metadata import chain_metadata
@@ -112,7 +113,8 @@ def _release_keeper_connection(chain_id: str) -> None:
 def get_engine(chain_id: str = "") -> Engine:
     """Get database engine for a specific chain.
 
-    Uses SQLCipher for encryption when enabled (ait-mainnet only).
+    Uses SQLCipher for encryption when enabled (db_encryption_enabled plus
+    the key file present).
     SQLCipher maintains SQLite's internal format while encrypting data at rest.
 
     Args:
@@ -121,15 +123,14 @@ def get_engine(chain_id: str = "") -> Engine:
     Returns:
         SQLAlchemy engine for the chain.
     """
-    resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
+    resolved_chain_id = resolve_chain_id(chain_id)
 
     if resolved_chain_id not in _engines:
         db_path = settings.get_db_path(resolved_chain_id)
 
-        # Check if SQLCipher encryption is enabled for this chain (only ait-mainnet)
-        encryption_enabled = (
-            settings.db_encryption_enabled and settings.db_encryption_key_path.exists() and resolved_chain_id == "ait-mainnet"
-        )
+        # SQLCipher applies to whichever chain is configured when the flag and
+        # the key file are both present; no chain-id literal gates it.
+        encryption_enabled = settings.db_encryption_enabled and settings.db_encryption_key_path.exists()
 
         if encryption_enabled:
             # Use SQLCipher with encryption key
@@ -244,7 +245,7 @@ _session_factories: dict[str, sessionmaker] = {}
 
 def _get_session_factory(chain_id: str) -> sessionmaker:
     """Get (or create and cache) a sessionmaker bound to the chain's engine."""
-    resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
+    resolved_chain_id = resolve_chain_id(chain_id)
     if resolved_chain_id not in _session_factories:
         engine = get_engine(chain_id)
         _session_factories[resolved_chain_id] = sessionmaker(
@@ -598,13 +599,7 @@ def init_db(chain_id: str = "") -> None:
     Args:
         chain_id: Chain ID to initialize. If empty, uses default chain.
     """
-    resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
-    if resolved_chain_id == "ait-mainnet" and not (chain_id or _default_chain_id or settings.chain_id):
-        logger.warning(
-            "init_db resolved to the 'ait-mainnet' fixture fallback: no chain_id argument, "
-            "no default chain, and CHAIN_ID unset. This is only correct on a dev node — "
-            "set chain_id explicitly to avoid opening the wrong chain."
-        )
+    resolved_chain_id = resolve_chain_id(chain_id)
     db_path = settings.get_db_path(resolved_chain_id)
 
     # Create database directory with chain_id subdirectory
@@ -641,15 +636,15 @@ def shutdown_db(chain_id: str = "") -> None:
     Args:
         chain_id: Chain ID to shutdown. If empty, uses default chain.
     """
-    resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
+    resolved_chain_id = resolve_chain_id(chain_id)
 
     # Check if we need to encrypt the database back
     if resolved_chain_id in _db_temp_paths:
         temp_path = _db_temp_paths[resolved_chain_id]
         db_path = settings.get_db_path(resolved_chain_id)
 
-        # Check if encryption is enabled for this chain
-        encryption_enabled = settings.db_encryption_enabled and resolved_chain_id == "ait-mainnet"
+        # Same gate as get_engine: flag plus key file, no chain-id literal.
+        encryption_enabled = settings.db_encryption_enabled and settings.db_encryption_key_path.exists()
 
         if encryption_enabled and isinstance(temp_path, os.PathLike) and os.path.exists(temp_path):
             # Encrypt the temporary file back to the original location

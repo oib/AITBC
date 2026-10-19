@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from .chain_id import ChainIdNotConfigured, resolve_chain_id
 from .config import settings
 from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
@@ -229,7 +230,10 @@ def _start_mempool_sweeper() -> asyncio.Task[None] | None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    init_db()
+    # Resolve the chain id before any database file is opened: an unconfigured
+    # node must refuse to start rather than fall back to a hard-coded chain.
+    default_chain_id = settings.supported_chains.split(",")[0].strip() or resolve_chain_id()
+    init_db(default_chain_id)
     from .contracts.escrow import create_escrow_manager
 
     escrow_manager = create_escrow_manager()
@@ -259,7 +263,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "DEFAULT_ISLAND_ID",
             f"{settings.supported_chains.split(',')[0].strip() or settings.chain_id}-island",
         )
-        default_chain_id = settings.supported_chains.split(",")[0].strip() or settings.chain_id or "ait-mainnet"
         create_island_manager(node_id, default_island_id, default_chain_id)
     except Exception as e:
         _app_logger.error("Failed to initialize island manager: %s", e)
@@ -270,7 +273,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         from .network.multi_chain_manager import create_multi_chain_manager
 
-        _mcm_chain_id = locals().get("default_chain_id") or settings.chain_id or "ait-mainnet"
+        _mcm_chain_id = default_chain_id
         base_db_path = Path(settings.get_db_path(_mcm_chain_id))
         create_multi_chain_manager(
             default_chain_id=_mcm_chain_id,
@@ -410,6 +413,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     configure_logging(level="INFO", service_name="blockchain-rpc", to_file=True)
     app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
+
+    @app.exception_handler(ChainIdNotConfigured)
+    async def _chain_id_not_configured(request: Request, exc: ChainIdNotConfigured) -> JSONResponse:
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
+
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     # app.add_middleware(RateLimitMiddleware, max_requests=100000, window_seconds=60)

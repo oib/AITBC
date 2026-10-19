@@ -241,6 +241,7 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
     # Auto-detect chain_id from blockchain node if not provided
     if not chain_id:
         from ..config import get_config
+        from ..utils.chain_id import resolve_chain_id as _resolve_chain_id
 
         config = get_config()
 
@@ -248,13 +249,7 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
         if not rpc_url:
             rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
 
-        try:
-            from ..utils.chain_id import get_chain_id
-
-            chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-        except Exception:
-            # Fallback to config or default
-            chain_id = getattr(config, "chain_id", "ait-mainnet")
+        chain_id = _resolve_chain_id(ctx, rpc_url)
 
     # Use provided data dir or default
     if not data_dir:

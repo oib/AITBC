@@ -179,19 +179,19 @@ def _resolve_node_chain_id(rpc_url: str) -> str:
     """Resolve the node's own chain ID via the public ``GET /rpc/proposer``.
 
     The /bridge/lock route verifies signatures against ``get_chain_id(None)``
-    = ``settings.chain_id or "ait-mainnet"`` when the body omits
+    = the node's configured ``settings.chain_id`` when the body omits
     ``source_chain``, so the wallet path must sign — and send — that same
     resolved value rather than an empty string.
     """
     try:
         resp = httpx.get(f"{rpc_url.rstrip('/')}/proposer", timeout=5.0)
         resp.raise_for_status()
-        chain_id = resp.json().get("chain_id") or "ait-mainnet"
+        chain_id = resp.json().get("chain_id")
     except Exception as e:
         raise click.ClickException(
             f"Could not resolve the node's chain ID from {rpc_url} ({e}); pass --source-chain explicitly"
         ) from e
-    if not chain_id:
+    if not isinstance(chain_id, str) or not chain_id:
         raise click.ClickException(f"Node at {rpc_url} reported an empty chain ID; pass --source-chain explicitly")
     return chain_id
 

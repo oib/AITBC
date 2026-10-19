@@ -74,7 +74,7 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..models import Escrow, Transaction
 from . import escrow_routes
-from .escrow_routes import _CHAIN_ID, _HUB_RPC_URL
+from .escrow_routes import _chain_id, _HUB_RPC_URL
 
 _logger = get_logger(__name__)
 
@@ -115,7 +115,7 @@ async def _proposer_pending_hashes() -> set[str] | None:
     """
     try:
         resp = await SharedHttpClient.get(
-            f"{_proposer_rpc_url()}/mempool?chain_id={_CHAIN_ID}&limit={_MEMPOOL_PROBE_LIMIT}",
+            f"{_proposer_rpc_url()}/mempool?chain_id={_chain_id()}&limit={_MEMPOOL_PROBE_LIMIT}",
             timeout=10.0,
         )
         if resp.status_code != 200:
@@ -373,7 +373,7 @@ async def _proposer_pending_txs() -> list[dict] | None:
     """
     try:
         resp = await SharedHttpClient.get(
-            f"{_proposer_rpc_url()}/mempool?chain_id={_CHAIN_ID}&limit={_MEMPOOL_PROBE_LIMIT}",
+            f"{_proposer_rpc_url()}/mempool?chain_id={_chain_id()}&limit={_MEMPOOL_PROBE_LIMIT}",
             timeout=10.0,
         )
         if resp.status_code != 200:

@@ -70,7 +70,7 @@ class ChainSettings(BaseSettings):
     chain_id: str = ""
     supported_chains: str = ""  # Comma-separated list of supported chain IDs (defaults to chain_id if empty)
     db_path: Path = DATA_DIR / "data" / "chain.db"
-    db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (ait-mainnet only)
+    db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (applies to the configured chain)
     db_encryption_key_path: Path = Path("/etc/aitbc/secrets/db_encryption.key")  # Phase 2: Encryption key file path
     # Hold one idle SQLite connection per chain for the life of the process. Every session opens its
     # own connection (NullPool), so whenever none is open the closing one is the *last*, and SQLite

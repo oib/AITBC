@@ -377,7 +377,7 @@ class PersistentKeystoreService:
             amount: Amount to transfer
             fee: Transaction fee (default 1000)
             nonce: Transaction nonce (auto-fetched if None)
-            chain_id: Chain ID (uses default if None)
+            chain_id: Chain ID (required: explicit or the service's CHAIN_ID)
             payload: Optional transaction payload data
             ip_address: Client IP for logging
 
@@ -400,9 +400,15 @@ class PersistentKeystoreService:
                 if nonce is None:
                     nonce = self._get_account_nonce(sender_address)
 
-                # Ensure chain_id
+                # Ensure chain_id: explicit argument or the service's configured
+                # chain — never a hard-coded default on the signing path.
                 if chain_id is None:
-                    chain_id = "ait-mainnet"
+                    chain_id = os.getenv("CHAIN_ID")
+                if not chain_id:
+                    raise ValueError(
+                        "chain_id is required: pass it explicitly or set CHAIN_ID "
+                        "for this service; refusing to sign a transaction for a guessed chain"
+                    )
 
                 # Normalize addresses
                 sender = sender_address.lower().strip()
