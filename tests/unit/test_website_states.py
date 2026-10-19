@@ -740,6 +740,49 @@ class TestStatesBrowser(unittest.TestCase):
         self.assertEqual([], r["errs"] or _exceptions(r["_events"]), "uncaught error on instantly failing fetch")
         self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
 
+    def test_marketplace_long_endpoint_wraps_in_list_row(self) -> None:
+        # WEB-MARKET-ENDPOINT-1: a 120+ char endpoint must render as an
+        # .offer-list-item row (label "Endpoint:") inside .offer-details-list
+        # and produce no horizontal overflow at 375 px.
+        endpoint = "https://" + "a" * 110 + ".example.com/v1/market/offer/plugin"
+        offer = {
+            "plugin_id": "whisper-base",
+            "node_id": "node-" + "7f3e" * 12,
+            "provider_address": "0x" + "ab" * 20,
+            "service_type": "inference",
+            "model": "whisper-large-v3",
+            "price": "1.5",
+            "price_unit": "AIT",
+            "gpu_name": "RTX 4090",
+            "gpu_device": "GPU-0",
+            "public_endpoint": endpoint,
+            "status": "active",
+            "description": "fixture offer",
+        }
+        stub = _stub_js(_fixtures(**{"/v1/market/offer": {"offers": [offer]}}))
+        steps = [
+            ("wait", "!!document.querySelector('#offers-container .offer-card')"),
+            ("sleep", 0.5),
+            (
+                "eval",
+                """JSON.stringify({
+  listLabels: [...document.querySelectorAll('.offer-list-item .offer-list-label')].map(e => e.textContent.trim()),
+  detailLabels: [...document.querySelectorAll('.offer-details .offer-detail-label')].map(e => e.textContent.trim()),
+  overflow: document.documentElement.scrollWidth > window.innerWidth,
+  scrollW: document.documentElement.scrollWidth,
+  innerW: window.innerWidth,
+  csp: window.__csp,
+  errs: window.__errors,
+})""",
+            ),
+        ]
+        r = self._run("marketplace.html", stub, steps)
+        self.assertIn("Endpoint:", r["listLabels"], "Endpoint must be an offer-list-item row")
+        self.assertNotIn("Endpoint", r["detailLabels"], "Endpoint must not be a detail tile")
+        self.assertFalse(r["overflow"], f"horizontal overflow at 375 px: scrollW {r['scrollW']} > innerW {r['innerW']}")
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+        self.assertEqual([], r["errs"], f"uncaught errors: {r['errs']}")
+
 
 if __name__ == "__main__":
     unittest.main()
