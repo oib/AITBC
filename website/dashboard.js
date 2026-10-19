@@ -199,6 +199,9 @@ function renderFailure(container, label, reason) {
     const prior = container.querySelector('.dash-note');
     if (prior) prior.remove();
     const stale = container.querySelector('.table-wrap');
+    // No last-good table — a first-load "Loading …" placeholder must not
+    // stay on screen next to the failure note.
+    if (!stale) container.querySelectorAll('.loading, .loading-text').forEach(el => el.remove());
     const p = document.createElement('p');
     p.className = 'endpoint-note dash-note';
     const retry = /^Credential rejected/.test(reason)
