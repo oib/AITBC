@@ -329,3 +329,18 @@ defaults untouched. Repo-only: no rollout.
   The reference now includes the HTML revalidation rule already live.
 - Activation requires the reviewed hub fast-forward, Explorer restart
   and nginx configuration rollout; this entry does not assert deployment.
+
+### TOOL-MCP-2 — close the three residual MCP tooling gaps
+
+- `aitbc system env-names --process` reads the running process environment
+  (`/proc/<MainPID>/environ`): names only by default, `--names` set/unset,
+  `declared_only`/`process_only` drift flags against the declared env files,
+  and `--value NAME` for ONE non-deny-listed variable (deny-list + 200-char
+  cap; refusals name the rule, never the value).
+- `aitbc prometheus metric --name <m>` reads ONE named metric from the
+  node's own `:9009/metrics` exposition (exact match; integer counters stay
+  integers; loopback-only unless `--allow-remote`, which the generated MCP
+  tools never expose). `aitbc_prometheus_metric` is a read-only MCP tool.
+- Gap 3 (counter-to-journal pairing) resolved as a documented recipe —
+  `docs/ops/counter-to-journal-recipe.md` — built from `prometheus metric`
+  and `system logs --since/--grep`; no new tool.

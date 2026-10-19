@@ -324,6 +324,9 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     ("crosschain", "swaps"),
     ("crosschain", "rates"),
     ("crosschain", "pools"),
+    # Raw /metrics read of one named metric — pure read of the node's own
+    # loopback exposition endpoint.
+    ("prometheus", "metric"),
 }
 
 FORCE_DESTRUCTIVE_PATHS: set[tuple[str, ...]] = {
@@ -414,6 +417,11 @@ SKIP_OPTION_NAMES = {
     "output-format",
     "password",
     "password_stdin",
+    # ``allow_remote``/``allow-remote`` (e.g. `prometheus metric`) lifts a
+    # loopback-only guard: an MCP-callable switch would let an agent scrape a
+    # raw metrics endpoint off-node. The CLI flag stays for local root use.
+    "allow_remote",
+    "allow-remote",
 }
 
 # Names we already use for MCP routing/safety parameters in every generated tool.
