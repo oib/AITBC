@@ -12,38 +12,52 @@ SERVICE_DIR = Path("/opt/aitbc/apps/blockchain-node")
 sys.path.insert(0, str(REPO_DIR))
 sys.path.insert(0, str(SERVICE_DIR / "src"))
 
-# Import AITBC utilities
-from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 
-# Configure logging
-configure_logging(
-    level="INFO",
-    service_name="blockchain-p2p",
-    to_file=True,
-)
+def build_cmd() -> list[str]:
+    """Build the gossip-relay argv from the environment.
 
-logger = get_logger(__name__)
-logger.info("Starting blockchain-p2p service")
+    The port comes from ``P2P_BIND_PORT`` (default 7070 — the value the
+    wrapper hardcoded before this env was honoured, which is what the live
+    hub still runs). The host comes from ``P2P_BIND_HOST`` (default
+    0.0.0.0: followers on other hosts may gossip over the internet
+    (docs/deployment/NETWORK_POLICY.md); hubs behind a public vhost can set
+    P2P_BIND_HOST=127.0.0.1 so inbound gossip arrives via /rpc/gossip/ws.
+    """
+    return [
+        sys.executable,
+        "-m",
+        "aitbc_chain.gossip.relay",
+        "--host",
+        os.environ.get("P2P_BIND_HOST", "0.0.0.0"),
+        "--port",
+        os.environ.get("P2P_BIND_PORT", "7070"),
+        "--access-log",
+    ]
 
-# Execute service
-exec_cmd = [
-    sys.executable,
-    "-m",
-    "aitbc_chain.gossip.relay",
-    "--host",
-    # Default 0.0.0.0: followers on other hosts may gossip over the internet
-    # (docs/deployment/NETWORK_POLICY.md); hubs behind a public vhost can set
-    # P2P_BIND_HOST=127.0.0.1 so inbound gossip arrives via /rpc/gossip/ws.
-    os.environ.get("P2P_BIND_HOST", "0.0.0.0"),
-    "--port",
-    "7070",
-    "--access-log",
-]
 
-logger.info(f"Executing: {' '.join(exec_cmd)}")
+def main() -> None:
+    # Import AITBC utilities
+    from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 
-# Ensure PYTHONPATH is set for the child process
-env = os.environ.copy()
-env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/blockchain-node/src"
+    # Configure logging
+    configure_logging(
+        level="INFO",
+        service_name="blockchain-p2p",
+        to_file=True,
+    )
 
-os.execvpe(exec_cmd[0], exec_cmd, env)
+    logger = get_logger(__name__)
+    logger.info("Starting blockchain-p2p service")
+
+    exec_cmd = build_cmd()
+    logger.info(f"Executing: {' '.join(exec_cmd)}")
+
+    # Ensure PYTHONPATH is set for the child process
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "/opt/aitbc:/opt/aitbc/apps/blockchain-node/src"
+
+    os.execvpe(exec_cmd[0], exec_cmd, env)
+
+
+if __name__ == "__main__":
+    main()
