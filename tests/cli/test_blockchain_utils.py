@@ -133,13 +133,21 @@ class TestGetBlockchainAnalytics:
         assert result["current_height"] == 1000
         assert result["status"] == "Active"
 
-    def test_analytics_supply_type(self):
-        """Test supply analytics type"""
+    @patch("aitbc_cli.utils.blockchain.AITBCHTTPClient")
+    def test_analytics_supply_type(self, mock_client_class):
+        """Test supply analytics type: genesis allocations are summed in
+        base units and converted to AIT strings (36,000,000 units per AIT)."""
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.return_value = {"allocations": [{"balance": 36000000000}]}
+
         result = get_blockchain_analytics("supply")
 
         assert result is not None
         assert result["type"] == "supply"
-        assert result["total_supply"] == "1000000000"
+        assert result["total_supply"] == "1000"
+        assert result["total_supply_units"] == 36000000000
+        assert result["unit"] == "AIT"
         assert result["status"] == "Available"
 
     def test_analytics_accounts_type(self):

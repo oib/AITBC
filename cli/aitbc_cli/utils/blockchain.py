@@ -5,6 +5,7 @@ Blockchain utility functions for AITBC CLI
 import os
 
 from aitbc import get_logger
+from aitbc.utils.units import UNITS_PER_AIT, units_to_ait
 
 from .http_client import AITBCHTTPClient, NetworkError
 
@@ -68,12 +69,24 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
             }
 
         elif analytics_type == "supply":
-            # Get total supply info
+            # Total minted supply: sum of the genesis allocation balances,
+            # fetched from the node and converted from base units to AIT.
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            response = http_client.get("/rpc/genesis_allocations")
+            allocations = response.get("allocations", [])
+            total_units = sum(alloc.get("balance", 0) for alloc in allocations)
+            total_ait = format(units_to_ait(total_units).normalize(), "f")
             return {
                 "type": "supply",
-                "total_supply": "1000000000",  # From genesis
-                "circulating_supply": "999997980",  # After transactions
-                "genesis_minted": "1000000000",
+                "total_supply": total_ait,
+                "total_supply_units": total_units,
+                # Mirrors total for now: a true circulating number needs a
+                # live account-balance aggregate the node RPC does not offer.
+                "circulating_supply": total_ait,
+                "circulating_supply_units": total_units,
+                "unit": "AIT",
+                "units_per_ait": UNITS_PER_AIT,
+                "basis": "genesis_allocations",
                 "status": "Available",
             }
 
