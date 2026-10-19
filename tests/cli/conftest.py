@@ -27,6 +27,10 @@ def _dead_rpc_endpoints(monkeypatch):
     """
     monkeypatch.setenv("WALLET_URL", "http://127.0.0.1:1")
     monkeypatch.setenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:1")
+    # Other suites' conftests pin CHAIN_ID at import to satisfy the strict
+    # resolver (#307); that pin must not leak in here, where tests stub
+    # get_chain_id and expect it to win over an unset env.
+    monkeypatch.delenv("CHAIN_ID", raising=False)
 
 # Make the shared fixtures importable.
 _FIXTURES_DIR = str(Path(__file__).resolve().parent.parent / "fixtures")
