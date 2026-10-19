@@ -1,6 +1,5 @@
 """Block routes — latest blocks, non-empty blocks, block by hash, block by address, block by height."""
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -10,10 +9,11 @@ from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
+from aitbc.utils.chain_id import resolve_chain_id
 
 from chain_client import (
-    BLOCKCHAIN_RPC_URLS,
-    DEFAULT_CHAIN,
+    default_chain_id,
+    rpc_url_for,
     get_block,
     get_latest_blocks,
     normalize_block,
@@ -28,24 +28,24 @@ router = APIRouter()
 
 @router.get("/api/blocks/latest")
 async def api_latest_blocks(
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
     limit: int = 10,
     offset: int = 0,
 ) -> dict[str, Any]:
     """API endpoint for latest blocks"""
-    blocks = await get_latest_blocks(limit, chain_id, offset)  # type: ignore[arg-type]
+    blocks = await get_latest_blocks(limit, chain_id, offset)
     return {"blocks": blocks}
 
 
 @router.get("/api/blocks/non-empty")
 async def api_non_empty_blocks(
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
     limit: int = 10,
     offset: int = 0,
 ) -> dict[str, Any]:
     """API endpoint for non-empty blocks (blocks with transactions)"""
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -128,7 +128,7 @@ async def api_non_empty_blocks(
 
 
 @router.get("/api/blocks/by-hash/{hash}")
-async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """API endpoint for block by hash"""
     if not validate_tx_hash(hash):
         raise HTTPException(status_code=400, detail="Invalid block hash")
@@ -136,7 +136,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -202,11 +202,12 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                     }
 
         # Fallback to RPC method
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id or DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        chain_id = chain_id or default_chain_id()
+        rpc_url = rpc_url_for(chain_id)
 
         # Get current head to determine height range
         async with httpx.AsyncClient() as client:
-            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id or DEFAULT_CHAIN})
+            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
             if head_response.status_code == 200:
                 head = head_response.json()
                 current_hash = head.get("hash", "")
@@ -242,12 +243,12 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
 @router.get("/api/blocks/by-address/{address}")
 async def api_blocks_by_address(
     address: str,
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
     limit: int = 50,
 ) -> dict[str, Any]:
     """Get all blocks that contain transactions referencing a given address"""
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -294,15 +295,15 @@ async def api_blocks_by_address(
 
 
 @router.get("/api/blocks/{height}")
-async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
     """API endpoint for block data"""
-    block_data = await get_block(height, chain_id)  # type: ignore[arg-type]
+    block_data = await get_block(height, chain_id)
     if not block_data:
         raise HTTPException(status_code=404, detail="Block not found")
 
     # Add transactions for this block
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
