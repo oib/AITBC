@@ -141,7 +141,7 @@ async function loadSearch() {
             document.getElementById('blocks-list').innerHTML = blockList.map(b => `
                 <div class="endpoint table-card fade-in block-item" tabindex="0" role="link" data-href="/block.html?height=${encodeURIComponent(b.height)}">
                     <div class="table-wrap"><table class="block-list-table" aria-label="Result details">
-                        <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(b.height)}</td></tr>
+                        <tr><th scope="row">Height</th><td><span class="badge badge-primary">${escapeHtml(aitbcFmt.type('BLOCK'))}</span> #${escapeHtml(b.height)}</td></tr>
                         <tr><th scope="row">Hash</th><td>${escapeHtml(b.hash || 'N/A')} ${aitbcCopyBtn(b.hash || '', 'block hash')}</td></tr>
                         <tr><th scope="row">Proposer</th><td>${addrLink(b.proposer)}</td></tr>
                         <tr><th scope="row">Transactions</th><td>${escapeHtml(b.txCount || 0)}</td></tr>
