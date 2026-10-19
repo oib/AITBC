@@ -196,7 +196,7 @@ class TestThresholdGuards:
         settings.multi_validator_consensus_enabled = False
         try:
             with pytest.raises(RuntimeError, match="not yet activated"):
-                PBFTConsensus(poa)
+                PBFTConsensus(poa, chain_id="test")
         finally:
             settings.multi_validator_consensus_enabled = original
 

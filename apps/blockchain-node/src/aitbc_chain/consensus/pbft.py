@@ -80,7 +80,8 @@ class PBFTConsensus:
         self,
         consensus: MultiValidatorPoA,
         private_key: str = "",
-        chain_id: str = "ait-hub",
+        *,
+        chain_id: str,
         local_validator: str = "",
         sync_manager: Any | None = None,
     ):

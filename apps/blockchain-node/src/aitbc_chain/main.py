@@ -468,6 +468,13 @@ class BlockchainNode:
         await gossip_broker.set_backend(backend)
         logger.info("Gossip backend initialized successfully")
         chains = self._supported_chains()
+        if not chains:
+            from .chain_id import ChainIdNotConfigured
+
+            raise ChainIdNotConfigured(
+                "no chain configured: set CHAIN_ID or SUPPORTED_CHAINS in the node's env files; "
+                "refusing to start with no chain rather than a hard-coded fallback"
+            )
         logger.info("Initializing databases for chains: %s", chains)
         for chain_id in chains:
             init_db(chain_id)
