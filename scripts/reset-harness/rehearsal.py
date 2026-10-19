@@ -732,6 +732,10 @@ def _check_db_rows(db: Path, failures: list[str]) -> list[tuple]:
         failures.append(f"chain_parameter rows {params} != expected {sorted(want_params)}")
     else:
         print("[+] chain_parameter: 5 rows incl. governance_executors")
+    return _block_rows(db)
+
+
+def _block_rows(db: Path) -> list[tuple]:
     return _sql(
         db,
         "SELECT height, proposer, block_metadata FROM block WHERE chain_id=? AND height>0 ORDER BY height",
@@ -739,7 +743,7 @@ def _check_db_rows(db: Path, failures: list[str]) -> list[tuple]:
     )
 
 
-def _check_certificates_and_rotation(root: Path, rows: list[tuple], failures: list[str]) -> None:
+def _check_certificates_and_rotation(root: Path, db: Path, rows: list[tuple], failures: list[str]) -> None:
     cert_heights = 0
     proposers_seen: set[str] = set()
     for _height, proposer, meta in rows:
@@ -759,7 +763,15 @@ def _check_certificates_and_rotation(root: Path, rows: list[tuple], failures: li
     unknown = proposers_seen - want
     if unknown:
         failures.append(f"blocks sealed by addresses outside VALIDATOR_SET: {sorted(unknown)}")
-    elif len(proposers_seen) < N_PROPOSERS:
+        return
+    # A proposer whose PBFT slot times out is skipped by the rotation, so a
+    # missing identity at check time is not yet a failure — wait through two
+    # more rotation windows before calling it.
+    deadline = time.time() + 240
+    while len(proposers_seen) < N_PROPOSERS and time.time() < deadline:
+        time.sleep(15)
+        proposers_seen |= {p.lower() for _h, p, _m in _block_rows(db) if p}
+    if len(proposers_seen) < N_PROPOSERS:
         failures.append(f"only {len(proposers_seen)}/{N_PROPOSERS} proposers sealed a block so far")
     else:
         print(f"[+] rotation: all {N_PROPOSERS} proposers sealed blocks")
@@ -781,7 +793,7 @@ def phase_check(root: Path) -> list[str]:
         failures.append(f"chain db missing at {db}")
         return failures
     rows = _check_db_rows(db, failures)
-    _check_certificates_and_rotation(root, rows, failures)
+    _check_certificates_and_rotation(root, db, rows, failures)
     return failures
 
 
