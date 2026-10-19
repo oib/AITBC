@@ -20,6 +20,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [Deployment Dependencies](DEPENDENCIES.md) - System-level dependencies for deployment
 - [Service Users](SERVICE_USERS.md) - Service user management and unification
 - [SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md) - Smart contract deployment procedures
+- [bc-2 Environment Set](bc2-environment-set.md) - the `bc-2` chain environment-variable set (reset planning)
 
 ## See Also
 
