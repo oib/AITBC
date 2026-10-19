@@ -1,0 +1,201 @@
+{
+ "allocations": [
+  {
+   "address": "0xFe2d63FE87Db282083b9159e5857Cac788af9E03",
+   "balance": 36000000000000000,
+   "nonce": 0
+  }
+ ],
+ "block0": {
+  "aux_state_root": null,
+  "block_metadata": null,
+  "bridge_state_root": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "hash": "0xd95e600bd46b57b6441b4db543c10234043c9e4838354f2db9ad661305cd1673",
+  "height": 0,
+  "id": 1,
+  "parent_hash": "0x00",
+  "proposer": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
+  "signature": "",
+  "state_root": "0x448ab9e8fdd7d5d8a17012e7a50811da4c37c72d5740038e038c37ec23c9ee56",
+  "timestamp": "2025-01-01T00:00:00",
+  "tx_count": 0
+ },
+ "bootstrap_accounts": [
+  {
+   "address": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
+   "balance": 35999999930900686,
+   "nonce": 0,
+   "offchain_net": 35999999930900686,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x03DF9Ed3788E5BA3991e6788036f9D171f027716",
+   "balance": 69164114,
+   "nonce": 0,
+   "offchain_net": 69164114,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x11741E1A83E85117712113A29954583B1f2A2B1F",
+   "balance": 7200,
+   "nonce": 0,
+   "offchain_net": 7200,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x17B9ED0c216932F6457c491808FF4d28bcbb679d",
+   "balance": 180000000000,
+   "nonce": 0,
+   "offchain_net": 179999964000,
+   "prime_topups": [
+    36000
+   ],
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x1d8B34f249b96169E48E956b00c307898FbaF087",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x3C664832bD5807545a251e9EBE4583dc08C7F15a",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x6e6e467E8454799184cae3917E1DA96e541185BB",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x72184bFF2Ad4081347a00B26712D90bf49644E97",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x72c57d5B75c1ebE110162695a2494e581E82acBC",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x73490B1149d324Ef7eF4F6ae97E847a5A0d9A2b5",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x824e4AC47Fcd16820E2b2c9671F056D2939A530d",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x8b6f63d31AF2560267cdb2e1Bd7e9Dff1Ff64B91",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x980729a2d2b3B533516C31D68A0CC495A39D0c1d",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x9Bb4D54569C4DA6a30f1fA99817Cc2D7ca6067DD",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x9Ea1B0ab1d8d03F3a3427af12ed4548a56B6cBa5",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0xAbD0D01ae6976F1D8E35b9D5CaF0dF66fAA009FA",
+   "balance": 180000000000,
+   "nonce": 0,
+   "offchain_net": 180000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0xB28fe78Cd2D0b1D640A249FF97143cfcBD3d6371",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0xC605f44a058A68A8860D5a3d50813617Cd014363",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0xd140dAB170E2292643DBb8f1b5AA710f19A520D0",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0xd4e8d212FC6acbe9cECF1F03518e611d16287b97",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0xEB29516824E95AdFFeEdfc914941F0fbEd0bB1a4",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0xF54898060366585d4bdD78E73a06c2eCfB5e7aAf",
+   "balance": 36000000000000,
+   "nonce": 0,
+   "offchain_net": 36000000000000,
+   "unbooked_nonce": 0
+  },
+  {
+   "address": "0x04fe87ac0e6a9bcbe7554eb29ea86312bf817ccc",
+   "balance": 36000000,
+   "nonce": 0,
+   "prime_topups": [
+    36000000
+   ]
+  }
+ ],
+ "parameters": {},
+ "source": {
+  "block0_hash": "0xd95e600bd46b57b6441b4db543c10234043c9e4838354f2db9ad661305cd1673",
+  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "doc_allocations_applied": false,
+  "genesis_doc_hash": "40ea48f995e6106025d1f89891bf845cda94706bc95e20d624df63bea929cd7d",
+  "genesis_hash_matches_block0": false,
+  "genesis_json_sha256": "26f33e0f0f18f087bcb8aed657a78f3e175ac9998ceb4e157fb80c1d42448cda",
+  "snapshot_sha256": "56f1a076152dca501e23dd1fe79cda97152a0fceab9fa59c06de4cd4d20243cb"
+ }
+}
