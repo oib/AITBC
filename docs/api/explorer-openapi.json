@@ -45,7 +45,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -207,7 +206,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -267,7 +265,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -327,7 +324,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -396,7 +392,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -519,7 +514,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -589,7 +583,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -668,7 +661,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -747,7 +739,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -816,7 +807,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -885,7 +875,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -964,7 +953,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -1033,7 +1021,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -1217,7 +1204,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -1371,7 +1357,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -1692,7 +1677,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -1771,7 +1755,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -1909,7 +1892,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -2046,7 +2028,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -2124,7 +2105,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -2202,7 +2182,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -2280,7 +2259,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -2358,7 +2336,6 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }

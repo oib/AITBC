@@ -10,6 +10,7 @@ import httpx
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils import format_ait
+from aitbc.utils.chain_id import resolve_chain_id
 
 from validation import validate_chain_id
 
@@ -24,9 +25,9 @@ except ImportError:
     USE_DATA_LAYER = False
 
 __all__ = [
-    "BLOCKCHAIN_RPC_URLS",
-    "DEFAULT_CHAIN",
     "USE_DATA_LAYER",
+    "default_chain_id",
+    "rpc_url_for",
     "get_data_layer",
     "normalize_block",
     "get_chain_head",
@@ -36,17 +37,41 @@ __all__ = [
 ]
 
 # Configuration - Multi-chain support
-chain_id = os.getenv("CHAIN_ID", "ait-localnet")
-BLOCKCHAIN_RPC_URLS = {
-    chain_id: BLOCKCHAIN_RPC_URL,
-    # ait-mainnet previously pointed at a hardcoded host on port 8082. The RPC
-    # has been on 8202 for some time (aitbc.constants.BLOCKCHAIN_RPC_PORT), so
-    # every request against that entry failed. Point it at the local node by
-    # default and let a deployment that really does front a separate mainnet
-    # node override it.
-    "ait-mainnet": os.getenv("MAINNET_RPC_URL", BLOCKCHAIN_RPC_URL),
-}
-DEFAULT_CHAIN = chain_id
+#
+# The local chain id is resolved lazily: importing this module must not read
+# the environment (tests import it without CHAIN_ID set), and when no id is
+# configured the resolver raises ``ChainIdNotConfigured`` rather than
+# substituting a hard-coded chain.
+
+
+def default_chain_id() -> str:
+    """Resolve the local chain id (explicit arg > CHAIN_ID env > raise)."""
+    return resolve_chain_id()
+
+
+def rpc_url_for(chain: str) -> str:
+    """RPC URL for a chain: the mainnet override, else the local node.
+
+    ait-mainnet previously pointed at a hardcoded host on port 8082. The RPC
+    has been on 8202 for some time (aitbc.constants.BLOCKCHAIN_RPC_PORT), so
+    every request against that entry failed. Point it at the local node by
+    default and let a deployment that really does front a separate mainnet
+    node override it.
+    """
+    if chain == "ait-mainnet":
+        return os.getenv("MAINNET_RPC_URL", BLOCKCHAIN_RPC_URL)
+    return BLOCKCHAIN_RPC_URL
+
+
+def __getattr__(name: str) -> Any:
+    # Backward-compatible lazy shims: ``from chain_client import DEFAULT_CHAIN``
+    # or ``BLOCKCHAIN_RPC_URLS`` resolves the environment on first access
+    # instead of at chain_client import time.
+    if name == "DEFAULT_CHAIN":
+        return default_chain_id()
+    if name == "BLOCKCHAIN_RPC_URLS":
+        return {default_chain_id(): BLOCKCHAIN_RPC_URL, "ait-mainnet": rpc_url_for("ait-mainnet")}
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def normalize_block(data: dict[str, Any]) -> dict[str, Any]:
@@ -64,10 +89,11 @@ def normalize_block(data: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
+async def get_chain_head(chain_id: str | None = None) -> dict[str, Any]:
     """Get chain head from specified chain"""
+    chain_id = chain_id or default_chain_id()
     try:
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        rpc_url = rpc_url_for(chain_id)
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
             if response.status_code == 200:
@@ -77,13 +103,14 @@ async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
     return {}
 
 
-async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
+async def get_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get transaction by hash from specified chain using direct DB lookup"""
+    chain_id = chain_id or default_chain_id()
     if not validate_chain_id(chain_id):
         logger.warning("Invalid chain_id format")
         return {}
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -124,7 +151,7 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
                 }
 
         # Fallback to RPC if DB lookup fails
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        rpc_url = rpc_url_for(chain_id)
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url}/rpc/tx/{tx_hash}", params={"chain_id": chain_id})
             if response.status_code == 200:
@@ -134,14 +161,15 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
     return {}
 
 
-async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any]:
+async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get a specific block by height from specified chain using real blockchain DB"""
+    chain_id = chain_id or default_chain_id()
     if not validate_chain_id(chain_id):
         logger.warning("Invalid chain_id format")
         return {}
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -209,7 +237,7 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
                     return {}
         else:
             # Fallback to RPC method
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            rpc_url = rpc_url_for(chain_id)
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{rpc_url}/rpc/blocks/{height}", params={"chain_id": chain_id, "include_tx": "false"}
@@ -224,11 +252,12 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
     return {}
 
 
-async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offset: int = 0) -> list[dict[str, Any]]:
+async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset: int = 0) -> list[dict[str, Any]]:
     """Get latest blocks from blockchain DB via RPC"""
+    chain_id = chain_id or default_chain_id()
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -299,7 +328,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
                 return blocks
         else:
             # Fallback to RPC method
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            rpc_url = rpc_url_for(chain_id)
             async with httpx.AsyncClient() as client:
                 # Get current head to know the height
                 head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})

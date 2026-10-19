@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
 
-from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN
+from chain_client import default_chain_id, rpc_url_for
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -71,8 +71,9 @@ async def _proxy(subpath: str, params: dict[str, Any]) -> dict[str, Any]:
     """GET the upstream route; pass its status and detail through on non-200."""
     chain_id = params.pop("chain_id", None)
     params = {k: v for k, v in params.items() if v is not None}
-    params["chain_id"] = chain_id or DEFAULT_CHAIN
-    rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id or DEFAULT_CHAIN, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+    resolved = chain_id or default_chain_id()
+    params["chain_id"] = resolved
+    rpc_url = rpc_url_for(resolved)
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{rpc_url}/rpc/messaging/{subpath}", params=params, timeout=10.0)
@@ -89,7 +90,7 @@ async def _proxy(subpath: str, params: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.get("/api/messages/state")
-async def api_messages_state(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_messages_state(chain_id: str | None = None) -> dict[str, Any]:
     return await _proxy("state", {"chain_id": chain_id})
 
 
@@ -97,7 +98,7 @@ async def api_messages_state(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, 
 async def api_messages_topics(
     limit: int = 50,
     offset: int = 0,
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
     _check_offset(offset)
     return await _proxy(
@@ -113,7 +114,7 @@ async def api_messages(
     limit: int = 50,
     offset: int = 0,
     cursor: str | None = None,
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
     """Newest-first message page; ``cursor`` takes a previous ``next_cursor``."""
     _check_offset(offset)
@@ -138,7 +139,7 @@ async def api_messages_search(
     limit: int = 50,
     offset: int = 0,
     cursor: str | None = None,
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
     _check_offset(offset)
     return await _proxy(
@@ -155,20 +156,20 @@ async def api_messages_search(
 
 
 @router.get("/api/messages/reputation/{address}")
-async def api_messages_reputation(address: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_messages_reputation(address: str, chain_id: str | None = None) -> dict[str, Any]:
     return await _proxy(f"reputation/{_check_address(address)}", {"chain_id": chain_id})
 
 
 @router.get("/api/messages/topics/{slug}/moderation")
-async def api_messages_topic_moderation(slug: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_messages_topic_moderation(slug: str, chain_id: str | None = None) -> dict[str, Any]:
     return await _proxy(f"topics/{_check_slug(slug)}/moderation", {"chain_id": chain_id})
 
 
 @router.get("/api/messages/{tx_hash}/votes")
-async def api_messages_votes(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_messages_votes(tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     return await _proxy(f"messages/{_check_tx_hash(tx_hash)}/votes", {"chain_id": chain_id})
 
 
 @router.get("/api/messages/{tx_hash}")
-async def api_messages_get(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_messages_get(tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     return await _proxy(f"messages/{_check_tx_hash(tx_hash)}", {"chain_id": chain_id})
