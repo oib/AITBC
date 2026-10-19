@@ -141,7 +141,7 @@ class CLIConfig(BaseAITBCConfig):
 
     # Chain configuration
     chain_id: str = Field(
-        default="ait-localnet",
+        default="",
         description="Default chain ID for multichain operations (overridden by CHAIN_ID env var or --chain-id)",
     )
     # The wallet holding the genesis allocation — the account AIT transfers are sent *from*.
