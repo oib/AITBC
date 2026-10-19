@@ -1,0 +1,52 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x2cbe29a6a20ce9db0731e19ae8ec11767ddeb4a730c0f7b8a4645901c34c564f",
+  "height": 25000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gpu-register-v7-foreign",
+ "description": "v7 registrant-only: re-register of ADDR_A's gpu_id by ADDR_B \u2014 refused.",
+ "gate": "v7",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "gpu_registration": [
+   {
+    "capabilities": [],
+    "chain_id": "gv-synth",
+    "cuda_version": "12.4",
+    "gpu_id": "gpu-1",
+    "memory_gb": 24,
+    "miner_id": "miner-1",
+    "model": "test-gpu",
+    "price_per_hour": "1.0",
+    "region": "test",
+    "registered_by": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "active"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "nonce": 0,
+  "payload": {
+   "gpu_id": "gpu-1",
+   "price_per_hour": "2.0"
+  },
+  "signature": "0x804a6de7b575e701d391ac9e887eb12bb1a27a4193d0e73ef932d79313692e336a681ef465a80d7951448c8f7dfdc2e4a59909373eda57f7de50913395ad7c5a01",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x759667bf88b88dd58a9424f7a372ea27450df31dc823eedb05b07657c08892ba",
+  "type": "GPU_REGISTER",
+  "value": 0
+ }
+}

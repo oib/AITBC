@@ -1,0 +1,35 @@
+{
+ "block": {
+  "block_metadata": {
+   "state_transition_version": 3
+  },
+  "hash": "0x2cbe29a6a20ce9db0731e19ae8ec11767ddeb4a730c0f7b8a4645901c34c564f",
+  "height": 25000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "stamp-below-height-v8",
+ "description": "Block stamped v3 at height 25000 \u2014 at/above the v8 pin the height-derived version (v8) wins; the stamp is advisory.",
+ "gate": "v8",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 100,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0xc321fbdf8de9f1d11925188b72072115e47d5127c4fd87feebaf5b789437fcf9",
+  "type": "TRANSFER",
+  "value": 100
+ }
+}

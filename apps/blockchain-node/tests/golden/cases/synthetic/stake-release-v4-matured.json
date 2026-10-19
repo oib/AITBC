@@ -1,0 +1,65 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x7e687ef78a802f17a3d3b8c96eb444780f5dc1d60cf5eea012ebc84aa4994f37",
+  "height": 13000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "stake-release-v4-matured",
+ "description": "Release naming a matured (no lock_days) sealed STAKE_LOCK owned by the payee \u2014 accepted.",
+ "gate": "v4",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": null,
+    "chain_id": "gv-synth",
+    "hash": "0x759ba2b833ea966fa19d4a9e76f07c0cbdf15561158dd82d4885c129885a5ec2",
+    "height": 12999,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 12000,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {},
+    "recipient": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "sender": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "status": "confirmed",
+    "tx_hash": "0xebfee932ae9b19768a845d2dcf2ac874615ef2459b4f4c7ba794d8a58e1bf58a",
+    "type": "STAKE_LOCK",
+    "value": 1000
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "nonce": 0,
+  "payload": {
+   "lock_tx_hashes": [
+    "0xebfee932ae9b19768a845d2dcf2ac874615ef2459b4f4c7ba794d8a58e1bf58a"
+   ]
+  },
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x0fe724fe5ba8305e514d1801d37747186ae4a95d85356a80a98052651cb06730",
+  "type": "STAKE_RELEASE",
+  "value": 1000
+ }
+}

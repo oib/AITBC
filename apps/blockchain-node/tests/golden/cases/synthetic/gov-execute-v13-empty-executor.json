@@ -1,0 +1,79 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x6f5bd32db42e040958cb8a4133f378ed1c8fdb54b8d197056961a3d371331e29",
+  "height": 47000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-execute-v13-empty-executor",
+ "description": "The gap57 shape: an executor executes a proposal whose sealed execution_payload is {} \u2014 the execute carries execution_payload:{} explicitly and binds; applies as a marker no-op.",
+ "gate": "v13",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": {
+     "state_transition_version": 14
+    },
+    "chain_id": "gv-synth",
+    "hash": "0x4a6f625517558cf7742c1115daf712ab1e9b95f6bb346a53278af661a7678852",
+    "height": 46500,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "governance_executors",
+    "value": "0x7564105E977516C53bE337314c7E53838967bDaC"
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 46500,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "execution_payload": {},
+     "proposal_id": "prop-empty",
+     "title": "p"
+    },
+    "recipient": "",
+    "sender": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "status": "confirmed",
+    "tx_hash": "0x3e48528b466251318791c997f58356c917cbffc41abbd970b1e78d4392c4b18f",
+    "type": "GOVERNANCE_PROPOSE",
+    "value": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {},
+   "proposal_id": "prop-empty"
+  },
+  "signature": "0xce1b66a8b5c2e1b2bac36aa1ac68630b8735f1a622546ab37814810cf4e3a7ce5a479d22a7f19be203bab7514f76a944155c364ed4b225084078ef26b27301ad01",
+  "to": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "tx_hash": "0x67ccaf0ffaefb846152e48a9d72271cae08d93b8b2e94ddeb1ec427fc5e8d5f8",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}

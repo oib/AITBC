@@ -1,0 +1,56 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0xb90c07c21d4bd0a32b84b500c0ca3dee9372582f022fc5780ee184112b92b480",
+  "height": 32000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "escrow-fee-sweep-prev11",
+ "description": "ESCROW_FEE_SWEEP below the v11 band \u2014 the v11 branch does not run; the tx falls to the generic path.",
+ "gate": "v11 boundary",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x7a781cDbCB5B9fbc9094E71D5D57d67A76652E44",
+    "balance": 500,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "escrow_settlement_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   },
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "escrow_fee_recipient",
+    "value": "0x1563915e194D8CfBA1943570603F7606A3115508"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 500,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB",
+  "nonce": 0,
+  "payload": {
+   "job_id": "job-sweep"
+  },
+  "signature": "0x914ed4dc630a249ba3791dc60b6e007d46c9afc554970f68c6ad3044cdf43c8029efb80e5dfcedc2fcd776adf09c2bb8e22cbe7e4ac88702d14f34abbdeac2e600",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x8a0d6a07e0295e9c690158a390b712231cdb0ea06a6d4e721f2fac5a0bb7cdea",
+  "type": "ESCROW_FEE_SWEEP",
+  "value": 500
+ }
+}
