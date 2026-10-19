@@ -223,7 +223,7 @@ def _normalize_allocations(allocations: list[dict[str, Any]]) -> tuple[list[dict
         norm.append(
             {
                 "address": address,
-                "balance": _require_int(alloc.get("balance"), field=f"allocations[{i}].balance", minimum=1),
+                "balance": _require_int(alloc.get("balance"), field=f"allocations[{i}].balance", minimum=0),
                 "nonce": _require_int(alloc.get("nonce", 0), field=f"allocations[{i}].nonce"),
             }
         )
