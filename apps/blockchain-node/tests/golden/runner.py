@@ -175,6 +175,58 @@ def _record(profile: str, cases_dir: Path, expected_dir: Path) -> dict[str, Any]
     return summary
 
 
+def _prime(cases_dir: Path, profile: str, max_iters: int = 8) -> dict[str, Any]:
+    """Iterate the stream replay, raising bootstrap balances until no
+    'Insufficient balance' reject remains.
+
+    The extractor's bootstrap is a *lower bound*: it credits ``recipient`` for
+    every sealed tx, but escrow/stake/bridge locks move value to custody rows
+    instead — so a recipient counted as funded may never have received the
+    units. Rather than reimplement per-type credit semantics, the prime pass
+    asks the apply path itself what each account lacked, and tops the
+    bootstrap up by the shortfall. The result is a documented minimum replay
+    funding; the per-block ``state_root_match`` then measures fidelity.
+
+    Rewrites ``cases/genesis-state.json`` in place (bumps are recorded in each
+    account's ``prime_topups`` list for provenance).
+    """
+    import re
+
+    pattern = re.compile(r"Insufficient balance for (\S+): (\d+) < (\d+)")
+    genesis_path = cases_dir / "genesis-state.json"
+    genesis = json.loads(genesis_path.read_text())
+    _, _, blocks = _load_stream(cases_dir)
+    boots = {a["address"].lower(): a for a in genesis.get("bootstrap_accounts", [])}
+    iterations = []
+    shortfalls: dict[str, int] = {}
+    for _ in range(max_iters):
+        outputs = run_stream(genesis, blocks, profile)
+        shortfalls = {}
+        for out in outputs:
+            for tx in out["txs"]:
+                m = pattern.match(tx.get("reason", ""))
+                if m and tx["verdict"] == "rejected":
+                    addr, have, need = m.group(1).lower(), int(m.group(2)), int(m.group(3))
+                    shortfalls[addr] = max(shortfalls.get(addr, 0), need - have)
+        if not shortfalls:
+            break
+        iterations.append(dict(sorted(shortfalls.items())))
+        for addr, gap in shortfalls.items():
+            boot = boots.get(addr)
+            if boot is None:
+                boot = {"address": addr, "balance": 0, "nonce": 0, "prime_topups": []}
+                genesis.setdefault("bootstrap_accounts", []).append(boot)
+                boots[addr] = boot
+            boot["balance"] = int(boot["balance"]) + gap
+            boot.setdefault("prime_topups", []).append(gap)
+        genesis_path.write_text(json.dumps(genesis, sort_keys=True, indent=1) + "\n")
+    return {
+        "iterations": len(iterations),
+        "converged": not shortfalls,
+        "topups": iterations,
+    }
+
+
 def _diff_obj(path: str, expected: Any, actual: Any, diffs: list[dict[str, Any]]) -> None:
     if type(expected) is not type(actual):
         diffs.append({"path": path, "expected": expected, "actual": actual})
@@ -271,6 +323,10 @@ def main(argv: list[str] | None = None) -> int:
     for cmd in ("record", "check"):
         p = sub.add_parser(cmd)
         p.add_argument("--profile", required=True, choices=["deployed", "gates0"])
+    pprime = sub.add_parser(
+        "prime", help="iterate the stream, topping up bootstrap balances until no insufficiency rejects remain"
+    )
+    pprime.add_argument("--profile", default="deployed", choices=["deployed", "gates0"])
     pdiff = sub.add_parser("diff")
     pdiff.add_argument("a")
     pdiff.add_argument("b")
@@ -294,6 +350,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "record":
         summary = _record(args.profile, args.cases_dir, args.expected_dir)
         print(json.dumps(summary, indent=1, sort_keys=True))
+        return 0
+    if args.command == "prime":
+        print(json.dumps(_prime(args.cases_dir, args.profile), indent=1, sort_keys=True))
         return 0
     diffs = _check(args.profile, args.cases_dir, args.expected_dir)
     if diffs:
