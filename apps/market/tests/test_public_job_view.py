@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
 from aitbc.market.job_request_signature import jobs_request_message
+from aitbc.utils.chain_id import resolve_chain_id
 from market_service.config import settings
 from market_service.main import app
 from market_service.services.market_service import (
@@ -54,7 +55,7 @@ def _signed_params(
     issued_at: int | None = None,
 ) -> dict[str, Any]:
     issued_at = int(time.time()) if issued_at is None else issued_at
-    chain_id = chain_id or settings.default_chain_id
+    chain_id = chain_id or settings.default_chain_id or resolve_chain_id()
     signature = sign_transaction_data(jobs_request_message(address, chain_id, issued_at, route), private_key)
     return {
         "signer_address": address,
