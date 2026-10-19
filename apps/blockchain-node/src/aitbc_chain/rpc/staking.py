@@ -2,7 +2,6 @@
 Staking-related RPC endpoints.
 """
 
-import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -18,29 +17,14 @@ from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..mempool import get_mempool
-from ..protocol_escrow import confirmed_lock_txs, queue_protocol_transfer, stake_escrow_address
-from ..models import Account, AgentIdentity, Block, GovernanceProposal, GovernanceVote, Stake
-from ..state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
+from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
 from .utils import (
     _require_supported_chain,
     get_chain_id,
     sign_transaction_data,
-    validate_chain_id,
-    verify_request_signature,
 )
 
 _logger = get_logger(__name__)
-
-# Upper bound on the stake lock period. Bounds `timedelta(days=lock_days)` so a caller
-# cannot push `locked_until` past datetime.max and turn the request into a 500.
-MAX_LOCK_DAYS = 3650
-
-# Maximum accepted age of a signed staking request. The client signs a
-# timestamped, nonce-bound message so a captured signature expires with the
-# window and dies for good once the account's next transaction lands — the
-# message used to carry no freshness data at all, which made it a permanent
-# bearer token for any same-amount stake on the chain.
-STAKE_AUTH_MAX_AGE_SECONDS = 300
 
 
 def _request_address(value: str) -> str:
@@ -61,28 +45,6 @@ def _request_address(value: str) -> str:
     return canonical
 
 
-def _freshness_fields(data: dict[str, Any], *, action: str) -> tuple[int, int | float]:
-    """Validate and return (nonce, timestamp) from a signed staking request.
-
-    Both fields are part of the signed message; raising here means the
-    request either omits them or they fail the freshness checks.
-    """
-    timestamp = data.get("timestamp")
-    if (
-        not isinstance(timestamp, (int, float))
-        or isinstance(timestamp, bool)
-        or abs(time.time() - float(timestamp)) > STAKE_AUTH_MAX_AGE_SECONDS
-    ):
-        raise HTTPException(status_code=400, detail=f"A fresh timestamp is required for {action}")
-    nonce = data.get("nonce")
-    if not isinstance(nonce, int) or isinstance(nonce, bool) or nonce < 0:
-        raise HTTPException(status_code=400, detail=f"The account nonce is required for {action}")
-    # Returned verbatim: both values ride inside the signed message, so they
-    # must be echoed into the verification payload exactly as the client sent
-    # them.
-    return nonce, timestamp
-
-
 @rate_limit(rate=20, per=60)
 async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str, Any]:
     """
@@ -92,88 +54,6 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
     and provide voting power in consensus.
     """
     raise_for_retired("Staking (stake)")
-    chain_id = get_chain_id(stake_data.get("chain_id"))
-    address = stake_data.get("address")
-    amount = stake_data.get("amount", 0)
-    lock_days = stake_data.get("lock_days", 30)
-    if not address:
-        raise HTTPException(status_code=400, detail="address is required")
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="amount must be positive")
-    if not isinstance(lock_days, int) or isinstance(lock_days, bool) or not 1 <= lock_days <= MAX_LOCK_DAYS:
-        raise HTTPException(status_code=400, detail=f"lock_days must be an integer between 1 and {MAX_LOCK_DAYS}")
-    address = _request_address(address)
-    # The signed message keeps the lowercase spelling: the wallet CLI signs
-    # ``hex_address.lower()`` while submitting the checksummed form, so the
-    # reconstructed message must use that exact spelling or every existing
-    # client signature breaks. Storage and lookups use the canonical form.
-    signed_address = address.lower()
-
-    # Bug 13: Validate chain_id is supported
-    if not validate_chain_id(chain_id):
-        raise HTTPException(status_code=400, detail=f"Unsupported chain_id: {chain_id}")
-
-    # Bug 8: Verify staker signature
-    signature = stake_data.get("signature")
-    if not signature:
-        raise HTTPException(status_code=403, detail="Signature required for staking")
-    nonce, timestamp = _freshness_fields(stake_data, action="staking")
-    sign_data = {
-        "address": signed_address,
-        "amount": amount,
-        "chain_id": chain_id,
-        "action": "stake",
-        "nonce": nonce,
-        "timestamp": timestamp,
-    }
-    if not verify_request_signature(address, signature, sign_data):
-        raise HTTPException(status_code=403, detail="Invalid staker signature")
-    with session_scope() as session:
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            raise HTTPException(status_code=404, detail=f"Account {address} not found")
-        # The signed nonce must equal the account's nonce at request time: a
-        # captured signature dies once the account's next transaction lands.
-        if (account.nonce or 0) != nonce:
-            raise HTTPException(status_code=400, detail=f"Stale nonce: expected {account.nonce}, got {nonce}")
-        if account.balance < amount:
-            raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
-        # The stake row is not part of the state root, so writing it here is
-        # safe. The balance is, so it is not touched: the debit happens when
-        # the STAKE_LOCK transfer is included in a block. Committing
-        # ``account.balance -= amount`` here would put the account table out of
-        # step with every block header and stall the proposer -- the failure
-        # that froze the fleet on 2026-09-03. See ``protocol_escrow``.
-        locked_until = datetime.now(UTC) + timedelta(days=lock_days)
-        stake = Stake(chain_id=chain_id, address=address, amount=amount, locked_until=locked_until, status="active")
-        session.add(stake)
-        session.commit()
-        session.refresh(stake)
-        stake_id = stake.id
-
-    tx_hash = queue_protocol_transfer(
-        sender=address,
-        recipient=stake_escrow_address(),
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="STAKE_LOCK",
-        payload={"stake_id": str(stake_id), "lock_days": lock_days},
-        # Carry the verified wallet signature into the block record so the
-        # lock's authorization is provable on-chain, not just on this node.
-        auth={"signer": address, "message": sign_data, "signature": signature},
-    )
-    _logger.info("Stake lock queued: %s staking %s on %s (tx %s)", address, amount, chain_id, tx_hash)
-    return {
-        "success": True,
-        "stake_id": stake_id,
-        "address": address,
-        "amount": amount,
-        "chain_id": chain_id,
-        "locked_until": locked_until.isoformat(),
-        "status": "active",
-        "transaction_hash": tx_hash,
-        "message": "Stake lock submitted to mempool; the balance moves when the transaction is included in a block",
-    }
 
 
 @rate_limit(rate=10, per=60)
@@ -184,120 +64,6 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
     Returns staked tokens to account balance.
     """
     raise_for_retired("Staking (unstake)")
-    chain_id = get_chain_id(unstake_data.get("chain_id"))
-    address = unstake_data.get("address")
-    stake_id = unstake_data.get("stake_id")
-    if not address or not stake_id:
-        raise HTTPException(status_code=400, detail="address and stake_id are required")
-    address = _request_address(address)
-    # Same contract as stake_tokens: the wallet signs the lowercase spelling
-    # of its address, so the reconstructed message must use it verbatim.
-    signed_address = address.lower()
-
-    # Bug 13: Validate chain_id is supported
-    if not validate_chain_id(chain_id):
-        raise HTTPException(status_code=400, detail=f"Unsupported chain_id: {chain_id}")
-
-    # Bug 8: Verify unstaker signature
-    signature = unstake_data.get("signature")
-    if not signature:
-        raise HTTPException(status_code=403, detail="Signature required for unstaking")
-    nonce, timestamp = _freshness_fields(unstake_data, action="unstaking")
-    sign_data = {
-        "address": signed_address,
-        "stake_id": stake_id,
-        "chain_id": chain_id,
-        "action": "unstake",
-        "nonce": nonce,
-        "timestamp": timestamp,
-    }
-    if not verify_request_signature(address, signature, sign_data):
-        raise HTTPException(status_code=403, detail="Invalid unstaker signature")
-
-    with session_scope() as session:
-        account = session.get(Account, (chain_id, address))
-        if not account:
-            raise HTTPException(status_code=404, detail=f"Account {address} not found")
-        if (account.nonce or 0) != nonce:
-            raise HTTPException(status_code=400, detail=f"Stale nonce: expected {account.nonce}, got {nonce}")
-        stake = session.get(Stake, stake_id)
-        if not stake:
-            raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
-        # Rows written before canonical-at-write may hold the lowercase
-        # spelling — compare canonically so either storage form authorizes.
-        if _to_ait_address(stake.address) != address:
-            raise HTTPException(status_code=403, detail="Not authorized to unstake")
-        if stake.status != "active":
-            raise HTTPException(status_code=400, detail=f"Stake is not active: {stake.status}")
-        now = datetime.now(UTC)
-        locked_until = stake.locked_until
-        if locked_until and locked_until.tzinfo is None:
-            locked_until = locked_until.replace(tzinfo=UTC)
-        if locked_until and now < locked_until:
-            raise HTTPException(
-                status_code=400, detail=f"Lock period not expired. Locked until: {stake.locked_until.isoformat()}"
-            )
-        # Never release against a lock that has not landed. The escrow is
-        # shared, so paying out an unfunded stake would spend another staker's
-        # principal.
-        lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "stake_id", stake_id)
-        if not lock_txs:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Stake {stake_id} lock is not yet confirmed on-chain; retry once it is included in a block",
-            )
-        # v4 consensus resolves the release against these replicated lock
-        # records — they are server-derived (the client signed before they
-        # were gathered) so they ride in the payload, not the signed message.
-        lock_tx_hashes = [tx.tx_hash for tx in lock_txs]
-        # Mirror the v4 maturity window (height + lock_days*1440) so a
-        # release that consensus would reject fails here with a clear 400 —
-        # otherwise the stake row below is already marked withdrawn while
-        # the release dies silently at block time when wall-clock
-        # locked_until has expired but block-height maturity has not.
-        current_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
-        if current_height >= settings.state_transition_v4_height:
-            next_height = current_height + 1
-            for lock in lock_txs:
-                lock_days = (lock.payload or {}).get("lock_days")
-                if lock_days in (None, 0):
-                    continue  # legacy / agent / auto-stake locks carry no window
-                try:
-                    unlock_height = int(lock.block_height or 0) + int(str(lock_days)) * _STAKE_LOCK_BLOCKS_PER_DAY
-                except (TypeError, ValueError):
-                    raise HTTPException(status_code=400, detail=f"Lock {lock.tx_hash} has invalid lock_days") from None
-                if next_height < unlock_height:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Lock {lock.tx_hash} matures at height {unlock_height}; current {next_height}",
-                    )
-        amount = stake.amount
-        stake.status = "withdrawn"
-        session.add(stake)
-        session.commit()
-
-    tx_hash = queue_protocol_transfer(
-        sender=stake_escrow_address(),
-        recipient=address,
-        amount=amount,
-        chain_id=chain_id,
-        tx_type="STAKE_RELEASE",
-        payload={"stake_id": str(stake_id), "lock_tx_hashes": lock_tx_hashes},
-        # The keyless escrow cannot sign; the user's verified unstake
-        # signature is embedded as the release's authorization evidence.
-        auth={"signer": address, "message": sign_data, "signature": signature},
-    )
-    _logger.info("Stake release queued: %s recovering %s from stake %s (tx %s)", address, amount, stake_id, tx_hash)
-    return {
-        "success": True,
-        "stake_id": stake_id,
-        "address": address,
-        "amount": amount,
-        "chain_id": chain_id,
-        "status": "withdrawn",
-        "transaction_hash": tx_hash,
-        "message": "Stake release submitted to mempool; the balance moves when the transaction is included in a block",
-    }
 
 
 @rate_limit(rate=100, per=60)

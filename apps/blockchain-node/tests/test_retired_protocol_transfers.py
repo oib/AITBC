@@ -3,8 +3,8 @@
 Every ``queue_protocol_transfer`` emission is unsigned and unsealable at
 block version 9 (BNT-1 audit), so the staking / agent-staking / AUTO_STAKE /
 bounty / HTLC entry points retire: HTTP 410 (or RetiredProtocolTransfer for
-the HTLC contract), no domain row, nothing queued. The bodies stay intact
-for a possible revival — pinned by ``unretired_protocol_transfers`` tests.
+the HTLC contract), no domain row, nothing queued. The stub bodies are gone;
+each surface raises unconditionally at the top.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def engine_fixture():
 @pytest.fixture
 def rpc_db(engine, monkeypatch):
     scope = _scope_for(engine)
-    for module in (staking, agent_staking, bounty, escrow_routes):
+    for module in (staking, agent_staking, escrow_routes):
         monkeypatch.setattr(module, "session_scope", scope)
     return engine
 
@@ -71,32 +71,23 @@ def _counts(engine) -> dict[str, int]:
         }
 
 
-async def test_stake_refuses_410_and_writes_nothing(rpc_db, monkeypatch):
-    queue = Mock()
-    monkeypatch.setattr(staking, "queue_protocol_transfer", queue)
+async def test_stake_refuses_410_and_writes_nothing(rpc_db):
     before = _counts(rpc_db)
     with pytest.raises(HTTPException) as exc:
         await staking.stake_tokens(request=None, stake_data={"address": "0xabc", "amount": 1})
     assert exc.value.status_code == 410
     assert "retired" in exc.value.detail.lower()
-    queue.assert_not_called()
     assert _counts(rpc_db) == before
 
 
-async def test_unstake_refuses_410(rpc_db, monkeypatch):
-    queue = Mock()
-    monkeypatch.setattr(staking, "queue_protocol_transfer", queue)
+async def test_unstake_refuses_410(rpc_db):
     with pytest.raises(HTTPException) as exc:
         await staking.unstake_tokens(request=None, unstake_data={"address": "0xabc", "stake_id": "1"})
     assert exc.value.status_code == 410
-    queue.assert_not_called()
 
 
 async def test_agent_staking_all_four_refuse_410(rpc_db, monkeypatch):
-    for module in (agent_staking,):
-        monkeypatch.setattr(module, "session_scope", _session_scope_no_db)
-    queue = Mock()
-    monkeypatch.setattr(agent_staking, "queue_protocol_transfer", queue)
+    monkeypatch.setattr(agent_staking, "session_scope", _session_scope_no_db)
     for call, args in [
         (agent_staking.create_agent_stake, (Mock(), {"signature": "0x"})),
         (agent_staking.add_to_agent_stake, (Mock(), "s-1", {"signature": "0x"})),
@@ -106,13 +97,9 @@ async def test_agent_staking_all_four_refuse_410(rpc_db, monkeypatch):
         with pytest.raises(HTTPException) as exc:
             await call(*args)
         assert exc.value.status_code == 410
-    queue.assert_not_called()
 
 
-async def test_bounty_all_five_refuse_410(rpc_db, monkeypatch):
-    monkeypatch.setattr(bounty, "session_scope", _session_scope_no_db)
-    queue = Mock()
-    monkeypatch.setattr(bounty, "queue_protocol_transfer", queue)
+async def test_bounty_all_five_refuse_410(rpc_db):
     before = _counts(rpc_db)
     for call, args in [
         (bounty.deploy_bounty, (Mock(), {"signature": "0x"})),
@@ -124,7 +111,6 @@ async def test_bounty_all_five_refuse_410(rpc_db, monkeypatch):
         with pytest.raises(HTTPException) as exc:
             await call(*args)
         assert exc.value.status_code == 410
-    queue.assert_not_called()
     assert _counts(rpc_db) == before
 
 

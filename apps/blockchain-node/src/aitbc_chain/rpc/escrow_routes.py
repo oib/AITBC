@@ -9,7 +9,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 import hmac
 import json
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -34,10 +34,8 @@ from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import escrow_fee_sweep_total, escrow_settlement_refused_total
-from ..models import Account, Escrow, Stake
-from ..protocol_escrow import queue_protocol_transfer, stake_escrow_address
+from ..models import Account, Escrow
 
-from .retired import is_retired as _retired_check
 from .utils import _unsigned_tx_fields
 
 _raw_rpc_url = os.getenv("HUB_RPC_URL", BLOCKCHAIN_RPC_URL).rstrip("/")
@@ -309,72 +307,15 @@ async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | N
     """
     if not provider or amount <= 0:
         return None
-    if _retired_check():
-        global _AUTO_STAKE_RETIRED_LOGGED
-        if not _AUTO_STAKE_RETIRED_LOGGED:
-            _AUTO_STAKE_RETIRED_LOGGED = True
-            _logger.warning(
-                "AUTO_STAKE skipped permanently: retired at v9 (protocol-escrow transfers cannot seal); "
-                "the escrow release is unaffected"
-            )
-        return None
-    try:
-        with session_scope() as session:
-            canonical = canonical_address(provider)
-            address = canonical if canonical else provider.lower().strip()
-            if job_id:
-                escrow = session.get(Escrow, job_id)
-                if escrow:
-                    expected = canonical_address(escrow.provider) or escrow.provider.lower().strip()
-                    if address != expected:
-                        _logger.warning(
-                            "AUTO_STAKE: refusing to stake for %s; it is not the recorded provider %s for job %s",
-                            address,
-                            expected,
-                            job_id,
-                        )
-                        return None
-            account = session.get(Account, (chain_id, address))
-            if not account:
-                # Do not create the row. The provider account is created by the
-                # ESCROW_RELEASE credit during block processing; writing it here
-                # would add an account no block header accounts for, and the
-                # state root is a full scan of that table.
-                _logger.warning("AUTO_STAKE: no account yet for %s; skipping reinvestment", address)
-                return None
-            if account.balance < amount:
-                _logger.warning("AUTO_STAKE: insufficient balance for %s: %s < %s", address, account.balance, amount)
-                return None
-            locked_until = datetime.now(UTC) + timedelta(days=30)
-            # The stake row is not part of the state root; the balance is. The
-            # debit therefore rides on a STAKE_LOCK transfer applied at block
-            # time rather than being committed here. See ``protocol_escrow``.
-            stake = Stake(
-                chain_id=chain_id,
-                address=address,
-                amount=amount,
-                locked_until=locked_until,
-                status="active",
-            )
-            session.add(stake)
-            session.commit()
-            session.refresh(stake)
-            queue_protocol_transfer(
-                sender=address,
-                recipient=stake_escrow_address(),
-                amount=amount,
-                chain_id=chain_id,
-                tx_type="STAKE_LOCK",
-                # v4: the same 30-day window locked_until gives the local row —
-                # lock_days makes it consensus-visible instead of route-only.
-                payload={"stake_id": str(stake.id), "source": "auto_stake", "lock_days": 30},
-            )
-            _logger.info("AUTO_STAKE: %s staking %s queued, stake_id=%s", address, amount, stake.id)
-            # Stake.id is an int; every consumer (the release response, the
-            # coordinator's ReceiptView.reinvest_stake_id) declares it a string.
-            return str(stake.id)
-    except Exception as e:
-        _logger.error("AUTO_STAKE failed: %s", e)
+    # Retired unconditionally at v9 — protocol-escrow transfers cannot seal;
+    # the escrow release is unaffected.
+    global _AUTO_STAKE_RETIRED_LOGGED
+    if not _AUTO_STAKE_RETIRED_LOGGED:
+        _AUTO_STAKE_RETIRED_LOGGED = True
+        _logger.warning(
+            "AUTO_STAKE skipped permanently: retired at v9 (protocol-escrow transfers cannot seal); "
+            "the escrow release is unaffected"
+        )
     return None
 
 
