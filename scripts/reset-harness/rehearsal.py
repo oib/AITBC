@@ -383,6 +383,10 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "GOSSIP_BACKEND": "mesh",
         "GOSSIP_MESH_PEER_URLS": ",".join(mesh),
         "GOSSIP_AUTH_ENABLED": "false",  # rehearsal mesh on loopback only
+        # All five instances share one source IP; the default per-IP ws cap
+        # (32) is below 4 peers x ~9 topics — excess connections get a
+        # pre-accept close that surfaces as HTTP 403.
+        "GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP": "256",
         "MULTI_VALIDATOR_CONSENSUS_ENABLED": "true",
         "MULTI_VALIDATOR_MIN_ATTESTATIONS": "2",
         "MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS": "3",
