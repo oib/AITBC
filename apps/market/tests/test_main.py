@@ -38,12 +38,13 @@ def _signed_registration(issued_at=None, chain_id=None, private_key=_TEST_PRIVAT
     import time
 
     from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
+    from aitbc.utils.chain_id import resolve_chain_id
     from aitbc.market.offer_registration import offer_body_hash, registration_message
     from market_service.config import settings
 
     provider = derive_ethereum_address(private_key)
     issued_at = int(time.time()) if issued_at is None else issued_at
-    chain_id = chain_id or settings.default_chain_id
+    chain_id = chain_id or settings.default_chain_id or resolve_chain_id()
     body = {**fields, "provider_address": provider, "chain_id": chain_id, "issued_at": issued_at}
     body["signature"] = sign_transaction_data(
         registration_message("register", fields["plugin_id"], provider, chain_id, issued_at, offer_body_hash(body)),
@@ -59,12 +60,13 @@ def _signed_unregister(
     import time
 
     from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
+    from aitbc.utils.chain_id import resolve_chain_id
     from aitbc.market.offer_registration import offer_body_hash, registration_message
     from market_service.config import settings
 
     provider = derive_ethereum_address(private_key)
     issued_at = int(time.time()) if issued_at is None else issued_at
-    chain_id = chain_id or settings.default_chain_id
+    chain_id = chain_id or settings.default_chain_id or resolve_chain_id()
     proof = {"plugin_id": plugin_id, "provider_address": provider, "chain_id": chain_id, "issued_at": issued_at}
     signature = sign_transaction_data(
         registration_message(action, plugin_id, provider, chain_id, issued_at, offer_body_hash(proof)), private_key
