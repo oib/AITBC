@@ -16,7 +16,7 @@ from aitbc.health_checks import create_simple_health_response
 configure_logging(level="INFO", service_name="blockchain-explorer", to_file=True)
 logger = get_logger(__name__)
 
-from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN  # noqa: E402
+from chain_client import default_chain_id, rpc_url_for  # noqa: E402
 from routers.alerts import router as alerts_router  # noqa: E402
 from routers.analytics import router as analytics_router  # noqa: E402
 from routers.blocks import router as blocks_router  # noqa: E402
@@ -48,7 +48,7 @@ async def health() -> dict[str, str]:
     try:
         # Test blockchain node connectivity
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN]}/rpc/head", timeout=5.0)
+            response = await client.get(f"{rpc_url_for(default_chain_id())}/rpc/head", timeout=5.0)
             node_status = "ok" if response.status_code == 200 else "error"
     except Exception:
         node_status = "error"

@@ -3,7 +3,6 @@
 import hashlib
 import json
 from datetime import UTC, datetime
-import os
 from pathlib import Path
 from typing import Any
 
@@ -12,9 +11,10 @@ import httpx
 from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import units_to_ait
 
-from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN, USE_DATA_LAYER, get_data_layer
+from chain_client import USE_DATA_LAYER, default_chain_id, get_data_layer, rpc_url_for
 
 logger = get_logger(__name__)
 
@@ -23,7 +23,7 @@ router = APIRouter()
 
 def _chain_db_path() -> Path | None:
     """Return the configured on-disk chain database, or None if it does not exist."""
-    chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
+    chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
     if not chain_db_path.exists():
         chain_db_path = Path("/var/lib/aitbc/data/chain.db")
     return chain_db_path if chain_db_path.exists() else None
@@ -37,7 +37,7 @@ def _activity_type_color(tx_type: str) -> str:
 
 @router.get("/api/analytics/activity")
 async def api_activity_timeline(
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
     days: int = 30,
 ) -> dict[str, Any]:
     """Get daily transaction counts for activity timeline chart"""
@@ -112,7 +112,7 @@ async def api_activity_timeline(
 
 
 @router.get("/api/analytics/network-stats")
-async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
     """Aggregate network stats: total AIT, transfer volume, distinct offers
     ever anchored on chain, unique nodes/providers, total transactions.
 
@@ -211,7 +211,7 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
 
 @router.get("/api/analytics/top-addresses")
 async def api_top_addresses(
-    chain_id: str | None = DEFAULT_CHAIN,
+    chain_id: str | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
     """Get top addresses by transaction count and AIT volume"""
@@ -259,7 +259,7 @@ async def api_top_addresses(
 
 
 @router.get("/api/analytics/provider-reputation/{provider_id}")
-async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
+async def api_provider_reputation(provider_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Compute provider reputation score from blockchain history"""
     try:
         chain_db_path = _chain_db_path()
@@ -341,11 +341,11 @@ async def analytics_overview(period: str = "24h") -> dict[str, Any]:
         if USE_DATA_LAYER:
             # Use data layer with toggle support
             data_layer = get_data_layer()
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(DEFAULT_CHAIN)
+            rpc_url = rpc_url_for(default_chain_id())
             return await data_layer.get_analytics_overview(period, rpc_url)
         else:
             # Original implementation without data layer
-            rpc_url = BLOCKCHAIN_RPC_URLS.get(DEFAULT_CHAIN)
+            rpc_url = rpc_url_for(default_chain_id())
             params = {"period": period}
 
             async with httpx.AsyncClient() as client:
