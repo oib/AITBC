@@ -1,0 +1,33 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0xe25a00160d9b243cd5fadaea00831943b69dfc1d8ef722cb22c7f4d5e74118a6",
+  "height": 3000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "escrow-lock-unversioned-v1",
+ "description": "Unstamped ESCROW_LOCK below every pin \u2014 deployed: v1 (no account auto-create); gates0: v2.",
+ "gate": "v2",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x33f5e767549ea85d4ff283dd72667b6e2e2ebbc041ac599509165a55178ffaee",
+  "type": "ESCROW_LOCK",
+  "value": 1000
+ }
+}

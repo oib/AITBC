@@ -1,0 +1,66 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x98186926ebeac511e1dc34a81a245e8a964af3b3f0734ed149a40353d1442f88",
+  "height": 24500,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "escrow-release-v2lock-v5-failclosed",
+ "description": "v5 fail-closed: a release at 24500 with no escrow_settlement_authority parameter is refused even though the v2-era lock predates the authority rule.",
+ "gate": "v5",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": null,
+    "chain_id": "gv-synth",
+    "hash": "0x7415ee7c6cb95c994a878594d7a1fe7b82302aa46df930da556bf11fe94bbe77",
+    "height": 3000,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 3000,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "job_id": "job-v2-era",
+     "provider": "0x1563915e194D8CfBA1943570603F7606A3115508"
+    },
+    "recipient": "",
+    "sender": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "confirmed",
+    "tx_hash": "0x97d3d4534751975d63f5c9af6b68473883487188888d90c97233f18ce640ee5e",
+    "type": "ESCROW_LOCK",
+    "value": 1000
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "job_id": "job-v2-era"
+  },
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x1f0cee492bd777ca77fba1364037e5b821e247ca6c15eeee330fe38785e89ab1",
+  "type": "ESCROW_RELEASE",
+  "value": 1000
+ }
+}

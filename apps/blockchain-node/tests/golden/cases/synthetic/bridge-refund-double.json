@@ -1,0 +1,101 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x2cbe29a6a20ce9db0731e19ae8ec11767ddeb4a730c0f7b8a4645901c34c564f",
+  "height": 25000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "bridge-refund-double",
+ "description": "Two BRIDGE_REFUNDs naming one lock in the same block: the first seals, the second sees refunded=True and is refused.",
+ "gate": "v6 double-refund",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 0,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": {
+     "state_transition_version": 6
+    },
+    "chain_id": "gv-synth",
+    "hash": "0x1b5e7fd7cb1b0e9c461846a03f45157a4d36e28d06045582ede27babfb560e87",
+    "height": 24600,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "bridge_release_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 24600,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "amount": 5000,
+     "asset": "AIT",
+     "target_chain": "sep",
+     "target_recipient": "0xabababababababababababababababababababab",
+     "transfer_id": "0xc278e5b3a6f75464aa6c93ee058351878452bb9b74fdc35be29b795fbee64d0f"
+    },
+    "recipient": "bridge_lock",
+    "sender": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "confirmed",
+    "tx_hash": "0xc278e5b3a6f75464aa6c93ee058351878452bb9b74fdc35be29b795fbee64d0f",
+    "type": "BRIDGE_LOCK",
+    "value": 5000
+   }
+  ]
+ },
+ "txs": [
+  {
+   "amount": 5000,
+   "bridge_signature": "0x9382cb2335e76f96e897beaf21cab5da64d64f4744fca9f51895a45ae4e14f451fd4213536c497c310e46f58e57955b1b86040c377a614e7140caf0fd184819a01",
+   "chain_id": "gv-synth",
+   "fee": 0,
+   "from": "bridge_refund",
+   "nonce": 0,
+   "payload": {
+    "amount": 5000,
+    "lock_tx_hash": "0xc278e5b3a6f75464aa6c93ee058351878452bb9b74fdc35be29b795fbee64d0f",
+    "recipient": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"
+   },
+   "to": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+   "tx_hash": "0x6f4bba18bb569ec8a7ba7a24ee571ef2210914139e50803b27627cfc964bd461",
+   "type": "BRIDGE_REFUND",
+   "value": 5000
+  },
+  {
+   "amount": 5000,
+   "bridge_signature": "0x07faedfda4bc68426a2e9c2a2edb139f03a680a3ce7d80594bb0e41418ed2ce54d1dbf395482acb7b1b08a27f4f3b73c5b4b8231775cf4018934fd1023ff8d0301",
+   "chain_id": "gv-synth",
+   "fee": 0,
+   "from": "bridge_refund",
+   "nonce": 0,
+   "payload": {
+    "amount": 5000,
+    "lock_tx_hash": "0xc278e5b3a6f75464aa6c93ee058351878452bb9b74fdc35be29b795fbee64d0f",
+    "recipient": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A"
+   },
+   "to": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+   "tx_hash": "0x9c95f8e4948f6df5e8e78322cb73cd394373cb299ffc8f994fa958362e6f77fa",
+   "type": "BRIDGE_REFUND",
+   "value": 5000
+  }
+ ]
+}

@@ -1,0 +1,82 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x37f77054a7a39f6ce6e1ab9c358c6bdedb7aa89e6899e4820c9f721f643504e6",
+  "height": 12000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "escrow-release-v3lock",
+ "description": "Release of a v3 custody lock at v4: settlement authority signs, pays fee only; escrow address pays provider.",
+ "gate": "v3/v4",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0xbbf381BbFA08432942C30819a9f8637ae93AD2aB",
+    "balance": 1000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "block": [
+   {
+    "block_metadata": {
+     "state_transition_version": 3
+    },
+    "chain_id": "gv-synth",
+    "hash": "0x21f764dd463a8f5174c8176c3d978c03bff2632a62f35d26a9e92694ccb4962c",
+    "height": 6000,
+    "parent_hash": "0x00",
+    "proposer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "timestamp": "2026-01-01 00:00:00",
+    "tx_count": 1
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "escrow_settlement_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   }
+  ],
+  "transaction": [
+   {
+    "block_height": 6000,
+    "chain_id": "gv-synth",
+    "created_at": "2026-01-01 00:00:00",
+    "fee": 1,
+    "nonce": 0,
+    "payload": {
+     "job_id": "job-v3-era",
+     "provider": "0x1563915e194D8CfBA1943570603F7606A3115508"
+    },
+    "recipient": "",
+    "sender": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "confirmed",
+    "tx_hash": "0xf1f04652d33df2ade39c80d29617c8c277c7c5f0b891f71448e3805d1db34a84",
+    "type": "ESCROW_LOCK",
+    "value": 1000
+   }
+  ]
+ },
+ "tx": {
+  "amount": 1000,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB",
+  "nonce": 0,
+  "payload": {
+   "job_id": "job-v3-era"
+  },
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x33daddeadc17d9a950e0d3d62a23f91fb90a63fc8fe29acce56017dd60958d41",
+  "type": "ESCROW_RELEASE",
+  "value": 1000
+ }
+}

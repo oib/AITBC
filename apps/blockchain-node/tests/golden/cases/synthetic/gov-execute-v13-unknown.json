@@ -1,0 +1,45 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x6f5bd32db42e040958cb8a4133f378ed1c8fdb54b8d197056961a3d371331e29",
+  "height": 47000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gov-execute-v13-unknown",
+ "description": "Execute naming a proposal never sealed \u2014 refused.",
+ "gate": "v13",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "governance_executors",
+    "value": "0x7564105E977516C53bE337314c7E53838967bDaC"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "nonce": 0,
+  "payload": {
+   "execution_payload": {},
+   "proposal_id": "prop-nope"
+  },
+  "signature": "0xd18b88a21dad7d8bc19b9cec79441995ddcb458a18ec5adbc76e971454a5f058162dff52a4be092ba4e62368e8aa3413ac951bad21238abf3659b28df1eb99df00",
+  "to": "0x7564105E977516C53bE337314c7E53838967bDaC",
+  "tx_hash": "0x7e339008c78dceb5c3f10452c18cc450d538807de9fd31bc7e4b19d027cbc5a7",
+  "type": "GOVERNANCE_EXECUTE",
+  "value": 0
+ }
+}

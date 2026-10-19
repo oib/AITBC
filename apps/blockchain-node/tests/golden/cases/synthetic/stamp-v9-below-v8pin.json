@@ -1,0 +1,36 @@
+{
+ "block": {
+  "block_metadata": {
+   "state_transition_version": 9
+  },
+  "hash": "0x199bf7987c00d2cb5ff99a4da199d1ed0fea2e955d6ad096654e22a0898f05b0",
+  "height": 100,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "stamp-v9-below-v8pin",
+ "description": "Block stamped v9 at height 100 \u2014 below the v8 pin the recorded stamp wins, so the v9 signature gate applies at a height the thresholds would call v2.",
+ "gate": "v8 stamp precedence",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 100,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "signature": "0x022cb9bf01b9748c799a62c0a6d82d777ffc0f3c20879e678d79793b5ee96fc949329eb969b3ae4c8d25e531ceab86b00e3a34ee7c161d70da29b4fe40e6f48600",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x0a28ca34812ad4c661c25f1939d6c069057eeb4d910ec616568cc78277c1affb",
+  "type": "TRANSFER",
+  "value": 100
+ }
+}

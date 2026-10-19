@@ -1,0 +1,22 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x7e687ef78a802f17a3d3b8c96eb444780f5dc1d60cf5eea012ebc84aa4994f37",
+  "height": 13000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "empty-block",
+ "description": "A block with no transactions \u2014 roots must be the pre-state roots unchanged.",
+ "gate": "block mechanics",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "txs": []
+}

@@ -1,0 +1,47 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x2cbe29a6a20ce9db0731e19ae8ec11767ddeb4a730c0f7b8a4645901c34c564f",
+  "height": 25000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "bridge-lock-v8-unsigned",
+ "description": "Unsigned BRIDGE_LOCK at 25000 \u2014 pre-v9, shadow only, applies.",
+ "gate": "v9 boundary",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "chain_parameter": [
+   {
+    "applied_height": 0,
+    "chain_id": "gv-synth",
+    "parameter": "bridge_release_authority",
+    "value": "0x5CbDd86a2FA8Dc4bDdd8a8f69dBa48572EeC07FB"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 5000,
+  "chain_id": "gv-synth",
+  "fee": 0,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {
+   "amount": 5000,
+   "asset": "AIT",
+   "target_chain": "sep",
+   "target_recipient": "0xabababababababababababababababababababab",
+   "transfer_id": "0x42209689b53dd907bba40796f0be48ad31ee0363766276297b816ff1b7700a72"
+  },
+  "to": "bridge_lock",
+  "tx_hash": "0x545251bf8db35590f922ec2a056b3ba4609990b04bb44808d10f4cd23febca9c",
+  "type": "BRIDGE_LOCK",
+  "value": 5000
+ }
+}
