@@ -297,7 +297,8 @@ def phase_genesis(root: Path, *, force: bool = False) -> Path:
     ]
     if force:
         cmd.append("--force")
-    subprocess.run(cmd, check=True)
+    child_env = dict(os.environ, PYTHONPATH=f"{REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src")
+    subprocess.run(cmd, check=True, env=child_env)
     built = build_dir / "out" / "data" / CHAIN_ID / "genesis.json"
     if not built.exists():
         raise _fail(f"builder did not produce {built}")
@@ -306,6 +307,7 @@ def phase_genesis(root: Path, *, force: bool = False) -> Path:
     subprocess.run(
         [sys.executable, str(REPO_ROOT / "scripts" / "ops" / "verify-genesis-root.py"), str(built)],
         check=True,
+        env=child_env,
     )
 
     # One built file -> all five instance dirs (never RPC bootstrap).
