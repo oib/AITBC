@@ -261,10 +261,6 @@ function createOfferCard(offer) {
                     <div class="offer-detail-label">GPU</div>
                     <div class="offer-detail-value">${formatGPU(offer.gpu_name, offer.gpu_device)}</div>
                 </div>
-                <div class="offer-detail">
-                    <div class="offer-detail-label">Endpoint</div>
-                    <div class="offer-detail-value">${formatEndpoint(offer.public_endpoint || offer.endpoint)}</div>
-                </div>
             </div>
 
             <div class="offer-details-list">
@@ -279,6 +275,10 @@ function createOfferCard(offer) {
                 <div class="offer-list-item">
                     <span class="offer-list-label">Plugin ID:</span>
                     <span class="offer-list-value">${escapeHtml(offer.plugin_id || 'N/A')}</span>
+                </div>
+                <div class="offer-list-item">
+                    <span class="offer-list-label">Endpoint:</span>
+                    <span class="offer-list-value">${formatEndpoint(offer.public_endpoint || offer.endpoint)}</span>
                 </div>
             </div>
 
