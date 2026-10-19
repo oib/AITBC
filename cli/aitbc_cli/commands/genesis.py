@@ -73,7 +73,7 @@ def init(
 
     if not script_path.exists():
         error(f"Genesis generation script not found: {script_path}")
-        return
+        ctx.exit(1)
 
     # Build command
     cmd = [sys.executable, str(script_path), "--chain-id", chain_id]
@@ -113,7 +113,7 @@ def init(
         success("Genesis generation completed successfully")
     except subprocess.CalledProcessError as e:
         error(f"Genesis generation failed: {e.stderr}")
-        return
+        ctx.exit(1)
 
 
 @genesis.command(
@@ -137,11 +137,13 @@ def verify(ctx, chain_id: str):
     import json
     import sqlite3
 
+    verified = True
+
     # Check genesis config file
     genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
     if not genesis_path.exists():
         error(f"Genesis config not found: {genesis_path}")
-        return
+        ctx.exit(1)
 
     try:
         with open(genesis_path) as f:
@@ -159,7 +161,7 @@ def verify(ctx, chain_id: str):
         )
     except Exception as e:
         error(f"Failed to read genesis config: {e}")
-        return
+        ctx.exit(1)
 
     # Check database (chain-specific path)
     db_path = Path(f"/var/lib/aitbc/data/{chain_id}/chain.db")
@@ -168,7 +170,7 @@ def verify(ctx, chain_id: str):
         db_path = Path("/var/lib/aitbc/data/chain.db")
         if not db_path.exists():
             error("Database not found at chain-specific or legacy path")
-            return
+            ctx.exit(1)
 
     try:
         conn = sqlite3.connect(str(db_path))
@@ -186,6 +188,7 @@ def verify(ctx, chain_id: str):
             )
         else:
             error(f"Genesis block not found in database for chain {chain_id}")
+            verified = False
 
         # Check genesis accounts
         cursor.execute("SELECT COUNT(*) FROM account WHERE chain_id=?", (chain_id,))
@@ -195,11 +198,12 @@ def verify(ctx, chain_id: str):
             success(f"✓ Found {account_count} accounts in database")
         else:
             error(f"No accounts found in database for chain {chain_id}")
+            verified = False
 
         conn.close()
     except Exception as e:
         error(f"Failed to verify database: {e}")
-        return
+        ctx.exit(1)
 
     # Check genesis wallet
     wallet_path = Path("/var/lib/aitbc/keystore/genesis.json")
@@ -217,8 +221,13 @@ def verify(ctx, chain_id: str):
             )
         except Exception as e:
             error(f"Failed to read genesis wallet: {e}")
+            verified = False
     else:
         error(f"Genesis wallet not found: {wallet_path}")
+        verified = False
+
+    if not verified:
+        ctx.exit(1)
 
 
 @genesis.command(
@@ -263,7 +272,7 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
         error(f"Chain ID: {chain_id}, Data directory: {data_dir}")
         error(f"RPC URL used for detection: {rpc_url}")
         error("Run 'aitbc genesis init' to create genesis block")
-        return
+        ctx.exit(1)
 
     try:
         with open(genesis_path) as f:
@@ -294,6 +303,7 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
 
     except Exception as e:
         error(f"Failed to read genesis info: {e}")
+        ctx.exit(1)
 
 
 @genesis.command(
@@ -337,19 +347,19 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
         from aitbc.utils import reset_guard
     except ImportError as exc:
         error(f"reset-guard: cannot load aitbc.utils.reset_guard ({exc}) — refusing")
-        return
+        ctx.exit(1)
     try:
         reset_guard.assert_scratch_targets(genesis_path)
         reset_guard.assert_not_live_chain(chain_id)
     except reset_guard.ResetGuardError as exc:
         error(str(exc))
-        return
+        ctx.exit(1)
 
     # Check if genesis.json already exists
     if genesis_path.exists() and not force:
         error(f"Genesis file already exists: {genesis_path}")
         error("Use --force to overwrite")
-        return
+        ctx.exit(1)
 
     # Create directory if it doesn't exist
     genesis_dir.mkdir(parents=True, exist_ok=True)
@@ -397,13 +407,13 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
     except httpx.HTTPStatusError as e:
         error(f"Failed to fetch genesis from hub: HTTP {e.response.status_code}")
         error(f"Response: {e.response.text}")
-        return
+        ctx.exit(1)
     except httpx.RequestError as e:
         error(f"Failed to connect to hub: {e}")
-        return
+        ctx.exit(1)
     except Exception as e:
         error(f"Failed to sync genesis: {e}")
-        return
+        ctx.exit(1)
 
 
 @genesis.command(
@@ -449,7 +459,7 @@ def reset(
 
     if not chain_id:
         error("Could not determine chain ID. Set CHAIN_ID or pass --chain-id.")
-        return
+        ctx.exit(1)
 
     if not yes:
         click.confirm(
