@@ -23,32 +23,16 @@ swap state survives node restarts.
 
 from __future__ import annotations
 
-import hashlib
-import time
 from enum import StrEnum
 
 from sqlmodel import Session
 
-from aitbc.utils.chain_config import ChainConfigParser
-
-from ..base_models import Account, HTLCSwapState
-from ..config import settings
+from ..base_models import HTLCSwapState
 from ..logger import get_logger
+from ..protocol_escrow import htlc_escrow_address
 from ..rpc.retired import raise_for_retired_contract
-from ..protocol_escrow import confirmed_lock_total, htlc_escrow_address, queue_protocol_transfer
 
 logger = get_logger(__name__)
-
-
-def _get_chain_block_time_seconds(chain_id: str) -> int:
-    """Return the configured block time for a chain, falling back to the global default."""
-    config_str = settings.chain_configs.get(chain_id, "")
-    if config_str:
-        parsed = ChainConfigParser.parse(config_str)
-        block_time = parsed.get("block_time_seconds")
-        if isinstance(block_time, int) and block_time > 0:
-            return block_time
-    return settings.block_time_seconds
 
 
 # The HTLC contract's escrow account. In an EVM chain this would be the
@@ -104,78 +88,6 @@ class HTLCSwapRecord:
         self.created_at = created_at
         self.completed_at = completed_at
         self.refunded_at = refunded_at
-
-
-def _get_current_height(session: Session, chain_id: str) -> int:
-    """Return the current head height for a chain from the database.
-
-    Timelocks stored on a swap are absolute block heights. Comparing them
-    against ``int(time.time() // block_time)`` -- the Unix epoch over the block
-    time -- compares a height to a number in the hundreds of millions.
-
-    That went unnoticed because the code that *produced* the timelocks used the
-    same expression, so producer and checker were consistently wrong together
-    and the swaps behaved plausibly. Once the producer reads real heights (see
-    cross_chain/settlement.py), a checker still on epoch time treats every swap
-    as expired.
-
-    Raises:
-        ValueError: If the chain has no blocks. Refusing is the only safe
-            answer: treating "height unknown" as "not expired" would let a
-            claim through after the refund window, and the reverse would strand
-            funds.
-    """
-    from sqlalchemy import text
-    from sqlmodel import select
-
-    from ..base_models import Block
-
-    stmt = select(Block).where(Block.chain_id == chain_id).order_by(text("height DESC")).limit(1)
-    head = session.execute(stmt).scalars().first()
-    if head is None:
-        raise ValueError(f"cannot determine current height for chain {chain_id!r}: no blocks in database")
-    return int(head.height)
-
-
-def _compute_swap_id(
-    initiator: str,
-    participant: str,
-    hashlock: str,
-    timelock: int,
-    amount: int,
-) -> str:
-    """Compute a deterministic swap ID (mirrors Solidity keccak256 pattern)."""
-    data = f"{initiator}:{participant}:{hashlock}:{timelock}:{amount}".encode()
-    return "0x" + hashlib.sha256(data).hexdigest()
-
-
-def _require_balance(session: Session, chain_id: str, address: str, amount: int) -> None:
-    """Reject early if ``address`` visibly cannot cover ``amount``.
-
-    Advisory only. The authoritative check is in the block-time transfer, which
-    re-reads the balance at execution; the initiator may spend elsewhere between
-    here and inclusion, in which case the proposer drops the lock and the swap
-    never becomes claimable (see ``_require_locked``).
-    """
-    account = session.get(Account, (chain_id, address))
-    balance = account.balance if account is not None else 0
-    if balance < amount:
-        raise ValueError(f"Insufficient balance for {address}: has {balance}, needs {amount}")
-
-
-def _require_locked(session: Session, chain_id: str, swap_state: HTLCSwapState) -> None:
-    """Refuse to pay out of the escrow until this swap's lock is in a block.
-
-    The escrow is shared across all swaps, so paying out against a lock that is
-    still in the mempool -- or that the proposer dropped because the initiator
-    had since spent the balance -- would take other swaps' principal.
-    """
-    funded = confirmed_lock_total(session, chain_id, "HTLC_LOCK", "swap_id", swap_state.swap_id)
-    if funded < swap_state.amount:
-        raise ValueError(
-            f"Swap {swap_state.swap_id} lock is not confirmed on-chain "
-            f"({funded} of {swap_state.amount} locked); retry once it is included in a block"
-        )
 
 
 class HTLCContract:
@@ -241,69 +153,6 @@ class HTLCContract:
             ValueError: If validation fails or insufficient balance.
         """
         raise_for_retired_contract("HTLC (initiate_swap)")
-        if not participant or participant == "0x0":
-            raise ValueError("Invalid participant address")
-        if timelock <= 0:
-            raise ValueError("Timelock must be in the future")
-        if amount <= 0:
-            raise ValueError("Amount must be > 0")
-
-        if swap_id is None:
-            swap_id = _compute_swap_id(initiator, participant, hashlock, timelock, amount)
-
-        # Check swap doesn't already exist (query HTLCSwapState from DB)
-        existing = session.get(HTLCSwapState, swap_id)
-        if existing is not None and existing.status != SwapStatus.INVALID.value:
-            raise ValueError(f"Swap ID already exists: {swap_id}")
-
-        # Queue the lock; it settles against balances during block processing.
-        _require_balance(session, self.chain_id, initiator, amount)
-        queue_protocol_transfer(
-            sender=initiator,
-            recipient=HTLC_CONTRACT_ADDRESS,
-            amount=amount,
-            chain_id=self.chain_id,
-            tx_type="HTLC_LOCK",
-            payload={"swap_id": swap_id},
-        )
-
-        # Persist swap state
-        now = time.time()
-        swap_state = HTLCSwapState(
-            swap_id=swap_id,
-            initiator=initiator,
-            participant=participant,
-            token=token,
-            amount=amount,
-            hashlock=hashlock,
-            timelock=timelock,
-            status=SwapStatus.OPEN.value,
-            created_at=now,
-        )
-        session.add(swap_state)
-        session.flush()
-
-        logger.info(
-            "HTLC swap initiated: swap_id=%s initiator=%s participant=%s amount=%d hashlock=%s timelock=%d",
-            swap_id,
-            initiator,
-            participant,
-            amount,
-            hashlock,
-            timelock,
-        )
-
-        return HTLCSwapRecord(
-            swap_id=swap_id,
-            initiator=initiator,
-            participant=participant,
-            token=token,
-            amount=amount,
-            hashlock=hashlock,
-            timelock=timelock,
-            status=SwapStatus.OPEN,
-            created_at=now,
-        )
 
     def complete_swap(self, session: Session, swap_id: str, secret: str) -> HTLCSwapRecord:
         """Complete a swap by revealing the secret — release funds to participant.
@@ -327,61 +176,6 @@ class HTLCContract:
             ValueError: If swap not found, not open, expired, or secret invalid.
         """
         raise_for_retired_contract("HTLC (complete_swap)")
-        swap_state = session.get(HTLCSwapState, swap_id)
-        if swap_state is None:
-            raise ValueError(f"Swap not found: {swap_id}")
-        if swap_state.status != SwapStatus.OPEN.value:
-            raise ValueError(f"Swap is not open (status={swap_state.status})")
-
-        # Check timelock (block height based)
-        current_height = _get_current_height(session, self.chain_id)
-        if current_height >= swap_state.timelock:
-            raise ValueError("Swap timelock expired")
-
-        # Verify secret matches hashlock (matches aitbc.settlement.htlc.compute_hashlock)
-        secret_hash = hashlib.sha256(secret.encode()).hexdigest()
-        if secret_hash != swap_state.hashlock.replace("0x", "", 1):
-            raise ValueError("Invalid secret: hash does not match hashlock")
-
-        # Release from escrow to the participant, once the lock is confirmed.
-        _require_locked(session, self.chain_id, swap_state)
-        queue_protocol_transfer(
-            sender=HTLC_CONTRACT_ADDRESS,
-            recipient=swap_state.participant,
-            amount=swap_state.amount,
-            chain_id=self.chain_id,
-            tx_type="HTLC_CLAIM",
-            payload={"swap_id": swap_state.swap_id},
-        )
-
-        # Update swap state
-        now = time.time()
-        swap_state.status = SwapStatus.COMPLETED.value
-        swap_state.secret = secret
-        swap_state.completed_at = now
-        session.add(swap_state)
-        session.flush()
-
-        logger.info(
-            "HTLC swap completed: swap_id=%s participant=%s amount=%d",
-            swap_id,
-            swap_state.participant,
-            swap_state.amount,
-        )
-
-        return HTLCSwapRecord(
-            swap_id=swap_state.swap_id,
-            initiator=swap_state.initiator,
-            participant=swap_state.participant,
-            token=swap_state.token,
-            amount=swap_state.amount,
-            hashlock=swap_state.hashlock,
-            timelock=swap_state.timelock,
-            status=SwapStatus.COMPLETED,
-            secret=secret,
-            created_at=swap_state.created_at,
-            completed_at=now,
-        )
 
     def refund_swap(self, session: Session, swap_id: str) -> HTLCSwapRecord:
         """Refund a swap after timelock expiry — return funds to initiator.
@@ -403,54 +197,6 @@ class HTLCContract:
             ValueError: If swap not found, not open, or timelock not expired.
         """
         raise_for_retired_contract("HTLC (refund_swap)")
-        swap_state = session.get(HTLCSwapState, swap_id)
-        if swap_state is None:
-            raise ValueError(f"Swap not found: {swap_id}")
-        if swap_state.status != SwapStatus.OPEN.value:
-            raise ValueError(f"Swap is not open (status={swap_state.status})")
-
-        # Check timelock has expired
-        current_height = _get_current_height(session, self.chain_id)
-        if current_height < swap_state.timelock:
-            raise ValueError("Swap timelock not yet expired")
-
-        # Return escrowed funds to the initiator, once the lock is confirmed.
-        _require_locked(session, self.chain_id, swap_state)
-        queue_protocol_transfer(
-            sender=HTLC_CONTRACT_ADDRESS,
-            recipient=swap_state.initiator,
-            amount=swap_state.amount,
-            chain_id=self.chain_id,
-            tx_type="HTLC_REFUND",
-            payload={"swap_id": swap_state.swap_id},
-        )
-
-        # Update swap state
-        now = time.time()
-        swap_state.status = SwapStatus.REFUNDED.value
-        swap_state.refunded_at = now
-        session.add(swap_state)
-        session.flush()
-
-        logger.info(
-            "HTLC swap refunded: swap_id=%s initiator=%s amount=%d",
-            swap_id,
-            swap_state.initiator,
-            swap_state.amount,
-        )
-
-        return HTLCSwapRecord(
-            swap_id=swap_state.swap_id,
-            initiator=swap_state.initiator,
-            participant=swap_state.participant,
-            token=swap_state.token,
-            amount=swap_state.amount,
-            hashlock=swap_state.hashlock,
-            timelock=swap_state.timelock,
-            status=SwapStatus.REFUNDED,
-            created_at=swap_state.created_at,
-            refunded_at=now,
-        )
 
     def get_swap(self, session: Session, swap_id: str) -> HTLCSwapRecord | None:
         """Get the current state of a swap.
