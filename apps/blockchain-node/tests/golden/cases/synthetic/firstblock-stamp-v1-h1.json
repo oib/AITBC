@@ -1,0 +1,42 @@
+{
+ "block": {
+  "block_metadata": {
+   "state_transition_version": 1
+  },
+  "hash": "0x12304875c9eb73df29899120424014736626191065502a5948e0847498a1d877",
+  "height": 1,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "firstblock-stamp-v1-h1",
+ "description": "A block stamped state_transition_version=1 at height 1: under gates1 the v8 advisory mode is already active (1 >= v8_height), so the stamp is ignored and the block replays as v14 \u2014 stamps cannot downgrade a post-genesis block. Under deployed the stamp wins and the block replays as v1.",
+ "gate": "gates1 boundary",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x7564105E977516C53bE337314c7E53838967bDaC",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 100,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+  "nonce": 0,
+  "payload": {},
+  "signature": "0x022cb9bf01b9748c799a62c0a6d82d777ffc0f3c20879e678d79793b5ee96fc949329eb969b3ae4c8d25e531ceab86b00e3a34ee7c161d70da29b4fe40e6f48600",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x932e38c94c4d234e1d96fc677e5b66c97bd62ca162f3061ecf2fc70eb1bc5a0c",
+  "type": "TRANSFER",
+  "value": 100
+ }
+}
