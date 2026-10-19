@@ -9,13 +9,14 @@ sat pending forever (BNT-1 audit: zero sealed since height 30400).
 
 The surfaces now refuse up front with HTTP 410; apply code and the
 production-shape replay pins in ``test_v9_type_coverage_replay.py`` are
-untouched. If a future consensus version admits ``payload.auth``, flip
-``PROTOCOL_TRANSFER_RPC_RETIRED`` to False — tests will flag the revival.
+untouched. The retirement is unconditional — there is no flag and no
+revival path; a future consensus version that admits ``payload.auth``
+would be a new implementation, not a toggle.
 """
 
-from fastapi import HTTPException
+from typing import NoReturn
 
-PROTOCOL_TRANSFER_RPC_RETIRED = True
+from fastapi import HTTPException
 
 _RETIRED_REASON = (
     "{feature} is retired: protocol-escrow transfers cannot seal at block version 9 "
@@ -27,15 +28,9 @@ class RetiredProtocolTransfer(RuntimeError):
     """Raised by non-HTTP entry points (e.g. HTLCContract mutators)."""
 
 
-def is_retired() -> bool:
-    return PROTOCOL_TRANSFER_RPC_RETIRED
+def raise_for_retired(feature: str) -> NoReturn:
+    raise HTTPException(status_code=410, detail=_RETIRED_REASON.format(feature=feature))
 
 
-def raise_for_retired(feature: str) -> None:
-    if PROTOCOL_TRANSFER_RPC_RETIRED:
-        raise HTTPException(status_code=410, detail=_RETIRED_REASON.format(feature=feature))
-
-
-def raise_for_retired_contract(feature: str) -> None:
-    if PROTOCOL_TRANSFER_RPC_RETIRED:
-        raise RetiredProtocolTransfer(_RETIRED_REASON.format(feature=feature))
+def raise_for_retired_contract(feature: str) -> NoReturn:
+    raise RetiredProtocolTransfer(_RETIRED_REASON.format(feature=feature))

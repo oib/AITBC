@@ -18,32 +18,26 @@ Two layers now stop it:
     a casing twin physically impossible even if a future write path forgets
     to canonicalize.
 
-The stake/unstake signed-message contract is pinned too: the wallet CLI
-signs the *lowercase* spelling of its address while submitting the
-checksummed form, so the server must reconstruct ``sign_data`` with the
-lowercase spelling — canonicalizing inside the signed message would break
-every existing client signature.
+The stake/unstake signed-message contract the wallet CLI used (signing the
+*lowercase* spelling while submitting the checksummed form) is no longer
+pinned: those routes are retired outright — see ``rpc/retired.py``.
 """
 
 from __future__ import annotations
 
-import json
-import time
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import Mock
 
 import pytest
 from eth_keys import keys
-from eth_utils import keccak
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, select
 
 from aitbc_chain.metadata import chain_metadata
-from aitbc_chain.models import Account, GovernanceProposal, GovernanceVote, Stake
+from aitbc_chain.models import GovernanceProposal, GovernanceVote, Stake
 from aitbc_chain.rpc import staking as rpc_staking
 
 CHAIN = "test"
@@ -100,11 +94,6 @@ def _proposal(session: Session, proposal_id: str = "p1") -> GovernanceProposal:
     session.add(proposal)
     session.commit()
     return proposal
-
-
-def _sign(message: dict[str, Any], key: keys.PrivateKey) -> str:
-    digest = keccak(json.dumps(message, sort_keys=True, separators=(",", ":")).encode())
-    return key.sign_msg_hash(digest).to_hex()
 
 
 # --- _request_address ------------------------------------------------------
@@ -191,139 +180,3 @@ def test_nocase_index_scan_finds_no_dupes_when_clean(engine) -> None:
             )
         ).all()
         assert dupes == []
-
-
-# --- The signed-message casing contract (stake/unstake) --------------------
-
-
-async def test_stake_signed_message_keeps_lowercase_spelling(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
-    """The wallet signs ``address.lower()``; the server must reproduce that.
-
-    The stored Stake row and the queued transfer still take the canonical
-    spelling — only the reconstructed signed message keeps lowercase.
-    """
-    staker = VOTER
-    queued: dict[str, Any] = {}
-
-    def _queue(**kwargs: Any) -> str:
-        queued["tx"] = kwargs
-        return "0x" + "ab" * 32
-
-    monkeypatch.setattr(rpc_staking, "validate_chain_id", lambda chain_id: True)
-    monkeypatch.setattr(rpc_staking, "stake_escrow_address", lambda: "0x" + "00" * 19 + "01")
-    monkeypatch.setattr(rpc_staking, "queue_protocol_transfer", _queue)
-    with Session(rpc_db) as session:
-        session.add(Account(chain_id=CHAIN, address=staker, balance=10**9, nonce=0))
-        session.commit()
-
-    sign_data = {
-        "address": staker.lower(),
-        "amount": 1000,
-        "chain_id": CHAIN,
-        "action": "stake",
-        "nonce": 0,
-        "timestamp": int(time.time()),
-    }
-    result = await rpc_staking.stake_tokens(
-        Mock(),
-        {
-            "chain_id": CHAIN,
-            "address": staker,  # the checksummed spelling the CLI submits
-            "amount": 1000,
-            "lock_days": 30,
-            "nonce": 0,
-            "timestamp": sign_data["timestamp"],
-            "signature": _sign(sign_data, VOTER_KEY),
-        },
-    )
-    assert result["success"] is True
-    with Session(rpc_db) as session:
-        stake = session.exec(select(Stake).where(Stake.chain_id == CHAIN)).one()
-        assert stake.address == staker
-    # The authorization evidence carries the signed message verbatim —
-    # lowercase address — while the signer is recorded canonically.
-    auth = queued["tx"]["auth"]
-    assert auth["message"]["address"] == staker.lower()
-    assert auth["signer"] == staker
-
-
-async def test_stake_signature_over_canonical_spelling_is_rejected(rpc_db, monkeypatch, unretired_protocol_transfers) -> None:
-    """Pin the contract: signing the checksummed spelling never verified."""
-    from fastapi import HTTPException
-
-    staker = VOTER
-    monkeypatch.setattr(rpc_staking, "validate_chain_id", lambda chain_id: True)
-    sign_data = {
-        "address": staker,  # canonical — NOT what the CLI signs
-        "amount": 1000,
-        "chain_id": CHAIN,
-        "action": "stake",
-        "nonce": 0,
-        "timestamp": int(time.time()),
-    }
-    with pytest.raises(HTTPException) as exc:
-        await rpc_staking.stake_tokens(
-            Mock(),
-            {
-                "chain_id": CHAIN,
-                "address": staker,
-                "amount": 1000,
-                "lock_days": 30,
-                "nonce": 0,
-                "timestamp": sign_data["timestamp"],
-                "signature": _sign(sign_data, VOTER_KEY),
-            },
-        )
-    assert exc.value.status_code == 403
-
-
-async def test_unstake_authorizes_against_lowercase_legacy_stake_row(
-    rpc_db, monkeypatch, unretired_protocol_transfers
-) -> None:
-    """Stake rows written before canonical-at-write still authorize their owner."""
-    staker = VOTER
-    monkeypatch.setattr(rpc_staking, "validate_chain_id", lambda chain_id: True)
-    monkeypatch.setattr(rpc_staking, "stake_escrow_address", lambda: "0x" + "00" * 19 + "01")
-    monkeypatch.setattr(
-        rpc_staking,
-        "confirmed_lock_txs",
-        lambda session, chain_id, tx_type, key, value: [Mock(tx_hash="0xabc", payload={}, block_height=1)],
-    )
-    monkeypatch.setattr(rpc_staking, "queue_protocol_transfer", lambda **kwargs: "0x" + "cd" * 32)
-    with Session(rpc_db) as session:
-        session.add(Account(chain_id=CHAIN, address=staker, balance=10**9, nonce=0))
-        # The pre-fix write path stored the lowercase spelling.
-        session.add(
-            Stake(
-                chain_id=CHAIN,
-                address=staker.lower(),
-                amount=1000,
-                locked_until=datetime(2000, 1, 1, tzinfo=UTC),
-                status="active",
-            )
-        )
-        session.commit()
-        stake_id = session.exec(select(Stake.id).where(Stake.chain_id == CHAIN)).one()
-
-    sign_data = {
-        "address": staker.lower(),
-        "stake_id": str(stake_id),
-        "chain_id": CHAIN,
-        "action": "unstake",
-        "nonce": 0,
-        "timestamp": int(time.time()),
-    }
-    result = await rpc_staking.unstake_tokens(
-        Mock(),
-        {
-            "chain_id": CHAIN,
-            "address": staker,
-            "stake_id": str(stake_id),
-            "nonce": 0,
-            "timestamp": sign_data["timestamp"],
-            "signature": _sign(sign_data, VOTER_KEY),
-        },
-    )
-    assert result["success"] is True
-    with Session(rpc_db) as session:
-        assert session.get(Stake, stake_id).status == "withdrawn"
