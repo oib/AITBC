@@ -139,7 +139,7 @@ AITBC keeps fees simple and almost invisible.
 | Fee Type | Rate | Detail |
 |----------|------|--------|
 | Wallet Transfers | 0.01 AIT (fixed) | ≈ €0.0025 per transaction (360,000 compute-units internally) |
-| AI Compute Market | 0.5% | Service fee on compute jobs (19.9 AIT → provider, 0.1 AIT → network) |
+| AI Compute Market | 2.5% default (0–10% set per signed quote) | Escrow platform fee on compute jobs — a 20 AIT job releases 19.5 AIT to the provider and withholds 0.5 AIT in escrow custody, sweepable to the treasury |
 
 ### Fee Distribution
 
