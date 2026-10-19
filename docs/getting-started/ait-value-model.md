@@ -143,10 +143,15 @@ AITBC keeps fees simple and almost invisible.
 
 ### Fee Distribution
 
-| Allocation | Share | Purpose |
-|------------|-------|---------|
-| Burn | 50% | Reduces supply, rewards long-term holders |
-| Treasury | 50% | Community airdrops, hosting, model downloads, development |
+Transaction fees are burned in full — the sender is debited `value + fee`
+and the recipient is credited `value`, so every fee is removed from supply
+(`state_transition.py`). There is no 50/50 split and no treasury share of
+transaction fees.
+
+| Fee | Where it goes | Purpose |
+|-----|---------------|---------|
+| Transaction fees (wallet transfers and all other tx types) | 100% burned | Reduces supply, rewards long-term holders |
+| AI Compute Market escrow fee | The platform fee withheld from each escrow release stays in the per-escrow custody account; since block version 11 the settlement authority can sweep that residue to the chain's `escrow_fee_recipient` treasury account (`ESCROW_FEE_SWEEP`) | Funds the treasury — community airdrops, hosting, model downloads, development |
 
 ## Why Not Peg to ETH?
 
