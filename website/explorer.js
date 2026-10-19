@@ -114,7 +114,7 @@ function renderBlockCard(block) {
         <div class="endpoint table-card fade-in block-item" data-height="${escapeHtml(block.height)}" tabindex="0" role="link" data-href="/block.html?height=${encodeURIComponent(block.height)}">
             <div class="table-wrap">
             <table class="block-list-table" aria-label="Block summary">
-                <tr><th scope="row">Height</th><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
+                <tr><th scope="row">Height</th><td><span class="badge badge-primary">${escapeHtml(aitbcFmt.type('BLOCK'))}</span> #${escapeHtml(block.height)}</td></tr>
                 <tr><th scope="row">Hash</th><td>${escapeHtml(blockHash)} ${aitbcCopyBtn(blockHash, 'block hash')}</td></tr>
                 <tr><th scope="row">Proposer</th><td>${escapeHtml(proposer)}</td></tr>
                 <tr><th scope="row">Transactions</th><td>${escapeHtml(txCount)}</td></tr>
