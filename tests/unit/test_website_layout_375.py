@@ -284,6 +284,22 @@ class TestLayoutHeuristics(unittest.TestCase):
         self.assertIn("white-space: normal", m.group(1))
         self.assertIn("overflow-wrap: anywhere", m.group(1))
 
+    def test_marketplace_endpoint_is_list_item_not_tile(self) -> None:
+        # WEB-MARKET-ENDPOINT-1: the Endpoint value is usually a long record;
+        # it belongs in the .offer-details-list rows (label "Endpoint:"),
+        # after "Plugin ID:", not in a .offer-detail grid tile.
+        js = (WEBSITE / "marketplace.js").read_text(encoding="utf-8")
+        self.assertNotIn('offer-detail-label">Endpoint', js, "Endpoint must not be a .offer-detail tile")
+        self.assertIn('offer-list-label">Endpoint:', js, "Endpoint: must be an .offer-list-item label")
+        self.assertLess(
+            js.index('offer-list-label">Plugin ID:'),
+            js.index('offer-list-label">Endpoint:'),
+            "Endpoint: row must come after Plugin ID:",
+        )
+        # The four remaining tiles are Service Type, Model, Price, GPU.
+        labels = re.findall(r'offer-detail-label">([^<]+)<', js)
+        self.assertEqual(["Service Type", "Model", "Price", "GPU"], labels)
+
     def test_explorer_inner_container_adds_no_inset(self) -> None:
         # WEB-POLISH-1 item 5: explorer.html nests a second .container
         # inside the page one — it must not re-pad or the cards sit deeper
