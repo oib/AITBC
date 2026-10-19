@@ -3,7 +3,7 @@
 list_software_services merges GPU offers from /rpc/gpus with local
 SoftwareService rows, but neither source carries the sealing block. The
 service resolves confirmation by joining offers to sealed GPU_REGISTER /
-GPU_MARKET / GPU_MARKETPLACE transactions on payload.gpu_id /
+GPU_MARKET transactions on payload.gpu_id /
 payload.offer_id. These tests stub the RPC client and cover both link
 shapes plus the unanchored and pre-confirmed cases.
 """
@@ -153,7 +153,7 @@ async def test_preconfirmed_offer_not_clobbered(service: MarketService) -> None:
     # A different tx anchors the same offer_id later; stored row data wins.
     service._rpc_client = StubRPC(  # type: ignore[assignment]
         txs={
-            "GPU_MARKETPLACE": [
+            "GPU_MARKET": [
                 {
                     **SOFTWARE_OFFER_TX,
                     "tx_hash": "0xother",
@@ -474,11 +474,44 @@ async def test_unanchored_offer_is_not_reprobed_within_ttl(service: MarketServic
     offers = await service.list_software_services()
     assert next(o for o in offers if o["plugin_id"] == "test-negcache")["confirmed"] is False
     first_count = len(rpc.tx_queries)
-    assert first_count == 3
+    assert first_count == 2  # one probe per anchor type: GPU_MARKET + GPU_REGISTER
 
     offers = await service.list_software_services()
     assert next(o for o in offers if o["plugin_id"] == "test-negcache")["confirmed"] is False
     assert len(rpc.tx_queries) == first_count  # memoized — no new probes
+
+
+@pytest.mark.asyncio
+async def test_legacy_gpu_marketplace_tx_no_longer_confirms_offer(service: MarketService) -> None:
+    """The GPU_MARKETPLACE compat read is gone: a sealed old-type tx carrying
+    the offer_id must NOT confirm an offer, and the type is never even queried.
+    GPU_MARKET and GPU_REGISTER anchors still confirm (pinned by the tests
+    above)."""
+    async with get_session_context() as session:
+        session.add(
+            SoftwareService(
+                plugin_id="test-legacy",
+                service_type="ipfs",
+                offer_id="sw_offer_legacy",
+                provider_address=PROVIDER,
+                status="active",
+            )
+        )
+        await session.commit()
+
+    legacy_tx = {
+        **SOFTWARE_OFFER_TX,
+        "tx_hash": "0xlegacy",
+        "type": "GPU_MARKETPLACE",
+        "payload": {"offer_id": "sw_offer_legacy"},
+    }
+    rpc = CountingRPC(txs={"GPU_MARKETPLACE": [legacy_tx]})
+    service._rpc_client = rpc  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    offer = next(o for o in offers if o["plugin_id"] == "test-legacy")
+    assert offer["confirmed"] is False
+    assert offer["block_height"] is None
+    assert "GPU_MARKETPLACE" not in rpc.tx_queries
 
 
 class StatusFilteringRPC(StubRPC):
