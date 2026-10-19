@@ -66,53 +66,6 @@ def aitbc_prometheus_alert_history(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_prometheus_alerts(
     prometheus_url: Annotated[str | None, Field(description="Prometheus base URL (default: http://127.0.0.1:9090)")] = None,
-    watch: Annotated[bool | None, Field(description="Poll continuously and emit firing and resolved alerts")] = None,
-    interval: Annotated[int | None, Field(description="Poll interval in seconds (watch mode)")] = None,
-    emit: Annotated[
-        bool | None,
-        Field(description="Emit one structured log line per alert state change to stdout and the service log (watch mode)"),
-    ] = None,
-    alert_log_path: Annotated[
-        str | None,
-        Field(
-            description="Also append every alert state change (firing, resolved) as one JSON line to this file, rotated at 5 MiB (watch mode)"
-        ),
-    ] = None,
-    notify_urls: Annotated[
-        list[str] | None,
-        Field(
-            description="POST every alert event as a JSON body to this webhook URL; repeatable (env: space-separated) (watch mode)"
-        ),
-    ] = None,
-    notify_format: Annotated[
-        Literal["json", "ntfy"] | None,
-        Field(
-            description="Webhook body shape: 'json' posts the full event record (unchanged default); 'ntfy' posts an ntfy publish body built only from alert name, fleet host, severity, state and the click link (watch mode)"
-        ),
-    ] = None,
-    notify_topic: Annotated[
-        str | None,
-        Field(description="ntfy topic for --notify-format=ntfy; travels inside the JSON body, never in the URL (watch mode)"),
-    ] = None,
-    notify_click: Annotated[str | None, Field(description="Public link attached to ntfy notifications (watch mode)")] = None,
-    notify_min_severity: Annotated[
-        Literal["info", "warning", "critical"] | None,
-        Field(
-            description="Push only alerts at or above this severity; lower-severity alerts are still recorded to the alert log but not pushed. Non-alert lifecycle events (e.g. watch started) always notify (watch mode)"
-        ),
-    ] = None,
-    silence_file: Annotated[
-        str | None,
-        Field(
-            description='JSON silence list reloaded each poll, e.g. [{"match": {"alertname": "ServiceDown", "labels": {"instance": "x:9100"}}, "until": "2026-10-05T00:00:00Z", "reason": "maintenance"}]; silenced events are recorded but not notified (watch mode)'
-        ),
-    ] = None,
-    remind_interval: Annotated[
-        int | None, Field(description="Re-emit and re-notify a still-firing alert every N seconds; 0 disables (watch mode)")
-    ] = None,
-    metrics_file: Annotated[
-        str | None, Field(description="Write node-exporter textfile heartbeat metrics to this path every poll (watch mode)")
-    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -120,20 +73,8 @@ def aitbc_prometheus_alerts(
     """Show current Prometheus alerts and optionally watch for firing and resolved alerts.."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"watch": "watch", "emit": "emit"},
-        values={
-            "prometheus_url": "prometheus-url",
-            "interval": "interval",
-            "alert_log_path": "alert-log",
-            "notify_urls": "notify-url",
-            "notify_format": "notify-format",
-            "notify_topic": "notify-topic",
-            "notify_click": "notify-click",
-            "notify_min_severity": "notify-min-severity",
-            "silence_file": "silence-file",
-            "remind_interval": "remind-interval",
-            "metrics_file": "metrics-file",
-        },
+        flags={},
+        values={"prometheus_url": "prometheus-url"},
     )
     args = None
     return _aitbc_cli_read_tool(

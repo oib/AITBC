@@ -433,6 +433,32 @@ SKIP_OPTION_NAMES = {
     "allow-remote",
 }
 
+# Options stripped from specific command paths only. SKIP_OPTION_NAMES is
+# global, and names like ``interval`` carry legitimate meaning on other
+# commands (agent-comm, analytics, chain, messaging), so the watch/notify
+# family on `prometheus alerts` cannot go in there. These options all
+# configure a loop/POST/file-write surface that only exists in --watch mode;
+# without them the generated tool is a pure one-shot read of /api/v1/alerts.
+# The CLI flags themselves stay for the systemd watcher unit.
+SKIP_OPTIONS_BY_PATH: dict[tuple[str, ...], frozenset[str]] = {
+    ("prometheus", "alerts"): frozenset(
+        {
+            "watch",
+            "interval",
+            "emit",
+            "alert_log_path",
+            "notify_urls",
+            "notify_format",
+            "notify_topic",
+            "notify_click",
+            "notify_min_severity",
+            "silence_file",
+            "remind_interval",
+            "metrics_file",
+        }
+    ),
+}
+
 # Names we already use for MCP routing/safety parameters in every generated tool.
 RESERVED_PY_NAMES = {"role", "host", "timeout", "dry_run", "confirm"}
 
@@ -613,8 +639,11 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
     options: list[dict[str, Any]] = []
     positional: list[dict[str, Any]] = []
     seen_names: set[str] = set()
+    path_skips = SKIP_OPTIONS_BY_PATH.get(path, frozenset())
     for i, param in enumerate(cmd.params):
         if isinstance(param, click.Option):
+            if (param.name or "").replace("-", "_") in path_skips:
+                continue
             option = _parse_option(param, i, seen_names)
             if option is not None:
                 options.append(option)

@@ -20,11 +20,6 @@ from pathlib import Path
 GENERATED = Path(__file__).resolve().parent.parent / "mcp-server" / "aitbc_mcp_cli_tools_generated_prometheus.py"
 
 # Every generated prometheus tool and its intended read_only_hint.
-# ``alerts`` caveat: its generated signature still carries the watch-mode
-# options (watch/notify_urls/alert_log_path) which can POST webhooks and
-# append files when watch=True — a reported, separately-decided item. The
-# pin records today's intended annotation; flipping it is a deliberate
-# change this table makes visible.
 EXPECTED: dict[str, bool] = {
     "aitbc_prometheus_alert_history": True,
     "aitbc_prometheus_alerts": True,
@@ -70,3 +65,34 @@ def test_no_confirm_gate_on_read_tools():
     for name, (_ann, sig) in _tools().items():
         assert "confirm" not in sig, f"{name}: confirm parameter leaked back"
         assert "dry_run" not in sig, f"{name}: dry_run parameter leaked back"
+
+
+# GAP-MCP-ALERTS-WATCH-1 (#309): ``aitbc_prometheus_alerts`` carried these
+# watch-mode options under read_only_hint — ``watch`` loops forever,
+# ``notify_urls`` POSTs webhooks, ``alert_log_path``/``metrics_file``
+# append/write files. The generated tool is a one-shot read; the watcher
+# runs as a systemd unit through the CLI. This fails if any of them
+# return to a read-only tool's signature.
+_WATCH_FAMILY = {
+    "watch",
+    "interval",
+    "emit",
+    "alert_log_path",
+    "notify_urls",
+    "notify_format",
+    "notify_topic",
+    "notify_click",
+    "notify_min_severity",
+    "silence_file",
+    "remind_interval",
+    "metrics_file",
+}
+
+
+def test_read_only_tools_expose_no_watch_or_write_options():
+    for name, (ann, sig) in _tools().items():
+        if "read_only_hint=True" not in ann:
+            continue
+        params = set(re.findall(r"^    (\w+):", sig, re.MULTILINE))
+        leaked = params & _WATCH_FAMILY
+        assert not leaked, f"{name}: watch/notify/write options on a read-only tool: {sorted(leaked)}"
