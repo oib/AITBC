@@ -291,6 +291,215 @@ def test_env_names_names_are_case_sensitive(runner, tmp_path):
     assert reported == {"FOO": False, "foo": True}
 
 
+# ------------------------------------------------------- env-names --process
+#
+# All fixtures are invented for the test — no real env name or value is used.
+
+
+def _systemctl_dispatch(envfiles: str = "", mainpid: str = "4242", active_enter: str = "Sun 2026-10-18 10:50:00 UTC"):
+    """Mock ``subprocess.run`` answering both ``systemctl show`` shapes env-names uses."""
+
+    def _run(cmd, **kwargs):
+        if "MainPID,ActiveEnterTimestamp" in cmd:
+            return _systemctl_result(f"{mainpid}\n{active_enter}\n")
+        if "EnvironmentFiles" in cmd:
+            return _systemctl_result(envfiles)
+        return _systemctl_result("")
+
+    return _run
+
+
+def _fake_proc(tmp_path, monkeypatch, environ: bytes | None, pid: str = "4242"):
+    """Point _PROC_ROOT at a tmp tree; ``environ=None`` leaves the file absent."""
+    monkeypatch.setattr(system_mod, "_PROC_ROOT", tmp_path)
+    if environ is not None:
+        proc_dir = tmp_path / pid
+        proc_dir.mkdir()
+        (proc_dir / "environ").write_bytes(environ)
+
+
+def test_env_names_process_names_only(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, b"PROC_ONLY_FLAG=1\x00SHARED_NAME=x\x00")
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "json"},
+            args=["env-names", "--service", "aitbc-svc", "--process"],
+        )
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["source"] == "process"
+    assert data["main_pid"] == 4242
+    assert data["active_enter_timestamp"]
+    assert data["names"] == ["PROC_ONLY_FLAG", "SHARED_NAME"]
+    # values never print — the fake values must not appear anywhere
+    assert "=1" not in result.output and "SHARED_NAME=x" not in result.output
+
+
+def test_env_names_process_names_filter_and_drift(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, b"IN_PROC=1\x00")
+    env = tmp_path / "svc.env"
+    env.write_text("IN_FILE=1\nIN_PROC=1\n")
+    show = f"{env} (ignore_errors=no)\n"
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch(envfiles=show)):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "json"},
+            args=[
+                "env-names",
+                "--service",
+                "aitbc-svc",
+                "--process",
+                "--names",
+                "IN_PROC",
+                "--names",
+                "IN_FILE",
+                "--names",
+                "ABSENT",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    names = json.loads(result.output)["names"]
+    assert names["IN_PROC"] == {"set": True}
+    assert names["IN_FILE"] == {"set": False, "drift": "declared_only"}
+    assert names["ABSENT"] == {"set": False}
+
+
+def test_env_names_process_full_drift_lists(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, b"ONLY_PROC=1\x00BOTH=1\x00")
+    env = tmp_path / "svc.env"
+    env.write_text("ONLY_FILE=1\nBOTH=1\n")
+    show = f"{env} (ignore_errors=no)\n"
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch(envfiles=show)):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "json"},
+            args=["env-names", "--service", "aitbc-svc", "--process"],
+        )
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["process_only"] == ["ONLY_PROC"]
+    assert data["declared_only"] == ["ONLY_FILE"]
+
+
+def test_env_names_process_value_allowed(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, b"PLAIN_FLAG=testvalue123\x00")
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", "PLAIN_FLAG"],
+        )
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == "testvalue123"
+
+
+def test_env_names_process_value_denied_name(runner, tmp_path, monkeypatch, capsys):
+    _fake_proc(tmp_path, monkeypatch, b"FAKE_PRIVATE_KEY=shouldneverappear\x00")
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", "FAKE_PRIVATE_KEY"],
+        )
+    assert result.exit_code != 0
+    assert "deny-listed" in result.output
+    # the refusal names the rule, never the value
+    assert "shouldneverappear" not in result.output
+    assert "shouldneverappear" not in capsys.readouterr().out
+
+
+def test_env_names_process_value_over_cap_refused(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, b"LONG_FLAG=" + b"a" * 250 + b"\x00")
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", "LONG_FLAG"],
+        )
+    assert result.exit_code != 0
+    assert "200" in result.output
+    assert "a" * 250 not in result.output
+
+
+def test_env_names_process_value_requires_process(runner):
+    result = runner.invoke(
+        system, obj={"output_format": "table"}, args=["env-names", "--service", "aitbc-svc", "--value", "X"]
+    )
+    assert result.exit_code != 0
+    assert "requires --process" in result.output
+
+
+def test_env_names_process_not_running(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, None)
+    with mock.patch(
+        "aitbc_cli.commands.system.subprocess.run",
+        side_effect=_systemctl_dispatch(mainpid="0", active_enter=""),
+    ):
+        result = runner.invoke(
+            system, obj={"output_format": "table"}, args=["env-names", "--service", "aitbc-svc", "--process"]
+        )
+    assert result.exit_code != 0
+    assert "not running" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_env_names_process_environ_gone(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, None)  # environ file absent
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system, obj={"output_format": "table"}, args=["env-names", "--service", "aitbc-svc", "--process"]
+        )
+    assert result.exit_code != 0
+    assert "vanished" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_env_names_process_unreadable_environ(runner, tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, b"X=1\x00")
+    environ = tmp_path / "4242" / "environ"
+    real_read_bytes = system_mod.Path.read_bytes
+
+    def denied(self):
+        if self == environ:
+            raise PermissionError(13, "Permission denied")
+        return real_read_bytes(self)
+
+    with (
+        mock.patch.object(system_mod.Path, "read_bytes", denied),
+        mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()),
+    ):
+        result = runner.invoke(
+            system, obj={"output_format": "table"}, args=["env-names", "--service", "aitbc-svc", "--process"]
+        )
+    assert result.exit_code != 0
+    assert "permission denied" in result.output.lower()
+    assert "Traceback" not in result.output
+
+
+def test_env_names_process_works_without_env_files(runner, tmp_path, monkeypatch):
+    """A unit declaring no EnvironmentFile still reports its process names."""
+    _fake_proc(tmp_path, monkeypatch, b"ONLY_PROC=1\x00")
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "json"},
+            args=["env-names", "--service", "aitbc-svc", "--process"],
+        )
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["names"] == ["ONLY_PROC"]
+    assert data["process_only"] == ["ONLY_PROC"]
+
+
+def test_env_names_help_lists_denylist(runner):
+    """--value refusals follow the same generated deny epilog as file-info."""
+    result = runner.invoke(system, args=["env-names", "--help"])
+    assert result.exit_code == 0, result.output
+    for token in ("private_key", "mnemonic", "_key", "200"):
+        assert token in result.output, token
+
+
 def test_file_info_help_lists_denylist(runner):
     """CLI-7 row 37: --help epilog is generated from the denylist constants,
     so the documented refused names cannot drift from the code."""
