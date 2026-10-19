@@ -239,21 +239,6 @@ def _load_keys(root: Path) -> dict:
     return json.loads(key_file.read_text())
 
 
-def _bond_account_addresses() -> list[str]:
-    """The two zero-balance accounts init_db always creates
-    (``ensure_bond_accounts``): bond escrow + bond burn, keccak-derived.
-    They must be in the allocation set or the live post-init state root
-    never matches the genesis claim (parent-state-mismatch on block 1)."""
-    from eth_utils import keccak
-
-    from aitbc_chain.base_models import canonical_address
-
-    return [
-        canonical_address("0x" + keccak(b"aitbc.bond.escrow").hex()[:40]),
-        canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40]),
-    ]
-
-
 def _allocations(keys: dict) -> list[dict]:
     """Working allocation figures (operator-labelled, tuned at dress rehearsal)."""
     allocs = [{"address": keys["treasury"]["address"], "balance": TREASURY_UNITS, "nonce": 0}]
@@ -265,8 +250,6 @@ def _allocations(keys: dict) -> list[dict]:
     for addr in funded:
         allocs.append({"address": addr, "balance": SERVICE_FLOAT_UNITS, "nonce": 0})
     allocs.append({"address": keys["ops_float"]["address"], "balance": OPS_FLOAT_UNITS, "nonce": 0})
-    for addr in _bond_account_addresses():
-        allocs.append({"address": addr, "balance": 0, "nonce": 0})
     return allocs
 
 
@@ -411,6 +394,13 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "AITBC_NODE_METRICS_PORT": str(PORT_BASE + inst.idx * PORT_STRIDE + 6),
         "MEMPOOL_DB_URL": "",
         "DB_KEEPER_CONNECTION": "false",
+        # init_db's ensure_bond_accounts always inserts bond escrow + burn
+        # rows; unpinned they are keccak-derived addresses absent from the
+        # allocation set, and the live state root then diverges from the
+        # genesis claim (proposer refuses block 1, "parent state mismatch").
+        # Pin both to already-allocated accounts so init creates no extra rows.
+        "BOND_ESCROW_ADDRESS": keys["ops_float"]["address"],
+        "BOND_BURN_ADDRESS": keys["service_floats"]["agent-coordinator"]["address"],
         **GATE_ENV,
     }
     if inst.role == "proposer":
