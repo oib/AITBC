@@ -17,6 +17,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import re
+from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import pytest
@@ -116,6 +117,72 @@ class TestBlockRoutes:
         _client().get("/v1/transactions/0xdead")
 
         mock_client.get.assert_called_once_with("http://localhost:8202/rpc/transaction/0xdead")
+
+
+@pytest.mark.unit
+class TestSupplyRoute:
+    """``/v1/supply`` sums genesis allocation balances, which are base units
+    (36,000,000 per AIT). Before the fix the raw sum was returned labelled
+    ``"AIT"`` -- 36,000,000x too large once a genesis with allocation
+    metadata exists."""
+
+    @staticmethod
+    def _respond(mock_client_class, mock_settings, payload):
+        mock_settings.blockchain_rpc_url = "http://localhost:8202"
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.return_value = payload
+        return mock_client
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_units_are_converted_to_ait_strings(self, mock_client_class, mock_settings):
+        self._respond(mock_client_class, mock_settings, {"allocations": [{"balance": 36000000000}]})
+
+        body = _client().get("/v1/supply").json()
+
+        assert body["total_supply"] == "1000"
+        assert body["total_supply_units"] == 36000000000
+        assert body["circulating_supply"] == "1000"
+        assert body["circulating_supply_units"] == 36000000000
+        assert body["unit"] == "AIT"
+        assert body["units_per_ait"] == 36000000
+        assert body["basis"] == "genesis_allocations"
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_bc2_sized_supply_stays_an_exact_decimal_string(self, mock_client_class, mock_settings):
+        """The bc-2 genesis total, expected value computed independently."""
+        units = 3600009216000000
+        expected = str(Decimal(units) / Decimal(36000000))
+        self._respond(mock_client_class, mock_settings, {"allocations": [{"balance": units}]})
+
+        body = _client().get("/v1/supply").json()
+
+        assert body["total_supply"] == expected == "100000256"
+        assert body["total_supply_units"] == units
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_empty_allocations_returns_zero_not_a_crash(self, mock_client_class, mock_settings):
+        self._respond(mock_client_class, mock_settings, {"allocations": []})
+
+        body = _client().get("/v1/supply").json()
+
+        assert body["total_supply"] == "0"
+        assert body["total_supply_units"] == 0
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_a_node_error_never_returns_a_number(self, mock_client_class, mock_settings):
+        mock_settings.blockchain_rpc_url = "http://localhost:8202"
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.side_effect = _network_error_for_status(404)
+
+        body = _client().get("/v1/supply").json()
+
+        assert body == {"status": "error", "error": "RPC connection failed"}
 
 
 @pytest.mark.unit

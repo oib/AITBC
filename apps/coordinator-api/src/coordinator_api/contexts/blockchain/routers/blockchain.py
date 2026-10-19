@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
+from aitbc.utils.units import UNITS_PER_AIT, units_to_ait
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["blockchain"])
@@ -152,7 +153,15 @@ async def get_validators() -> dict[str, Any]:
 
 @router.get("/supply")
 async def get_supply() -> dict[str, Any]:
-    """Get token supply."""
+    """Get token supply, based on the genesis allocation sum.
+
+    ``total_supply`` is the amount minted at genesis: fee burns and any
+    later mints are not reflected. ``circulating_supply`` currently mirrors
+    the same figure (a true circulating number needs a live account-balance
+    aggregate, which the node RPC does not offer). AIT values are decimal
+    strings; the ``*_units`` fields carry the raw base-unit integers
+    (``units_per_ait`` per AIT).
+    """
     try:
         from ....config import settings
 
@@ -160,8 +169,17 @@ async def get_supply() -> dict[str, Any]:
         client = AITBCHTTPClient(timeout=5.0)
         response = client.get(f"{rpc_url}/rpc/genesis_allocations")
         allocations = response.get("allocations", [])
-        total_supply = sum(alloc.get("balance", 0) for alloc in allocations)
-        return {"total_supply": total_supply, "circulating_supply": total_supply, "unit": "AIT"}
+        total_units = sum(alloc.get("balance", 0) for alloc in allocations)
+        total_ait = format(units_to_ait(total_units).normalize(), "f")
+        return {
+            "total_supply": total_ait,
+            "total_supply_units": total_units,
+            "circulating_supply": total_ait,
+            "circulating_supply_units": total_units,
+            "unit": "AIT",
+            "units_per_ait": UNITS_PER_AIT,
+            "basis": "genesis_allocations",
+        }
     except NetworkError as e:
         logger.error("RPC connection failed: %s", e)
         return {"status": "error", "error": "RPC connection failed"}
