@@ -197,6 +197,20 @@ function eventRow(e) {
 function renderEvents(body) {
     const box = document.getElementById('events-container');
     const events = body.events || [];
+    if (body.__events_error) {
+        if (box.querySelector('.table-wrap')) {
+            let note = box.querySelector('.endpoint-note');
+            if (!note) {
+                note = document.createElement('p');
+                note.className = 'endpoint-note';
+                box.prepend(note);
+            }
+            note.textContent = `Refresh failed (${body.__events_error}) — showing last good history.`;
+            return;
+        }
+        box.innerHTML = `<p class="alerts-unknown">Alert event history unavailable (${escapeHtml(body.__events_error)}) — retrying automatically.</p>`;
+        return;
+    }
     if (events.length === 0) {
         box.innerHTML = body.log_available === false
             ? '<p class="loading">No watcher event log on this host yet.</p>'
@@ -254,6 +268,12 @@ function renderJournal(body) {
     const known = [...JOURNAL_UNITS].sort();
     sel.innerHTML = '<option value="">all aitbc units</option>' +
         known.map(u => `<option${u === wanted ? ' selected' : ''} value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+    if (body.__journal_error) {
+        if (!box.querySelector('.table-wrap')) {
+            box.innerHTML = `<p class="alerts-unknown">Journal unavailable (${escapeHtml(body.__journal_error)}).</p>`;
+        }
+        return;
+    }
     if (entries.length === 0) {
         box.innerHTML = body.journal_access === false
             ? '<p class="loading">Journal not readable on this host yet (aitbc needs the systemd-journal group — deploying).</p>'
@@ -277,7 +297,7 @@ async function loadJournal() {
     const qs = `priority=${encodeURIComponent(priority)}&limit=50${unit ? '&unit=' + encodeURIComponent(unit) : ''}`;
     try {
         const resp = await fetch(`${EXPLORER_API_URL}/api/journal/recent?${qs}`);
-        renderJournal(resp.ok ? await resp.json() : { entries: [], journal_access: false });
+        renderJournal(resp.ok ? await resp.json() : { entries: [], __journal_error: `HTTP ${resp.status}` });
     } catch (err) {
         document.getElementById('journal-container').innerHTML =
             `<p class="loading">Journal endpoint unreachable — ${escapeHtml(err.message || err)}</p>`;
@@ -291,7 +311,7 @@ async function loadAlerts() {
             fetch(`${EXPLORER_API_URL}/api/alerts/history?limit=100`),
         ]);
         const live = liveResp.ok ? await liveResp.json() : null;
-        const hist = await histResp.json();
+        const hist = histResp.ok ? await histResp.json() : { __events_error: `HTTP ${histResp.status}` };
         renderSummary(live);
         renderMonitorStrip(live || {});
         renderFiring(live);
@@ -300,6 +320,8 @@ async function loadAlerts() {
             `Updated ${aitbcFmt.time()} — auto-refresh every ${REFRESH_MS / 1000}s`;
     } catch (err) {
         renderSummary(null);
+        renderFiring(null);
+        renderEvents({ __events_error: 'unreachable' });
         updateHealthItem('prometheus', false, 'API unreachable');
         updateHealthItem('watcher', false, 'unreachable');
         console.error('Alert API unreachable:', err);
