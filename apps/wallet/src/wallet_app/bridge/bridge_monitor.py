@@ -13,6 +13,7 @@ import httpx
 from aitbc.aitbc_logging import get_logger
 from aitbc.network import SharedHttpClient
 from aitbc.utils import ait_to_units
+from aitbc.utils.chain_id import resolve_chain_id
 
 from aitbc.crypto.signature_recovery import canonical_address
 
@@ -448,7 +449,7 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
 
         tx_payload = {
             "type": "TRANSFER",
-            "chain_id": os.getenv("CHAIN_ID", "ait-localnet"),
+            "chain_id": resolve_chain_id(),
             "from": genesis_address,
             "to": recipient,
             "amount": amount_seconds,

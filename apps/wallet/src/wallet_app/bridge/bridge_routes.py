@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 from aitbc.utils import ait_to_units, units_to_ait
+from aitbc.utils.chain_id import ChainIdNotConfigured, resolve_chain_id
 from aitbc.utils.validation import validate_address_strict
 
 # Forward-compatible import used in "/v1/bridge/status"
@@ -645,7 +646,10 @@ async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="Failed to calculate ETH amount")
 
     blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-    chain_id = os.getenv("CHAIN_ID", "ait-localnet")
+    try:
+        chain_id = resolve_chain_id()
+    except ChainIdNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     try:
         account_resp = await SharedHttpClient.get(f"{blockchain_rpc_url}/rpc/account/{from_address}", timeout=10.0)
