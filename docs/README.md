@@ -94,6 +94,17 @@ Operator procedures for the live fleet:
   `aitbc_messaging_*` metrics, the checkpoint index digest, what each
   alert means and the first read-only commands for it (MSG-6).
 
+## Reset preparation evidence
+
+Dated investigation records for planning a future chain reset. Read later
+corrections alongside the original findings; these ledgers are not execution
+runbooks.
+
+- [Chain reset inventory](../tasks/progress/CHAIN-RESET-PLAN-1.md)
+- [Legacy caller investigation](../tasks/progress/LEGACY-CALLERS-1.md)
+- [Sepolia bridge investigation](../tasks/progress/RESET-SEPOLIA-READ-1.md)
+- [PostgreSQL migration readiness](../tasks/progress/PG-MIGRATIONS-1.md)
+
 ## Security
 
 - [Security overview](security/SECURITY.md),
