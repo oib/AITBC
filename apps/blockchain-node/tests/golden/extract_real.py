@@ -73,7 +73,24 @@ def _row_dump(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def _tx_wire(row: dict[str, Any]) -> dict[str, Any]:
-    """The served-transaction shape: every stored column plus from/to."""
+    """The wire shape ``/rpc/blocks-range`` serves (``rpc/blocks.py::
+    _served_tx_body``): the stored signed envelope IS the transaction body —
+    the apply path digests exactly these fields — plus ``tx_hash`` and the
+    ``value`` alias, both excluded from the signed digest. Row columns
+    (status, id, sender, ...) are NOT merged: injecting them would corrupt
+    signature verification (this is what BRIDGE_LOCK v9 checks bind against).
+    Rows without an envelope fall back to the legacy column dump with
+    ``from``/``to`` renames, matching the server."""
+    envelope = row.get("envelope")
+    if isinstance(envelope, dict) and envelope:
+        body = dict(envelope)
+        nested = body.get("envelope")
+        if not body.get("signature") and isinstance(nested, dict) and nested.get("signature"):
+            body = dict(nested)
+        body["tx_hash"] = row.get("tx_hash")
+        if "amount" in body:
+            body["value"] = body["amount"]
+        return body
     out = dict(row)
     out["from"] = out.get("sender", "")
     out["to"] = out.get("recipient", "")
