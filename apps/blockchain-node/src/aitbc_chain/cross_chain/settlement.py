@@ -247,7 +247,7 @@ class CrossChainSettlementService:
     transitions and proof chain are real and verifiable.
     """
 
-    def __init__(self, chain_id: str = "ait-hub"):
+    def __init__(self, chain_id: str):
         self.chain_id = chain_id
         self._htlc_sm = HTLCStateMachine()
         self._htlc = HTLCContract(chain_id=chain_id)
