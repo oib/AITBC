@@ -888,15 +888,18 @@ def _field_name_denied(name: str, *, deny_conn_strings: bool = True) -> bool:
     lowered = name.lower()
     normalized = lowered.replace("-", "").replace("_", "")
     tokens = _field_tokens(name)
-    if lowered in _FIELD_DENY_NAMES or normalized in _FIELD_DENY_NORMALIZED:
-        return True
-    if deny_conn_strings and lowered.endswith(_FIELD_DENY_TAIL):
-        return True
-    if any(token in _FIELD_DENY_TOKENS and (deny_conn_strings or token not in _CONN_STRING_TOKENS) for token in tokens):
-        return True
-    if normalized.endswith("key") and normalized[:-3] in _FIELD_DENY_KEY_PREFIXES:
-        return True
-    return len(tokens) == 1 and normalized.endswith(_FIELD_DENY_SUFFIXES)
+    return (
+        lowered in _FIELD_DENY_NAMES
+        or normalized in _FIELD_DENY_NORMALIZED
+        or (deny_conn_strings and lowered.endswith(_FIELD_DENY_TAIL))
+        or _deny_token_hit(tokens, deny_conn_strings)
+        or (normalized.endswith("key") and normalized[:-3] in _FIELD_DENY_KEY_PREFIXES)
+        or (len(tokens) == 1 and normalized.endswith(_FIELD_DENY_SUFFIXES))
+    )
+
+
+def _deny_token_hit(tokens: list[str], deny_conn_strings: bool) -> bool:
+    return any(token in _FIELD_DENY_TOKENS and (deny_conn_strings or token not in _CONN_STRING_TOKENS) for token in tokens)
 
 
 def _field_value_shape_denied(value: str) -> str | None:
@@ -982,6 +985,23 @@ def _declared_key_names(files: list[tuple[Path, bool]]) -> set[str]:
     return declared
 
 
+def _print_approved_env_value(env: dict[str, bytes], value_name: str, service_name: str) -> None:
+    """Print one environ value after every refuse rule — the only site that
+    emits environ content."""
+    if _field_name_denied(value_name):
+        raise click.ClickException(f"--value refused (deny-listed name): {value_name}")
+    if value_name not in env:
+        raise click.ClickException(f"{value_name} is not set in the process environment of {service_name}")
+    value = env[value_name]
+    if len(value) > _FIELD_MAX_VALUE:
+        raise click.ClickException(f"--value refused (value over {_FIELD_MAX_VALUE} characters): {value_name}")
+    decoded = value.decode("utf-8", "replace")
+    if (shape := _field_value_shape_denied(decoded)) is not None:
+        raise click.ClickException(f"--value refused ({shape}): {value_name}")
+    # The single approved value is the ONLY content ever printed from environ.
+    click.echo(decoded)
+
+
 def _env_names_process(
     ctx: click.Context, service_name: str, files: list[tuple[Path, bool]], wanted: list[str], value_name: str | None
 ) -> None:
@@ -993,18 +1013,7 @@ def _env_names_process(
     process_names = set(env)
 
     if value_name is not None:
-        if _field_name_denied(value_name):
-            raise click.ClickException(f"--value refused (deny-listed name): {value_name}")
-        if value_name not in env:
-            raise click.ClickException(f"{value_name} is not set in the process environment of {service_name}")
-        value = env[value_name]
-        if len(value) > _FIELD_MAX_VALUE:
-            raise click.ClickException(f"--value refused (value over {_FIELD_MAX_VALUE} characters): {value_name}")
-        decoded = value.decode("utf-8", "replace")
-        if (shape := _field_value_shape_denied(decoded)) is not None:
-            raise click.ClickException(f"--value refused ({shape}): {value_name}")
-        # The single approved value is the ONLY content ever printed from environ.
-        click.echo(decoded)
+        _print_approved_env_value(env, value_name, service_name)
         return
 
     fmt = ctx.obj.get("output_format", "table")
