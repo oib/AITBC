@@ -792,6 +792,7 @@ Before starting services, verify:
 - [Blockchain Node Schema](../apps/blockchain-node/SCHEMA.md) - Database schema reference
 - [bc-2 Environment Set](bc2-environment-set.md) - the `bc-2` chain environment-variable set
 - [bc-2 Consumers](bc2-consumers.md) - the `bc-2` cut-day consumer table
+- [bc-2 Reset Runbook](bc2-reset-runbook.md) - the `bc-2` reset-day plan (planning only; nothing authorized)
 - Multi-Node Setup Core - Workflow guide
 
 ---
