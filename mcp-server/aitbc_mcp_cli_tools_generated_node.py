@@ -38,7 +38,7 @@ def aitbc_node_add(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Add a new node to the local configuration.."""
+    """Add a new node to the local configuration."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -93,7 +93,7 @@ def aitbc_node_bridge_approve(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Approve a bridge request from another island.."""
+    """Approve a bridge request from another island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -140,7 +140,7 @@ def aitbc_node_bridge_list_bridges(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all bridge connections and their current status.."""
+    """List all bridge connections and their current status."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -185,7 +185,7 @@ def aitbc_node_bridge_reject(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Reject a bridge request from another island.."""
+    """Reject a bridge request from another island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -233,7 +233,7 @@ def aitbc_node_bridge_request(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request a bridge to another island.."""
+    """Request a bridge to another island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -280,7 +280,7 @@ def aitbc_node_chain_list_chains(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all currently active chain instances.."""
+    """List all currently active chain instances."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -325,7 +325,7 @@ def aitbc_node_chain_start(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Start a new parallel chain instance.."""
+    """Start a new parallel chain instance."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -373,7 +373,7 @@ def aitbc_node_chain_stop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop a running parallel chain instance.."""
+    """Stop a running parallel chain instance."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -422,7 +422,7 @@ def aitbc_node_chains(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List chains hosted on all nodes or a specific node.."""
+    """List chains hosted on all nodes or a specific node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"show_private": "show-private"},
@@ -470,7 +470,7 @@ def aitbc_node_hub_list_hubs(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all registered hubs from Redis.."""
+    """List all registered hubs from Redis."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -521,7 +521,7 @@ def aitbc_node_hub_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register this node as a hub.."""
+    """Register this node as a hub."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -575,7 +575,7 @@ def aitbc_node_hub_unregister(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Unregister this node as a hub.."""
+    """Unregister this node as a hub."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -621,7 +621,7 @@ def aitbc_node_info(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get detailed information about a configured node.."""
+    """Get detailed information about a configured node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -650,7 +650,7 @@ def aitbc_node_island_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new island with optional ID, name, and chain.."""
+    """Create a new island with optional ID, name, and chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -697,7 +697,7 @@ def aitbc_node_island_health(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show health status of connected islands.."""
+    """Show health status of connected islands."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"show_all": "all"},
@@ -725,7 +725,7 @@ def aitbc_node_island_island_info(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get detailed information for an island.."""
+    """Get detailed information for an island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -780,7 +780,7 @@ def aitbc_node_island_join(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Join an existing island by ID, name, and chain.."""
+    """Join an existing island by ID, name, and chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"is_hub": "is-hub"},
@@ -834,7 +834,7 @@ def aitbc_node_island_leave(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Leave an island by its ID.."""
+    """Leave an island by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -880,7 +880,7 @@ def aitbc_node_island_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all known islands (alias for list-islands).."""
+    """List all known islands (alias for list-islands)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -907,7 +907,7 @@ def aitbc_node_island_list_islands(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all known islands from the node's island manager.."""
+    """List all known islands from the node's island manager."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -952,7 +952,7 @@ def aitbc_node_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all configured nodes and their connection settings.."""
+    """List all configured nodes and their connection settings."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -975,7 +975,7 @@ def aitbc_node_node_info(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get detailed information about a configured node.."""
+    """Get detailed information about a configured node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1024,7 +1024,7 @@ def aitbc_node_remove(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Remove a node from the local configuration.."""
+    """Remove a node from the local configuration."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
@@ -1072,7 +1072,7 @@ def aitbc_node_test(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Test connectivity to a specific node.."""
+    """Test connectivity to a specific node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

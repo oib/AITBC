@@ -30,7 +30,7 @@ def aitbc_cluster_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Trigger or report the cluster rebalancing status.."""
+    """Trigger or report the cluster rebalancing status."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -50,7 +50,7 @@ def aitbc_cluster_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the current cluster health and active node count.."""
+    """Get the current cluster health and active node count."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -72,7 +72,7 @@ def aitbc_cluster_sync(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Trigger or report the cluster synchronization status.."""
+    """Trigger or report the cluster synchronization status."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)

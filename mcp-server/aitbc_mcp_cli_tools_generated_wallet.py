@@ -35,7 +35,7 @@ def aitbc_wallet_address(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Display the public address of the active or named wallet.."""
+    """Display the public address of the active or named wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -63,7 +63,7 @@ def aitbc_wallet_backup(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Export a wallet to a password-encrypted backup file at the given path.."""
+    """Export a wallet to a password-encrypted backup file at the given path."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -109,7 +109,7 @@ def aitbc_wallet_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check the AITBC balance of a wallet from the blockchain RPC.."""
+    """Check the AITBC balance of a wallet from the blockchain RPC."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -141,7 +141,7 @@ def aitbc_wallet_bridge_deposit(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deposit ETH to the bridge and receive AITBC on the hub.."""
+    """Deposit ETH to the bridge and receive AITBC on the hub."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -226,7 +226,7 @@ def aitbc_wallet_bridge_sell_lock(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sign and submit the AIT lock to the escrow address.."""
+    """Sign and submit the AIT lock to the escrow address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -280,7 +280,7 @@ def aitbc_wallet_bridge_sell_quote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request an AIT->ETH sell quote from the hub escrow.."""
+    """Request an AIT->ETH sell quote from the hub escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -335,7 +335,7 @@ def aitbc_wallet_bridge_sell_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check the status of a sell quote or lock.."""
+    """Check the status of a sell quote or lock."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -480,7 +480,7 @@ def aitbc_wallet_bridge_withdraw(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Burn AITBC on the hub to receive ETH at the given Ethereum address.."""
+    """Burn AITBC on the hub to receive ETH at the given Ethereum address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -538,7 +538,7 @@ def aitbc_wallet_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new wallet with an optional type and password encryption.."""
+    """Create a new wallet with an optional type and password encryption."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"no_encrypt": "no-encrypt"},
@@ -591,7 +591,7 @@ def aitbc_wallet_earn(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Record earnings received for a completed job against the wallet.."""
+    """Record earnings received for a completed job against the wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -641,7 +641,7 @@ def aitbc_wallet_eth_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Read the sealed Sepolia ETH balance and nonce of one address.."""
+    """Read the sealed Sepolia ETH balance and nonce of one address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -690,7 +690,7 @@ def aitbc_wallet_eth_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send plain Sepolia ETH from this node's wallet to an explicit address.."""
+    """Send plain Sepolia ETH from this node's wallet to an explicit address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"allow_contract": "allow-contract", "confirm_opt": "confirm", "wait_receipt": "wait"},
@@ -747,7 +747,7 @@ def aitbc_wallet_export(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Export the active wallet to a JSON file at the given destination.."""
+    """Export the active wallet to a JSON file at the given destination."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -796,7 +796,7 @@ def aitbc_wallet_info(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show detailed information about the active or named wallet.."""
+    """Show detailed information about the active or named wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -824,7 +824,7 @@ def aitbc_wallet_inspect(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Print public metadata from a wallet file without decrypting it.."""
+    """Print public metadata from a wallet file without decrypting it."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -876,7 +876,7 @@ def aitbc_wallet_liquidity_claim(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Claim accrued liquidity rewards for the given stake ID.."""
+    """Claim accrued liquidity rewards for the given stake ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -930,7 +930,7 @@ def aitbc_wallet_liquidity_stake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stake tokens into an on-chain liquidity pool to earn rewards.."""
+    """Stake tokens into an on-chain liquidity pool to earn rewards."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -982,7 +982,7 @@ def aitbc_wallet_liquidity_unstake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Withdraw a liquidity stake and its accumulated rewards.."""
+    """Withdraw a liquidity stake and its accumulated rewards."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1027,7 +1027,7 @@ def aitbc_wallet_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all locally stored wallets and their active chain addresses.."""
+    """List all locally stored wallets and their active chain addresses."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -1052,7 +1052,7 @@ def aitbc_wallet_multisig_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a multi-signature wallet with a threshold and a list of signers.."""
+    """Create a multi-signature wallet with a threshold and a list of signers."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1103,7 +1103,7 @@ def aitbc_wallet_multisig_propose(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Propose a multi-signature payment to a destination address.."""
+    """Propose a multi-signature payment to a destination address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1153,7 +1153,7 @@ def aitbc_wallet_multisig_sign(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sign a pending multi-signature transaction with the given signer address.."""
+    """Sign a pending multi-signature transaction with the given signer address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1206,7 +1206,7 @@ def aitbc_wallet_request_payment(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Generate a payment request to another address for a specific amount.."""
+    """Generate a payment request to another address for a specific amount."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1267,7 +1267,7 @@ def aitbc_wallet_restore(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Restore a wallet from a backup file with an optional force override.."""
+    """Restore a wallet from a backup file with an optional force override."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
@@ -1325,7 +1325,7 @@ def aitbc_wallet_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send AITBC tokens from the active wallet to another address.."""
+    """Send AITBC tokens from the active wallet to another address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait_seal": "wait"},
@@ -1383,7 +1383,7 @@ def aitbc_wallet_spend(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Record a manual spend transaction with an amount and description.."""
+    """Record a manual spend transaction with an amount and description."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1435,7 +1435,7 @@ def aitbc_wallet_stake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stake AITBC tokens on the blockchain for a configurable duration.."""
+    """Stake AITBC tokens on the blockchain for a configurable duration."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1483,7 +1483,7 @@ def aitbc_wallet_stats(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show aggregated statistics for the active wallet over all transactions.."""
+    """Show aggregated statistics for the active wallet over all transactions."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1513,7 +1513,7 @@ def aitbc_wallet_switch(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Switch the active wallet context to a different locally stored wallet.."""
+    """Switch the active wallet context to a different locally stored wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1560,7 +1560,7 @@ def aitbc_wallet_transactions(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List recent blockchain transactions for the active or named wallet.."""
+    """List recent blockchain transactions for the active or named wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1590,7 +1590,7 @@ def aitbc_wallet_unstake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Unstake tokens and withdraw the principal for the given stake ID.."""
+    """Unstake tokens and withdraw the principal for the given stake ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

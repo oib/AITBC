@@ -36,7 +36,7 @@ def aitbc_reputation_create_profile(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new reputation profile for an agent.."""
+    """Create a new reputation profile for an agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -92,7 +92,7 @@ def aitbc_reputation_feedback(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Add community feedback for an agent.."""
+    """Add community feedback for an agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -147,7 +147,7 @@ def aitbc_reputation_metrics(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get overall reputation system metrics and level distribution.."""
+    """Get overall reputation system metrics and level distribution."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -168,7 +168,7 @@ def aitbc_reputation_profile(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the reputation profile for an agent.."""
+    """Get the reputation profile for an agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -195,7 +195,7 @@ def aitbc_reputation_trust_score(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get a detailed trust score breakdown for an agent.."""
+    """Get a detailed trust score breakdown for an agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

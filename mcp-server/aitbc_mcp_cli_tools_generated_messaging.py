@@ -35,7 +35,7 @@ def aitbc_messaging_dm_inbox(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List this wallet's DM inbox — ciphertext metadata only, nothing decrypted.."""
+    """List this wallet's DM inbox — ciphertext metadata only, nothing decrypted."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -74,7 +74,7 @@ def aitbc_messaging_dm_keygen(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create (or rotate) this wallet's DM key and publish the public half on-chain.."""
+    """Create (or rotate) this wallet's DM key and publish the public half on-chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"confirm_opt": "confirm", "rotate": "rotate"},
@@ -122,7 +122,7 @@ def aitbc_messaging_dm_read(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Fetch and decrypt one DM addressed to this wallet.."""
+    """Fetch and decrypt one DM addressed to this wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -157,7 +157,7 @@ def aitbc_messaging_dm_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send an encrypted DM to a recipient who has published a dm_key.."""
+    """Send an encrypted DM to a recipient who has published a dm_key."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"confirm_opt": "confirm"},
@@ -228,7 +228,7 @@ def aitbc_messaging_hide(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run `aitbc messaging hide`.."""
+    """Run `aitbc messaging hide`."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -288,7 +288,7 @@ def aitbc_messaging_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List forum messages, newest first.."""
+    """List forum messages, newest first."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"include_hidden": "include-hidden"},
@@ -340,7 +340,7 @@ def aitbc_messaging_lock(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Lock a topic or one thread (moderator only).."""
+    """Lock a topic or one thread (moderator only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -413,7 +413,7 @@ def aitbc_messaging_mod_grant(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run `aitbc messaging mod-grant`.."""
+    """Run `aitbc messaging mod-grant`."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -485,7 +485,7 @@ def aitbc_messaging_mod_revoke(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run `aitbc messaging mod-revoke`.."""
+    """Run `aitbc messaging mod-revoke`."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -541,7 +541,7 @@ def aitbc_messaging_moderators(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show a topic's derived moderator set, locks and recent actions.."""
+    """Show a topic's derived moderator set, locks and recent actions."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -606,7 +606,7 @@ def aitbc_messaging_pin(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run `aitbc messaging pin`.."""
+    """Run `aitbc messaging pin`."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -662,7 +662,7 @@ def aitbc_messaging_reputation(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show an address's derived forum reputation (display-only integer).."""
+    """Show an address's derived forum reputation (display-only integer)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -730,7 +730,7 @@ def aitbc_messaging_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Post a forum message as a signed MESSAGE transaction.."""
+    """Post a forum message as a signed MESSAGE transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"confirm_opt": "confirm", "wait": "wait"},
@@ -786,7 +786,7 @@ def aitbc_messaging_show(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show one forum message by its transaction hash (bare or 0x-prefixed).."""
+    """Show one forum message by its transaction hash (bare or 0x-prefixed)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -811,7 +811,7 @@ def aitbc_messaging_state(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show forum index totals and the index height.."""
+    """Show forum index totals and the index height."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -836,7 +836,7 @@ def aitbc_messaging_stats(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """MSG-6 operability snapshot: index height, lag and checkpoint digest.."""
+    """MSG-6 operability snapshot: index height, lag and checkpoint digest."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -867,7 +867,7 @@ def aitbc_messaging_subscribe(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Poll a topic for new messages (cursor polling — there is no push stream).."""
+    """Poll a topic for new messages (cursor polling — there is no push stream)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"follow": "follow"},
@@ -902,7 +902,7 @@ def aitbc_messaging_topic(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Alias of ``messaging topics`` — implicit topics have no create call.."""
+    """Alias of ``messaging topics`` — implicit topics have no create call."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -952,7 +952,7 @@ def aitbc_messaging_topics(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List forum topics ranked by last activity.."""
+    """List forum topics ranked by last activity."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1017,7 +1017,7 @@ def aitbc_messaging_unhide(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run `aitbc messaging unhide`.."""
+    """Run `aitbc messaging unhide`."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -1089,7 +1089,7 @@ def aitbc_messaging_unlock(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Undo a lock (moderator only).."""
+    """Undo a lock (moderator only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -1162,7 +1162,7 @@ def aitbc_messaging_unpin(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run `aitbc messaging unpin`.."""
+    """Run `aitbc messaging unpin`."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},
@@ -1235,7 +1235,7 @@ def aitbc_messaging_vote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Vote on a forum message. Last vote per signer wins; 'retract' clears it.."""
+    """Vote on a forum message. Last vote per signer wins; 'retract' clears it."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "confirm_opt": "confirm"},

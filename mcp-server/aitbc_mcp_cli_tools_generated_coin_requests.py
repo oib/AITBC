@@ -35,7 +35,7 @@ def aitbc_coin_requests_approve(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Approve a pending coin transfer request by request ID.."""
+    """Approve a pending coin transfer request by request ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -83,7 +83,7 @@ def aitbc_coin_requests_execute(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Execute an approved coin transfer request by submitting a signed transaction.."""
+    """Execute an approved coin transfer request by submitting a signed transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -130,7 +130,7 @@ def aitbc_coin_requests_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List coin transfer requests with optional status and sender filters.."""
+    """List coin transfer requests with optional status and sender filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -163,7 +163,7 @@ def aitbc_coin_requests_reconcile(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check executed coin requests against the chain and report or annotate discrepancies.."""
+    """Check executed coin requests against the chain and report or annotate discrepancies."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"annotate": "annotate"},
@@ -212,7 +212,7 @@ def aitbc_coin_requests_reject(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Reject a pending coin transfer request with a required reason.."""
+    """Reject a pending coin transfer request with a required reason."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -267,7 +267,7 @@ def aitbc_coin_requests_reopen(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Clear a request's transaction hash so it can be executed again.."""
+    """Clear a request's transaction hash so it can be executed again."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
@@ -319,7 +319,7 @@ def aitbc_coin_requests_request(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request a one-time initial coin grant from the hub for a local wallet.."""
+    """Request a one-time initial coin grant from the hub for a local wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -371,7 +371,7 @@ def aitbc_coin_requests_show(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show details of a specific coin transfer request.."""
+    """Show details of a specific coin transfer request."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

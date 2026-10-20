@@ -34,7 +34,7 @@ def aitbc_developer_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List registered developers with optional active-only, limit, and offset filters.."""
+    """List registered developers with optional active-only, limit, and offset filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"active_only": "active-only"},
@@ -64,7 +64,7 @@ def aitbc_developer_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a developer in the DAO grant registry with optional name, email, and GitHub handle.."""
+    """Register a developer in the DAO grant registry with optional name, email, and GitHub handle."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

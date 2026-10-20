@@ -31,7 +31,7 @@ def aitbc_workflow_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all available workflows from the coordinator.."""
+    """List all available workflows from the coordinator."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -56,7 +56,7 @@ def aitbc_workflow_run(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run a workflow by name with optional configuration.."""
+    """Run a workflow by name with optional configuration."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"dry_run_opt": "dry-run"},
@@ -102,7 +102,7 @@ def aitbc_workflow_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the execution status of a workflow by name.."""
+    """Get the execution status of a workflow by name."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -129,7 +129,7 @@ def aitbc_workflow_stop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop a running workflow by its execution ID.."""
+    """Stop a running workflow by its execution ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

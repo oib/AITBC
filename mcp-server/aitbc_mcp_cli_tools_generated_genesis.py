@@ -38,7 +38,7 @@ def aitbc_genesis_info(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the genesis block information for a chain.."""
+    """Show the genesis block information for a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -75,7 +75,7 @@ def aitbc_genesis_init(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Initialize the genesis configuration and files for the local chain.."""
+    """Initialize the genesis configuration and files for the local chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"create_wallet": "create-wallet", "force": "force", "register_service": "register-service"},
@@ -133,7 +133,7 @@ def aitbc_genesis_sync_from_hub(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sync the genesis block from the hub for a chain.."""
+    """Sync the genesis block from the hub for a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
@@ -183,7 +183,7 @@ def aitbc_genesis_verify(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Verify the genesis block and configuration for a chain.."""
+    """Verify the genesis block and configuration for a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

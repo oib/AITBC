@@ -31,7 +31,7 @@ def aitbc_gpu_discover(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Auto-discover local GPU specifications using nvidia-smi.."""
+    """Auto-discover local GPU specifications using nvidia-smi."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -53,7 +53,7 @@ def aitbc_gpu_list_gpus(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List local registered GPUs from the GPU service.."""
+    """List local registered GPUs from the GPU service."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -100,7 +100,7 @@ def aitbc_gpu_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a GPU with the local GPU service, optionally with JSON specs.."""
+    """Register a GPU with the local GPU service, optionally with JSON specs."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -148,7 +148,7 @@ def aitbc_gpu_unregister(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Unregister or delete a GPU from the local GPU service.."""
+    """Unregister or delete a GPU from the local GPU service."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -198,7 +198,7 @@ def aitbc_gpu_update(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Update GPU registration with new pricing or status.."""
+    """Update GPU registration with new pricing or status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

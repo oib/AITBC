@@ -47,7 +47,7 @@ def aitbc_auth_login(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Log in with a wallet-signed nonce and store a coordinator JWT.."""
+    """Log in with a wallet-signed nonce and store a coordinator JWT."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -105,7 +105,7 @@ def aitbc_auth_logout(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Delete the stored coordinator credential for an environment.."""
+    """Delete the stored coordinator credential for an environment."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -151,7 +151,7 @@ def aitbc_auth_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the stored authentication credentials for an environment.."""
+    """Show the stored authentication credentials for an environment."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

@@ -32,7 +32,7 @@ def aitbc_agent_msg_peers(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List the peers currently known to the Agent Coordinator.."""
+    """List the peers currently known to the Agent Coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -76,7 +76,7 @@ def aitbc_agent_msg_ping(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Ping a remote agent via WebSocket and wait for its PONG reply.."""
+    """Ping a remote agent via WebSocket and wait for its PONG reply."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -141,7 +141,7 @@ def aitbc_agent_msg_receive(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Receive messages from the Agent Coordinator inbox for the configured agent.."""
+    """Receive messages from the Agent Coordinator inbox for the configured agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"unread_only": "unread-only", "sign": "sign"},
@@ -212,7 +212,7 @@ def aitbc_agent_msg_request_coins(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request free AIT tokens from the hub via WebSocket for the configured wallet.."""
+    """Request free AIT tokens from the hub via WebSocket for the configured wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -285,7 +285,7 @@ def aitbc_agent_msg_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send a direct or broadcast message to another agent through the coordinator.."""
+    """Send a direct or broadcast message to another agent through the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"encrypt": "encrypt", "sign": "sign"},

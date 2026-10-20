@@ -34,7 +34,7 @@ def aitbc_governance_aggregate_votes(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Aggregate and tally votes for a proposal (informational only — votes are advisory, V-7).."""
+    """Aggregate and tally votes for a proposal (informational only — votes are advisory, V-7)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -82,7 +82,7 @@ def aitbc_governance_close(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Close a governance proposal and tally the final votes.."""
+    """Close a governance proposal and tally the final votes."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -137,7 +137,7 @@ def aitbc_governance_execute(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Execute a governance proposal on-chain as a governance executor (the vote tally is advisory and does not decide execution; V-7).."""
+    """Execute a governance proposal on-chain as a governance executor (the vote tally is advisory and does not decide execution; V-7)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -190,7 +190,7 @@ def aitbc_governance_execute_cross_chain(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Execute a governance proposal across target chains.."""
+    """Execute a governance proposal across target chains."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -236,7 +236,7 @@ def aitbc_governance_get(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get details of a specific governance proposal.."""
+    """Get details of a specific governance proposal."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -264,7 +264,7 @@ def aitbc_governance_propagate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Propagate a governance proposal to a comma-separated list of target chains.."""
+    """Propagate a governance proposal to a comma-separated list of target chains."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -325,7 +325,7 @@ def aitbc_governance_propose(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new governance proposal with title, description, and optional category.."""
+    """Create a new governance proposal with title, description, and optional category."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -397,7 +397,7 @@ def aitbc_governance_vote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Vote for, against, or abstain on a governance proposal. Votes are advisory (V-7) — the tally informs but does not decide execution; GOVERNANCE_EXECUTE is gated only by the governance_executors chain parameter.."""
+    """Vote for, against, or abstain on a governance proposal. Votes are advisory (V-7) — the tally informs but does not decide execution; GOVERNANCE_EXECUTE is gated only by the governance_executors chain parameter."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
