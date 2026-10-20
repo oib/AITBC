@@ -318,13 +318,51 @@ refusal-list addition); **restore the timers suspended at B0**
 `bc2-host-inventory.md`) — suspended timers show as `*Stale` alerts until
 resumed; the register and ledgers keep old heights as
 history; the bridge-lock unpause lands with `SEPOLIA-REDEPLOY-1`
-(operator: "in the week after the cut") as its own gated step, not part of
-this document; **F2** — write the reset record in `TOPOLOGY/`; **F3** —
+(operator: "in the week after the cut") as its own gated step — **F5**
+below; **F2** — write the reset record in `TOPOLOGY/`; **F3** —
 `.pre-reset` copies and offline backups retire **after the 3-day soak has
 ended, on a per-item operator word**; **F4** — after the soak ends and
 **before locks are unpaused**: fund the sell-escrow account `0x40c7…` and
 the bridge payout account `0x356d…` from the treasury — two
 operator-named chain writes, amounts per the operator's card.
+
+**F5** — bridge-lock unpause (operator-named env edit; the restart leg
+is the standing rpc class, **not** validator-interrupting). Preconditions:
+the soak-end gate green (`bc2-post-cut-owed.md` §2), F4 sealed, and
+`SEPOLIA-REDEPLOY-1` complete — the new contract on Sepolia, Safe-owned.
+`scripts/ops/unpause-precheck.py` must print **GO** before the operator's
+line; it reads the saved post-cut report, F4 balances, the pause flag on
+every carrier, `BRIDGE_CONTRACT_ADDRESS` in the monitor env, the Sepolia
+contract (code / `owner()` / `getThreshold()`), and head agreement.
+
+- **Edits**: `BRIDGE_LOCKS_PAUSED=false` in every file holding it —
+  `blockchain.env` on all five hosts plus `bootstrap.env` on hub (six
+  files; `bootstrap.env` is edit-only — no unit reads it at runtime, but
+  a re-bootstrap must not resurrect `true`).
+- **Restart**: `aitbc-blockchain-rpc` only, serial across the five
+  hosts — the flag is evaluated **only inside the RPC app**
+  (`rpc/routers/cross_chain.py:158`, `rpc/bridge.py:126`,
+  `cross_chain/bridge_transfer.py:113`; the bridge service is created in
+  `app.py`, which only the rpc unit runs). The node unit loads the name
+  into `settings` but never evaluates it — the validators keep sealing
+  through the flip, and any later routine node restart picks up `false`
+  harmlessly. `aitbc-bridge-monitor` on hub restarts on the same line to
+  load the redeployed `BRIDGE_CONTRACT_ADDRESS`.
+- **Verify**: anchored greps show `false` on all six carriers; the
+  pause probe **inverts** — the fence sits *before* signature validation
+  (`cross_chain.py:158` refuses 503 ahead of the signature path at
+  `:175`), so the same well-shaped unsigned POST that answered 503 now
+  reaches signature checking and answers **403**; `env-names --process`
+  shows the live flag; monitor `--process` shows the contract address; a
+  real lock POST only on the operator's own line (it is a chain write).
+- **Rollback**: set `true` in the same six files and serial-restart rpc
+  again. A lock that already sealed stays sealed — refund/status routes
+  were never fenced, so in-flight transfers keep resolving.
+- **Exchange note**: `aitbc-exchange.env` does **not** carry
+  `BRIDGE_CONTRACT_ADDRESS` today; without it the exchange's bridge
+  config holds an empty contract address (its status reads blank).
+  Adding the name there is an operator-named env edit in the F5
+  checklist, not a prep-side change.
 
 Everything the cut leaves undone — the gated rows below plus the
 consumer flips and the register pointers — is collected, ordered, and
@@ -373,6 +411,7 @@ resolves v14, outside the flag's 2–8 window (`bc2-environment-set.md`).
 | post-PONR unfreeze (F1) | operator-named | operator line verbatim + accept-read outputs; `aitbc-coordinator-api` active and `/health` answering on hub |
 | `.pre-reset` deletion (F3) | per-item word, after the 3-day soak | operator line verbatim per item |
 | post-soak funding (F4) | operator-named, gated at soak-end | operator line verbatim + treasury→`0x40c7…`/`0x356d…` sealed txs + new balances |
+| bridge-lock unpause (F5) | operator-named env edit; serial rpc restart is the standing class | `unpause-precheck.py` GO + operator line verbatim + `false` grep ×6 + probe 503→403 inversion |
 
 ### Operator line shapes — proposal (the operator writes his own lines)
 
@@ -397,6 +436,7 @@ rule that the operator's own message names action **and** hosts.
 | F1 | "Post-PONR unfreeze: restore timers, reopen market/exchange incl. `aitbc-coordinator-api`, revert B1." **plus its own line (F1a)** "Take the maintenance notice down." | two parts — the takedown modifies public content |
 | F3 | "Delete `<path>` on `<host>`." | never shared — per-item word by design |
 | F4 | "Fund sell-escrow `0x40c7…` and bridge payout `0x356d…` from the treasury — `<amount>` AIT each." | two chain writes — gated at soak-end, before locks unpause |
+| F5 | "Set `BRIDGE_LOCKS_PAUSED=false` in every file holding it — `blockchain.env` on all five plus `bootstrap.env` on hub — and restart `aitbc-bridge-monitor` on hub." | env edit names the unpause; the serial rpc restart rides the standing class — validators keep sealing |
 | ABORT | "Abort at `<step>`: run the §D abort row." | per event |
 
 ## I. Decisions
