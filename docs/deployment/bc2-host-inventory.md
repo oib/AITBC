@@ -31,7 +31,7 @@ alert evidence keeps flowing (see `RESET-ALERTS-1`).
 have no such unit (`systemctl cat` → "No files found"); their
 `aitbc-blockchain-p2p.env` files exist but serve no unit.
 
-### Timers (13) — what each writes
+### Timers (13 active + 1 shipped-inert) — what each writes
 
 | timer | cadence | writes | in-window behaviour |
 |---|---|---|---|
@@ -45,6 +45,7 @@ have no such unit (`systemctl cat` → "No files found"); their
 | `aitbc-journal-errors.timer` | ~5 min | read-only `.prom` (journal scan) | optional — expected AITBCJournalErrors noise either way |
 | `aitbc-cache-monitor.timer`, `aitbc-memory-monitor.timer` | 15 min | read-only `.prom`/logs | optional |
 | `aitbc-chain-isolation-monitor.timer` | hourly | read-only verify + log | suspend — hosts intentionally diverge |
+| `aitbc-attestation-arrival.timer` (+ `aitbc-attestation-arrival.service`) | minutely | read-only `.prom` (attestation-arrival-textfile.py scans `data/*/chain.db` — the M6 detector's series) | **ships inert — not in B0**; enabled post-cut per `bc2-post-cut-owed.md`, operator-named |
 
 ### Store files (`/var/lib/aitbc/data/`)
 
@@ -77,7 +78,8 @@ have no such unit (`systemctl cat` → "No files found"); their
 No p2p unit. Timers (8): `alert-digest`, `backup-metrics`, `backup`,
 `cache-monitor`, `chain-isolation-monitor`, **`escrow-settlements`**,
 `journal-errors`, `memory-monitor` — same write classes as hub;
-`alert-digest` sends digest notifications.
+`alert-digest` sends digest notifications. `attestation-arrival` also
+ships inert on this host (enabled post-cut, operator-named).
 
 ### Store files
 
@@ -104,6 +106,8 @@ No p2p unit. Timers (8): `alert-digest`, `backup-metrics`, `backup`,
 4. `aitbc-blockchain-node` (last — always last fleet-wide)
 
 No p2p unit. Timers (9): hub1's set plus `aitbc-ntfy-heartbeat-daily`.
+`aitbc-attestation-arrival` also ships inert on this host (enabled post-cut,
+operator-named).
 
 ### Store files
 
@@ -126,6 +130,8 @@ No p2p unit. Timers (9): hub1's set plus `aitbc-ntfy-heartbeat-daily`.
 Same unit set as hub1 (explorer, wallet, island-ipfs, recovery,
 load-secrets → governance, trading → rpc → node; node is
 validator-interrupting). No p2p unit. Timers (8): hub1's set.
+`aitbc-attestation-arrival` also ships inert on this host (enabled post-cut,
+operator-named).
 
 ### Store files
 
@@ -154,6 +160,8 @@ validator-interrupting). No p2p unit. Timers (8): hub1's set.
 
 No p2p unit. Timers (9): hub1's set minus none, plus
 `aitbc-island-subscription-check` (subscription verify, read-mostly).
+`aitbc-attestation-arrival` also ships inert on this host (enabled post-cut,
+operator-named).
 
 ### Store files
 
