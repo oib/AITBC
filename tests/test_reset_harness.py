@@ -551,6 +551,21 @@ def test_partition_envs_route_block_plane_through_filter(tmp_path):
     )
 
 
+def test_degrade_envs_attest_only_victim_outbound(tmp_path):
+    root = tmp_path / "rehearsal"
+    _write_instance_envs(root)
+    victim = rh.instances(root)[3]
+    specs, env = rh._degrade_envs(root, victim)
+    # one filter port per peer, attest topics denied — blocks/http untouched
+    assert len(specs) == 4
+    assert all(s["deny_topics"] == rh.ATTEST_TOPICS for s in specs)
+    parsed = _parse_env(env)
+    assert not any("blocks.bc-2" in s for s in parsed["GOSSIP_MESH_PEER_URLS"].split(","))
+    ports = {int(u.split(":")[2].split("/")[0]) for u in parsed["GOSSIP_MESH_PEER_URLS"].split(",")}
+    assert ports == set(range(rh.FILTER_PORT_BASE, rh.FILTER_PORT_BASE + 4))
+    assert parsed["AITBC_SYNC_SOURCE"] == f"http://127.0.0.1:{rh.PORT_BASE + 2}", "degrade must not cut the victim's pulls"
+
+
 def test_attesters_of_reads_metadata_attestations():
     blk = {
         "hash": "0xabc",

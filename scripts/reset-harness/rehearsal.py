@@ -43,11 +43,14 @@ Phases (also runnable individually):
     rehearsal.py fork        asymmetric partition: attest topics pass,
                              blocks.* + http pulls die; same-height fork,
                              then deterministic heal (post-PONR M3)
+    rehearsal.py gossip      degrade one validator's attestation plane
+                             (--variant filter|bind): drift toward stall,
+                             then recovery (post-PONR M6)
     rehearsal.py teardown    stop units, delete the scratch tree, show it empty
     rehearsal.py run         keys -> genesis -> up -> wait -> check ->
                              timing -> rejoin -> skip -> stall -> resync ->
                              stores -> golden -> untrusted -> alloc-fix ->
-                             fork -> teardown
+                             fork -> gossip -> teardown
 
 Live-host protection: before anything starts, the harness records
 ``ActiveEnterTimestamp``/``MainPID`` and head height of the live
@@ -1520,6 +1523,129 @@ def phase_fork(root: Path, python: str, timeout: int, max_load: float, min_avail
     raise _fail(f"{victim.name} did not converge on the majority branch within {timeout}s")
 
 
+def _degrade_envs(root: Path, victim: Instance) -> tuple[list[dict], str]:
+    """M6 attestation-plane degradation: reroute the victim's OUTBOUND mesh
+    links through filter ports refusing ``consensus.attest_*`` conns.
+    Blocks keep arriving (peers push them on their own conns) and every
+    HTTP pull stays live — only the victim's attestation plane is cut, in
+    both directions: its attest_request publishes die on the refused conn
+    and its attest_response publishes never land."""
+    insts = instances(root)
+    peers = [i for i in insts if i.idx != victim.idx]
+    specs = [
+        {"port": FILTER_PORT_BASE + n, "upstream": _mesh_url(p.rpc_port), "deny_topics": ATTEST_TOPICS}
+        for n, p in enumerate(peers)
+    ]
+    env = _env_set(
+        (victim.dir / "instance.env").read_text(),
+        "GOSSIP_MESH_PEER_URLS",
+        ",".join(_mesh_url(FILTER_PORT_BASE + n) for n in range(len(peers))),
+    )
+    return specs, env
+
+
+def _attested_since(inst: Instance, since_height: int, vaddr: str) -> bool:
+    """True once a block sealed above ``since_height`` carries ``vaddr`` in
+    its attestations — the cheap M6 recovery signal: the victim's
+    signature is landing again without waiting a full rotation for its
+    own slot."""
+    for h in range(since_height + 1, (_head(inst) or since_height) + 1):
+        blk = _block(inst, h)
+        if blk and vaddr.lower() in _attesters_of(blk):
+            return True
+    return False
+
+
+def phase_gossip(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int, variant: str) -> None:
+    """M6 — attestation gossip degraded on ONE validator while its unit
+    stays up: the drift toward M2 under continued 3-of-4 liveness.
+
+    Variants: ``filter`` (default) reroutes the victim's outbound mesh
+    links through attest-refusing ports — surgical, blocks and pulls
+    untouched; ``bind`` is the hub P2P_BIND_HOST trap translated to the
+    scratch topology, where the gossip ws lives on the rpc unit: rebind
+    the victim's rpc to a loopback the peers never dial so its inbound
+    gossip+http die while outbound lives (the node unit is never
+    touched). Both leave the victim unable to give or receive working
+    attestations: its own proposals collect zero signatures and its slot
+    output goes silent while the other three validators keep sealing.
+    """
+    insts = instances(root)
+    victim, hub = insts[3], insts[0]
+    keys = _load_keys(root)
+    vaddr = keys["proposers"][3]["address"].lower()
+    env_file = victim.dir / "instance.env"
+    original = env_file.read_text()
+    if variant == "bind":
+        # The loopback trap: peers dial 127.0.0.1:<rpc_port> but the
+        # rebind moves the listener to 127.0.0.2 — every inbound conn
+        # (gossip ws, http probes/pulls) is refused, outbound untouched.
+        env_file.write_text(_env_set(original, "RPC_BIND_HOST", "127.0.0.2"))
+        subprocess.run(["systemctl", "stop", f"{victim.name}-rpc"], capture_output=True, timeout=60)
+        _spawn_rpc(victim, python)
+        print(f"[*] {victim.name} rpc rebound to 127.0.0.2 — inbound gossip+http dead, node unit untouched")
+    else:
+        specs, env = _degrade_envs(root, victim)
+        _spawn_filter(root, python, specs)
+        env_file.write_text(env)
+        _restart_node(victim, python)
+        print(f"[*] {victim.name} outbound mesh rerouted — attest topics refused, blocks/http pass")
+    baseline_h = _head(hub) or 0
+    log_len = len(_node_log(victim))
+    try:
+        # Drift window (~2 empty-block intervals): the fleet must keep
+        # sealing (3-of-4 still quorate) while the victim produces nothing
+        # and logs its zero-attestation refusals.
+        deadline = time.time() + 135
+        refusal = False
+        while time.time() < deadline:
+            _check_host_budget(max_load, min_avail_mib)
+            if STALL_MARK.search(_node_log(victim)[log_len:]):
+                refusal = True
+            time.sleep(5)
+        hh = _head(hub)
+        if hh is None or hh <= baseline_h:
+            raise _fail("fleet head froze — degradation overshot into a real stall")
+        if not refusal:
+            raise _fail(f"{victim.name} logged no seal refusal — the attestation cut did not take")
+        new_blocks = [blk for h in range(baseline_h + 1, hh + 1) if (blk := _block(hub, h)) is not None]
+        seals = [_proposer_of(blk).lower() for blk in new_blocks]
+        if vaddr in seals:
+            raise _fail(f"{victim.name} sealed a block while attest-deaf — degradation leaked")
+        print(
+            f"[*] drift proven: fleet advanced {baseline_h} -> {hh} on 3-of-4 while {victim.name}"
+            " collected 0 attestations — the M6 slide toward M2"
+        )
+        # What the docs name (AttestationArrivalDegraded /
+        # AttestationValidatorSilent) has no scratch prometheus — the
+        # observable evidence here is the seal-refusal mark and the
+        # victim's signature absent from every new block's attestations.
+        silent = all(vaddr not in _attesters_of(blk) for blk in new_blocks)
+        print(
+            "[*] M6 observability: no alert tier on scratch — evidence is the refusal mark"
+            f" + victim absent from all new attestations ({silent})"
+        )
+    finally:
+        env_file.write_text(original)
+        if variant == "bind":
+            subprocess.run(["systemctl", "stop", f"{victim.name}-rpc"], capture_output=True, timeout=60)
+            _spawn_rpc(victim, python)
+        else:
+            _restart_node(victim, python)
+            _stop_filter()
+    # Recovery: the victim's attestation must land on a new seal — its
+    # responses flow again on the next request, so the very next block
+    # should carry its signature.
+    deadline = time.time() + max(timeout, 300)
+    while time.time() < deadline:
+        _check_host_budget(max_load, min_avail_mib)
+        if _attested_since(hub, hh, vaddr):
+            print(f"[+] restored: {victim.name} attestation landed on a new seal — M6 recovered")
+            return
+        time.sleep(5)
+    raise _fail(f"{victim.name} did not resume attesting within {timeout}s after restore")
+
+
 def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
     inst = instances(root)[3]
     h0 = _head(inst)
@@ -1671,6 +1797,7 @@ def main() -> int:
             "untrusted",
             "alloc-fix",
             "fork",
+            "gossip",
             "teardown",
             "run",
         ],
@@ -1683,6 +1810,12 @@ def main() -> int:
     p.add_argument("--timeout", type=int, default=240, help="seconds for waits")
     p.add_argument("--max-load", type=float, default=DEFAULT_LOAD_CEILING, help="1-min loadavg ceiling")
     p.add_argument("--min-avail-mib", type=int, default=DEFAULT_MIN_AVAIL_MIB, help="MemAvailable floor MiB")
+    p.add_argument(
+        "--variant",
+        choices=["filter", "bind"],
+        default="filter",
+        help="gossip degradation mechanism (M6): filter = attest-topic refusal on the victim's outbound links; bind = rebind the victim's rpc listener to an undialed loopback (the hub P2P_BIND_HOST trap)",
+    )
     args = p.parse_args()
 
     root = scratch_root(args.scratch)
@@ -1731,6 +1864,10 @@ def main() -> int:
             _timed("untrusted", lambda: phase_untrusted(root, args.python, args.timeout))
             _timed("alloc-fix", lambda: phase_alloc_fix(root, args.timeout))
             _timed("fork", lambda: phase_fork(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
+            _timed(
+                "gossip",
+                lambda: phase_gossip(root, args.python, args.timeout, args.max_load, args.min_avail_mib, args.variant),
+            )
             after = _live_snapshot()
             (root / "live-after.json").write_text(json.dumps(after, indent=2))
             print("[+] phase wall-clock: " + ", ".join(f"{n}={d:.1f}s" for n, d in wall) + " (measured: monotonic)")
@@ -1756,6 +1893,7 @@ def main() -> int:
         "untrusted": lambda: phase_untrusted(root, args.python, args.timeout),
         "alloc-fix": lambda: phase_alloc_fix(root, args.timeout),
         "fork": lambda: phase_fork(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
+        "gossip": lambda: phase_gossip(root, args.python, args.timeout, args.max_load, args.min_avail_mib, args.variant),
     }
     dispatch[args.phase]()
     return 0
