@@ -55,7 +55,7 @@ the soak-end gate and a per-item word.
 | `PG-POST-RESET-1` | services PostgreSQL-capable; blocked by the reset |
 | `LEGACY-ECONOMICS-1` (#311) | legacy economics retirement after the cut |
 | `GAP-CLI-READS-1` | parked read-side CLI gaps from the drain work |
-| allocation scratch finalization | treasury address (A8: single-key, off-fleet, `--treasury-proof`) + F4 amounts card |
+| allocation file | **done 20 Oct** — committed at `docs/deployment/bc2-genesis/`, sha256-pinned (`Refs #332`); treasury `0x4aF8F36d91ff6b0125D18A76f242184e4F083EE0` supplied off-fleet with a verified `--treasury-proof`. The only open piece is the F4 amounts card (§3, soak-end gate) |
 
 *Decided 20 Oct: soak = 3 days; treasury single-key off-fleet; F4
 amounts open. Everything above is read/plan — nothing authorizes a

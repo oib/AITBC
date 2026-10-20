@@ -28,6 +28,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [bc-2 Alert Window](bc2-alert-window.md) - what monitoring does through the cut: procedural silence, expected noise, post-cut green checks (reset planning)
 - [bc-2 Post-Cut Owed Items](bc2-post-cut-owed.md) - everything the cut leaves undone, ordered and gated (reset planning)
 - [bc-2 Post-PONR Failure Modes](bc2-post-ponr-failures.md) - what can fail after the first seal, the options per mode, and the two-minute decision tree (reset planning)
+- [bc-2 Genesis Inputs](bc2-genesis/) - the pinned allocation + class manifest the bc-2 genesis build consumes, sha256-pinned by a drift test (reset planning)
 
 ## See Also
 

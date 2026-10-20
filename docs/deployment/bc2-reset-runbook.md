@@ -51,7 +51,7 @@ the chain-formation phase only; nothing here is a downtime budget.
 | A5 | `RESET-REHEARSAL-4` run — one final harness run on node2 at the release-candidate commit; its document dependencies all landed (`GAP-GENESIS-INIT-1` #322, `RESET-ENV-NODE0-1` #323, `RESET-DRAIN-1`, this runbook) (operator: "Yes, one final run"; registered parked row) | director schedules | rehearsal ledger green | registered, not run — waits on the release-candidate commit |
 | A6 | genesis write path | decided (card 20 Oct): "Scratch path is enough" — scratch build + `verify-genesis-root.py` + named per-host distribution; `RESET-GENESIS-LIVE-1` is not a blocker and stays parked | decided |
 | A7 | reset release commit named; diff-audit deployed→release | director | audit lists every runtime-visible change under unchanged env (see "First window action — code convergence") | open |
-| A8 | address lists proposed and confirmed | coder proposes, operator confirms | the four `bc-2` validator addresses match each host's live validator set; the allocation-address list names every allocation row's address (treasury the operator supplies, the rest "same as live today"). **Treasury ruling (20 Oct): a single-key address the operator creates off the fleet** — spendability is proven by a signed challenge (`check-alloc-file.py --treasury-proof`). Multisig is not possible on this chain without a consensus feature — ruled out, not discussed further | **open — gates the genesis build** |
+| A8 | address lists proposed and confirmed | coder proposes, operator confirms | the four `bc-2` validator addresses match each host's live validator set; the allocation-address list names every allocation row's address (treasury the operator supplies, the rest "same as live today"). **Treasury ruling (20 Oct): a single-key address the operator creates off the fleet** — spendability is proven by a signed challenge (`check-alloc-file.py --treasury-proof`). Multisig is not possible on this chain without a consensus feature — ruled out, not discussed further | **done 20 Oct** — treasury `0x4aF8F36d91ff6b0125D18A76f242184e4F083EE0` supplied off-fleet with a verified `personal_sign` proof; the final pair is committed at `docs/deployment/bc2-genesis/` (`allocations.json` sha256 `ca4a1500…`, `classes.json` `836ae037…`, both fully pinned in `tests/unit/test_bc2_genesis_files.py`); `check-alloc-file.py --classes --require-classes --treasury-proof` → all PASS |
 | A9 | offline backups + `.pre-reset` capacity | operator-named for the copies | sizes below; checksums verified against live files; per-host store-file list in `bc2-host-inventory.md` | sized; copies not made |
 | A10 | consumer changes staged not live | repo | `bc2-consumers.md` rows ready: v9 alert removal staged, `WEBSITE_CHAIN_ID=bc-2` line prepared, `BACKUP_GOOD_CHAIN_GLOB` value prepared | staged per consumers doc |
 | A11 | public maintenance notice live **about 3 days ahead** of the window (operator card; publishes only on his word; comes down after the first seal — §D). Served on the hub website — a website session stages the text from `tasks/CHAIN-RESET-NOTICE-DRAFT.md` into the site rendered by `scripts/ops/render-website.sh` | operator-named | notice page serves the window text | drafted (`tasks/CHAIN-RESET-NOTICE-DRAFT.md`), unpublished |
@@ -168,7 +168,7 @@ non-validator — always last).
 | C1 | stop services in dependency order: customer-facing → coordinator/exchange/market → rpc → node last (p2p on hub) — the **ordered per-host unit list** lives in `bc2-host-inventory.md` | operator-named; node stops on hub/hub1/node1/node2 are validator-interrupting | `systemctl is-active` inactive; timestamp fields recorded | — | unmeasured |
 | C2 | move every chain + service store to dated `.pre-reset` copies (no deletion) — **destination `/var/lib/aitbc/.pre-reset-<YYYY-MM-DD>/`, a sibling of `data/`, never inside it** (`data/*/chain.db` scanners must never see an archived store; same filesystem keeps the move a rename and the §D move-back fast). The **per-host store-file list** (chain dir, service DBs, stray top-level `chain.db` and `*.bak` residue — all move into the same `.pre-reset` tree) lives in `bc2-host-inventory.md` | operator-named per host | `du -s` per moved entry equals its pre-move size; `.pre-reset` tree listing covers the whole inventory list; `data/` holds no `chain.db` afterwards | — | unmeasured (sizes in A9) |
 | C3 | apply the env set on every unit. Before starting, check **each env name's file count** — names occur in multiple files (`CHAIN_ID` in 18 files on hub, `BRIDGE_LOCKS_PAUSED` in 2) — every file holding a name gets the value, not just `blockchain.env`. `TRUSTED_PROPOSERS` is an **add** (absent from every env file today), not an edit of an existing line | operator-named | anchored `grep` of each name in `bc2-environment-set.md` across **all** matching env files; node0 pins per `RESET-ENV-NODE0-1` (#323). Decided values on all five: `BRIDGE_LOCKS_PAUSED=true` (stays paused until `SEPOLIA-REDEPLOY-1`), `TRUSTED_PROPOSERS=genesis,<the four current validators>`, `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=256` | — | unmeasured (~101 chain-id assignments across five hosts) |
-| C4 | build genesis on scratch → `verify-genesis-root.py` → distribute `genesis.json` into `data/bc-2/` on **all five** hosts | build/verify ungated (scratch); distribution operator-named (live data-dir writes) | per-host `sha256sum` equals the verified build output | `rehearsal.py genesis` (REHEARSAL-3) | estimate 20–90 s |
+| C4 | build genesis on scratch → `verify-genesis-root.py` → distribute `genesis.json` into `data/bc-2/` on **all five** hosts — allocation inputs are the committed pair `docs/deployment/bc2-genesis/allocations.json` + `classes.json` (see the C4 detail below) | build/verify ungated (scratch); distribution operator-named (live data-dir writes) | per-host `sha256sum` equals the verified build output; the consumed `allocations.json`/`classes.json` match the pinned sha256 (`ca4a1500…`/`836ae037…` — full digests in `docs/deployment/bc2-genesis/README.md`) | `rehearsal.py genesis` (REHEARSAL-3) | estimate 20–90 s |
 | C5 | node units: **the rehearsed shape — all four validator node units up inside one short window**, then followers, node0 last. A serial "catch-up proof between hosts" has nothing to prove at height 0: with attestation minimum 2 and file-loaded block 0, no block can seal until a second validator is up — so validators start together as rehearsed, and the rejoin proof happens **after** sealing begins (stop one validator, watch it catch up — rehearsed `rejoin`). **Before the first unit starts:** `TRUSTED_PROPOSERS` on every host resolves to `genesis` plus the four genesis validator addresses — the membership check then governs every imported block. The first produced block lands shortly after the second validator is up — **that first seal is §D's point of no return, inside this step** | operator-named, validator-interrupting per host | `journalctl -u aitbc-blockchain-node --since <recorded start>` shows `Successfully created genesis block from genesis.json` exactly once and `Initializing databases for chains: ['bc-2']` per host (fleet units log to journald — `node.log` was a scratch-harness artifact); heads advancing. **Crash-loop warning:** `Restart=on-failure` is set on every node unit — `is-active` = `active` alone proves nothing; only the journal lines after the recorded start do | `up`, `wait`, `check`, `rejoin`, `skip` | **measured:** `up` ~11 s for all five units (journal 05:47:36→~47); rejoin-catch-up ~1.4 m (journal 05:53:49→05:55:03); fleet window 9 m 46 s (journal 05:47:36→05:57:22, REHEARSAL-3 ledger) |
 | C6 | rpc units + service stores fresh | rpc restarts standing; other first-starts operator-named | `GOSSIP_BACKEND=redis` on rpc units (env-set); coordinator 170 tables, trading 11 (rehearsal counts); `peer_keys.db` re-enrollment for issued-key joiners | `stores` | estimate ~1.25 m incl. golden (REHEARSAL-3 estimate) |
 | C7 | checks (below) | ungated | per check | `check` + quorum sweep | estimate ~15 s for the whole check phase (REHEARSAL-3 ledger) |
@@ -186,6 +186,25 @@ is that scratch build + verify + distribution produced byte-identical
 genesis on all five instances.
 `aitbc genesis init` hard-stops with a pointer to this builder
 (`GAP-GENESIS-INIT-1`, #322), so no other write path exists to bypass.
+
+C4 inputs — the committed allocation pair: `build-genesis.py` consumes
+`docs/deployment/bc2-genesis/allocations.json` (sha256
+`ca4a150085cff31e9388ab504c2ed0e855e6f963bbdcbde8875b94872d281fcb`) and the
+checker binds it against `docs/deployment/bc2-genesis/classes.json`
+(sha256 `836ae03716a97b130476c8983eb6a8d3dabf9c9eeb03530d85f6cfa69f6cbcb5`);
+`tests/unit/test_bc2_genesis_files.py` pins both digests. Re-verify before
+the build, exactly as A8 ran it:
+
+```bash
+venv/bin/python scripts/ops/check-alloc-file.py \
+  --allocations docs/deployment/bc2-genesis/allocations.json \
+  --classes docs/deployment/bc2-genesis/classes.json \
+  --require-classes \
+  --treasury-proof <operator-held proof file>
+```
+
+The treasury proof JSON is operator custody — it is a verification input,
+never committed (see `docs/deployment/bc2-genesis/README.md`).
 
 C3 detail — the decided bridge-pause value: `BRIDGE_LOCKS_PAUSED` is an
 **admission-side** gate (`config.py`: the `initiate_transfer` chokepoint
@@ -405,6 +424,6 @@ Still owed (nothing pre-authorised):
 
 | decision | state | cost |
 |---|---|---|
-| treasury address | operator will supply a new address (A2) | blocks the genesis cut |
-| address lists — validators and accounts | a coder proposes from live `VALIDATOR_SET` and today's balances; the operator confirms (A1/A2/A8) | blocks the genesis cut |
+| treasury address | supplied 20 Oct — `0x4aF8F36d91ff6b0125D18A76f242184e4F083EE0`, single-key off-fleet, `personal_sign` proof verified (A2/A8) | resolved — no longer blocks the genesis cut |
+| address lists — validators and accounts | confirmed 20 Oct — the four current validators; the account list is the committed pair `docs/deployment/bc2-genesis/{allocations,classes}.json`, sha256-pinned (A1/A2/A8) | resolved — no longer blocks the genesis cut |
 | window date | placement decided "After rehearsal 4" (A13); the date itself is blank | the freeze window cannot be scheduled |
