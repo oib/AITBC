@@ -104,7 +104,8 @@ matching `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`/
 `BLOCK_PRODUCTION_CHAINS`) across 101 file assignments; the classes are:
 
 - `aitbc-coordinator-api` — `CHAIN_ID`, `BLOCKCHAIN_RPC_URL`,
-  `COORDINATOR_API_KEY` (secret).
+  `COORDINATOR_API_KEY` (secret), `NATIVE_CHAIN_ID` (hub only — see the
+  missed-name note below).
 - `aitbc-exchange` / `exchange` — `CHAIN_ID`, `DATABASE_URL` (postgres,
   credentials masked), `*_KEY` (secret); `PROPOSER_ID`/`VALIDATOR_SET`
   present but inert.
@@ -125,6 +126,17 @@ matching `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`/
   prometheus-watch / cli — template copies of `CHAIN_ID`/`VALIDATOR_SET`/
   `PROPOSER_ID`/`BLOCK_TIME_SECONDS`/`STATE_TRANSITION_V2_HEIGHT` (largely
   inert; rewrite uniformly anyway so no file straddles the cut).
+
+`NATIVE_CHAIN_ID` — a name the earlier errata missed. It is read by the
+coordinator's `config.py` and bound into GPU energy quotes at
+`market_gpu.py`. Live it is set only on hub
+(`ait-hub.aitbc.bubuit.net`; unset on the other four hosts). On bc-2 the
+hub pin is a stale old-chain value: **drop the line** in the same env
+edit as `CHAIN_ID` — setting it to `bc-2` is equivalent, and dropping is
+the safe default because the coordinator now derives the quote chain
+from `CHAIN_ID` when `NATIVE_CHAIN_ID` is unset (#307). A hub that
+keeps the old pin emits quotes bound to `ait-hub.aitbc.bubuit.net`, and
+a configured CLI verifier refuses them.
 
 ## Operator-decision names
 
@@ -191,6 +203,9 @@ Named actions only — order and timing are deliberately absent:
 - Write `CHAIN_ID=bc-2` (plus `SUPPORTED_CHAINS`,
   `BLOCK_PRODUCTION_CHAINS`, `BRIDGE_SUPPORTED_CHAINS`) across every env
   file that carries the id — all service classes listed above.
+- Drop (or set to `bc-2`) the `NATIVE_CHAIN_ID` line in hub's
+  `aitbc-coordinator-api.env` in the same edit as `CHAIN_ID` — a kept
+  old-chain pin binds quotes to the old id and verifiers refuse them.
 - Write all 15 gate heights to `1` (`STATE_TRANSITION_V2`–`V14`,
   `BRIDGE_LOCK_LEAF_V2`, `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT`).
 - Write the operator-supplied `VALIDATOR_SET`, `VALIDATOR_KEYS`,
