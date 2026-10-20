@@ -8,6 +8,7 @@ from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
 from ..utils import OUTPUT_FORMAT_OPTION, error, output, resolve_output_format, success
+from ..utils.chain_id import resolve_chain_id
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -918,15 +919,19 @@ def consensus_group():
   aitbc blockchain consensus status --chain-id ait-mainnet --node-url http://node2.example.net:8202""",
 )
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
-@click.option("--chain-id", default="ait-hub", help="Chain ID to query consensus status for")
+@click.option(
+    "--chain-id", default=None, help="Chain ID to query consensus status for (default: CHAIN_ID or the node's own chain)"
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def consensus_status(ctx, node_url: str, chain_id: str, format: str):
+def consensus_status(ctx, node_url: str, chain_id: str | None, format: str):
     """Show consensus mode, view, sequence, epoch, and fault tolerance for a chain."""
+    chain_id = chain_id or resolve_chain_id(ctx, node_url, required=False)
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
-            result = client.get(f"/rpc/consensus/status?chain_id={chain_id}")
+            query = f"?chain_id={chain_id}" if chain_id else ""
+            result = client.get(f"/rpc/consensus/status{query}")
         except NetworkError:
             result = {}
         finally:
@@ -959,15 +964,17 @@ def consensus_status(ctx, node_url: str, chain_id: str, format: str):
   aitbc blockchain consensus validators --chain-id ait-mainnet --output json""",
 )
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
-@click.option("--chain-id", default="ait-hub", help="Chain ID to query validators for")
+@click.option("--chain-id", default=None, help="Chain ID to query validators for (default: CHAIN_ID or the node's own chain)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def consensus_validators(ctx, node_url: str, chain_id: str, format: str):
+def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
     """List active validators with address, stake, reputation, role, and last proposed."""
+    chain_id = chain_id or resolve_chain_id(ctx, node_url, required=False)
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
-            result = client.get(f"/rpc/consensus/validators?chain_id={chain_id}")
+            query = f"?chain_id={chain_id}" if chain_id else ""
+            result = client.get(f"/rpc/consensus/validators{query}")
         except NetworkError as e:
             error(f"Cannot connect to node at {node_url}: {e}")
             return
@@ -1022,15 +1029,19 @@ def _slash_rate(event: dict) -> str:
   aitbc blockchain consensus slashing-history --chain-id ait-mainnet""",
 )
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
-@click.option("--chain-id", default="ait-hub", help="Chain ID to query slashing history for")
+@click.option(
+    "--chain-id", default=None, help="Chain ID to query slashing history for (default: CHAIN_ID or the node's own chain)"
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def consensus_slashing_history(ctx, node_url: str, chain_id: str, format: str):
+def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format: str):
     """Show slashing events with validator, condition, amount, and block height."""
+    chain_id = chain_id or resolve_chain_id(ctx, node_url, required=False)
     try:
         client = AITBCHTTPClient(base_url=node_url, timeout=10)
         try:
-            result = client.get(f"/rpc/consensus/slashing-history?chain_id={chain_id}")
+            query = f"?chain_id={chain_id}" if chain_id else ""
+            result = client.get(f"/rpc/consensus/slashing-history{query}")
         except NetworkError as e:
             error(f"Cannot connect to node at {node_url}: {e}")
             return
