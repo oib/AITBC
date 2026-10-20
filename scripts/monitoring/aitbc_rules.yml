@@ -649,6 +649,24 @@ groups:
           summary: "Newest backup generation is under 50% of the 7-day median on {{ $labels.instance }}"
           description: "The newest generation on {{ $labels.instance }} is {{ $value }} bytes — under half its own 7-day median. Check the run journal for skipped sources or truncated artifacts."
 
+      # BackupNoGoodChain: aitbc-backup skips pruning entirely when no
+      # generation holds a valid dump of the ACTIVE chain id — the run still
+      # exits 0, so last_run_success stays green while retention silently
+      # stalls. This gauge is the tripwire for that state.
+      # bc-2 note: expected to fire between the reset cut (CHAIN_ID flips)
+      # and the first post-cut nightly — until then every generation holds
+      # only old-chain dumps. It clearing on that first bc-2 generation is
+      # the post-cut confirmation the glob derived correctly; a firing
+      # during normal ops means the artifact name drifted from the chain id.
+      - alert: BackupNoGoodChain
+        expr: aitbc_backup_last_good_generation_timestamp_seconds == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No backup generation holds a valid current-chain dump on {{ $labels.instance }}"
+          description: "aitbc-backup on {{ $labels.instance }} has no generation containing a good dump of the active chain id — its prune step is skipping entirely and no restorable chain artifact exists. Check the run journal for 'pruning skipped entirely' and verify the chain artifact name matches CHAIN_ID."
+
       # OffsitePullStale: the IDE host cannot be scraped, so the pull script
       # writes this timestamp into hub's textfile dir after each fully
       # successful run (operator design, BK-4). No absent() arm by design:

@@ -118,3 +118,75 @@ def test_main_failure_render(tmp_path, monkeypatch):
     text = (out / exporter.OUTPUT_NAME).read_text()
     assert 'aitbc_backup_scrape_success{source="backups_dir"} 0' in text
     assert 'aitbc_backup_scrape_success{source="unit_result"} 0' in text
+
+
+# ── RESET-BACKUP-1 (#338): last-good-generation gauge ─────────────────────────
+
+import gzip
+
+
+def _good_gz() -> bytes:
+    return gzip.compress(os.urandom(6000))
+
+
+def test_resolve_chain_id_env_beats_file(tmp_path, monkeypatch):
+    env_file = tmp_path / "blockchain.env"
+    env_file.write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
+    monkeypatch.setenv("AITBC_BACKUP_CHAIN_ID", "bc-2")
+    assert exporter._resolve_chain_id(env_file) == "bc-2"
+    monkeypatch.delenv("AITBC_BACKUP_CHAIN_ID")
+    monkeypatch.setenv("CHAIN_ID", "bc-2")
+    assert exporter._resolve_chain_id(env_file) == "bc-2"
+    monkeypatch.delenv("CHAIN_ID")
+    assert exporter._resolve_chain_id(env_file) == "ait-hub.aitbc.bubuit.net"
+
+
+def test_resolve_chain_id_missing_everywhere(tmp_path, monkeypatch):
+    monkeypatch.delenv("AITBC_BACKUP_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    assert exporter._resolve_chain_id(tmp_path / "missing.env") is None
+
+
+def test_last_good_generation_finds_matching_artifact(base, monkeypatch):
+    monkeypatch.delenv("AITBC_BACKUP_CHAIN_ID", raising=False)
+    gen = base / "20261013_010357"
+    (gen / "chain_bc-2_chain.db.gz").write_bytes(_good_gz())
+    assert exporter.last_good_generation(base, "bc-2", 4096) == int(gen.stat().st_mtime)
+    # a different chain id sees nothing good
+    assert exporter.last_good_generation(base, "ait-hub.aitbc.bubuit.net", 4096) == 0
+
+
+def test_last_good_generation_rejects_tiny_and_corrupt(base):
+    gen = base / "20261013_010357"
+    (gen / "chain_bc-2_chain.db.gz").write_bytes(gzip.compress(b"tiny"))
+    assert exporter.last_good_generation(base, "bc-2", 4096) == 0
+    (gen / "chain_bc-2_chain.db.gz").write_bytes(b"\x1f\x8bFAKE" + b"x" * 5000)
+    assert exporter.last_good_generation(base, "bc-2", 4096) == 0
+
+
+def test_render_emits_good_generation_metric():
+    text = exporter.render(1, 1, 1, 1, now=1, failed=[], good_ts=123)
+    assert "aitbc_backup_last_good_generation_timestamp_seconds 123" in text
+    text0 = exporter.render(1, 1, 1, 1, now=1, failed=["good_chain"], good_ts=0)
+    assert "aitbc_backup_last_good_generation_timestamp_seconds 0" in text0
+    assert 'aitbc_backup_scrape_success{source="good_chain"} 0' in text0
+
+
+def test_main_no_chain_id_marks_good_chain_failed(tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    out.mkdir()
+    base = tmp_path / "backups"
+    (base / "20261020_010100").mkdir(parents=True)
+    monkeypatch.setenv("AITBC_BACKUP_BASE", str(base))
+    monkeypatch.setenv("AITBC_TEXTFILE_DIR", str(out))
+    monkeypatch.setenv("AITBC_BLOCKCHAIN_ENV", str(tmp_path / "missing.env"))
+    monkeypatch.delenv("AITBC_BACKUP_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    stub = tmp_path / "systemctl"
+    stub.write_text('#!/bin/sh\necho "success"\n')
+    stub.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+    assert exporter.main() == 1
+    text = (out / exporter.OUTPUT_NAME).read_text()
+    assert "aitbc_backup_last_good_generation_timestamp_seconds 0" in text
+    assert 'aitbc_backup_scrape_success{source="good_chain"} 0' in text
