@@ -162,7 +162,12 @@ def _write_old_env(root: Path, inst: Instance) -> None:
 
 
 def _unit_fields(name: str) -> dict[str, str]:
-    """The runbook's restart-evidence fields for one unit."""
+    """The runbook's restart-evidence fields for one unit.
+
+    ``--value`` output is positional and NOT guaranteed to follow the
+    requested property order (observed: MainPID first) — parse the keyed
+    ``Name=value`` form instead so the labels in the evidence are true.
+    """
     out = subprocess.run(
         [
             "systemctl",
@@ -170,18 +175,17 @@ def _unit_fields(name: str) -> dict[str, str]:
             name,
             "-p",
             "ActiveEnterTimestamp,ExecMainStartTimestamp,MainPID",
-            "--value",
         ],
         capture_output=True,
         text=True,
         timeout=10,
     )
-    parts = (out.stdout.strip().split("\n") + ["", "", ""])[:3]
-    return {
-        "ActiveEnterTimestamp": parts[0],
-        "ExecMainStartTimestamp": parts[1],
-        "MainPID": parts[2],
-    }
+    fields = {"ActiveEnterTimestamp": "", "ExecMainStartTimestamp": "", "MainPID": ""}
+    for line in out.stdout.strip().splitlines():
+        key, _, value = line.partition("=")
+        if key in fields:
+            fields[key] = value
+    return fields
 
 
 def _detect_prior_run(before: dict[str, str], after: dict[str, str]) -> bool:
