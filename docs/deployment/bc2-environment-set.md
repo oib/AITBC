@@ -19,6 +19,14 @@ Scope rules for this document:
 - Nothing here is applied anywhere; it records what must be true when the
   operator chooses to apply it.
 
+A structured copy of this set lives in `bc2-environment-set.json` beside
+this file (one row per name: op, scope, class, value). It feeds
+`scripts/ops/env-set-plan.py`, which prints the per-host edit plan
+(`plan`) and an anchored PASS/FAIL sheet (`verify`) without ever writing
+an env file or printing a non-public value. A unit test
+(`tests/unit/test_env_set_plan.py`) fails when this document and the JSON
+drift apart.
+
 ## Node unit (`aitbc-blockchain-node`)
 
 | name | bc-2 value | basis |
