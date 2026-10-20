@@ -25,6 +25,14 @@ breadcrumb: Home > Scenarios > Genesis Deployment
 
 ## Scenario Overview
 
+> **Stale-mechanism note**: this scenario predates the bc-2 reset work and is
+> kept as history until it is rewritten (#290). It walks the legacy
+> `unified_genesis.py` path via `aitbc genesis init`, which cannot emit the
+> canonical bc-2 genesis document. The only supported builder is
+> `apps/blockchain-node/src/aitbc_chain/genesis_builder.py`, driven by
+> `scripts/ops/build-genesis.py`; the `ait-mainnet` chain id below is an
+> old-chain example.
+
 This scenario demonstrates how to initialize a blockchain's genesis block, verify its integrity, and inspect genesis configuration. The genesis block is the first block in a chain and defines the initial state — including token allocations, the proposer, and the chain ID.
 
 ### Use Case
