@@ -23,7 +23,7 @@ journal are the auto-heal layers. (`docs/agent/AGENTS/validator-operations.md`.)
 | **M3 fork** (asymmetric partition) | `ChainDiverged`; same height, different hashes; `sync_fork_*` counters; `ForkOrphanedTxLost` if a user's tx is on the loser | majority branch; journal covers non-empty losers | orphaned txs on losing segment (requeue under full admission; rejected ones gone — by-hand reconcile) | **pending rehearsal** — `fork` (#351) |
 | **M4 bad allocation found post-seal** | user report; `/rpc/state/snapshot` figure wrong vs alloc file; verifier `alloc-classes` FAIL | the chain itself — blocks stay valid | nothing yet — depth compounds it | **pending rehearsal** — `alloc-fix` (#351) |
 | **M5 wrong env on one host** (`CHAIN_ID`/`TRUSTED_PROPOSERS` slip) | `env-pins` FAIL in verifier; that host refuses blocks | the other 4 | that host's participation until fixed | **rehearsed** — `untrusted` |
-| **M6 quorum loss without death** (gossip degradation — incl. hub's `P2P_BIND_HOST=127.0.0.1` restart trap) | `AttestationArrivalDegraded`/`AttestationValidatorSilent`; attestation count <2 trending | sealed history | liveness drift toward M2 | **unrehearsed** — no phase proposed |
+| **M6 quorum loss without death** (gossip degradation — incl. hub's `P2P_BIND_HOST=127.0.0.1` restart trap) | `AttestationArrivalDegraded`/`AttestationValidatorSilent`; attestation count <2 trending | sealed history | liveness drift toward M2 | **pending rehearsal** — `gossip` (#351) |
 | **M7 corrupt store on one host** | unit crash-loop; sqlite/journal errors; `ActiveEnterTimestamp` churn | other hosts' copies; `.pre-reset` is the **old** chain — cannot restore bc-2 | that host's bc-2 db (recoverable via resync) | **pending rehearsal** — `resync` (#351) |
 | **M8 second reset** (last resort, not an abort) | operator decision after M4-class finding or unrecoverable fleet | allocation file + confirmations carry verbatim; harness + runbook procedure re-proven | all sealed bc-2 history; every post-seal artifact (F4, TOPOLOGY record, consumer flips) redone | n/a — decision class; the runbook procedure itself is the evidence |
 | **M9 bridge/EVM side** (Sepolia contract, Safe, signer keys) | not a bc-2 failure: `BRIDGE_LOCKS_PAUSED` stays `true` until `SEPOLIA-REDEPLOY-1`; any contract/Safe finding surfaces in that parked row's prep | bc-2 unaffected — the deposit path is the watched EOA + payout wallet | nothing on-chain | n/a — parked row `SEPOLIA-REDEPLOY-1` |
@@ -77,9 +77,9 @@ Exercised on scratch: `rejoin` (M1 catch-up + slot resume) · `skip` (M1
 one-down cadence) · `untrusted` (M5 membership refusal) · `golden`
 (genesis determinism) · `rollback.py` (pre-PONR aborts — 130 s, 13 polls).
 Pending under `RESET-REHEARSAL-FAULTS-1` (#351): `stall` (M2), `fork`
-(M3), `resync` (M7), `alloc-fix` (M4). Unrehearsed with no phase
-proposed: M6 gossip degradation. M8 is a decision class — the runbook
-procedure re-run is its own rehearsal.
+(M3), `resync` (M7), `alloc-fix` (M4), `gossip` (M6 — degrade attestation
+gossip without stopping the unit, e.g. the loopback-bind trap). M8 is a
+decision class — the runbook procedure re-run is its own rehearsal.
 
 ## Stop conditions
 
