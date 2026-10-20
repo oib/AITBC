@@ -45,20 +45,21 @@ claimed anywhere here; the plan requires the drain *checks* to read clean.
 | id | item | today's read (2026-10-20, exact command) | zero-check read (at B5) | action tool | who names it | order dependency | if skipped |
 |---|---|---|---|---|---|---|---|
 | B1 | pending agent coin request (same row as A8) | `ssh hub 'aitbc --output=json coin-requests list'` → 1 `pending` | no `pending` row | `aitbc coin-requests reject req-hub2.aitbc.bubuit.net-94Bb6b87-1788974409` | **decided (D1): reject** — the sender's `hub2` hostname is retired and unreachable | with A8, before the cut | noise only; the row archives with the DB under the plan's D5 (fresh start) |
-| B2 | `hermes_coin_requests.db` — 13 `APPROVED` (4 already granted on-chain, 9 never sealed, 5 holding stored envelopes whose sender has no account/balance on-chain), 7 rejected, 2 EXPIRED; task_escrows all terminal | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/hermes_coin_requests.db?mode=ro' -header -column \"SELECT status,count(*) FROM coin_requests GROUP BY status\""` → 13 APPROVED / 7 REJ / 2 EXP | `SELECT count(*) FROM coin_requests WHERE status='APPROVED'` → 0 (or the kept rows waived) | no CLI (parked gap `GAP-CLI-READS-1`); void = DB status update `APPROVED→voided` on the 9 unsealed rows; stored envelopes are dead letters — their sender has no balance to spend | **open decision D4** — recommend void; see the decisions table | before the offline backup so the archived DB is clean | noise; envelopes unusable post-cut (nonces and balances die with the chain) |
-| B3 | bridge deposit ledger: `bridge_deposits` 1 `failed` (0.05 ETH, 26 Sep); `eth_deposits` 1 `failed`, 1 `funding`, 1 `exchange_prepay` — the last is the *same* obligation as the `prepaid_deposits` row (counted once) | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/bridge_deposits.db?mode=ro' -header -column \"SELECT status,count(*) FROM bridge_deposits GROUP BY status; SELECT status,count(*) FROM eth_deposits GROUP BY status\""` | `SELECT count(*) FROM eth_deposits WHERE status NOT IN ('completed','written_off','funding')` → 0; `bridge_deposits` non-terminal → 0 | no CLI for the deposit ledger (`bridge-admin.sh` is the payout ledger — gap `GAP-CLI-READS-1`); reconcile/write-off marks in the DB | **open decision D5** — recommend reconcile; see the decisions table | before the backup | unreconciled rows; no funds (Sepolia testnet ETH, no value) |
 
 ## Class C — evidence only (not drain items)
 
 Reads proving each surface is already terminal; re-run at B5 as evidence.
 
-**Waived-baseline rows** (decided "leave all" — D2/D3): these rows keep
-today's counts as the accepted baseline. Their B5 re-read is not a zero
-check but a **sameness check** — a count that *grew* since A3 is a new
-drain item and stops the cut; the listed rows themselves are waived.
+**Waived-baseline rows** (decided — D2–D5, operator's word quoted in the
+decisions table): these rows keep today's counts as the accepted baseline.
+Their B5 re-read is not a zero check but a **sameness check** — a count
+that *grew* since A3 is a new drain item and stops the cut; the listed
+rows themselves are waived.
 
 | id | surface (baseline) | today's read (2026-10-20, exact command) | B5 sameness check |
 |---|---|---|---|
+| B2 | `hermes_coin_requests.db` `APPROVED` — **baseline 13, of which 9 unsealed** (4 already granted on-chain; 5 of the 9 hold stored envelopes whose sender has no account/balance on-chain; also baseline: 7 rejected / 2 EXPIRED; task_escrows all terminal) | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/hermes_coin_requests.db?mode=ro' -header -column \"SELECT status,count(*) FROM coin_requests GROUP BY status\""` → 13 APPROVED / 7 REJ / 2 EXP | still 13 APPROVED with 9 unsealed and the same status split; any new APPROVED/unsealed row is a new drain item |
+| B3 | bridge deposit ledger — **baseline `bridge_deposits` 1 `failed` (0.05 ETH, 26 Sep); `eth_deposits` 1 `failed` + 1 `funding` + 1 `exchange_prepay`** (the last is the *same* obligation as the `prepaid_deposits` row — counted once; 3 completed / 3 written_off stay terminal) | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/bridge_deposits.db?mode=ro' -header -column \"SELECT status,count(*) FROM bridge_deposits GROUP BY status; SELECT status,count(*) FROM eth_deposits GROUP BY status\""` | same per-table status counts; any new non-terminal deposit row is a new drain item |
 | B4 | exchange `orders` `open` — **baseline 11** (all Jul–Aug test rows with invalid maker addresses — cannot settle) | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/exchange/exchange.db?mode=ro' -header -column \"SELECT count(*) FROM orders WHERE status='open'\""` → 11 | still 11 and the same ids; any new `open` row is a new drain item |
 | B5 | `marketplace_job_payments` non-terminal — **baseline 4** (2 `settlement_failed`, escrows already refunded on-chain; 2 `pending` amount 0) | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/marketplace_service.db?mode=ro' -header -column \"SELECT status,count(*) FROM marketplace_job_payments WHERE status IN ('pending','settlement_failed')\""` → 4 | still 4 |
 | B6 | `bridge_sell_quotes` `locked` — **baseline 1** (`sellq_8f78078a4ab2`; its lock is `settled` — status lag, no AIT held) | `ssh hub "sqlite3 'file:/var/lib/aitbc/data/bridge_deposits.db?mode=ro' -header -column \"SELECT count(*) FROM bridge_sell_quotes WHERE status='locked'\""` → 1 | still 1 |
@@ -81,11 +82,11 @@ drain item and stops the cut; the listed rows themselves are waived.
 
 | id | decision | state | detail |
 |---|---|---|---|
-| D1 | pending coin request: reject, or approve+execute 100 AIT | **decided: reject** | the requester id is the retired `hub2` hostname — no live claimant for the grant; carried as disposition B1 |
-| D2 | 11 open exchange test orders: cancel or leave | **decided: leave all** | cannot settle (invalid maker addresses); B4 is now a waived-baseline evidence row |
-| D3 | status-lag bookkeeping rows (B5, B6, B7): repair or leave | **decided: leave all** | the lag markers archive with the DBs under the plan's D5 (fresh start); B5–B7 are now waived-baseline evidence rows |
-| D4 | hermes `coin_requests` — void the 9 unsealed APPROVED rows, or leave | **open — recommend void** | void = one DB status update per row before the backup; cost of leaving: 13 APPROVED rows archived, 5 dead envelopes preserved (sender has no on-chain balance — harmless) |
-| D5 | bridge deposit-ledger reconcile — write off the `failed`/`funding`/`exchange_prepay` rows, or leave | **open — recommend reconcile** | reconcile = DB marks before the backup; cost of leaving: unreconciled failed rows archived — no funds at risk (Sepolia testnet ETH) |
+| D1 | pending coin request: reject, or approve+execute 100 AIT | **decided: "reject"** | the requester id is the retired `hub2` hostname — no live claimant for the grant; carried as disposition B1 |
+| D2 | 11 open exchange test orders: cancel or leave | **decided: "leave all"** | cannot settle (invalid maker addresses); B4 is now a waived-baseline evidence row |
+| D3 | status-lag bookkeeping rows (B5, B6, B7): repair or leave | **decided: "leave all"** | the lag markers archive with the DBs under the plan's D5 (fresh start); B5–B7 are now waived-baseline evidence rows |
+| D4 | hermes `coin_requests` — void the 9 unsealed APPROVED rows, or leave | **decided: "Leave as waived baseline"** | no write; B2 is now a waived-baseline evidence row (baseline 13 APPROVED, 9 unsealed) |
+| D5 | bridge deposit-ledger reconcile — write off the `failed`/`funding`/`exchange_prepay` rows, or leave | **decided: "Leave as waived baseline"** | no write; B3 is now a waived-baseline evidence row (baseline status counts kept) |
 
 ## Not covered here
 
