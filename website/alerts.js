@@ -307,8 +307,7 @@ async function loadJournal() {
         const resp = await fetch(`${EXPLORER_API_URL}/api/journal/recent?${qs}`);
         renderJournal(resp.ok ? await resp.json() : { entries: [], __journal_error: `HTTP ${resp.status}` });
     } catch (err) {
-        document.getElementById('journal-container').innerHTML =
-            `<p class="loading">Journal endpoint unreachable — ${escapeHtml(err.message || err)}</p>`;
+        renderJournal({ entries: [], __journal_error: err.message || String(err) });
     }
 }
 

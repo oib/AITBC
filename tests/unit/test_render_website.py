@@ -110,6 +110,18 @@ class TestRenderWebsite(unittest.TestCase):
             stripped = _without_keep_regions(p.read_text(errors="replace"))
             self.assertNotIn(OLD_ID, stripped, p)
 
+    def test_render_trigger_after_64k_of_input(self) -> None:
+        # WEB-RIDERS-2 / #320: the trigger scan used to be
+        # ``sed | grep -q`` — grep exits on the first match and sed dies on
+        # SIGPIPE once >64KB is queued, which pipefail turns into a false
+        # "no trigger" and the file is silently skipped. A file whose
+        # renderable literal sits past the pipe buffer must still render.
+        target = self.site / "website" / "dashboard.js"
+        target.write_text(target.read_text() + "\n/*" + "x" * (80 * 1024) + "*/\n")
+        self.assertGreater(target.stat().st_size, 64 * 1024, "fixture must exceed the pipe buffer")
+        self._render_to_new()
+        self.assertIn(f"'{NEW_ID}'", target.read_text(), "render skipped on a >64KB input")
+
     def test_second_render_is_idempotent(self) -> None:
         self._render_to_new()
         before = _tree_files(self.site / "website")

@@ -676,6 +676,44 @@ class TestStatesBrowser(unittest.TestCase):
         self.assertRegex(r["text"], r"HTTP 503|unavailable", "journal failure not named")
         self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
 
+    def test_alerts_journal_network_throw_keeps_last_good(self) -> None:
+        # #297: a fetch *throw* (not an HTTP status) must not clobber the
+        # last-good journal — the stale note rides the __journal_error path.
+        stub = _stub_js(_fixtures())
+        steps = [
+            ("wait", "!!document.querySelector('#journal-container .table-wrap')"),
+            ("sleep", 0.3),
+            (
+                "eval",
+                """(() => {
+  const real = window.fetch;
+  window.fetch = (u, o) => String(u).includes('/api/journal/recent')
+    ? Promise.reject(new Error('fixture network throw'))
+    : real(u, o);
+  document.getElementById('journal-unit').dispatchEvent(new Event('change'));
+  return JSON.stringify('armed');
+})()""",
+            ),
+            ("sleep", 0.8),
+            (
+                "eval",
+                """JSON.stringify({
+  note: (document.querySelector('#journal-container .endpoint-note')||{textContent:null}).textContent,
+  rows: document.querySelectorAll('#journal-container .table-wrap tbody tr').length,
+  unreachable: (document.getElementById('journal-container')||{textContent:''}).textContent
+      .includes('endpoint unreachable'),
+  csp: window.__csp,
+  errs: window.__errors,
+})""",
+            ),
+        ]
+        r = self._run("alerts.html", stub, steps)
+        self.assertRegex(r["note"] or "", r"last good journal", "stale note missing after a journal network throw")
+        self.assertGreaterEqual(r["rows"], 1, "last-good journal rows were dropped on a throw")
+        self.assertFalse(r["unreachable"], "throw fell back to the clobbering unreachable branch")
+        self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+        self.assertEqual([], r["errs"], f"uncaught errors: {r['errs']}")
+
     def _dashboard_no_placeholder(self, page: str, containers: list[str], overrides: dict) -> dict:
         stub = _stub_js(_fixtures(**overrides))
         steps = [("sleep", 3.0)] + [("eval", self._visible_loading(sel)) for sel in containers]
@@ -789,6 +827,49 @@ class TestStatesBrowser(unittest.TestCase):
         spill = [s for s in r["valueSpill"] + r["rowSpill"] if s > 0]
         self.assertEqual([], spill, f"offer-list content spills its box: {r['valueSpill']} {r['rowSpill']}")
         self.assertEqual([], r["csp"], f"CSP violations: {r['csp']}")
+        self.assertEqual([], r["errs"], f"uncaught errors: {r['errs']}")
+
+    def test_marketplace_offer_list_item_stacks_column_at_375(self) -> None:
+        # WEB-RIDERS-2 / #298: the @media (max-width:640px) block must stack
+        # .offer-list-item to column and give .offer-list-value >= ~70% of
+        # the card width at 375 px. Fails if the stacking block is removed.
+        offer = {
+            "plugin_id": "whisper-base",
+            "node_id": "node-" + "7f3e" * 12,
+            "provider_address": "0x" + "ab" * 20,
+            "service_type": "inference",
+            "price": "1.5",
+            "price_unit": "AIT",
+            "status": "active",
+            "public_endpoint": "https://marketplace-fixture.example.com/api/very/long/endpoint/path/for/stacking",
+        }
+        stub = _stub_js(_fixtures(**{"/v1/market/offer": {"offers": [offer]}}))
+        steps = [
+            ("wait", "!!document.querySelector('#offers-container .offer-list-item')"),
+            ("sleep", 0.5),
+            (
+                "eval",
+                """JSON.stringify({
+  directions: [...document.querySelectorAll('.offer-list-item')]
+      .map(it => getComputedStyle(it).flexDirection),
+  ratios: [...document.querySelectorAll('.offer-list-item')].map(it => {
+    const v = it.querySelector('.offer-list-value');
+    const card = it.closest('.offer-card') || it;
+    return v && card.clientWidth ? +(v.clientWidth / card.clientWidth).toFixed(3) : 0;
+  }),
+  innerW: window.innerWidth,
+  errs: window.__errors,
+})""",
+            ),
+        ]
+        r = self._run("marketplace.html", stub, steps)
+        self.assertEqual(375, r["innerW"], f"fixture viewport not 375px: {r['innerW']}")
+        not_col = [d for d in r["directions"] if d != "column"]
+        self.assertEqual([], not_col, f".offer-list-item not stacked at 375px: {r['directions']}")
+        # The value column must be *able* to occupy >= ~70% of the card —
+        # short values legitimately stay narrow (align-items:flex-start
+        # does not stretch), so the long endpoint value is the gauge.
+        self.assertGreaterEqual(max(r["ratios"], default=0), 0.7, f"value column under 70% of card width: {r['ratios']}")
         self.assertEqual([], r["errs"], f"uncaught errors: {r['errs']}")
 
 
