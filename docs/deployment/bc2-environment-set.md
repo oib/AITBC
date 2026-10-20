@@ -72,7 +72,7 @@ drift apart.
 | `BRIDGE_VALIDATOR_SET_GRACE_PERIOD` | unset → `7200` | code default |
 | `BRIDGE_RELEASE_ENABLED` | `true` | fleet value |
 | `BRIDGE_RELAYER_ENABLED` | unset → `true` | code default; AND-gated on release |
-| `BRIDGE_LOCKS_PAUSED` | `true` | **decided 20 Oct 2026: bc-2 launches paused** (operator answer: "Stay paused until redeploy") — the old chain's fleet value was `false`. Admission-side gate, not a consensus check (see `bc2-reset-runbook.md` C3 detail); the unpause is a separate gated step after `SEPOLIA-REDEPLOY-1` |
+| `BRIDGE_LOCKS_PAUSED` | `true` | **decided 20 Oct 2026: bc-2 launches paused** (operator answer: "Stay paused until redeploy") — the old chain's fleet value was `false`. Admission-side gate, not a consensus check (see `bc2-reset-runbook.md` C3 detail); the unpause is a separate gated step after `SEPOLIA-REDEPLOY-1` — runbook F5 |
 | `BRIDGE_SUPPORTED_CHAINS` | `bc-2` | admission list |
 | `BRIDGE_REQUIRE_MERKLE_PROOF` | `true` | fleet value |
 | `BRIDGE_MIN_CONFIRMATIONS` / `BRIDGE_FINALITY_BLOCKS` | unset → `3` / `6` | code defaults |
