@@ -430,6 +430,127 @@ def test_env_names_process_value_requires_process(runner):
     assert "requires --process" in result.output
 
 
+# --- --value deny rules (TOOL-MCP-2 follow-up) ------------------------------
+# Secret-class names refused by the token/suffix/tail rules — names only,
+# never a live service (the /proc root is faked under tmp_path throughout).
+
+
+@pytest.mark.parametrize(
+    "denied_name",
+    [
+        "DB_PASSWORD",
+        "GOVERNANCE_DB_PASS",
+        "DATABASE_URL",
+        "REDIS_URL",
+        "JWT_SECRET",
+        "ADMIN_TOKEN",
+        "WALLET_PASSWORD",
+        "PGPASSWORD",
+        "KEYSTORE_PASSWORD",
+        "BRIDGE_AUTHORITY_SECRET",
+        "MASTER_PASSPHRASE",
+        "VALIDATOR_KEYS",
+        "COORDINATOR_API_KEY",
+        "BRIDGE_VALIDATOR_PRIVATE_KEY",
+        # separator-insensitive / camelCase spellings of the same classes
+        "databaseUrl",
+        "pg_password",
+        "walletPassphrase",
+        "dbPasswd",
+    ],
+)
+def test_env_names_process_value_denied_secret_names(runner, tmp_path, monkeypatch, capsys, denied_name):
+    _fake_proc(tmp_path, monkeypatch, f"{denied_name}=shouldneverappear\x00".encode())
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", denied_name],
+        )
+    assert result.exit_code != 0, denied_name
+    assert "refused" in result.output.lower() or "denied" in result.output.lower()
+    # the refusal names the rule or the variable name, never the value
+    assert "shouldneverappear" not in result.output
+    assert "shouldneverappear" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "allowed_name, value",
+    [
+        ("CHAIN_ID", "bc-2"),
+        ("LOG_LEVEL", "INFO"),
+        ("SYNC_INTERVAL", "30"),
+        ("BRIDGE_ROOT_SHADOW_CHECK", "1"),
+        ("PROPOSER_ID", "0x" + "ab" * 20),
+        ("VALIDATOR_SET", "0x" + "ab" * 20 + ",0x" + "cd" * 20),
+        ("pubkey", "0xAbC123"),
+        ("monkey", "business"),
+        ("keynote", "speaker"),
+        ("PLAIN_FLAG", "testvalue123"),
+    ],
+)
+def test_env_names_process_value_allowed_names(runner, tmp_path, monkeypatch, allowed_name, value):
+    _fake_proc(tmp_path, monkeypatch, f"{allowed_name}={value}\x00".encode())
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", allowed_name],
+        )
+    assert result.exit_code == 0, f"{allowed_name}: {result.output}"
+    assert result.output.strip() == value
+
+
+@pytest.mark.parametrize(
+    "secret_value",
+    [
+        # URL carrying user:password
+        "postgres://aitbc:hunter2@db.internal/aitbc",
+        # 0x + 64 hex — private-key shape
+        "0x" + "ab" * 32,
+        # bare 64-hex run
+        "ab" * 32,
+        # 40+ char base64 run
+        "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9t0",
+        # three-part dotted token (JWT shape)
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTYifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6y",
+    ],
+)
+def test_env_names_process_value_secret_shaped(runner, tmp_path, monkeypatch, capsys, secret_value):
+    _fake_proc(tmp_path, monkeypatch, f"PLAIN_FLAG={secret_value}\x00".encode())
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", "PLAIN_FLAG"],
+        )
+    assert result.exit_code != 0
+    assert "refused" in result.output.lower()
+    assert secret_value not in result.output
+    assert secret_value not in capsys.readouterr().out
+
+
+def test_file_info_field_secret_shaped_value_refused(runner, allowed, capsys):
+    secret = "0x" + "ab" * 32
+    f = _write_json(allowed / "node.json", {"note": secret})
+    result = runner.invoke(system, obj={"output_format": "table"}, args=["file-info", "--path", str(f), "--field", "note"])
+    assert result.exit_code != 0
+    assert "refused" in result.output.lower()
+    assert secret not in capsys.readouterr().out
+
+
+def test_file_info_field_denied_token_names_refused(runner, allowed, capsys):
+    secret = "0xSECRETNEVERPRINTED123"
+    f = _write_json(
+        allowed / "node.json",
+        {"db_password": secret, "database_url": secret, "master_passphrase": secret, "pgpassword": secret},
+    )
+    for denied in ("db_password", "database_url", "master_passphrase", "pgpassword"):
+        result = runner.invoke(system, obj={"output_format": "table"}, args=["file-info", "--path", str(f), "--field", denied])
+        assert result.exit_code != 0, denied
+    assert secret not in capsys.readouterr().out
+
+
 def test_env_names_process_not_running(runner, tmp_path, monkeypatch):
     _fake_proc(tmp_path, monkeypatch, None)
     with mock.patch(
