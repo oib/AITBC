@@ -12,7 +12,11 @@ attestations** — production stalls below 3-of-4 reachable validators.
 Symmetric loss **stalls, never forks**; a fork needs an *asymmetric*
 partition where attestation gossip flows but block gossip/pull does not.
 Attester lock, deterministic fork choice, freshness checks, and the delta
-journal are the auto-heal layers. (`docs/agent/AGENTS/validator-operations.md`.)
+journal are the auto-heal layers. The two rules the branches below lean
+on: a validator's `P2P_BIND_HOST` must be a fleet-reachable address —
+`127.0.0.1` silences its gossip without stopping the unit — and node
+units run `GOSSIP_BACKEND=mesh`; a rejoin is an env drop-in restart,
+never a bare `Environment=` edit.
 
 ## Failure modes
 
@@ -43,7 +47,7 @@ Risk order. **Bold** = the operator's own named line.
 | M3 | **wait one round window first** — fork choice + attester lock settle it; escalate only if loser predates journal or revert root-check fails → **manual**: delete diverged rows + `sync_cli --source https://<peer>` |
 | M4 | (a) **corrective treasury transfer** — the corrective write is a chain transaction from the treasury key, the operator's own action and line; no coder signs it — it can create a missing account row; (b) M8 if the error invalidates the chain's purpose |
 | M5 | env fix + **restart** + rejoin; verifier `env-pins` re-run proves it |
-| M6 | restore gossip: check `P2P_BIND_HOST`/`GOSSIP_BACKEND=mesh` per validator-ops rules; **restart** |
+| M6 | restore gossip: check `P2P_BIND_HOST`/`GOSSIP_BACKEND=mesh` (the rules in the primer above); **restart** |
 | M7 | **delete `data/bc-2` on that host + re-init from genesis.json + resync** (deletion + restart — operator line) |
 | M8 | rerun the whole runbook at a new chain id, chosen then; `.pre-reset` procedure applies to `data/bc-2` the same way; **never** part of §D |
 | M9 | `SEPOLIA-REDEPLOY-1` scope — the unpause itself is `BC2-UNPAUSE-1`'s gated sequence; signer rotation is the operator's own action inside the redeploy step |
