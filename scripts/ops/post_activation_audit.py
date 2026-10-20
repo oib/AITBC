@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Post-activation audit for the shared v14/v13 rung (ACT-1, height 46,100).
 
+HISTORICAL — old chain only (#290). This audits a specific activation
+*event* (v14/v13 ramping at height 46,100 on ait-hub.aitbc.bubuit.net).
+On bc-2 every state-transition gate is set to height 1, so there is no
+activation event to audit; the script is kept for replaying against the
+archived old-chain dbs, not adapted to bc-2.
+
 Independent cross-check of the bridge/consensus side after the shared
 activation fires. Read-only by construction:
 
