@@ -147,6 +147,23 @@ from `CHAIN_ID` when `NATIVE_CHAIN_ID` is unset (#307). A hub that
 keeps the old pin emits quotes bound to `ait-hub.aitbc.bubuit.net`, and
 a configured CLI verifier refuses them.
 
+**Per-service `*_DEFAULT_CHAIN_ID` rows** — five services stamp the old id
+when callers omit `chain_id`, and the shared `CHAIN_ID=bc-2` row does not
+reach them because each binds its own env name. Each gets a unit-scoped row:
+
+| name | bc-2 value | unit / reader |
+|---|---|---|
+| `DEFAULT_CHAIN_ID` | `bc-2` | `aitbc-agent-coordinator` — `agent_app/config.py` `os.getenv("DEFAULT_CHAIN_ID", "ait-hub")` stamps task/escrow chain_id |
+| `DEFAULT_CHAIN_ID` | `bc-2` | `aitbc-gpu` — `gpu_service` Settings has no env prefix, so the bare name binds |
+| `POOLHUB_DEFAULT_CHAIN_ID` | `bc-2` | `aitbc-pool-hub` — `env_prefix="poolhub_"` |
+| `TRADING_DEFAULT_CHAIN_ID` | `bc-2` | `aitbc-trading` — `env_prefix="trading_"`, offer sync chain |
+| `GOVERNANCE_DEFAULT_CHAIN_ID` | `bc-2` | `aitbc-governance` — `env_prefix="governance_"`, `hub_chain`/`chain_id` response fields |
+
+Market needs no row — its `default_chain_id` is `""` (strict resolution,
+and `DEFAULT_CHAIN_ID` must stay unset there). The coordinator-api
+adapter and miner literals are code-level defaults an env name cannot
+reach; they ride the `aitbc` shared-resolver change instead.
+
 ## Operator-decision names
 
 These are operator-owned. Values are not in this document; each is named
