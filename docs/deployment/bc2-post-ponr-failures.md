@@ -26,6 +26,11 @@ journal are the auto-heal layers. (`docs/agent/AGENTS/validator-operations.md`.)
 | **M6 quorum loss without death** (gossip degradation — incl. hub's `P2P_BIND_HOST=127.0.0.1` restart trap) | `AttestationArrivalDegraded`/`AttestationValidatorSilent`; attestation count <2 trending | sealed history | liveness drift toward M2 | **unrehearsed** — no phase proposed |
 | **M7 corrupt store on one host** | unit crash-loop; sqlite/journal errors; `ActiveEnterTimestamp` churn | other hosts' copies; `.pre-reset` is the **old** chain — cannot restore bc-2 | that host's bc-2 db (recoverable via resync) | **pending rehearsal** — `resync` (#351) |
 | **M8 second reset** (last resort, not an abort) | operator decision after M4-class finding or unrecoverable fleet | allocation file + confirmations carry verbatim; harness + runbook procedure re-proven | all sealed bc-2 history; every post-seal artifact (F4, TOPOLOGY record, consumer flips) redone | n/a — decision class; the runbook procedure itself is the evidence |
+| **M9 bridge/EVM side** (Sepolia contract, Safe, signer keys) | not a bc-2 failure: `BRIDGE_LOCKS_PAUSED` stays `true` until `SEPOLIA-REDEPLOY-1`; any contract/Safe finding surfaces in that parked row's prep | bc-2 unaffected — the deposit path is the watched EOA + payout wallet | nothing on-chain | n/a — parked row `SEPOLIA-REDEPLOY-1` |
+
+> Sepolia EVM signer rotation is a **separate operator-owned action** tied
+> to `SEPOLIA-REDEPLOY-1`: **no key rotation happens in this reset**, locks
+> stay paused until then, and no coder touches those keys.
 
 ## Options per mode
 
@@ -41,6 +46,7 @@ Risk order. **Bold** = the operator's own named line.
 | M6 | restore gossip: check `P2P_BIND_HOST`/`GOSSIP_BACKEND=mesh` per validator-ops rules; **restart** |
 | M7 | **delete `data/bc-2` on that host + re-init from genesis.json + resync** (deletion + restart — operator line) |
 | M8 | rerun the whole runbook at a new chain id, chosen then; `.pre-reset` procedure applies to `data/bc-2` the same way; **never** part of §D |
+| M9 | `SEPOLIA-REDEPLOY-1` scope — the unpause itself is `BC2-UNPAUSE-1`'s gated sequence; signer rotation is the operator's own action inside the redeploy step |
 
 ## Two-minute decision tree
 
