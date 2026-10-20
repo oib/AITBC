@@ -80,9 +80,27 @@ the **first action inside the window**, not a step days ahead:
 
 - Fast-forward every host's `/opt/aitbc` to the named reset commit —
   **operator-named** (this *is* the deploy of the reset release, not a
-  routine pull), **no restart**. Working tree only; record the new HEAD
-  against each unit's `ExecMainStartTimestamp` so a later restart is
-  attributable to the new code.
+  routine pull), **no restart**. Working tree only. Host order:
+  **node0 → hub1 → node1 → node2 → hub** — canary on the largest
+  range class without validator duty first, the proposer hub last so
+  its mixed-code gap before the restart wave is shortest. Per host, in
+  order:
+  1. *before*: `git -C /opt/aitbc rev-parse HEAD`; `git -C /opt/aitbc
+     status --short` must be empty; snapshot `systemctl show -p
+     ActiveEnterTimestamp,MainPID` for every `aitbc-*` unit (the
+     before/after sheet — a later restart is attributable to the new
+     code by comparing `ExecMainStartTimestamp`/`MainPID` against it).
+  2. `git fetch origin && git merge --ff-only <named commit>` — a
+     dirty or non-fast-forwardable host is **skipped, not cleaned**:
+     record its HEAD and the dirty paths in the window ledger and
+     continue; a host left behind stays cut-eligible because every
+     later step is per-host. Never `checkout`, `stash`, or `clean` on
+     a host.
+  3. *after*: `rev-parse HEAD` equals the named commit, `status
+     --short` is still empty, and the unit PID/timestamp map is
+     identical to the snapshot — a changed entry means that unit
+     self-restarted onto new code; record it and treat the unit as
+     governed by the restart table below.
 
 Rule for the gap between that step and the env flip — both inside the
 window: a service that restarts on a not-yet-cut host runs the new code
@@ -92,11 +110,11 @@ cut voids the first row):
 
 | unit | safe to restart pre-cut? | evidence |
 |---|---|---|
-| `aitbc-blockchain-node` | yes, if A7 shows zero consensus diff | config-only collapse: every gate resolves from env; known node changes are removal-of-paths (`d9da6967c` genesis RPC bootstrap — irrelevant to a chain with a block 0; `fd6b5e95f` prefers `CHAIN_ID` — identical when it matches `SUPPORTED_CHAINS`; `bb9dcc2ad` refuses only when `CHAIN_ID` is unset — fleet pins it) |
+| `aitbc-blockchain-node` | yes, if A7 shows zero consensus diff | every gate resolves from env; the range now also touches `consensus/poa.py`, `consensus/pbft.py`, `genesis_builder.py`, `database.py`, `multi_chain_manager.py`, `cross_chain/settlement*.py` — not removal-of-paths only, so the A7 diff carries the verdict, not this cell |
 | `aitbc-blockchain-rpc` | yes — tighter, never looser | retired bodies and removed unsigned routes refuse where flag-on code already refused (`47f3d85bd`, `166885512`, replay-guard series); callers see the same 410s |
-| `aitbc-blockchain-p2p` — hub only (no such unit on hub1/node0/node1/node2) | **conditional** | `25f162a00`: the wrapper now honours `P2P_BIND_PORT`/`P2P_BIND_HOST` (old binary hardcoded 7070/0.0.0.0). If hub's env pins different values, a restart **rebinds a different socket** — verify the env value equals 7070/0.0.0.0 before any p2p restart |
-| `aitbc-coordinator-api` | **conditional** | `ExecStartPre` runs `alembic upgrade head` — a restart auto-migrates the **old** service DB if the release adds revisions; the A7 audit must diff alembic heads |
-| other services | yes, pending A7 | they read env at start; no service-runtime changes are in the release to date |
+| `aitbc-blockchain-p2p` — hub only (no such unit on hub1/node0/node1/node2) | **no** | verified 20 Oct: hub env pins `P2P_BIND_HOST=127.0.0.1` (port unset → wrapper default 7070). Old binary ignores the env and binds 0.0.0.0:7070; a restart on new code **rebinds to loopback and drops external gossip on the old chain** — the intended post-cut binding firing early. Do not restart this unit inside the gap |
+| `aitbc-coordinator-api` | **conditional** | `ExecStartPre` runs `alembic upgrade head` — a restart auto-migrates the **old** service DB if the release adds revisions; zero new revisions in the range as of 20 Oct, but the A7 audit must diff alembic heads |
+| other services | yes, pending A7 | they read env at start; the range now carries real `market_service`, `wallet_app`, `bridge_monitor`, and `coordinator_api` context diffs — A7 must justify per file, not by this blanket row |
 
 Auto-restart trap: `Restart=`/`WatchdogSec=` act without a named line — a
 crash-looping unit restarts on the new code silently (hub's
@@ -106,8 +124,16 @@ conditional rows above; every `aitbc-blockchain-node` unit carries
 result of `active` is therefore not proof of a clean start). The same
 verdicts apply wherever a unit does auto-restart.
 
-An earlier fast-forward would stretch this gap to days and make the table
-above apply for days; the operator has not chosen that.
+Timer caveat: "no restart" does not mean "no new code". Timer-executed
+repo files re-read the file at every tick — between the fast-forward and
+B0's suspension they run the *new* version against the old services
+(`aitbc-backup.sh`, `backup-textfile.py`, `escrow-residue-textfile.py`
+are in the release range as of 20 Oct; `escrow-settlements-textfile.py`
+is not). The gap is minutes inside the window and the alert-window doc
+lists their failure noise as expected.
+
+An earlier fast-forward would stretch this gap — the restart table and
+the timer exposure alike — to days; the operator has not chosen that.
 
 ## B. Freeze — stop accepting writes, in order
 
