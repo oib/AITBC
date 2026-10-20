@@ -57,7 +57,7 @@ def aitbc_http_call(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Call an AITBC HTTP endpoint by service name and path.."""
+    """Call an AITBC HTTP endpoint by service name and path."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

@@ -50,7 +50,7 @@ def aitbc_agent_task_hire(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID.."""
+    """Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait", "sign": "sign"},
@@ -120,7 +120,7 @@ def aitbc_agent_task_result(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Fetch a finished task's result payload from island IPFS.."""
+    """Fetch a finished task's result payload from island IPFS."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"sign": "sign"},
@@ -182,7 +182,7 @@ def aitbc_agent_task_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show escrow state and negotiation progress for a task.."""
+    """Show escrow state and negotiation progress for a task."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"sign": "sign"},

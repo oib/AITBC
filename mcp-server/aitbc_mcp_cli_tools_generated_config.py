@@ -31,7 +31,7 @@ def aitbc_config_check(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check configuration and environment API keys.."""
+    """Check configuration and environment API keys."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -54,7 +54,7 @@ def aitbc_config_check_keys(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check which environment API keys are configured and required.."""
+    """Check which environment API keys are configured and required."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"strict": "strict"},
@@ -102,7 +102,7 @@ def aitbc_config_edit(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Open the configuration file in the default editor.."""
+    """Open the configuration file in the default editor."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"global_config": "global"},
@@ -149,7 +149,7 @@ def aitbc_config_environments(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List available configuration environments and their API key status.."""
+    """List available configuration environments and their API key status."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -193,7 +193,7 @@ def aitbc_config_export(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Export the configuration as YAML or JSON, with API keys redacted.."""
+    """Export the configuration as YAML or JSON, with API keys redacted."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"global_config": "global"},
@@ -240,7 +240,7 @@ def aitbc_config_get(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Print the stored value of one config key.."""
+    """Print the stored value of one config key."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"global_config": "global"},
@@ -267,7 +267,7 @@ def aitbc_config_get_secret(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get a decoded secret value from the local secrets file.."""
+    """Get a decoded secret value from the local secrets file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -317,7 +317,7 @@ def aitbc_config_import_config(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Import a configuration file into the local or global config.."""
+    """Import a configuration file into the local or global config."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"merge": "merge", "global_config": "global"},
@@ -363,7 +363,7 @@ def aitbc_config_path(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the path to the local or global configuration file.."""
+    """Show the path to the local or global configuration file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"global_config": "global"},
@@ -390,7 +390,7 @@ def aitbc_config_profiles_delete(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Delete a saved configuration profile from the profiles directory.."""
+    """Delete a saved configuration profile from the profiles directory."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -435,7 +435,7 @@ def aitbc_config_profiles_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all saved configuration profiles with their settings.."""
+    """List all saved configuration profiles with their settings."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -458,7 +458,7 @@ def aitbc_config_profiles_load(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Load a saved configuration profile into the active config file.."""
+    """Load a saved configuration profile into the active config file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -506,7 +506,7 @@ def aitbc_config_profiles_save(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Save the current configuration as a named profile.."""
+    """Save the current configuration as a named profile."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -556,7 +556,7 @@ def aitbc_config_set(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Set a configuration value in the local or global config file.."""
+    """Set a configuration value in the local or global config file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"global_config": "global"},
@@ -605,7 +605,7 @@ def aitbc_config_set_secret(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Set an encoded secret value in the local secrets file.."""
+    """Set an encoded secret value in the local secrets file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -650,7 +650,7 @@ def aitbc_config_show(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the current configuration, with API keys redacted.."""
+    """Show the current configuration, with API keys redacted."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -674,7 +674,7 @@ def aitbc_config_unset(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Remove a configuration key from the local or global config file.."""
+    """Remove a configuration key from the local or global config file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"global_config": "global"},
@@ -719,7 +719,7 @@ def aitbc_config_validate(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Validate the current configuration for missing or invalid values.."""
+    """Validate the current configuration for missing or invalid values."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(

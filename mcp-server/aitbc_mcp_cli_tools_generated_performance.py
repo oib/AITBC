@@ -32,7 +32,7 @@ def aitbc_performance_benchmark(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Benchmark the blockchain RPC: measure read latency and report live chain stats.."""
+    """Benchmark the blockchain RPC: measure read latency and report live chain stats."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -58,7 +58,7 @@ def aitbc_performance_optimize(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Optimize system performance through the blockchain RPC.."""
+    """Optimize system performance through the blockchain RPC."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -101,7 +101,7 @@ def aitbc_performance_tune(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Tune system parameters through the blockchain RPC.."""
+    """Tune system parameters through the blockchain RPC."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)

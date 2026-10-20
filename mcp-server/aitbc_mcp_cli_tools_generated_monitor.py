@@ -40,7 +40,7 @@ def aitbc_monitor_alerts(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Configure or query monitoring alerts by name, type, and threshold.."""
+    """Configure or query monitoring alerts by name, type, and threshold."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -88,7 +88,7 @@ def aitbc_monitor_campaign_stats(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show statistics for a monitoring campaign.."""
+    """Show statistics for a monitoring campaign."""
     options: dict[str, Any] = {}
     args = [campaign_id] if campaign_id is not None else []
     target = _host_for_role(role, host)
@@ -130,7 +130,7 @@ def aitbc_monitor_campaigns(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List active or completed monitoring campaigns.."""
+    """List active or completed monitoring campaigns."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -155,7 +155,7 @@ def aitbc_monitor_history(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show historical monitoring data for a period.."""
+    """Show historical monitoring data for a period."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -182,7 +182,7 @@ def aitbc_monitor_sweepers(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show the coordinator's background sweepers: which are enabled, and which are actually running.."""
+    """Show the coordinator's background sweepers: which are enabled, and which are actually running."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"show_config": "config"},
@@ -233,7 +233,7 @@ def aitbc_monitor_webhooks(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register, list, or remove monitoring webhooks.."""
+    """Register, list, or remove monitoring webhooks."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

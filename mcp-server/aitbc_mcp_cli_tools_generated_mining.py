@@ -33,7 +33,7 @@ def aitbc_mining_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List active miners for a wallet.."""
+    """List active miners for a wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -62,7 +62,7 @@ def aitbc_mining_start(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Start mining with a specified wallet and optional thread count.."""
+    """Start mining with a specified wallet and optional thread count."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -109,7 +109,7 @@ def aitbc_mining_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the current mining status for a wallet.."""
+    """Get the current mining status for a wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -137,7 +137,7 @@ def aitbc_mining_stop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop mining operations for a wallet.."""
+    """Stop mining operations for a wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

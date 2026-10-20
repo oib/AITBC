@@ -34,7 +34,7 @@ def aitbc_dashboard_customer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show the customer dashboard with jobs, payments, and wallet balances.."""
+    """Show the customer dashboard with jobs, payments, and wallet balances."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -83,7 +83,7 @@ def aitbc_dashboard_shop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show the shop dashboard with GPUs, offers, jobs, and earnings.."""
+    """Show the shop dashboard with GPUs, offers, jobs, and earnings."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

@@ -36,7 +36,7 @@ def aitbc_unstake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Unstake tokens once the lock period ends and withdraw the principal.."""
+    """Unstake tokens once the lock period ends and withdraw the principal."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

@@ -37,7 +37,7 @@ def aitbc_bond_appeal(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Appeal a slashing decision for a bond with optional evidence.."""
+    """Appeal a slashing decision for a bond with optional evidence."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -89,7 +89,7 @@ def aitbc_bond_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create or top-up a provider's performance bond.."""
+    """Create or top-up a provider's performance bond."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -144,7 +144,7 @@ def aitbc_bond_lock(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Lock a provider's bond while a high-value job is in flight.."""
+    """Lock a provider's bond while a high-value job is in flight."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -193,7 +193,7 @@ def aitbc_bond_release(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Release a previously locked provider bond.."""
+    """Release a previously locked provider bond."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -243,7 +243,7 @@ def aitbc_bond_slash(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Slash a provider's bond with an optional reason.."""
+    """Slash a provider's bond with an optional reason."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -290,7 +290,7 @@ def aitbc_bond_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show a provider's bond eligibility status.."""
+    """Show a provider's bond eligibility status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -320,7 +320,7 @@ def aitbc_bond_top_up(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Top up a provider's performance bond.."""
+    """Top up a provider's performance bond."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

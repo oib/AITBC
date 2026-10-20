@@ -35,7 +35,7 @@ def aitbc_platform_init_platform(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Initialize a white-label platform brand manifest in the output directory.."""
+    """Initialize a white-label platform brand manifest in the output directory."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

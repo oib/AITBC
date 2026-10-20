@@ -24,7 +24,7 @@ def aitbc_brand_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List available brand plugins in the configured plugin directory.."""
+    """List available brand plugins in the configured plugin directory."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -44,7 +44,7 @@ def aitbc_brand_show(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Display the active brand configuration from the environment or plugin.."""
+    """Display the active brand configuration from the environment or plugin."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(

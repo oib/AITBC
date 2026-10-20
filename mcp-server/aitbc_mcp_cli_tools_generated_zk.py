@@ -34,7 +34,7 @@ def aitbc_zk_circuits(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List available zero-knowledge circuits and their verification status.."""
+    """List available zero-knowledge circuits and their verification status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -80,7 +80,7 @@ def aitbc_zk_health(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check the zero-knowledge proof service health.."""
+    """Check the zero-knowledge proof service health."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -111,7 +111,7 @@ def aitbc_zk_verify(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Verify a zero-knowledge proof against a circuit and public signals.."""
+    """Verify a zero-knowledge proof against a circuit and public signals."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

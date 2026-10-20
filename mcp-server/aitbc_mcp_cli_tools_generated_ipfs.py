@@ -39,7 +39,7 @@ def aitbc_ipfs_download(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Download content by CID and optionally write it to a file.."""
+    """Download content by CID and optionally write it to a file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
@@ -103,7 +103,7 @@ def aitbc_ipfs_island_subscribe(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Subscribe to a private island IPFS network.."""
+    """Subscribe to a private island IPFS network."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -173,7 +173,7 @@ def aitbc_ipfs_island_swarm_key(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request the swarm key for a subscribed island IPFS network.."""
+    """Request the swarm key for a subscribed island IPFS network."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"bootstrap": "bootstrap"},
@@ -227,7 +227,7 @@ def aitbc_ipfs_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List uploaded and pinned IPFS items.."""
+    """List uploaded and pinned IPFS items."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -250,7 +250,7 @@ def aitbc_ipfs_pin(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Pin content by CID on the local Kubo daemon or filesystem index.."""
+    """Pin content by CID on the local Kubo daemon or filesystem index."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -298,7 +298,7 @@ def aitbc_ipfs_unpin(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Unpin content by CID on the local Kubo daemon or filesystem index.."""
+    """Unpin content by CID on the local Kubo daemon or filesystem index."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -348,7 +348,7 @@ def aitbc_ipfs_upload(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Upload a file to IPFS and return its CID.."""
+    """Upload a file to IPFS and return its CID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"pin": "pin"},

@@ -39,7 +39,7 @@ def aitbc_network_force_sync(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Force the local node to wipe and re-import its chain from a peer.."""
+    """Force the local node to wipe and re-import its chain from a peer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -93,7 +93,7 @@ def aitbc_network_gossip(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show gossip websocket health: which validators have authenticated, and traffic.."""
+    """Show gossip websocket health: which validators have authenticated, and traffic."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"topics": "topics"},
@@ -145,7 +145,7 @@ def aitbc_network_heartbeat(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send a heartbeat to extend a subscription lease.."""
+    """Send a heartbeat to extend a subscription lease."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -196,7 +196,7 @@ def aitbc_network_lease_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check the current lease status for a subscriber.."""
+    """Check the current lease status for a subscriber."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -242,7 +242,7 @@ def aitbc_network_peers(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List connected peers and basic peer information.."""
+    """List connected peers and basic peer information."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -273,7 +273,7 @@ def aitbc_network_set_sync_source(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Edit node.env and restart the blockchain node with a new sync source.."""
+    """Edit node.env and restart the blockchain node with a new sync source."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"restart": "restart"},
@@ -319,7 +319,7 @@ def aitbc_network_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check the current network and peer connectivity status.."""
+    """Check the current network and peer connectivity status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -357,7 +357,7 @@ def aitbc_network_subscribe(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register this node as a follower for block subscription.."""
+    """Register this node as a follower for block subscription."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -412,7 +412,7 @@ def aitbc_network_subscribers(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all active subscribers, optionally filtered by chain.."""
+    """List all active subscribers, optionally filtered by chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -461,7 +461,7 @@ def aitbc_network_test(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Test connectivity to a specific peer address.."""
+    """Test connectivity to a specific peer address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
