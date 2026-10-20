@@ -63,7 +63,7 @@ the soak-end gate and a per-item word.
 
 | row | waits for |
 |---|---|
-| `SEPOLIA-REDEPLOY-1` | the contract redeploy lives here — rotated EVM keys (operator) + post-cut week placement; the unpause step itself is §3b (F5) |
+| `SEPOLIA-REDEPLOY-1` | the contract redeploy lives here — rotated EVM keys (operator) + post-cut week placement; the unpause step itself is §3b (F5); operator checklist: `bc2-sepolia-redeploy-checklist.md` |
 | `PG-POST-RESET-1` | services PostgreSQL-capable; blocked by the reset |
 | `LEGACY-ECONOMICS-1` (#311) | legacy economics retirement after the cut |
 | `GAP-CLI-READS-1` | parked read-side CLI gaps from the drain work |
