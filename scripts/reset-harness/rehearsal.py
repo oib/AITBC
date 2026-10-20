@@ -565,12 +565,13 @@ def _claim_rehearsal(root: Path) -> None:
         raise _fail("rehearsal units still active: " + "; ".join(u.split()[0] for u in live))
 
 
-def _prelude(inst: Instance) -> str:
+def _prelude(inst: Instance, repo_root: Path = REPO_ROOT) -> str:
     env_file = inst.dir / "instance.env"
     # PYTHONPATH mirrors the live unit; HOME is the instance dir, never
-    # /var/lib/aitbc.
+    # /var/lib/aitbc. repo_root lets rollback.py run the previous release
+    # from a git-archive tree while the default keeps this rehearsal's own.
     return (
-        f"export HOME={inst.dir} PYTHONPATH={REPO_ROOT}:{REPO_ROOT}/apps/blockchain-node/src; set -a; . {env_file}; set +a; "
+        f"export HOME={inst.dir} PYTHONPATH={repo_root}:{repo_root}/apps/blockchain-node/src; set -a; . {env_file}; set +a; "
     )
 
 
@@ -588,7 +589,7 @@ def _rpc_cmd(inst: Instance, python: str) -> str:
     )
 
 
-def _spawn(inst: Instance, python: str, *, with_rpc: bool = True) -> None:
+def _spawn(inst: Instance, python: str, *, with_rpc: bool = True, repo_root: Path = REPO_ROOT) -> None:
     # Consensus/production process (mirrors aitbc-blockchain-node) + the RPC
     # service (mirrors aitbc-blockchain-rpc: uvicorn aitbc_chain.app:app).
     units = [
@@ -596,7 +597,7 @@ def _spawn(inst: Instance, python: str, *, with_rpc: bool = True) -> None:
     ]
     if with_rpc:
         units.append((f"{inst.name}-rpc", _rpc_cmd(inst, python)))
-    prelude = _prelude(inst)
+    prelude = _prelude(inst, repo_root)
     for unit, cmd in units:
         subprocess.run(
             [
@@ -617,7 +618,7 @@ def _spawn(inst: Instance, python: str, *, with_rpc: bool = True) -> None:
             check=True,
             capture_output=True,
             text=True,
-            cwd=str(REPO_ROOT),
+            cwd=str(repo_root),
         )
 
 
