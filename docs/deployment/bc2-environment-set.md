@@ -32,12 +32,12 @@ Scope rules for this document:
 | `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` | `1` | permits first-block sweep |
 | `MULTI_VALIDATOR_CONSENSUS_ENABLED` | `true` | fleet value |
 | `MULTI_VALIDATOR_MIN_ATTESTATIONS` | `2` | fleet value; rehearsal sealed with quorum 2 |
-| `MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS` | `15` | fleet value (node0 currently drifts to the 1.0 default) |
-| `ATTESTATION_POST_QUORUM_LINGER_SECONDS` | `2.0` | fleet value (node0 drifts) |
+| `MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS` | `15` | fleet value — **write explicitly on node0** (it currently drifts to the 1.0 default) |
+| `ATTESTATION_POST_QUORUM_LINGER_SECONDS` | `2.0` | fleet value — **write explicitly on node0** (it drifts today) |
 | `PBFT_CONSENSUS_ENABLED` | `false` | fleet runs attestation mode, not PBFT certificates |
-| `PBFT_VIEW_CHANGE_TIMEOUT` | `30` | fleet value (node0 drifts) |
+| `PBFT_VIEW_CHANGE_TIMEOUT` | `30` | fleet value — **write explicitly on node0** (it drifts today) |
 | `ENABLE_BLOCK_PRODUCTION` | `true` on the proposer units, `false` on followers | per-role |
-| `MAX_EMPTY_BLOCK_INTERVAL` | `60` | fleet value (node0 drifts) |
+| `MAX_EMPTY_BLOCK_INTERVAL` | `60` | fleet value — **write explicitly on node0** (it drifts today) |
 | `BLOCK_TIME_SECONDS` | `60` | fleet value |
 | `PARALLEL_TX_VALIDATION` | `true` | fleet value; selects the alternate apply implementation for block versions 2–8 — **inert on bc-2**: under the `1` gate values every produced height resolves v14, outside the 2–8 window. The flag-on golden re-run returned 0 mismatches on both profiles; the `deployed` run is the evidence that the two implementations agree on the old history (`gates1` is vacuous for this flag) |
 | `GOSSIP_BACKEND` | `mesh` | node-unit value (see RPC unit for the fleet split) |
@@ -49,9 +49,9 @@ Scope rules for this document:
 | `SYNC_MANAGER_ENABLED` | `true` | fleet value |
 | `SYNC_STATE_ROOT_VALIDATION_ENABLED` | `true` | fleet value |
 | `SYNC_VALIDATE_SIGNATURES` | unset → default | code default |
-| `AUTO_SYNC_ENABLED` | `true` | fleet value (node0, hub1 drift) |
-| `AUTO_SYNC_THRESHOLD` | `0` | fleet value; `0` makes any nonzero gap trigger bulk pull — node0 currently runs the `10` default, a 1–10-block dead zone for a follower whose push paths fail |
-| `STATE_SYNC_MAX_GAP` | `-1` on the four pinning hosts | `-1` disables snapshot pull and delta state-sync entirely (post-V23-90 hardening); `0` permits only gap-0 head rechecks; `10` permits syncs within 10 blocks. node0 currently runs the `10` code default — its value is an operator decision (see below) |
+| `AUTO_SYNC_ENABLED` | `true` | fleet value — **write explicitly on node0 and hub1** (both drift today) |
+| `AUTO_SYNC_THRESHOLD` | `0` | fleet value — **write explicitly on node0** (it runs the `10` default); `0` makes any nonzero gap trigger bulk pull, removing the 1–10-block dead zone for a follower whose push paths fail |
+| `STATE_SYNC_MAX_GAP` | `-1` on all five hosts, **node0 included** | `-1` disables snapshot pull and delta state-sync entirely (post-V23-90 hardening); `0` permits only gap-0 head rechecks; `10` permits syncs within 10 blocks. node0 today runs the `10` code default — **decided 20 Oct: node0 writes `-1` like the fleet** (operator answer: "Write the fleet values for node0") |
 | `SUBSCRIPTION_ENABLED` | `true` | code default equals fleet value |
 | `SUBSCRIPTION_TRANSPORT` | `websocket` | fleet value |
 | `P2P_NODE_ID` | per-node stable id (e.g. `node-<name>`) | bound identity for peer keys and subscription |
@@ -159,7 +159,7 @@ decision and is proposed by nothing here.
 | `ESCROW_RELEASE_ADDRESS` | operator address; live value `0x11741E1A…` is already public in repo docs |
 | `ESCROW_FEE_RECIPIENT` | operator address; live value `0x34FFfAd1…` is already public in repo docs |
 | `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | carry the live identities — the two init-time bond system accounts must be allocated at balance `0` in genesis (init rows win over funded allocations — rehearsal evidence) |
-| `STATE_SYNC_MAX_GAP` (node0 only) | `-1` disables snapshot pull and delta state-sync entirely; `10` (node0's current code-default value, unset in its env) allows them whenever the node is ≤10 blocks behind. Whether node0 converges to the fleet's `-1` or keeps a small-gap window is an operator decision — recommended `-1` to match the fleet |
+| `STATE_SYNC_MAX_GAP` (node0 only) | **answered 20 Oct 2026** — node0 takes the fleet value `-1` (operator answer: "Write the fleet values for node0"). Written explicitly in node0's bc-2 env set like the other four hosts; the small-gap window is not kept |
 | `GOSSIP_MESH_PEER_URLS`, `GOSSIP_WEBSOCKET_URL`, hub/sync URL names | bc-2 hostnames/ports — deployment wiring |
 | All `*KEY*` / `*SECRET*` / `*PASS*` / `*TOKEN*` / `*MNEMONIC*` / `*SEED*` / `*PRIVATE*` names | presence-only; values supplied by the operator at the cut |
 
@@ -219,15 +219,16 @@ Named actions only — order and timing are deliberately absent:
 - Enroll each follower's `P2P_NODE_ID` and `BLOCKCHAIN_RPC_API_KEY`
   (shared fleet key, or an issued key via `POST /rpc/join` on the hub
   RPC).
-- Pin node0's drifted names to the fleet values
-  (`MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS=15`,
+- Pin node0's drifted names to the fleet values — write each of these
+  explicitly in node0's bc-2 env set:
+  `MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS=15`,
   `ATTESTATION_POST_QUORUM_LINGER_SECONDS=2.0`,
   `PBFT_VIEW_CHANGE_TIMEOUT=30`, `MAX_EMPTY_BLOCK_INTERVAL=60`,
   `AUTO_SYNC_ENABLED=true`, `AUTO_SYNC_THRESHOLD=0`,
-  `P2P_NODE_ID`, `P2P_BIND_PORT`).
+  `STATE_SYNC_MAX_GAP=-1` (decided 20 Oct — node0 takes the fleet
+  value), plus its per-node `P2P_NODE_ID` and `P2P_BIND_PORT`.
 - Keep `AUTO_SYNC_THRESHOLD=0` on every host and
-  `STATE_SYNC_MAX_GAP=-1` on the four hosts that pin it today
-  (node0's value is an operator decision — see the table above).
+  `STATE_SYNC_MAX_GAP=-1` on all five hosts.
 - Provision fresh data directories (service stores start as fresh
   SQLite; pool-hub keeps PostgreSQL; `peer_keys.db` starts empty —
   re-enroll any issued-key joiners).
