@@ -97,7 +97,19 @@ blocks · every suspended-timer `*Stale`/`Failed` quiet (B0 set restored)
 
 ## Proposed but not landed
 
-A `db="bc-2"` label guard on the db-scan alert arms (attestation,
-escrow-settlements, bridge-set families) so archived `chain.db` copies
-under `data/` can't satisfy or trip the checks — held as a proposed
-diff for the director, not committed.
+The db-scan exposure is handled **by placement, not rules**: `.pre-reset`
+copies land in `/var/lib/aitbc/pre-reset-<date>/`, a sibling of `data/`
+(runbook C2), so `data/*/chain.db` scans see no archived store after C2.
+Two optional hardenings stay proposed, not landed:
+
+- Alert-side `{db="bc-2"}` selectors on the already-labelled arms
+  (`AttestationArrivalDegraded`, `AttestationValidatorSilent`,
+  `AttestationArrivalCheckFailed`, the two escrow `*CheckFailed` arms) —
+  belt-and-braces against any stray `chain.db` appearing under `data/`
+  in future; held as a proposed diff.
+- Exporter-side `db=` labels on the unlabeled aggregate gauges
+  (`aitbc_escrow_open_tx_only_locks`, `aitbc_escrow_residue_accounts`,
+  `aitbc_bridge_set_*`) — bigger change (metric shape + rule migration);
+  without it a stray `chain.db` under `data/` could mask or mimic the
+  live chain's series. The placement convention removes today's
+  exposure; the label hardening is a separate decision.
