@@ -167,3 +167,47 @@ def test_main_writes_prom(tmp_path, monkeypatch):
     assert exporter.main() == 0
     text = (outdir / "aitbc_attestation_arrival.prom").read_text()
     assert 'aitbc_attestation_scrape_success{db="' + str(db) + '"} 1' in text
+
+
+def test_silent_validator_crosses_alert_thresholds(tmp_path):
+    """The M6 case the rules exist for: one validator missing every owed
+    attestation. The rendered series must cross BOTH loaded thresholds —
+    consecutive_missed >= 20 (AttestationValidatorSilent) and
+    arrival_share < 0.97 (AttestationArrivalDegraded) — or the alerts
+    would still be blind with the exporter running."""
+    db = tmp_path / "chain.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+    vs = [A, B, C, D]
+    for h in range(1, 30):
+        proposer = vs[h % 4]
+        _block(con, h, proposer, _atts(*[v for v in vs if v not in (proposer, D)]))
+    con.commit()
+    con.close()
+    s = _stats(db)
+    # D proposed h4..h28 (7 blocks) and missed the other 22 owed — an
+    # unbroken silence from the head.
+    assert s.consecutive_missed[D] >= 20
+    assert s.arrival_share < 0.97
+    text = exporter.render({str(db): s}, now=NOW)
+    label = f'{{db="{db}",validator="0xDD"}}'
+    assert f"aitbc_attestation_consecutive_missed{label} {s.consecutive_missed[D]}" in text
+    assert "aitbc_attestation_arrival_share{" in text
+
+
+def test_fresh_chain_no_alert(tmp_path):
+    """Cut-day shape: a young bc-2 with a handful of well-attested blocks
+    must not fire anything — share stays 1.0 and every streak is zero."""
+    db = tmp_path / "chain.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+    vs = [A, B, C, D]
+    for h in range(1, 4):
+        proposer = vs[h % 4]
+        _block(con, h, proposer, _atts(*[v for v in vs if v != proposer]))
+    con.commit()
+    con.close()
+    s = _stats(db)
+    assert s.arrival_share == 1.0
+    assert all(v == 0 for v in s.consecutive_missed.values())
+    assert all(v == 0 for v in s.missed_blocks.values())
