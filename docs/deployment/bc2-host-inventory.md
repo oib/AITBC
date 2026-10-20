@@ -173,6 +173,12 @@ No p2p unit. Timers (9): hub1's set minus none, plus
 
 ## Cut-day notes
 
+- `.pre-reset` destination: `/var/lib/aitbc/pre-reset-<YYYY-MM-DD>/` — a
+  **sibling of `data/`, never inside it**. Everything listed above (chain
+  dir, service DBs, stray top-level `chain.db`, `*.bak` residue) moves
+  into that tree, so the `data/*/chain.db` textfile exporters see no
+  archived store after C2. Same filesystem → the move is a rename; the
+  §D move-back is fast.
 - `Restart=on-failure` is set on every `aitbc-blockchain-node` unit on
   all five hosts — a failed bc-2 start crash-loops; `is-active` alone is
   not proof of a clean start (journal evidence at C5).
