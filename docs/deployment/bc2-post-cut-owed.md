@@ -38,6 +38,17 @@ the soak-end gate and a per-item word.
 | fund sell-escrow `0x40c7…` from treasury | chain | treasury → `0x40c7…` | amount: operator card, not decided | operator-named chain write | soak-end gate green; **before `BRIDGE_LOCKS_PAUSED` unpause** | balances of treasury + `0x40c7…` via RPC | sealed tx; new balances |
 | fund bridge payout `0x356d…` from treasury | chain | treasury → `0x356d…` | amount: operator card, not decided | operator-named chain write | same | balances of treasury + `0x356d…` via RPC | sealed tx; new balances |
 
+## 3b. F5 — bridge-lock unpause (after the gate, after `SEPOLIA-REDEPLOY-1`)
+
+| item | host | path / unit | size | gate | precondition | verify before | verify after |
+|---|---|---|---|---|---|---|---|
+| `BRIDGE_LOCKS_PAUSED=false` edit | all five | `blockchain.env` on all five + `bootstrap.env` on hub (edit-only — no unit reads it at runtime) | — | operator-named env edit | `unpause-precheck.py` prints **GO** (soak-end report green, F4 balances, flag still `true` ×6, contract env set, Sepolia code/owner/threshold reads, heads agree) | anchored `^BRIDGE_LOCKS_PAUSED=` greps read `true` on every carrier | same greps read `false` ×6 |
+| rpc restart | all five | `aitbc-blockchain-rpc` serially | — | standing rpc class — **not** validator-interrupting (the flag is rpc-side only; the node unit loads but never evaluates it) | env edit landed | unit `ActiveEnterTimestamp` baseline | fresh timestamps; chain keeps sealing through it |
+| monitor restart | hub | `aitbc-bridge-monitor` | — | operator-named (same line) | `BRIDGE_CONTRACT_ADDRESS` set in `aitbc-bridge-monitor.env` | `env-names --process` on the monitor | monitor `--process` shows the redeployed address |
+| probe inversion | hub | `post-cut-verify.py --probe` POST | — | ungated read | unpause applied | (pre-unpause: POST answers 503) | same POST reaches signature checking → **403** — the fence at `cross_chain.py:158` sits before signature validation (`:175`) |
+| rollback (if needed) | all five | same six files + same rpc restart | — | operator-named | — | — | flag `true` again; any already-sealed lock stays sealed — refund/status routes were never fenced |
+| exchange `BRIDGE_CONTRACT_ADDRESS` | hub | `aitbc-exchange.env` — **not carried today** | — | operator-named env edit, only if the exchange status needs it | F5 done | exchange bridge-status shows the contract | name present |
+
 ## 4. Per-item deletions (last — nothing deletes while a rollback is still possible)
 
 | item | host | path / unit | size | gate | precondition | verify before | verify after |
@@ -52,7 +63,7 @@ the soak-end gate and a per-item word.
 
 | row | waits for |
 |---|---|
-| `SEPOLIA-REDEPLOY-1` | the unpause of `BRIDGE_LOCKS_PAUSED` lives here — rotated EVM keys (operator) + post-cut week placement |
+| `SEPOLIA-REDEPLOY-1` | the contract redeploy lives here — rotated EVM keys (operator) + post-cut week placement; the unpause step itself is §3b (F5) |
 | `PG-POST-RESET-1` | services PostgreSQL-capable; blocked by the reset |
 | `LEGACY-ECONOMICS-1` (#311) | legacy economics retirement after the cut |
 | `GAP-CLI-READS-1` | parked read-side CLI gaps from the drain work |
