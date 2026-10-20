@@ -1836,6 +1836,48 @@ def _observe_degradation(
     return hh
 
 
+_ARRIVAL_STREAK_RE = re.compile(
+    r'^aitbc_attestation_consecutive_missed\{[^}]*validator="(?P<v>[^"]+)"[^}]*\} (?P<n>\d+)\s*$',
+    re.MULTILINE,
+)
+
+
+def _consecutive_from_prom(text: str, vaddr: str) -> int:
+    """Largest consecutive_missed series value for the validator address
+    (case-insensitive) across every db label in a rendered .prom."""
+    want = vaddr.lower()
+    return max((int(m.group("n")) for m in _ARRIVAL_STREAK_RE.finditer(text) if m.group("v").lower() == want), default=0)
+
+
+def _assert_arrival_series(root: Path, python: str, hub: Instance, vaddr: str) -> None:
+    """Runs the monitoring exporter against the scratch hub chain.db —
+    scratch has no Prometheus, so this proves the M6 detector's data
+    source sees the silence directly: the victim's consecutive_missed
+    series must be nonzero in the rendered .prom (the exact series
+    AttestationValidatorSilent evaluates on the live fleet)."""
+    prom_dir = root / "arrival-check"
+    prom_dir.mkdir(exist_ok=True)
+    env = dict(os.environ)
+    env["AITBC_CHAIN_DB"] = str(hub.dir / "data" / CHAIN_ID / "chain.db")
+    env["AITBC_TEXTFILE_DIR"] = str(prom_dir)
+    r = subprocess.run(
+        [python, str(REPO_ROOT / "scripts" / "monitoring" / "attestation-arrival-textfile.py")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    prom = prom_dir / "aitbc_attestation_arrival.prom"
+    if r.returncode != 0 or not prom.exists():
+        raise _fail(f"arrival exporter run failed on the scratch db: rc={r.returncode} {r.stderr.strip()[:200]}")
+    streak = _consecutive_from_prom(prom.read_text(), vaddr)
+    if streak <= 0:
+        raise _fail(f"arrival exporter shows no silence for {vaddr[:14]}… — the M6 detector would stay blind")
+    print(
+        f"[+] arrival exporter sees it: consecutive_missed={streak} for {vaddr[:14]}… — the AttestationValidatorSilent series"
+    )
+
+
 def phase_gossip(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int, variant: str) -> None:
     """M6 — attestation gossip degraded on ONE validator while its unit
     stays up: the drift toward M2 under continued 3-of-4 liveness.
@@ -1865,6 +1907,7 @@ def phase_gossip(root: Path, python: str, timeout: int, max_load: float, min_ava
     log_len = len(_node_log(victim))
     try:
         hh = _observe_degradation(hub, victim, vaddr, baseline_h, log_len, timeout, max_load, min_avail_mib)
+        _assert_arrival_series(root, python, hub, vaddr)
     finally:
         if variant == "bind":
             _acl_restore()

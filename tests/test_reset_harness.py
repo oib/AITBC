@@ -664,3 +664,21 @@ def test_hash_and_proposer_of_tolerate_nested_shape():
     assert rh._hash_of(None) == ""
     assert rh._proposer_of({"proposer": "0xA"}) == "0xA"
     assert rh._proposer_of({"block": {"proposer": "0xB"}}) == "0xB"
+
+
+def test_consecutive_from_prom_finds_victim_streak():
+    prom = "\n".join(
+        [
+            "# HELP aitbc_attestation_consecutive_missed Consecutive owed-but-missed blocks.",
+            "# TYPE aitbc_attestation_consecutive_missed gauge",
+            'aitbc_attestation_consecutive_missed{db="/x/i0/data/bc-2/chain.db",validator="0xAaAa"} 3',
+            'aitbc_attestation_consecutive_missed{db="/x/i0/data/bc-2/chain.db",validator="0xBBBB"} 17',
+            'aitbc_attestation_consecutive_missed{db="/x/i1/data/bc-2/chain.db",validator="0xBbbb"} 5',
+            'aitbc_attestation_scrape_success{db="/x/i0/data/bc-2/chain.db"} 1',
+            "",
+        ]
+    )
+    assert rh._consecutive_from_prom(prom, "0xbbbb") == 17  # case-insensitive, max over dbs
+    assert rh._consecutive_from_prom(prom, "0xAAAA") == 3
+    assert rh._consecutive_from_prom(prom, "0xCCCC") == 0
+    assert rh._consecutive_from_prom("", "0xbbbb") == 0
