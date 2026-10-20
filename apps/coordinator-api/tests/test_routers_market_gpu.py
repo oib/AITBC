@@ -409,3 +409,69 @@ def test_native_energy_floor_get_unknown_resource(client, native_pricing):
         params={"resource_id": "ghost", "gpu_count": 1, "duration_seconds": 60},
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.unit
+def test_quote_gpu_derives_chain_id_when_native_unset(client, db_session, native_pricing, available_gpu, monkeypatch):
+    """NATIVE_CHAIN_ID unset + CHAIN_ID=x → the quote binds x (#307)."""
+    from coordinator_api.config import settings
+
+    monkeypatch.setattr(settings, "native_chain_id", "")
+    monkeypatch.setenv("CHAIN_ID", "derived-chain")
+    _seed_energy(db_session)
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        json={
+            "buyer_id": BUYER,
+            "gpu_id": available_gpu,
+            "duration_hours": 1,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["energy_quote"]["chain_id"] == "derived-chain"
+
+
+@pytest.mark.unit
+def test_quote_gpu_explicit_native_chain_id_wins(client, db_session, native_pricing, available_gpu, monkeypatch):
+    """An explicit NATIVE_CHAIN_ID still wins over CHAIN_ID (#307)."""
+    from coordinator_api.config import settings
+
+    monkeypatch.setattr(settings, "native_chain_id", "explicit-chain")
+    monkeypatch.setenv("CHAIN_ID", "derived-chain")
+    _seed_energy(db_session)
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        json={
+            "buyer_id": BUYER,
+            "gpu_id": available_gpu,
+            "duration_hours": 1,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["energy_quote"]["chain_id"] == "explicit-chain"
+
+
+@pytest.mark.unit
+def test_quote_gpu_unconfigured_chain_id_raises_named(client, db_session, native_pricing, available_gpu, monkeypatch):
+    """Neither NATIVE_CHAIN_ID nor CHAIN_ID → the error names the env var (#307)."""
+    from aitbc.utils.chain_id import ChainIdNotConfigured
+    from coordinator_api.config import settings
+
+    monkeypatch.setattr(settings, "native_chain_id", "")
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    _seed_energy(db_session)
+    with pytest.raises(ChainIdNotConfigured, match="CHAIN_ID"):
+        client.post(
+            "/v1/market/gpu/quote",
+            json={
+                "buyer_id": BUYER,
+                "gpu_id": available_gpu,
+                "duration_hours": 1,
+                "gpu_count": 1,
+                "settlement_route": "native",
+            },
+        )

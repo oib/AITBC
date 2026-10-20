@@ -295,7 +295,7 @@ class Settings(BaseAITBCConfig):
         default=Decimal("8"), description="Maximum plausible native AIT/EUR rate accepted by the rate POST"
     )
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
-    native_chain_id: str = Field(default="ait-localnet", description="Native chain ID for quote binding")
+    native_chain_id: str = Field(default="", description="Native chain ID for quote binding; derived from CHAIN_ID when unset")
 
     # Operator key used to sign EnergyQuote payloads returned by the market.
     # Stored as SecretStr so it cannot leak through repr/logs. When unset, the
