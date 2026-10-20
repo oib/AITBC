@@ -23,6 +23,7 @@ the soak-end gate and a per-item word.
 | F2 reset record | repo | `TOPOLOGY/` | — | ungated | PONR | — | commit lands |
 | consumer flips | per `bc2-consumers.md` | v9 tripwires + fixtures, `BACKUP_GOOD_CHAIN_GLOB`, `WEBSITE_CHAIN_ID`, website `chainId` handoff | — | per consumers doc | at the cut | — | per consumers doc verify column |
 | genesis-builder refusal | repo | `genesis_builder.py` `LIVE_CHAIN_IDS` | — | repo change, after the cut | bc-2 live | builder refuses to rebuild `bc-2` | same |
+| attestation-arrival exporter enable | all five | `aitbc-attestation-arrival.timer` (new — the M6 detector's data source; `Refs #353`) | — | operator-named | after C5 sealing — the bc-2 `chain.db` exists so the first scrape reads it instead of reporting CheckFailed noise | unit absent/inert on all five | `list-timers` active + `scrape_success 1` in `/var/lib/prometheus/node-exporter/aitbc_attestation_arrival.prom` on every host |
 
 ## 2. Soak-end gate — the row nothing proceeds past
 

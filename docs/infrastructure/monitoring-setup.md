@@ -339,6 +339,28 @@ EnvironmentFile=/etc/aitbc/bridge-set.env
 
 Install is the same manual shape as the authority exporter — copy `aitbc-bridge-set.service` and `.timer` to `/etc/systemd/system/` on the node that runs the exporter (hub), `daemon-reload`, `enable --now aitbc-bridge-set.timer`, `promtool check rules` after copying `aitbc_hub_rules.yml`, then `systemctl reload prometheus`. Only the hub needs it; the rules live in `aitbc_hub_rules.yml`.
 
+## Attestation arrival
+
+`scripts/monitoring/attestation-arrival-textfile.py` reads `data/*/chain.db` read-only (`mode=ro`) and measures the sealed outcome of remote attestation: each block's `block_metadata.attestations` lists only the remote signatures that arrived before sealing, so a validator absent from the list was too late or never arrived. `aitbc-attestation-arrival.timer` runs it minutely on **every** host — the sealed chain is byte-identical fleet-wide and every node's local Prometheus loads `aitbc_rules.yml`, so the series must exist locally for the rules to fire there (hub sees all five via remote_write either way). This is the M6 detector: a validator that stops attesting while still proposing shows up as a rising `aitbc_attestation_consecutive_missed{validator=...}` streak while quorum and proposer rotation stay green.
+
+Alerts in `scripts/monitoring/aitbc_rules.yml` (group `aitbc-attestation-arrival`):
+
+| alert | meaning | severity |
+|---|---|---|
+| `AttestationValidatorSilent` | a validator missed every owed remote attestation for ≥20 consecutive blocks back from the head, for 10 min | warning |
+| `AttestationArrivalDegraded` | `arrival_share` under 0.97 across the 200-block window, for 30 min (one 4-of-4 validator missing ~10% lands ~0.967) | warning |
+| `AttestationArrivalCheckStale` | the exporter's timestamp is older than an hour, for 10 min | warning |
+| `AttestationArrivalCheckFailed` | `scrape_success` is 0 — the chain.db could not be opened, for 10 min | warning |
+
+None of the four uses `absent()`, so a host without the timer stays quiet rather than firing. Install is the fleet-wide manual shape — link the pair on every host, `daemon-reload`, `enable --now`:
+
+```bash
+sudo ln -sfn /opt/aitbc/scripts/monitoring/aitbc-attestation-arrival.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-attestation-arrival.timer
+```
+
+The service runs `ProtectSystem=strict` with `ReadOnlyPaths=/var/lib/aitbc` — verified to read a WAL-mode chain.db under that sandbox (the running node keeps the `-shm`/`-wal` pair present, which the read-only open needs). On a fresh chain nothing fires: streaks cannot reach 20 below ~h20 and `arrival_share` is 1.0 while everyone attests.
+
 ## Scrape configuration
 
 Prometheus scrapes only local targets — the shipped `/etc/prometheus/prometheus.yml` sample lists `localhost` jobs only. Remote series still reach the hub: every node's Prometheus pushes to hub over `remote_write` (hub runs `--web.enable-remote-write-receiver`), which is how the public alerts page shows a fleet-wide firing list and how the hub-side rules see follower series. The scrape list itself stays local:
