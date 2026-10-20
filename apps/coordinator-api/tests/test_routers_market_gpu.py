@@ -456,16 +456,17 @@ def test_quote_gpu_explicit_native_chain_id_wins(client, db_session, native_pric
 
 
 @pytest.mark.unit
-def test_quote_gpu_unconfigured_chain_id_raises_named(client, db_session, native_pricing, available_gpu, monkeypatch):
-    """Neither NATIVE_CHAIN_ID nor CHAIN_ID → the error names the env var (#307)."""
-    from aitbc.utils.chain_id import ChainIdNotConfigured
+def test_quote_gpu_unconfigured_chain_id_raises_named(client, db_session, native_pricing, available_gpu, monkeypatch, caplog):
+    """Neither NATIVE_CHAIN_ID nor CHAIN_ID → loud 500, env var named (#307)."""
+    import logging
+
     from coordinator_api.config import settings
 
     monkeypatch.setattr(settings, "native_chain_id", "")
     monkeypatch.delenv("CHAIN_ID", raising=False)
     _seed_energy(db_session)
-    with pytest.raises(ChainIdNotConfigured, match="CHAIN_ID"):
-        client.post(
+    with caplog.at_level(logging.ERROR):
+        resp = client.post(
             "/v1/market/gpu/quote",
             json={
                 "buyer_id": BUYER,
@@ -475,3 +476,5 @@ def test_quote_gpu_unconfigured_chain_id_raises_named(client, db_session, native
                 "settlement_route": "native",
             },
         )
+    assert resp.status_code == 500
+    assert "CHAIN_ID" in caplog.text
