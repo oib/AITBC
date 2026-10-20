@@ -463,6 +463,23 @@ def test_corrective_tx_signature_verifies():
     assert tx["chain_id"] == "bc-2"
     assert tx["type"] == "TRANSFER"
     assert verify_transaction_signature(tx, tx["signature"], keys["treasury"]["address"])
+    # and through the endpoint's own translation — validate_payload mutates
+    # an absent/partial payload, so the signed body must carry it complete
+    from aitbc_chain.rpc.transactions import TransactionRequest
+
+    req = TransactionRequest.model_validate(tx)
+    verified_dict = {
+        "from": req.sender,
+        "to": req.recipient,
+        "amount": req.amount,
+        "fee": req.fee,
+        "nonce": req.nonce,
+        "payload": req.payload,
+        "type": req.type,
+        "chain_id": tx["chain_id"],
+        "signature": req.sig,
+    }
+    assert verify_transaction_signature(verified_dict, req.sig, req.sender)
     # a signature from a different key must not pass — the corrective is
     # treasury-only on the production path too
     assert not verify_transaction_signature(tx, tx["signature"], "0x" + "11" * 20)

@@ -1265,6 +1265,11 @@ def _corrective_tx(keys: dict, recipient: str, units: int, nonce: int) -> dict:
         "fee": 0,
         "nonce": nonce,
         "type": "TRANSFER",
+        # TransactionRequest.validate_payload injects to/amount into an
+        # absent-or-partial payload before the verifier rebuilds the signed
+        # preimage — send the fully-populated dict so the signature covers
+        # exactly what admission verifies.
+        "payload": {"to": recipient, "amount": units},
     }
     tx["signature"] = sign_transaction_data(tx, keys["treasury"]["private_key"])
     return tx
