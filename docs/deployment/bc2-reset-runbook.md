@@ -329,7 +329,8 @@ operator-named chain writes, amounts per the operator's card.
 **F5** — bridge-lock unpause (operator-named env edit; the restart leg
 is the standing rpc class, **not** validator-interrupting). Preconditions:
 the soak-end gate green (`bc2-post-cut-owed.md` §2), F4 sealed, and
-`SEPOLIA-REDEPLOY-1` complete — the new contract on Sepolia, Safe-owned.
+`SEPOLIA-REDEPLOY-1` complete — the new contract on Sepolia, Safe-owned
+(the operator checklist is `bc2-sepolia-redeploy-checklist.md`).
 `scripts/ops/unpause-precheck.py` must print **GO** before the operator's
 line; it reads the saved post-cut report, F4 balances, the pause flag on
 every carrier, `BRIDGE_CONTRACT_ADDRESS` in the monitor env, the Sepolia
