@@ -90,7 +90,7 @@ rows themselves are waived.
 
 ## Not covered here
 
-Allocation numbers, the genesis build, key rotation, and the freeze/final
+Allocation numbers, the genesis build, and the freeze/final
 head reads live in `bc2-reset-runbook.md`; env values in
 `bc2-environment-set.md`; consumer flips in `bc2-consumers.md`. The four
 read-side CLI/MCP gaps found while building this list are parked as

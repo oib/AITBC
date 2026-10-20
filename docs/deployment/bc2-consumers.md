@@ -13,7 +13,8 @@ Decided facts only:
   units/AIT); no faucet balance at genesis;
 - `PBFT_CONSENSUS_ENABLED=false`; multi-validator attestation minimum `2`;
 - `NATIVE_CHAIN_ID`: drop the old-chain pin or set it to `bc-2` in the
-  same env edit as `CHAIN_ID` (row 6 in `bc2-environment-set.md`).
+  same env edit as `CHAIN_ID` (the `NATIVE_CHAIN_ID` section in
+  `bc2-environment-set.md`).
 
 Old-chain heights, hashes, genesis documents, allocations, and golden
 vectors stay as history; `docs/releases/*` is untouched.
