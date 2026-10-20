@@ -78,7 +78,7 @@ The fleet is **not** fast-forwarded before the cut; the reset release
 deploys **with** the cut (operator ruling). The fast-forward is therefore
 the **first action inside the window**, not a step days ahead:
 
-- Fast-forward every host's `/opt/aitbc` to the named reset commit —
+- **FF1.** Fast-forward every host's `/opt/aitbc` to the named reset commit —
   **operator-named** (this *is* the deploy of the reset release, not a
   routine pull), **no restart**. Working tree only. Host order:
   **node0 → hub1 → node1 → node2 → hub** — canary on the largest
@@ -215,7 +215,8 @@ public alerts page reads the same source).
 "Sealed" means a block **above height 0 produced by a proposer** and
 recorded with its attestations. Block 0 is file-loaded at node start and
 sits **before** the point — a fleet that has only file-loaded genesis has
-committed nothing.
+committed nothing. Ledger ids: the seal itself is **PONR**; each abort
+row below is an **ABORT** entry keyed by the step reached.
 
 | reached | abort action | cost |
 |---|---|---|
@@ -227,8 +228,10 @@ committed nothing.
 | C5 units started, nothing sealed yet (e.g. only one validator up) | stop the started units, delete `data/bc-2/` files, revert env, then the earlier rows | prove nothing sealed: `max(height)=0` on every started host's `bc-2` chain.db — rehearsal-evidenced (`RESET-ROLLBACK-1`: 130 s, 13 polls, all 0); nothing produced, nothing to abandon |
 | C5+ first seal | — | **the point**: abandoning bc-2 is a second reset-class event, not an abort |
 
-After the point, never before: unfreeze writes, market/exchange reopen,
-website maintenance notice taken down. The bridge-lock unpause is **not**
+**F1 (post-PONR unfreeze).** After the point, never before: unfreeze
+writes — market/exchange reopen, B1's env edit reverted, B0 timers
+restored (§F). The website maintenance-notice takedown is its **own F1
+sub-item** — it modifies public content. The bridge-lock unpause is **not**
 in this list — decided: locks stay paused until `SEPOLIA-REDEPLOY-1`
 (operator placed the redeploy "in the week after the cut"), a separate
 gated step outside the cut.
@@ -280,8 +283,9 @@ refusal-list addition); **restore the timers suspended at B0**
 resumed; the register and ledgers keep old heights as
 history; the bridge-lock unpause lands with `SEPOLIA-REDEPLOY-1`
 (operator: "in the week after the cut") as its own gated step, not part of
-this document; write the reset record in `TOPOLOGY/`; `.pre-reset` copies
-and offline backups retire **≥7 days later, per-item operator word**.
+this document; **F2** — write the reset record in `TOPOLOGY/`; **F3** —
+`.pre-reset` copies and offline backups retire **≥7 days later, per-item
+operator word**.
 
 Post-reset operating rule (decided): `TRUSTED_PROPOSERS` is set. Any later
 validator-set change must update the list on **every host in the same
@@ -322,8 +326,8 @@ resolves v14, outside the flag's 2–8 window (`bc2-environment-set.md`).
 | C5 node starts | operator-named per host (validator-interrupting) | file-load line ×1, resolved-id line, timestamp fields |
 | C6 rpc + stores | rpc standing; stores operator-named | table counts, redis-backend evidence |
 | C7 checks | ungated | heads, proposer set, per-block quorum sweep, read-path results |
-| post-PONR unfreeze | operator-named | operator line verbatim + accept-read outputs |
-| `.pre-reset` deletion | per-item word, ≥7 d | operator line verbatim per item |
+| post-PONR unfreeze (F1) | operator-named | operator line verbatim + accept-read outputs |
+| `.pre-reset` deletion (F3) | per-item word, ≥7 d | operator line verbatim per item |
 
 ## I. Decisions
 
