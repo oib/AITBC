@@ -75,7 +75,7 @@ def aitbc_genesis_init(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Initialize the genesis configuration and files for the local chain."""
+    """Retired — cannot produce the canonical bc-2 genesis; use scripts/ops/build-genesis.py."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"create_wallet": "create-wallet", "force": "force", "register_service": "register-service"},
