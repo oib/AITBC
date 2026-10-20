@@ -575,7 +575,13 @@ def alerts(
     remind_interval: int,
     metrics_file: str | None,
 ):
-    """Show current Prometheus alerts and optionally watch for firing and resolved alerts."""
+    """Show current Prometheus alerts.
+
+    With --watch this becomes a long-lived mode (used by the watcher
+    service) that keeps polling and reports alerts as they fire and
+    resolve, with optional webhook notification and textfile metrics.
+    Without it the command prints the current alerts once and exits.
+    """
     url = _prometheus_url(ctx, prometheus_url)
 
     def _fetch() -> list[dict[str, Any]] | None:
