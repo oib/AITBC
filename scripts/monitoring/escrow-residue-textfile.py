@@ -3,7 +3,8 @@
 
 S-11/S-13 detection: v3 escrow custody strands the withheld platform fee in
 each job's per-escrow account at release time, and nothing noticed. Since
-block 35400 (v11) the settlement authority can sweep the residue to the
+block 35400 on the old chain (v11 — height 1 on bc-2) the settlement
+authority can sweep the residue to the
 governed ``escrow_fee_recipient`` with an ``ESCROW_FEE_SWEEP`` leg — but sweeps
 are operator-approved batches, so between batches the residue sits. This
 exporter keeps it visible.
