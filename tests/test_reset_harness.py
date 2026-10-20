@@ -638,13 +638,53 @@ def test_acl_narrow_and_restore_commands(monkeypatch):
     assert "consensus.*" not in [c for c in rh.ALL_CHANNEL_FAMILIES if not c.startswith("consensus.")]
 
 
-def test_rotation_slot_reads_recent_seals(monkeypatch):
-    blocks = {h: {"proposer": f"0x{'ab' * 20}" if h % 4 == 2 else "0x" + "cd" * 20} for h in range(10, 19)}
+def test_rotation_view_settles_on_clean_schedule(monkeypatch):
+    order = [f"0x{c * 40}" for c in ("a", "b", "e", "f")]
+    # heartbeat cadence: every seal lands at round>=1, so the effective
+    # schedule is skewed — proposer(h) = order[(h+1) % 4], not h % 4.
+    blocks = {h: {"proposer": order[(h + 1) % 4]} for h in range(10, 19)}
     inst = rh.instances(Path("/nonexistent"))[0]
     monkeypatch.setattr(rh, "_head", lambda i: 18)
     monkeypatch.setattr(rh, "_block", lambda i, h: blocks.get(h))
-    assert rh._rotation_slot(inst, "0x" + "AB" * 20) == 2
-    assert rh._rotation_slot(inst, "0x" + "00" * 20) is None
+    # last seal h18 -> order[3]; predicted next = order[0] (h19's real proposer)
+    assert rh._rotation_view(inst, order) == (18, 0)
+
+
+def test_rotation_view_unsettled_by_fallback_seal(monkeypatch):
+    order = [f"0x{c * 40}" for c in ("a", "b", "e", "f")]
+    # h16 skips order[1] (covered by order[2]): a +2 jump that must hold
+    # the view unsettled until `streak` clean advances rebuild it.
+    blocks = {h: {"proposer": order[(h + 1) % 4]} for h in range(10, 21)}
+    blocks[16] = {"proposer": order[2]}
+    inst = rh.instances(Path("/nonexistent"))[0]
+    monkeypatch.setattr(rh, "_block", lambda i, h: blocks.get(h))
+    monkeypatch.setattr(rh, "_head", lambda i: 17)
+    assert rh._rotation_view(inst, order) == (17, None)
+    # the +0 transition h16->h17 (order[2] twice) keeps it unsettled even
+    # after two further clean seals — h16 must leave the streak window
+    monkeypatch.setattr(rh, "_head", lambda i: 19)
+    assert rh._rotation_view(inst, order) == (19, None)
+    monkeypatch.setattr(rh, "_head", lambda i: 20)
+    assert rh._rotation_view(inst, order) == (20, 2)
+
+
+def test_rotation_view_none_on_unreadable_window(monkeypatch):
+    order = [f"0x{c * 40}" for c in ("a", "b", "e", "f")]
+    inst = rh.instances(Path("/nonexistent"))[0]
+    monkeypatch.setattr(rh, "_head", lambda i: 18)
+    monkeypatch.setattr(rh, "_block", lambda i, h: None)
+    assert rh._rotation_view(inst, order) is None
+    monkeypatch.setattr(rh, "_block", lambda i, h: {"proposer": "0x" + "9" * 40})
+    assert rh._rotation_view(inst, order) is None
+
+
+def test_skipped_slots_marks_covered_validators():
+    order = [f"0x{c * 40}" for c in ("a", "b", "e", "f")]
+    assert rh._skipped_slots(order, order[0], order[1]) == set()
+    assert rh._skipped_slots(order, order[0], order[2]) == {1}
+    assert rh._skipped_slots(order, order[0], order[3]) == {1, 2}
+    assert rh._skipped_slots(order, order[3], order[1]) == {0}  # wraps
+    assert rh._skipped_slots(order, order[0], "0x" + "9" * 40) == set()
 
 
 def test_attesters_of_reads_metadata_attestations():

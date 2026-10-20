@@ -1498,48 +1498,94 @@ def _attesters_of(blk: dict | None) -> set[str]:
     return {str(a.get("validator", "")).lower() for a in (meta.get("attestations") or []) if isinstance(a, dict)}
 
 
-def _rotation_slot(inst: Instance, vaddr: str, n_validators: int = 4) -> int | None:
-    """The ``height % n`` residue the victim owns in the proposer schedule
-    — read off recent seals instead of assuming an address sort order.
-    Looks back four full rotations: under degradation the victim's own
-    slots are fallback-covered, so its last REAL seal is further back."""
-    head = _head(inst) or 0
-    for h in range(head, max(0, head - 40), -1):
-        blk = _block(inst, h)
-        if blk and _proposer_of(blk).lower() == vaddr.lower():
-            return h % n_validators
-    return None
+def _validator_order(keys: dict) -> list[str]:
+    """Proposer rotation order as ``MultiValidatorPoA.select_proposer``
+    computes it: the active validator set sorted by address. All four
+    rehearsal proposers are active, so the order is the keys file's."""
+    return sorted(k["address"] for k in keys["proposers"])
+
+
+def _rotation_view(hub: Instance, order: list[str], streak: int = 3) -> tuple[int, int | None] | None:
+    """``(head, predicted_next_index)`` once the last ``streak``
+    consecutive seals each advanced the proposer by exactly one slot
+    along the sorted ``order`` — the settle condition for arming on a
+    healthy schedule.
+
+    The ``h % n`` residue of a seal is NOT the proposer's slot: the
+    heartbeat-forced cadence lands every empty block at round >= 1 (the
+    node's own log line: "every empty block legitimately lands at round
+    1"), so the effective schedule is skewed by the round count, and a
+    fallback cover shifts it once more. Deriving a slot from the
+    residue of the victim's last seal therefore arms a height the victim
+    can never win (the rerun failure: contested h16 at round-0 residue
+    while every seal lands at round 1). The only reliable map is the
+    observed +1 advance — a skipped or displaced proposer breaks the
+    streak (a +2 jump) and the view stays unsettled until ``streak``
+    clean seals rebuild it. ``None`` while the window is unreadable."""
+    head = _head(hub)
+    if head is None or head <= streak:
+        return None
+    idx = {a.lower(): i for i, a in enumerate(order)}
+    chain: list[int] = []
+    for h in range(head, head - streak - 1, -1):
+        blk = _block(hub, h)
+        if blk is None:
+            return None
+        p = idx.get(_proposer_of(blk).lower())
+        if p is None:
+            return None
+        chain.append(p)
+    n = len(order)
+    for newer, older in zip(chain, chain[1:], strict=False):
+        if newer != (older + 1) % n:
+            return head, None
+    return head, (chain[0] + 1) % n
+
+
+def _skipped_slots(order: list[str], prev_addr: str, new_addr: str) -> set[int]:
+    """Sorted-order indices the rotation stepped over between two
+    consecutive seals — a healthy advance is +1; a fallback cover jumps
+    past the silent proposer(s)."""
+    idx = {a.lower(): i for i, a in enumerate(order)}
+    prev, new = idx.get(prev_addr.lower()), idx.get(new_addr.lower())
+    if prev is None or new is None:
+        return set()
+    jump = (new - prev) % len(order)
+    return {(prev + k) % len(order) for k in range(1, jump)}
 
 
 def _arm_at_victim_slot(
     hub: Instance,
     victim: Instance,
     vaddr: str,
+    order: list[str],
     trigger: Path,
     keep: list[str],
     timeout: int,
     max_load: float,
     min_avail_mib: int,
 ) -> int | None:
-    """Arm the partition at the contested height: wait until BOTH the
-    majority and the victim hold h-1 whose next block belongs to the
-    victim (its proposal then carries the attester's tip as parent — v9
-    not_at_parent refuses anything older — and wins the signatures),
-    then write the trigger and narrow the victim's broadcast ACL.
-    Worst case is a full rotation (~4 round windows) plus seal time.
-    Returns the contested height, or None on timeout."""
-    vslot = _rotation_slot(hub, vaddr)
-    if vslot is None:
-        raise _fail(f"{victim.name} has sealed no recent block — cannot derive its schedule slot")
+    """Arm the partition at the contested height: settle on the observed
+    rotation (``streak`` clean +1 advances), then — the instant the
+    sealed tip's NEXT proposer in the rotation is the victim — write
+    the trigger and narrow the victim's broadcast ACL. Its proposal
+    then carries the attester's tip as parent (v9 not_at_parent refuses
+    anything older) and wins the signatures. Worst case a full rotation
+    plus settle time. Returns the contested height, or None on timeout."""
+    vidx = {a.lower(): i for i, a in enumerate(order)}.get(vaddr.lower())
+    if vidx is None:
+        raise _fail(f"{victim.name} not in the validator order — cannot derive its schedule slot")
     deadline = time.time() + max(timeout, 480)
     while time.time() < deadline:
         _check_host_budget(max_load, min_avail_mib)
-        hh, hv = _head(hub), _head(victim)
-        if hh is not None and hv == hh and (hh + 1) % 4 == vslot:
-            trigger.write_text("armed\n")
-            _acl_narrow(keep)
-            print(f"[*] partition armed at head {hh}: {victim.name} keeps attest topics, loses blocks.* + every pull")
-            return hh + 1
+        view = _rotation_view(hub, order)
+        if view is not None:
+            hh, nxt = view
+            if nxt == vidx and _head(victim) == hh:
+                trigger.write_text("armed\n")
+                _acl_narrow(keep)
+                print(f"[*] partition armed at head {hh}: {victim.name} keeps attest topics, loses blocks.* + every pull")
+                return hh + 1
         time.sleep(1)
     return None
 
@@ -1624,7 +1670,9 @@ def phase_fork(root: Path, python: str, timeout: int, max_load: float, min_avail
             (inst.dir / "instance.env").write_text(envs[inst.idx])
             _restart_node(inst, python)
         print(f"[*] filter+ACL wired transparent: {victim.name} attest topics live, blocks still passing")
-        contested = _arm_at_victim_slot(hub, victim, vaddr, trigger, keep, timeout, max_load, min_avail_mib)
+        contested = _arm_at_victim_slot(
+            hub, victim, vaddr, _validator_order(keys), trigger, keep, timeout, max_load, min_avail_mib
+        )
         if contested is None:
             raise _fail("victim slot never came up within the window")
         _prove_same_height_fork(victim, hub, vaddr, contested, timeout, max_load, min_avail_mib)
@@ -1765,23 +1813,11 @@ def _degrade_arm_filter(root: Path, python: str, insts: list[Instance], victim: 
     return originals
 
 
-def _await_rotation_slot(hub: Instance, victim: Instance, vaddr: str) -> int:
-    """Poll for the victim's schedule slot — right after the mass restart
-    the hub rpc can still be coming up, so _block/_head return None and
-    the scan finds nothing."""
-    deadline = time.time() + 90
-    while time.time() < deadline:
-        vslot = _rotation_slot(hub, vaddr)
-        if vslot is not None:
-            return vslot
-        time.sleep(3)
-    raise _fail(f"{victim.name} has sealed no recent block — cannot derive its schedule slot")
-
-
 def _observe_degradation(
     hub: Instance,
     victim: Instance,
     vaddr: str,
+    order: list[str],
     baseline_h: int,
     log_len: int,
     timeout: int,
@@ -1789,13 +1825,14 @@ def _observe_degradation(
     min_avail_mib: int,
 ) -> int:
     """Drift window — one full rotation worst case (~4 round windows).
-    The deterministic M6 signature lands on-chain: a sealed block at the
-    victim's own schedule slot whose proposer is NOT the victim — its
-    slot went silent and a fallback owner covered it. The victim should
-    also log its zero-attestation seal refusal when its slot arrives
-    (~15s attestation timeout). Returns the majority head at proof
-    time."""
-    vslot = _await_rotation_slot(hub, victim, vaddr)
+    The deterministic M6 signature lands on-chain: a seal that skips the
+    victim in the sorted-order rotation — its slot went silent and the
+    next validator covered it. The victim should also log its
+    zero-attestation seal refusal when its slot arrives (~15s attestation
+    timeout). Returns the majority head at proof time."""
+    vidx = {a.lower(): i for i, a in enumerate(order)}.get(vaddr.lower())
+    if vidx is None:
+        raise _fail(f"{victim.name} not in the validator order — cannot derive its schedule slot")
     covered = False
     refusal = False
     deadline = time.time() + max(timeout, 360)
@@ -1803,8 +1840,8 @@ def _observe_degradation(
         _check_host_budget(max_load, min_avail_mib)
         hh = _head(hub) or 0
         for h in range(baseline_h + 1, hh + 1):
-            blk = _block(hub, h)
-            if blk and h % 4 == vslot and _proposer_of(blk).lower() != vaddr:
+            blk, prev = _block(hub, h), _block(hub, h - 1)
+            if blk and prev and vidx in _skipped_slots(order, _proposer_of(prev), _proposer_of(blk)):
                 covered = True
         if STALL_MARK.search(_node_log(victim)[log_len:]):
             refusal = True
@@ -1813,7 +1850,7 @@ def _observe_degradation(
     if hh is None or hh <= baseline_h:
         raise _fail("fleet head froze — degradation overshot into a real stall")
     if not covered:
-        raise _fail(f"no fallback seal covered {victim.name}'s slot (h%4=={vslot}) — degradation did not take")
+        raise _fail(f"no fallback seal covered {victim.name}'s rotation slot — degradation did not take")
     if not refusal:
         raise _fail(f"{victim.name} logged no seal refusal at its slot — the attestation cut did not take")
     new_blocks = [blk for h in range(baseline_h + 1, hh + 1) if (blk := _block(hub, h)) is not None]
@@ -1822,7 +1859,7 @@ def _observe_degradation(
         raise _fail(f"{victim.name} sealed a block while attest-deaf — degradation leaked")
     print(
         f"[*] drift proven: fleet advanced {baseline_h} -> {hh} on 3-of-4; {victim.name}'s slot"
-        f" (h%4=={vslot}) was covered by a fallback and its attestation never landed"
+        " was skipped in the rotation and covered by a fallback — its attestation never landed"
     )
     # What the docs name (AttestationArrivalDegraded /
     # AttestationValidatorSilent) has no scratch prometheus — the
@@ -1906,7 +1943,9 @@ def phase_gossip(root: Path, python: str, timeout: int, max_load: float, min_ava
     baseline_h = _head(hub) or 0
     log_len = len(_node_log(victim))
     try:
-        hh = _observe_degradation(hub, victim, vaddr, baseline_h, log_len, timeout, max_load, min_avail_mib)
+        hh = _observe_degradation(
+            hub, victim, vaddr, _validator_order(keys), baseline_h, log_len, timeout, max_load, min_avail_mib
+        )
         _assert_arrival_series(root, python, hub, vaddr)
     finally:
         if variant == "bind":
@@ -2104,7 +2143,7 @@ def main() -> int:
     p.add_argument("--scratch", default="/tmp/bc2-rehearsal", help="scratch root (default /tmp/bc2-rehearsal)")  # nosec B108
     p.add_argument("--python", default="/opt/aitbc/venv/bin/python", help="repo venv interpreter")
     p.add_argument("--height", type=int, default=6, help="target height for `wait`")
-    p.add_argument("--timeout", type=int, default=240, help="seconds for waits")
+    p.add_argument("--timeout", type=int, default=600, help="seconds for waits")
     p.add_argument("--max-load", type=float, default=DEFAULT_LOAD_CEILING, help="1-min loadavg ceiling")
     p.add_argument("--min-avail-mib", type=int, default=DEFAULT_MIN_AVAIL_MIB, help="MemAvailable floor MiB")
     p.add_argument(
