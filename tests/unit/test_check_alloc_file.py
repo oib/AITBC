@@ -192,6 +192,111 @@ def test_stray_funded_row_fails(valid, capsys):
     assert code == 1 and "no listed class" in out
 
 
+# ---------- treasury spendability proof (--treasury-proof) ----------
+
+
+def _scratch_account():
+    """A deterministic scratch key — generated, never a live wallet."""
+    from eth_account import Account
+
+    return Account.from_key(keccak(b"check-alloc-treasury-scratch"))
+
+
+def _rebind_treasury(valid, acct):
+    """Point the valid fixture's treasury at the scratch key's address."""
+    alloc_path, class_path, allocs, classes = valid
+    old = classes["treasury"].lower()
+    classes["treasury"] = acct.address
+    for row in allocs:
+        if row["address"].lower() == old:
+            row["address"] = acct.address
+    alloc_path.write_text(json.dumps(allocs))
+    class_path.write_text(json.dumps(classes))
+    return alloc_path, class_path
+
+
+def _write_proof(tmp_path, acct, *, message=None, address=None, signature=None):
+    from eth_account.messages import encode_defunct
+
+    msg = message if message is not None else caf.treasury_challenge(address or acct.address)
+    sig = signature if signature is not None else acct.sign_message(encode_defunct(text=msg)).signature.hex()
+    path = tmp_path / "treasury-proof.json"
+    path.write_text(json.dumps({"address": address or acct.address, "message": msg, "signature": sig}))
+    return path
+
+
+def test_treasury_proof_passes(valid, tmp_path, capsys):
+    acct = _scratch_account()
+    alloc_path, class_path = _rebind_treasury(valid, acct)
+    proof = _write_proof(tmp_path, acct)
+    code, out = _run(capsys, "--allocations", str(alloc_path), "--classes", str(class_path), "--treasury-proof", str(proof))
+    assert code == 0 and "treasury proof" in out and "WARNING" not in out
+
+
+def test_no_proof_warns_but_passes(valid, capsys):
+    alloc_path, class_path, _, _ = valid
+    code, out = _run(capsys, "--allocations", str(alloc_path), "--classes", str(class_path))
+    assert code == 0 and "treasury spendability unproven" in out and "treasury proof challenge:" in out
+
+
+def test_proof_wrong_signer_fails(valid, tmp_path, capsys):
+    """Signed by a different key — recovery cannot equal the claimed address."""
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+
+    acct = _scratch_account()
+    alloc_path, class_path = _rebind_treasury(valid, acct)
+    other = Account.from_key(keccak(b"check-alloc-other-scratch"))
+    msg = caf.treasury_challenge(acct.address)
+    proof = tmp_path / "treasury-proof.json"
+    proof.write_text(
+        json.dumps(
+            {
+                "address": acct.address,
+                "message": msg,
+                "signature": other.sign_message(encode_defunct(text=msg)).signature.hex(),
+            }
+        )
+    )
+    code, out = _run(capsys, "--allocations", str(alloc_path), "--classes", str(class_path), "--treasury-proof", str(proof))
+    assert code == 1 and "signer" in out and "!=" in out
+
+
+def test_proof_not_treasury_fails(valid, tmp_path, capsys):
+    """A valid signature from the wrong account does not prove the treasury."""
+    from eth_account import Account
+
+    alloc_path, class_path, _, _ = valid  # treasury stays a non-key placeholder address
+    other = Account.from_key(keccak(b"check-alloc-other-scratch"))
+    proof = _write_proof(tmp_path, other)
+    code, out = _run(capsys, "--allocations", str(alloc_path), "--classes", str(class_path), "--treasury-proof", str(proof))
+    assert code == 1 and "!= treasury" in out
+
+
+def test_proof_wrong_message_fails(valid, tmp_path, capsys):
+    acct = _scratch_account()
+    alloc_path, class_path = _rebind_treasury(valid, acct)
+    proof = _write_proof(tmp_path, acct, message="some other message")
+    code, out = _run(capsys, "--allocations", str(alloc_path), "--classes", str(class_path), "--treasury-proof", str(proof))
+    assert code == 1 and "challenge" in out
+
+
+def test_proof_malformed_signature_fails(valid, tmp_path, capsys):
+    acct = _scratch_account()
+    alloc_path, class_path = _rebind_treasury(valid, acct)
+    proof = _write_proof(tmp_path, acct, signature="0xdeadbeef")
+    code, out = _run(capsys, "--allocations", str(alloc_path), "--classes", str(class_path), "--treasury-proof", str(proof))
+    assert code == 1 and "unrecoverable" in out
+
+
+def test_proof_missing_field_fails(valid, tmp_path, capsys):
+    alloc_path, class_path, _, classes = valid
+    path = tmp_path / "treasury-proof.json"
+    path.write_text(json.dumps({"address": classes["treasury"], "message": caf.treasury_challenge(classes["treasury"])}))
+    code, out = _run(capsys, "--allocations", str(alloc_path), "--classes", str(class_path), "--treasury-proof", str(path))
+    assert code == 1 and "signature" in out
+
+
 # ---------- PARAMS mirror (numbers, not the sentence — coder A rewords A2) ----------
 
 
