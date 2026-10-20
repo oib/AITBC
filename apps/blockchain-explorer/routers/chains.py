@@ -22,12 +22,7 @@ def list_chains() -> dict[str, Any]:
         local = {"id": local_id, "name": "AIT Hub Network", "status": "active"}
     except ChainIdNotConfigured:
         local = {"id": "unconfigured", "name": "AIT Hub Network", "status": "unconfigured"}
-    return {
-        "chains": [
-            local,
-            {"id": "ait-mainnet", "name": "AIT Main Network", "status": "coming_soon"},
-        ]
-    }
+    return {"chains": [local]}
 
 
 @router.get("/api/chain/head")
