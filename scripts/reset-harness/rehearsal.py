@@ -40,11 +40,14 @@ Phases (also runnable individually):
                              re-init from genesis + resync (post-PONR M7)
     rehearsal.py alloc-fix   prove a missing allocation, then a post-seal
                              corrective treasury transfer (post-PONR M4)
+    rehearsal.py fork        asymmetric partition: attest topics pass,
+                             blocks.* + http pulls die; same-height fork,
+                             then deterministic heal (post-PONR M3)
     rehearsal.py teardown    stop units, delete the scratch tree, show it empty
     rehearsal.py run         keys -> genesis -> up -> wait -> check ->
                              timing -> rejoin -> skip -> stall -> resync ->
                              stores -> golden -> untrusted -> alloc-fix ->
-                             teardown
+                             fork -> teardown
 
 Live-host protection: before anything starts, the harness records
 ``ActiveEnterTimestamp``/``MainPID`` and head height of the live
@@ -635,7 +638,10 @@ def _rpc_cmd(inst: Instance, python: str) -> str:
     # mirrors the live units, where the secrets file wins the same key.
     return (
         f"export GOSSIP_BACKEND=redis; "
-        f"exec {python} -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port {inst.rpc_port} "
+        # RPC_BIND_HOST is in the env file (127.0.0.1); the gossip-degrade
+        # 'bind' variant rewrites it to rebind this listener — the scratch
+        # equivalent of the hub's P2P_BIND_HOST restart trap.
+        f"exec {python} -m uvicorn aitbc_chain.app:app --host $RPC_BIND_HOST --port {inst.rpc_port} "
         f"--workers 1 --log-level warning --timeout-graceful-shutdown 3 "
         f">>{inst.dir}/logs/rpc.log 2>&1"
     )
@@ -1307,6 +1313,213 @@ def phase_alloc_fix(root: Path, timeout: int) -> None:
     raise _fail(f"corrective transfer not sealed within {timeout}s")
 
 
+# Topic names riding the per-peer websocket mesh (poa.py:1541,
+# remote_attestation.py:75-76). Each (peer, topic) pair is its own ws
+# connection bound by ``?topic=`` — gossip_filter.py gates them at connect
+# time, which is what makes an asymmetric partition expressible on
+# loopback: attest topics keep flowing while the block plane dies.
+BLOCKS_TOPIC = f"blocks.{CHAIN_ID}"
+ATTEST_TOPICS = [
+    f"consensus.attest_request.{CHAIN_ID}",
+    f"consensus.attest_response.{CHAIN_ID}",
+]
+
+# Filter listen ports — above the instance port map (18400..18449) and the
+# scratch redis port; loopback only, bound by the bc2-gossip-filter unit.
+FILTER_PORT_BASE = 18600
+
+
+def _mesh_url(port: int) -> str:
+    return f"ws://127.0.0.1:{port}/rpc/gossip/ws"
+
+
+def _env_set(env_text: str, name: str, value: str) -> str:
+    """Rewrite one ``NAME='value'`` line in an instance env file. Exactly
+    one assignment must match — a silent miss would partition nothing."""
+    new, n = re.subn(rf"^{name}='[^']*'$", f"{name}='{value}'", env_text, flags=re.M)
+    if n != 1:
+        raise _fail(f"env rewrite {name}: matched {n} assignments, expected exactly 1")
+    return new
+
+
+def _spawn_filter(root: Path, python: str, specs: list[dict]) -> None:
+    _stop_filter()  # idempotent — a leftover unit from a crashed run must not hold the ports
+    spec_dir = root / "filter"
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    spec = spec_dir / "spec.json"
+    spec.write_text(json.dumps(specs, indent=2))
+    subprocess.run(
+        [
+            "systemd-run",
+            "--collect",
+            "--unit=bc2-gossip-filter",
+            "--property=MemoryMax=256M",
+            "--property=TasksMax=128",
+            "--",
+            python,
+            str(REPO_ROOT / "scripts" / "reset-harness" / "gossip_filter.py"),
+            str(spec),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+
+
+def _stop_filter() -> None:
+    subprocess.run(["systemctl", "stop", "bc2-gossip-filter"], capture_output=True, timeout=60)
+
+
+def _partition_envs(root: Path, victim: Instance) -> tuple[list[dict], dict[int, str]]:
+    """Asymmetric partition for the fork phase: ``victim`` keeps its
+    attestation links (consensus.attest_* conns pass the filter) but loses
+    the block plane — ``blocks.<chain>`` conns are refused at connect time
+    on every hop, and every HTTP probe/pull routed through a filter port
+    fails (peers derive http://h:p from the mesh url — proposal_freshness).
+
+    Ports: one shared inbound port for every peer's conns TO the victim,
+    one outbound port per peer for the victim's conns out. The victim's
+    sync/hub http urls point at its i0 outbound port so its self-heal pull
+    dies too. Returns (filter specs, {instance idx: rewritten env text})."""
+    insts = instances(root)
+    peers = [i for i in insts if i.idx != victim.idx]
+    inbound = FILTER_PORT_BASE
+    outbound = {p.idx: FILTER_PORT_BASE + 1 + n for n, p in enumerate(peers)}
+    specs = [{"port": inbound, "upstream": _mesh_url(victim.rpc_port), "deny_topics": [BLOCKS_TOPIC]}] + [
+        {"port": outbound[p.idx], "upstream": _mesh_url(p.rpc_port), "deny_topics": [BLOCKS_TOPIC]} for p in peers
+    ]
+    envs: dict[int, str] = {}
+    for inst in insts:
+        text = (inst.dir / "instance.env").read_text()
+        if inst.idx == victim.idx:
+            text = _env_set(text, "GOSSIP_MESH_PEER_URLS", ",".join(_mesh_url(outbound[p.idx]) for p in peers))
+            dead = f"http://127.0.0.1:{outbound[peers[0].idx]}"
+            for name in (
+                "DEFAULT_PEER_RPC_URL",
+                "HUB_RPC_URL",
+                "HUB_BLOCKCHAIN_RPC_URL",
+                "AITBC_SYNC_SOURCE",
+                "AITBC_SYNC_IMPORT_URL",
+            ):
+                text = _env_set(text, name, dead)
+        else:
+            text = _env_set(
+                text,
+                "GOSSIP_MESH_PEER_URLS",
+                ",".join(
+                    _mesh_url(inbound) if p.idx == victim.idx else _mesh_url(p.rpc_port) for p in insts if p.idx != inst.idx
+                ),
+            )
+        envs[inst.idx] = text
+    return specs, envs
+
+
+def _hash_of(blk: dict | None) -> str:
+    return (blk or {}).get("hash") or (blk or {}).get("block", {}).get("hash") or ""
+
+
+def _proposer_of(blk: dict | None) -> str:
+    return (blk or {}).get("proposer") or (blk or {}).get("block", {}).get("proposer") or ""
+
+
+def _attesters_of(blk: dict | None) -> set[str]:
+    meta = (blk or {}).get("block_metadata") or (blk or {}).get("block", {}).get("block_metadata") or {}
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except ValueError:
+            meta = {}
+    return {str(a.get("validator", "")).lower() for a in (meta.get("attestations") or []) if isinstance(a, dict)}
+
+
+def phase_fork(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
+    """M3 — asymmetric partition: attestation flows, the block plane dies;
+    a same-height fork forms, then heals deterministically.
+
+    The retired production recipe (route blackhole + redis ACL + nginx
+    444) is rebuilt for the scratch topology: the filter refuses
+    ``blocks.<chain>`` websockets at connect time and errors every
+    non-websocket path — which also kills the freshness-probe and
+    block-pull endpoints peers derive from the mesh URL. The victim keeps
+    ``consensus.attest_*`` links, so it collects its two signatures and
+    seals a block the majority never receives; the signers' attester lock
+    holds ~one proposer round, then the fallback owner seals the rival at
+    the same height — the post-PONR decision tree's M3 signature (equal
+    height, different hash)."""
+    insts = instances(root)
+    victim, hub = insts[3], insts[0]
+    keys = _load_keys(root)
+    vaddr = keys["proposers"][3]["address"]
+    specs, envs = _partition_envs(root, victim)
+    originals = {inst.idx: (inst.dir / "instance.env").read_text() for inst in insts}
+    _spawn_filter(root, python, specs)
+    contested: int | None = None
+    try:
+        for inst in insts:
+            (inst.dir / "instance.env").write_text(envs[inst.idx])
+            _restart_node(inst, python)
+        print(f"[*] partition up: {victim.name} keeps attest topics, loses blocks.* + every http pull")
+        baseline = _head(victim) or 0
+        # The victim's head can now only advance on its own seals — its
+        # outbound blocks.* conns are refused and its pulls dead. The first
+        # post-partition seal by the victim is the contested block.
+        vb = None
+        deadline = time.time() + max(timeout, 300)
+        while time.time() < deadline and vb is None:
+            _check_host_budget(max_load, min_avail_mib)
+            hv = _head(victim)
+            if hv is not None and hv > baseline:
+                for h in range(baseline + 1, hv + 1):
+                    cand = _block(victim, h)
+                    if _proposer_of(cand).lower() == vaddr.lower():
+                        vb, contested = cand, h
+                        break
+            time.sleep(3)
+        if vb is None or contested is None:
+            raise _fail(f"{victim.name} sealed no private block within the window — fork did not form")
+        print(f"[+] {victim.name} sealed its private block at h={contested} ({_hash_of(vb)[:18]}…)")
+        # The majority waits out the attester lock, then the fallback owner
+        # seals the rival at the contested height (~1-2 proposer rounds).
+        rival = None
+        deadline = time.time() + max(timeout, 300)
+        while time.time() < deadline and rival is None:
+            _check_host_budget(max_load, min_avail_mib)
+            hh = _head(hub)
+            if hh is not None and hh >= contested:
+                hb = _block(hub, contested)
+                if hb and _hash_of(hb) == _hash_of(vb):
+                    raise _fail("majority holds the victim's private block — the partition leaked")
+                if hb:
+                    rival = hb
+            time.sleep(3)
+        if rival is None:
+            raise _fail(f"majority produced no rival at h={contested} — no same-height fork")
+        print(
+            f"[+] same-height fork at h={contested}: {victim.name} {_hash_of(vb)[:18]}…"
+            f" vs bc2-i0 {_hash_of(rival)[:18]}… — M3 signature"
+        )
+    finally:
+        for inst in insts:
+            (inst.dir / "instance.env").write_text(originals[inst.idx])
+            _restart_node(inst, python)
+        _stop_filter()
+    # Healing: auto-sync pulls the majority branch; fork choice picks the
+    # longer/more-attested branch and the delta journal reverts the loser
+    # (empty blocks delete outright — validator-operations.md).
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        _check_host_budget(max_load, min_avail_mib)
+        hv, hh = _head(victim), _head(hub)
+        if hv is not None and hh is not None and hv >= hh:
+            bv, bh = _block(victim, contested), _block(hub, contested)
+            if _hash_of(bv) and _hash_of(bv) == _hash_of(bh):
+                print(f"[+] fork healed: {victim.name} converged on the majority branch at h={contested}, head {hv}")
+                return
+        time.sleep(5)
+    raise _fail(f"{victim.name} did not converge on the majority branch within {timeout}s")
+
+
 def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
     inst = instances(root)[3]
     h0 = _head(inst)
@@ -1414,6 +1627,7 @@ def phase_teardown(root: Path) -> None:
     for inst in instances(root):
         _stop_instance(inst)
     subprocess.run(["systemctl", "stop", "bc2-redis"], capture_output=True, timeout=60)
+    _stop_filter()
     for inst in instances(root):
         for _ in range(20):
             if _unit_pid(inst.name) is None:
@@ -1456,6 +1670,7 @@ def main() -> int:
             "golden",
             "untrusted",
             "alloc-fix",
+            "fork",
             "teardown",
             "run",
         ],
@@ -1515,6 +1730,7 @@ def main() -> int:
             _timed("golden", lambda: phase_golden(root, args.python))
             _timed("untrusted", lambda: phase_untrusted(root, args.python, args.timeout))
             _timed("alloc-fix", lambda: phase_alloc_fix(root, args.timeout))
+            _timed("fork", lambda: phase_fork(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
             after = _live_snapshot()
             (root / "live-after.json").write_text(json.dumps(after, indent=2))
             print("[+] phase wall-clock: " + ", ".join(f"{n}={d:.1f}s" for n, d in wall) + " (measured: monotonic)")
@@ -1539,6 +1755,7 @@ def main() -> int:
         "golden": lambda: phase_golden(root, args.python),
         "untrusted": lambda: phase_untrusted(root, args.python, args.timeout),
         "alloc-fix": lambda: phase_alloc_fix(root, args.timeout),
+        "fork": lambda: phase_fork(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
     }
     dispatch[args.phase]()
     return 0
