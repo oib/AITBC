@@ -53,12 +53,21 @@ def init(
     password_file: str | None,
     password_stdin: bool,
 ):
-    """Initialize the genesis configuration and files for the local chain.
+    """Retired — cannot produce the canonical bc-2 genesis; use scripts/ops/build-genesis.py.
 
-    The genesis wallet password is auto-generated when no ``--password*``
-    flag is given; a supplied value reaches the generator through the
-    ``AITBC_GENESIS_PASSWORD`` child-process environment — never argv.
+    This command drives the legacy unified_genesis.py builder, whose output
+    a bc-2 node would not accept (no canonical state_root or
+    bridge-validator digest). It now refuses before reading or writing any
+    file. The only builder is apps/blockchain-node/src/aitbc_chain/
+    genesis_builder.py, driven by scripts/ops/build-genesis.py — see
+    docs/deployment/bc2-consumers.md.
     """
+    error(
+        "genesis init is retired: it cannot produce the canonical bc-2 "
+        "genesis. The only builder is scripts/ops/build-genesis.py "
+        "(see docs/deployment/bc2-consumers.md)"
+    )
+    ctx.exit(1)
     # Auto-detect chain_id from config if not provided
     if not chain_id:
         from ..config import get_config
