@@ -21,6 +21,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [Service Users](SERVICE_USERS.md) - Service user management and unification
 - [SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md) - Smart contract deployment procedures
 - [bc-2 Environment Set](bc2-environment-set.md) - the `bc-2` chain environment-variable set (reset planning)
+- [bc-2 Consumers](bc2-consumers.md) - the `bc-2` cut-day consumer table (reset planning)
 
 ## See Also
 
