@@ -26,14 +26,18 @@ Phases (also runnable individually):
     rehearsal.py up          launch the 5 systemd-run transient units
     rehearsal.py wait        block until every instance head reaches N
     rehearsal.py check       all acceptance checks against RPCs and chain DBs
+    rehearsal.py timing      per-phase wall-clock from journal timestamps
     rehearsal.py rejoin      stop i3, restart it, prove catch-up + slot resume
     rehearsal.py skip        stop i2, prove the rotation skips it
     rehearsal.py stores      coordinator + trading `alembic upgrade head` on
                              scratch SQLite stores
     rehearsal.py golden      run the golden-corpus check twice under gates1
+    rehearsal.py untrusted   drop a validator from i4's TRUSTED_PROPOSERS,
+                             watch the membership check refuse its blocks
     rehearsal.py teardown    stop units, delete the scratch tree, show it empty
     rehearsal.py run         keys -> genesis -> up -> wait -> check ->
-                             rejoin -> skip -> stores -> golden -> teardown
+                             timing -> rejoin -> skip -> stores -> golden ->
+                             untrusted -> teardown
 
 Live-host protection: before anything starts, the harness records
 ``ActiveEnterTimestamp``/``MainPID`` and head height of the live
@@ -49,14 +53,17 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import sqlite3
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -401,10 +408,19 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "MULTI_VALIDATOR_CONSENSUS_ENABLED": "true",
         "MULTI_VALIDATOR_MIN_ATTESTATIONS": "2",
         "MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS": "15",
+        # Fleet timing rows from the env-set table (the node0 drift rows
+        # written fleet-wide here): linger and PBFT view-change values;
+        # PBFT is off but the names match the fleet env files.
+        "ATTESTATION_POST_QUORUM_LINGER_SECONDS": "2.0",
+        "PBFT_VIEW_CHANGE_TIMEOUT": "30",
         "PBFT_CONSENSUS_ENABLED": "false",
         "VALIDATOR_SET": validator_set,
         "BRIDGE_MULTISIG_ENABLED": "true",
         "BRIDGE_MULTISIG_THRESHOLD": "2",
+        # Env-set row decided 20 Oct: bc-2 launches with bridge locks
+        # paused — lock admission answers 503 until the SEPOLIA-REDEPLOY-1
+        # unpause; _check_bridge_paused proves the fence in `check`.
+        "BRIDGE_LOCKS_PAUSED": "true",
         "ENABLE_BLOCK_PRODUCTION": "true" if inst.role == "proposer" else "false",
         "MAX_EMPTY_BLOCK_INTERVAL": "60",
         # Flag pins per GATES.md deployed column (commit 3697e778a): the three
@@ -416,6 +432,12 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         # Literal CSV: 'genesis' admits the genesis producer row; the four
         # validator addresses admit every rotated proposal on import.
         "TRUSTED_PROPOSERS": "genesis," + ",".join(k["address"] for k in keys["proposers"]),
+        # Sync pins from the env-set table: auto-sync on, threshold 0 (any
+        # gap pulls), and the post-V23-90 hardening value -1 for the state
+        # sync gap — all five hosts write these.
+        "AUTO_SYNC_ENABLED": "true",
+        "AUTO_SYNC_THRESHOLD": "0",
+        "STATE_SYNC_MAX_GAP": "-1",
         "SYNC_MANAGER_ENABLED": "true",
         "SYNC_STATE_ROOT_VALIDATION_ENABLED": "true",
         "SUBSCRIPTION_ENABLED": "true",  # fleet value (node2 blockchain.env)
@@ -716,6 +738,62 @@ def _block(inst: Instance, height: int) -> dict | None:
         return None
 
 
+def _post_json(url: str, body: dict) -> tuple[int, dict]:
+    """POST JSON; returns (status, payload) — HTTP errors keep their code."""
+    req = urllib.request.Request(  # nosec B310
+        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:  # nosec B310
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read())
+        except Exception:
+            return e.code, {}
+    except Exception:
+        return 0, {}
+
+
+def _unit_field(name: str, prop: str) -> str:
+    """One ``systemctl show --value`` field for a scratch unit (journal-side
+    timestamp source — the 'measured' label in the timing report)."""
+    out = subprocess.run(
+        ["systemctl", "show", name, f"--property={prop}", "--value"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return out.stdout.strip()
+
+
+def _parse_systemd_ts(raw: str) -> datetime | None:
+    """Parse an ActiveEnterTimestamp value ('Mon 2026-10-20 07:43:42 CEST')."""
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%a %Y-%m-%d %H:%M:%S %Z")
+    except ValueError:
+        return None
+
+
+def _parse_iso_ts(raw: object) -> datetime | None:
+    """Parse an ISO-8601 block timestamp into a naive-UTC datetime."""
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _span_seconds(times: list[datetime]) -> float:
+    """Latest minus earliest in seconds; 0.0 for fewer than two points."""
+    if len(times) < 2:
+        return 0.0
+    return (max(times) - min(times)).total_seconds()
+
+
 def phase_up(root: Path, python: str, max_load: float, min_avail_mib: int) -> None:
     before = _live_snapshot()
     (root / "live-before.json").write_text(json.dumps(before, indent=2))
@@ -856,6 +934,27 @@ def _check_certificates_and_rotation(root: Path, db: Path, rows: list[tuple], fa
         print(f"[+] rotation: all {N_PROPOSERS} proposers sealed blocks")
 
 
+def _check_bridge_paused(insts: list[Instance], failures: list[str]) -> None:
+    """BRIDGE_LOCKS_PAUSED must fence lock admission with HTTP 503 on the
+    scratch rpc — the decided env-set value for the bc-2 launch. The fence
+    sits before signature validation, so a well-shaped unsigned body
+    reaches it. Refunds stay open; only admission is gated."""
+    body = {
+        "source_chain": CHAIN_ID,
+        "target_chain": "sepolia",
+        "token": "native",
+        "sender": "0x" + "11" * 20,
+        "recipient": "0x" + "22" * 20,
+        "amount": 1,
+    }
+    code, payload = _post_json(f"http://127.0.0.1:{insts[0].rpc_port}/cross-chain/bridge", body)
+    detail = payload.get("detail", "") if isinstance(payload, dict) else ""
+    if code == 503:
+        print(f"[+] BRIDGE_LOCKS_PAUSED fence: /cross-chain/bridge -> 503 ({detail})")
+    else:
+        failures.append(f"bridge lock admission answered {code}, want 503 — pause fence not enforced")
+
+
 def phase_check(root: Path) -> list[str]:
     insts = instances(root)
     failures: list[str] = []
@@ -873,7 +972,82 @@ def phase_check(root: Path) -> list[str]:
         return failures
     rows = _check_db_rows(db, failures)
     _check_certificates_and_rotation(root, db, rows, failures)
+    _check_bridge_paused(insts, failures)
     return failures
+
+
+def phase_timing(root: Path) -> None:
+    """Per-phase wall-clock report from journal timestamps — measured where
+    systemctl answers, estimate where only the code's sleeps are known.
+
+    Runs after `check` and before `rejoin`/`skip`: those phases restart
+    units, which would overwrite the original ActiveEnterTimestamp values.
+    """
+    insts = instances(root)
+    starts: dict[str, datetime] = {}
+    for inst in insts[:N_PROPOSERS]:
+        ts = _parse_systemd_ts(_unit_field(inst.name, "ActiveEnterTimestamp"))
+        if ts is not None:
+            starts[inst.name] = ts
+    if len(starts) >= 2:
+        span = _span_seconds(list(starts.values()))
+        last = max(starts, key=starts.get)
+        print(f"[+] validator start span {span:.1f}s over {len(starts)} units, last: {last} (measured: systemctl)")
+        blk = _block(insts[0], 1) or {}
+        bts = _parse_iso_ts(blk.get("timestamp") or (blk.get("block") or {}).get("timestamp"))
+        if bts is not None:
+            print(
+                f"[+] last validator start -> block 1: {(bts - starts[last]).total_seconds():.1f}s (measured: journal+block ts)"
+            )
+        else:
+            print("[*] block 1 timestamp unavailable — start->seal delta unmeasured")
+    else:
+        print("[*] unit start timestamps unavailable — span is an estimate (0.5s sleep x5 + spawn cost)")
+
+
+def _untrusted_env(env_text: str, drop: str) -> str:
+    """Return env_text with ``drop`` removed from the TRUSTED_PROPOSERS CSV."""
+
+    def _fix(m: re.Match) -> str:
+        keep = [p for p in m.group(2).split(",") if p.strip() and p != drop]
+        return m.group(1) + ",".join(keep) + "'"
+
+    return re.sub(r"(TRUSTED_PROPOSERS=')([^']*)'", _fix, env_text)
+
+
+def _restart_node(inst: Instance, python: str) -> None:
+    """Restart only the node unit — the rpc unit's env is unchanged."""
+    subprocess.run(["systemctl", "stop", inst.name], capture_output=True, timeout=60)
+    _spawn(inst, python, with_rpc=False)
+
+
+def phase_untrusted(root: Path, python: str, timeout: int) -> None:
+    """TRUSTED_PROPOSERS refusal, proven live on the follower — no production
+    code change: i4's scratch env drops one validator address; the import
+    validator (sync_validator.py) then refuses that proposer's blocks with
+    'not in trusted set' in node.log. The env is restored and the node
+    restarted afterwards so teardown sees a normal fleet."""
+    inst = instances(root)[4]
+    keys = _load_keys(root)
+    victim = keys["proposers"][3]["address"]
+    env_file = inst.dir / "instance.env"
+    original = env_file.read_text()
+    env_file.write_text(_untrusted_env(original, victim))
+    _restart_node(inst, python)
+    try:
+        log = inst.dir / "logs" / "node.log"
+        mark = "not in trusted set"
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if log.exists() and mark in log.read_text():
+                print(f"[+] {inst.name} refused a block from an unlisted proposer — TRUSTED_PROPOSERS membership check live")
+                break
+            time.sleep(2)
+        else:
+            raise _fail(f"no trusted-set refusal on {inst.name} within {timeout}s")
+    finally:
+        env_file.write_text(original)
+        _restart_node(inst, python)
 
 
 def _stop_instance(inst: Instance) -> None:
@@ -1021,10 +1195,12 @@ def main() -> int:
             "up",
             "wait",
             "check",
+            "timing",
             "rejoin",
             "skip",
             "stores",
             "golden",
+            "untrusted",
             "teardown",
             "run",
         ],
@@ -1058,21 +1234,32 @@ def main() -> int:
 
     if args.phase == "run":
         _claim_rehearsal(root)
+        wall: list[tuple[str, float]] = []
+
+        def _timed(name: str, fn) -> None:
+            t0 = time.monotonic()
+            fn()
+            wall.append((name, time.monotonic() - t0))
+
         try:
             before = _live_snapshot()
             (root / "live-before.json").parent.mkdir(parents=True, exist_ok=True)
             (root / "live-before.json").write_text(json.dumps(before, indent=2))
-            phase_keys(root)
-            phase_genesis(root)
-            phase_up(root, args.python, args.max_load, args.min_avail_mib)
-            phase_wait(root, args.height, args.timeout, args.max_load, args.min_avail_mib)
-            failures = phase_check(root)
-            phase_rejoin(root, args.python, args.timeout, args.max_load, args.min_avail_mib)
-            phase_skip(root, args.timeout, args.max_load, args.min_avail_mib)
-            phase_stores(root, args.python)
-            phase_golden(root, args.python)
+            failures: list[str] = []
+            _timed("keys", lambda: phase_keys(root))
+            _timed("genesis", lambda: phase_genesis(root))
+            _timed("up", lambda: phase_up(root, args.python, args.max_load, args.min_avail_mib))
+            _timed("wait", lambda: phase_wait(root, args.height, args.timeout, args.max_load, args.min_avail_mib))
+            _timed("check", lambda: failures.extend(phase_check(root)))
+            _timed("timing", lambda: phase_timing(root))
+            _timed("rejoin", lambda: phase_rejoin(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
+            _timed("skip", lambda: phase_skip(root, args.timeout, args.max_load, args.min_avail_mib))
+            _timed("stores", lambda: phase_stores(root, args.python))
+            _timed("golden", lambda: phase_golden(root, args.python))
+            _timed("untrusted", lambda: phase_untrusted(root, args.python, args.timeout))
             after = _live_snapshot()
             (root / "live-after.json").write_text(json.dumps(after, indent=2))
+            print("[+] phase wall-clock: " + ", ".join(f"{n}={d:.1f}s" for n, d in wall) + " (measured: monotonic)")
             if failures:
                 print("[!] acceptance failures:", *failures, sep="\n  - ")
                 return 1
@@ -1085,10 +1272,12 @@ def main() -> int:
     dispatch = {
         "wait": lambda: phase_wait(root, args.height, args.timeout, args.max_load, args.min_avail_mib),
         "check": lambda: _report(phase_check(root)),
+        "timing": lambda: phase_timing(root),
         "rejoin": lambda: phase_rejoin(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
         "skip": lambda: phase_skip(root, args.timeout, args.max_load, args.min_avail_mib),
         "stores": lambda: phase_stores(root, args.python),
         "golden": lambda: phase_golden(root, args.python),
+        "untrusted": lambda: phase_untrusted(root, args.python, args.timeout),
     }
     dispatch[args.phase]()
     return 0

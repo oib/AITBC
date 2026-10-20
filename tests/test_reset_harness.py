@@ -245,3 +245,74 @@ def test_live_snapshot_parses_keyed_output(monkeypatch):
     for fields in snap.values():
         assert fields["MainPID"] == "574372"
         assert fields["ActiveEnterTimestamp"].endswith("07:43:24 CEST")
+# ---------- decided env-set names (RESET-REHEARSAL-4) ----------
+
+
+def test_env_carries_the_decided_env_set_names(tmp_path):
+    """Every name the env-set decides must land in the profile — the six
+    additions: paused bridge locks, consensus linger/view-change, and the
+    sync pins all five hosts write."""
+    env = _parse_env(rh._env_lines(tmp_path, rh.instances(tmp_path)[0], _keys()))
+    assert env["BRIDGE_LOCKS_PAUSED"] == "true"
+    assert env["ATTESTATION_POST_QUORUM_LINGER_SECONDS"] == "2.0"
+    assert env["PBFT_VIEW_CHANGE_TIMEOUT"] == "30"
+    assert env["AUTO_SYNC_ENABLED"] == "true"
+    assert env["AUTO_SYNC_THRESHOLD"] == "0"
+    assert env["STATE_SYNC_MAX_GAP"] == "-1"
+    # and the long-standing decided names still hold
+    assert env["GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP"] == "256"
+    assert env["TRUSTED_PROPOSERS"].startswith("genesis,0x")
+
+
+def test_untrusted_env_drops_only_the_named_address():
+    keys = _keys()
+    victim = keys["proposers"][3]["address"]
+    original = f"TRUSTED_PROPOSERS='genesis,{','.join(p['address'] for p in keys['proposers'])}'\n"
+    doctored = rh._untrusted_env(original, victim)
+    assert victim not in doctored
+    assert "genesis" in doctored
+    for p in keys["proposers"][:3]:
+        assert p["address"] in doctored
+    # untouched when the address is absent
+    assert rh._untrusted_env(original, "0x" + "ff" * 20) == original
+
+
+# ---------- pause fence + timing helpers ----------
+
+
+def test_check_bridge_paused_accepts_503(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(
+        rh,
+        "_post_json",
+        lambda url, body: (503, {"detail": "Bridge paused: locks unavailable until validator attestation is live"}),
+    )
+    failures: list[str] = []
+    rh._check_bridge_paused(rh.instances(tmp_path), failures)
+    assert failures == []
+
+
+def test_check_bridge_paused_flags_other_codes(tmp_path, monkeypatch):
+    for code in (200, 403, 400, 0):
+        monkeypatch.setattr(rh, "_post_json", lambda url, body, c=code: (c, {}))
+        failures: list[str] = []
+        rh._check_bridge_paused(rh.instances(tmp_path), failures)
+        assert len(failures) == 1 and str(code) in failures[0]
+
+
+def test_parse_systemd_ts_and_span():
+    ts = rh._parse_systemd_ts("Mon 2026-10-20 07:43:42 CEST")
+    assert ts is not None and ts.year == 2026 and ts.second == 42
+    assert rh._parse_systemd_ts("") is None
+    assert rh._parse_systemd_ts("n/a") is None
+    a = rh._parse_systemd_ts("Mon 2026-10-19 19:42:01 CEST")
+    b = rh._parse_systemd_ts("Mon 2026-10-19 19:42:03 CEST")
+    assert rh._span_seconds([a, b]) == 2.0
+    assert rh._span_seconds([a]) == 0.0
+
+
+def test_parse_iso_ts():
+    ts = rh._parse_iso_ts("2026-10-20T05:43:40.784513+00:00")
+    assert ts is not None and ts.second == 40
+    assert rh._parse_iso_ts("") is None
+    assert rh._parse_iso_ts(None) is None
+    assert rh._parse_iso_ts("not-a-date") is None
