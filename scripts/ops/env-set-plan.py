@@ -326,6 +326,63 @@ def _status_mark(present: bool, old: str | None, shown: bool) -> str:
     return "<present>"
 
 
+def _plan_target_line(view: HostView, row: dict[str, Any], path: str, host: str) -> tuple[str | None, int]:
+    """One plan line for row x file — (line, extra-issues)."""
+    name, op = row["name"], row.get("op", "set")
+    present = view.presence(path, name)
+    old = view.value(path, name)
+    shown_value = _status_mark(present, old, printable(row))
+    want = _row_value_for(row, host)
+    prefix = f"  {path}\n    {name:<40}"
+    if op == "drop-if-matches":
+        match = row.get("match", "")
+        if old is None and present:
+            return f"{prefix} <present>          drop-if-matches {match} (live check pending)", 0
+        if present and str(old).startswith(match):
+            return f"{prefix} {shown_value:<20} DROP (matches {match})", 0
+        return None, 0
+    if op == "drop":
+        return f"{prefix} {shown_value:<20} DROP", 0
+    if op == "keep":
+        return f"{prefix} {shown_value:<20} KEEP", 0
+    # set
+    if want is None and not _is_operator_supplied(row):
+        return f"{prefix} {shown_value:<20} — (no value for host {host})", 1
+    new_mark = "operator-supplied" if _is_operator_supplied(row) else (want if want is not None else "—")
+    if _is_operator_supplied(row):
+        action = "OPERATOR" if present else "OPERATOR-ADD"
+    elif present and old is not None and want is not None and str(old) == want:
+        action = "SAME"
+    else:
+        action = "EDIT" if present else "ADD"
+    return f"{prefix} {shown_value:<20} -> {new_mark}   {action}", 0
+
+
+def _plan_row(view: HostView, row: dict[str, Any], host: str) -> tuple[list[str], list[str], int]:
+    """(lines, owed-names, issues) for one row."""
+    name, op = row["name"], row.get("op", "set")
+    targets, notes = resolve_targets(view, row)
+    lines = [f"  note: {n}" for n in notes]
+    issues = len(notes)
+    owed = [name] if _is_operator_supplied(row) and op == "set" else []
+    if op == "none":
+        return lines, owed, issues
+    if not targets:
+        if op in {"drop", "drop-if-matches"}:
+            return lines, owed, issues  # nothing carries it — already satisfied
+        new_mark = "operator-supplied" if _is_operator_supplied(row) else _row_value_for(row, host)
+        verb = "keep -> FAIL-if-still-absent" if op == "keep" else f"-> {new_mark}   ADD? (no target file resolved)"
+        mark = "<absent>" if op == "keep" else "<unset>"
+        lines.append(f"  {name:<42} {mark:<20} {verb}")
+        return lines, owed, issues + 1
+    for path in targets:
+        line, extra = _plan_target_line(view, row, path, host)
+        if line:
+            lines.append(line)
+        issues += extra
+    return lines, owed, issues
+
+
 def plan(view: HostView, rows: list[dict[str, Any]], host: str) -> tuple[list[str], int]:
     """Per-host plan lines. Prints old values only where `printable(row)` and
     the live mode actually read one (local inputs only — live is names-only)."""
@@ -333,60 +390,12 @@ def plan(view: HostView, rows: list[dict[str, Any]], host: str) -> tuple[list[st
     issues = 0
     owed: list[str] = []
     for row in rows:
-        name, op = row["name"], row.get("op", "set")
         if row.get("hosts") and host not in row["hosts"]:
             continue
-        targets, notes = resolve_targets(view, row)
-        for n in notes:
-            out.append(f"  note: {n}")
-            issues += 1
-        if op == "none":
-            continue
-        if _is_operator_supplied(row) and op == "set":
-            owed.append(name)
-        want = _row_value_for(row, host)
-        shown = printable(row)
-        new_mark = "operator-supplied" if _is_operator_supplied(row) else (want if want is not None else "—")
-        if not targets:
-            if op in {"drop", "drop-if-matches"}:
-                continue  # nothing carries it — already satisfied
-            if op == "keep":
-                out.append(f"  {name:<42} <absent>{'':>20} keep -> FAIL-if-still-absent")
-                issues += 1
-                continue
-            out.append(f"  {name:<42} <unset>{'':>20} -> {new_mark}   ADD? (no target file resolved)")
-            issues += 1
-            continue
-        for path in targets:
-            present = view.presence(path, name)
-            old = view.value(path, name)
-            shown_value = _status_mark(present, old, shown)
-            if op == "drop-if-matches":
-                match = row.get("match", "")
-                hit = present and old is not None and str(old).startswith(match)
-                if old is None and present:
-                    out.append(f"  {path}\n    {name:<40} <present>          drop-if-matches {match} (live check pending)")
-                elif hit:
-                    out.append(f"  {path}\n    {name:<40} {shown_value:<20} DROP (matches {match})")
-                continue
-            if op == "drop":
-                out.append(f"  {path}\n    {name:<40} {shown_value:<20} DROP")
-                continue
-            if op == "keep":
-                out.append(f"  {path}\n    {name:<40} {shown_value:<20} KEEP")
-                continue
-            # set
-            if want is None and not _is_operator_supplied(row):
-                out.append(f"  {path}\n    {name:<40} {shown_value:<20} — (no value for host {host})")
-                issues += 1
-                continue
-            if _is_operator_supplied(row):
-                action = "OPERATOR" if present else "OPERATOR-ADD"
-            elif present and old is not None and want is not None and str(old) == want:
-                action = "SAME"
-            else:
-                action = "EDIT" if present else "ADD"
-            out.append(f"  {path}\n    {name:<40} {shown_value:<20} -> {new_mark}   {action}")
+        lines, row_owed, row_issues = _plan_row(view, row, host)
+        out.extend(lines)
+        owed.extend(row_owed)
+        issues += row_issues
     if owed:
         out.append("  -- operator inputs still owed (presence-only, written at C3):")
         for n in sorted(set(owed)):
@@ -396,56 +405,52 @@ def plan(view: HostView, rows: list[dict[str, Any]], host: str) -> tuple[list[st
     return out, issues
 
 
+def _verify_target(view: HostView, row: dict[str, Any], path: str, host: str) -> tuple[str | None, bool]:
+    """One PASS/FAIL line for row x file — (line, ok)."""
+    name, op = row["name"], row.get("op", "set")
+    present = view.presence(path, name)
+    old = view.value(path, name)
+    if op in {"drop", "drop-if-matches"}:
+        if op == "drop-if-matches" and old is not None:
+            ok = not str(old).startswith(row.get("match", ""))
+        else:
+            ok = not present
+        return f"  {'PASS' if ok else 'FAIL'} {path} {name} count={0 if ok else 1} expect-absent", ok
+    if op == "keep" or _is_operator_supplied(row):
+        return f"  {'PASS' if present else 'FAIL'} {path} {name} present={int(present)}", present
+    want = _row_value_for(row, host)
+    if want is None:
+        return None, True  # no expected value for this host
+    if old is None:
+        # names-only probe — literal verify needs the local copy
+        return (
+            f"  {'PASS' if present else 'FAIL'} {path} {name} present={int(present)} "
+            "(presence-level: live read is names-only)",
+            present,
+        )
+    ok = str(old) == want
+    return f"  {'PASS' if ok else 'FAIL'} {path} {name} literal-match={int(ok)}", ok
+
+
 def verify(view: HostView, rows: list[dict[str, Any]], host: str) -> tuple[list[str], int]:
     """PASS/FAIL per row x target — counts and presence only, never a value."""
     out: list[str] = [f"== {host} =="]
     fails = 0
     for row in rows:
         name, op = row["name"], row.get("op", "set")
-        if row.get("hosts") and host not in row["hosts"]:
-            continue
-        if op == "none":
+        if row.get("hosts") and host not in row["hosts"] or op == "none":
             continue
         targets, _notes = resolve_targets(view, row)
         if not targets:
-            if op in {"drop", "drop-if-matches"}:
-                out.append(f"  PASS {name:<42} absent everywhere (0 files)")
-                continue
-            out.append(f"  FAIL {name:<42} no target file resolved (0 carriers)")
-            fails += 1
+            ok = op in {"drop", "drop-if-matches"}
+            tail = "absent everywhere (0 files)" if ok else "no target file resolved (0 carriers)"
+            out.append(f"  {'PASS' if ok else 'FAIL'} {name:<42} {tail}")
+            fails += 0 if ok else 1
             continue
         for path in targets:
-            present = view.presence(path, name)
-            old = view.value(path, name)
-            want = _row_value_for(row, host)
-            if op in {"drop", "drop-if-matches"}:
-                if op == "drop-if-matches" and old is not None:
-                    ok = not str(old).startswith(row.get("match", ""))
-                else:
-                    ok = not present
-                out.append(f"  {'PASS' if ok else 'FAIL'} {path} {name} count={0 if ok else 1} expect-absent")
-                fails += 0 if ok else 1
-                continue
-            if op == "keep":
-                out.append(f"  {'PASS' if present else 'FAIL'} {path} {name} present={int(present)}")
-                fails += 0 if present else 1
-                continue
-            # set
-            if _is_operator_supplied(row):
-                out.append(f"  {'PASS' if present else 'FAIL'} {path} {name} present={int(present)}")
-                fails += 0 if present else 1
-                continue
-            if want is None:
-                continue  # no expected value for this host
-            if old is None:
-                # names-only probe — literal verify needs the local copy
-                out.append(
-                    f"  {'PASS' if present else 'FAIL'} {path} {name} present={int(present)} (presence-level: live read is names-only)"
-                )
-                fails += 0 if present else 1
-                continue
-            ok = str(old) == want
-            out.append(f"  {'PASS' if ok else 'FAIL'} {path} {name} literal-match={int(ok)}")
+            line, ok = _verify_target(view, row, path, host)
+            if line:
+                out.append(line)
             fails += 0 if ok else 1
     return out, fails
 
