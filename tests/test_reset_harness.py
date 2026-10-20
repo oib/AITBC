@@ -245,6 +245,8 @@ def test_live_snapshot_parses_keyed_output(monkeypatch):
     for fields in snap.values():
         assert fields["MainPID"] == "574372"
         assert fields["ActiveEnterTimestamp"].endswith("07:43:24 CEST")
+
+
 # ---------- decided env-set names (RESET-REHEARSAL-4) ----------
 
 
