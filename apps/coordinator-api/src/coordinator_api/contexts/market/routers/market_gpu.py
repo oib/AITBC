@@ -23,6 +23,7 @@ from aitbc.market.energy_pricing import (
     SettlementRoute,
     build_minimum_quote,
 )
+from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units, units_to_ait
 
 from ....auth import AuthDep, MinerDep
@@ -259,7 +260,7 @@ def _build_energy_quote(
         job_id=job_id,
         quote_id=uuid4().hex,
         domain=settings.energy_quote_domain,
-        chain_id=settings.native_chain_id,
+        chain_id=settings.native_chain_id or resolve_chain_id(),
         settlement_asset="AITBC",
         settlement_unit_scale=settlement_unit_scale,
         settlement_route=settlement_route,
