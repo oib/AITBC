@@ -41,18 +41,20 @@ the chain-formation phase only; nothing here is a downtime budget.
 
 | # | item | who names it | read-only verify | state |
 |---|---|---|---|---|
-| A1 | v1 key rotation confirmed complete | operator | operator states done; post-rotation addresses exist for every role in `bc2-environment-set.md` "Operator-decision names" | open; blocks the genesis cut |
-| A2 | allocation file + address list | operator | file parses; totals equal the decided figures (treasury 100M AIT + 256 AIT floats, 11 service ×1 AIT, 3 retired ×0, faucet 0, bond accounts ×2 at 0) | working figures exist; final numbers are the operator's |
+| A1 | v1 key rotation confirmed complete **at least 3 days before the freeze** (operator card) — the genesis build, root check and rehearsal 4 then run on the real addresses | operator | operator states done; post-rotation addresses exist for every role in `bc2-environment-set.md` "Operator-decision names" | open; blocks the genesis cut |
+| A2 | allocation file + address list | operator | file parses; totals match the operator's final figures — working figures: treasury 100M AIT (36,000,000 units/AIT), 256 AIT floats outside it, 11 service ×1 AIT, 3 retired ×0, faucet 0 (plan, operator card answers 19 Oct); bond accounts ×2 at 0 (`bc2-environment-set.md` harness requirement) | working figures exist; final numbers are the operator's |
 | A3 | drain executed | operator, per item | `bc2-drain-checklist.md` items all terminal; mempool 0; escrow `locked` 0; coin-request and bridge-deposit ledgers reconciled | open |
-| A4 | `RESET-ROLLBACK-1` rehearsed | director schedules once this document exists | rehearsal ledger green against §F's acceptance list | **not run** — its ledger is a header stub |
-| A5 | genesis write path decided | operator | §I decision recorded | open; recommendation there |
-| A6 | reset release commit named; diff-audit deployed→release | director | audit lists every runtime-visible change under unchanged env (§B) | open |
-| A7 | offline backups + `.pre-reset` capacity | operator-named for the copies | sizes below; checksums verified against live files | sized; copies not made |
-| A8 | consumer changes staged not live | repo | `bc2-consumers.md` rows ready: v9 alert removal staged, `WEBSITE_CHAIN_ID=bc-2` line prepared, `BACKUP_GOOD_CHAIN_GLOB` value prepared | staged per consumers doc |
-| A9 | capacity re-check at freeze | ungated | fresh `df`/`du` per host at freeze time (today's reads below drift) | read once today |
-| A10 | window named | operator | — | blank field |
+| A4 | `RESET-ROLLBACK-1` rehearsed | director schedules once this document exists | rehearsal ledger green against §E's acceptance list | **not run** — its ledger is a header stub |
+| A5 | `RESET-REHEARSAL-4` run — one final harness run on node2 at the release-candidate commit after this document, `RESET-ENV-NODE0-1`, `RESET-DRAIN-1` and `GAP-GENESIS-INIT-1` land (operator: "Yes, one final run"; registered parked row) | director schedules | rehearsal ledger green | registered, not run |
+| A6 | genesis write path decided | operator | §I decision recorded | open; recommendation there |
+| A7 | reset release commit named; diff-audit deployed→release | director | audit lists every runtime-visible change under unchanged env (see "First window action — code convergence") | open |
+| A8 | offline backups + `.pre-reset` capacity | operator-named for the copies | sizes below; checksums verified against live files | sized; copies not made |
+| A9 | consumer changes staged not live | repo | `bc2-consumers.md` rows ready: v9 alert removal staged, `WEBSITE_CHAIN_ID=bc-2` line prepared, `BACKUP_GOOD_CHAIN_GLOB` value prepared | staged per consumers doc |
+| A10 | public maintenance notice live **about 3 days ahead** of the window (operator card; publishes only on his word; comes down after the first seal — §D) | operator-named | notice page serves the window text | drafted (`tasks/CHAIN-RESET-NOTICE-DRAFT.md`), unpublished |
+| A11 | capacity re-check at freeze | ungated | fresh `df`/`du` per host at freeze time (today's reads below drift) | read once today |
+| A12 | window named | operator | — | blank field |
 
-### A7/A9 host sizes — measured (read-only `du`/`df`, 2026-10-20 ~07:03 CEST, per-host `date` reads recorded in the ledger)
+### A8/A11 host sizes — measured (read-only `du`/`df`, 2026-10-20 ~07:03 CEST, per-host `date` reads recorded in the ledger)
 
 | host | root free | `/var/lib/aitbc/data` | old-chain dir | `.pre-reset` copy fits? |
 |---|---|---|---|---|
@@ -66,32 +68,40 @@ Offline copies land in `/home/oib/windsurf/aitbc/backups` (700/600); the
 fleet total is ~2 G — capacity is not a constraint, checksum verification
 is the gate.
 
-## Before the freeze — code convergence
+## First window action — code convergence
 
 The fleet is **not** fast-forwarded before the cut; the reset release
-deploys with the cut (operator ruling). One early step, before freeze:
+deploys **with** the cut (operator ruling). The fast-forward is therefore
+the **first action inside the window**, not a step days ahead:
 
 - Fast-forward every host's `/opt/aitbc` to the named reset commit —
-  **standing** pull class, **no restart**. Working tree only.
+  **operator-named** (this *is* the deploy of the reset release, not a
+  routine pull), **no restart**. Working tree only; record the new HEAD
+  against each unit's `ExecMainStartTimestamp` so a later restart is
+  attributable to the new code.
 
-Rule for the gap between that pull and the env flip: a service that
-restarts on a not-yet-cut host runs the new code against the old chain.
-Per the release contents to date (the A6 diff-audit re-verifies this at
-cut time — a consensus-path change landing before the cut voids the
-first row):
+Rule for the gap between that step and the env flip — both inside the
+window: a service that restarts on a not-yet-cut host runs the new code
+against the old chain. Per the release contents to date (the A7 diff-audit
+re-verifies this at cut time — a consensus-path change landing before the
+cut voids the first row):
 
 | unit | safe to restart pre-cut? | evidence |
 |---|---|---|
-| `aitbc-blockchain-node` | yes, if A6 shows zero consensus diff | config-only collapse: every gate resolves from env; known node changes are removal-of-paths (`d9da6967c` genesis RPC bootstrap — irrelevant to a chain with a block 0; `fd6b5e95f` prefers `CHAIN_ID` — identical when it matches `SUPPORTED_CHAINS`; `bb9dcc2ad` refuses only when `CHAIN_ID` is unset — fleet pins it) |
+| `aitbc-blockchain-node` | yes, if A7 shows zero consensus diff | config-only collapse: every gate resolves from env; known node changes are removal-of-paths (`d9da6967c` genesis RPC bootstrap — irrelevant to a chain with a block 0; `fd6b5e95f` prefers `CHAIN_ID` — identical when it matches `SUPPORTED_CHAINS`; `bb9dcc2ad` refuses only when `CHAIN_ID` is unset — fleet pins it) |
 | `aitbc-blockchain-rpc` | yes — tighter, never looser | retired bodies and removed unsigned routes refuse where flag-on code already refused (`47f3d85bd`, `166885512`, replay-guard series); callers see the same 410s |
 | `aitbc-blockchain-p2p` | **conditional** | `25f162a00`: the wrapper now honours `P2P_BIND_PORT`/`P2P_BIND_HOST` (old binary hardcoded 7070/0.0.0.0). If a host's env pins different values, a restart **rebinds a different socket** — verify the env value equals 7070/0.0.0.0 before any p2p restart |
-| `aitbc-coordinator-api` | **conditional** | `ExecStartPre` runs `alembic upgrade head` — a restart auto-migrates the **old** service DB if the release adds revisions; the A6 audit must diff alembic heads |
-| other services | yes, pending A6 | they read env at start; no service-runtime changes are in the release to date |
+| `aitbc-coordinator-api` | **conditional** | `ExecStartPre` runs `alembic upgrade head` — a restart auto-migrates the **old** service DB if the release adds revisions; the A7 audit must diff alembic heads |
+| other services | yes, pending A7 | they read env at start; no service-runtime changes are in the release to date |
 
 Auto-restart trap: `Restart=`/`WatchdogSec=` act without a named line — a
-crash-looping unit restarts on the new code silently. The verdicts above
-apply the same way; hub1's `p2p` and hub's `coordinator-api` are the two
-units where the trap has teeth.
+crash-looping unit restarts on the new code silently (hub's
+`aitbc-coordinator-api` carries `Restart=on-failure`, one of the two
+conditional rows above; hub1's `p2p` carries no `Restart=` line — director
+read). The same verdicts apply wherever a unit does auto-restart.
+
+An earlier fast-forward would stretch this gap to days and make the table
+above apply for days; the operator has not chosen that.
 
 ## B. Freeze — stop accepting writes, in order
 
@@ -118,12 +128,12 @@ non-validator — always last).
 | # | action | class | verify (read-only) | rehearsed as | timing |
 |---|---|---|---|---|---|
 | C1 | stop services in dependency order: customer-facing → coordinator/exchange/market → rpc → node/p2p last | operator-named; node/p2p stops on hub/hub1/node1/node2 are validator-interrupting | `systemctl is-active` inactive; timestamp fields recorded | — | unmeasured |
-| C2 | move every chain + service store to dated `.pre-reset` copies (no deletion) | operator-named per host | `du -s` copy equals source; `.pre-reset` dir listing | — | unmeasured (sizes in A7) |
+| C2 | move every chain + service store to dated `.pre-reset` copies (no deletion) | operator-named per host | `du -s` copy equals source; `.pre-reset` dir listing | — | unmeasured (sizes in A8) |
 | C3 | apply the env set on every unit | operator-named | anchored `grep` of each name in `bc2-environment-set.md`; node0 pins per `RESET-ENV-NODE0-1` (#323). Decided values on all five: `BRIDGE_LOCKS_PAUSED=true` (stays paused until `SEPOLIA-REDEPLOY-1`), `TRUSTED_PROPOSERS=genesis,<the four post-rotation validator addresses>`, `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=256` | — | unmeasured (~101 chain-id assignments across five hosts) |
 | C4 | build genesis on scratch → `verify-genesis-root.py` → distribute `genesis.json` into `data/bc-2/` on **all five** hosts | build/verify ungated (scratch); distribution operator-named (live data-dir writes) | per-host `sha256sum` equals the verified build output | `rehearsal.py genesis` (REHEARSAL-3) | estimate 20–90 s |
-| C5 | node units serially: hub → catch-up proof → hub1 → node1 → node2; then followers, node0 last | operator-named, validator-interrupting per host | `node.log` shows `Successfully created genesis block from genesis.json` exactly once and `Initializing databases for chains: ['bc-2']`; heads advancing. **Before the first unit starts:** `TRUSTED_PROPOSERS` on every host resolves to `genesis` plus the four genesis validator addresses — the membership check then governs every imported block | `up`, `wait`, `check`, `rejoin`, `skip` | **measured:** `up` ~11 s (journal 05:47:36→~47); rejoin-catch-up ~1.4 m (journal 05:53:49→05:55:03); fleet window 9 m 46 s (journal 05:47:36→05:57:22, REHEARSAL-3 ledger) |
+| C5 | node units: **the rehearsed shape — all four validator node units up inside one short window**, then followers, node0 last. A serial "catch-up proof between hosts" has nothing to prove at height 0: with attestation minimum 2 and file-loaded block 0, no block can seal until a second validator is up — so validators start together as rehearsed, and the rejoin proof happens **after** sealing begins (stop one validator, watch it catch up — rehearsed `rejoin`). **Before the first unit starts:** `TRUSTED_PROPOSERS` on every host resolves to `genesis` plus the four genesis validator addresses — the membership check then governs every imported block. The first produced block lands shortly after the second validator is up — **that first seal is §D's point of no return, inside this step** | operator-named, validator-interrupting per host | `node.log` shows `Successfully created genesis block from genesis.json` exactly once and `Initializing databases for chains: ['bc-2']` per host; heads advancing | `up`, `wait`, `check`, `rejoin`, `skip` | **measured:** `up` ~11 s for all five units (journal 05:47:36→~47); rejoin-catch-up ~1.4 m (journal 05:53:49→05:55:03); fleet window 9 m 46 s (journal 05:47:36→05:57:22, REHEARSAL-3 ledger) |
 | C6 | rpc units + service stores fresh | rpc restarts standing; other first-starts operator-named | `GOSSIP_BACKEND=redis` on rpc units (env-set); coordinator 170 tables, trading 11 (rehearsal counts); `peer_keys.db` re-enrollment for issued-key joiners | `stores` | estimate ~1.25 m incl. golden (REHEARSAL-3 estimate) |
-| C7 | checks (below) | ungated | per check | `check` + quorum sweep | estimate ~15 s each |
+| C7 | checks (below) | ungated | per check | `check` + quorum sweep | estimate ~15 s for the whole check phase (REHEARSAL-3 ledger) |
 
 C4 detail — how the file reaches the live data dirs: the builder writes
 **only** under a declared scratch root; `--live` evaluates the reset-day
@@ -173,8 +183,9 @@ committed nothing.
 
 After the point, never before: unfreeze writes, market/exchange reopen,
 website maintenance notice taken down. The bridge-lock unpause is **not**
-in this list — decided: locks stay paused until `SEPOLIA-REDEPLOY-1`, a
-separate gated step outside the cut.
+in this list — decided: locks stay paused until `SEPOLIA-REDEPLOY-1`
+(operator placed the redeploy "in the week after the cut"), a separate
+gated step outside the cut.
 
 ## E. Rollback before the point — **unproven until `RESET-ROLLBACK-1`**
 
@@ -208,8 +219,10 @@ live-path writes under `/var/lib/aitbc` (the harness writes only under
 Soak; consumer changes go live per `bc2-consumers.md` (v9 alert removal,
 `WEBSITE_CHAIN_ID=bc-2` render, `BACKUP_GOOD_CHAIN_GLOB`, genesis-builder
 refusal-list addition); the register and ledgers keep old heights as
-history; write the reset record in `TOPOLOGY/`; `.pre-reset` copies and
-offline backups retire **≥7 days later, per-item operator word**.
+history; the bridge-lock unpause lands with `SEPOLIA-REDEPLOY-1`
+(operator: "in the week after the cut") as its own gated step, not part of
+this document; write the reset record in `TOPOLOGY/`; `.pre-reset` copies
+and offline backups retire **≥7 days later, per-item operator word**.
 
 Post-reset operating rule (decided): `TRUSTED_PROPOSERS` is set. Any later
 validator-set change must update the list on **every host in the same
@@ -219,16 +232,22 @@ proposer not yet in the list has its blocks refused fleet-wide.
 ## G. Not rehearsed — planned, not proven
 
 Real systemd units vs transient `systemd-run` services; the ~101 chain-id
-env edits across five hosts; the five-host serial order (rehearsal was
-one host, five instances); offline backups; drain writes; hub1's 13 G
-root disk under real copies; node0 as a non-validator customer follower;
-live service-store fresh starts; the website render on hub.
+env edits across five hosts; the five-host spread (rehearsal was one
+host, five instances — the simultaneous four-validator start *is* the
+rehearsed shape; five separate hosts are not); offline backups; drain
+writes; hub1's 13 G root disk under real copies; node0 as a non-validator
+customer follower; live service-store fresh starts; the website render on
+hub.
+
+`RESET-REHEARSAL-4` (A5) re-runs the same harness scope at the
+release-candidate commit — it covers everything the earlier rehearsals
+proved, on the exact reset code; it does not shrink this residual list.
 
 ## H. Gate table
 
 | step | who names it | evidence to record |
 |---|---|---|
-| ff to reset commit | standing (pull) | per-host `git rev-parse HEAD` |
+| ff to reset commit (first window action) | operator-named — the reset-release deploy | per-host `git rev-parse HEAD` + `ExecMainStartTimestamp` baseline |
 | freeze B1–B4 | operator-named | operator line verbatim + refuse-read outputs |
 | B5 head record | ungated | 5× head+hash+state_root in ledger |
 | C1 stops | operator-named (validator-interrupting on 4 hosts) | operator line verbatim; `is-active` + timestamp fields |
@@ -249,9 +268,12 @@ Taken (operator card, 20 Oct — answers in his words):
 |---|---|---|
 | `TRUSTED_PROPOSERS` | "Set it" — `genesis` plus the four post-rotation validator addresses | C3/C5 check + post-reset operating rule in §F |
 | `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | "256 on all five" | C3 decided value (the env-set doc line still reads "recommended" — a separate row updates it) |
-| bridge locks after the cut | "Stay paused until redeploy" | B3, C3 decided value, §D note — `BRIDGE_LOCKS_PAUSED=true` launches with bc-2; unpause is a separate gated step after `SEPOLIA-REDEPLOY-1` |
+| bridge locks after the cut | "Stay paused until redeploy" (redeploy placed "in the week after the cut") | B3, C3 decided value, §D/§F notes — `BRIDGE_LOCKS_PAUSED=true` launches with bc-2; unpause is a separate gated step after `SEPOLIA-REDEPLOY-1` |
 | rollback rehearsal venue | "node2 scratch harness" | §E acceptance list + residual |
 | node0 `STATE_SYNC_MAX_GAP` | `-1` (fleet value) | `RESET-ENV-NODE0-1` (#323) |
+| v1 key rotation timing | "at least 3 days before the freeze" | A1 |
+| public maintenance notice | "about 3 days ahead" of the window | A10, §D |
+| final rehearsal | "Yes, one final run" → `RESET-REHEARSAL-4` | A5, §G |
 
 Still owed (recommendation + cost; nothing picked):
 
