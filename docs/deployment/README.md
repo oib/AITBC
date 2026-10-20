@@ -23,6 +23,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [bc-2 Environment Set](bc2-environment-set.md) - the `bc-2` chain environment-variable set (reset planning)
 - [bc-2 Consumers](bc2-consumers.md) - the `bc-2` cut-day consumer table (reset planning)
 - [bc-2 Reset Runbook](bc2-reset-runbook.md) - the `bc-2` reset-day plan (planning only; nothing authorized)
+- [bc-2 Drain Checklist](bc2-drain-checklist.md) - old-chain items to settle or clear before the cut (reset planning)
 
 ## See Also
 
