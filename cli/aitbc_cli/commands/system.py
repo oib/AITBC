@@ -794,7 +794,12 @@ _FIELD_DENY_KEY_PREFIXES = ("private", "secret", "api", "auth", "signing", "acce
 # '_', '-' and camelCase boundaries — is one of these. Token equality, not
 # substring: "keystore"/"monkey"/"keynote" stay allowed, "PGPASSWORD" is
 # caught by the single-token suffix rule below. "url"/"uri" are tokens so
-# camelCase "databaseUrl" refuses together with "DATABASE_URL".
+# camelCase "databaseUrl" refuses together with "DATABASE_URL". "pw" is a
+# token only — never a suffix — so "crew"/"flow" stay allowed. "keyfile" is
+# deliberately absent: it names a path to key material, not the secret
+# itself — the same reason KEYSTORE_DIR is a required allow. Deliberately
+# absent too: "authorization" — it is a suffix below, not a token, because
+# the live fleet flag ENABLE_AUTHORIZATION must stay allowed.
 _FIELD_DENY_TOKENS = frozenset(
     {
         "pass",
@@ -816,12 +821,26 @@ _FIELD_DENY_TOKENS = frozenset(
         "dsn",
         "url",
         "uri",
+        # plural / short forms (GAP-ENVDENY-2)
+        "secrets",
+        "passwords",
+        "tokens",
+        "apikeys",
+        "pw",
+        "bearer",
+        "cookie",
+        "cookies",
+        "privkey",
+        "seedphrase",
+        "salt",
     }
 )
 # A separator-less name still ends in a deny word: "pgpassword" ends in
 # "password". The suffix family deliberately omits
-# "pass"/"key"/"keys"/"auth"/"signing" — endings like monkey/pubkey/compass/
-# oauth/designing would false-positive.
+# "pass"/"key"/"keys"/"auth"/"signing"/"pw" — endings like monkey/pubkey/
+# compass/oauth/designing/crew/flow would false-positive. "authorization"
+# lives here (not in the tokens above) so bare AUTHORIZATION refuses while
+# the fleet flag ENABLE_AUTHORIZATION — two tokens — stays allowed.
 _FIELD_DENY_SUFFIXES = (
     "password",
     "passwd",
@@ -835,6 +854,18 @@ _FIELD_DENY_SUFFIXES = (
     "mnemonic",
     "seed",
     "dsn",
+    # plural / compound endings (GAP-ENVDENY-2) — single-token names only,
+    # so no two-token fleet name can trip them
+    "secrets",
+    "passwords",
+    "tokens",
+    "apikeys",
+    "cookie",
+    "cookies",
+    "bearer",
+    "authorization",
+    "privkey",
+    "seedphrase",
 )
 # Connection strings can embed credentials — refused on the separator form
 # (camel forms are already covered by the "url"/"uri" tokens above).
