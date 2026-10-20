@@ -93,6 +93,12 @@
     {"name": "GOSSIP_WEBSOCKET_URL", "op": "drop-if-matches", "match": "wss://hub.example.net", "scope": "carrying", "note": "stale line in one hub env file"},
     {"name": "NATIVE_CHAIN_ID", "op": "drop", "scope": "units:aitbc-coordinator-api", "hosts": ["hub"], "note": "stale old-chain pin; coordinator derives from CHAIN_ID when unset (#307)"},
 
+    {"name": "DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-agent-coordinator", "class": "public", "note": "bare getenv reader (config.py:137); stamps chain_id on task/escrow rows"},
+    {"name": "DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-gpu", "class": "public", "note": "no env_prefix on gpu Settings — bare DEFAULT_CHAIN_ID binds (config.py:29)"},
+    {"name": "POOLHUB_DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-pool-hub", "class": "public", "note": "env_prefix poolhub_ (settings.py:92)"},
+    {"name": "TRADING_DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-trading", "class": "public", "note": "env_prefix trading_ (config.py:42); offer sync chain"},
+    {"name": "GOVERNANCE_DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-governance", "class": "public", "note": "env_prefix governance_ (config.py:35); hub_chain response fields"},
+
     {"name": "GPU_RETIRED_IDS", "op": "keep", "scope": "carrying", "class": "carry", "note": "carry the live list"},
     {"name": "MARKET_ROLE", "op": "keep", "scope": "carrying", "class": "carry"},
     {"name": "DB_TYPE", "op": "keep", "scope": "carrying", "class": "carry", "note": "postgresql on node0/node2, sqlite on hub/hub1 — live drift, not a reset decision"},
