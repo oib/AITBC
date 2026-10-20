@@ -335,7 +335,18 @@ def check_bridge(ctx: Ctx) -> list[Result]:
     if ctx.skip_probe:
         rows.append(Result("bridge-paused-probe", "hub", "STOP", None, "POST lock → 503", "skipped (--skip-probe)"))
     else:
-        code, body = ctx.http_post(hub["rpc"].rstrip("/") + "/rpc/bridge/lock", {})
+        # Schema-minimal body: pydantic validation runs before the pause
+        # fence, but the fence still raises ahead of signature verification
+        # and all bridge work — the dummy signature is never checked, so the
+        # probe stays refuse-only and cannot lock anything even unpaused.
+        probe = {
+            "target_chain": "probe",
+            "sender": "0x0000000000000000000000000000000000000001",
+            "recipient": "0x0000000000000000000000000000000000000001",
+            "amount": 1,
+            "signature": "0x00",
+        }
+        code, body = ctx.http_post(hub["rpc"].rstrip("/") + "/rpc/bridge/lock", probe)
         detail = json.dumps(body)[:80]
         ok = code == 503
         rows.append(
