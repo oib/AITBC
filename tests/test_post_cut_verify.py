@@ -211,11 +211,13 @@ def test_bridge(tmp_path):
     c = ctx(tmp_path)
     rows = pcv.check_bridge(c)
     assert statuses(rows)["bridge-route"] is True
-    assert statuses(rows)["bridge-paused-probe"] is True
-    c2 = ctx(tmp_path, http_post=lambda u, b, timeout=5: (200, {}))
-    assert statuses(pcv.check_bridge(c2))["bridge-paused-probe"] is False
-    c3 = ctx(tmp_path, skip_probe=True)
-    assert statuses(pcv.check_bridge(c3))["bridge-paused-probe"] is None
+    # default is off — a POST on a live endpoint needs the operator's line
+    assert statuses(rows)["bridge-paused-probe"] is None
+    assert "operator's line" in [r for r in rows if r.check == "bridge-paused-probe"][0].found
+    c2 = ctx(tmp_path, probe=True)
+    assert statuses(pcv.check_bridge(c2))["bridge-paused-probe"] is True
+    c3 = ctx(tmp_path, probe=True, http_post=lambda u, b, timeout=5: (200, {}))
+    assert statuses(pcv.check_bridge(c3))["bridge-paused-probe"] is False
 
 
 def test_env_pins(tmp_path):
@@ -226,6 +228,25 @@ def test_env_pins(tmp_path):
     rows = pcv.check_env(c2, "hub", c2.manifest["hosts"]["hub"])
     assert rows[0].ok is False
     assert "CHAIN_ID" in rows[0].found
+
+
+def test_env_denied_name(tmp_path):
+    # the script must not be pointable at a non-allow-listed env name —
+    # a denied name is never grepped and marks the check failed
+    c = ctx(tmp_path)
+    m = c.manifest
+    m["expected"]["env"]["PROPOSER_KEY"] = "whatever"
+    called = []
+
+    def spy_sh(ssh, cmd):
+        called.append(cmd)
+        return host_sh_factory()(ssh, cmd)
+
+    c.host_sh = spy_sh
+    rows = pcv.check_env(c, "hub", m["hosts"]["hub"])
+    assert rows[0].ok is False
+    assert "PROPOSER_KEY" in rows[0].found
+    assert not any("PROPOSER_KEY" in cmd for cmd in called)
 
 
 def test_stray_dbs(tmp_path):

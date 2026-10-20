@@ -19,7 +19,8 @@ has no HTTP surface — env-file name reads (anchored ``^NAME=`` only, never
 values beyond the compared names), ``systemctl show``, ``journalctl``,
 ``sha256sum`` and read-only ``sqlite3``. Nothing here opens a wallet or
 keystore; the only write-shaped request is the bridge-lock probe, which
-the admission gate refuses before any envelope is signed.
+the admission gate refuses before any envelope is signed — it is off by
+default and runs only under ``--probe`` on the operator's line.
 
 Manifest (JSON):
 
@@ -52,7 +53,7 @@ scratch env files, scratch data dirs and the transient systemd-run units.
 
 Usage:
     post-cut-verify.py --manifest fleet.json [--window-start "2026-10-20 08:00 UTC"]
-                       [--skip-probe] [--output table|json]
+                       [--probe] [--output table|json]
 
 Exit codes: 0 = every check PASS/NOTE/SKIP, 1 = any FAIL, 2 = run error.
 """
@@ -74,6 +75,44 @@ GATE_NAMES = [f"STATE_TRANSITION_V{i}_HEIGHT" for i in range(2, 15)] + [
     "BRIDGE_LOCK_LEAF_V2_HEIGHT",
     "ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT",
 ]
+
+# env-pin names the manifest may ask this script to grep. Deliberately
+# excludes secret/key-bearing names (PROPOSER_KEY, VALIDATOR_KEYS,
+# DB_PASS, DATABASE_URL, *_API_KEY, wallet material): a manifest must not
+# be able to point the verifier at a name whose value would land in the
+# output. Extend only deliberately.
+ALLOWED_ENV_NAMES = frozenset(GATE_NAMES) | frozenset(
+    """
+    AITBC_CHAIN_ENV_FILE AITBC_CONFIG_DIR AITBC_DATA_DIR AITBC_DEFAULT_WALLET
+    AITBC_LOG_DIR AITBC_SYNC_IMPORT_URL AITBC_SYNC_SOURCE
+    ATTESTATION_POST_QUORUM_LINGER_SECONDS AUTO_SYNC_ENABLED AUTO_SYNC_THRESHOLD
+    BLOCK_PRODUCTION_CHAINS BLOCK_TIME_SECONDS BLOCKCHAIN_RPC_URL
+    BOND_BURN_ADDRESS BOND_SLASH_AUTHORITY_ADDRESS
+    BRIDGE_ADMIN_ADDRESS BRIDGE_ADMIN_ADDRESSES BRIDGE_BLOCK_SIGNATURE_REQUIRED
+    BRIDGE_FINALITY_BLOCKS BRIDGE_LOCK_LEAF_V2 BRIDGE_LOCK_REQUIRE_REPLAY_GUARD
+    BRIDGE_LOCKS_PAUSED BRIDGE_MAX_LOCK_AMOUNT BRIDGE_MIN_CONFIRMATIONS
+    BRIDGE_MULTISIG_ENABLED BRIDGE_MULTISIG_THRESHOLD BRIDGE_MULTISIG_TIMEOUT
+    BRIDGE_MULTISIG_VALIDATORS BRIDGE_RELAYER_ENABLED BRIDGE_RELEASE_AUTHORITY
+    BRIDGE_RELEASE_ENABLED BRIDGE_REQUIRE_MERKLE_PROOF BRIDGE_ROOT_SHADOW_CHECK
+    BRIDGE_SUPPORTED_CHAINS BRIDGE_VALIDATOR_SET_GRACE_PERIOD
+    BRIDGE_VERIFICATION_MODE CHAIN_ID CROSS_CHAIN_REQUIRE_REPLAY_GUARD
+    DB_TYPE DEFAULT_PEER_RPC_URL ENABLE_BLOCK_PRODUCTION ESCROW_FEE_RECIPIENT
+    ESCROW_RELEASE_ADDRESS GENESIS_ADDRESS GENESIS_WALLET_ADDRESS
+    GOSSIP_AUTH_ENABLED GOSSIP_BACKEND GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP
+    GOSSIP_MESH_PEER_URLS GOSSIP_PROTOCOL_VERSION GOSSIP_WEBSOCKET_URL
+    GPU_RETIRED_IDS HUB_BLOCKCHAIN_RPC_URL HUB_DISCOVERY_URL HUB_RPC_URL
+    MARKET_ROLE MAX_EMPTY_BLOCK_INTERVAL MEMPOOL_BACKEND
+    MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS MULTI_VALIDATOR_CONSENSUS_ENABLED
+    MULTI_VALIDATOR_MIN_ATTESTATIONS NATIVE_CHAIN_ID NETWORK_ID
+    P2P_BIND_HOST P2P_BIND_PORT P2P_NODE_ID PARALLEL_TX_VALIDATION
+    PBFT_CONSENSUS_ENABLED PBFT_VIEW_CHANGE_TIMEOUT POOL_HUB_URL PROPOSER_ID
+    RPC_BIND_HOST RPC_BIND_PORT SIDE_ROOT_SHADOW_ENABLED STATE_SYNC_MAX_GAP
+    STATE_TRANSITION_V2 SUBSCRIPTION_ENABLED SUBSCRIPTION_TRANSPORT
+    SUPPORTED_CHAINS SYNC_MANAGER_ENABLED SYNC_STATE_ROOT_VALIDATION_ENABLED
+    SYNC_VALIDATE_SIGNATURES TRUSTED_PROPOSERS VALIDATOR_SET WALLET_DIR
+    WALLET_PORT
+    """.split()
+)
 
 
 @dataclass
@@ -98,7 +137,7 @@ class Ctx:
     http_post: object = None
     host_sh: object = None
     window_start_epoch: int | None = None
-    skip_probe: bool = False
+    probe: bool = False
     heads: dict = field(default_factory=dict)
 
 
@@ -332,8 +371,20 @@ def check_bridge(ctx: Ctx) -> list[Result]:
     hub = ctx.manifest["hosts"].get("hub") or next(iter(ctx.manifest["hosts"].values()))
     code, _ = hget(ctx, hub, "/rpc/bridge/pending")
     rows.append(Result("bridge-route", "hub", "INVESTIGATE", code == 200, "200", str(code)))
-    if ctx.skip_probe:
-        rows.append(Result("bridge-paused-probe", "hub", "STOP", None, "POST lock → 503", "skipped (--skip-probe)"))
+    if not ctx.probe:
+        # Default pause evidence stays the env grep + the GET reads — the
+        # POST is a write-shaped request and runs only on the operator's
+        # line via --probe.
+        rows.append(
+            Result(
+                "bridge-paused-probe",
+                "hub",
+                "STOP",
+                None,
+                "POST lock → 503",
+                "not run (pass --probe with the operator's line)",
+            )
+        )
     else:
         # Schema-minimal body: pydantic validation runs before the pause
         # fence, but the fence still raises ahead of signature verification
@@ -418,8 +469,11 @@ def check_env(ctx: Ctx, name: str, h: dict) -> list[Result]:
     if not env_dir:
         return [Result("env-pins", name, "STOP", None, "env_dir in manifest", "absent")]
     exp_env: dict = ctx.manifest["expected"].get("env") or {}
-    bad, missing = [], []
+    bad, missing, denied = [], [], []
     for ename, want in exp_env.items():
+        if ename not in ALLOWED_ENV_NAMES:
+            denied.append(ename)
+            continue
         out = sh(ctx, h, f"grep -h '^{ename}=' {env_dir}/*.env 2>/dev/null")
         vals = [ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if "=" in ln]
         # Shell-sourced env files (rehearsal instance.env) quote values; the
@@ -431,7 +485,7 @@ def check_env(ctx: Ctx, name: str, h: dict) -> list[Result]:
         for v in lines:
             if v != str(want):
                 bad.append(f"{ename}={v} (want {want})")
-    ok = not bad and not missing
+    ok = not bad and not missing and not denied
     return [
         Result(
             "env-pins",
@@ -439,7 +493,7 @@ def check_env(ctx: Ctx, name: str, h: dict) -> list[Result]:
             "STOP",
             ok,
             f"{len(exp_env)} names pinned in every file holding them",
-            f"bad={bad or 'none'} missing={missing or 'none'}",
+            f"bad={bad or 'none'} missing={missing or 'none'} denied={denied or 'none'}",
         )
     ]
 
@@ -639,7 +693,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--window-start", default=None, help="recorded cut start; enables fresh-timestamp checks")
     ap.add_argument("--window-start-epoch", type=int, default=None)
-    ap.add_argument("--skip-probe", action="store_true", help="skip the POST /rpc/bridge/lock refuse-probe")
+    ap.add_argument(
+        "--probe",
+        action="store_true",
+        help="run the POST /rpc/bridge/lock refuse-probe — a write-shaped request that needs the operator's line; off by default",
+    )
     ap.add_argument("--output", choices=["table", "json"], default="table")
     args = ap.parse_args(argv)
 
@@ -658,7 +716,7 @@ def main(argv: list[str] | None = None) -> int:
         http_post=real_http_post,
         host_sh=real_host_sh,
         window_start_epoch=epoch,
-        skip_probe=args.skip_probe,
+        probe=args.probe,
     )
     rows = run(ctx)
 
