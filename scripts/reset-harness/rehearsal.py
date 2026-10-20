@@ -1336,6 +1336,50 @@ ATTEST_TOPICS = [
 # scratch redis port; loopback only, bound by the bc2-gossip-filter unit.
 FILTER_PORT_BASE = 18600
 
+# Scratch redis (bc2-redis) is a SHARED bus: every node publishes and
+# subscribes every topic on it, so the ws mesh is only the redundant leg.
+# A real per-topic partition must cut both legs — the filter port for the
+# ws conns AND a redis ACL allowlist on the victim's own broadcast user
+# for the bus leg. The user exists from bring-up with full perms; arming
+# narrows its channel list and CLIENT KILL forces resubscription (existing
+# subscriptions survive an ACL change otherwise).
+SCRATCH_REDIS_PORT = 16379
+VICTIM_REDIS_USER = "bc2victim"
+VICTIM_REDIS_URL = f"redis://{VICTIM_REDIS_USER}:bc2fault@127.0.0.1:{SCRATCH_REDIS_PORT}"
+# Every gossip topic family a node uses (poa/remote_attestation/pbft/tx/
+# market gossip) — the cut drops exactly one family per fault.
+ALL_CHANNEL_FAMILIES = ["blocks.*", "consensus.*", "transactions.*", "offers.*", "pbft.*", "status*", "mempool*"]
+
+
+def _redis(*args: str) -> str:
+    """redis-cli against the scratch broker — never a fleet redis."""
+    out = subprocess.run(["redis-cli", "-p", str(SCRATCH_REDIS_PORT), *args], capture_output=True, text=True, timeout=15)
+    if out.returncode != 0:
+        raise _fail(f"redis-cli {' '.join(args[:2])} failed: {out.stderr.strip() or out.stdout.strip()}")
+    return out.stdout.strip()
+
+
+def _acl_setup() -> None:
+    """Create the victim broadcast user with full channel access — the
+    transparent state the fleet is rewired under."""
+    _redis("ACL", "SETUSER", VICTIM_REDIS_USER, "on", ">bc2fault", "~*", "&*", "+@all")
+
+
+def _acl_narrow(keep: list[str]) -> None:
+    """Arm the bus-leg cut: restrict the victim to ``keep`` channel
+    patterns, then drop its conns so resubscription runs under the new
+    allowlist."""
+    _redis("ACL", "SETUSER", VICTIM_REDIS_USER, "resetchannels", *[f"&{pat}" for pat in keep])
+    _redis("CLIENT", "KILL", "USER", VICTIM_REDIS_USER)
+
+
+def _acl_restore() -> None:
+    try:
+        _redis("ACL", "SETUSER", VICTIM_REDIS_USER, "resetchannels", "&*")
+        _redis("CLIENT", "KILL", "USER", VICTIM_REDIS_USER)
+    except Exception:
+        pass
+
 
 def _mesh_url(port: int) -> str:
     return f"ws://127.0.0.1:{port}/rpc/gossip/ws"
@@ -1379,29 +1423,42 @@ def _stop_filter() -> None:
     subprocess.run(["systemctl", "stop", "bc2-gossip-filter"], capture_output=True, timeout=60)
 
 
-def _partition_envs(root: Path, victim: Instance) -> tuple[list[dict], dict[int, str]]:
+def _partition_envs(root: Path, victim: Instance, trigger: Path) -> tuple[list[dict], dict[int, str]]:
     """Asymmetric partition for the fork phase: ``victim`` keeps its
-    attestation links (consensus.attest_* conns pass the filter) but loses
-    the block plane — ``blocks.<chain>`` conns are refused at connect time
-    on every hop, and every HTTP probe/pull routed through a filter port
-    fails (peers derive http://h:p from the mesh url — proposal_freshness).
+    attestation links (consensus.attest_* conns pass the filter AND the
+    redis allowlist) but loses the block plane on BOTH legs — the filter
+    refuses ``blocks.<chain>`` conns once armed and the victim's broadcast
+    ACL drops the family — while every HTTP probe/pull routed through a
+    filter port fails (peers derive http://h:p from the mesh url —
+    proposal_freshness).
 
     Ports: one shared inbound port for every peer's conns TO the victim,
     one outbound port per peer for the victim's conns out. The victim's
     sync/hub http urls point at its i0 outbound port so its self-heal pull
-    dies too. Returns (filter specs, {instance idx: rewritten env text})."""
+    dies too, and its GOSSIP_BROADCAST_URL carries the dedicated ACL user.
+    Every spec shares ``trigger`` — transparent until the phase writes it.
+    Returns (filter specs, {instance idx: rewritten env text})."""
     insts = instances(root)
     peers = [i for i in insts if i.idx != victim.idx]
     inbound = FILTER_PORT_BASE
     outbound = {p.idx: FILTER_PORT_BASE + 1 + n for n, p in enumerate(peers)}
-    specs = [{"port": inbound, "upstream": _mesh_url(victim.rpc_port), "deny_topics": [BLOCKS_TOPIC]}] + [
-        {"port": outbound[p.idx], "upstream": _mesh_url(p.rpc_port), "deny_topics": [BLOCKS_TOPIC]} for p in peers
+    specs = [
+        {"port": inbound, "upstream": _mesh_url(victim.rpc_port), "deny_topics": [BLOCKS_TOPIC], "trigger": str(trigger)}
+    ] + [
+        {
+            "port": outbound[p.idx],
+            "upstream": _mesh_url(p.rpc_port),
+            "deny_topics": [BLOCKS_TOPIC],
+            "trigger": str(trigger),
+        }
+        for p in peers
     ]
     envs: dict[int, str] = {}
     for inst in insts:
         text = (inst.dir / "instance.env").read_text()
         if inst.idx == victim.idx:
             text = _env_set(text, "GOSSIP_MESH_PEER_URLS", ",".join(_mesh_url(outbound[p.idx]) for p in peers))
+            text = _env_set(text, "GOSSIP_BROADCAST_URL", VICTIM_REDIS_URL)
             dead = f"http://127.0.0.1:{outbound[peers[0].idx]}"
             for name in (
                 "DEFAULT_PEER_RPC_URL",
@@ -1441,51 +1498,88 @@ def _attesters_of(blk: dict | None) -> set[str]:
     return {str(a.get("validator", "")).lower() for a in (meta.get("attestations") or []) if isinstance(a, dict)}
 
 
+def _rotation_slot(inst: Instance, vaddr: str, n_validators: int = 4) -> int | None:
+    """The ``height % n`` residue the victim owns in the proposer schedule
+    — read off recent seals instead of assuming an address sort order.
+    Looks back four full rotations: under degradation the victim's own
+    slots are fallback-covered, so its last REAL seal is further back."""
+    head = _head(inst) or 0
+    for h in range(head, max(0, head - 40), -1):
+        blk = _block(inst, h)
+        if blk and _proposer_of(blk).lower() == vaddr.lower():
+            return h % n_validators
+    return None
+
+
 def phase_fork(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
     """M3 — asymmetric partition: attestation flows, the block plane dies;
     a same-height fork forms, then heals deterministically.
 
     The retired production recipe (route blackhole + redis ACL + nginx
-    444) is rebuilt for the scratch topology: the filter refuses
-    ``blocks.<chain>`` websockets at connect time and errors every
-    non-websocket path — which also kills the freshness-probe and
-    block-pull endpoints peers derive from the mesh URL. The victim keeps
-    ``consensus.attest_*`` links, so it collects its two signatures and
-    seals a block the majority never receives; the signers' attester lock
-    holds ~one proposer round, then the fallback owner seals the rival at
-    the same height — the post-PONR decision tree's M3 signature (equal
-    height, different hash)."""
+    444) maps onto the scratch topology: the ws filter refuses
+    ``blocks.<chain>`` conns and errors every non-websocket path (killing
+    the freshness probes and block pulls peers derive from mesh URLs),
+    and a redis ACL allowlist on the victim's broadcast user drops the
+    shared-bus leg — redis ACL is exactly what the retired recipe used.
+    The victim keeps ``consensus.attest_*``, so it collects its two
+    signatures and seals a block the majority never receives; the
+    signers' attester lock holds ~one proposer round, then the fallback
+    owner seals the rival at the same height — the M3 signature.
+
+    Timing matters: the v9 attestation check refuses a proposal whose
+    parent is not the attester's tip (``not_at_parent``), so the victim
+    must own the NEXT slot when the cut lands. The filter + ACL wiring is
+    therefore laid down transparently first and armed by a trigger file
+    the instant the pre-contested block seals."""
     insts = instances(root)
     victim, hub = insts[3], insts[0]
     keys = _load_keys(root)
     vaddr = keys["proposers"][3]["address"]
-    specs, envs = _partition_envs(root, victim)
+    keep = [c for c in ALL_CHANNEL_FAMILIES if not c.startswith("blocks.")]
+    trigger = root / "filter.trigger"
+    specs, envs = _partition_envs(root, victim, trigger)
     originals = {inst.idx: (inst.dir / "instance.env").read_text() for inst in insts}
-    _spawn_filter(root, python, specs)
     contested: int | None = None
     try:
+        _acl_setup()
+        _spawn_filter(root, python, specs)
         for inst in insts:
             (inst.dir / "instance.env").write_text(envs[inst.idx])
             _restart_node(inst, python)
-        print(f"[*] partition up: {victim.name} keeps attest topics, loses blocks.* + every http pull")
-        baseline = _head(victim) or 0
-        # The victim's head can now only advance on its own seals — its
-        # outbound blocks.* conns are refused and its pulls dead. The first
-        # post-partition seal by the victim is the contested block.
+        print(f"[*] filter+ACL wired transparent: {victim.name} attest topics live, blocks still passing")
+        vslot = _rotation_slot(hub, vaddr)
+        if vslot is None:
+            raise _fail(f"{victim.name} has sealed no recent block — cannot derive its schedule slot")
+        # Arm the instant BOTH the majority and the victim hold h-1 whose
+        # next block belongs to the victim — its proposal then carries the
+        # attester's tip as parent and wins the signatures. Worst case is
+        # a full rotation (~4 round windows) plus seal time.
+        contested = None
+        deadline = time.time() + max(timeout, 480)
+        while time.time() < deadline:
+            _check_host_budget(max_load, min_avail_mib)
+            hh, hv = _head(hub), _head(victim)
+            if hh is not None and hv == hh and (hh + 1) % 4 == vslot:
+                contested = hh + 1
+                break
+            time.sleep(1)
+        if contested is None:
+            raise _fail(f"victim slot (h%4=={vslot}) never came up within the window")
+        trigger.write_text("armed\n")
+        _acl_narrow(keep)
+        print(f"[*] partition armed at head {hh}: {victim.name} keeps attest topics, loses blocks.* + every pull")
+        # The victim's private seal must land at the contested height —
+        # a miss here means the round-0 race was lost, no retry exists.
         vb = None
-        deadline = time.time() + max(timeout, 300)
+        deadline = time.time() + 150
         while time.time() < deadline and vb is None:
             _check_host_budget(max_load, min_avail_mib)
-            hv = _head(victim)
-            if hv is not None and hv > baseline:
-                for h in range(baseline + 1, hv + 1):
-                    cand = _block(victim, h)
-                    if _proposer_of(cand).lower() == vaddr.lower():
-                        vb, contested = cand, h
-                        break
-            time.sleep(3)
-        if vb is None or contested is None:
-            raise _fail(f"{victim.name} sealed no private block within the window — fork did not form")
+            cand = _block(victim, contested)
+            if cand and _proposer_of(cand).lower() == vaddr.lower():
+                vb = cand
+            time.sleep(2)
+        if vb is None:
+            raise _fail(f"{victim.name} missed its contested slot at h={contested} — fork did not form")
         print(f"[+] {victim.name} sealed its private block at h={contested} ({_hash_of(vb)[:18]}…)")
         # The majority waits out the attester lock, then the fallback owner
         # seals the rival at the contested height (~1-2 proposer rounds).
@@ -1508,6 +1602,8 @@ def phase_fork(root: Path, python: str, timeout: int, max_load: float, min_avail
             f" vs bc2-i0 {_hash_of(rival)[:18]}… — M3 signature"
         )
     finally:
+        _acl_restore()
+        trigger.unlink(missing_ok=True)
         for inst in insts:
             (inst.dir / "instance.env").write_text(originals[inst.idx])
             _restart_node(inst, python)
@@ -1528,25 +1624,46 @@ def phase_fork(root: Path, python: str, timeout: int, max_load: float, min_avail
     raise _fail(f"{victim.name} did not converge on the majority branch within {timeout}s")
 
 
-def _degrade_envs(root: Path, victim: Instance) -> tuple[list[dict], str]:
-    """M6 attestation-plane degradation: reroute the victim's OUTBOUND mesh
-    links through filter ports refusing ``consensus.attest_*`` conns.
-    Blocks keep arriving (peers push them on their own conns) and every
-    HTTP pull stays live — only the victim's attestation plane is cut, in
-    both directions: its attest_request publishes die on the refused conn
-    and its attest_response publishes never land."""
+def _degrade_envs(root: Path, victim: Instance, trigger: Path) -> tuple[list[dict], dict[int, str]]:
+    """M6 attestation-plane degradation: the victim loses
+    ``consensus.attest_*`` on both legs while the block plane stays live.
+    A mesh ws conn carries a topic in BOTH directions, so the cut needs
+    the victim's outbound conns AND the peers' inbound-to-victim conns
+    routed through attest-refusing filter ports, plus the victim's
+    broadcast ACL narrowed minus ``consensus.*``. Blocks, pulls and probes
+    are untouched — the victim stays synced, it just goes attest-deaf and
+    attest-mute."""
     insts = instances(root)
     peers = [i for i in insts if i.idx != victim.idx]
+    inbound = FILTER_PORT_BASE
+    outbound = {p.idx: FILTER_PORT_BASE + 1 + n for n, p in enumerate(peers)}
     specs = [
-        {"port": FILTER_PORT_BASE + n, "upstream": _mesh_url(p.rpc_port), "deny_topics": ATTEST_TOPICS}
-        for n, p in enumerate(peers)
+        {"port": inbound, "upstream": _mesh_url(victim.rpc_port), "deny_topics": ATTEST_TOPICS, "trigger": str(trigger)}
+    ] + [
+        {
+            "port": outbound[p.idx],
+            "upstream": _mesh_url(p.rpc_port),
+            "deny_topics": ATTEST_TOPICS,
+            "trigger": str(trigger),
+        }
+        for p in peers
     ]
-    env = _env_set(
-        (victim.dir / "instance.env").read_text(),
-        "GOSSIP_MESH_PEER_URLS",
-        ",".join(_mesh_url(FILTER_PORT_BASE + n) for n in range(len(peers))),
-    )
-    return specs, env
+    envs: dict[int, str] = {}
+    for inst in insts:
+        text = (inst.dir / "instance.env").read_text()
+        if inst.idx == victim.idx:
+            text = _env_set(text, "GOSSIP_MESH_PEER_URLS", ",".join(_mesh_url(outbound[p.idx]) for p in peers))
+            text = _env_set(text, "GOSSIP_BROADCAST_URL", VICTIM_REDIS_URL)
+        else:
+            text = _env_set(
+                text,
+                "GOSSIP_MESH_PEER_URLS",
+                ",".join(
+                    _mesh_url(inbound) if p.idx == victim.idx else _mesh_url(p.rpc_port) for p in insts if p.idx != inst.idx
+                ),
+            )
+        envs[inst.idx] = text
+    return specs, envs
 
 
 def _attested_since(inst: Instance, since_height: int, vaddr: str) -> bool:
@@ -1580,46 +1697,106 @@ def phase_gossip(root: Path, python: str, timeout: int, max_load: float, min_ava
     keys = _load_keys(root)
     vaddr = keys["proposers"][3]["address"].lower()
     env_file = victim.dir / "instance.env"
-    original = env_file.read_text()
+    trigger = root / "gossip.trigger"
+    originals: dict[int, str] = {}
     if variant == "bind":
         # The loopback trap: peers dial 127.0.0.1:<rpc_port> but the
         # rebind moves the listener to 127.0.0.2 — every inbound conn
-        # (gossip ws, http probes/pulls) is refused, outbound untouched.
-        env_file.write_text(_env_set(original, "RPC_BIND_HOST", "127.0.0.2"))
+        # (gossip ws, http probes/pulls) is refused. Inbound is only ONE
+        # of three attestation paths though: the victim's outbound ws
+        # conns publish straight into peer brokers and pull responses
+        # back, and the shared redis carries attest regardless — so the
+        # bind alone degrades nothing. The trap is completed by routing
+        # the victim's outbound through attest-refusing filter ports and
+        # its broadcast leg through the ACL-narrowed user.
+        original = env_file.read_text()
+        peers = [i for i in insts if i.idx != victim.idx]
+        outbound = {p.idx: FILTER_PORT_BASE + 1 + n for n, p in enumerate(peers)}
+        specs = [{"port": outbound[p.idx], "upstream": _mesh_url(p.rpc_port), "deny_topics": ATTEST_TOPICS} for p in peers]
+        keep = [c for c in ALL_CHANNEL_FAMILIES if not c.startswith("consensus.")]
+        _acl_setup()
+        _spawn_filter(root, python, specs)
+        text = _env_set(original, "RPC_BIND_HOST", "127.0.0.2")
+        text = _env_set(text, "GOSSIP_MESH_PEER_URLS", ",".join(_mesh_url(outbound[p.idx]) for p in peers))
+        text = _env_set(text, "GOSSIP_BROADCAST_URL", VICTIM_REDIS_URL)
+        env_file.write_text(text)
+        _acl_narrow(keep)
+        _restart_node(victim, python)
         subprocess.run(["systemctl", "stop", f"{victim.name}-rpc"], capture_output=True, timeout=60)
         _spawn_rpc(victim, python)
-        print(f"[*] {victim.name} rpc rebound to 127.0.0.2 — inbound gossip+http dead, node unit untouched")
+        print(f"[*] {victim.name} rpc rebound to 127.0.0.2 + outbound attest cut — inbound dead, unit untouched")
     else:
-        specs, env = _degrade_envs(root, victim)
+        # Rewire AND arm before restarting: ws conns carry a topic in both
+        # directions, so peers' links TO the victim must route through the
+        # filter too, and the victim's broadcast url carries the ACL user.
+        # Arming before the restarts means every attest conn is refused at
+        # connect time — a post-restart arm leaves a leak window where the
+        # victim can seal a slot on still-transparent links. The running
+        # instances are unaffected until their own restart (the ACL binds
+        # the victim user, the filter only gates its own ports).
+        keep = [c for c in ALL_CHANNEL_FAMILIES if not c.startswith("consensus.")]
+        specs, envs = _degrade_envs(root, victim, trigger)
+        originals = {inst.idx: (inst.dir / "instance.env").read_text() for inst in insts}
+        _acl_setup()
         _spawn_filter(root, python, specs)
-        env_file.write_text(env)
-        _restart_node(victim, python)
-        print(f"[*] {victim.name} outbound mesh rerouted — attest topics refused, blocks/http pass")
+        for inst in insts:
+            (inst.dir / "instance.env").write_text(envs[inst.idx])
+        trigger.write_text("armed\n")
+        _acl_narrow(keep)
+        # Stop ALL nodes before any start — restarting piecemeal leaves a
+        # residual direct conn to a real port open until that peer's own
+        # restart lands, and one leaked attest exchange in the gap can win
+        # the victim a seal. With everything down the cut is airtight.
+        for inst in insts:
+            _stop_instance(inst)
+        for inst in insts:
+            _spawn(inst, python)
+        print(f"[*] {victim.name} attest plane cut on filter+bus — the degradation is gossip-plane, not a stopped unit")
     baseline_h = _head(hub) or 0
     log_len = len(_node_log(victim))
     try:
-        # Drift window (~2 empty-block intervals): the fleet must keep
-        # sealing (3-of-4 still quorate) while the victim produces nothing
-        # and logs its zero-attestation refusals.
-        deadline = time.time() + 135
+        # Drift window — one full rotation worst case (~4 round windows).
+        # The deterministic M6 signature lands on-chain: a sealed block at
+        # the victim's own schedule slot whose proposer is NOT the victim —
+        # its slot went silent and a fallback owner covered it. The victim
+        # should also log its zero-attestation seal refusal when its slot
+        # arrives (~15s attestation timeout).
+        vslot = None
+        deadline = time.time() + 90
+        while time.time() < deadline and vslot is None:
+            # right after the mass restart the hub rpc can still be coming
+            # up — _block/_head return None and the scan finds nothing
+            vslot = _rotation_slot(hub, vaddr)
+            time.sleep(3)
+        if vslot is None:
+            raise _fail(f"{victim.name} has sealed no recent block — cannot derive its schedule slot")
+        covered = False
         refusal = False
-        while time.time() < deadline:
+        deadline = time.time() + max(timeout, 360)
+        while time.time() < deadline and not (covered and refusal):
             _check_host_budget(max_load, min_avail_mib)
+            hh = _head(hub) or 0
+            for h in range(baseline_h + 1, hh + 1):
+                blk = _block(hub, h)
+                if blk and h % 4 == vslot and _proposer_of(blk).lower() != vaddr:
+                    covered = True
             if STALL_MARK.search(_node_log(victim)[log_len:]):
                 refusal = True
-            time.sleep(5)
+            time.sleep(3)
         hh = _head(hub)
         if hh is None or hh <= baseline_h:
             raise _fail("fleet head froze — degradation overshot into a real stall")
+        if not covered:
+            raise _fail(f"no fallback seal covered {victim.name}'s slot (h%4=={vslot}) — degradation did not take")
         if not refusal:
-            raise _fail(f"{victim.name} logged no seal refusal — the attestation cut did not take")
+            raise _fail(f"{victim.name} logged no seal refusal at its slot — the attestation cut did not take")
         new_blocks = [blk for h in range(baseline_h + 1, hh + 1) if (blk := _block(hub, h)) is not None]
         seals = [_proposer_of(blk).lower() for blk in new_blocks]
         if vaddr in seals:
             raise _fail(f"{victim.name} sealed a block while attest-deaf — degradation leaked")
         print(
-            f"[*] drift proven: fleet advanced {baseline_h} -> {hh} on 3-of-4 while {victim.name}"
-            " collected 0 attestations — the M6 slide toward M2"
+            f"[*] drift proven: fleet advanced {baseline_h} -> {hh} on 3-of-4; {victim.name}'s slot"
+            f" (h%4=={vslot}) was covered by a fallback and its attestation never landed"
         )
         # What the docs name (AttestationArrivalDegraded /
         # AttestationValidatorSilent) has no scratch prometheus — the
@@ -1628,15 +1805,22 @@ def phase_gossip(root: Path, python: str, timeout: int, max_load: float, min_ava
         silent = all(vaddr not in _attesters_of(blk) for blk in new_blocks)
         print(
             "[*] M6 observability: no alert tier on scratch — evidence is the refusal mark"
-            f" + victim absent from all new attestations ({silent})"
+            f" + fallback-covered slot + victim absent from all new attestations ({silent})"
         )
     finally:
-        env_file.write_text(original)
         if variant == "bind":
+            _acl_restore()
+            env_file.write_text(original)
+            _restart_node(victim, python)
             subprocess.run(["systemctl", "stop", f"{victim.name}-rpc"], capture_output=True, timeout=60)
             _spawn_rpc(victim, python)
+            _stop_filter()
         else:
-            _restart_node(victim, python)
+            _acl_restore()
+            trigger.unlink(missing_ok=True)
+            for inst in insts:
+                (inst.dir / "instance.env").write_text(originals[inst.idx])
+                _restart_node(inst, python)
             _stop_filter()
     # Recovery: the victim's attestation must land on a new seal — its
     # responses flow again on the next request, so the very next block
@@ -1757,6 +1941,13 @@ def phase_golden(root: Path, python: str) -> None:
 def phase_teardown(root: Path) -> None:
     for inst in instances(root):
         _stop_instance(inst)
+    for t in (root / "filter.trigger", root / "gossip.trigger"):
+        t.unlink(missing_ok=True)
+    subprocess.run(
+        ["redis-cli", "-p", str(SCRATCH_REDIS_PORT), "ACL", "DELUSER", VICTIM_REDIS_USER],
+        capture_output=True,
+        timeout=15,
+    )
     subprocess.run(["systemctl", "stop", "bc2-redis"], capture_output=True, timeout=60)
     _stop_filter()
     for inst in instances(root):
