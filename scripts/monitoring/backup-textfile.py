@@ -11,6 +11,14 @@ scrapable:
                                                      YYYYMMDD_HHMMSS dir
     aitbc_backup_last_generation_bytes               summed file sizes in it
     aitbc_backup_generations_count                   name-matched dirs held
+    aitbc_backup_last_good_generation_timestamp_seconds
+                                                     mtime of the newest
+                                                     generation holding a
+                                                     valid dump of the
+                                                     CURRENT chain id (0
+                                                     when none — the
+                                                     "pruning skipped"
+                                                     state made visible)
     aitbc_backup_last_run_success                    1 when the last
                                                      aitbc-backup.service
                                                      run ended Result=success
@@ -25,9 +33,15 @@ sees blindness rather than stale health. Run by aitbc-backup-metrics.timer;
 stdlib only.
 
 Environment:
-    AITBC_BACKUP_BASE    default /var/backups/aitbc
-    AITBC_BACKUP_UNIT    systemd unit probed for Result (aitbc-backup.service)
-    AITBC_TEXTFILE_DIR   default /var/lib/prometheus/node-exporter
+    AITBC_BACKUP_BASE         default /var/backups/aitbc
+    AITBC_BACKUP_UNIT         systemd unit probed for Result (aitbc-backup.service)
+    AITBC_TEXTFILE_DIR        default /var/lib/prometheus/node-exporter
+    AITBC_BACKUP_CHAIN_ID     chain id for the good-generation check
+                              (falls back to CHAIN_ID, then the CHAIN_ID
+                              line of AITBC_BLOCKCHAIN_ENV)
+    AITBC_BLOCKCHAIN_ENV      default /etc/aitbc/blockchain.env
+    AITBC_BACKUP_GOOD_MIN_BYTES  default 4096 — same floor the backup's
+                              _is_good_snapshot applies
 """
 
 from __future__ import annotations
@@ -58,6 +72,45 @@ def scan(base: Path) -> tuple[int, int, int]:
     return int(newest.stat().st_mtime), total, len(gens)
 
 
+def _resolve_chain_id(blockchain_env: Path) -> str | None:
+    """AITBC_BACKUP_CHAIN_ID → CHAIN_ID → the CHAIN_ID line of blockchain.env."""
+    env_id = os.environ.get("AITBC_BACKUP_CHAIN_ID") or os.environ.get("CHAIN_ID")
+    if env_id:
+        return env_id.strip()
+    try:
+        for line in blockchain_env.read_text().splitlines():
+            if line.startswith("CHAIN_ID="):
+                return line.split("=", 1)[1].strip() or None
+    except OSError:
+        pass
+    return None
+
+
+def _is_good_generation(gen: Path, artifact: str, min_bytes: int) -> bool:
+    """The shell's _is_good_snapshot, ported: exact artifact name (excluding
+    pre-migration snapshots), size floor, gzip -t."""
+    f = gen / artifact
+    if not f.is_file() or "pre-0x-migration" in f.name:
+        return False
+    if f.stat().st_size < min_bytes:
+        return False
+    try:
+        return subprocess.run(["gzip", "-t", str(f)], capture_output=True, timeout=60).returncode == 0
+    except Exception:  # noqa: BLE001 - collect probe — an unverifiable dump is not good
+        return False
+
+
+def last_good_generation(base: Path, chain_id: str, min_bytes: int) -> int:
+    """Mtime of the newest generation holding a good current-chain dump, 0
+    when none — that state is what makes 'pruning skipped entirely' visible."""
+    gens = [d for d in base.iterdir() if d.is_dir() and GENERATION_RE.match(d.name)]
+    artifact = f"chain_{chain_id}_chain.db.gz"
+    for gen in sorted(gens, key=lambda d: d.name, reverse=True):
+        if _is_good_generation(gen, artifact, min_bytes):
+            return int(gen.stat().st_mtime)
+    return 0
+
+
 def last_run_success(unit: str) -> int:
     out = subprocess.run(
         ["systemctl", "show", unit, "-p", "Result", "--value"],
@@ -77,6 +130,7 @@ def render(
     run_ok: int | None,
     now: float,
     failed: list[str],
+    good_ts: int | None = None,
 ) -> str:
     lines = [
         "# HELP aitbc_backup_last_generation_timestamp_seconds Mtime of the newest backup generation dir.",
@@ -97,12 +151,18 @@ def render(
     if gen_count is not None:
         lines.append(f"aitbc_backup_generations_count {gen_count}")
     lines += [
+        "# HELP aitbc_backup_last_good_generation_timestamp_seconds Mtime of the newest generation holding a valid dump of the current chain id (0 when none).",
+        "# TYPE aitbc_backup_last_good_generation_timestamp_seconds gauge",
+    ]
+    if good_ts is not None:
+        lines.append(f"aitbc_backup_last_good_generation_timestamp_seconds {good_ts}")
+    lines += [
         "# HELP aitbc_backup_last_run_success 1 when the last aitbc-backup.service run ended Result=success.",
         "# TYPE aitbc_backup_last_run_success gauge",
     ]
     if run_ok is not None:
         lines.append(f"aitbc_backup_last_run_success {run_ok}")
-    for source in ("backups_dir", "unit_result"):
+    for source in ("backups_dir", "unit_result", "good_chain"):
         lines += [f'aitbc_backup_scrape_success{{source="{_label(source)}"}} {0 if source in failed else 1}']
     lines += [
         "# HELP aitbc_backup_exporter_timestamp_seconds Unix time the last exporter run finished.",
@@ -140,9 +200,14 @@ def main() -> int:
     base = Path(os.environ.get("AITBC_BACKUP_BASE", "/var/backups/aitbc"))
     unit = os.environ.get("AITBC_BACKUP_UNIT", "aitbc-backup.service")
     directory = os.environ.get("AITBC_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
+    blockchain_env = Path(os.environ.get("AITBC_BLOCKCHAIN_ENV", "/etc/aitbc/blockchain.env"))
+    try:
+        min_bytes = int(os.environ.get("AITBC_BACKUP_GOOD_MIN_BYTES", "4096"))
+    except ValueError:
+        min_bytes = 4096
     now = time.time()
 
-    newest_ts = newest_bytes = gen_count = run_ok = None
+    newest_ts = newest_bytes = gen_count = run_ok = good_ts = None
     failed: list[str] = []
     try:
         newest_ts, newest_bytes, gen_count = scan(base)
@@ -152,9 +217,21 @@ def main() -> int:
         run_ok = last_run_success(unit)
     except Exception:  # noqa: BLE001 - collect probe — an unreadable unit result counts as failed
         failed.append("unit_result")
+    chain_id = _resolve_chain_id(blockchain_env)
+    if chain_id is None:
+        # Blindness beats silence: with no resolvable chain id there is no
+        # good-artifact name to check — mark the source failed and emit 0.
+        failed.append("good_chain")
+        good_ts = 0
+    else:
+        try:
+            good_ts = last_good_generation(base, chain_id, min_bytes)
+        except Exception:  # noqa: BLE001 - collect probe — an unreadable source counts as failed
+            failed.append("good_chain")
+            good_ts = 0
 
     try:
-        write_atomic(directory, render(newest_ts, newest_bytes, gen_count, run_ok, now, failed))
+        write_atomic(directory, render(newest_ts, newest_bytes, gen_count, run_ok, now, failed, good_ts))
     except OSError:
         try:
             write_atomic(directory, _failure_render(now))

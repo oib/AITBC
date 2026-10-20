@@ -22,10 +22,21 @@ RETENTION_DAYS="${RETENTION_DAYS:-30}"
 # chain_ait-hub_chain.db.gz (~4.6 KB) that matches it and clears any small
 # floor, and broken dumps of the real name down to ~130 bytes exist, so the
 # floor catches stubs/broken dumps while the name selects the right file.
-# Other islands must set the glob to their own dump name.
+# The name derives from the chain id rather than pinning one island's id:
+# an explicit BACKUP_GOOD_CHAIN_GLOB (e.g. /etc/aitbc/aitbc-backup.env)
+# wins, then CHAIN_ID from the service environment, then the CHAIN_ID line
+# of BLOCKCHAIN_ENV — the same env file the PostgreSQL section already
+# reads. An id that resolves nowhere keeps the historical ait-hub literal,
+# so a host without blockchain.env matches its ait-hub dumps exactly as
+# before. Other islands may still set the glob outright.
+BLOCKCHAIN_ENV="${BLOCKCHAIN_ENV:-/etc/aitbc/blockchain.env}"
+BACKUP_CHAIN_ID="${CHAIN_ID:-}"
+if [ -z "$BACKUP_CHAIN_ID" ] && [ -f "$BLOCKCHAIN_ENV" ]; then
+    BACKUP_CHAIN_ID=$(grep '^CHAIN_ID=' "$BLOCKCHAIN_ENV" | tail -1 | cut -d= -f2-)
+fi
 BACKUP_KEEP_MIN_GOOD="${BACKUP_KEEP_MIN_GOOD:-7}"
 BACKUP_GOOD_REQUIRE_GZIP_TEST="${BACKUP_GOOD_REQUIRE_GZIP_TEST:-yes}"
-BACKUP_GOOD_CHAIN_GLOB="${BACKUP_GOOD_CHAIN_GLOB:-chain_ait-hub.aitbc.bubuit.net_chain.db.gz}"
+BACKUP_GOOD_CHAIN_GLOB="${BACKUP_GOOD_CHAIN_GLOB:-chain_${BACKUP_CHAIN_ID:-ait-hub.aitbc.bubuit.net}_chain.db.gz}"
 BACKUP_GOOD_MIN_BYTES="${BACKUP_GOOD_MIN_BYTES:-4096}"
 # BACKUP_PRUNE_DRYRUN=yes: run the full prune decision loop but log
 # "would remove" instead of deleting. First deploy should run this once so the
@@ -99,7 +110,7 @@ for pg_db in "${PG_DBS[@]}"; do
     # writes to it. Dumping it is pointless, and the stale role password made the
     # attempt fail nightly. Skip unless the node is actually pointed at postgres.
     if [ "$pg_db" = "aitbc_mempool" ]; then
-        pg_env="/etc/aitbc/blockchain.env"
+        pg_env="$BLOCKCHAIN_ENV"
         mempool_url=$(grep "^MEMPOOL_DB_URL=" "$pg_env" 2>/dev/null | cut -d= -f2- || true)
         case "$mempool_url" in
             postgres*) ;;
@@ -159,7 +170,10 @@ done
 CHAIN_DB_DIR="${CHAIN_DB_DIR:-/var/lib/aitbc/data}"
 if [ -d "$CHAIN_DB_DIR" ]; then
     log "Backing up blockchain SQLite databases..."
-    find "$CHAIN_DB_DIR" -name "*.db" | while read -r dbfile; do
+    # .pre-* dirs are pre-reset/migration archives staged by operators —
+    # dumping them every night would keep an archived old chain in every
+    # generation (and could satisfy the good-chain glob with a stale dump).
+    find "$CHAIN_DB_DIR" -name "*.db" -not -path "*/.pre-*" | while read -r dbfile; do
         rel=$(echo "$dbfile" | sed "s|${CHAIN_DB_DIR}/||")
         dest="${BACKUP_DIR}/chain_$(echo "$rel" | tr '/' '_').gz"
         # Use SQLite online backup via .dump to get consistent snapshot
@@ -184,7 +198,7 @@ if [ -d "$SVC_DB_DIR" ]; then
     log "Backing up service SQLite databases outside data/..."
     find "$SVC_DB_DIR" -maxdepth 2 -name "*.db" -type f \
         -not -path "*/data/*" -not -path "*/backups/*" -not -path "*/fork-export/*" \
-        -not -name "*.bak.*" | while read -r dbfile; do
+        -not -path "*/.pre-*" -not -name "*.bak.*" | while read -r dbfile; do
         if [ ! -s "$dbfile" ]; then
             log "SQLite svc $(basename "$dbfile"): skipped (0 bytes)"
             continue
@@ -254,13 +268,13 @@ _misc_skip_list="$(mktemp)"
 if [ -d "$SVC_DB_DIR" ]; then
     ( cd "$SVC_DB_DIR" && find . -type f \
         -not -name "*.db" -not -name "*.db-*" -not -name "*.db.*" \
-        -not -name "*.bak*" -not -name "*.pre-*" \
+        -not -name "*.bak*" -not -name "*.pre-*" -not -path "./.pre-*" \
         -not -path "./keystore/*" -not -path "./wallets/*" \
         -not -path "./backups/*" -not -path "./fork-export/*" \
         -size -"${BACKUP_MISC_MAX_KB}"k -print0 ) > "$_MISC_LIST" 2>/dev/null || true
     ( cd "$SVC_DB_DIR" && find . -type f \
         -not -name "*.db" -not -name "*.db-*" -not -name "*.db.*" \
-        -not -name "*.bak*" -not -name "*.pre-*" \
+        -not -name "*.bak*" -not -name "*.pre-*" -not -path "./.pre-*" \
         -not -path "./keystore/*" -not -path "./wallets/*" \
         -not -path "./backups/*" -not -path "./fork-export/*" \
         -size +"${BACKUP_MISC_MAX_KB}"k -print ) 2>/dev/null > "$_misc_skip_list" || true
