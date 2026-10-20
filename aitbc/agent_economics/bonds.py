@@ -15,6 +15,8 @@ from typing import Any
 
 from .errors import BondError
 
+from ..utils.chain_id import default_chain_id
+
 
 class BondStatus(StrEnum):
     """Lifecycle status of a performance bond."""
@@ -50,7 +52,7 @@ class PerformanceBond:
     agent_id: str
     amount: Decimal
     token: str
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     status: BondStatus | str = BondStatus.PENDING
     collateral_address: str = ""
     locked_until: datetime | None = None
@@ -171,7 +173,7 @@ class StakeAccount:
     validator: str
     amount: Decimal
     token: str
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     status: StakeStatus | str = StakeStatus.PENDING
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     unstaked_at: datetime | None = None

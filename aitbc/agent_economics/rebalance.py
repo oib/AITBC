@@ -15,6 +15,8 @@ from typing import Any
 
 from .errors import RebalanceError
 
+from ..utils.chain_id import default_chain_id
+
 
 class RebalanceActionType(StrEnum):
     """Types of rebalancing actions an agent may take."""
@@ -97,7 +99,7 @@ class ReinvestmentPolicy:
     rebalance_frequency: int = 3600  # seconds
     trigger: RebalancingTrigger | str = RebalancingTrigger.THRESHOLD
     schedule: str = ""  # optional cron-like expression for SCHEDULE trigger
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     constraints: list[RebalanceConstraint] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
 
