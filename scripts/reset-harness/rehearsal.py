@@ -997,7 +997,7 @@ def _check_bridge_paused(insts: list[Instance], failures: list[str]) -> None:
         "recipient": "0x" + "22" * 20,
         "amount": 1,
     }
-    code, payload = _post_json(f"http://127.0.0.1:{insts[0].rpc_port}/cross-chain/bridge", body)
+    code, payload = _post_json(f"http://127.0.0.1:{insts[0].rpc_port}/rpc/cross-chain/bridge", body)
     detail = payload.get("detail", "") if isinstance(payload, dict) else ""
     if code != 503:
         failures.append(f"bridge lock admission answered {code}, want 503 — pause fence not enforced")
