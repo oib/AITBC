@@ -76,63 +76,87 @@ def _load_stream(cases_dir: Path) -> tuple[dict[str, Any] | None, dict[str, Any]
     return genesis, manifest, blocks
 
 
+def _settings_snapshot(settings: Any) -> dict[str, Any]:
+    """Deep-copy the live settings instance state so a profile run can be
+    unwound. ``apply_profile`` setattrs the gate heights; callers embedding
+    the runner (the pytest oracle) share the process-wide singleton, so the
+    pre-run values must come back or later tests resolve every gate at the
+    last profile's pins."""
+    return copy.deepcopy(vars(settings))
+
+
+def _settings_restore(settings: Any, snapshot: dict[str, Any]) -> None:
+    """Put back the snapshotted instance state, also dropping attributes the
+    run added."""
+    vars(settings).clear()
+    vars(settings).update(snapshot)
+
+
 def run_stream(genesis: dict[str, Any], blocks: list[dict[str, Any]], profile: str) -> list[dict[str, Any]]:
     """Replay the real-history stream through the sequential apply path and
     return one output record per tx-bearing block."""
     settings, engine, profiles = _imports()
-    profiles.apply_profile(settings, profile)
-    # The stream replays under the REAL chain id — sealed transactions carry it
-    # and apply's chain-isolation check refuses a mismatch.
-    chain_id = genesis["source"]["chain_id"]
-
-    engine.reset_chain(chain_id)
-    session = engine.open_session(chain_id)
+    snapshot = _settings_snapshot(settings)
     try:
-        engine.seed_genesis(session, chain_id, genesis)
-        st = engine.StateTransition()
-        outputs = []
-        for entry in blocks:
-            outputs.append(
-                engine.apply_block(
-                    session,
-                    st,
-                    chain_id,
-                    copy.deepcopy(entry["block"]),
-                    copy.deepcopy(entry["txs"]),
+        profiles.apply_profile(settings, profile)
+        # The stream replays under the REAL chain id — sealed transactions carry it
+        # and apply's chain-isolation check refuses a mismatch.
+        chain_id = genesis["source"]["chain_id"]
+
+        engine.reset_chain(chain_id)
+        session = engine.open_session(chain_id)
+        try:
+            engine.seed_genesis(session, chain_id, genesis)
+            st = engine.StateTransition()
+            outputs = []
+            for entry in blocks:
+                outputs.append(
+                    engine.apply_block(
+                        session,
+                        st,
+                        chain_id,
+                        copy.deepcopy(entry["block"]),
+                        copy.deepcopy(entry["txs"]),
+                    )
                 )
-            )
-        return outputs
+            return outputs
+        finally:
+            session.close()
     finally:
-        session.close()
+        _settings_restore(settings, snapshot)
 
 
 def run_case(case: dict[str, Any], profile: str) -> dict[str, Any]:
     """Seed the case's pre-state into a fresh scratch chain and apply its block."""
     settings, engine, profiles = _imports()
-    profiles.apply_profile(settings, profile)
-    case_id = case["case_id"]
-    # Cases may carry their own chain id (defaults to a shared scratch id);
-    # tx chain_id fields must match it or apply's isolation check refuses.
-    chain_id = case.get("chain_id") or "gv-synth"
-
-    engine.reset_chain(chain_id)
-    session = engine.open_session(chain_id)
+    snapshot = _settings_snapshot(settings)
     try:
-        for table, rows in (case.get("prestate") or {}).items():
-            engine.seed_rows(session, table, rows)
-        session.commit()
-        st = engine.StateTransition()
-        txs = case.get("txs") if "txs" in case else [case["tx"]]
-        out = engine.apply_block(
-            session,
-            st,
-            chain_id,
-            copy.deepcopy(case["block"]),
-            copy.deepcopy(txs),
-        )
-        return {"case_id": case_id, "profile": profile, "block": out}
+        profiles.apply_profile(settings, profile)
+        case_id = case["case_id"]
+        # Cases may carry their own chain id (defaults to a shared scratch id);
+        # tx chain_id fields must match it or apply's isolation check refuses.
+        chain_id = case.get("chain_id") or "gv-synth"
+
+        engine.reset_chain(chain_id)
+        session = engine.open_session(chain_id)
+        try:
+            for table, rows in (case.get("prestate") or {}).items():
+                engine.seed_rows(session, table, rows)
+            session.commit()
+            st = engine.StateTransition()
+            txs = case.get("txs") if "txs" in case else [case["tx"]]
+            out = engine.apply_block(
+                session,
+                st,
+                chain_id,
+                copy.deepcopy(case["block"]),
+                copy.deepcopy(txs),
+            )
+            return {"case_id": case_id, "profile": profile, "block": out}
+        finally:
+            session.close()
     finally:
-        session.close()
+        _settings_restore(settings, snapshot)
 
 
 def _record(profile: str, cases_dir: Path, expected_dir: Path) -> dict[str, Any]:
