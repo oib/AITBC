@@ -7,6 +7,7 @@ implemented top-level group is documented.
 """
 
 import os
+import re
 from pathlib import Path
 
 import click
@@ -78,3 +79,22 @@ def test_cli_docs_sync():
             subcommand_mismatches.append(f"{group}: implemented but not documented: {sorted(extra)}")
 
     assert not subcommand_mismatches, "Subcommand sync failures:\n" + "\n".join(subcommand_mismatches)
+
+
+def test_man_page_commands_sync():
+    """The aitbc.1 COMMANDS section must list exactly the live top-level
+    commands, and the DESCRIPTION count must match — both are regenerated
+    by scripts/generate_cli_docs.py."""
+    man_text = (REPO / "cli" / "man" / "aitbc.1").read_text()
+    section = man_text.split("\n.SH COMMANDS\n", 1)[1].split("\n.SH ", 1)[0]
+    documented = set(re.findall(r"\\fB([\w-]+)\\fR", section))
+    top_level = set(cli.commands)
+    assert documented == top_level, (
+        f"man page COMMANDS drift: documented-only {sorted(documented - top_level)}, missing {sorted(top_level - documented)}"
+    )
+
+    count_match = re.search(r"The CLI provides (\d+) main command groups", man_text)
+    assert count_match, "DESCRIPTION command-group count sentence not found"
+    assert int(count_match.group(1)) == len(top_level), (
+        f"DESCRIPTION says {count_match.group(1)} groups, CLI has {len(top_level)}"
+    )

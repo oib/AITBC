@@ -9,7 +9,7 @@ The AITBC CLI provides a comprehensive command-line interface for interacting
 with the AITBC network. It supports job submission, mining operations, wallet
 management, blockchain queries, market operations, multi-chain management,
 agent communication, analytics, system administration, monitoring, and test
-simulations. The CLI provides 22 main command groups with over 100 subcommands
+simulations. The CLI provides 77 main command groups with over 100 subcommands
 for complete network interaction.
 .SH GLOBAL OPTIONS
 .TP
@@ -38,80 +38,237 @@ Show version and exit
 Show help message and exit
 .SH COMMANDS
 .TP
-\fBadmin\fR
-System administration commands (status, jobs, miners, analytics, logs, maintenance, audit-log)
-.TP
-\fBagent\fR
-Advanced AI agent workflow and execution management
-.TP
-\fBagent-comm\fR
-Cross-chain agent communication commands (register, list, discover, send, collaborate, reputation, status, network, monitor)
-.TP
-\fBanalytics\fR
-Chain analytics and monitoring commands (summary, monitor, predict, optimize, alerts, dashboard)
+\fBaccount\fR
+Account information and management
 .TP
 \fBauth\fR
-Manage API keys and authentication (login, logout, token, status, refresh, keys, import-env)
+Authentication and session management
+.TP
+\fBagent\fR
+Agent SDK management commands
+.TP
+\fBagent-comm\fR
+Cross-chain agent communication commands
+.TP
+\fBagent-msg\fR
+Agent messaging commands (ping, send, receive, peers, request-coins).
+.TP
+\fBagent-task\fR
+Paid agent-to-agent task delegation (negotiation + escrow).
+.TP
+\fBagent-wallet\fR
+Agent-owned wallet, staking, and rebalancing commands.
+.TP
+\fBai\fR
+AI job submission and inspection
+.TP
+\fBanalytics\fR
+Chain analytics and monitoring commands
 .TP
 \fBblockchain\fR
-Query blockchain information (blocks, block, transaction, status, sync-status, peers, info, supply, validators)
+Multi-chain management commands
 .TP
-\fBchain\fR
-Multi-chain management commands (list, create, delete, info, status, switch, validate)
+\fBbond\fR
+Provider performance bond lifecycle commands.
 .TP
-\fBclient\fR
-Submit and manage inference jobs (submit, status, blocks, receipts, cancel, history, batch-submit, template)
+\fBbootstrap\fR
+Bootstrap local development and configuration files.
+.TP
+\fBbrand\fR
+Show and manage white-label brand settings.
+.TP
+\fBbridge\fR
+Cross-chain bridge management
+.TP
+\fBcluster\fR
+Cluster management and operations
+.TP
+\fBcoin-requests\fR
+Manage coin transfer requests.
+.TP
+\fBcompliance\fR
+Compliance policy, classification, and audit commands.
+.TP
+\fBconfidential\fR
+Confidential TEE-signed transaction commands.
 .TP
 \fBconfig\fR
-Manage CLI configuration (show, set, path, edit, reset, export, import, validate, environments, profiles, set-secret, get-secret)
+Manage CLI configuration
 .TP
-\fBconfig-show\fR
-Show current configuration
+\fBcontract\fR
+Smart contract operations
+.TP
+\fBcrosschain\fR
+Cross-chain trading operations
+.TP
+\fBdashboard\fR
+Operational dashboards for customers and shops.
 .TP
 \fBdeploy\fR
-Production deployment and scaling commands
+Deploy and manage white-label platform configurations.
+.TP
+\fBdeveloper\fR
+Developer registry commands.
+.TP
+\fBdispute\fR
+File, inspect and rule on disputes: evidence, arbitrator votes, and payment rulings.
+.TP
+\fBeconomics\fR
+Economic intelligence, modeling, and OpenClaw DAO governance.
+.TP
+\fBedge\fR
+Edge API commands for island, GPU, database, serve, and metrics operations
 .TP
 \fBexchange\fR
-Bitcoin exchange operations
+Exchange integration and trading management commands
+.TP
+\fBexchange-island\fR
+Exchange commands for trading AIT against ETH on the island
+.TP
+\fBenergy\fR
+Energy-floor pricing, operator signing, and provider tariff management
+.TP
+\fBexplorer\fR
+Blockchain Explorer commands - access blockchain data via Explorer API
 .TP
 \fBgenesis\fR
-Genesis block generation and management commands
+Genesis block and wallet generation commands
 .TP
 \fBgovernance\fR
-Governance proposals and voting
+Governance operations — on-chain proposals, voting, and execution
+.TP
+\fBgpu\fR
+Local GPU service commands for hardware management
+.TP
+\fBgpu-onchain\fR
+GPU resource tracking commands (on-chain)
+.TP
+\fBgrant\fR
+DAO grant proposal commands.
+.TP
+\fBhealth\fR
+Probe remote AITBC service health endpoints.
+.TP
+\fBipfs\fR
+Local content-addressed storage (IPFS-compatible surface).
+.TP
+\fBlist\fR
+Legacy wallet list alias
 .TP
 \fBmarket\fR
-GPU market operations (gpu register/list/details/book/release, orders, pricing, reviews, agents, bid, offers, governance, test)
+GPU and software offers published by shop miners
 .TP
-\fBminer\fR
-Register as a miner and process jobs (register, poll, mine, heartbeat, status, earnings, update-capabilities, deregister, jobs, concurrent-mine)
+\fBmessaging\fR
+On-chain forum messaging (signed MESSAGE txs)
+.TP
+\fBmining\fR
+Mining operations commands
 .TP
 \fBmonitor\fR
-Monitoring, metrics, and alerting commands (dashboard, metrics, alerts, history, webhooks)
+Monitoring, metrics, and alerting commands
 .TP
-\fBmultimodal\fR
-Multi-modal agent processing and cross-modal operations
+\fBnetwork\fR
+Peer connectivity and network operations
 .TP
 \fBnode\fR
 Node management commands
 .TP
-\fBoptimize\fR
-Autonomous optimization and predictive operations
+\fBoperations\fR
+**Legacy** on-chain operations commands. Hidden from `aitbc --help`; prefer the top-level `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` groups.
+.TP
+\fBoracle\fR
+Local data oracle for agent data availability announcements.
+.TP
+\fBperformance\fR
+Performance monitoring and optimization
+.TP
+\fBplatform\fR
+Scaffold white-label platform configurations.
 .TP
 \fBplugin\fR
-Manage CLI plugins
+Scaffold and manage AITBC plugins.
+.TP
+\fBpool-hub\fR
+Pool hub management for SLA monitoring and billing
+.TP
+\fBprometheus\fR
+Query Prometheus and inspect scrape targets, rules, and alerts.
+.TP
+\fBreinvest\fR
+Autonomous reinvestment and capacity planning commands.
+.TP
+\fBreputation\fR
+Reputation management commands
+.TP
+\fBresource\fR
+Manage agent resource allocations via coordinator-api
+.TP
+\fBrestart\fR
+Restart all AITBC services for the current (or selected) role
+.TP
+\fBscript\fR
+Script execution and management
+.TP
+\fBsecurity\fR
+Security audit and monitoring
 .TP
 \fBsimulate\fR
-Run simulations (init, user, workflow, load-test, scenario, results, reset)
+Simulate blockchain scenarios and test environments
 .TP
-\fBswarm\fR
-Swarm intelligence and collective optimization
+\fBstart\fR
+Start all AITBC services for the current (or selected) role
+.TP
+\fBstop\fR
+Stop all AITBC services for the current (or selected) role
+.TP
+\fBsync\fR
+Blockchain synchronization utilities
+.TP
+\fBsystem\fR
+System management commands
+.TP
+\fBtee\fR
+Trusted Execution Environment (TEE) enclave commands
+.TP
+\fBtrade\fR
+Inter-chain trading operations
+.TP
+\fBtransactions\fR
+Transaction management commands
+.TP
+\fBupdate\fR
+Pull the latest code and run scripts/deployment/update.sh.
 .TP
 \fBversion\fR
 Show version information
 .TP
 \fBwallet\fR
-Manage wallets and transactions (balance, earn, spend, send, history, address, stats, stake, unstake, staking-info, liquidity-stake, liquidity-unstake, rewards, multisig-create, multisig-propose, multisig-sign, create, list, switch, delete, backup, restore, info, request-payment)
+Manage your wallets and transactions
+.TP
+\fBworkflow\fR
+Workflow management commands
+.TP
+\fBzk\fR
+Zero-knowledge proof commands.
+.TP
+\fBhttp\fR
+Generic HTTP client for local AITBC services
+.TP
+\fBservice\fR
+Manage AITBC systemd services
+.TP
+\fBliquidity-stake\fR
+Stake tokens into an on-chain liquidity pool to earn rewards
+.TP
+\fBstake\fR
+Stake AITBC tokens on-chain for a configurable lock duration
+.TP
+\fBunstake\fR
+Unstake tokens once the lock period ends and withdraw the principal
+.TP
+\fBeth\fR
+Inspect public Sepolia ETH activity — read-only, key-free, no polling
+
 .SH EXAMPLES
 .PP
 Submit a job:
