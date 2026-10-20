@@ -32,6 +32,15 @@ Inputs
 --require-classes    strict mode for the runbook read: refuse to run when
                      --classes is absent, so a vacuous address-independent
                      pass cannot count as the A2 check.
+--treasury-proof FILE   spendability proof for the treasury address: JSON
+                     ``{address, message, signature}`` where ``signature``
+                     is an EIP-191 ``personal_sign`` over ``message`` — the
+                     exact challenge string this script prints. The signer
+                     is recovered and must equal both ``address`` and the
+                     treasury address. Pure verification: the script holds
+                     no key and writes nothing. Without the flag a loud
+                     WARNING reports "treasury spendability unproven" —
+                     a checksummed address parses but proves no key exists.
 
 Without --classes the script still checks every address-independent
 property (parse, shape, checksum, duplicates, integer balances, total
@@ -80,6 +89,19 @@ FLOAT_UNITS = PARAMS["float_ait"] * UNITS_PER_AIT
 SERVICE_UNITS = PARAMS["service_ait_each"] * UNITS_PER_AIT
 EXPECTED_TOTAL_UNITS = PARAMS["supply_ait"] * UNITS_PER_AIT
 
+# The treasury spendability challenge — the operator signs this exact string
+# with personal_sign (EIP-191) to prove the treasury key is live. ``{address}``
+# is the EIP-55 treasury address, so a proof cannot be replayed for another
+# account. Spendability is the one property a file check cannot otherwise see:
+# any checksummed string parses, only a signature proves a key exists.
+TREASURY_CHALLENGE_TEMPLATE = "AITBC bc-2 genesis treasury spendability proof for {address}"
+
+
+def treasury_challenge(address: str) -> str:
+    """The exact message string the treasury key must personal_sign."""
+    return TREASURY_CHALLENGE_TEMPLATE.format(address=address)
+
+
 # Manifest keys that name one address (str) vs a collection (list or dict).
 _SINGLE_CLASSES = ("treasury", "ops_float", "faucet")
 _LIST_CLASSES = ("executors", "retired")
@@ -101,6 +123,15 @@ def _chain_modules():
     from eth_utils import keccak
 
     return canonical_address, keccak
+
+
+def _proof_modules():
+    """Lazy eth_account import for the EIP-191 personal_sign proof check —
+    same keep-module-importable discipline as ``_chain_modules``."""
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+
+    return Account, encode_defunct
 
 
 def _bond_addresses() -> list[str]:
@@ -369,6 +400,72 @@ def _check_strays(
         problems.append(f"allocation {a} belongs to no listed class or bond account")
 
 
+def _treasury_address(rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]] | None) -> str | None:
+    """Resolve the single treasury address: manifest treasury first, else the
+    unique allocation row at the treasury amount. None when unresolvable."""
+    if classes is not None and len(classes.get("treasury", {})) == 1:
+        return next(iter(classes["treasury"].values()))
+    treasury_rows = [r["address"] for r in rows.values() if r["balance"] == TREASURY_UNITS]
+    return treasury_rows[0] if len(treasury_rows) == 1 else None
+
+
+def _check_treasury_proof(path: str, treasury_addr: str | None, problems: list[str], table: list[list[str]]) -> None:
+    """Verify the EIP-191 spendability proof file. Three bindings must all
+    hold: ``message`` is the printed challenge for the claimed ``address``,
+    ``signature`` recovers to that address, and the address is the treasury."""
+    row = ["treasury proof", "signer == treasury over the printed challenge", "", "FAIL"]
+    proof = _load_json(path, what="treasury-proof", problems=problems)
+    if not isinstance(proof, dict):
+        if proof is not None:
+            problems.append("treasury-proof file must be a JSON object {address, message, signature}")
+        table.append(row)
+        return
+    claimed = _checksum(proof.get("address"))
+    if claimed is None:
+        problems.append(f"treasury-proof.address: not an EIP-55 checksummed EVM address: {proof.get('address')!r}")
+    message = proof.get("message")
+    if not isinstance(message, str):
+        problems.append(f"treasury-proof.message: not a string: {message!r}")
+        message = None
+    signature = proof.get("signature")
+    if not isinstance(signature, str) or not signature:
+        problems.append(f"treasury-proof.signature: not a non-empty string: {signature!r}")
+        signature = None
+
+    recovered: str | None = None
+    if claimed is not None and message is not None and signature is not None:
+        if message != treasury_challenge(claimed):
+            problems.append(f"treasury-proof.message is not the printed challenge for {claimed}")
+        else:
+            Account, encode_defunct = _proof_modules()
+            try:
+                recovered = Account.recover_message(encode_defunct(text=message), signature=signature)
+            except Exception as exc:  # noqa: BLE001 - unrecoverable signature reports FAIL
+                problems.append(f"treasury-proof.signature: unrecoverable: {exc}")
+            else:
+                if recovered.lower() != claimed.lower():
+                    problems.append(f"treasury-proof signer {recovered} != claimed address {claimed}")
+                    recovered = None
+    if claimed is not None and treasury_addr is not None and claimed.lower() != treasury_addr.lower():
+        problems.append(f"treasury-proof.address {claimed} != treasury {treasury_addr}")
+    elif treasury_addr is None:
+        problems.append("treasury address unresolvable — the proof cannot bind to the treasury row")
+    ok = (
+        recovered is not None
+        and claimed is not None
+        and treasury_addr is not None
+        and claimed.lower() == treasury_addr.lower()
+    )
+    table.append(
+        [
+            "treasury proof",
+            "signer == treasury over the printed challenge",
+            f"signer={recovered or '-'}",
+            "PASS" if ok else "FAIL",
+        ]
+    )
+
+
 def _check_classes(
     rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]], problems: list[str], table: list[list[str]]
 ) -> None:
@@ -398,6 +495,10 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="refuse to run without --classes — the runbook A2 read must not pass vacuously",
     )
+    p.add_argument(
+        "--treasury-proof",
+        help="spendability proof: JSON {address, message, signature} — a personal_sign over the printed challenge",
+    )
     args = p.parse_args(argv)
 
     if args.require_classes and not args.classes:
@@ -417,15 +518,29 @@ def main(argv: list[str] | None = None) -> int:
 
     rows = _check_rows(allocs, problems) if allocs is not None else {}
     _check_independent(rows, problems, table)
+    classes: dict[str, dict[str, str]] | None = None
     if args.classes:
         classes = _manifest_addresses(classes_raw or {}, problems)
         _check_classes(rows, classes, problems, table)
     else:
         table.append(["class checks", "--classes manifest", "not supplied", "SKIP"])
 
+    treasury_addr = _treasury_address(rows, classes)
+    if args.treasury_proof:
+        _check_treasury_proof(args.treasury_proof, treasury_addr, problems, table)
+    else:
+        table.append(["treasury proof", "--treasury-proof FILE", "not supplied", "WARN"])
+
     width = max(len(row[0]) for row in table)
     for cls, expected, found, verdict in table:
         print(f"  {cls:<{width}}  {verdict:<4}  expected: {expected} | found: {found}")
+
+    print(f"treasury proof challenge: {treasury_challenge(treasury_addr or '<treasury-address>')}")
+    if not args.treasury_proof:
+        print(
+            "*** WARNING: treasury spendability unproven — pass --treasury-proof FILE "
+            "(JSON {address, message, signature}; sign the challenge above with personal_sign)"
+        )
 
     if problems:
         print(f"alloc-file check: FAIL ({len(problems)} problem(s))")
