@@ -296,6 +296,11 @@ ended, on a per-item operator word**; **F4** — after the soak ends and
 the bridge payout account `0x356d…` from the treasury — two
 operator-named chain writes, amounts per the operator's card.
 
+Everything the cut leaves undone — the gated rows below plus the
+consumer flips and the register pointers — is collected, ordered, and
+verify-read in `bc2-post-cut-owed.md`; nothing on that sheet proceeds
+until the post-cut verifier is green again after the soak.
+
 Post-reset operating rule (decided): `TRUSTED_PROPOSERS` is set. Any later
 validator-set change must update the list on **every host in the same
 change** — the membership check governs every imported block, so a
