@@ -66,10 +66,16 @@ EXTRA_STEPS: dict[str, dict] = {
         "stop": "note",
     },
     "F3": {
-        "title": ".pre-reset copies + offline backups retired (>=7 days after the cut)",
+        "title": ".pre-reset copies + offline backups retired (after the 3-day soak, per-item word)",
         "class_words": ["per-item word"],
         "source": "§F + §H row",
         "stop": "each item waits for its own word — an absent line means do not delete",
+    },
+    "F4": {
+        "title": "fund sell-escrow 0x40c7… + bridge payout 0x356d… from treasury (after soak, before unpause)",
+        "class_words": ["operator-named"],
+        "source": "§F — two chain writes, amounts per the operator's card",
+        "stop": "a failed funding send is fix-forward; never retry blind — check the ledger/balance first",
     },
 }
 

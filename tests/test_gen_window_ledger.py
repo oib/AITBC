@@ -32,7 +32,7 @@ def _block(sid: str) -> str:
 
 def test_every_runbook_step_id_appears():
     expected = {f"{c}{n}" for c, rng in (("A", range(1, 14)), ("B", range(0, 6)), ("C", range(1, 8))) for n in rng}
-    expected |= {"FF1", "PONR", "F1", "F1a", "F2", "F3"}
+    expected |= {"FF1", "PONR", "F1", "F1a", "F2", "F3", "F4"}
     missing = [sid for sid in expected if f"## STEP {sid}" not in LEDGER]
     assert not missing, f"missing step blocks: {missing}"
     aborts = [s.sid for s in STEPS if s.sid.startswith("ABORT@")]
