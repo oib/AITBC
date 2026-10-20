@@ -277,7 +277,10 @@ live-path writes under `/var/lib/aitbc` (the harness writes only under
 
 ## F. After the reset
 
-Soak; consumer changes go live per `bc2-consumers.md` (v9 alert removal,
+Soak — **3 days** (decided 20 Oct): the post-cut observation window in
+which a restore of the old chain stays an operator option; nothing is
+deleted while it runs. Consumer changes go live per `bc2-consumers.md`
+(v9 alert removal,
 `WEBSITE_CHAIN_ID=bc-2` render, `BACKUP_GOOD_CHAIN_GLOB`, genesis-builder
 refusal-list addition); **restore the timers suspended at B0**
 (`aitbc-escrow-settlements.timer`, `aitbc-backup.timer`,
@@ -287,8 +290,11 @@ resumed; the register and ledgers keep old heights as
 history; the bridge-lock unpause lands with `SEPOLIA-REDEPLOY-1`
 (operator: "in the week after the cut") as its own gated step, not part of
 this document; **F2** — write the reset record in `TOPOLOGY/`; **F3** —
-`.pre-reset` copies and offline backups retire **≥7 days later, per-item
-operator word**.
+`.pre-reset` copies and offline backups retire **after the 3-day soak has
+ended, on a per-item operator word**; **F4** — after the soak ends and
+**before locks are unpaused**: fund the sell-escrow account `0x40c7…` and
+the bridge payout account `0x356d…` from the treasury — two
+operator-named chain writes, amounts per the operator's card.
 
 Post-reset operating rule (decided): `TRUSTED_PROPOSERS` is set. Any later
 validator-set change must update the list on **every host in the same
@@ -330,7 +336,7 @@ resolves v14, outside the flag's 2–8 window (`bc2-environment-set.md`).
 | C6 rpc + stores | rpc standing; stores operator-named | table counts, redis-backend evidence |
 | C7 checks | ungated | heads, proposer set, per-block quorum sweep, read-path results, `data/` holds only `bc-2` |
 | post-PONR unfreeze (F1) | operator-named | operator line verbatim + accept-read outputs |
-| `.pre-reset` deletion (F3) | per-item word, ≥7 d | operator line verbatim per item |
+| `.pre-reset` deletion (F3) | per-item word, after the 3-day soak | operator line verbatim per item |
 
 ### Operator line shapes — proposal (the operator writes his own lines)
 
