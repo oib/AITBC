@@ -4,6 +4,15 @@
 
 set -eu  # Exit on any error
 
+# DO NOT USE — stale genesis path (#290).
+# This script drives apps/blockchain-node/scripts/setup_production.py, which
+# cannot emit the loader-valid genesis document a bc-2 node would accept
+# (no canonical state_root / bridge-validator digest). The only builder is
+# apps/blockchain-node/src/aitbc_chain/genesis_builder.py (driven by
+# scripts/ops/build-genesis.py).
+echo "do-not-use: stale genesis setup path; use aitbc_chain/genesis_builder.py via scripts/ops/build-genesis.py (#290)" >&2
+exit 1
+
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then

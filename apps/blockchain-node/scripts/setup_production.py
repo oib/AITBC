@@ -13,6 +13,17 @@ No admin minting; fixed supply at genesis.
 
 from __future__ import annotations
 
+# DO NOT USE — stale genesis builder (#290).
+# This script cannot emit the loader-valid genesis document a bc-2 node would
+# accept (no canonical state_root / bridge-validator digest). The only builder
+# is apps/blockchain-node/src/aitbc_chain/genesis_builder.py (driven by
+# scripts/ops/build-genesis.py).
+raise SystemExit(
+    "do-not-use: this script is a stale genesis builder. "
+    "aitbc_chain/genesis_builder.py (via scripts/ops/build-genesis.py) "
+    "is the only builder (#290)"
+)
+
 import argparse
 import hashlib
 import hmac
