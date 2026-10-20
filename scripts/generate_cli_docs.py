@@ -193,6 +193,26 @@ def _differs(new: str, path: Path) -> bool:
     return path.read_text() != new
 
 
+def _generate_man_page(existing: str, commands: dict[str, click.Command], order: list[str], descs: dict[str, str]) -> str:
+    """Refresh only the generated parts of cli/man/aitbc.1: the top-level
+    command count in DESCRIPTION and the whole COMMANDS section.
+
+    All other sections are curated prose and pass through verbatim — the
+    same curated-content rule the README/usage-guide regeneration uses.
+    """
+    entries = "\n".join(f".TP\n\\fB{name}\\fR\n{descs.get(name, '')}" for name in order if name in commands)
+    out = re.sub(
+        r"The CLI provides \d+ main command groups",
+        f"The CLI provides {len(commands)} main command groups",
+        existing,
+        count=1,
+    )
+    start_marker = "\n.SH COMMANDS\n"
+    start = out.index(start_marker) + len(start_marker)
+    end = out.index("\n.SH ", start)
+    return out[:start] + entries + "\n" + out[end:]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Regenerate CLI docs")
     parser.add_argument("--check", action="store_true", help="Fail if docs would change")
@@ -203,6 +223,8 @@ def main() -> int:
 
     readme_text = _generate_readme(commands, order, readme_descs)
     usage_text = _generate_usage_guide(commands, order, usage_descs)
+    man_path = REPO / "cli" / "man" / "aitbc.1"
+    man_text = _generate_man_page(man_path.read_text(), commands, order, readme_descs)
 
     readme_path = REPO / "cli" / "README.md"
     usage_path = REPO / "cli" / "CLI_USAGE_GUIDE.md"
@@ -215,12 +237,16 @@ def main() -> int:
         if _differs(usage_text, usage_path):
             print(f"Would change {usage_path.relative_to(REPO)}")
             dirty = True
+        if _differs(man_text, man_path):
+            print(f"Would change {man_path.relative_to(REPO)}")
+            dirty = True
         if dirty:
             return 1
         return 0
 
     readme_path.write_text(readme_text)
     usage_path.write_text(usage_text)
+    man_path.write_text(man_text)
     return 0
 
 
