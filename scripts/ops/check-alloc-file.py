@@ -247,41 +247,36 @@ def _check_independent(rows: dict[str, dict[str, Any]], problems: list[str], tab
         problems.append(f"bond account {a} has balance {_fmt(rows[a.lower()]['balance'])}, want 0")
 
 
-def _check_classes(
-    rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]], problems: list[str], table: list[list[str]]
-) -> None:
-    """Per-class membership/count/amount checks against the manifest."""
-    # Cross-class address uniqueness.
-    seen: dict[str, str] = {}
-    for cls, entries in classes.items():
-        for low, addr in entries.items():
-            if low in seen:
-                problems.append(f"address {addr} listed in both {seen[low]} and {cls}")
-            else:
-                seen[low] = cls
+def _row_balance(rows: dict[str, dict[str, Any]], address: str) -> int | None:
+    """The integer balance of ``address``'s row, or None (absent or
+    malformed — the row-level check owns the malformed flag)."""
+    row = rows.get(address.lower())
+    return row["balance"] if row is not None and isinstance(row["balance"], int) else None
 
-    treasury = classes["treasury"]
+
+def _check_treasury(
+    rows: dict[str, dict[str, Any]], treasury: dict[str, str], problems: list[str], table: list[list[str]]
+) -> None:
     ok = len(treasury) == 1
     if not ok:
         problems.append(f"classes.treasury lists {len(treasury)} addresses, want exactly 1")
     else:
         t_addr = next(iter(treasury.values()))
-        row = rows.get(t_addr.lower())
-        ok = row is not None and row["balance"] == TREASURY_UNITS
-        if row is None:
+        balance = _row_balance(rows, t_addr)
+        ok = balance == TREASURY_UNITS
+        if balance is None and t_addr.lower() not in rows:
             problems.append(f"treasury {t_addr} absent from the allocation file")
-        elif row["balance"] != TREASURY_UNITS:
-            problems.append(f"treasury {t_addr} balance {_fmt(row['balance'])} != {_fmt(TREASURY_UNITS)}")
+        elif balance != TREASURY_UNITS:
+            problems.append(f"treasury {t_addr} balance {_fmt(balance)} != {_fmt(TREASURY_UNITS)}")
     table.append(["treasury", "1 address at treasury amount", f"{len(treasury)} listed", "PASS" if ok else "FAIL"])
 
-    # Service floats: exact count, each at the per-account amount.
-    service = classes["service_floats"]
+
+def _check_service(
+    rows: dict[str, dict[str, Any]], service: dict[str, str], problems: list[str], table: list[list[str]]
+) -> None:
+    """Service floats: exact count, each at the per-account amount."""
     missing = [a for a in service.values() if a.lower() not in rows]
-    wrong = [
-        a
-        for a in service.values()
-        if a.lower() in rows and isinstance(rows[a.lower()]["balance"], int) and rows[a.lower()]["balance"] != SERVICE_UNITS
-    ]
+    wrong = [a for a in service.values() if (b := _row_balance(rows, a)) is not None and b != SERVICE_UNITS]
     ok = len(service) == PARAMS["service_accounts"] and not missing and not wrong
     table.append(
         [
@@ -298,7 +293,12 @@ def _check_classes(
     for a in wrong:
         problems.append(f"service account {a} balance {_fmt(rows[a.lower()]['balance'])} != {_fmt(SERVICE_UNITS)}")
 
-    # Remaining float classes: presence + count, balances fold into the band.
+
+def _check_presence(
+    rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]], problems: list[str], table: list[list[str]]
+) -> None:
+    """Remaining float/retired classes: presence, and the count where a
+    figure pins one; balances fold into the band check separately."""
     for cls, want in (
         ("executors", None),
         ("authorities", None),
@@ -316,18 +316,18 @@ def _check_classes(
         for a in missing:
             problems.append(f"{cls} account {a} absent from the allocation file")
 
-    # Zero-balance classes: listed members must exist at balance 0.
+
+def _check_zero_classes(
+    rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]], problems: list[str], table: list[list[str]]
+) -> None:
+    """Listed zero-class members must exist at balance 0."""
     for cls in _ZERO_CLASSES:
         entries = classes[cls]
         if not entries:
             table.append([cls, "at 0", "not listed", "SKIP"])
             continue
         missing = [a for a in entries.values() if a.lower() not in rows]
-        bad = [
-            a
-            for a in entries.values()
-            if a.lower() in rows and isinstance(rows[a.lower()]["balance"], int) and rows[a.lower()]["balance"] != 0
-        ]
+        bad = [a for a in entries.values() if (b := _row_balance(rows, a)) is not None and b != 0]
         ok = not missing and not bad
         table.append(
             [
@@ -342,13 +342,12 @@ def _check_classes(
         for a in bad:
             problems.append(f"{cls} account {a} must sit at balance 0, has {_fmt(rows[a.lower()]['balance'])}")
 
-    # Float band total: every float-class balance sums to the 256-AIT band.
-    float_total = 0
-    for cls in _FLOAT_CLASSES:
-        for a in classes[cls]:
-            row = rows.get(a)
-            if row is not None and isinstance(row["balance"], int):
-                float_total += row["balance"]
+
+def _check_float_band(
+    rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]], problems: list[str], table: list[list[str]]
+) -> None:
+    """Every float-class balance sums to the 256-AIT band outside treasury."""
+    float_total = sum(b for cls in _FLOAT_CLASSES for a in classes[cls] if (b := _row_balance(rows, a)) is not None)
     ok = float_total == FLOAT_UNITS
     table.append(["float band", _fmt(FLOAT_UNITS), _fmt(float_total), "PASS" if ok else "FAIL"])
     if not ok:
@@ -356,15 +355,38 @@ def _check_classes(
             f"float-class total {_fmt(float_total)} != {_fmt(FLOAT_UNITS)} (off by {float_total - FLOAT_UNITS:+d} units)"
         )
 
-    # Stray rows: every allocation must belong to a listed class or a bond
-    # account — an unclassified funded row is a check failure, not a pass.
+
+def _check_strays(
+    rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]], problems: list[str], table: list[list[str]]
+) -> None:
+    """Every allocation must belong to a listed class or a bond account —
+    an unclassified funded row is a check failure, not a pass."""
     classified = {low for entries in classes.values() for low in entries}
     classified.update(a.lower() for a in _bond_addresses())
     stray = [r["address"] for low, r in rows.items() if low not in classified]
-    ok = not stray
-    table.append(["stray rows", "0", str(len(stray)), "PASS" if ok else "FAIL"])
+    table.append(["stray rows", "0", str(len(stray)), "PASS" if not stray else "FAIL"])
     for a in stray:
         problems.append(f"allocation {a} belongs to no listed class or bond account")
+
+
+def _check_classes(
+    rows: dict[str, dict[str, Any]], classes: dict[str, dict[str, str]], problems: list[str], table: list[list[str]]
+) -> None:
+    """Per-class membership/count/amount checks against the manifest."""
+    seen: dict[str, str] = {}
+    for cls, entries in classes.items():
+        for low, addr in entries.items():
+            if low in seen:
+                problems.append(f"address {addr} listed in both {seen[low]} and {cls}")
+            else:
+                seen[low] = cls
+
+    _check_treasury(rows, classes["treasury"], problems, table)
+    _check_service(rows, classes["service_floats"], problems, table)
+    _check_presence(rows, classes, problems, table)
+    _check_zero_classes(rows, classes, problems, table)
+    _check_float_band(rows, classes, problems, table)
+    _check_strays(rows, classes, problems, table)
 
 
 def main(argv: list[str] | None = None) -> int:
