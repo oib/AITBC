@@ -473,3 +473,98 @@ def test_corrective_tx_uses_live_nonce(tmp_path):
     tx = rh._corrective_tx(keys, "0x" + "11" * 20, 1, 9)
     assert tx["nonce"] == 9
     assert "signature" in tx and tx["signature"].startswith("0x")
+
+
+# ---------- gossip filter + fork/gossip phases ----------
+
+
+def _load_filter():
+    spec = importlib.util.spec_from_file_location(
+        "gossip_filter", REPO_ROOT / "scripts" / "reset-harness" / "gossip_filter.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["gossip_filter"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+gf = _load_filter()
+
+
+def test_filter_topic_gate_denies_listed_only():
+    assert gf.topic_denied("blocks.bc-2", ["blocks.bc-2"])
+    assert gf.topic_denied(None, ["blocks.bc-2"])  # malformed upgrade refused like websocket.py:104
+    assert not gf.topic_denied("consensus.attest_request.bc-2", ["blocks.bc-2"])
+    assert not gf.topic_denied("transactions.bc-2", ["blocks.bc-2"])
+    assert gf.topic_denied("consensus.attest_response.bc-2", rh.ATTEST_TOPICS)
+    assert not gf.topic_denied("blocks.bc-2", rh.ATTEST_TOPICS)
+
+
+def _write_instance_envs(root: Path) -> None:
+    keys = _keys()
+    for inst in rh.instances(root):
+        (inst.dir / "data").mkdir(parents=True, exist_ok=True)
+        (inst.dir / "logs").mkdir(parents=True, exist_ok=True)
+        (inst.dir / "instance.env").write_text(rh._env_lines(root, inst, keys))
+
+
+def test_env_set_rewrites_exactly_one_assignment(tmp_path):
+    text = "FOO='1'\nBAR='x,y'\n"
+    assert rh._env_set(text, "BAR", "z") == "FOO='1'\nBAR='z'\n"
+    with pytest.raises(SystemExit):
+        rh._env_set(text, "MISSING", "1")
+
+
+def test_partition_envs_route_block_plane_through_filter(tmp_path):
+    root = tmp_path / "rehearsal"
+    _write_instance_envs(root)
+    victim = rh.instances(root)[3]
+    specs, envs = rh._partition_envs(root, victim)
+    # 1 shared inbound port + 4 outbound ports, all refusing blocks.*
+    assert len(specs) == 5
+    assert {s["port"] for s in specs} == set(range(rh.FILTER_PORT_BASE, rh.FILTER_PORT_BASE + 5))
+    for s in specs:
+        assert s["deny_topics"] == ["blocks.bc-2"]
+    inbound = rh.FILTER_PORT_BASE
+    victim_env = _parse_env(envs[3])
+    peer_env = _parse_env(envs[0])
+    # victim: every mesh peer url is a filter port; every http url is dead
+    vports = {int(u.split(":")[2].split("/")[0]) for u in victim_env["GOSSIP_MESH_PEER_URLS"].split(",")}
+    assert vports == set(range(rh.FILTER_PORT_BASE + 1, rh.FILTER_PORT_BASE + 5))
+    for name in (
+        "DEFAULT_PEER_RPC_URL",
+        "HUB_RPC_URL",
+        "HUB_BLOCKCHAIN_RPC_URL",
+        "AITBC_SYNC_SOURCE",
+        "AITBC_SYNC_IMPORT_URL",
+    ):
+        assert victim_env[name] == f"http://127.0.0.1:{rh.FILTER_PORT_BASE + 1}"
+    # peer: only the victim's entry is rerouted to the shared inbound port
+    peer_urls = peer_env["GOSSIP_MESH_PEER_URLS"].split(",")
+    assert f"ws://127.0.0.1:{inbound}/rpc/gossip/ws" in peer_urls
+    assert not any(f":{victim.rpc_port}" in u for u in peer_urls)
+    assert any(f":{rh.instances(root)[1].rpc_port}" in u for u in peer_urls)
+    # untouched keys stay byte-identical
+    assert (
+        peer_env["CHAIN_ID"] == "bc-2"
+        and peer_env["VALIDATOR_SET"] == _parse_env((rh.instances(root)[0].dir / "instance.env").read_text())["VALIDATOR_SET"]
+    )
+
+
+def test_attesters_of_reads_metadata_attestations():
+    blk = {
+        "hash": "0xabc",
+        "proposer": "0xP",
+        "block_metadata": json.dumps({"attestations": [{"validator": "0xAA"}, {"validator": "0xbb"}]}),
+    }
+    assert rh._attesters_of(blk) == {"0xaa", "0xbb"}
+    assert rh._attesters_of({}) == set()
+    assert rh._attesters_of({"block_metadata": "not-json"}) == set()
+
+
+def test_hash_and_proposer_of_tolerate_nested_shape():
+    assert rh._hash_of({"hash": "0x1"}) == "0x1"
+    assert rh._hash_of({"block": {"hash": "0x2"}}) == "0x2"
+    assert rh._hash_of(None) == ""
+    assert rh._proposer_of({"proposer": "0xA"}) == "0xA"
+    assert rh._proposer_of({"block": {"proposer": "0xB"}}) == "0xB"
