@@ -36,10 +36,12 @@ Phases (also runnable individually):
                              watch the membership check refuse its blocks
     rehearsal.py stall       two validators down: heads freeze, no fork,
                              then resume on rejoin (post-PONR M2)
+    rehearsal.py resync      corrupt one store, prove it dead, wipe +
+                             re-init from genesis + resync (post-PONR M7)
     rehearsal.py teardown    stop units, delete the scratch tree, show it empty
     rehearsal.py run         keys -> genesis -> up -> wait -> check ->
-                             timing -> rejoin -> skip -> stall -> stores ->
-                             golden -> untrusted -> teardown
+                             timing -> rejoin -> skip -> stall -> resync ->
+                             stores -> golden -> untrusted -> teardown
 
 Live-host protection: before anything starts, the harness records
 ``ActiveEnterTimestamp``/``MainPID`` and head height of the live
@@ -1160,6 +1162,82 @@ def phase_stall(root: Path, python: str, timeout: int, max_load: float, min_avai
     raise _fail(f"chain did not resume within {timeout}s after restoring two validators")
 
 
+def _corrupt_store(inst: Instance) -> Path:
+    """The M7 fault: overwrite chain.db's header page so sqlite refuses to
+    open it ('file is not a database'). Scratch-only — the path lives under
+    the instance's own data dir."""
+    db = inst.dir / "data" / CHAIN_ID / "chain.db"
+    if not db.exists():
+        raise _fail(f"no chain.db to corrupt at {db} — is {inst.name} initialised?")
+    with open(db, "r+b") as f:
+        f.write(b"NOT-A-SQLITE-DB\x00" + bytes(96))
+    return db
+
+
+def _wipe_store_keep_genesis(root: Path, inst: Instance) -> Path:
+    """The M7 repair: delete data/<chain> entirely, then restore the
+    genesis.json the genesis phase built — the same shape the runbook's
+    'delete the data dir, re-init from genesis, resync' produces."""
+    data = inst.dir / "data" / CHAIN_ID
+    genesis_src = root / "genesis-build" / "out" / "data" / CHAIN_ID / "genesis.json"
+    if not genesis_src.exists():
+        raise _fail(f"cannot re-init {inst.name}: {genesis_src} missing (genesis phase never ran?)")
+    shutil.rmtree(data, ignore_errors=True)
+    data.mkdir(parents=True, exist_ok=True)
+    genesis = data / "genesis.json"
+    shutil.copy2(genesis_src, genesis)
+    return genesis
+
+
+def phase_resync(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
+    """M7 — corrupt one scratch store, prove the node cannot use it, then
+    delete + re-init from genesis + resync to exact head hash.
+
+    Detection accepts either failure shape: the node process dies on the
+    corrupt file (unit loses its MainPID), or it stays up while logging the
+    sqlite fault. Both prove the store was unusable; the repair is then the
+    runbook's own: wipe data/bc-2, restore genesis.json, let genesis load
+    and AUTO_SYNC_THRESHOLD=0 pull the missing blocks."""
+    insts = instances(root)
+    victim, healthy = insts[2], insts[0]
+    _stop_instance(victim)
+    db = _corrupt_store(victim)
+    print(f"[*] corrupted {db} (sqlite header overwritten); restarting {victim.name} node")
+    _restart_node(victim, python)
+    marks = ("file is not a database", "DatabaseError", "sqlite3.")
+    deadline = time.time() + 90
+    detected = ""
+    while time.time() < deadline and not detected:
+        _check_host_budget(max_load, min_avail_mib)
+        if _unit_pid(victim.name) is None:
+            detected = f"{victim.name} node unit is dead on the corrupt store"
+        else:
+            log = _node_log(victim)
+            hit = next((m for m in marks if m in log), None)
+            if hit:
+                detected = f"{victim.name} node.log reports {hit!r}"
+        if not detected:
+            time.sleep(3)
+    if not detected:
+        raise _fail(f"{victim.name} survived a corrupted chain.db for 90s — the fault did not take")
+    print(f"[+] corrupt store detected: {detected}")
+    _stop_instance(victim)
+    genesis = _wipe_store_keep_genesis(root, victim)
+    print(f"[*] wiped data/{CHAIN_ID}, restored {genesis.name} — re-initialising and resyncing")
+    _spawn(victim, python)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        _check_host_budget(max_load, min_avail_mib)
+        hv, hh = _head(victim), _head(healthy)
+        if hv is not None and hh is not None and hv >= hh:
+            bv, bh = _block(victim, hv), _block(healthy, hv)
+            if (bv or {}).get("hash") and bv["hash"] == (bh or {}).get("hash"):
+                print(f"[+] {victim.name} re-initialised and resynced: head {hv}, hash matches bc2-i0")
+                return
+        time.sleep(5)
+    raise _fail(f"{victim.name} did not resync to the fleet head within {timeout}s")
+
+
 def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
     inst = instances(root)[3]
     h0 = _head(inst)
@@ -1304,6 +1382,7 @@ def main() -> int:
             "rejoin",
             "skip",
             "stall",
+            "resync",
             "stores",
             "golden",
             "untrusted",
@@ -1361,6 +1440,7 @@ def main() -> int:
             _timed("rejoin", lambda: phase_rejoin(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
             _timed("skip", lambda: phase_skip(root, args.timeout, args.max_load, args.min_avail_mib))
             _timed("stall", lambda: phase_stall(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
+            _timed("resync", lambda: phase_resync(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
             _timed("stores", lambda: phase_stores(root, args.python))
             _timed("golden", lambda: phase_golden(root, args.python))
             _timed("untrusted", lambda: phase_untrusted(root, args.python, args.timeout))
@@ -1383,6 +1463,7 @@ def main() -> int:
         "rejoin": lambda: phase_rejoin(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
         "skip": lambda: phase_skip(root, args.timeout, args.max_load, args.min_avail_mib),
         "stall": lambda: phase_stall(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
+        "resync": lambda: phase_resync(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
         "stores": lambda: phase_stores(root, args.python),
         "golden": lambda: phase_golden(root, args.python),
         "untrusted": lambda: phase_untrusted(root, args.python, args.timeout),

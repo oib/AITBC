@@ -406,3 +406,42 @@ def test_node_log_reads_only_scratch_log(tmp_path):
         "line1\nNot enough attestations for multi-validator block 3: got 0 attestation(s) and 0 PBFT commit(s), need 2\n"
     )
     assert rh.STALL_MARK.search(rh._node_log(inst))
+
+
+def test_corrupt_store_breaks_sqlite_header(tmp_path):
+    inst = rh.instances(tmp_path)[0]
+    db_dir = inst.dir / "data" / "bc-2"
+    db_dir.mkdir(parents=True)
+    db = db_dir / "chain.db"
+    import sqlite3
+
+    with sqlite3.connect(str(db)) as conn:
+        conn.execute("CREATE TABLE t (x)")
+    rh._corrupt_store(inst)
+    with pytest.raises(sqlite3.DatabaseError):
+        sqlite3.connect(str(db)).execute("SELECT * FROM t").fetchall()
+
+
+def test_corrupt_store_refuses_missing_db(tmp_path):
+    with pytest.raises(SystemExit):
+        rh._corrupt_store(rh.instances(tmp_path)[0])
+
+
+def test_wipe_store_keeps_only_genesis(tmp_path):
+    root = tmp_path / "rehearsal"
+    inst = rh.instances(root)[0]
+    src = root / "genesis-build" / "out" / "data" / "bc-2"
+    src.mkdir(parents=True)
+    (src / "genesis.json").write_text('{"chain_id": "bc-2"}')
+    data = inst.dir / "data" / "bc-2"
+    data.mkdir(parents=True)
+    (data / "chain.db").write_bytes(b"junk")
+    (data / "genesis.json").write_text("stale")
+    genesis = rh._wipe_store_keep_genesis(root, inst)
+    assert genesis.read_text() == '{"chain_id": "bc-2"}', "must restore the genesis phase output, not the stale copy"
+    assert [p.name for p in data.iterdir()] == ["genesis.json"]
+
+
+def test_wipe_store_refuses_without_build_output(tmp_path):
+    with pytest.raises(SystemExit):
+        rh._wipe_store_keep_genesis(tmp_path, rh.instances(tmp_path)[0])
