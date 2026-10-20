@@ -328,9 +328,33 @@ resolves v14, outside the flag's 2–8 window (`bc2-environment-set.md`).
 | C4 genesis | ungated build; operator-named distribution | builder verdict + verify output + 5× sha256 |
 | C5 node starts | operator-named per host (validator-interrupting) | file-load line ×1, resolved-id line, timestamp fields |
 | C6 rpc + stores | rpc standing; stores operator-named | table counts, redis-backend evidence |
-| C7 checks | ungated | heads, proposer set, per-block quorum sweep, read-path results |
+| C7 checks | ungated | heads, proposer set, per-block quorum sweep, read-path results, `data/` holds only `bc-2` |
 | post-PONR unfreeze (F1) | operator-named | operator line verbatim + accept-read outputs |
 | `.pre-reset` deletion (F3) | per-item word, ≥7 d | operator line verbatim per item |
+
+### Operator line shapes — proposal (the operator writes his own lines)
+
+Shapes to pick from, not authorizations — nothing here is a go line until
+the operator writes it. Validator-interrupting steps (C1, C5) keep the
+rule that the operator's own message names action **and** hosts.
+
+| step | proposed shape | one line covers |
+|---|---|---|
+| FF1 | "Fast-forward all five hosts to `<sha>` in order node0, hub1, node1, node2, hub." | all five (order is procedure, not authorization) |
+| B0 | "Suspend the named timers on hub, hub1 and node2 and the monitor timers fleet-wide." | all |
+| B1 | "Park coin-request intake on hub; run the PENDING probe and reject that row." | hub — probe+reject inside one line |
+| B2 | "Stop `aitbc-market` on hub and node2 and `aitbc-exchange` on hub." | hub + node2 |
+| B3 | "Set `BRIDGE_LOCKS_PAUSED=true` in every file holding it and restart node+rpc on all five." | all five — validator-interrupting |
+| B4 | "Stop `aitbc-coordinator-api` on hub." | hub |
+| C1 | "Stop services in inventory order on hub, hub1, node0, node1, node2." | all five |
+| C2 | "Move the inventory store list to `/var/lib/aitbc/.pre-reset-<date>/` on `<host>`." | one host — per-host granularity is decided |
+| C3 | "Apply the bc-2 env set on `<host>`." | one host |
+| C4 | "Distribute the verified `genesis.json` into `data/bc-2/` on all five hosts." | all five (build itself ungated) |
+| C5 | "Start the four validator node units now: hub, hub1, node1, node2." then "Start node0." | **two lines** — the simultaneous validator start is one action; node0 deliberately last |
+| C6 | "Start rpc units and the remaining service units fleet-wide." | all five (rpc leg already standing) |
+| F1 | "Post-PONR unfreeze: restore timers, reopen market/exchange, revert B1." **plus its own line** "Take the maintenance notice down." | two parts — the takedown modifies public content |
+| F3 | "Delete `<path>` on `<host>`." | never shared — per-item word by design |
+| ABORT | "Abort at `<step>`: run the §D abort row." | per event |
 
 ## I. Decisions
 
