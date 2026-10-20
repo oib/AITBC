@@ -409,17 +409,9 @@ def _treasury_address(rows: dict[str, dict[str, Any]], classes: dict[str, dict[s
     return treasury_rows[0] if len(treasury_rows) == 1 else None
 
 
-def _check_treasury_proof(path: str, treasury_addr: str | None, problems: list[str], table: list[list[str]]) -> None:
-    """Verify the EIP-191 spendability proof file. Three bindings must all
-    hold: ``message`` is the printed challenge for the claimed ``address``,
-    ``signature`` recovers to that address, and the address is the treasury."""
-    row = ["treasury proof", "signer == treasury over the printed challenge", "", "FAIL"]
-    proof = _load_json(path, what="treasury-proof", problems=problems)
-    if not isinstance(proof, dict):
-        if proof is not None:
-            problems.append("treasury-proof file must be a JSON object {address, message, signature}")
-        table.append(row)
-        return
+def _proof_fields(proof: dict[str, Any], problems: list[str]) -> tuple[str | None, str | None, str | None]:
+    """Extract and typecheck the three proof fields — (claimed address,
+    message, signature), each None when malformed."""
     claimed = _checksum(proof.get("address"))
     if claimed is None:
         problems.append(f"treasury-proof.address: not an EIP-55 checksummed EVM address: {proof.get('address')!r}")
@@ -431,21 +423,44 @@ def _check_treasury_proof(path: str, treasury_addr: str | None, problems: list[s
     if not isinstance(signature, str) or not signature:
         problems.append(f"treasury-proof.signature: not a non-empty string: {signature!r}")
         signature = None
+    return claimed, message, signature
 
-    recovered: str | None = None
-    if claimed is not None and message is not None and signature is not None:
-        if message != treasury_challenge(claimed):
-            problems.append(f"treasury-proof.message is not the printed challenge for {claimed}")
-        else:
-            Account, encode_defunct = _proof_modules()
-            try:
-                recovered = Account.recover_message(encode_defunct(text=message), signature=signature)
-            except Exception as exc:  # noqa: BLE001 - unrecoverable signature reports FAIL
-                problems.append(f"treasury-proof.signature: unrecoverable: {exc}")
-            else:
-                if recovered.lower() != claimed.lower():
-                    problems.append(f"treasury-proof signer {recovered} != claimed address {claimed}")
-                    recovered = None
+
+def _recover_proof_signer(claimed: str, message: str, signature: str, problems: list[str]) -> str | None:
+    """EIP-191 personal_sign recovery over the bound challenge — the signer
+    address, or None with a problem recorded."""
+    if message != treasury_challenge(claimed):
+        problems.append(f"treasury-proof.message is not the printed challenge for {claimed}")
+        return None
+    Account, encode_defunct = _proof_modules()
+    try:
+        recovered = Account.recover_message(encode_defunct(text=message), signature=signature)
+    except Exception as exc:  # noqa: BLE001 - unrecoverable signature reports FAIL
+        problems.append(f"treasury-proof.signature: unrecoverable: {exc}")
+        return None
+    if recovered.lower() != claimed.lower():
+        problems.append(f"treasury-proof signer {recovered} != claimed address {claimed}")
+        return None
+    return recovered
+
+
+def _check_treasury_proof(path: str, treasury_addr: str | None, problems: list[str], table: list[list[str]]) -> None:
+    """Verify the EIP-191 spendability proof file. Three bindings must all
+    hold: ``message`` is the printed challenge for the claimed ``address``,
+    ``signature`` recovers to that address, and the address is the treasury."""
+    row = ["treasury proof", "signer == treasury over the printed challenge", "", "FAIL"]
+    proof = _load_json(path, what="treasury-proof", problems=problems)
+    if not isinstance(proof, dict):
+        if proof is not None:
+            problems.append("treasury-proof file must be a JSON object {address, message, signature}")
+        table.append(row)
+        return
+    claimed, message, signature = _proof_fields(proof, problems)
+    recovered = (
+        _recover_proof_signer(claimed, message, signature, problems)
+        if claimed is not None and message is not None and signature is not None
+        else None
+    )
     if claimed is not None and treasury_addr is not None and claimed.lower() != treasury_addr.lower():
         problems.append(f"treasury-proof.address {claimed} != treasury {treasury_addr}")
     elif treasury_addr is None:
