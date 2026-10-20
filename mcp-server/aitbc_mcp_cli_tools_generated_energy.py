@@ -38,7 +38,7 @@ def aitbc_energy_floor(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Compute the energy floor for given rental terms (EVM or native rail).."""
+    """Compute the energy floor for given rental terms (EVM or native rail)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
@@ -88,7 +88,7 @@ def aitbc_energy_operator_info(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the configured energy operator address and signing status.."""
+    """Show the configured energy operator address and signing status."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -112,7 +112,7 @@ def aitbc_energy_operator_verify(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Verify an energy quote's operator signature and freshness.."""
+    """Verify an energy quote's operator signature and freshness."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"check_oracle": "check-oracle"},
@@ -159,7 +159,7 @@ def aitbc_energy_provider_profile(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Read a registered energy profile (EVM contract or native rail).."""
+    """Read a registered energy profile (EVM contract or native rail)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
@@ -195,7 +195,7 @@ def aitbc_energy_provider_rate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Read or publish the AIT/EUR energy rate (EVM contract or native rail).."""
+    """Read or publish the AIT/EUR energy rate (EVM contract or native rail)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"publish": "publish", "json_output": "json-output"},
@@ -260,7 +260,7 @@ def aitbc_energy_provider_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a GPU energy profile (EVM contract or native rail).."""
+    """Register a GPU energy profile (EVM contract or native rail)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
@@ -348,7 +348,7 @@ def aitbc_energy_suggest(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Suggest a hardware-based energy profile and market price.."""
+    """Suggest a hardware-based energy profile and market price."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"register": "register", "json_output": "json-output"},

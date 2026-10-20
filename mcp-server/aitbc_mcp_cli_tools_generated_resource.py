@@ -45,7 +45,7 @@ def aitbc_resource_allocate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Allocate CPU, memory, GPU, and storage resources for an agent.."""
+    """Allocate CPU, memory, GPU, and storage resources for an agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -104,7 +104,7 @@ def aitbc_resource_deallocate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Release a resource allocation by its allocation ID.."""
+    """Release a resource allocation by its allocation ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
@@ -171,7 +171,7 @@ def aitbc_resource_optimize(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Optimize an agent's performance for a specific target metric.."""
+    """Optimize an agent's performance for a specific target metric."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -229,7 +229,7 @@ def aitbc_resource_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List resource allocations from the coordinator API.."""
+    """List resource allocations from the coordinator API."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

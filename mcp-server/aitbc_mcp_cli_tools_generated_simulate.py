@@ -40,7 +40,7 @@ def aitbc_simulate_ai_jobs(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Simulate AI job submissions and completions.."""
+    """Simulate AI job submissions and completions."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -91,7 +91,7 @@ def aitbc_simulate_blockchain(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Simulate blockchain block generation and transactions.."""
+    """Simulate blockchain block generation and transactions."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -140,7 +140,7 @@ def aitbc_simulate_network(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Simulate network nodes, delays, and failure rates.."""
+    """Simulate network nodes, delays, and failure rates."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -171,7 +171,7 @@ def aitbc_simulate_price(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Simulate AIT price movements with configurable volatility.."""
+    """Simulate AIT price movements with configurable volatility."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -219,7 +219,7 @@ def aitbc_simulate_result(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the results of a completed simulation.."""
+    """Get the results of a completed simulation."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -269,7 +269,7 @@ def aitbc_simulate_run(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run a named simulation scenario with optional parameters.."""
+    """Run a named simulation scenario with optional parameters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"async_run": "async-run"},
@@ -315,7 +315,7 @@ def aitbc_simulate_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the status of a running simulation.."""
+    """Get the status of a running simulation."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -344,7 +344,7 @@ def aitbc_simulate_wallets(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Simulate wallet creation and transactions with configurable balance.."""
+    """Simulate wallet creation and transactions with configurable balance."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

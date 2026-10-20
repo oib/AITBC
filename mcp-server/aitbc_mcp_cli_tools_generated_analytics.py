@@ -33,7 +33,7 @@ def aitbc_analytics_alerts(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """View performance alerts filtered by severity and time range.."""
+    """View performance alerts filtered by severity and time range."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -60,7 +60,7 @@ def aitbc_analytics_monitor(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Monitor chain performance in real time or take a single snapshot.."""
+    """Monitor chain performance in real time or take a single snapshot."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"realtime": "realtime"},
@@ -87,7 +87,7 @@ def aitbc_analytics_optimize(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get optimization recommendations for one chain or all chains.."""
+    """Get optimization recommendations for one chain or all chains."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -136,7 +136,7 @@ def aitbc_analytics_predict(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Predict future chain performance for a single chain or all chains.."""
+    """Predict future chain performance for a single chain or all chains."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

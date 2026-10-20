@@ -36,7 +36,7 @@ def aitbc_sync_bulk(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Bulk import blocks from a leader node to catch up quickly.."""
+    """Bulk import blocks from a leader node to catch up quickly."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -90,7 +90,7 @@ def aitbc_sync_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show synchronization status, block height, peer count, and hub divergence.."""
+    """Show synchronization status, block height, peer count, and hub divergence."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"alert": "alert"},

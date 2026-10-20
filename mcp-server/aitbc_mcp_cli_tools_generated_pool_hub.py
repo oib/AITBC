@@ -33,7 +33,7 @@ def aitbc_pool_hub_sla(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Monitor pool hub SLA status across miners.."""
+    """Monitor pool hub SLA status across miners."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"violations": "violations", "resolved": "resolved"},
@@ -58,7 +58,7 @@ def aitbc_pool_hub_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check the pool hub health and status.."""
+    """Check the pool hub health and status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

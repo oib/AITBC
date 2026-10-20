@@ -35,7 +35,7 @@ def aitbc_deploy_deploy_brand(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deploy a white-label brand configuration to a target network and storage directory.."""
+    """Deploy a white-label brand configuration to a target network and storage directory."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

@@ -43,7 +43,7 @@ def aitbc_bridge_attest(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sign a block header as a bridge validator and store it as a bridge header.."""
+    """Sign a block header as a bridge validator and store it as a bridge header."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -99,7 +99,7 @@ def aitbc_bridge_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the total locked bridge balance for a chain.."""
+    """Get the total locked bridge balance for a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -131,7 +131,7 @@ def aitbc_bridge_confirm(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Confirm and release a cross-chain bridge transfer using a proof file.."""
+    """Confirm and release a cross-chain bridge transfer using a proof file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -184,7 +184,7 @@ def aitbc_bridge_health(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check the bridge service health and connected node status.."""
+    """Check the bridge service health and connected node status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -220,7 +220,7 @@ def aitbc_bridge_ingest_header(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Fetch a block header from a source node and store it as a bridge header.."""
+    """Fetch a block header from a source node and store it as a bridge header."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"re_sign": "re-sign"},
@@ -305,7 +305,7 @@ def aitbc_bridge_lock(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Lock funds for a cross-chain bridge transfer.."""
+    """Lock funds for a cross-chain bridge transfer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -366,7 +366,7 @@ def aitbc_bridge_oracle_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get bridge oracle and verification status.."""
+    """Get bridge oracle and verification status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -415,7 +415,7 @@ def aitbc_bridge_pending(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List pending bridge transfers, optionally filtered by chain.."""
+    """List pending bridge transfers, optionally filtered by chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -468,7 +468,7 @@ def aitbc_bridge_proof(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Build a Merkle proof for a locked bridge transfer.."""
+    """Build a Merkle proof for a locked bridge transfer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -534,7 +534,7 @@ def aitbc_bridge_register_validator(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a bridge validator for multi-sig operations on a chain.."""
+    """Register a bridge validator for multi-sig operations on a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -591,7 +591,7 @@ def aitbc_bridge_security_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get bridge security status, multi-sig configuration, and threshold.."""
+    """Get bridge security status, multi-sig configuration, and threshold."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -644,7 +644,7 @@ def aitbc_bridge_sign_proof(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sign a bridge proof with one or more validator private keys.."""
+    """Sign a bridge proof with one or more validator private keys."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -691,7 +691,7 @@ def aitbc_bridge_start(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Start the blockchain event bridge service.."""
+    """Start the blockchain event bridge service."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -734,7 +734,7 @@ def aitbc_bridge_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get bridge service status or a specific transfer status.."""
+    """Get bridge service status or a specific transfer status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -760,7 +760,7 @@ def aitbc_bridge_stop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop the blockchain event bridge service.."""
+    """Stop the blockchain event bridge service."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -807,7 +807,7 @@ def aitbc_bridge_store_header(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Store a bridge block header on the target node from a signed proof.."""
+    """Store a bridge block header on the target node from a signed proof."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -867,7 +867,7 @@ def aitbc_bridge_unlock(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Refund or cancel a pending bridge transfer.."""
+    """Refund or cancel a pending bridge transfer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

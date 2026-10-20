@@ -34,7 +34,7 @@ def aitbc_economics_distributed(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run distributed cost optimization for the AITBC economy.."""
+    """Run distributed cost optimization for the AITBC economy."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"cost_optimize": "cost-optimize"},
@@ -81,7 +81,7 @@ def aitbc_economics_market(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run market analysis for the AITBC ecosystem.."""
+    """Run market analysis for the AITBC ecosystem."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -123,7 +123,7 @@ def aitbc_economics_model(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Run an economic model of the configured type.."""
+    """Run an economic model of the configured type."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -154,7 +154,7 @@ def aitbc_economics_propose(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Submit an OpenClaw DAO economic parameter proposal.."""
+    """Submit an OpenClaw DAO economic parameter proposal."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -206,7 +206,7 @@ def aitbc_economics_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the status of an OpenClaw DAO economic parameter proposal by proposal ID.."""
+    """Show the status of an OpenClaw DAO economic parameter proposal by proposal ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -235,7 +235,7 @@ def aitbc_economics_vote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Vote for, against, or abstain on an OpenClaw DAO economic parameter proposal.."""
+    """Vote for, against, or abstain on an OpenClaw DAO economic parameter proposal."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

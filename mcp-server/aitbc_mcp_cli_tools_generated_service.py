@@ -41,7 +41,7 @@ def aitbc_service_harden(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Apply the aitbc-hermes systemd sandbox pattern to AITBC services.."""
+    """Apply the aitbc-hermes systemd sandbox pattern to AITBC services."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"all_services": "all", "no_restart": "no-restart", "dry_run_opt": "dry-run"},

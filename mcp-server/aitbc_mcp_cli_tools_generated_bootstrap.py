@@ -34,7 +34,7 @@ def aitbc_bootstrap_bootstrap_env(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Generate a starter .env file and validate it, optionally overwriting an existing one.."""
+    """Generate a starter .env file and validate it, optionally overwriting an existing one."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"overwrite": "overwrite"},

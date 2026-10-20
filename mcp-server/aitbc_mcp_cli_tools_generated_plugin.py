@@ -36,7 +36,7 @@ def aitbc_plugin_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a brand plugin skeleton that PluginManager can load.."""
+    """Create a brand plugin skeleton that PluginManager can load."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -82,7 +82,7 @@ def aitbc_plugin_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all available brand plugins in the plugin directory.."""
+    """List all available brand plugins in the plugin directory."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -110,7 +110,7 @@ def aitbc_plugin_load(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Load and display a brand plugin by name.."""
+    """Load and display a brand plugin by name."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

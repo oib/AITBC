@@ -35,7 +35,7 @@ def aitbc_blockchain_add(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Add a chain to a specific node.."""
+    """Add a chain to a specific node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -86,7 +86,7 @@ def aitbc_blockchain_backup(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Back up chain data to a directory with optional compression and verify.."""
+    """Back up chain data to a directory with optional compression and verify."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"compress": "compress", "verify": "verify"},
@@ -133,7 +133,7 @@ def aitbc_blockchain_block(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get a block by height from a node.."""
+    """Get a block by height from a node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -161,7 +161,7 @@ def aitbc_blockchain_consensus_slashing_history(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show slashing events with validator, condition, amount, and block height.."""
+    """Show slashing events with validator, condition, amount, and block height."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -208,7 +208,7 @@ def aitbc_blockchain_consensus_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show consensus mode, view, sequence, epoch, and fault tolerance for a chain.."""
+    """Show consensus mode, view, sequence, epoch, and fault tolerance for a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -234,7 +234,7 @@ def aitbc_blockchain_consensus_validators(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List active validators with address, stake, reputation, role, and last proposed.."""
+    """List active validators with address, stake, reputation, role, and last proposed."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -263,7 +263,7 @@ def aitbc_blockchain_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new chain from a JSON configuration file.."""
+    """Create a new chain from a JSON configuration file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"dry_run_opt": "dry-run"},
@@ -313,7 +313,7 @@ def aitbc_blockchain_delete(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Delete a chain permanently after confirmation.."""
+    """Delete a chain permanently after confirmation."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force", "confirm_opt": "confirm"},
@@ -359,7 +359,7 @@ def aitbc_blockchain_height(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the current blockchain height from a node.."""
+    """Get the current blockchain height from a node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -386,7 +386,7 @@ def aitbc_blockchain_info(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get detailed information and optional metrics about a chain.."""
+    """Get detailed information and optional metrics about a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"detailed": "detailed", "metrics": "metrics"},
@@ -414,7 +414,7 @@ def aitbc_blockchain_instances(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all chain instances on the local node.."""
+    """List all chain instances on the local node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -474,7 +474,7 @@ def aitbc_blockchain_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all available chains with optional type, island, and sorting filters.."""
+    """List all available chains with optional type, island, and sorting filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"show_private": "show-private"},
@@ -505,7 +505,7 @@ def aitbc_blockchain_migrate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Migrate a chain between two nodes with optional dry-run and verify.."""
+    """Migrate a chain between two nodes with optional dry-run and verify."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"dry_run_opt": "dry-run", "verify": "verify"},
@@ -555,7 +555,7 @@ def aitbc_blockchain_remove(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Remove a chain from a specific node, optionally migrating first.."""
+    """Remove a chain from a specific node, optionally migrating first."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"migrate": "migrate"},
@@ -605,7 +605,7 @@ def aitbc_blockchain_restore(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Restore a chain from a backup file on a target node.."""
+    """Restore a chain from a backup file on a target node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"verify": "verify"},
@@ -655,7 +655,7 @@ def aitbc_blockchain_start(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Start a secondary chain on the local node.."""
+    """Start a secondary chain on the local node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -710,7 +710,7 @@ def aitbc_blockchain_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check the status and optional details or metrics of a chain.."""
+    """Check the status and optional details or metrics of a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"detailed": "detailed"},
@@ -738,7 +738,7 @@ def aitbc_blockchain_stop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop a secondary chain on the local node.."""
+    """Stop a secondary chain on the local node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

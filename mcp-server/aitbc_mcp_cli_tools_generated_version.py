@@ -24,7 +24,7 @@ def aitbc_version(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the AITBC CLI version and architecture support status.."""
+    """Show the AITBC CLI version and architecture support status."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(

@@ -32,7 +32,7 @@ def aitbc_confidential_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show a confidential wallet balance proof.."""
+    """Show a confidential wallet balance proof."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -61,7 +61,7 @@ def aitbc_confidential_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send a confidential amount from a wallet to a recipient.."""
+    """Send a confidential amount from a wallet to a recipient."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

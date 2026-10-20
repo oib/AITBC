@@ -36,7 +36,7 @@ def aitbc_agent_comm_collaborate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a multi-agent collaboration with a list of agent IDs.."""
+    """Create a multi-agent collaboration with a list of agent IDs."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -83,7 +83,7 @@ def aitbc_agent_comm_discover(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Discover active agents on a specific chain by chain ID.."""
+    """Discover active agents on a specific chain by chain ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -110,7 +110,7 @@ def aitbc_agent_comm_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List agents registered in the cross-chain network with optional filters.."""
+    """List agents registered in the cross-chain network with optional filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -136,7 +136,7 @@ def aitbc_agent_comm_monitor(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Monitor cross-chain agent communication in real time or at an interval.."""
+    """Monitor cross-chain agent communication in real time or at an interval."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"realtime": "realtime"},
@@ -160,7 +160,7 @@ def aitbc_agent_comm_network(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get an overview of the cross-chain agent network and distribution.."""
+    """Get an overview of the cross-chain agent network and distribution."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -190,7 +190,7 @@ def aitbc_agent_comm_receive(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Receive queued messages for a receiver agent from the coordinator inbox.."""
+    """Receive queued messages for a receiver agent from the coordinator inbox."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -254,7 +254,7 @@ def aitbc_agent_comm_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a new agent in the cross-chain network with its metadata and endpoint.."""
+    """Register a new agent in the cross-chain network with its metadata and endpoint."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -315,7 +315,7 @@ def aitbc_agent_comm_reputation(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Update the reputation score for an agent based on an interaction result.."""
+    """Update the reputation score for an agent based on an interaction result."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -379,7 +379,7 @@ def aitbc_agent_comm_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send a message from a sender to a receiver agent via the coordinator.."""
+    """Send a message from a sender to a receiver agent via the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -436,7 +436,7 @@ def aitbc_agent_comm_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get detailed status and metadata for a registered agent.."""
+    """Get detailed status and metadata for a registered agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

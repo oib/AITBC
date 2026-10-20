@@ -39,7 +39,7 @@ def aitbc_liquidity_stake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stake tokens into an on-chain liquidity pool to earn rewards.."""
+    """Stake tokens into an on-chain liquidity pool to earn rewards."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
