@@ -423,6 +423,10 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "BRIDGE_RELEASE_ENABLED": "true",
         "BRIDGE_SUPPORTED_CHAINS": CHAIN_ID,
         "BRIDGE_REQUIRE_MERKLE_PROOF": "true",
+        # release_enabled=True's production-safety check refuses startup
+        # without a non-empty admin set (env-set: "Keep live"). Scratch
+        # mirror: the four rehearsal proposers stand in as the admin set.
+        "BRIDGE_ADMIN_ADDRESSES": ",".join(k["address"] for k in keys["proposers"]),
         # Env-set row decided 20 Oct: bc-2 launches with bridge locks
         # paused — lock admission answers 503 until the SEPOLIA-REDEPLOY-1
         # unpause; _check_bridge_paused proves the fence in `check`.
