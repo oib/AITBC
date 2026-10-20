@@ -449,7 +449,17 @@ def _import_unified_genesis():
 
 
 class TestUnifiedGenesisEnv:
-    def test_env_password_reaches_create_wallet(self, monkeypatch):
+    @pytest.fixture
+    def scratch_env(self, tmp_path, monkeypatch):
+        """The reset guard must pass before main() reaches create_genesis_wallet
+        — AITBC_RESET_SCRATCH and AITBC_DATA_DIR both confined to tmp_path."""
+        root = tmp_path / "scratch"
+        root.mkdir()
+        monkeypatch.setenv("AITBC_RESET_SCRATCH", str(root))
+        monkeypatch.setenv("AITBC_DATA_DIR", str(root / "data"))
+        return root
+
+    def test_env_password_reaches_create_wallet(self, monkeypatch, scratch_env):
         """AITBC_GENESIS_PASSWORD feeds create_genesis_wallet when no
         --password argv is given — the boundary the CLI now relies on."""
         ug = _import_unified_genesis()
@@ -466,7 +476,7 @@ class TestUnifiedGenesisEnv:
             ug.main()
         assert got["password"] == PASSWORD
 
-    def test_argv_password_still_wins_for_direct_use(self, monkeypatch):
+    def test_argv_password_still_wins_for_direct_use(self, monkeypatch, scratch_env):
         """Direct script invocation keeps its own --password flag."""
         ug = _import_unified_genesis()
         got: dict = {}
