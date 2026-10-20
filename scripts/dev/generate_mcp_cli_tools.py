@@ -695,7 +695,7 @@ def _render_signature(spec: dict[str, Any], func_name: str, read_only: bool) -> 
     # Docstring
     path = spec["path"]
     short_help = spec["help"].split("\n")[0] if spec["help"] else f"Run `aitbc {path_to_cli_name(path)}`."
-    lines.append(f'    """{short_help}."""')
+    lines.append(f'    """{short_help.rstrip(".")}."""')
     return lines
 
 

@@ -35,7 +35,7 @@ def aitbc_market_cancel(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cancel an active market job and request a refund.."""
+    """Cancel an active market job and request a refund."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -88,7 +88,7 @@ def aitbc_market_download(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Download IPFS content by market job, access token, or free CID.."""
+    """Download IPFS content by market job, access token, or free CID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
@@ -149,7 +149,7 @@ def aitbc_market_escrow_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create an on-chain escrow for a job with buyer, provider, and optional amount.."""
+    """Create an on-chain escrow for a job with buyer, provider, and optional amount."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -205,7 +205,7 @@ def aitbc_market_escrow_refund(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Refund escrow back to the buyer.."""
+    """Refund escrow back to the buyer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -253,7 +253,7 @@ def aitbc_market_escrow_release(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Release escrow funds to the provider after job completion.."""
+    """Release escrow funds to the provider after job completion."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -301,7 +301,7 @@ def aitbc_market_escrow_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check the on-chain escrow state for a job.."""
+    """Check the on-chain escrow state for a job."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -356,7 +356,7 @@ def aitbc_market_exchange_deposit_eth(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deposit Sepolia ETH to the bridge and mint AIT.."""
+    """Deposit Sepolia ETH to the bridge and mint AIT."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -405,7 +405,7 @@ def aitbc_market_exchange_list_deposits(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List ETH deposits and their status.."""
+    """List ETH deposits and their status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -453,7 +453,7 @@ def aitbc_market_exchange_mint_ait(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Mint AIT tokens for a verified ETH deposit.."""
+    """Mint AIT tokens for a verified ETH deposit."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -500,7 +500,7 @@ def aitbc_market_exchange_price(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the current ETH-AIT exchange rate.."""
+    """Get the current ETH-AIT exchange rate."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -541,7 +541,7 @@ def aitbc_market_exchange_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the current bridge service status.."""
+    """Get the current bridge service status."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -565,7 +565,7 @@ def aitbc_market_exchange_withdraw_eth(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Withdraw ETH from the bridge wallet (admin only).."""
+    """Withdraw ETH from the bridge wallet (admin only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -628,7 +628,7 @@ def aitbc_market_gpu_buy(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Fund a quoted GPU rental (native escrow or EVM contract).."""
+    """Fund a quoted GPU rental (native escrow or EVM contract)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"yes": "yes", "json_output": "json-output"},
@@ -693,7 +693,7 @@ def aitbc_market_gpu_quote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request an operator-signed energy quote for a GPU rental.."""
+    """Request an operator-signed energy quote for a GPU rental."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
@@ -756,7 +756,7 @@ def aitbc_market_gpu_refund(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request a refund for a GPU rental.."""
+    """Request a refund for a GPU rental."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"yes": "yes", "json_output": "json-output"},
@@ -812,7 +812,7 @@ def aitbc_market_gpu_release(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Release escrow funds to the provider after rental completion.."""
+    """Release escrow funds to the provider after rental completion."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"yes": "yes", "json_output": "json-output"},
@@ -861,7 +861,7 @@ def aitbc_market_gpu_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check the status of a GPU rental and its escrow.."""
+    """Check the status of a GPU rental and its escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
@@ -915,7 +915,7 @@ def aitbc_market_hermes(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow.."""
+    """Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"track": "track"},
@@ -972,7 +972,7 @@ def aitbc_market_host(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Host IPFS content through a market offer for a number of days.."""
+    """Host IPFS content through a market offer for a number of days."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"pin": "pin"},
@@ -1027,7 +1027,7 @@ def aitbc_market_jobs(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List market jobs.."""
+    """List market jobs."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1067,7 +1067,7 @@ def aitbc_market_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List blockchain market offers and bids, optionally filtered.."""
+    """List blockchain market offers and bids, optionally filtered."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"mine": "mine"},
@@ -1091,7 +1091,7 @@ def aitbc_market_match(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Match GPU bids with offers for price discovery.."""
+    """Match GPU bids with offers for price discovery."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -1128,7 +1128,7 @@ def aitbc_market_offer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List a hardware and software bundle offer in the market.."""
+    """List a hardware and software bundle offer in the market."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1192,7 +1192,7 @@ def aitbc_market_offer_cancel(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cancel one or more hardware and software bundle offers by order IDs.."""
+    """Cancel one or more hardware and software bundle offers by order IDs."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1240,7 +1240,7 @@ def aitbc_market_offer_disable(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Disable/unregister a market offer.."""
+    """Disable/unregister a market offer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1289,7 +1289,7 @@ def aitbc_market_offer_list(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List software offers published by this provider.."""
+    """List software offers published by this provider."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1342,7 +1342,7 @@ def aitbc_market_process(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Process a video using an FFmpeg software offer and pay metered escrow.."""
+    """Process a video using an FFmpeg software offer and pay metered escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1394,7 +1394,7 @@ def aitbc_market_providers(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List the providers behind the live market offers.."""
+    """List the providers behind the live market offers."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -1421,7 +1421,7 @@ def aitbc_market_rate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Rate a market service offer on a 1-5 scale.."""
+    """Rate a market service offer on a 1-5 scale."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1476,7 +1476,7 @@ def aitbc_market_ratings(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """View ratings for a market service offer.."""
+    """View ratings for a market service offer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1520,7 +1520,7 @@ def aitbc_market_run(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run a software offer (Ollama/Whisper/FFmpeg/Hermes/IPFS) and pay metered escrow.."""
+    """Run a software offer (Ollama/Whisper/FFmpeg/Hermes/IPFS) and pay metered escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"stream": "stream", "pin": "pin", "track": "track"},
@@ -1580,7 +1580,7 @@ def aitbc_market_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check the status of a GPU order including on-chain escrow.."""
+    """Check the status of a GPU order including on-chain escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1608,7 +1608,7 @@ def aitbc_market_sync_ratings(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sync ratings to and from a remote market node.."""
+    """Sync ratings to and from a remote market node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1660,7 +1660,7 @@ def aitbc_market_transcribe(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Transcribe audio using a Whisper software offer and pay metered escrow.."""
+    """Transcribe audio using a Whisper software offer and pay metered escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

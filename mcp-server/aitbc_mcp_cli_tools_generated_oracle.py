@@ -32,7 +32,7 @@ def aitbc_oracle_listings(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all active data oracle announcements.."""
+    """List all active data oracle announcements."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -78,7 +78,7 @@ def aitbc_oracle_store(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Announce a CID for sale on the local data oracle.."""
+    """Announce a CID for sale on the local data oracle."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

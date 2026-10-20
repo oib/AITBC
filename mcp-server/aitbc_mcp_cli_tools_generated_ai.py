@@ -37,7 +37,7 @@ def aitbc_ai_accept(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Accept a completed AI job and release the escrowed payment.."""
+    """Accept a completed AI job and release the escrowed payment."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -92,7 +92,7 @@ def aitbc_ai_cancel(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cancel an AI job and optionally refund the payment to the customer.."""
+    """Cancel an AI job and optionally refund the payment to the customer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"refund": "refund"},
@@ -146,7 +146,7 @@ def aitbc_ai_jobs(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List AI jobs from the coordinator with optional status and limit filters.."""
+    """List AI jobs from the coordinator with optional status and limit filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -185,7 +185,7 @@ def aitbc_ai_pay(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create an escrow payment for an existing AI job.."""
+    """Create an escrow payment for an existing AI job."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -247,7 +247,7 @@ def aitbc_ai_refund(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Refund an escrowed payment for a failed or cancelled AI job.."""
+    """Refund an escrowed payment for a failed or cancelled AI job."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -298,7 +298,7 @@ def aitbc_ai_refund_sweep(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Refund all client-owned AI jobs stuck in an incomplete state.."""
+    """Refund all client-owned AI jobs stuck in an incomplete state."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"dry_run_opt": "dry-run"},
@@ -347,7 +347,7 @@ def aitbc_ai_results(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show the results of a completed AI job by job ID.."""
+    """Show the results of a completed AI job by job ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -396,7 +396,7 @@ def aitbc_ai_service_test(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Test an AI service endpoint by service name.."""
+    """Test an AI service endpoint by service name."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -442,7 +442,7 @@ def aitbc_ai_stats(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show aggregate AI service statistics from the coordinator.."""
+    """Show aggregate AI service statistics from the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -468,7 +468,7 @@ def aitbc_ai_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the current status of an AI job by job ID.."""
+    """Show the current status of an AI job by job ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -546,7 +546,7 @@ def aitbc_ai_submit(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Submit a new AI job to the coordinator with a prompt and optional model.."""
+    """Submit a new AI job to the coordinator with a prompt and optional model."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={

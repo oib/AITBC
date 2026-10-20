@@ -34,7 +34,7 @@ def aitbc_dispute_active(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List every dispute still open for arbitration.."""
+    """List every dispute still open for arbitration."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -87,7 +87,7 @@ def aitbc_dispute_arbitrator_authorize(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Grant or revoke arbitrator rights for an address (admin only).."""
+    """Grant or revoke arbitrator rights for an address (admin only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"revoke": "revoke"},
@@ -133,7 +133,7 @@ def aitbc_dispute_arbitrator_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List every authorized arbitrator.."""
+    """List every authorized arbitrator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -161,7 +161,7 @@ def aitbc_dispute_arbitrator_queue(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List the disputes assigned to an arbitrator.."""
+    """List the disputes assigned to an arbitrator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -210,7 +210,7 @@ def aitbc_dispute_auto_adjudicate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Auto-resolve every dispute whose spot-check evidence proves a mismatch (S-3).."""
+    """Auto-resolve every dispute whose spot-check evidence proves a mismatch (S-3)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"assume_yes": "yes"},
@@ -262,7 +262,7 @@ def aitbc_dispute_evidence_add(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Submit evidence for a dispute.."""
+    """Submit evidence for a dispute."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -315,7 +315,7 @@ def aitbc_dispute_evidence_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List the evidence submitted for a dispute.."""
+    """List the evidence submitted for a dispute."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -345,7 +345,7 @@ def aitbc_dispute_evidence_verify(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Verify or reject a piece of evidence (arbitrators only).."""
+    """Verify or reject a piece of evidence (arbitrators only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"reject": "reject"},
@@ -398,7 +398,7 @@ def aitbc_dispute_file(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """File a new dispute against an agreement.."""
+    """File a new dispute against an agreement."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -452,7 +452,7 @@ def aitbc_dispute_get(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show one dispute with its evidence and votes.."""
+    """Show one dispute with its evidence and votes."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -486,7 +486,7 @@ def aitbc_dispute_resolve(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Rule on a disputed job payment (operator or arbiter only).."""
+    """Rule on a disputed job payment (operator or arbiter only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"assume_yes": "yes"},
@@ -535,7 +535,7 @@ def aitbc_dispute_user(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List the disputes an address is party to.."""
+    """List the disputes an address is party to."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -586,7 +586,7 @@ def aitbc_dispute_vote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cast an arbitration vote on a dispute (arbitrators only).."""
+    """Cast an arbitration vote on a dispute (arbitrators only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -633,7 +633,7 @@ def aitbc_dispute_votes(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the arbitration votes cast on a dispute.."""
+    """Show the arbitration votes cast on a dispute."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

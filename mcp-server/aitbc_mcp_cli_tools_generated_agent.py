@@ -33,7 +33,7 @@ def aitbc_agent_capabilities(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show auto-detected system capabilities for a specified agent.."""
+    """Show auto-detected system capabilities for a specified agent."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -78,7 +78,7 @@ def aitbc_agent_config_export(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Export a named agent's configuration to a JSON file.."""
+    """Export a named agent's configuration to a JSON file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -127,7 +127,7 @@ def aitbc_agent_config_get(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get configuration value or the full configuration for a named agent.."""
+    """Get configuration value or the full configuration for a named agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -176,7 +176,7 @@ def aitbc_agent_config_import(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Import agent configuration from a JSON file.."""
+    """Import agent configuration from a JSON file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -226,7 +226,7 @@ def aitbc_agent_config_set(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Set a configuration key and value for a named agent.."""
+    """Set a configuration key and value for a named agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -274,7 +274,7 @@ def aitbc_agent_config_validate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Validate the configuration of a named agent against the schema.."""
+    """Validate the configuration of a named agent against the schema."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -333,7 +333,7 @@ def aitbc_agent_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new agent and register it in the local agent directory.."""
+    """Create a new agent and register it in the local agent directory."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"auto_detect": "auto-detect"},
@@ -397,7 +397,7 @@ def aitbc_agent_discover_agents(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Search remote agents by capability, type, and minimum health score.."""
+    """Search remote agents by capability, type, and minimum health score."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -451,7 +451,7 @@ def aitbc_agent_get_identity(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get an agent's on-chain identity record for the given ID.."""
+    """Get an agent's on-chain identity record for the given ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -508,7 +508,7 @@ def aitbc_agent_inbox(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """View messages in a specified agent's inbox from the coordinator.."""
+    """View messages in a specified agent's inbox from the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"unread_only": "unread-only"},
@@ -539,7 +539,7 @@ def aitbc_agent_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all local agents configured in the agent directory.."""
+    """List all local agents configured in the agent directory."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -576,7 +576,7 @@ def aitbc_agent_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a local agent with the coordinator by agent ID.."""
+    """Register a local agent with the coordinator by agent ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -632,7 +632,7 @@ def aitbc_agent_register_identity(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register an agent's identity and address on the blockchain.."""
+    """Register an agent's identity and address on the blockchain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -686,7 +686,7 @@ def aitbc_agent_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the current status and health of a specified agent.."""
+    """Get the current status and health of a specified agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -724,7 +724,7 @@ def aitbc_agent_subscribe(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Subscribe an agent to a message topic on the coordinator.."""
+    """Subscribe an agent to a message topic on the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -780,7 +780,7 @@ def aitbc_agent_verify_identity(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Verify an agent's identity using a verifier address on the blockchain.."""
+    """Verify an agent's identity using a verifier address on the blockchain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -833,7 +833,7 @@ def aitbc_agent_workflow_create_workflow(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new multi-step workflow from a steps definition file.."""
+    """Create a new multi-step workflow from a steps definition file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -890,7 +890,7 @@ def aitbc_agent_workflow_execute(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Execute a previously created workflow with the given input file.."""
+    """Execute a previously created workflow with the given input file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -940,7 +940,7 @@ def aitbc_agent_workflow_list_workflows(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all workflows registered with the coordinator.."""
+    """List all workflows registered with the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -991,7 +991,7 @@ def aitbc_agent_workflow_workflow_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the current execution status of a workflow by workflow ID.."""
+    """Get the current execution status of a workflow by workflow ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

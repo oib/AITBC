@@ -34,7 +34,7 @@ def aitbc_trade_chains(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List chains that participate in inter-chain trading.."""
+    """List chains that participate in inter-chain trading."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -85,7 +85,7 @@ def aitbc_trade_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new inter-chain trade between source and destination chains.."""
+    """Create a new inter-chain trade between source and destination chains."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -149,7 +149,7 @@ def aitbc_trade_discover(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Discover trading offers across chains with optional filters.."""
+    """Discover trading offers across chains with optional filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -206,7 +206,7 @@ def aitbc_trade_get(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get details of a specific trade.."""
+    """Get details of a specific trade."""
     options: dict[str, Any] = {}
     args = [trade_id] if trade_id is not None else []
     target = _host_for_role(role, host)
@@ -250,7 +250,7 @@ def aitbc_trade_health(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check the health of inter-chain trading for a chain.."""
+    """Check the health of inter-chain trading for a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -300,7 +300,7 @@ def aitbc_trade_history(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show the history of inter-chain trades between source and destination chains.."""
+    """Show the history of inter-chain trades between source and destination chains."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -351,7 +351,7 @@ def aitbc_trade_list(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List inter-chain trades with optional filters.."""
+    """List inter-chain trades with optional filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -404,7 +404,7 @@ def aitbc_trade_lock_escrow(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Lock escrow for a trade on the settlement node.."""
+    """Lock escrow for a trade on the settlement node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -452,7 +452,7 @@ def aitbc_trade_match(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Match a trade with a counterparty or settlement path.."""
+    """Match a trade with a counterparty or settlement path."""
     options: dict[str, Any] = {}
     args = [trade_id] if trade_id is not None else []
     target = _host_for_role(role, host)
@@ -495,7 +495,7 @@ def aitbc_trade_match_all(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Match all open inter-chain trades automatically.."""
+    """Match all open inter-chain trades automatically."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -543,7 +543,7 @@ def aitbc_trade_refund(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Refund a trade on the settlement node.."""
+    """Refund a trade on the settlement node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -592,7 +592,7 @@ def aitbc_trade_register_chain(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a new chain for inter-chain trading.."""
+    """Register a new chain for inter-chain trading."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -645,7 +645,7 @@ def aitbc_trade_search(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Search trading offers with a query.."""
+    """Search trading offers with a query."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -705,7 +705,7 @@ def aitbc_trade_settle(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Settle a trade with a secret.."""
+    """Settle a trade with a secret."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -757,7 +757,7 @@ def aitbc_trade_settlement_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the settlement status of a trade.."""
+    """Get the settlement status of a trade."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -805,7 +805,7 @@ def aitbc_trade_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the status of a specific trade.."""
+    """Get the status of a specific trade."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -852,7 +852,7 @@ def aitbc_trade_subscription_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show the subscription status for trading updates.."""
+    """Show the subscription status for trading updates."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -898,7 +898,7 @@ def aitbc_trade_sync(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sync trading data for a chain and service type.."""
+    """Sync trading data for a chain and service type."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
@@ -945,7 +945,7 @@ def aitbc_trade_sync_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the inter-chain trading sync status.."""
+    """Get the inter-chain trading sync status."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -994,7 +994,7 @@ def aitbc_trade_watch(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Watch for new trading offers matching filters.."""
+    """Watch for new trading offers matching filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
