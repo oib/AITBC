@@ -66,7 +66,7 @@ drain item and stops the cut; the listed rows themselves are waived.
 
 | surface | today's read (2026-10-20) | state |
 |---|---|---|
-| `escrow_orphan` | `SELECT count(*) FROM escrow_orphan` on chain.db | 6 rows, all `no sealed lock leg`; the one `lock_tx_hash` `0x34fad479…` has 0 rows in `'transaction'` — write-offs by nature, D5 archives the table |
+| `escrow_orphan` | `SELECT count(*) FROM escrow_orphan` on chain.db | 6 rows, all `no sealed lock leg`; the one `lock_tx_hash` `0x34fad479…` has 0 rows in `'transaction'` — write-offs by nature, the plan's D5 (fresh start) archives the table |
 | mempool | `aitbc http call blockchain-rpc mempool` (MCP `get_mempool`) | `count: 0` |
 | `bridge/pending` | `curl http://127.0.0.1:8202/rpc/bridge/pending` on hub (CLI crashes — `GAP-CLI-READS-1`) | `[]` |
 | `cross_chain_transfer` | `SELECT status,count(*) FROM cross_chain_transfer GROUP BY status` | 4 confirmed / 3 refunded — all terminal |
@@ -74,7 +74,7 @@ drain item and stops the cut; the listed rows themselves are waived.
 | `eth_withdrawals` / `exchange_settlements` / `eth_withdrawal_release_attempts` | per-table counts | 2 completed / 2 rows / 1 row — terminal or logs |
 | hermes `task_escrows`, sealed hermes grants | status counts | 1 REFUNDED + 1 RELEASED; the 4 granted APPROVED requests already moved their AIT |
 | coordinator `job` terminal states | `SELECT state,count(*) FROM job GROUP BY state` | 306 terminal (154 completed / 77 expired / 38 failed / 37 canceled) |
-| custody-residue accounts | escrow ops doc §1.4 census | v11-swept history; with D2 clean slate nothing carries |
+| custody-residue accounts | escrow ops doc §1.4 census | v11-swept history; with the plan's D2 (clean slate) nothing carries |
 | `keystore.db`, `admin_nonces.db`, wallet/identity records | file inventory | **custody material for the offline backup step — not drain**; a fresh start must never destroy the only copy |
 
 ## Operator decisions
