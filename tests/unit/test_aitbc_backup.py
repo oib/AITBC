@@ -353,3 +353,94 @@ def test_gpg_default_artifact_list_unchanged(env):
     assert r.returncode == 0
     calls = (env.tmp / "gpg_calls").read_text().split()
     assert calls == ["keystore.tar.gz", "wallets.tar.gz", "etc-aitbc.tar.gz"]
+
+
+# ── RESET-BACKUP-1 (#338): chain-id-derived glob + .pre-* exclusions ──────────
+
+
+def _chain_dir(tmp: Path, chain_id: str) -> Path:
+    d = tmp / f"data-{chain_id}" / chain_id
+    d.mkdir(parents=True)
+    (d / "chain.db").write_bytes(b"db")
+    return d.parent
+
+
+def _today_artifacts(env: SimpleNamespace) -> set[str]:
+    gens = sorted(d.name for d in env.base.iterdir() if d.is_dir())
+    newest = env.base / gens[-1]
+    return {f.name for f in newest.iterdir() if f.name.startswith("chain_")}
+
+
+def test_glob_derives_from_blockchain_env_old_id(env):
+    """CHAIN_ID=ait-hub… in blockchain.env resolves the old artifact name."""
+    env_file = env.tmp / "etc-aitbc" / "blockchain.env"
+    env_file.write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
+    _make_snapshot(env.base, _snap_name(40))
+    r = _run(env, BLOCKCHAIN_ENV=str(env_file), BACKUP_KEEP_MIN_GOOD="2")
+    assert r.returncode == 0
+    assert "chain_ait-hub.aitbc.bubuit.net_chain.db.gz" in _today_artifacts(env)
+    assert "among the last 2 good snapshots" in _log(env)
+
+
+def test_glob_derives_from_blockchain_env_bc2(env):
+    """CHAIN_ID=bc-2 in blockchain.env makes the bc-2 dump the good artifact."""
+    env_file = env.tmp / "etc-aitbc" / "blockchain.env"
+    env_file.write_text("CHAIN_ID=bc-2\n")
+    data = _chain_dir(env.tmp, "bc-2")
+    _make_snapshot(env.base, _snap_name(40))  # old-id gen: not good under bc-2
+    r = _run(env, BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data), BACKUP_KEEP_MIN_GOOD="1")
+    assert r.returncode == 0
+    arts = _today_artifacts(env)
+    assert "chain_bc-2_chain.db.gz" in arts
+    assert "chain_ait-hub.aitbc.bubuit.net_chain.db.gz" not in arts
+    # the old-id gen is not a good restore point under bc-2 — pruned normally
+    assert f"removing '{_snap_name(40)}'" in _log(env)
+
+
+def test_chain_id_env_var_beats_file(env):
+    """An EnvironmentFile-provided CHAIN_ID wins over blockchain.env."""
+    env_file = env.tmp / "etc-aitbc" / "blockchain.env"
+    env_file.write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
+    data = _chain_dir(env.tmp, "bc-2")
+    r = _run(env, CHAIN_ID="bc-2", BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data))
+    assert r.returncode == 0
+    assert "chain_bc-2_chain.db.gz" in _today_artifacts(env)
+
+
+def test_prereset_copy_inside_data_is_not_dumped(env):
+    """A .pre-reset archive inside data/ must not land in the generation —
+    neither as its own artifact nor as a stale old-chain dump."""
+    env_file = env.tmp / "etc-aitbc" / "blockchain.env"
+    env_file.write_text("CHAIN_ID=bc-2\n")
+    data = _chain_dir(env.tmp, "bc-2")
+    archive = data / ".pre-reset-2026-10-20" / "ait-hub.aitbc.bubuit.net"
+    archive.mkdir(parents=True)
+    (archive / "chain.db").write_bytes(b"old-db")
+    r = _run(env, BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data))
+    assert r.returncode == 0
+    arts = _today_artifacts(env)
+    assert arts == {"chain_bc-2_chain.db.gz"}, arts
+
+
+def test_rollback_old_chain_only_under_bc2_glob_skips_prune(env):
+    """Rollback shape: after stores move back, the run holds only the old
+    chain's dump — under a bc-2 glob that is NOT good, so prune skips and
+    the vault is never emptied."""
+    env_file = env.tmp / "etc-aitbc" / "blockchain.env"
+    env_file.write_text("CHAIN_ID=bc-2\n")
+    data = _chain_dir(env.tmp, "bc-2")
+    r1 = _run(env, BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data))
+    assert r1.returncode == 0
+    gen1 = [d for d in env.base.iterdir() if d.is_dir()][0]
+    assert "chain_bc-2_chain.db.gz" in {f.name for f in gen1.iterdir()}
+
+    # Rollback: the .pre-reset copies moved back — only the old chain exists.
+    data2 = _chain_dir(env.tmp, "ait-hub.aitbc.bubuit.net")
+    old = _make_snapshot(env.base, _snap_name(50))
+    r2 = _run(env, BLOCKCHAIN_ENV=str(env_file), CHAIN_DB_DIR=str(data2))
+    assert r2.returncode == 0
+    gens = {d.name: d for d in env.base.iterdir() if d.is_dir()}
+    gen2 = gens[[n for n in gens if n != gen1.name][0]]
+    assert {f.name for f in gen2.iterdir() if f.name.startswith("chain_")} == {"chain_ait-hub.aitbc.bubuit.net_chain.db.gz"}
+    assert "pruning skipped entirely" in _log(env)
+    assert old.exists() and gen1.exists()
