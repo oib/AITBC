@@ -327,6 +327,16 @@ def test_check_bridge_paused_flags_wrong_detail(tmp_path, monkeypatch):
     assert len(failures) == 1 and "unexpected detail" in failures[0] and "database unavailable" in failures[0]
 
 
+def test_check_bridge_paused_uses_rpc_prefix(tmp_path, monkeypatch):
+    """Every other probe rides the /rpc/ mount; the fence lives at
+    /rpc/cross-chain/bridge — probing without the prefix 404s (the
+    run3 acceptance failure)."""
+    seen: list[str] = []
+    monkeypatch.setattr(rh, "_post_json", lambda url, body: seen.append(url) or (503, {"detail": ""}))
+    rh._check_bridge_paused(rh.instances(tmp_path), [])
+    assert seen and seen[0].endswith("/rpc/cross-chain/bridge")
+
+
 def test_parse_systemd_ts_and_span():
     # CEST input is normalized to naive UTC so the block-ts delta shares
     # one instant basis (a naive subtraction used to land ~-7200s).
