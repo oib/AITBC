@@ -71,6 +71,21 @@ def test_assert_nothing_sealed(tmp_path):
         rollback._assert_nothing_sealed(db)
 
 
+def test_unit_fields_parses_keyed_output(tmp_path, monkeypatch):
+    """systemctl --value order is not the requested order — the parse must
+    be keyed so evidence labels are true (observed on node2: MainPID first)."""
+    out = "MainPID=574372\nExecMainStartTimestamp=Tue 2026-10-20 07:46:07 CEST\nActiveEnterTimestamp=Tue 2026-10-20 07:43:24 CEST\n"
+
+    class R:
+        stdout = out
+
+    monkeypatch.setattr(rollback.subprocess, "run", lambda *a, **k: R())
+    fields = rollback._unit_fields("bc2rb-old")
+    assert fields["ActiveEnterTimestamp"].endswith("07:43:24 CEST")
+    assert fields["ExecMainStartTimestamp"].endswith("07:46:07 CEST")
+    assert fields["MainPID"] == "574372"
+
+
 def test_detect_prior_run():
     before = {
         "ActiveEnterTimestamp": "Mon 2026-10-20 06:00:00 CEST",
