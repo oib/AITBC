@@ -55,6 +55,14 @@ def manifest(tmp_path: Path) -> dict:
     }
 
 
+def _canned_block(url: str, b0: dict, bad_block: int | None):
+    if url.endswith("/rpc/blocks/0"):
+        return 200, b0
+    hgt = int(url.rsplit("/", 1)[1])
+    atts = ["a", "b"] if hgt != bad_block else ["a"]
+    return 200, {"proposer": VALS[hgt % 4], "block_metadata": json.dumps({"attestations": atts})}
+
+
 def http_get_factory(
     head_h: int = 5,
     head_hash: str = "0xhead",
@@ -63,57 +71,66 @@ def http_get_factory(
     probe_503: bool = True,
 ):
     b0 = block0 or {"hash": "0xg", "state_root": "0xsr", "chain_id": CID}
+    table = {
+        "/rpc/proposer": (200, {"proposer_id": VALS[0], "chain_id": CID, "supported_chains": [CID]}),
+        "/rpc/head": (200, {"height": head_h, "hash": head_hash}),
+        "/rpc/state/snapshot": (
+            200,
+            {"accounts": [{"address": "0xT", "balance": "100"}, {"address": "0xS", "balance": "20"}]},
+        ),
+        "/rpc/bridge/pending": (200, {"pending": []}),
+        "/rpc/mempool": (200, {"transactions": []}),
+        "/api/v1/alerts": (200, {"data": {"alerts": []}}),
+    }
 
     def get(url: str, timeout: int = 5):
-        if url.endswith("/rpc/proposer"):
-            return 200, {"proposer_id": VALS[0], "chain_id": CID, "supported_chains": [CID]}
-        if url.endswith("/rpc/head"):
-            return 200, {"height": head_h, "hash": head_hash}
-        if "/rpc/blocks/0" in url:
-            return 200, b0
         if "/rpc/blocks/" in url:
-            hgt = int(url.rsplit("/", 1)[1])
-            atts = ["a", "b"] if hgt != bad_block else ["a"]
-            return 200, {"proposer": VALS[hgt % 4], "block_metadata": json.dumps({"attestations": atts})}
-        if url.endswith("/rpc/state/snapshot"):
-            return 200, {"accounts": [{"address": "0xT", "balance": "100"}, {"address": "0xS", "balance": "20"}]}
-        if url.endswith("/rpc/bridge/pending"):
-            return 200, {"pending": []}
-        if url.endswith("/rpc/mempool"):
-            return 200, {"transactions": []}
-        if url.endswith("/api/v1/alerts"):
-            return 200, {"data": {"alerts": []}}
+            return _canned_block(url, b0, bad_block)
+        for suffix, ans in table.items():
+            if url.endswith(suffix):
+                return ans
         return 404, {}
 
     return get
 
 
+def _grep_answer(env_ok: bool, cmd: str) -> str:
+    if "CHAIN_ID" in cmd:
+        return f"CHAIN_ID={CID}\n" if env_ok else "CHAIN_ID=old-1\nCHAIN_ID=bc-2\n"
+    for ename, want in (("BRIDGE_LOCKS_PAUSED", "true"), ("STATE_TRANSITION_V2_HEIGHT", "1")):
+        if ename in cmd:
+            return f"{ename}={want}\n"
+    return ""
+
+
+def _is_active(cmd: str, unit_active: bool, timer_active: bool) -> str:
+    if ".timer" in cmd:
+        return "active\n" if timer_active else "inactive\n"
+    return "active\n" if unit_active else "inactive\n"
+
+
 def host_sh_factory(
     env_ok: bool = True, stray: bool = False, unit_active: bool = True, timer_active: bool = True, store_count: int = 3
 ):
+    handlers = [
+        ("grep -h", lambda c: _grep_answer(env_ok, c)),
+        ("sha256sum", lambda c: "ab" * 32 + "  /d/bc-2/genesis.json\n"),
+        ("find", lambda c: "/d/bc-2/chain.db\n" + ("/d/old/chain.db\n" if stray else "")),
+        (
+            "journalctl",
+            lambda c: "Successfully created genesis block from genesis.json\nInitializing databases for chains: ['bc-2']\n",
+        ),
+        ("sqlite3", lambda c: f"{store_count}\n"),
+    ]
+
     def sh(ssh, cmd):
-        if cmd.startswith("grep -h"):
-            if not env_ok and "CHAIN_ID" in cmd:
-                return "CHAIN_ID=old-1\nCHAIN_ID=bc-2\n"
-            for ename, want in (("CHAIN_ID", CID), ("BRIDGE_LOCKS_PAUSED", "true"), ("STATE_TRANSITION_V2_HEIGHT", "1")):
-                if ename in cmd:
-                    return f"{ename}={want}\n"
-            return ""
-        if cmd.startswith("sha256sum"):
-            return "ab" * 32 + "  /d/bc-2/genesis.json\n"
-        if cmd.startswith("find"):
-            base = "/d/bc-2/chain.db\n"
-            return base + ("/d/old/chain.db\n" if stray else "")
         if "is-active" in cmd:
-            if ".timer" in cmd:
-                return "active\n" if timer_active else "inactive\n"
-            return "active\n" if unit_active else "inactive\n"
-        if cmd.startswith("journalctl"):
-            return "Successfully created genesis block from genesis.json\nInitializing databases for chains: ['bc-2']\n"
-        if cmd.startswith("sqlite3"):
-            return f"{store_count}\n"
+            return _is_active(cmd, unit_active, timer_active)
         if "ActiveEnterTimestamp" in cmd:
             return "2000000000\n"
+        for prefix, fn in handlers:
+            if cmd.startswith(prefix):
+                return fn(cmd)
         return ""
 
     return sh
