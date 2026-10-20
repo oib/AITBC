@@ -142,23 +142,26 @@ a configured CLI verifier refuses them.
 ## Operator-decision names
 
 These are operator-owned. Values are not in this document; each is named
-with what the code expects. Rotation of any key material is an operator
-decision and is proposed by nothing here.
+with what the code expects. **Decided 20 Oct: "No rotation for this
+reset"** ("this is not a v1 bc reset. after bc reset we are still on eth
+testnet") — bc-2 is a testnet-era reset; the validator set is the four
+**current** validators (the set rotated in KR-5,
+`docs/releases/STATUS.md`), and no key material rotates.
 
 | name | what the code expects |
 |---|---|
-| `VALIDATOR_SET` | JSON list of `{address, stake}` — the post-rotation validator addresses (the rehearsal used 4 entries, stake 1000 each) |
+| `VALIDATOR_SET` | JSON list of `{address, stake}` — the four current validators (no rotation for this reset; the rehearsal used 4 entries, stake 1000 each) |
 | `VALIDATOR_KEYS` | JSON map `address → private key` on each proposer unit (secret) |
 | `PROPOSER_ID` / `PROPOSER_KEY` | the unit's own validator address / key (secret); only `aitbc-blockchain-node` reads them — needed also for gossip publish auth on restricted topics |
-| `TRUSTED_PROPOSERS` | `genesis,<the four post-rotation validator addresses>` — **decided 20 Oct 2026: set it** (operator answer: "Set it"). A non-empty set turns on a membership check for **every** imported block (only listed proposers accepted, so any later validator-set change must update the list on **every host in the same change** or the new proposer's blocks are refused) and lets unsigned blocks through only for listed proposers. Every bc-2 node file-loads genesis, so block 0 never reaches the import validator — `genesis` matters only for a node that bulk-pulls from height 0 without the file. The four addresses stay operator-owned placeholders until the rotation writes them; the resolved value is checked before the node units start (`bc2-reset-runbook.md` C5) (`sync_validator.py`) |
-| `GENESIS_ADDRESS` / `GENESIS_WALLET_ADDRESS` | the new genesis identity per the allocation plan |
-| `BRIDGE_ADMIN_ADDRESSES` | operator admin set |
-| `BRIDGE_RELEASE_AUTHORITY` | operator authority (consensus-visible release admission) |
-| `BRIDGE_MULTISIG_VALIDATORS` | count/list of the bc-2 bridge validators — selected set is the post-rotation validator addresses, threshold `2` per the table above |
-| `BRIDGE_MAX_LOCK_AMOUNT` | recommended keep `36000000000` base units = **1000 AIT** (36,000,000 units/AIT); `0`/unset fails closed — production refuses locks |
-| `ESCROW_RELEASE_ADDRESS` | operator address; live value `0x11741E1A…` is already public in repo docs |
-| `ESCROW_FEE_RECIPIENT` | operator address; live value `0x34FFfAd1…` is already public in repo docs |
-| `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | carry the live identities — the two init-time bond system accounts must be allocated at balance `0` in genesis (init rows win over funded allocations — rehearsal evidence) |
+| `TRUSTED_PROPOSERS` | `genesis,<the four current validators>` — **decided 20 Oct 2026: set it** (operator answer: "Set it"). A non-empty set turns on a membership check for **every** imported block (only listed proposers accepted, so any later validator-set change must update the list on **every host in the same change** or the new proposer's blocks are refused) and lets unsigned blocks through only for listed proposers. Every bc-2 node file-loads genesis, so block 0 never reaches the import validator — `genesis` matters only for a node that bulk-pulls from height 0 without the file. The four addresses come from each host's live `VALIDATOR_SET` (a coder proposes the list, the operator confirms it — A1/A2); the resolved value is checked before the node units start (`bc2-reset-runbook.md` C5) (`sync_validator.py`) |
+| `GENESIS_ADDRESS` / `GENESIS_WALLET_ADDRESS` | the new genesis identity per the allocation plan — treasury "**New address, will supply**" (operator card 20 Oct), all other accounts "**Same as live today**"; both lists outstanding |
+| `BRIDGE_ADMIN_ADDRESSES` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live admin set |
+| `BRIDGE_RELEASE_AUTHORITY` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live authority (consensus-visible release admission) |
+| `BRIDGE_MULTISIG_VALIDATORS` | count/list of the bc-2 bridge validators — decided set is the four current validators, threshold `2` per the table above |
+| `BRIDGE_MAX_LOCK_AMOUNT` | **decided 20 Oct: keep `36000000000` base units = 1000 AIT** ("Keep live + 1000 AIT"; 36,000,000 units/AIT); `0`/unset fails closed — production refuses locks |
+| `ESCROW_RELEASE_ADDRESS` | **decided 20 Oct: keep live** — live value `0x11741E1A…` is already public in repo docs |
+| `ESCROW_FEE_RECIPIENT` | **decided 20 Oct: keep live** — live value `0x34FFfAd1…` is already public in repo docs |
+| `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | **decided 20 Oct: keep live** — carry the live identities; the two init-time bond system accounts must be allocated at balance `0` in genesis (init rows win over funded allocations — rehearsal evidence) |
 | `STATE_SYNC_MAX_GAP` (node0 only) | **answered 20 Oct 2026** — node0 takes the fleet value `-1` (operator answer: "Write the fleet values for node0"). Written explicitly in node0's bc-2 env set like the other four hosts; the small-gap window is not kept |
 | `GOSSIP_MESH_PEER_URLS`, `GOSSIP_WEBSOCKET_URL`, hub/sync URL names | bc-2 hostnames/ports — deployment wiring |
 | All `*KEY*` / `*SECRET*` / `*PASS*` / `*TOKEN*` / `*MNEMONIC*` / `*SEED*` / `*PRIVATE*` names | presence-only; values supplied by the operator at the cut |
@@ -209,9 +212,10 @@ Named actions only — order and timing are deliberately absent:
   old-chain pin binds quotes to the old id and verifiers refuse them.
 - Write all 15 gate heights to `1` (`STATE_TRANSITION_V2`–`V14`,
   `BRIDGE_LOCK_LEAF_V2`, `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT`).
-- Write the operator-supplied `VALIDATOR_SET`, `VALIDATOR_KEYS`,
+- Write `VALIDATOR_SET` (the four current validators), `VALIDATOR_KEYS`,
   `PROPOSER_ID`/`PROPOSER_KEY`, `TRUSTED_PROPOSERS`, genesis/bridge/escrow
-  addresses, and `BRIDGE_MULTISIG_VALIDATORS`.
+  addresses, and `BRIDGE_MULTISIG_VALIDATORS` — no rotation for this
+  reset; the secret/key names still come from the operator at the cut.
 - Ensure `GOSSIP_BACKEND=redis` on every `aitbc-blockchain-rpc` unit and
   `mesh` on every `aitbc-blockchain-node` unit.
 - Ensure every node loads the identical `genesis.json` from file — no
