@@ -43,7 +43,7 @@ Scope rules for this document:
 | `GOSSIP_BACKEND` | `mesh` | node-unit value (see RPC unit for the fleet split) |
 | `GOSSIP_AUTH_ENABLED` | unset → `true` (default) | publish-side only; see harness items |
 | `GOSSIP_PROTOCOL_VERSION` | unset → `2` | code default |
-| `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | `256` recommended | live differs per host (64 on hub/node1/node2, 128 on hub1, 256 on node0); the rehearsal hit a low cap — `256` uniform is a recommendation and an operator choice, not a fleet fact |
+| `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | `256` | **decided 20 Oct 2026: `256` on all five hosts** (operator answer: "256 on all five"). Live today differs per host (64 on hub/node1/node2, 128 on hub1, 256 on node0); the rehearsal hit a low cap — the uniform `256` is now the bc-2 value, no longer an operator choice |
 | `GOSSIP_MESH_PEER_URLS` | the bc-2 peer WS list (per node, self excluded) | deployment wiring |
 | `GOSSIP_WEBSOCKET_URL` | the bc-2 hub gossip WS URL | deployment wiring |
 | `SYNC_MANAGER_ENABLED` | `true` | fleet value |
@@ -63,7 +63,7 @@ Scope rules for this document:
 | `BRIDGE_VALIDATOR_SET_GRACE_PERIOD` | unset → `7200` | code default |
 | `BRIDGE_RELEASE_ENABLED` | `true` | fleet value |
 | `BRIDGE_RELAYER_ENABLED` | unset → `true` | code default; AND-gated on release |
-| `BRIDGE_LOCKS_PAUSED` | `false` | fleet value |
+| `BRIDGE_LOCKS_PAUSED` | `true` | **decided 20 Oct 2026: bc-2 launches paused** (operator answer: "Stay paused until redeploy") — the old chain's fleet value was `false`. Admission-side gate, not a consensus check (see `bc2-reset-runbook.md` C3 detail); the unpause is a separate gated step after `SEPOLIA-REDEPLOY-1` |
 | `BRIDGE_SUPPORTED_CHAINS` | `bc-2` | admission list |
 | `BRIDGE_REQUIRE_MERKLE_PROOF` | `true` | fleet value |
 | `BRIDGE_MIN_CONFIRMATIONS` / `BRIDGE_FINALITY_BLOCKS` | unset → `3` / `6` | code defaults |
@@ -150,7 +150,7 @@ decision and is proposed by nothing here.
 | `VALIDATOR_SET` | JSON list of `{address, stake}` — the post-rotation validator addresses (the rehearsal used 4 entries, stake 1000 each) |
 | `VALIDATOR_KEYS` | JSON map `address → private key` on each proposer unit (secret) |
 | `PROPOSER_ID` / `PROPOSER_KEY` | the unit's own validator address / key (secret); only `aitbc-blockchain-node` reads them — needed also for gossip publish auth on restricted topics |
-| `TRUSTED_PROPOSERS` | `genesis,<validator addresses>` or unset — a non-empty set turns on a membership check for **every** imported block (only listed proposers accepted, so any later validator-set change must also update it or the new proposer's blocks are refused) and lets unsigned blocks through only for listed proposers; unset is today's live behaviour (unsigned blocks fail closed). Every bc-2 node file-loads genesis, so block 0 never reaches the import validator — `genesis` matters only for a node that bulk-pulls from height 0 without the file. Operator decision; recommended `genesis,<validator addresses>` to keep that joiner path open (`sync_validator.py`) |
+| `TRUSTED_PROPOSERS` | `genesis,<the four post-rotation validator addresses>` — **decided 20 Oct 2026: set it** (operator answer: "Set it"). A non-empty set turns on a membership check for **every** imported block (only listed proposers accepted, so any later validator-set change must update the list on **every host in the same change** or the new proposer's blocks are refused) and lets unsigned blocks through only for listed proposers. Every bc-2 node file-loads genesis, so block 0 never reaches the import validator — `genesis` matters only for a node that bulk-pulls from height 0 without the file. The four addresses stay operator-owned placeholders until the rotation writes them; the resolved value is checked before the node units start (`bc2-reset-runbook.md` C5) (`sync_validator.py`) |
 | `GENESIS_ADDRESS` / `GENESIS_WALLET_ADDRESS` | the new genesis identity per the allocation plan |
 | `BRIDGE_ADMIN_ADDRESSES` | operator admin set |
 | `BRIDGE_RELEASE_AUTHORITY` | operator authority (consensus-visible release admission) |
