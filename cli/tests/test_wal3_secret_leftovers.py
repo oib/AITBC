@@ -346,49 +346,54 @@ def mock_genesis_run(monkeypatch):
 
 
 class TestGenesisInitPassword:
-    def test_password_file_reaches_child_by_env_not_argv(self, runner, mock_genesis_run, pw_file):
+    # GAP-GENESIS-INIT-1: init is retired and refuses before spawning the
+    # generator — no password flag can reach a child process at all, which
+    # is strictly stronger than the env-not-argv contract this class used
+    # to pin.
+
+    def test_password_file_never_reaches_a_child(self, runner, mock_genesis_run, pw_file):
         result = runner.invoke(
             genesis_module.init,
             ["--chain-id", "ait-test", "--create-wallet", "--password-file", str(pw_file)],
             obj={"output_format": "json"},
         )
-        assert result.exit_code == 0, result.output
-        assert len(mock_genesis_run) == 1
-        cmd = mock_genesis_run[0]["cmd"]
-        assert "--password" not in cmd
-        assert all(PASSWORD not in str(a) for a in cmd)
-        assert mock_genesis_run[0]["env"]["AITBC_GENESIS_PASSWORD"] == PASSWORD
+        assert result.exit_code == 1
+        assert "build-genesis.py" in result.output
+        assert mock_genesis_run == []
         assert PASSWORD not in result.output
 
-    def test_deprecated_password_flag_warns_and_uses_env(self, runner, mock_genesis_run):
+    def test_deprecated_password_flag_refused_before_any_spawn(self, runner, mock_genesis_run):
         result = runner.invoke(
             genesis_module.init,
             ["--chain-id", "ait-test", "--create-wallet", "--password", PASSWORD],
             obj={"output_format": "json"},
         )
-        assert result.exit_code == 0, result.output
-        assert "--password exposes the secret" in result.output  # deprecation warning
-        assert all(PASSWORD not in str(a) for a in mock_genesis_run[0]["cmd"])
-        assert mock_genesis_run[0]["env"]["AITBC_GENESIS_PASSWORD"] == PASSWORD
+        assert result.exit_code == 1
+        assert "build-genesis.py" in result.output
+        assert mock_genesis_run == []
+        assert PASSWORD not in result.output
 
-    def test_no_flag_auto_generates_without_env(self, runner, mock_genesis_run):
+    def test_no_flag_still_refuses(self, runner, mock_genesis_run):
         result = runner.invoke(
             genesis_module.init,
             ["--chain-id", "ait-test", "--create-wallet"],
             obj={"output_format": "json"},
         )
-        assert result.exit_code == 0, result.output
-        assert "AITBC_GENESIS_PASSWORD" not in mock_genesis_run[0]["env"]
+        assert result.exit_code == 1
+        assert "build-genesis.py" in result.output
+        assert mock_genesis_run == []
 
-    def test_password_stdin_read_once(self, runner, mock_genesis_run):
+    def test_password_stdin_refused_without_reading(self, runner, mock_genesis_run):
         result = runner.invoke(
             genesis_module.init,
             ["--chain-id", "ait-test", "--create-wallet", "--password-stdin"],
             input=PASSWORD + "\n",
             obj={"output_format": "json"},
         )
-        assert result.exit_code == 0, result.output
-        assert mock_genesis_run[0]["env"]["AITBC_GENESIS_PASSWORD"] == PASSWORD
+        assert result.exit_code == 1
+        assert "build-genesis.py" in result.output
+        assert mock_genesis_run == []
+        assert PASSWORD not in result.output
 
 
 class TestGenesisResetPassword:

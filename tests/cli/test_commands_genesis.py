@@ -6,7 +6,7 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -55,47 +55,48 @@ class TestGenesisCommands:
             assert result.exit_code != 0, extra
 
     @patch("aitbc_cli.commands.genesis.subprocess.run")
-    def test_genesis_init_command(self, mock_run, runner):
-        """``genesis init`` runs the genesis generation script via subprocess."""
-        mock_result = MagicMock()
-        mock_result.stdout = "Genesis block created successfully"
-        mock_result.stderr = ""
-        mock_result.returncode = 0
-        mock_run.return_value = mock_result
-
+    def test_genesis_init_command(self, mock_run, runner, tmp_path):
+        """``genesis init`` is retired: it refuses before reading or writing
+        any file and names the only builder (GAP-GENESIS-INIT-1)."""
         from aitbc_cli.commands.genesis import genesis
 
         result = runner.invoke(
             genesis,
             ["init", "--chain-id", "test-chain", "--create-wallet"],
+            obj={"output_format": "table"},
         )
 
-        assert result.exit_code == 0, result.output
-        mock_run.assert_called_once()
-        # Verify the command includes the chain-id.
-        cmd_args = mock_run.call_args[0][0] if mock_run.call_args[0] else mock_run.call_args[1].get("args", [])
-        assert "--chain-id" in cmd_args
-        assert "test-chain" in cmd_args
+        assert result.exit_code == 1, result.output
+        assert "retired" in result.output
+        assert "scripts/ops/build-genesis.py" in result.output
+        assert "bc2-consumers.md" in result.output
+        mock_run.assert_not_called()
+        assert list(tmp_path.iterdir()) == []
 
     @patch("aitbc_cli.commands.genesis.subprocess.run")
     def test_genesis_init_command_with_force(self, mock_run, runner):
-        """``genesis init --force`` passes the --force flag to the script."""
-        mock_result = MagicMock()
-        mock_result.stdout = "Genesis block created"
-        mock_result.stderr = ""
-        mock_result.returncode = 0
-        mock_run.return_value = mock_result
-
+        """``genesis init --force`` hits the same refusal — no flag revives it."""
         from aitbc_cli.commands.genesis import genesis
 
         result = runner.invoke(
             genesis,
             ["init", "--chain-id", "test-chain", "--force"],
+            obj={"output_format": "table"},
         )
 
+        assert result.exit_code == 1, result.output
+        assert "build-genesis.py" in result.output
+        mock_run.assert_not_called()
+
+    def test_genesis_init_help_still_works(self, runner):
+        """Retirement keeps --help: options and the retired note render."""
+        from aitbc_cli.commands.genesis import genesis
+
+        result = runner.invoke(genesis, ["init", "--help"])
         assert result.exit_code == 0, result.output
-        cmd_args = mock_run.call_args[0][0] if mock_run.call_args[0] else mock_run.call_args[1].get("args", [])
-        assert "--force" in cmd_args
+        assert "Retired" in result.output
+        assert "build-genesis" in result.output
+        assert "--create-wallet" in result.output
 
     def test_genesis_verify_command_no_genesis(self, runner):
         """``genesis verify`` reports an error when genesis config is not found."""
