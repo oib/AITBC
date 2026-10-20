@@ -34,10 +34,12 @@ Phases (also runnable individually):
     rehearsal.py golden      run the golden-corpus check twice under gates1
     rehearsal.py untrusted   drop a validator from i4's TRUSTED_PROPOSERS,
                              watch the membership check refuse its blocks
+    rehearsal.py stall       two validators down: heads freeze, no fork,
+                             then resume on rejoin (post-PONR M2)
     rehearsal.py teardown    stop units, delete the scratch tree, show it empty
     rehearsal.py run         keys -> genesis -> up -> wait -> check ->
-                             timing -> rejoin -> skip -> stores -> golden ->
-                             untrusted -> teardown
+                             timing -> rejoin -> skip -> stall -> stores ->
+                             golden -> untrusted -> teardown
 
 Live-host protection: before anything starts, the harness records
 ``ActiveEnterTimestamp``/``MainPID`` and head height of the live
@@ -1093,6 +1095,71 @@ def _stop_instance(inst: Instance) -> None:
     subprocess.run(["systemctl", "stop", f"{inst.name}-rpc"], capture_output=True, timeout=60)
 
 
+# --- fault-injection phases (RESET-REHEARSAL-FAULTS-1, #351) ---
+
+# poa.py:1919 — the seal refusal that marks a liveness failure in
+# multi-validator mode. Stall and gossip-degradation rehearsals both key
+# on it: it is the difference between "nodes dead" and "alive but cannot
+# collect the attestations the mode requires".
+STALL_MARK = re.compile(
+    r"Not enough attestations for multi-validator block \d+:"
+    r" got \d+ attestation\(s\) and \d+ PBFT commit\(s\), need \d+"
+)
+
+
+def _node_log(inst: Instance) -> str:
+    log = inst.dir / "logs" / "node.log"
+    return log.read_text() if log.exists() else ""
+
+
+def phase_stall(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
+    """M2 — two validators down: heads freeze without forking, then resume.
+
+    Multi-validator liveness needs proposer + two remote attestations; with
+    only i0 and i1 alive every proposal collects at most one signature, so
+    the seal refusal fires each attempt. Heads must stay frozen AND equal —
+    equal-and-frozen is the M2 signature on the post-PONR decision tree;
+    equal-and-advancing is not consensus trouble, and divergent heads are
+    M3. Restoring both stopped validators must resume production.
+    """
+    insts = instances(root)
+    down = [insts[2], insts[3]]
+    live = [insts[0], insts[1], insts[4]]
+    for inst in down:
+        _stop_instance(inst)
+    frozen = {inst.idx: _head(inst) for inst in live}
+    print(f"[*] stopped {[i.name for i in down]}; live heads {frozen} — watching two empty-block intervals")
+    # MAX_EMPTY_BLOCK_INTERVAL is 60s: two intervals of identical heads is
+    # the strongest "not advancing" signal an empty chain can give.
+    observe_s = 2 * 60 + 15
+    deadline = time.time() + observe_s
+    while time.time() < deadline:
+        _check_host_budget(max_load, min_avail_mib)
+        for inst in live:
+            h = _head(inst)
+            if h is not None and h != frozen[inst.idx]:
+                raise _fail(
+                    f"{inst.name} head moved {frozen[inst.idx]} -> {h} with two validators down"
+                    " — that is a fork or uncontrolled seal, not an M2 stall"
+                )
+        time.sleep(5)
+    if not any(STALL_MARK.search(_node_log(inst)) for inst in live[:2]):
+        raise _fail("no 'Not enough attestations' refusal on bc2-i0/bc2-i1 — the freeze is not proven a liveness stall")
+    print(f"[+] heads frozen and equal for {observe_s}s; seal refusal logged — M2 stall proven")
+    for inst in down:
+        _spawn(inst, python)
+    h0 = frozen[0]
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        _check_host_budget(max_load, min_avail_mib)
+        h = _head(live[0])
+        if h is not None and h0 is not None and h > h0:
+            print(f"[+] validators restored; head advanced {h0} -> {h} — production resumed")
+            return
+        time.sleep(5)
+    raise _fail(f"chain did not resume within {timeout}s after restoring two validators")
+
+
 def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
     inst = instances(root)[3]
     h0 = _head(inst)
@@ -1236,6 +1303,7 @@ def main() -> int:
             "timing",
             "rejoin",
             "skip",
+            "stall",
             "stores",
             "golden",
             "untrusted",
@@ -1292,6 +1360,7 @@ def main() -> int:
             _timed("timing", lambda: phase_timing(root))
             _timed("rejoin", lambda: phase_rejoin(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
             _timed("skip", lambda: phase_skip(root, args.timeout, args.max_load, args.min_avail_mib))
+            _timed("stall", lambda: phase_stall(root, args.python, args.timeout, args.max_load, args.min_avail_mib))
             _timed("stores", lambda: phase_stores(root, args.python))
             _timed("golden", lambda: phase_golden(root, args.python))
             _timed("untrusted", lambda: phase_untrusted(root, args.python, args.timeout))
@@ -1313,6 +1382,7 @@ def main() -> int:
         "timing": lambda: phase_timing(root),
         "rejoin": lambda: phase_rejoin(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
         "skip": lambda: phase_skip(root, args.timeout, args.max_load, args.min_avail_mib),
+        "stall": lambda: phase_stall(root, args.python, args.timeout, args.max_load, args.min_avail_mib),
         "stores": lambda: phase_stores(root, args.python),
         "golden": lambda: phase_golden(root, args.python),
         "untrusted": lambda: phase_untrusted(root, args.python, args.timeout),
