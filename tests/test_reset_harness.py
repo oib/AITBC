@@ -228,3 +228,20 @@ def test_bridge_validators_are_the_four_proposers():
 
 def test_gate_env_has_no_live_values():
     assert set(rh.GATE_ENV.values()) == {"1"}
+
+
+def test_live_snapshot_parses_keyed_output(monkeypatch):
+    """systemctl --value order is not the requested order (observed on
+    node2: MainPID emitted first). The snapshot must parse keyed
+    Name=value lines so ActiveEnterTimestamp/MainPID labels stay true."""
+    keyed = "MainPID=574372\nActiveEnterTimestamp=Tue 2026-10-20 07:43:24 CEST\n"
+
+    class R:
+        stdout = keyed
+
+    monkeypatch.setattr(rh.subprocess, "run", lambda *a, **k: R())
+    snap = rh._live_snapshot()
+    assert set(snap) == set(rh.LIVE_UNITS)
+    for fields in snap.values():
+        assert fields["MainPID"] == "574372"
+        assert fields["ActiveEnterTimestamp"].endswith("07:43:24 CEST")

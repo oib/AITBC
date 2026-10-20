@@ -9,8 +9,9 @@ running with ``DB_KEEPER_CONNECTION`` keeps its WAL on disk by design. A followe
   it and leaves a corrupt hybrid.
 
 The scripts run for real here, against a temp data directory, with systemctl, ssh, rsync, chown and
-install replaced by stubs on PATH. The genesis script hard-codes /etc/aitbc/blockchain.env, so a copy
-with that path pointed into the temp directory is run instead.
+install replaced by stubs on PATH. The genesis script's env file is fed through its
+``ENV_FILE`` override (default /etc/aitbc/blockchain.env) pointed into the temp directory,
+with ``AITBC_RESET_SCRATCH`` declaring the same root.
 """
 
 from __future__ import annotations
@@ -161,14 +162,25 @@ def test_genesis_reset_keeps_a_whole_safety_copy_and_installs_cleanly(sandbox) -
     chain_id, db, _hub, tmp_path, env = sandbox
     fixture = tmp_path / "fork.db"
     _make_db(fixture, 500, "genesis", chain_id)
-    # The script hard-codes /etc/aitbc/blockchain.env; run a copy that points into the temp dir.
+    # The script honours an ENV_FILE override (default /etc/aitbc/blockchain.env
+    # since the reset-guard commit); point it at a temp env file and keep every
+    # touched path inside the declared scratch root.
     source = GENESIS_SCRIPT.read_text()
-    assert source.count('ENV_FILE="/etc/aitbc/blockchain.env"') == 1
-    script = tmp_path / "reset-follower-to-genesis.sh"
-    script.write_text(source.replace('ENV_FILE="/etc/aitbc/blockchain.env"', f'ENV_FILE="{tmp_path}/blockchain.env"'))
+    assert source.count('ENV_FILE="${ENV_FILE:-/etc/aitbc/blockchain.env}"') == 1
+    env_file = tmp_path / "blockchain.env"
+    env_file.write_text("# scratch blockchain.env\n")
 
     result = subprocess.run(
-        ["bash", str(script)], env={**env, "CHAIN_DB_FILE": str(fixture)}, capture_output=True, text=True, timeout=120
+        ["bash", str(GENESIS_SCRIPT)],
+        env={
+            **env,
+            "CHAIN_DB_FILE": str(fixture),
+            "ENV_FILE": str(env_file),
+            "AITBC_RESET_SCRATCH": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -177,6 +189,8 @@ def test_genesis_reset_keeps_a_whole_safety_copy_and_installs_cleanly(sandbox) -
     rows, tags, integrity = _summary(backup)
     assert rows == OLD_ROWS + OLD_WAL_ONLY_ROWS, "the safety copy must include commits that exist only in the WAL"
     assert "old-wal" in tags and integrity == "ok"
+    # The env-file step is exercised too: the gate pin lands in the temp file.
+    assert "STATE_TRANSITION_V2_HEIGHT=0" in env_file.read_text()
 
 
 @pytest.mark.parametrize("script", [SNAPSHOT_SCRIPT, GENESIS_SCRIPT], ids=lambda p: p.name)
