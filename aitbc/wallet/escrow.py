@@ -13,6 +13,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from ..utils.chain_id import default_chain_id
 from .errors import AllowanceExceededError, EscrowError
 
 
@@ -36,7 +37,7 @@ class Escrow:
     payee_id: str
     token: str
     amount: Decimal
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     status: EscrowStatus | str = EscrowStatus.PENDING
     purpose: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -97,7 +98,7 @@ class EscrowAllowance:
     token: str
     amount: Decimal
     used: Decimal = field(default_factory=lambda: Decimal("0"))
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     meta: dict[str, Any] = field(default_factory=dict)
