@@ -23,12 +23,12 @@ never a bare `Environment=` edit.
 | mode | how it shows | still intact | lost | rehearsal status |
 |---|---|---|---|---|
 | **M1 one validator down** (crash, env typo, key) | `ServiceDown`/`AitbcSystemdUnitFailed`; `SELECT DISTINCT proposer` misses one; heads still advance (~1 extra round at its slot) | everything — chain produces on 3-of-4 | nothing but cadence | **rehearsed** — `rejoin` + `skip` |
-| **M2 ≥2 validators down → stall** | heads equal + frozen fleet-wide; `ChainHeadStalled`; journal `got 0 attestation(s), need 2` | everything sealed; **no fork forms** | liveness only — time | **pending rehearsal** — `stall` (#351) |
-| **M3 fork** (asymmetric partition) | `ChainDiverged`; same height, different hashes; `sync_fork_*` counters; `ForkOrphanedTxLost` if a user's tx is on the loser | majority branch; journal covers non-empty losers | orphaned txs on losing segment (requeue under full admission; rejected ones gone — by-hand reconcile) | **pending rehearsal** — `fork` (#351) |
-| **M4 bad allocation found post-seal** | user report; `/rpc/state/snapshot` figure wrong vs alloc file; verifier `alloc-classes` FAIL | the chain itself — blocks stay valid | nothing yet — depth compounds it | **pending rehearsal** — `alloc-fix` (#351) |
+| **M2 ≥2 validators down → stall** | heads equal + frozen fleet-wide; `ChainHeadStalled`; journal `got 0 attestation(s), need 2` | everything sealed; **no fork forms** | liveness only — time | **rehearsed** — `stall` (#351) |
+| **M3 fork** (asymmetric partition) | `ChainDiverged`; same height, different hashes; `sync_fork_*` counters; `ForkOrphanedTxLost` if a user's tx is on the loser | majority branch; journal covers non-empty losers | orphaned txs on losing segment (requeue under full admission; rejected ones gone — by-hand reconcile) | **rehearsed** — `fork` (#351) |
+| **M4 bad allocation found post-seal** | user report; `/rpc/state/snapshot` figure wrong vs alloc file; verifier `alloc-classes` FAIL | the chain itself — blocks stay valid | nothing yet — depth compounds it | **rehearsed** — `alloc-fix` (#351) |
 | **M5 wrong env on one host** (`CHAIN_ID`/`TRUSTED_PROPOSERS` slip) | `env-pins` FAIL in verifier; that host refuses blocks | the other 4 | that host's participation until fixed | **rehearsed** — `untrusted` |
-| **M6 quorum loss without death** (gossip degradation — incl. hub's `P2P_BIND_HOST=127.0.0.1` restart trap) | `AttestationArrivalDegraded`/`AttestationValidatorSilent`; attestation count <2 trending | sealed history | liveness drift toward M2 | **pending rehearsal** — `gossip` (#351) |
-| **M7 corrupt store on one host** | unit crash-loop; sqlite/journal errors; `ActiveEnterTimestamp` churn | other hosts' copies; `.pre-reset` is the **old** chain — cannot restore bc-2 | that host's bc-2 db (recoverable via resync) | **pending rehearsal** — `resync` (#351) |
+| **M6 quorum loss without death** (gossip degradation — incl. hub's `P2P_BIND_HOST=127.0.0.1` restart trap) | attestation count <2 trending; the victim's attestation absent from `block_metadata.attestations` + the refusal mark at its slot. **No loaded alert fires today** — `AttestationValidatorSilent`/`AttestationArrivalDegraded` are committed in `aitbc_rules.yml`, but the `attestation-arrival` exporter has no systemd timer anywhere, so no `aitbc_attestation_*` series exists for the loaded rules to evaluate; the verifier's `quorum-sweep` (≥2 attestations per block) and `proposer-rotation` both stay green under one silent validator. Detection today is the verifier sweep and journal marks | sealed history | liveness drift toward M2 | **rehearsed** — `gossip` (#351): on scratch no alert tier fires (no prometheus there); the evidence is the refusal mark, the fallback-covered victim slot, the victim's attestation absent from new seals, and recovery on restore |
+| **M7 corrupt store on one host** | unit crash-loop; sqlite/journal errors; `ActiveEnterTimestamp` churn | other hosts' copies; `.pre-reset` is the **old** chain — cannot restore bc-2 | that host's bc-2 db (recoverable via resync) | **rehearsed** — `resync` (#351) |
 | **M8 second reset** (last resort, not an abort) | operator decision after M4-class finding or unrecoverable fleet | allocation file + confirmations carry verbatim; harness + runbook procedure re-proven | all sealed bc-2 history; every post-seal artifact (F4, TOPOLOGY record, consumer flips) redone | n/a — decision class; the runbook procedure itself is the evidence |
 | **M9 bridge/EVM side** (Sepolia contract, Safe, signer keys) | not a bc-2 failure: `BRIDGE_LOCKS_PAUSED` stays `true` until `SEPOLIA-REDEPLOY-1`; any contract/Safe finding surfaces in that parked row's prep | bc-2 unaffected — the deposit path is the watched EOA + payout wallet | nothing on-chain | n/a — parked row `SEPOLIA-REDEPLOY-1` |
 
@@ -80,10 +80,21 @@ STOP — call the operator, never improvise:
 Exercised on scratch: `rejoin` (M1 catch-up + slot resume) · `skip` (M1
 one-down cadence) · `untrusted` (M5 membership refusal) · `golden`
 (genesis determinism) · `rollback.py` (pre-PONR aborts — 130 s, 13 polls).
-Pending under `RESET-REHEARSAL-FAULTS-1` (#351): `stall` (M2), `fork`
-(M3), `resync` (M7), `alloc-fix` (M4), `gossip` (M6 — degrade attestation
-gossip without stopping the unit, e.g. the loopback-bind trap). M8 is a
-decision class — the runbook procedure re-run is its own rehearsal.
+Rehearsed under `RESET-REHEARSAL-FAULTS-1` (#351 — each phase proven once
+on the node2 scratch harness; the full ordered pass is REHEARSAL-4's):
+`stall` (M2 — 2-of-4 freeze with the refusal mark, resume on restart),
+`fork` (M3 — same-height rival seals, convergence on restore), `resync`
+(M7 — corrupt store → repair → hash-exact catch-up), `alloc-fix` (M4 —
+treasury-signed corrective seals; the first run caught a real
+payload-signing defect), `gossip` (M6 — attestation-plane degradation,
+filter and bind variants). M8 is a decision class — the runbook
+procedure re-run is its own rehearsal.
+
+Proposed register row — real gap, not built: wire
+`scripts/monitoring/attestation-arrival-textfile.py` (systemd timer +
+textfile dir) so the already-loaded `aitbc-attestation-arrival` group gets
+its `aitbc_attestation_*` series — until then nothing on production alerts
+a single silently-degraded validator (M6).
 
 ## Stop conditions
 
