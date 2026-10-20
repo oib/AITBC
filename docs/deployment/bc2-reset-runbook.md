@@ -182,7 +182,7 @@ committed nothing.
 | C2 stores moved | **move `.pre-reset` copies back first** — a bare restart finds empty dirs and re-genesises | a named move-back step per host, then restart |
 | C3 env applied | revert env edits | env edit + restart per unit |
 | C4 genesis distributed | delete `data/bc-2/` files | per-host file removal; the old chain's dir is untouched by construction |
-| C5 units started, nothing sealed yet (e.g. only one validator up) | stop the started units, delete `data/bc-2/` files, revert env, then the earlier rows | prove nothing sealed: `max(height)=0` on every started host's `bc-2` chain.db — nothing produced, nothing to abandon |
+| C5 units started, nothing sealed yet (e.g. only one validator up) | stop the started units, delete `data/bc-2/` files, revert env, then the earlier rows | prove nothing sealed: `max(height)=0` on every started host's `bc-2` chain.db — rehearsal-evidenced (`RESET-ROLLBACK-1`: 130 s, 13 polls, all 0); nothing produced, nothing to abandon |
 | C5+ first seal | — | **the point**: abandoning bc-2 is a second reset-class event, not an abort |
 
 After the point, never before: unfreeze writes, market/exchange reopen,
@@ -191,27 +191,36 @@ in this list — decided: locks stay paused until `SEPOLIA-REDEPLOY-1`
 (operator placed the redeploy "in the week after the cut"), a separate
 gated step outside the cut.
 
-## E. Rollback before the point — **unproven until `RESET-ROLLBACK-1`**
+## E. Rollback before the point — **scratch-rehearsed (`RESET-ROLLBACK-1`), live-path residuals unproven**
 
-Venue decided: the node2 scratch harness (operator card). The acceptance
-list below is written so it runs on the harness; what it cannot prove on
-live data is listed as residual, not as a blocker.
+Venue decided: the node2 scratch harness (operator card). The rehearsal
+ran 20 Oct on `scripts/reset-harness/rollback.py` and proved every
+acceptance item on scratch; what it could not prove on live data is
+listed as residual, not as a blocker.
 
-Acceptance list that rehearsal must prove (the director writes its prompt
-from this):
+What the scratch run recorded:
 
-1. Every cut step §C is reverted individually and in order — on the
-   harness: file-load, `.pre-reset`-style store moves, env swaps, and
-   serial unit stops/starts on the five scratch instances.
+1. Every cut step §C reverted individually and in order — stops,
+   `.pre-reset` store moves, env swap and byte-exact env revert, genesis
+   distribution — on scratch instances (`systemd-run` services).
 2. Byte-equal restore verified from **both** the moved-aside copies and a
-   separate backup copy (checksum compare against values recorded before
-   the cut).
-3. The move-back is an explicit named step — the trap is a bare restart
-   finding empty dirs and re-genesis-ing the old id.
-4. Restart evidence uses `ActiveEnterTimestamp`/`ExecMainStartTimestamp`/
-   new `MainPID`; the fresh-start detection rule is exercised.
-5. The old chain resumes at the frozen head with the same head hash
-   recorded at B5.
+   separate backup copy (sha256 manifest recorded before the cut; zero
+   diffs on both legs).
+3. A bare restart on empty dirs restores **nothing** on either code
+   generation — old code (`6966658c1`) stalls without a hub to sync
+   block 0 from (head −1); current code refuses startup at
+   `consensus/poa.py:1641` with "Genesis file required". The explicit
+   `.pre-reset` move-back is the load-bearing step.
+4. The fresh-start detection rule fired: after a restart,
+   `ActiveEnterTimestamp`/`ExecMainStartTimestamp`/`MainPID` all differed
+   and the unit read as "a prior run already completed".
+5. The old chain resumed at the frozen head (recorded from the
+   pre-escrow-repair dump: height 44749) with the same head hash and
+   state root.
+6. The partial-start proof: one validator up for 130 s (13 polls, 15 s
+   attestation timeout) — `max(height)=0` throughout. Nothing seals
+   before a second validator joins, so the point cannot be crossed
+   early.
 
 Residual the harness cannot prove (accepted, not blocking): real systemd
 units vs transient scopes, real data-dir sizes (304–534 M vs scratch MB),
