@@ -11,6 +11,8 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from ..utils.chain_id import default_chain_id
+
 
 class PricingStrategyType(StrEnum):
     """Type of pricing strategy an agent may apply to its services."""
@@ -102,7 +104,7 @@ class RevenueRoute:
     recipient: str
     percentage: Decimal = field(default_factory=lambda: Decimal("0"))
     min_amount: Decimal | None = None
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -125,7 +127,7 @@ class PricingStrategy:
     surge_multiplier: Decimal = field(default_factory=lambda: Decimal("1"))
     min_price: Decimal | None = None
     max_price: Decimal | None = None
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

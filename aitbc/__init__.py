@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ._version import __version__
 from .aitbc_logging import configure_logging, get_blockchain_logger, get_logger, setup_logger
+from .utils.chain_id import DEFAULT_CHAIN_ID, default_chain_id, resolve_chain_id
 from .constants import (
     AGENT_COORDINATOR_PORT,
     AITBC_HOME,
@@ -69,6 +70,8 @@ __all__ = [
     "BLOCKCHAIN_DATA_DIR",
     "BLOCKCHAIN_P2P_PORT",
     "BLOCKCHAIN_RPC_PORT",
+    "DEFAULT_CHAIN_ID",
+    "default_chain_id",
     "CONFIG_DIR",
     "DATA_DIR",
     "ENV_FILE",
@@ -114,6 +117,7 @@ __all__ = [
     "get_market_data_path",
     "get_repo_path",
     "get_required_env_var",
+    "resolve_chain_id",
     "resolve_path",
     "setup_logger",
 ]

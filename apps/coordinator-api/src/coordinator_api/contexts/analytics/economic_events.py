@@ -17,6 +17,8 @@ from uuid import uuid4
 import sqlalchemy as sa
 from sqlmodel import Field, Session, SQLModel, select
 
+from aitbc.utils.chain_id import DEFAULT_CHAIN_ID, resolve_chain_id
+
 
 class EconomicEventType(StrEnum):
     """Types of economic events captured for audit."""
@@ -70,7 +72,7 @@ class EventStore:
         event_type: EconomicEventType,
         actor_id: str,
         amount: Decimal,
-        chain_id: str = "ait-hub",
+        chain_id: str | None = None,
         meta: dict[str, Any] | None = None,
     ) -> EconomicEvent:
         """Record a new economic event."""
@@ -78,7 +80,7 @@ class EventStore:
             event_type=event_type,
             actor_id=actor_id,
             amount=amount,
-            chain_id=chain_id,
+            chain_id=resolve_chain_id(chain_id, default=DEFAULT_CHAIN_ID),
             meta=meta or {},
         )
         if self._session is None:

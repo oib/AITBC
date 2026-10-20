@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from ..utils.chain_id import default_chain_id
+
 
 class GovernanceTxType(StrEnum):
     """Governance transaction types for on-chain proposals/votes/execution.
@@ -61,7 +63,7 @@ class GovernanceConfig:
 
     rpc_url: str = "http://localhost:8105"  # governance service
     blockchain_rpc_url: str = "http://localhost:8202"  # blockchain node
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     voting_period_blocks: int = 7200  # ~2 days at 2s block time
     quorum_percent: float = 30.0
     approval_percent: float = 50.0
@@ -87,7 +89,7 @@ class ProposalData:
     parameters: dict[str, Any] = field(default_factory=dict)
     voting_starts_block: int = 0
     voting_ends_block: int = 0
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
 
 
 @dataclass
@@ -104,7 +106,7 @@ class VoteData:
     vote_type: str  # VoteChoice value: "for", "against", "abstain"
     voting_power: float = 0.0  # snapshot balance
     reason: str = ""
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
 
 
 @dataclass
@@ -113,7 +115,7 @@ class ExecuteData:
 
     proposal_id: str
     executor: str
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
 
 
 @dataclass
