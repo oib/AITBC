@@ -18,7 +18,9 @@ Type=oneshot
 # whole node env would hand PROPOSER_KEY, VALIDATOR_KEYS and
 # BRIDGE_RELEASE_PRIVATE_KEY to a monitoring unit.
 EnvironmentFile=-/etc/aitbc/bridge-set.env
-Environment=AITBC_CHAIN_DB=/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db
+# No AITBC_CHAIN_DB pin: the exporter falls back to globbing the data dir for
+# the chain's chain.db, so it follows a chain-id change instead of scanning a
+# stale old-id path after the reset (bridge-set-textfile.py:32-33).
 Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
 ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/bridge-set-textfile.py
 # Exits 1 when no chain.db could be scanned (aitbc_bridge_set_scrape_success 0).
