@@ -56,7 +56,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 858
+- **Markdown files under docs/**: 859
 
 | Directory | Files | Description |
 |---|---|---|
@@ -75,7 +75,7 @@ docs/
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 26 | Deployment and infrastructure setup |
-| [design](design/) | 14 | Design documents and decisions |
+| [design](design/) | 15 | Design documents and decisions |
 | [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 29 | New-user onboarding and setup |

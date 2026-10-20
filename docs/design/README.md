@@ -16,6 +16,7 @@ designs themselves.
 | [msg1-onchain-messaging.md](msg1-onchain-messaging.md) | Approved with amendments (director, 2026-10-15) |
 | [msg2-votes-moderation.md](msg2-votes-moderation.md) | Accepted with amendments (director review) |
 | [msg8-direct-messages.md](msg8-direct-messages.md) | Draft for director review |
+| [multisig-accounts.md](multisig-accounts.md) | Design only (MULTISIG-ACCOUNTS-1); decisions owed — threshold, signers, activation timing |
 | [node-held-wallet-access.md](node-held-wallet-access.md) | Implemented behind a flag (SEC-2, 2026-10-13) |
 | [v3-side-table-root-shadow.md](v3-side-table-root-shadow.md) | Design only; operator decision 2026-10-12 |
 | [v9-unsigned-protocol-transfers.md](v9-unsigned-protocol-transfers.md) | Audit + options paper; decision owed |
