@@ -790,7 +790,69 @@ _FIELD_DENY_NORMALIZED = frozenset({"privatekey", "apikey", "secretkey", "passph
 # A name ending in "key" is denied when its prefix is one of these —
 # "signingkey"/"auth_key"/"access-key" — while "pubkey"/"monkey" stay allowed.
 _FIELD_DENY_KEY_PREFIXES = ("private", "secret", "api", "auth", "signing", "access")
+# Token-level deny list: a name is denied when any token — the name split on
+# '_', '-' and camelCase boundaries — is one of these. Token equality, not
+# substring: "keystore"/"monkey"/"keynote" stay allowed, "PGPASSWORD" is
+# caught by the single-token suffix rule below. "url"/"uri" are tokens so
+# camelCase "databaseUrl" refuses together with "DATABASE_URL".
+_FIELD_DENY_TOKENS = frozenset(
+    {
+        "pass",
+        "password",
+        "passwd",
+        "pwd",
+        "passphrase",
+        "secret",
+        "token",
+        "key",
+        "keys",
+        "private",
+        "credential",
+        "credentials",
+        "auth",
+        "signing",
+        "mnemonic",
+        "seed",
+        "dsn",
+        "url",
+        "uri",
+    }
+)
+# A separator-less name still ends in a deny word: "pgpassword" ends in
+# "password". The suffix family deliberately omits
+# "pass"/"key"/"keys"/"auth"/"signing" — endings like monkey/pubkey/compass/
+# oauth/designing would false-positive.
+_FIELD_DENY_SUFFIXES = (
+    "password",
+    "passwd",
+    "passphrase",
+    "pwd",
+    "secret",
+    "token",
+    "private",
+    "credential",
+    "credentials",
+    "mnemonic",
+    "seed",
+    "dsn",
+)
+# Connection strings can embed credentials — refused on the separator form
+# (camel forms are already covered by the "url"/"uri" tokens above).
+_FIELD_DENY_TAIL = ("_url", "_uri", "_dsn")
 _FIELD_MAX_VALUE = 200
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+# Value shapes that are secret-class regardless of the variable name —
+# applied to --value env values and --field string scalars. Each entry is
+# (pattern, rule name); the refusal names the rule, never the value.
+_FIELD_SECRET_VALUE_PATTERNS = (
+    (re.compile(r"://[^/\s:@]+:[^/\s@]+@"), "URL carrying user:password"),
+    (re.compile(r"^0x[0-9a-fA-F]{64}$"), "0x+64-hex private-key shape"),
+    # Bare runs only — a 0x-prefixed 40-hex address (PROPOSER_ID et al.) is
+    # the address shape, not a secret; 0x+64-hex is refused by the rule above.
+    (re.compile(r"^[0-9a-fA-F]{40,}$"), "bare 40+ hex run"),
+    (re.compile(r"^(?!0[xX])[A-Za-z0-9+/=_-]{40,}$"), "bare 40+ base64 run"),
+    (re.compile(r"^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$"), "three-part dotted token"),
+)
 # Generated from the constants above so --help can never drift from the code.
 _FIELD_DENY_EPILOG = (
     "--field/--value refused names: "
@@ -799,18 +861,50 @@ _FIELD_DENY_EPILOG = (
     + ", ".join(sorted(_FIELD_DENY_NORMALIZED))
     + "; names ending in 'key' prefixed "
     + "/".join(_FIELD_DENY_KEY_PREFIXES)
-    + f"; values over {_FIELD_MAX_VALUE} characters are refused."
+    + "; any token (split on '_'/'-'/camelCase) in {"
+    + ", ".join(sorted(_FIELD_DENY_TOKENS))
+    + "}"
+    + "; single-token names ending "
+    + "/".join(_FIELD_DENY_SUFFIXES)
+    + "; names ending "
+    + "/".join(_FIELD_DENY_TAIL)
+    + "; secret-shaped values (user:pass URLs, key/hex/base64 runs, dotted"
+    " tokens); values over " + str(_FIELD_MAX_VALUE) + " characters are refused."
 )
 
 
-def _field_name_denied(name: str) -> bool:
+def _field_tokens(name: str) -> list[str]:
+    """The name split on '_', '-' and lower->UPPER camel boundaries, lowercased."""
+    return [t.lower() for t in re.split(r"[_-]+", _CAMEL_BOUNDARY.sub("_", name)) if t]
+
+
+# Token subset that marks a connection-string name. ``config get`` exempts
+# it (documented ``*_url`` lookups) and refuses credential-bearing *values*
+# instead; the env/file paths deny the names outright.
+_CONN_STRING_TOKENS = frozenset({"url", "uri", "dsn"})
+
+
+def _field_name_denied(name: str, *, deny_conn_strings: bool = True) -> bool:
     lowered = name.lower()
     normalized = lowered.replace("-", "").replace("_", "")
-    if lowered in _FIELD_DENY_NAMES or lowered.endswith("_key"):
+    tokens = _field_tokens(name)
+    if lowered in _FIELD_DENY_NAMES or normalized in _FIELD_DENY_NORMALIZED:
         return True
-    if normalized in _FIELD_DENY_NORMALIZED:
+    if deny_conn_strings and lowered.endswith(_FIELD_DENY_TAIL):
         return True
-    return normalized.endswith("key") and normalized[:-3] in _FIELD_DENY_KEY_PREFIXES
+    if any(token in _FIELD_DENY_TOKENS and (deny_conn_strings or token not in _CONN_STRING_TOKENS) for token in tokens):
+        return True
+    if normalized.endswith("key") and normalized[:-3] in _FIELD_DENY_KEY_PREFIXES:
+        return True
+    return len(tokens) == 1 and normalized.endswith(_FIELD_DENY_SUFFIXES)
+
+
+def _field_value_shape_denied(value: str) -> str | None:
+    """The matched secret-shape rule name, or None for an innocuous value."""
+    for pattern, rule in _FIELD_SECRET_VALUE_PATTERNS:
+        if pattern.search(value):
+            return rule
+    return None
 
 
 def _subtree_has_denied(value: Any) -> bool:
@@ -906,8 +1000,11 @@ def _env_names_process(
         value = env[value_name]
         if len(value) > _FIELD_MAX_VALUE:
             raise click.ClickException(f"--value refused (value over {_FIELD_MAX_VALUE} characters): {value_name}")
+        decoded = value.decode("utf-8", "replace")
+        if (shape := _field_value_shape_denied(decoded)) is not None:
+            raise click.ClickException(f"--value refused ({shape}): {value_name}")
         # The single approved value is the ONLY content ever printed from environ.
-        click.echo(value.decode("utf-8", "replace"))
+        click.echo(decoded)
         return
 
     fmt = ctx.obj.get("output_format", "table")
@@ -1059,12 +1156,15 @@ def file_info(ctx, path: str, field_name: str | None):
 
     Reports size, mtime, owner, mode and type; for JSON files also the
     top-level key names. ``--field`` prints a single scalar field and
-    hard-refuses denied names: private_key, secret, password, token,
-    mnemonic, seed, key, api_key and anything ending in ``_key``; the
+    hard-refuses denied names: any token (split on ``_``/``-``/camelCase) in
+    pass/password/passwd/pwd/passphrase/secret/token/key/keys/private/
+    credential/credentials/auth/signing/mnemonic/seed/dsn/url/uri; the
     separator-insensitive forms privatekey, apikey, secretkey, passphrase,
     passwd, credential and credentials; any name ending in ``key`` whose
     prefix is private/secret/api/auth/signing/access — including inside
-    nested objects — and values over 200 characters.
+    nested objects — names ending in ``_url``/``_uri``/``_dsn``;
+    secret-shaped values (user:pass URLs, 0x+64-hex, 40+-char hex/base64
+    runs, three-part dotted tokens); and values over 200 characters.
 
     Coverage is the ``system file`` allowlist: ``/var/lib/aitbc/wallets``
     and ``/etc/aitbc/credentials`` are inside it; ``/root/.aitbc/wallets``
@@ -1135,6 +1235,8 @@ def _allowed_json_field(parsed: dict[str, Any], field_name: str) -> tuple[str, A
         raise click.ClickException(f"field refused (not a scalar): {match}")
     if isinstance(value, str) and len(value) > _FIELD_MAX_VALUE:
         raise click.ClickException(f"field refused (value over {_FIELD_MAX_VALUE} characters): {match}")
+    if isinstance(value, str) and (shape := _field_value_shape_denied(value)) is not None:
+        raise click.ClickException(f"field refused ({shape}): {match}")
     return match, value
 
 
