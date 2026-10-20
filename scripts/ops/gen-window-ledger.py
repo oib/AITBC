@@ -77,6 +77,12 @@ EXTRA_STEPS: dict[str, dict] = {
         "source": "§F — two chain writes, amounts per the operator's card",
         "stop": "a failed funding send is fix-forward; never retry blind — check the ledger/balance first",
     },
+    "F5": {
+        "title": "bridge-lock unpause — BRIDGE_LOCKS_PAUSED=false on all six carriers; serial rpc restart (standing class)",
+        "class_words": ["operator-named"],
+        "source": "§F + §H row — gated on soak-end, F4 and SEPOLIA-REDEPLOY-1; unpause-precheck.py must print GO first",
+        "stop": "the flag is rpc-side only — the node unit never evaluates it, so validators keep sealing through the flip",
+    },
 }
 
 GATED = ("operator-named", "per-item")
