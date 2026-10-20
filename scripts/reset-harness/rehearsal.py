@@ -367,9 +367,9 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
     """Per-instance env file — scratch-only paths, loopback ports, gates=1.
 
     ``AITBC_CHAIN_ENV_FILE`` is emptied so ChainSettings never loads the
-    host's ``/etc/aitbc/blockchain.env``. ``REDIS_URL`` points at a dead
-    loopback port: rehearsal gossip is mesh; a real live redis must never
-    carry it, and if any code path still opens redis it fails fast.
+    host's ``/etc/aitbc/blockchain.env``. ``REDIS_URL`` and
+    ``GOSSIP_BROADCAST_URL`` point at the dedicated scratch redis on
+    16379 — a real broker the lease tracker needs, never the live 6379.
     """
     mesh = [f"ws://127.0.0.1:{p.rpc_port}/rpc/gossip/ws" for p in instances(root) if p.idx != inst.idx]
     validator_set = json.dumps(
@@ -418,6 +418,11 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "VALIDATOR_SET": validator_set,
         "BRIDGE_MULTISIG_ENABLED": "true",
         "BRIDGE_MULTISIG_THRESHOLD": "2",
+        # Env-set rows :64/:67/:68 — release admission and merkle-proof
+        # requirement stay fleet-true; supported-chains admits only bc-2.
+        "BRIDGE_RELEASE_ENABLED": "true",
+        "BRIDGE_SUPPORTED_CHAINS": CHAIN_ID,
+        "BRIDGE_REQUIRE_MERKLE_PROOF": "true",
         # Env-set row decided 20 Oct: bc-2 launches with bridge locks
         # paused — lock admission answers 503 until the SEPOLIA-REDEPLOY-1
         # unpause; _check_bridge_paused proves the fence in `check`.
@@ -439,6 +444,11 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "AUTO_SYNC_ENABLED": "true",
         "AUTO_SYNC_THRESHOLD": "0",
         "STATE_SYNC_MAX_GAP": "-1",
+        # Documented deviations, deliberately left at code defaults:
+        # BLOCK_TIME_SECONDS stays 10 (fleet 60, env-set row :41) — a faster
+        # tick suits the scratch window; PARALLEL_TX_VALIDATION stays unset
+        # (fleet true, row :42) — inert on bc-2 where every height is v14,
+        # outside its v2–8 window.
         "SYNC_MANAGER_ENABLED": "true",
         "SYNC_STATE_ROOT_VALIDATION_ENABLED": "true",
         "SUBSCRIPTION_ENABLED": "true",  # fleet value (node2 blockchain.env)
@@ -453,9 +463,10 @@ def _env_lines(root: Path, inst: Instance, keys: dict) -> str:
         "HUB_BLOCKCHAIN_RPC_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
         "AITBC_SYNC_SOURCE": f"http://127.0.0.1:{PORT_BASE + 2}",
         "AITBC_SYNC_IMPORT_URL": f"http://127.0.0.1:{PORT_BASE + 2}",
-        # Dead loopback ports for every live-adjacent client default — anything
-        # that ignores our backend choice fails fast rather than touching the
-        # live redis (6379) or coordinator (8203).
+        # The two broker URLs take the dedicated scratch redis (16379), never
+        # the live 6379; COORDINATOR_API_URL stays a dead loopback port so a
+        # client that ignores our wiring fails fast instead of touching the
+        # live coordinator (8203).
         "REDIS_URL": REHEARSAL_REDIS_URL,
         "GOSSIP_BROADCAST_URL": REHEARSAL_REDIS_URL,
         "COORDINATOR_API_URL": "http://127.0.0.1:18203",
