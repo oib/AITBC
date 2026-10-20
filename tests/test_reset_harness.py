@@ -508,6 +508,26 @@ def _load_filter():
 gf = _load_filter()
 
 
+def test_filter_gate_transparent_until_armed():
+    class Req:
+        def __init__(self, path):
+            self.path = path
+
+    class Conn:
+        @staticmethod
+        def respond(status, body):
+            return (status, body)
+
+    state = {"deny": ["blocks.bc-2"], "armed": False}
+    gate = gf._gate(state)
+    # pre-trigger: everything proxies, even the denied topic
+    assert gate(Conn(), Req("/rpc/gossip/ws?topic=blocks.bc-2&client_id=x")) is None
+    state["armed"] = True
+    assert gate(Conn(), Req("/rpc/gossip/ws?topic=blocks.bc-2"))[0] == 503
+    assert gate(Conn(), Req("/rpc/gossip/ws?topic=consensus.attest_request.bc-2")) is None
+    assert gate(Conn(), Req("/rpc/head"))[0] == 503
+
+
 def test_filter_topic_gate_denies_listed_only():
     assert gf.topic_denied("blocks.bc-2", ["blocks.bc-2"])
     assert gf.topic_denied(None, ["blocks.bc-2"])  # malformed upgrade refused like websocket.py:104
@@ -536,18 +556,22 @@ def test_partition_envs_route_block_plane_through_filter(tmp_path):
     root = tmp_path / "rehearsal"
     _write_instance_envs(root)
     victim = rh.instances(root)[3]
-    specs, envs = rh._partition_envs(root, victim)
-    # 1 shared inbound port + 4 outbound ports, all refusing blocks.*
+    trigger = root / "filter.trigger"
+    specs, envs = rh._partition_envs(root, victim, trigger)
+    # 1 shared inbound port + 4 outbound ports, all refusing blocks.* once armed
     assert len(specs) == 5
     assert {s["port"] for s in specs} == set(range(rh.FILTER_PORT_BASE, rh.FILTER_PORT_BASE + 5))
     for s in specs:
         assert s["deny_topics"] == ["blocks.bc-2"]
+        assert s["trigger"] == str(trigger)
     inbound = rh.FILTER_PORT_BASE
     victim_env = _parse_env(envs[3])
     peer_env = _parse_env(envs[0])
-    # victim: every mesh peer url is a filter port; every http url is dead
+    # victim: every mesh peer url is a filter port; every http url is dead;
+    # its broadcast leg carries the dedicated ACL user
     vports = {int(u.split(":")[2].split("/")[0]) for u in victim_env["GOSSIP_MESH_PEER_URLS"].split(",")}
     assert vports == set(range(rh.FILTER_PORT_BASE + 1, rh.FILTER_PORT_BASE + 5))
+    assert victim_env["GOSSIP_BROADCAST_URL"] == rh.VICTIM_REDIS_URL
     for name in (
         "DEFAULT_PEER_RPC_URL",
         "HUB_RPC_URL",
@@ -561,26 +585,66 @@ def test_partition_envs_route_block_plane_through_filter(tmp_path):
     assert f"ws://127.0.0.1:{inbound}/rpc/gossip/ws" in peer_urls
     assert not any(f":{victim.rpc_port}" in u for u in peer_urls)
     assert any(f":{rh.instances(root)[1].rpc_port}" in u for u in peer_urls)
-    # untouched keys stay byte-identical
+    # untouched keys stay byte-identical — including the peer's broadcast url
     assert (
         peer_env["CHAIN_ID"] == "bc-2"
         and peer_env["VALIDATOR_SET"] == _parse_env((rh.instances(root)[0].dir / "instance.env").read_text())["VALIDATOR_SET"]
+        and peer_env["GOSSIP_BROADCAST_URL"] == "redis://127.0.0.1:16379"
     )
 
 
-def test_degrade_envs_attest_only_victim_outbound(tmp_path):
+def test_degrade_envs_attest_only_all_links(tmp_path):
     root = tmp_path / "rehearsal"
     _write_instance_envs(root)
     victim = rh.instances(root)[3]
-    specs, env = rh._degrade_envs(root, victim)
-    # one filter port per peer, attest topics denied — blocks/http untouched
-    assert len(specs) == 4
+    trigger = root / "gossip.trigger"
+    specs, envs = rh._degrade_envs(root, victim, trigger)
+    # shared inbound + one outbound per peer, attest topics denied once armed
+    assert len(specs) == 5
     assert all(s["deny_topics"] == rh.ATTEST_TOPICS for s in specs)
-    parsed = _parse_env(env)
-    assert not any("blocks.bc-2" in s for s in parsed["GOSSIP_MESH_PEER_URLS"].split(","))
-    ports = {int(u.split(":")[2].split("/")[0]) for u in parsed["GOSSIP_MESH_PEER_URLS"].split(",")}
-    assert ports == set(range(rh.FILTER_PORT_BASE, rh.FILTER_PORT_BASE + 4))
-    assert parsed["AITBC_SYNC_SOURCE"] == f"http://127.0.0.1:{rh.PORT_BASE + 2}", "degrade must not cut the victim's pulls"
+    assert all(s["trigger"] == str(trigger) for s in specs)
+    victim_env = _parse_env(envs[3])
+    assert victim_env["GOSSIP_BROADCAST_URL"] == rh.VICTIM_REDIS_URL
+    assert not any("blocks.bc-2" in s for s in victim_env["GOSSIP_MESH_PEER_URLS"].split(","))
+    vports = {int(u.split(":")[2].split("/")[0]) for u in victim_env["GOSSIP_MESH_PEER_URLS"].split(",")}
+    assert vports == set(range(rh.FILTER_PORT_BASE + 1, rh.FILTER_PORT_BASE + 5))
+    # blocks/pulls untouched: sync source still points at i2's real rpc
+    assert victim_env["AITBC_SYNC_SOURCE"] == f"http://127.0.0.1:{rh.PORT_BASE + 2}", "degrade must not cut the victim's pulls"
+    # peers keep blocks conns to the victim's real port — only the victim
+    # entry moves to the attest-refusing inbound port
+    peer_urls = _parse_env(envs[0])["GOSSIP_MESH_PEER_URLS"].split(",")
+    assert f"ws://127.0.0.1:{rh.FILTER_PORT_BASE}/rpc/gossip/ws" in peer_urls
+    assert not any(f":{victim.rpc_port}" in u for u in peer_urls)
+
+
+def test_acl_narrow_and_restore_commands(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        rh.subprocess,
+        "run",
+        lambda cmd, **kw: calls.append(cmd) or type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+    )
+    rh._acl_narrow(["consensus.*", "transactions.*"])
+    setuser = calls[0]
+    assert setuser[:4] == ["redis-cli", "-p", "16379", "ACL"]
+    i = setuser.index("resetchannels")
+    assert setuser[i + 1 :] == ["&consensus.*", "&transactions.*"]
+    assert calls[1][3:] == ["CLIENT", "KILL", "USER", rh.VICTIM_REDIS_USER]
+    calls.clear()
+    rh._acl_restore()
+    assert "&*" in calls[0] and calls[1][3:] == ["CLIENT", "KILL", "USER", rh.VICTIM_REDIS_USER]
+    # the fork keep-list drops only blocks.*; the M6 list only consensus.*
+    assert "blocks.*" not in [c for c in rh.ALL_CHANNEL_FAMILIES if not c.startswith("blocks.")]
+    assert "consensus.*" not in [c for c in rh.ALL_CHANNEL_FAMILIES if not c.startswith("consensus.")]
+
+
+def test_rotation_slot_reads_recent_seals(monkeypatch):
+    blocks = {h: {"proposer": f"0x{'ab' * 20}" if h % 4 == 2 else "0x" + "cd" * 20} for h in range(10, 19)}
+    inst = rh.instances(Path("/nonexistent"))[0]
+    monkeypatch.setattr(rh, "_head", lambda i: 18)
+    monkeypatch.setattr(rh, "_block", lambda i, h: blocks.get(h))
+    assert rh._rotation_slot(inst, "0x" + "AB" * 20) == 2
+    assert rh._rotation_slot(inst, "0x" + "00" * 20) is None
 
 
 def test_attesters_of_reads_metadata_attestations():
