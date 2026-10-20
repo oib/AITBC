@@ -29,6 +29,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [bc-2 Post-Cut Owed Items](bc2-post-cut-owed.md) - everything the cut leaves undone, ordered and gated (reset planning)
 - [bc-2 Post-PONR Failure Modes](bc2-post-ponr-failures.md) - what can fail after the first seal, the options per mode, and the two-minute decision tree (reset planning)
 - [bc-2 Genesis Inputs](bc2-genesis/) - the pinned allocation + class manifest the bc-2 genesis build consumes, sha256-pinned by a drift test (reset planning)
+- [bc-2 Sepolia Redeploy Checklist](bc2-sepolia-redeploy-checklist.md) - the operator-owned Sepolia bridge redeploy for bc-2: pre-sign checks, Safe exec table, post-deploy reads (reset planning)
 
 ## See Also
 
