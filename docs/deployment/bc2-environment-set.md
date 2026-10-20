@@ -26,7 +26,7 @@ Scope rules for this document:
 | `CHAIN_ID` | `bc-2` | reset chain id |
 | `SUPPORTED_CHAINS` | `bc-2` | admission list |
 | `BLOCK_PRODUCTION_CHAINS` | `bc-2` | proposers only |
-| `NETWORK_ID` | `1337` | unchanged; only revisit if the EVM contract binds it |
+| `NETWORK_ID` | — | inert: no reader in the code — `NETWORK_ID=1337` appears only in `scripts/workflow/01_preflight_setup.sh:70` and `scripts/workflow-agent/01_preflight_setup_agent.sh:108` for their own preflight output; no action at the cut |
 | `STATE_TRANSITION_V2_HEIGHT` … `STATE_TRANSITION_V14_HEIGHT` | `1` each | falsy thresholds are *inactive*, not height-0; `1` makes producer and replay agree v14 from block 1 (GATES.md `gates1` proof) |
 | `BRIDGE_LOCK_LEAF_V2_HEIGHT` | `1` | `>=` gate — activates from block 1 |
 | `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` | `1` | permits first-block sweep |
@@ -112,7 +112,8 @@ matching `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`/
 - `aitbc-market` / `aitbc-marketplace` — `CHAIN_ID`, `MARKET_ROLE`,
   `*_KEY` (secret); `PROPOSER_ID`/`VALIDATOR_SET` inert.
 - `aitbc-wallet` — `CHAIN_ID`, `AITBC_DEFAULT_WALLET`, `WALLET_DIR`,
-  `WALLET_PORT`, `DATABASE_URL`, `*_KEY` (secret).
+  `WALLET_PORT` (inert: no reader — the port is the `aitbc/constants.py:61`
+  constant; no action at the cut), `DATABASE_URL`, `*_KEY` (secret).
 - `aitbc-api-gateway` — `CHAIN_ID`, `*_KEY` (secret).
 - `aitbc-pool-hub` — `CHAIN_ID`, `DATABASE_URL` (postgresql+asyncpg —
   pool-hub keeps PostgreSQL at the cut; every other service store starts
