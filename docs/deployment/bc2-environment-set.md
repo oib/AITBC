@@ -35,7 +35,7 @@ drift apart.
 | `SUPPORTED_CHAINS` | `bc-2` | admission list |
 | `BLOCK_PRODUCTION_CHAINS` | `bc-2` | proposers only |
 | `NETWORK_ID` | — | inert: no reader in the code — `NETWORK_ID=1337` appears only in `scripts/workflow/01_preflight_setup.sh:70` and `scripts/workflow-agent/01_preflight_setup_agent.sh:108` for their own preflight output; no action at the cut |
-| `STATE_TRANSITION_V2_HEIGHT` … `STATE_TRANSITION_V14_HEIGHT` | `1` each | falsy thresholds are *inactive*, not height-0; `1` makes producer and replay agree v14 from block 1 (GATES.md `gates1` proof) |
+| `STATE_TRANSITION_V2_HEIGHT` … `STATE_TRANSITION_V14_HEIGHT` | `1` each | falsy thresholds are *inactive*, not height-0; `1` makes producer and replay agree v14 from block 1 (`apps/blockchain-node/tests/golden/GATES.md` `gates1` proof) |
 | `BRIDGE_LOCK_LEAF_V2_HEIGHT` | `1` | `>=` gate — activates from block 1 |
 | `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` | `1` | permits first-block sweep |
 | `MULTI_VALIDATOR_CONSENSUS_ENABLED` | `true` | fleet value |
@@ -184,7 +184,7 @@ testnet") — bc-2 is a testnet-era reset; the validator set is the four
 | `BRIDGE_ADMIN_ADDRESSES` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live admin set |
 | `BRIDGE_ADMIN_ADDRESS` (singular) | **ruling 20 Oct: leave it** — declared in `bridge-validator-keys.env` (a key-bearing file) on all five hosts; the only reader is `scripts/ops/register_bridge_validators.py`, an operator-run helper. C3 does not edit that file; the plural `BRIDGE_ADMIN_ADDRESSES` carries |
 | `BRIDGE_RELEASE_AUTHORITY` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live authority (consensus-visible release admission) |
-| `BRIDGE_MULTISIG_VALIDATORS` | **resolved 20 Oct: integer `4`** — a count N, not an address list (every reader is `int(...)`: `config.py:587`, `cross_chain/bridge.py:77-81` release fence `N ≥ threshold`, `rpc/bridge.py:795` display only; the SDK field `aitbc/bridge/types.py:148` is an int too). Nothing computes quorum or membership from N — the genesis `bridge_validators` rows carry membership. Now a public set row in the table above |
+| `BRIDGE_MULTISIG_VALIDATORS` | **resolved 20 Oct: integer `4`** — a count N, not an address list (every reader is `int(...)`: `config.py:587`, `cross_chain/bridge.py:77-81` release fence `N ≥ threshold`, `rpc/bridge.py:795` display only; the SDK field `aitbc/bridge/types.py` `multisig_validators` is an int too). Nothing computes quorum or membership from N — the genesis `bridge_validators` rows carry membership. Now a public set row in the table above |
 | `BRIDGE_MAX_LOCK_AMOUNT` | **decided 20 Oct: keep `36000000000` base units = 1000 AIT** ("Keep live + 1000 AIT"; 36,000,000 units/AIT); `0`/unset fails closed — production refuses locks |
 | `ESCROW_RELEASE_ADDRESS` | **decided 20 Oct: keep live** — live value `0x11741E1A…` is already public in repo docs |
 | `ESCROW_FEE_RECIPIENT` | **decided 20 Oct: keep live** — live value `0x34FFfAd1…` is already public in repo docs |
