@@ -98,10 +98,50 @@ def _cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 
+def _abort_step(cells: list[str]) -> Step | None:
+    """§D abort row → an ABORT@<reached> step (None for the PONR row)."""
+    sid = cells[0]
+    if sid.startswith("C5+"):
+        return None  # no abort past the first seal
+    ref = re.search(r"(B\d*|C\d+|freeze)", sid)
+    return Step(
+        sid=f"ABORT@{ref.group(0) if ref else sid.split()[0]}",
+        title=f"abort if reached {sid.split('(')[0].strip()}",
+        class_words=["operator-named"],
+        evidence=f"abort action: {cells[1]}",
+        source="§D abort table",
+        stop="each abort is its own operator-named action",
+    )
+
+
+def _table_step(cells: list[str]) -> Step | None:
+    """A/B/C step-table row → a Step (None for non-step tables)."""
+    if not re.fullmatch(r"[ABC]\d+", cells[0]) or len(cells) < 4:
+        # 3-cell rows are the proposal/line-shapes table — same
+        # leading id cell, but not step definitions
+        return None
+    title = re.sub(r"\s+", " ", cells[1])[:90]
+    blob = " ".join(cells[1:]).lower()
+    classes = [w for w in ("operator-named", "per-item word", "ungated", "standing", "validator-interrupting") if w in blob]
+    if "operator" in blob and "operator-named" not in blob:
+        classes.append("operator")
+    # evidence column = the cell right after the one carrying the
+    # class word (column order differs between the A, B and C tables)
+    evidence = ""
+    for i, cell in enumerate(cells[1:], start=1):
+        if any(
+            w in cell.lower() for w in ("operator", "ungated", "per-item", "standing", "director", "coder", "repo", "done")
+        ):
+            evidence = cells[i + 1] if i + 1 < len(cells) else ""
+            break
+    return Step(sid=cells[0], title=title, class_words=classes, evidence=re.sub(r"\s+", " ", evidence)[:160])
+
+
 def parse_runbook(text: str) -> list[Step]:
     """Extract step rows from the runbook's markdown tables."""
     steps: list[Step] = []
     in_abort_table = False
+    headers = ("#", "step", "reached", "unit", "item", "host", "decision")
     for raw in text.splitlines():
         line = raw.strip()
         if line.startswith("## D."):
@@ -111,49 +151,11 @@ def parse_runbook(text: str) -> list[Step]:
         if not line.startswith("|") or "---" in line:
             continue
         cells = _cells(line)
-        if not cells or cells[0] in ("#", "step", "reached", "unit", "item", "host", "decision"):
+        if not cells or cells[0] in headers:
             continue
-        sid = cells[0]
-        if in_abort_table:
-            # §D rows: "freeze only (§B)", "C1 services stopped", …
-            if sid.startswith("C5+"):
-                continue  # the PONR row — no abort past it
-            ref = re.search(r"(B\d*|C\d+|freeze)", sid)
-            steps.append(
-                Step(
-                    sid=f"ABORT@{ref.group(0) if ref else sid.split()[0]}",
-                    title=f"abort if reached {sid.split('(')[0].strip()}",
-                    class_words=["operator-named"],
-                    evidence=f"abort action: {cells[1]}",
-                    source="§D abort table",
-                    stop="each abort is its own operator-named action",
-                )
-            )
-            continue
-        if not re.fullmatch(r"[ABC]\d+", sid):
-            continue
-        if len(cells) < 4:
-            # 3-cell rows are the proposal/line-shapes table — same
-            # leading id cell, but not step definitions
-            continue
-        title = re.sub(r"\s+", " ", cells[1])[:90]
-        blob = " ".join(cells[1:]).lower()
-        classes = [
-            w for w in ("operator-named", "per-item word", "ungated", "standing", "validator-interrupting") if w in blob
-        ]
-        classes.append("operator" if "operator" in blob and "operator-named" not in blob else "")
-        # evidence column = the cell right after the one carrying the
-        # class word (column order differs between the A, B and C tables)
-        evidence = ""
-        for i, cell in enumerate(cells[1:], start=1):
-            if any(
-                w in cell.lower() for w in ("operator", "ungated", "per-item", "standing", "director", "coder", "repo", "done")
-            ):
-                evidence = cells[i + 1] if i + 1 < len(cells) else ""
-                break
-        steps.append(
-            Step(sid=sid, title=title, class_words=[c for c in classes if c], evidence=re.sub(r"\s+", " ", evidence)[:160])
-        )
+        step = _abort_step(cells) if in_abort_table else _table_step(cells)
+        if step:
+            steps.append(step)
     return steps
 
 
