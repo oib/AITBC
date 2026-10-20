@@ -32,12 +32,7 @@ LITERAL = "ait-localnet"
 _DISPLAY_KWARGS = {"help", "epilog", "description", "short_help"}
 
 # (occurrence count, reason) — count must match exactly or the test fails.
-ALLOWLIST: dict[str, tuple[int, str]] = {
-    "apps/coordinator-api/src/coordinator_api/config.py": (
-        1,
-        "pending #307: native_chain_id default, held for the separate quote-binding decision; remove this entry when it lands",
-    ),
-}
+ALLOWLIST: dict[str, tuple[int, str]] = {}
 
 
 def _docstring_ids(tree: ast.AST) -> set[int]:
