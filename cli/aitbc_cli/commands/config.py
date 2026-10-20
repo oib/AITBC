@@ -46,28 +46,16 @@ _BOOL_CONFIG_KEYS = {"tee_attestation_enabled"}
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 
-# ``config get`` refuses to print values under these names — mirrors the
-# ``system file-info --field`` denylist (system.py _FIELD_DENY_NAMES) plus
-# passphrase/credential from the CLI-3 spec.
-_CONFIG_GET_DENY_NAMES = frozenset(
-    {
-        "private_key",
-        "secret",
-        "password",
-        "token",
-        "mnemonic",
-        "seed",
-        "key",
-        "api_key",
-        "passphrase",
-        "credential",
-    }
-)
 
-
+# ``config get`` refuses secret-class key names via the shared token rules
+# in system.py (_field_name_denied), minus the connection-string class:
+# ``exchange_service_url``/``coordinator_api_url`` are documented lookups,
+# so a credential-bearing *value* is refused by the shape check in `get`
+# instead of refusing every *_url name.
 def _config_key_denied(name: str) -> bool:
-    lowered = name.lower()
-    return lowered in _CONFIG_GET_DENY_NAMES or lowered.endswith("_key")
+    from .system import _field_name_denied
+
+    return _field_name_denied(name, deny_conn_strings=False)
 
 
 # Success messages for the keys that already had one; every other accepted
@@ -150,7 +138,15 @@ def get(ctx, key: str | None, global_config: bool):
         error(f"Config key not set: {key} ({config_file})")
         ctx.exit(1)
         return
-    output({"key": key, "value": config_data[key]}, resolve_output_format(ctx))
+    value = config_data[key]
+    if isinstance(value, str):
+        from .system import _field_value_shape_denied
+
+        if (shape := _field_value_shape_denied(value)) is not None:
+            error(f"Refusing to read secret-shaped config value ({shape}): {key}")
+            ctx.exit(1)
+            return
+    output({"key": key, "value": value}, resolve_output_format(ctx))
 
 
 @config.command(
