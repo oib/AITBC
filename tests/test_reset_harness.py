@@ -379,3 +379,30 @@ def test_phase_timing_marks_mismatch_unmeasured(tmp_path, monkeypatch, capsys):
         and "block 1: 0" not in out
         and "(measured: journal+block ts)" not in out
     )
+
+
+# ---------- fault phases (RESET-REHEARSAL-FAULTS-1) ----------
+
+
+def test_stall_mark_matches_poa_refusal():
+    """The stall mark must track poa.py's exact refusal line — both the
+    attestation and PBFT counts and the 'need N' quorum tail."""
+    assert rh.STALL_MARK.search(
+        "Not enough attestations for multi-validator block 42: got 1 attestation(s) and 0 PBFT commit(s), need 2"
+    )
+    assert rh.STALL_MARK.search(
+        "Not enough attestations for multi-validator block 7: got 0 attestation(s) and 0 PBFT commit(s), need 2"
+    )
+    assert not rh.STALL_MARK.search("Not enough attestations for multi-validator block")
+    assert not rh.STALL_MARK.search("sealed block 42")
+
+
+def test_node_log_reads_only_scratch_log(tmp_path):
+    inst = rh.instances(tmp_path)[0]
+    assert rh._node_log(inst) == ""
+    log = inst.dir / "logs" / "node.log"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        "line1\nNot enough attestations for multi-validator block 3: got 0 attestation(s) and 0 PBFT commit(s), need 2\n"
+    )
+    assert rh.STALL_MARK.search(rh._node_log(inst))
