@@ -79,6 +79,18 @@ def test_scratch_root_resolves_symlinks(tmp_path):
         rh.scratch_root(str(link / "sub"))
 
 
+def test_scratch_root_refuses_shallow_roots():
+    """GAP-HARNESS-SCRATCH-1: the shared guard's depth rule now applies —
+    fewer than three resolved path components is refused."""
+    for bad in ("/", "/tmp", "/home", "/var"):
+        with pytest.raises(SystemExit):
+            rh.scratch_root(bad)
+
+
+def test_scratch_root_accepts_three_component_tmp():
+    assert rh.scratch_root("/tmp/bc2-rehearsal") == Path("/tmp/bc2-rehearsal")
+
+
 # ---------- instance map ----------
 
 
