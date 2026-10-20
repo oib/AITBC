@@ -67,6 +67,7 @@ drift apart.
 | `RPC_BIND_HOST` / `RPC_BIND_PORT` | per-node bind | deployment wiring |
 | `BRIDGE_MULTISIG_ENABLED` | `true` | fleet value |
 | `BRIDGE_MULTISIG_THRESHOLD` | `2` | fleet value; threshold is a count, not an address — kept here, validator list is operator-owned below |
+| `BRIDGE_MULTISIG_VALIDATORS` | `4` | **resolved 20 Oct** — an integer count N for the release fence `N ≥ threshold` (`cross_chain/bridge.py:77-81`); not an address list — membership comes from the genesis `bridge_validators` rows |
 | `BRIDGE_MULTISIG_TIMEOUT` | unset → `3600` | code default |
 | `BRIDGE_VALIDATOR_SET_GRACE_PERIOD` | unset → `7200` | code default |
 | `BRIDGE_RELEASE_ENABLED` | `true` | fleet value |
@@ -183,7 +184,7 @@ testnet") — bc-2 is a testnet-era reset; the validator set is the four
 | `BRIDGE_ADMIN_ADDRESSES` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live admin set |
 | `BRIDGE_ADMIN_ADDRESS` (singular) | **ruling 20 Oct: leave it** — declared in `bridge-validator-keys.env` (a key-bearing file) on all five hosts; the only reader is `scripts/ops/register_bridge_validators.py`, an operator-run helper. C3 does not edit that file; the plural `BRIDGE_ADMIN_ADDRESSES` carries |
 | `BRIDGE_RELEASE_AUTHORITY` | **decided 20 Oct: "Keep live + 1000 AIT"** — carry the live authority (consensus-visible release admission) |
-| `BRIDGE_MULTISIG_VALIDATORS` | count/list of the bc-2 bridge validators — decided set is the four current validators, threshold `2` per the table above |
+| `BRIDGE_MULTISIG_VALIDATORS` | **resolved 20 Oct: integer `4`** — a count N, not an address list (every reader is `int(...)`: `config.py:587`, `cross_chain/bridge.py:77-81` release fence `N ≥ threshold`, `rpc/bridge.py:795` display only; the SDK field `aitbc/bridge/types.py:148` is an int too). Nothing computes quorum or membership from N — the genesis `bridge_validators` rows carry membership. Now a public set row in the table above |
 | `BRIDGE_MAX_LOCK_AMOUNT` | **decided 20 Oct: keep `36000000000` base units = 1000 AIT** ("Keep live + 1000 AIT"; 36,000,000 units/AIT); `0`/unset fails closed — production refuses locks |
 | `ESCROW_RELEASE_ADDRESS` | **decided 20 Oct: keep live** — live value `0x11741E1A…` is already public in repo docs |
 | `ESCROW_FEE_RECIPIENT` | **decided 20 Oct: keep live** — live value `0x34FFfAd1…` is already public in repo docs |
