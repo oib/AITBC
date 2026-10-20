@@ -506,14 +506,21 @@ def _seed_follower_peer_key(root: Path) -> None:
 def _live_snapshot() -> dict[str, dict[str, str]]:
     snap: dict[str, dict[str, str]] = {}
     for unit in LIVE_UNITS:
+        # Keyed Name=value output: --value order does not follow the
+        # requested property order (observed: MainPID emitted first), so a
+        # positional split mislabels the fields.
         out = subprocess.run(
-            ["systemctl", "show", unit, "-p", "ActiveEnterTimestamp,MainPID", "--value"],
+            ["systemctl", "show", unit, "-p", "ActiveEnterTimestamp,MainPID"],
             capture_output=True,
             text=True,
             timeout=10,
         )
-        parts = (out.stdout.strip().split("\n") + ["", ""])[:2]
-        snap[unit] = {"ActiveEnterTimestamp": parts[0], "MainPID": parts[1]}
+        fields = {"ActiveEnterTimestamp": "", "MainPID": ""}
+        for line in out.stdout.strip().splitlines():
+            key, _, value = line.partition("=")
+            if key in fields:
+                fields[key] = value
+        snap[unit] = fields
     return snap
 
 
