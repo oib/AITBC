@@ -162,7 +162,7 @@ CHANGED=0
 for f in $FILES; do
     path="$WEB_DIR/$f"
     [ -f "$path" ] || continue
-    if sed -E "${KEEP_RANGE}d" "$path" | grep -qE "$GREP_RE"; then
+    if grep -qE "$GREP_RE" <<<"$(sed -E "${KEEP_RANGE}d" "$path")"; then
         sed -i -E \
             -e "${KEEP_GUARD}s#$CHAIN_ALT#$PH#g" \
             "${DOMAIN_EXPRS[@]}" \
