@@ -32,7 +32,7 @@ This document names no order and no timing. Classes: `at the cut`,
 | v9 fixture series | `scripts/monitoring/aitbc_rules_test.yml:21-26` | shadow counters | drop the v9 series together with the alerts above | at the cut | repo | `promtool test rules` |
 | Height in comment | `scripts/monitoring/aitbc_rules.yml:330` | "block 35400" residue-era reference in a comment | optional text fix, deferred with the file | follows later | repo | — |
 | Backup good-dump glob | `scripts/maintenance/aitbc-backup.sh:28` `BACKUP_GOOD_CHAIN_GLOB` (default `chain_ait-hub.aitbc.bubuit.net_chain.db.gz`, consulted at `:453`) | dump filename for the old chain id | set `BACKUP_GOOD_CHAIN_GLOB=chain_bc-2_chain.db.gz` in `/etc/aitbc/aitbc-backup.env` — the service loads `EnvironmentFile=-/etc/aitbc/aitbc-backup.env` and `aitbc-backup.timer` fires it daily; the env file exists on all five hosts and carries no override today. Repo default intentionally unchanged | at the cut | host config | post-cut backup passes the good-dump floor check |
-| Website render chain id | `scripts/ops/render-website.sh:42` `DEFAULT_CHAIN_ID` (+ `NEW_CHAIN_ID`/`CUR_CHAIN_ID` env overrides at `:66`,`:108`) | old id is the baked default | render with `NEW_CHAIN_ID=bc-2` (env override exists; the default stays for today's renders) | at the cut | repo + host config | rendered `config.js`/`dashboard.js` carry `bc-2` |
+| Website render chain id | `scripts/ops/render-website.sh:42` `DEFAULT_CHAIN_ID` (target resolved from `WEBSITE_CHAIN_ID` in `/etc/aitbc/website.env`, fallback `CHAIN_ID` in node.env) | old id is the baked default | set `WEBSITE_CHAIN_ID=bc-2` in `/etc/aitbc/website.env` — `update.sh` re-renders after the next pull; the default stays for today's renders. Cut-day alignment: the hub also needs `CHAIN_ID=bc-2` so the explorer resolves `/var/lib/aitbc/data/bc-2/chain.db` | at the cut | repo + host config | rendered `config.js`/`dashboard.js` carry `bc-2` |
 | Genesis-builder refusal list | `apps/blockchain-node/src/aitbc_chain/genesis_builder.py:54` `LIVE_CHAIN_IDS` (checked at `:268`) | refusal list names live chains | add `bc-2` **only after** bc-2 is live — adding earlier would refuse the pre-cut genesis build this milestone still needs | after the cut | repo | builder refuses to rebuild `bc-2` |
 | Archived old-chain exporters | `scripts/monitoring/attestation-arrival-textfile.py:70-72` (`data/*/chain.db` scan) + `scripts/monitoring/escrow-residue-textfile.py` | scans every `chain.db` under the data dir | no code change: if the archived old-chain directory stays under `AITBC_DATA_DIR`, metrics keep reporting it — operator decision at the cut whether to move it out | at the cut | host config | exporter metrics report only `db=bc-2` |
 | Website chain id | `website/config.js:13` `chainId`; `website/dashboard.js:17` fallback literal | hard-coded old id | set `bc-2` — hand-off list below; not edited in this row | at the cut | repo | site renders bc-2 stats |
@@ -54,7 +54,8 @@ This document names no order and no timing. Classes: `at the cut`,
 - `website/dashboard.js:17` — same literal in the `AITBC_CONFIG` fallback → `bc-2`.
 - Rendered copies: `scripts/ops/render-website.sh` re-renders `config.js`
   and `dashboard.js` (file list at `:50`); drive it with
-  `NEW_CHAIN_ID=bc-2` so the rendered pair match the repo edit.
+  `WEBSITE_CHAIN_ID=bc-2` in `/etc/aitbc/website.env` so the rendered pair
+  match the repo edit.
 
 ## Host evidence
 

@@ -47,6 +47,15 @@ EXTRA_DOMAINS="hub.example.net"
 # substring — without shielding, the domain pass would corrupt it).
 PH='@__AITBC_CHAIN_ID__@'
 
+# Keep-regions: content between <!-- aitbc-keep:start --> and
+# <!-- aitbc-keep:end --> markers is exempt from every rewrite — dated
+# historical statements (e.g. a publication note naming the pre-reset chain
+# id) must stay verbatim. Applied as a negated sed address range to every
+# substitution below, and deleted before the change-trigger grep so a file
+# whose only matches sit inside markers is left completely alone.
+KEEP_RANGE='/aitbc-keep:start/,/aitbc-keep:end/'
+KEEP_GUARD="${KEEP_RANGE}!"
+
 FILES="sitemap.xml robots.txt llms.txt structured-data.jsonld index.html config.js dashboard.js follower-api-key-announcement.html"
 
 [ -f "$ENV_FILE" ] || { echo "No $ENV_FILE — website branding not configured, nothing to do."; exit 0; }
@@ -74,6 +83,15 @@ if [ -n "$NEW_CONTACT" ]; then
     [[ "$NEW_CONTACT" =~ ^[A-Za-z0-9._%+@-]+$ ]] \
         || { echo "Invalid CONTACT_EMAIL: $NEW_CONTACT" >&2; exit 1; }
 fi
+
+# Conservative charset: these values are substituted into sed patterns and
+# markup; anything outside it is a config error, not something to escape.
+# Validated before the contact pass so a bad value refuses before any file
+# is touched.
+[[ "$NEW_DOMAIN" =~ ^[a-z0-9][a-z0-9.-]*$ ]] \
+    || { echo "Invalid WEBSITE_DOMAIN: $NEW_DOMAIN" >&2; exit 1; }
+[[ "$NEW_CHAIN_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._~-]*$ ]] \
+    || { echo "Invalid WEBSITE_CHAIN_ID: $NEW_CHAIN_ID" >&2; exit 1; }
 _contact_file="$WEB_DIR/messages.html"
 if [ -f "$_contact_file" ] && grep -q "aitbc-contact:start" "$_contact_file"; then
     if [ -n "$NEW_CONTACT" ]; then
@@ -92,13 +110,6 @@ body = ("\n                " + inner + "\n                ") if inner else "\n  
 open(path, "w").write(region.sub(lambda m: m.group(1) + body + m.group(2), text, count=1))
 PYEOF
 fi
-
-# Conservative charset: these values are substituted into sed patterns and
-# markup; anything outside it is a config error, not something to escape.
-[[ "$NEW_DOMAIN" =~ ^[a-z0-9][a-z0-9.-]*$ ]] \
-    || { echo "Invalid WEBSITE_DOMAIN: $NEW_DOMAIN" >&2; exit 1; }
-[[ "$NEW_CHAIN_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._~-]*$ ]] \
-    || { echo "Invalid WEBSITE_CHAIN_ID: $NEW_CHAIN_ID" >&2; exit 1; }
 
 # What is currently in the files: last rendered values if recorded, else the
 # committed defaults.
@@ -121,7 +132,7 @@ DOMAIN_EXPRS=()
 TRIGGER_ALTS=()
 add_domain() {  # add_domain <source>
     [ "$1" = "$NEW_DOMAIN" ] && return
-    DOMAIN_EXPRS+=(-e "s#$(esc "$1")#$NEW_DOMAIN#g")
+    DOMAIN_EXPRS+=(-e "${KEEP_GUARD}s#$(esc "$1")#$NEW_DOMAIN#g")
     TRIGGER_ALTS+=("$(esc "$1")")
 }
 add_domain "$CUR_DOMAIN"
@@ -151,11 +162,11 @@ CHANGED=0
 for f in $FILES; do
     path="$WEB_DIR/$f"
     [ -f "$path" ] || continue
-    if grep -qE "$GREP_RE" "$path"; then
+    if sed -E "${KEEP_RANGE}d" "$path" | grep -qE "$GREP_RE"; then
         sed -i -E \
-            -e "s#$CHAIN_ALT#$PH#g" \
+            -e "${KEEP_GUARD}s#$CHAIN_ALT#$PH#g" \
             "${DOMAIN_EXPRS[@]}" \
-            -e "s#$PH#$NEW_CHAIN_ID#g" \
+            -e "${KEEP_GUARD}s#$PH#$NEW_CHAIN_ID#g" \
             "$path"
         CHANGED=$((CHANGED + 1))
     fi
