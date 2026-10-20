@@ -7,7 +7,7 @@ read-only baseline 20 Oct: **0 firing, 0 pending**).
 ## The stack (unchanged by the cut)
 
 - **Fleet rules**: `scripts/monitoring/aitbc_rules.yml` — 4 record rules +
-  **52 alerts**; deployed identical (sha256) on all five hosts.
+  **53 alerts**; deployed identical (sha256) on all five hosts.
 - **Hub-only rules**: `/etc/prometheus/aitbc_hub_rules.yml` — **23 alerts**
   (authority/governance float guards, bridge set, `ChainDiverged`).
 - **Textfile exporters** → `/var/lib/prometheus/node-exporter/*.prom`
@@ -68,7 +68,7 @@ read-only baseline 20 Oct: **0 firing, 0 pending**).
   `chain_id` label (`messaging_metrics.py`), and queries filter
   `chain_id == <id>` (`messaging_index.py`). After the rpc restart only
   `chain_id="bc-2"` series exist; digest labels self-segregate, so
-  `MessagingDigestMismatch` cannot compare old against new. Stale
+  `MessagingIndexDigestMismatch` cannot compare old against new. Stale
   in-process label sets die with the process restart.
 - **`ValidatorHubAccountMoved` / `ProposerRetiredAccountMoved`** —
   watch: movement-detection baselines may trip on the new chain's first
@@ -101,7 +101,7 @@ store check: `data/` holds only `bc-2`
 
 Ruled (operator, 20 Oct): the db-scan exposure is handled **by
 placement, not rules** — `.pre-reset` copies land in
-`/var/lib/aitbc/.pre-reset-<date>/`, a sibling of `data/` (runbook C2),
+`/var/lib/aitbc/.pre-reset-<YYYY-MM-DD>/`, a sibling of `data/` (runbook C2),
 so `data/*/chain.db` scans see no archived store after C2.
 Two optional hardenings stay proposed, not landed:
 
