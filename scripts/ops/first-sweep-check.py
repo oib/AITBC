@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from dataclasses import dataclass, field
@@ -522,7 +523,18 @@ def main(argv: list[str] | None = None) -> int:
             db = _open_ro(path)
             row = db.execute('SELECT chain_id FROM "transaction" ORDER BY block_height DESC LIMIT 1').fetchone()
             db.close()
-            chain_id = row[0] if row else "ait-hub.aitbc.bubuit.net"
+            if row:
+                chain_id = row[0]
+            else:
+                # Empty db carries no chain id. Same semantics as
+                # aitbc.utils.chain_id.resolve_chain_id (explicit -> CHAIN_ID
+                # -> fail), inlined so this script stays dependency-free for
+                # copied-db use outside a venv.
+                env_id = os.environ.get("CHAIN_ID", "").strip()
+                if env_id:
+                    chain_id = env_id
+                else:
+                    ap.error(f"{label}: cannot derive chain_id (no transactions in db); pass --chain-id or set CHAIN_ID")
         reports.append(check_host(path, label, chain_id, args.job_id, args.custody))
 
     failed = False
