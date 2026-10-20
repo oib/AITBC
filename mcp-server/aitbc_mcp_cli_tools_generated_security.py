@@ -30,7 +30,7 @@ def aitbc_security_audit(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Run a security audit and report the score.."""
+    """Run a security audit and report the score."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -52,7 +52,7 @@ def aitbc_security_patch(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Apply all available security patches to the system.."""
+    """Apply all available security patches to the system."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -95,7 +95,7 @@ def aitbc_security_scan(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run a security scan and report issues.."""
+    """Run a security scan and report issues."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)

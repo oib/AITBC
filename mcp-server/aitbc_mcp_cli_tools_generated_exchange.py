@@ -37,7 +37,7 @@ def aitbc_exchange_add_liquidity(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Add liquidity to a trading pair on the specified side.."""
+    """Add liquidity to a trading pair on the specified side."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -90,7 +90,7 @@ def aitbc_exchange_create_pair(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new trading pair on a registered exchange with precision and minimum order size.."""
+    """Create a new trading pair on a registered exchange with precision and minimum order size."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -142,7 +142,7 @@ def aitbc_exchange_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all registered exchanges and their trading pairs.."""
+    """List all registered exchanges and their trading pairs."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -166,7 +166,7 @@ def aitbc_exchange_monitor(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Monitor exchange trading activity across registered pairs and exchanges.."""
+    """Monitor exchange trading activity across registered pairs and exchanges."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"real_time": "real-time"},
@@ -191,7 +191,7 @@ def aitbc_exchange_node_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List exchange nodes — the participants board (read-only, no wallet).."""
+    """List exchange nodes — the participants board (read-only, no wallet)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -226,7 +226,7 @@ def aitbc_exchange_node_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Claim this node's seeded registry row with a signed envelope.."""
+    """Claim this node's seeded registry row with a signed envelope."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -347,7 +347,7 @@ def aitbc_exchange_order_cancel(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sign and submit a cancel for one of this node's own orders.."""
+    """Sign and submit a cancel for one of this node's own orders."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -411,7 +411,7 @@ def aitbc_exchange_order_fund(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Fund an unfunded SELL order with its AIT escrow lock.."""
+    """Fund an unfunded SELL order with its AIT escrow lock."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"print_only": "print"},
@@ -467,7 +467,7 @@ def aitbc_exchange_order_my(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show this node's orders and next exchange nonce (read-only).."""
+    """Show this node's orders and next exchange nonce (read-only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -591,7 +591,7 @@ def aitbc_exchange_prepay_deposit(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deposit Sepolia ETH into this node's prepaid exchange balance.."""
+    """Deposit Sepolia ETH into this node's prepaid exchange balance."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"send": "send"},
@@ -650,7 +650,7 @@ def aitbc_exchange_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a new exchange integration with API credentials and optional sandbox mode.."""
+    """Register a new exchange integration with API credentials and optional sandbox mode."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"sandbox": "sandbox"},
@@ -729,7 +729,7 @@ def aitbc_exchange_start_trading(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Start trading for a specific pair with optional initial price and liquidity.."""
+    """Start trading for a specific pair with optional initial price and liquidity."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -781,7 +781,7 @@ def aitbc_exchange_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the status and configuration of a specific registered exchange.."""
+    """Get the status and configuration of a specific registered exchange."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -830,7 +830,7 @@ def aitbc_exchange_verify(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Read-only exchange-book verifier (scripts/ops/exchange_verify.py).."""
+    """Read-only exchange-book verifier (scripts/ops/exchange_verify.py)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"settlement": "settlement", "as_json": "json"},

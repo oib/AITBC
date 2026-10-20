@@ -37,7 +37,7 @@ def aitbc_reinvest_policy(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show or record a reinvestment policy for an agent.."""
+    """Show or record a reinvestment policy for an agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -92,7 +92,7 @@ def aitbc_reinvest_simulate(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Simulate reinvestment actions for a given earnings amount.."""
+    """Simulate reinvestment actions for a given earnings amount."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

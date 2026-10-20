@@ -31,7 +31,7 @@ def aitbc_system_architect(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Display a summary of the AITBC system architecture.."""
+    """Display a summary of the AITBC system architecture."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -51,7 +51,7 @@ def aitbc_system_audit(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Run a system audit and report compliance status.."""
+    """Run a system audit and report compliance status."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -72,7 +72,7 @@ def aitbc_system_cat(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Display the systemd unit file for a service.."""
+    """Display the systemd unit file for a service."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -97,7 +97,7 @@ def aitbc_system_check(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check AITBC systemd service health and active wallet balance.."""
+    """Check AITBC systemd service health and active wallet balance."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -137,7 +137,7 @@ def aitbc_system_env_names(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List environment variable NAMES declared in a service's env files.."""
+    """List environment variable NAMES declared in a service's env files."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"process_env": "process"},
@@ -169,7 +169,7 @@ def aitbc_system_env_set(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Set KEY=VALUE pairs in a service's env file under /etc/aitbc, then restart it.."""
+    """Set KEY=VALUE pairs in a service's env file under /etc/aitbc, then restart it."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"no_restart": "no-restart"},
@@ -218,7 +218,7 @@ def aitbc_system_file_info(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show file metadata without dumping content — the safe form of `system file`.."""
+    """Show file metadata without dumping content — the safe form of `system file`."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -245,7 +245,7 @@ def aitbc_system_restart(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Restart a systemd service by name.."""
+    """Restart a systemd service by name."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -293,7 +293,7 @@ def aitbc_system_run_script(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Run an allowed AITBC maintenance or monitoring script.."""
+    """Run an allowed AITBC maintenance or monitoring script."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -340,7 +340,7 @@ def aitbc_system_show(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show systemd properties for a service.."""
+    """Show systemd properties for a service."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -367,7 +367,7 @@ def aitbc_system_start(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Start a systemd service by name.."""
+    """Start a systemd service by name."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -415,7 +415,7 @@ def aitbc_system_stop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop a systemd service by name.."""
+    """Stop a systemd service by name."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

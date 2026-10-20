@@ -34,7 +34,7 @@ def aitbc_explorer_activity_timeline(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the daily transaction activity timeline for a period.."""
+    """Get the daily transaction activity timeline for a period."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -83,7 +83,7 @@ def aitbc_explorer_block_by_hash(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get a block by its hash on the specified chain.."""
+    """Get a block by its hash on the specified chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -133,7 +133,7 @@ def aitbc_explorer_blocks_by_address(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get blocks containing transactions for a given address.."""
+    """Get blocks containing transactions for a given address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -180,7 +180,7 @@ def aitbc_explorer_chains(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List all supported chains and their basic configuration.."""
+    """List all supported chains and their basic configuration."""
     options: dict[str, Any] = {}
     args = None
     target = _host_for_role(role, host)
@@ -224,7 +224,7 @@ def aitbc_explorer_network_stats(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get network-wide statistics for a chain.."""
+    """Get network-wide statistics for a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -274,7 +274,7 @@ def aitbc_explorer_non_empty_blocks(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List non-empty blocks with optional limit, offset, and chain filters.."""
+    """List non-empty blocks with optional limit, offset, and chain filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -323,7 +323,7 @@ def aitbc_explorer_provider_reputation(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get reputation information for a provider by ID.."""
+    """Get reputation information for a provider by ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -373,7 +373,7 @@ def aitbc_explorer_search_transactions(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Search transactions for an address with a result limit.."""
+    """Search transactions for an address with a result limit."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -422,7 +422,7 @@ def aitbc_explorer_top_addresses(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List the top addresses by balance on a chain.."""
+    """List the top addresses by balance on a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -471,7 +471,7 @@ def aitbc_explorer_transaction_by_hash(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get full transaction details by its hash.."""
+    """Get full transaction details by its hash."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

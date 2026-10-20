@@ -38,7 +38,7 @@ def aitbc_prometheus_alert_history(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Read the watcher's alert log: matching events plus the set still firing at end of log.."""
+    """Read the watcher's alert log: matching events plus the set still firing at end of log."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -70,7 +70,7 @@ def aitbc_prometheus_alerts(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show current Prometheus alerts.."""
+    """Show current Prometheus alerts."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -96,7 +96,7 @@ def aitbc_prometheus_check(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Validate Prometheus config and rules with promtool.."""
+    """Validate Prometheus config and rules with promtool."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -131,7 +131,7 @@ def aitbc_prometheus_metric(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Read ONE named metric straight from a node's own /metrics endpoint.."""
+    """Read ONE named metric straight from a node's own /metrics endpoint."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -159,7 +159,7 @@ def aitbc_prometheus_query(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Run a PromQL query against Prometheus.."""
+    """Run a PromQL query against Prometheus."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -184,7 +184,7 @@ def aitbc_prometheus_rules(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List loaded Prometheus recording and alerting rules.."""
+    """List loaded Prometheus recording and alerting rules."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -209,7 +209,7 @@ def aitbc_prometheus_series(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the count of currently loaded metric series for cardinality.."""
+    """Show the count of currently loaded metric series for cardinality."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -234,7 +234,7 @@ def aitbc_prometheus_targets(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the health of every Prometheus scrape target.."""
+    """Show the health of every Prometheus scrape target."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

@@ -42,7 +42,7 @@ def aitbc_gpu_onchain_allocate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Record a GPU allocation on the blockchain for a client.."""
+    """Record a GPU allocation on the blockchain for a client."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
@@ -97,7 +97,7 @@ def aitbc_gpu_onchain_allocations(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Query on-chain allocations for a GPU.."""
+    """Query on-chain allocations for a GPU."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -150,7 +150,7 @@ def aitbc_gpu_onchain_deregister(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deactivate an on-chain GPU registration (signed by its registrant).."""
+    """Deactivate an on-chain GPU registration (signed by its registrant)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
@@ -196,7 +196,7 @@ def aitbc_gpu_onchain_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all GPUs registered on the blockchain, optionally filtered by status.."""
+    """List all GPUs registered on the blockchain, optionally filtered by status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -223,7 +223,7 @@ def aitbc_gpu_onchain_query(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Query a GPU's on-chain registration details.."""
+    """Query a GPU's on-chain registration details."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -283,7 +283,7 @@ def aitbc_gpu_onchain_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register GPU immutable specs on the blockchain with a signing wallet.."""
+    """Register GPU immutable specs on the blockchain with a signing wallet."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},

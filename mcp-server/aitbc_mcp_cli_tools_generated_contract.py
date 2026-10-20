@@ -36,7 +36,7 @@ def aitbc_contract_call(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Call a method on a deployed smart contract with optional arguments.."""
+    """Call a method on a deployed smart contract with optional arguments."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -85,7 +85,7 @@ def aitbc_contract_deploy(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deploy a named smart contract to the blockchain.."""
+    """Deploy a named smart contract to the blockchain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

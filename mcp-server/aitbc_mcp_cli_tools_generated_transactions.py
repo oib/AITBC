@@ -38,7 +38,7 @@ def aitbc_transactions_batch(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send multiple transactions from a JSON batch file.."""
+    """Send multiple transactions from a JSON batch file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -89,7 +89,7 @@ def aitbc_transactions_estimate_fee(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Estimate the transaction fee for a transfer.."""
+    """Estimate the transaction fee for a transfer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -137,7 +137,7 @@ def aitbc_transactions_pending(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the list of pending transactions from the node.."""
+    """Get the list of pending transactions from the node."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -188,7 +188,7 @@ def aitbc_transactions_search(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Search transactions by address, sender, or recipient.."""
+    """Search transactions by address, sender, or recipient."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_explorer": "use-explorer"},
@@ -225,7 +225,7 @@ def aitbc_transactions_send(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send a transaction from one wallet to another.."""
+    """Send a transaction from one wallet to another."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_explorer": "use-explorer"},
@@ -282,7 +282,7 @@ def aitbc_transactions_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the status of a transaction by its hash.."""
+    """Get the status of a transaction by its hash."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_explorer": "use-explorer"},

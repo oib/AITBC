@@ -47,7 +47,7 @@ def aitbc_crosschain_bridge(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Bridge tokens to a target chain via a real signed bridge lock.."""
+    """Bridge tokens to a target chain via a real signed bridge lock."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
@@ -108,7 +108,7 @@ def aitbc_crosschain_bridge_status(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Check the real status of a cross-chain bridge transfer.."""
+    """Check the real status of a cross-chain bridge transfer."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
@@ -162,7 +162,7 @@ def aitbc_crosschain_confirm(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Confirm a pending bridge transfer with its real Merkle proof.."""
+    """Confirm a pending bridge transfer with its real Merkle proof."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -214,7 +214,7 @@ def aitbc_crosschain_stats(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show cross-chain trading statistics from real persisted records.."""
+    """Show cross-chain trading statistics from real persisted records."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -257,7 +257,7 @@ def aitbc_crosschain_swap(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a cross-chain token swap via a real signed bridge lock.."""
+    """Create a cross-chain token swap via a real signed bridge lock."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},

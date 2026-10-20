@@ -24,7 +24,7 @@ def aitbc_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Legacy alias for 'aitbc wallet list' that lists all locally stored wallets.."""
+    """Legacy alias for 'aitbc wallet list' that lists all locally stored wallets."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(

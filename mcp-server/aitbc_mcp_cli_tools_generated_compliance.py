@@ -33,7 +33,7 @@ def aitbc_compliance_check(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Check whether a data classification is allowed by a compliance policy.."""
+    """Check whether a data classification is allowed by a compliance policy."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -60,7 +60,7 @@ def aitbc_compliance_classify(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Normalize a data classification label to the canonical format.."""
+    """Normalize a data classification label to the canonical format."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -108,7 +108,7 @@ def aitbc_compliance_export_audit(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Export a simulated compliance audit trail to a JSON file.."""
+    """Export a simulated compliance audit trail to a JSON file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

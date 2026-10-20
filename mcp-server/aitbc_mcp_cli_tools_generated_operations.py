@@ -34,7 +34,7 @@ def aitbc_operations_agent_deregister(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deregister an agent by its ID.."""
+    """Deregister an agent by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -80,7 +80,7 @@ def aitbc_operations_agent_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List registered agents, optionally filtered by status.."""
+    """List registered agents, optionally filtered by status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -113,7 +113,7 @@ def aitbc_operations_agent_message(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send a message to an agent via a blockchain transaction.."""
+    """Send a message to an agent via a blockchain transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -168,7 +168,7 @@ def aitbc_operations_agent_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register an agent with a status.."""
+    """Register an agent with a status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -216,7 +216,7 @@ def aitbc_operations_ai_cancel(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cancel an AI job by its ID.."""
+    """Cancel an AI job by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -262,7 +262,7 @@ def aitbc_operations_ai_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get the status of one or all AI jobs.."""
+    """Get the status of one or all AI jobs."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -293,7 +293,7 @@ def aitbc_operations_ai_submit_job(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Submit an AI job with wallet, type, prompt, and payment.."""
+    """Submit an AI job with wallet, type, prompt, and payment."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -349,7 +349,7 @@ def aitbc_operations_governance_delegate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Delegate voting power from one address to another.."""
+    """Delegate voting power from one address to another."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -397,7 +397,7 @@ def aitbc_operations_governance_execute(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Execute a passed governance proposal on the blockchain.."""
+    """Execute a passed governance proposal on the blockchain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -445,7 +445,7 @@ def aitbc_operations_governance_get_proposal(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get a governance proposal from the blockchain.."""
+    """Get a governance proposal from the blockchain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -507,7 +507,7 @@ def aitbc_operations_governance_proposal(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a governance proposal on the blockchain.."""
+    """Create a governance proposal on the blockchain."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -566,7 +566,7 @@ def aitbc_operations_governance_stake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stake tokens for enhanced voting power (governance-service record).."""
+    """Stake tokens for enhanced voting power (governance-service record)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -621,7 +621,7 @@ def aitbc_operations_governance_vote(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cast a vote on a governance proposal using a wallet. Votes are advisory (V-7) — the tally does not decide execution.."""
+    """Cast a vote on a governance proposal using a wallet. Votes are advisory (V-7) — the tally does not decide execution."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -676,7 +676,7 @@ def aitbc_operations_governance_voting_power(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get voting power for a blockchain address.."""
+    """Get voting power for a blockchain address."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

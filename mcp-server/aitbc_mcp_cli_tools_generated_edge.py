@@ -31,7 +31,7 @@ def aitbc_edge_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get edge wallet balance from the local edge API.."""
+    """Get edge wallet balance from the local edge API."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -54,7 +54,7 @@ def aitbc_edge_database_delete_db(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Delete an edge database by its ID.."""
+    """Delete an edge database by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -102,7 +102,7 @@ def aitbc_edge_database_get_db(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get details of a specific edge database.."""
+    """Get details of a specific edge database."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -152,7 +152,7 @@ def aitbc_edge_database_init_db(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Initialize a new edge database on an island.."""
+    """Initialize a new edge database on an island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -200,7 +200,7 @@ def aitbc_edge_database_list_dbs(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List edge databases, optionally filtered by island.."""
+    """List edge databases, optionally filtered by island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -248,7 +248,7 @@ def aitbc_edge_database_sync_db(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sync an edge database by its ID.."""
+    """Sync an edge database by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -296,7 +296,7 @@ def aitbc_edge_gpu_get_gpu(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get details of a specific edge GPU.."""
+    """Get details of a specific edge GPU."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -345,7 +345,7 @@ def aitbc_edge_gpu_gpu_metrics(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get metrics for a specific edge GPU.."""
+    """Get metrics for a specific edge GPU."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -395,7 +395,7 @@ def aitbc_edge_gpu_list_gpus(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List available edge GPUs with optional architecture and memory filters.."""
+    """List available edge GPUs with optional architecture and memory filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"edge_optimized": "edge-optimized"},
@@ -443,7 +443,7 @@ def aitbc_edge_gpu_remove_gpu(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Remove a GPU from the listing.."""
+    """Remove a GPU from the listing."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -491,7 +491,7 @@ def aitbc_edge_gpu_scan_gpus(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Scan GPUs for a miner by miner ID.."""
+    """Scan GPUs for a miner by miner ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -539,7 +539,7 @@ def aitbc_edge_island_bridge(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Request a bridge to another island.."""
+    """Request a bridge to another island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -585,7 +585,7 @@ def aitbc_edge_island_get(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get details of a specific edge island.."""
+    """Get details of a specific edge island."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -616,7 +616,7 @@ def aitbc_edge_island_join(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Join an island with the given ID, name, chain, and role.."""
+    """Join an island with the given ID, name, chain, and role."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"is_hub": "is-hub"},
@@ -664,7 +664,7 @@ def aitbc_edge_island_leave(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Leave an island by its ID.."""
+    """Leave an island by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -709,7 +709,7 @@ def aitbc_edge_island_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List all registered edge islands and their basic info.."""
+    """List all registered edge islands and their basic info."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -732,7 +732,7 @@ def aitbc_edge_metrics_delete_metric(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Delete an edge metric by its ID.."""
+    """Delete an edge metric by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -780,7 +780,7 @@ def aitbc_edge_metrics_get_metric(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get details of a specific edge metric.."""
+    """Get details of a specific edge metric."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -829,7 +829,7 @@ def aitbc_edge_metrics_list_metrics(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List edge metrics, optionally filtered by GPU.."""
+    """List edge metrics, optionally filtered by GPU."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -878,7 +878,7 @@ def aitbc_edge_metrics_record(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Record metrics for a GPU as a JSON object.."""
+    """Record metrics for a GPU as a JSON object."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -926,7 +926,7 @@ def aitbc_edge_serve_cancel_request(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cancel a compute request by its ID.."""
+    """Cancel a compute request by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -974,7 +974,7 @@ def aitbc_edge_serve_get_request(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get details of a specific compute request.."""
+    """Get details of a specific compute request."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1022,7 +1022,7 @@ def aitbc_edge_serve_get_result(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Get the result of a compute request by its ID.."""
+    """Get the result of a compute request by its ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1071,7 +1071,7 @@ def aitbc_edge_serve_list_requests(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List compute requests, optionally filtered by GPU and status.."""
+    """List compute requests, optionally filtered by GPU and status."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1124,7 +1124,7 @@ def aitbc_edge_serve_submit_request(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Submit a compute request to a GPU with model name and input data.."""
+    """Submit a compute request to a GPU with model name and input data."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1176,7 +1176,7 @@ def aitbc_edge_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get edge status from the local edge API.."""
+    """Get edge status from the local edge API."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -1201,7 +1201,7 @@ def aitbc_edge_transfer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Transfer edge tokens to another address with an optional note via the local edge API.."""
+    """Transfer edge tokens to another address with an optional note via the local edge API."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
