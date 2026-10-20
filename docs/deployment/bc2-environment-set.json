@@ -150,6 +150,7 @@
     {"name": "BRIDGE_MIN_CONFIRMATIONS", "op": "none", "note": "unset → 3"},
     {"name": "BRIDGE_FINALITY_BLOCKS", "op": "none", "note": "unset → 6"},
     {"name": "BRIDGE_BLOCK_SIGNATURE_REQUIRED", "op": "none", "note": "unset → true"},
-    {"name": "BRIDGE_VERIFICATION_MODE", "op": "none", "note": "unset → in_process"}
+    {"name": "BRIDGE_VERIFICATION_MODE", "op": "none", "note": "unset → in_process"},
+    {"name": "BRIDGE_ADMIN_ADDRESS", "op": "none", "scope": "files:bridge-validator-keys.env", "note": "ruling 20 Oct: leave — key-bearing file; only scripts/ops/register_bridge_validators.py reads it; C3 does not edit (plural BRIDGE_ADMIN_ADDRESSES carries)"}
   ]
 }
