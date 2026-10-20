@@ -63,7 +63,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -757,9 +757,11 @@ def _post_json(url: str, body: dict) -> tuple[int, dict]:
 
 def _unit_field(name: str, prop: str) -> str:
     """One ``systemctl show --value`` field for a scratch unit (journal-side
-    timestamp source — the 'measured' label in the timing report)."""
+    timestamp source — the 'measured' label in the timing report). Asked
+    for ``--timestamp=utc`` so it shares the block timestamp's instant
+    basis: local-zone output made the start->seal delta land ~-7200s."""
     out = subprocess.run(
-        ["systemctl", "show", name, f"--property={prop}", "--value"],
+        ["systemctl", "show", name, f"--property={prop}", "--value", "--timestamp=utc"],
         capture_output=True,
         text=True,
         timeout=10,
@@ -767,24 +769,40 @@ def _unit_field(name: str, prop: str) -> str:
     return out.stdout.strip()
 
 
+# zone-abbreviation -> seconds east of UTC for the strings systemctl can
+# emit on this fleet (it is asked for UTC, but a locale suffix still
+# parses instead of silently comparing different zones).
+_TZ_OFFSETS = {"UTC": 0, "GMT": 0, "CET": 3600, "CEST": 7200}
+
+
 def _parse_systemd_ts(raw: str) -> datetime | None:
-    """Parse an ActiveEnterTimestamp value ('Mon 2026-10-20 07:43:42 CEST')."""
+    """Parse an ActiveEnterTimestamp value ('Mon 2026-10-20 07:43:42 CEST')
+    into naive UTC. An unknown zone name returns None so the report says
+    unmeasured instead of comparing different clocks."""
     if not raw:
         return None
+    head, _, zone = raw.rpartition(" ")
+    offset = _TZ_OFFSETS.get(zone)
+    if offset is None:
+        return None
     try:
-        return datetime.strptime(raw, "%a %Y-%m-%d %H:%M:%S %Z")
+        return datetime.strptime(head, "%a %Y-%m-%d %H:%M:%S") - timedelta(seconds=offset)
     except ValueError:
         return None
 
 
 def _parse_iso_ts(raw: object) -> datetime | None:
-    """Parse an ISO-8601 block timestamp into a naive-UTC datetime."""
+    """Parse an ISO-8601 block timestamp into naive UTC — the same instant
+    basis _parse_systemd_ts returns. A naive input is taken as UTC."""
     if not isinstance(raw, str) or not raw:
         return None
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC).replace(tzinfo=None)
 
 
 def _span_seconds(times: list[datetime]) -> float:
@@ -996,9 +1014,11 @@ def phase_timing(root: Path) -> None:
         blk = _block(insts[0], 1) or {}
         bts = _parse_iso_ts(blk.get("timestamp") or (blk.get("block") or {}).get("timestamp"))
         if bts is not None:
-            print(
-                f"[+] last validator start -> block 1: {(bts - starts[last]).total_seconds():.1f}s (measured: journal+block ts)"
-            )
+            delta = (bts - starts[last]).total_seconds()
+            if 0 <= delta <= 300:
+                print(f"[+] last validator start -> block 1: {delta:.1f}s (measured: journal+block ts)")
+            else:
+                print(f"[*] last-validator-start -> block 1: unmeasured (clock mismatch: {delta:.1f}s outside 0..300)")
         else:
             print("[*] block 1 timestamp unavailable — start->seal delta unmeasured")
     else:
