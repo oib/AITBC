@@ -43,16 +43,16 @@ the chain-formation phase only; nothing here is a downtime budget.
 |---|---|---|---|---|
 | A1 | v1 key rotation confirmed complete **at least 3 days before the freeze** (operator card) — the genesis build, root check and rehearsal 4 then run on the real addresses | operator | operator states done; post-rotation addresses exist for every role in `bc2-environment-set.md` "Operator-decision names" | open; blocks the genesis cut |
 | A2 | allocation file + address list | operator | file parses; totals match the operator's final figures — working figures: treasury 100M AIT (36,000,000 units/AIT), 256 AIT floats outside it, 11 service ×1 AIT, 3 retired ×0, faucet 0 (plan, operator card answers 19 Oct); bond accounts ×2 at 0 (`bc2-environment-set.md` harness requirement) | working figures exist; final numbers are the operator's |
-| A3 | drain executed | operator, per item | `bc2-drain-checklist.md` items all terminal; mempool 0; escrow `locked` 0; coin-request and bridge-deposit ledgers reconciled | open |
+| A3 | drain executed | operator, per item | the drain **actions** — escrow refunds, the gap57 proposal, coin-request dispositions, Sepolia ledger reconciliation — run **days before the window** as operator-named steps per `bc2-drain-checklist.md`; the **zero-check reads** run again after the freeze (B5) and any new row found there is a new drain item that stops the cut | open |
 | A4 | `RESET-ROLLBACK-1` rehearsed | director schedules once this document exists | rehearsal ledger green against §E's acceptance list | **not run** — its ledger is a header stub |
 | A5 | `RESET-REHEARSAL-4` run — one final harness run on node2 at the release-candidate commit after this document, `RESET-ENV-NODE0-1`, `RESET-DRAIN-1` and `GAP-GENESIS-INIT-1` land (operator: "Yes, one final run"; registered parked row) | director schedules | rehearsal ledger green | registered, not run |
-| A6 | genesis write path decided | operator | §I decision recorded | open; recommendation there |
+| A6 | genesis write path | decided (card 20 Oct): "Scratch path is enough" — scratch build + `verify-genesis-root.py` + named per-host distribution; `RESET-GENESIS-LIVE-1` is not a blocker and stays parked | decided |
 | A7 | reset release commit named; diff-audit deployed→release | director | audit lists every runtime-visible change under unchanged env (see "First window action — code convergence") | open |
 | A8 | offline backups + `.pre-reset` capacity | operator-named for the copies | sizes below; checksums verified against live files | sized; copies not made |
 | A9 | consumer changes staged not live | repo | `bc2-consumers.md` rows ready: v9 alert removal staged, `WEBSITE_CHAIN_ID=bc-2` line prepared, `BACKUP_GOOD_CHAIN_GLOB` value prepared | staged per consumers doc |
 | A10 | public maintenance notice live **about 3 days ahead** of the window (operator card; publishes only on his word; comes down after the first seal — §D) | operator-named | notice page serves the window text | drafted (`tasks/CHAIN-RESET-NOTICE-DRAFT.md`), unpublished |
 | A11 | capacity re-check at freeze | ungated | fresh `df`/`du` per host at freeze time (today's reads below drift) | read once today |
-| A12 | window named | operator | — | blank field |
+| A12 | window named | operator | — | blank field — decided placement: "After rehearsal 4" (card 20 Oct); the ≥3-day rotation lead (A1) and the ~3-day notice lead (A10) count back from it |
 
 ### A8/A11 host sizes — measured (read-only `du`/`df`, 2026-10-20 ~07:03 CEST, per-host `date` reads recorded in the ledger)
 
@@ -97,8 +97,9 @@ cut voids the first row):
 Auto-restart trap: `Restart=`/`WatchdogSec=` act without a named line — a
 crash-looping unit restarts on the new code silently (hub's
 `aitbc-coordinator-api` carries `Restart=on-failure`, one of the two
-conditional rows above; hub1's `p2p` carries no `Restart=` line — director
-read). The same verdicts apply wherever a unit does auto-restart.
+conditional rows above; hub1's `aitbc-blockchain-p2p` unit shows no
+`Restart=` line in the unit as read 20 Oct). The same verdicts apply
+wherever a unit does auto-restart.
 
 An earlier fast-forward would stretch this gap to days and make the table
 above apply for days; the operator has not chosen that.
@@ -114,7 +115,7 @@ with an **ungated** verify read.
 | B2 | market + exchange order intake stopped | operator-named | order routes refuse; no new rows |
 | B3 | `BRIDGE_LOCKS_PAUSED=true` (env edit + restart) | operator-named | `grep '^BRIDGE_LOCKS_PAUSED' /etc/aitbc/<env>`; lock route refuses 503. Decided: the new chain launches paused too — C3 writes `true`; the unpause waits for `SEPOLIA-REDEPLOY-1` |
 | B4 | escrow creation stopped | operator-named | lock route refuses new escrows |
-| B5 | record heads + roots | ungated | `sqlite3 "file:///var/lib/aitbc/data/<chain>/chain.db?mode=ro" "SELECT max(height), hash FROM block"` on all five — all equal; head hash + `state_root` written to the ledger |
+| B5 | record heads + roots **and re-run the drain zero-checks** | ungated | `sqlite3 "file:///var/lib/aitbc/data/<chain>/chain.db?mode=ro" "SELECT max(height), hash FROM block"` on all five — all equal; head hash + `state_root` written to the ledger. Plus the `bc2-drain-checklist.md` zero-check reads re-run here — a row that appeared since A3 is a **new drain item and stops the cut** |
 
 Timing: unmeasured (window is D7-tolerant — "a day or more is fine", D7).
 
@@ -142,8 +143,10 @@ The proven path is scratch build → `verify-genesis-root.py` → per-host file
 copy into `data/bc-2/genesis.json` (a gated live-dir write, same class as
 C2/C3). Whether `RESET-GENESIS-LIVE-1` (enabling `--live`) is a real
 blocker or the scratch+verify+distribute path suffices is an operator
-decision — §I; rehearsal evidence is that scratch build + verify +
-distribution produced byte-identical genesis on all five instances.
+decided ("Scratch path is enough", card 20 Oct): `RESET-GENESIS-LIVE-1`
+(enabling `--live`) is not a blocker and stays parked; rehearsal evidence
+is that scratch build + verify + distribution produced byte-identical
+genesis on all five instances.
 `aitbc genesis init` hard-stops with a pointer to this builder
 (`GAP-GENESIS-INIT-1`, #322), so no other write path exists to bypass.
 
@@ -179,6 +182,7 @@ committed nothing.
 | C2 stores moved | **move `.pre-reset` copies back first** — a bare restart finds empty dirs and re-genesises | a named move-back step per host, then restart |
 | C3 env applied | revert env edits | env edit + restart per unit |
 | C4 genesis distributed | delete `data/bc-2/` files | per-host file removal; the old chain's dir is untouched by construction |
+| C5 units started, nothing sealed yet (e.g. only one validator up) | stop the started units, delete `data/bc-2/` files, revert env, then the earlier rows | prove nothing sealed: `max(height)=0` on every started host's `bc-2` chain.db — nothing produced, nothing to abandon |
 | C5+ first seal | — | **the point**: abandoning bc-2 is a second reset-class event, not an abort |
 
 After the point, never before: unfreeze writes, market/exchange reopen,
@@ -274,11 +278,18 @@ Taken (operator card, 20 Oct — answers in his words):
 | v1 key rotation timing | "at least 3 days before the freeze" | A1 |
 | public maintenance notice | "about 3 days ahead" of the window | A10, §D |
 | final rehearsal | "Yes, one final run" → `RESET-REHEARSAL-4` | A5, §G |
+| node start order | "Short simultaneous start" | C5 |
+| deploy timing | "First step of the window" | "First window action — code convergence" |
+| genesis write path | "Scratch path is enough" | A6, C4 — `RESET-GENESIS-LIVE-1` parked, not a blocker |
+| window placement | "After rehearsal 4" | A12 |
+
+The env-set rows that still contradict the decided values
+(`BRIDGE_LOCKS_PAUSED` shown `false`, the gossip cap shown "recommended",
+`TRUSTED_PROPOSERS` shown set-or-unset) are `RESET-ENV-DECIDED-1` (#325,
+coder B) — not edited here.
 
 Still owed (recommendation + cost; nothing picked):
 
 | decision | recommendation | cost of the recommendation |
 |---|---|---|
-| window date | name it — "within about two weeks" holds | none; the freeze window tolerates a day+ |
-| `RESET-GENESIS-LIVE-1` `--live` enablement | **recommend not a blocker**: scratch build + `verify-genesis-root.py` + named distribution is the proven path; `--live` adds a precondition evaluator whose checks can still run read-only at the cut | the live-dir write stays a manual named step either way |
 | `.pre-reset` deletion | keep ≥7 days, per-item word | disk (≤534 M/host — trivial except watched on hub1) |
