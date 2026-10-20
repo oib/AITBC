@@ -14,6 +14,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import pytest
 
 from aitbc.governance import (
     ExecuteData,
@@ -32,6 +33,16 @@ from aitbc.governance import (
     validate_governance_payload,
 )
 from aitbc.governance.client import GovernanceClient as _GovernanceClient  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def _pin_chain_env(monkeypatch):
+    """Default-chain asserts below require a clean env — a leaked
+    CHAIN_ID/AITBC_CHAIN_ID (e.g. an app-test conftest setdefault) would
+    resolve the default to that id instead of bc-2."""
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    monkeypatch.delenv("AITBC_CHAIN_ID", raising=False)
+
 
 RPC_URL = "http://localhost:8105"
 
@@ -114,7 +125,7 @@ class TestGovernanceConfig:
         cfg = GovernanceConfig()
         assert cfg.rpc_url == "http://localhost:8105"
         assert cfg.blockchain_rpc_url == "http://localhost:8202"
-        assert cfg.chain_id == "ait-hub"
+        assert cfg.chain_id == "bc-2"
         assert cfg.voting_period_blocks == 7200
         assert cfg.quorum_percent == 30.0
         assert cfg.approval_percent == 50.0
@@ -135,7 +146,7 @@ class TestProposalData:
         assert d.parameters == {}
         assert d.voting_starts_block == 0
         assert d.voting_ends_block == 0
-        assert d.chain_id == "ait-hub"
+        assert d.chain_id == "bc-2"
 
     def test_full(self) -> None:
         d = _sample_proposal_data()
@@ -149,13 +160,13 @@ class TestVoteData:
         v = VoteData(proposal_id="p1", voter="b", vote_type="for")
         assert v.voting_power == 0.0
         assert v.reason == ""
-        assert v.chain_id == "ait-hub"
+        assert v.chain_id == "bc-2"
 
 
 class TestExecuteData:
     def test_defaults(self) -> None:
         e = ExecuteData(proposal_id="p1", executor="a")
-        assert e.chain_id == "ait-hub"
+        assert e.chain_id == "bc-2"
 
 
 class TestParameterChangeSchema:
@@ -357,7 +368,7 @@ class TestBuildProposalTx:
         assert tx["parameters"]["new"] == 1.5
         assert tx["voting_starts_block"] == 100
         assert tx["voting_ends_block"] == 7300
-        assert tx["chain_id"] == "ait-hub"
+        assert tx["chain_id"] == "bc-2"
 
 
 class TestBuildVoteTx:
@@ -370,7 +381,7 @@ class TestBuildVoteTx:
         assert tx["vote_type"] == "for"
         assert tx["voting_power"] == 500.0
         assert tx["reason"] == "Support this change"
-        assert tx["chain_id"] == "ait-hub"
+        assert tx["chain_id"] == "bc-2"
 
 
 class TestBuildExecuteTx:
@@ -379,7 +390,7 @@ class TestBuildExecuteTx:
         assert tx["type"] == "GOVERNANCE_EXECUTE"
         assert tx["proposal_id"] == "prop_001"
         assert tx["executor"] == "carol"
-        assert tx["chain_id"] == "ait-hub"
+        assert tx["chain_id"] == "bc-2"
 
     def test_custom_chain_id(self) -> None:
         tx = build_execute_tx("prop_001", "carol", chain_id="ait-2")

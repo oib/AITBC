@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..utils.chain_id import DEFAULT_CHAIN_ID, default_chain_id, resolve_chain_id
 from .types import (
     GovernanceTxType,
     ParameterChangeSchema,
@@ -72,8 +73,9 @@ def build_vote_tx(data: VoteData) -> dict[str, Any]:
     }
 
 
-def build_execute_tx(proposal_id: str, executor: str, chain_id: str = "ait-hub") -> dict[str, Any]:
+def build_execute_tx(proposal_id: str, executor: str, chain_id: str | None = None) -> dict[str, Any]:
     """Build a GOVERNANCE_EXECUTE transaction payload."""
+    chain_id = resolve_chain_id(chain_id, default=DEFAULT_CHAIN_ID)
     return {
         "type": GovernanceTxType.EXECUTE.value,
         "proposal_id": proposal_id,
@@ -183,7 +185,7 @@ def build_parameter_apply_tx(
     schema: ParameterChangeSchema,
     proposal_id: str,
     executor: str,
-    chain_id: str = "ait-hub",
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
     """Build a GOVERNANCE_EXECUTE transaction payload that applies a parameter change.
 
@@ -195,6 +197,7 @@ def build_parameter_apply_tx(
     The payload includes the full ParameterChangeSchema so the target service
     can validate the old→new transition before applying.
     """
+    chain_id = resolve_chain_id(chain_id, default=DEFAULT_CHAIN_ID)
     return {
         "type": GovernanceTxType.EXECUTE.value,
         "proposal_id": proposal_id,
@@ -342,7 +345,7 @@ def build_vote_aggregation_tx(
         "type": GovernanceTxType.EXECUTE.value,
         "proposal_id": pid,
         "executor": executor,
-        "chain_id": "ait-hub",  # aggregation always targets the hub
+        "chain_id": default_chain_id(),  # the resolved fleet chain
         "cross_chain_op": _CROSS_CHAIN_OP_VOTE_AGGREGATION,
         "source_chain": source_chain,
         "votes": [
@@ -384,7 +387,7 @@ def build_cross_chain_execute_tx(
         "type": GovernanceTxType.EXECUTE.value,
         "proposal_id": proposal_id,
         "executor": executor,
-        "chain_id": "ait-hub",
+        "chain_id": default_chain_id(),
         "cross_chain_op": _CROSS_CHAIN_OP_CROSS_CHAIN_EXECUTE,
         "target_chains": list(target_chains),
     }

@@ -17,6 +17,7 @@ import os
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.chain_id import default_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
@@ -42,7 +43,7 @@ class TransactionService:
     def __init__(self) -> None:
         self.logger = get_logger(__name__)
         self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
-        self.chain_id = os.getenv("CHAIN_ID", "ait-hub")
+        self.chain_id = default_chain_id()
         self.genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")
         self.genesis_address = os.getenv("GENESIS_ADDRESS")
 

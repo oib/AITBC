@@ -24,6 +24,7 @@ from uuid import uuid4
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.bridge import BridgeClient, BridgeConfig, BridgeTransfer
+from aitbc.utils.chain_id import DEFAULT_CHAIN_ID, resolve_chain_id
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from sqlmodel import Session, func, select, update
 
@@ -58,11 +59,13 @@ class BridgeClientAdapter:
     def __init__(
         self,
         rpc_url: str = BLOCKCHAIN_RPC_URL,
-        chain_id: str = "ait-hub",
+        chain_id: str | None = None,
         timeout: int = 30,
         session: Session | None = None,
     ) -> None:
-        self._config = BridgeConfig(rpc_url=rpc_url, chain_id=chain_id, timeout=timeout)
+        self._config = BridgeConfig(
+            rpc_url=rpc_url, chain_id=resolve_chain_id(chain_id, default=DEFAULT_CHAIN_ID), timeout=timeout
+        )
         self._client = BridgeClient(self._config)
         self.session = session
         self.wallet_adapters: dict[int, EnhancedWalletAdapter] = {}

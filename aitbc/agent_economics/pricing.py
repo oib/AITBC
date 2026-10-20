@@ -13,6 +13,8 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from ..utils.chain_id import default_chain_id
+
 
 class DemandTrend(StrEnum):
     """Trend direction for a demand forecast."""
@@ -99,7 +101,7 @@ class MarketMakerStrategy:
     inventory: Decimal = field(default_factory=lambda: Decimal("0"))
     max_position: Decimal | None = None
     token: str = ""
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

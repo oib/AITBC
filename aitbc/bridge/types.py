@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
+from ..utils.chain_id import default_chain_id
+
 
 class BridgeStatus(StrEnum):
     """Status of a cross-chain bridge transfer."""
@@ -135,7 +137,7 @@ class BridgeConfig:
     """Configuration for bridge operations."""
 
     rpc_url: str = "http://localhost:8202/rpc"
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     timeout: int = 30
     retry_limit: int = 3
     fee_basis_points: int = 10  # 0.1%

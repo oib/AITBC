@@ -16,6 +16,8 @@ from typing import Any
 
 from .errors import StakingError
 
+from ..utils.chain_id import default_chain_id
+
 
 class DelegationStatus(StrEnum):
     """Lifecycle status of a delegation to a validator."""
@@ -39,7 +41,7 @@ class Delegation:
     delegated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     unbonded_at: datetime | None = None
     rewards: Decimal = field(default_factory=lambda: Decimal("0"))
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -103,7 +105,7 @@ class StakingStrategy:
 
     strategy_id: str
     agent_id: str
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     target_validators: list[str] = field(default_factory=list)
     max_per_validator: Decimal | None = None
     min_yield_percent: Decimal = field(default_factory=lambda: Decimal("0"))
