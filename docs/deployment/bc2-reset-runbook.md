@@ -132,7 +132,7 @@ The proven path is scratch build → `verify-genesis-root.py` → per-host file
 copy into `data/bc-2/genesis.json` (a gated live-dir write, same class as
 C2/C3). Whether `RESET-GENESIS-LIVE-1` (enabling `--live`) is a real
 blocker or the scratch+verify+distribute path suffices is an operator
-decision — §J; rehearsal evidence is that scratch build + verify +
+decision — §I; rehearsal evidence is that scratch build + verify +
 distribution produced byte-identical genesis on all five instances.
 `aitbc genesis init` hard-stops with a pointer to this builder
 (`GAP-GENESIS-INIT-1`, #322), so no other write path exists to bypass.
