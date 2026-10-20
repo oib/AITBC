@@ -179,7 +179,7 @@ committed nothing.
 |---|---|---|
 | freeze only (§B) | unpause every intake | drain settlements already made stand — they were owed; downtime only |
 | C1 services stopped | restart old env/units | downtime only |
-| C2 stores moved | **move `.pre-reset` copies back first** — a bare restart finds empty dirs and re-genesises | a named move-back step per host, then restart |
+| C2 stores moved | **move `.pre-reset` copies back first** — a bare restart finds empty dirs and restores nothing (§E: current code refuses without `genesis.json`, old code stalls without a hub) | a named move-back step per host, then restart |
 | C3 env applied | revert env edits | env edit + restart per unit |
 | C4 genesis distributed | delete `data/bc-2/` files | per-host file removal; the old chain's dir is untouched by construction |
 | C5 units started, nothing sealed yet (e.g. only one validator up) | stop the started units, delete `data/bc-2/` files, revert env, then the earlier rows | prove nothing sealed: `max(height)=0` on every started host's `bc-2` chain.db — rehearsal-evidenced (`RESET-ROLLBACK-1`: 130 s, 13 polls, all 0); nothing produced, nothing to abandon |
