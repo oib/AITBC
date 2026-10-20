@@ -99,24 +99,25 @@ class TestGenesisCommands:
         assert "--create-wallet" in result.output
 
     def test_genesis_verify_command_no_genesis(self, runner):
-        """``genesis verify`` reports an error when genesis config is not found."""
+        """``genesis verify`` refuses when the genesis config is missing."""
         from aitbc_cli.commands.genesis import genesis
 
         result = runner.invoke(genesis, ["verify", "--chain-id", "nonexistent-chain"])
 
-        # The command calls error() and returns (exit 0) when the genesis
-        # file is not found.
-        assert result.exit_code == 0, result.output
+        # Deliberate since dcfa58039: error() then ctx.exit(1) — no genesis
+        # file is a failure, not a report.
+        assert result.exit_code == 1, result.output
+        assert "Genesis config not found" in result.output
 
     def test_genesis_info_command_no_genesis(self, runner):
-        """``genesis info`` reports an error when genesis config is not found."""
+        """``genesis info`` refuses when the genesis config is missing."""
         from aitbc_cli.commands.genesis import genesis
 
         result = runner.invoke(genesis, ["info", "--chain-id", "nonexistent-chain"])
 
-        # The command calls error() and returns (exit 0) when the genesis
-        # file is not found.
-        assert result.exit_code == 0, result.output
+        # Same deliberate exit-1 path as verify (dcfa58039).
+        assert result.exit_code == 1, result.output
+        assert "Genesis config not found" in result.output
 
 
 if __name__ == "__main__":
