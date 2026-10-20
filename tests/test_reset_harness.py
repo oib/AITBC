@@ -302,10 +302,14 @@ def test_check_bridge_paused_flags_other_codes(tmp_path, monkeypatch):
 
 
 def test_parse_systemd_ts_and_span():
+    # CEST input is normalized to naive UTC so the block-ts delta shares
+    # one instant basis (a naive subtraction used to land ~-7200s).
     ts = rh._parse_systemd_ts("Mon 2026-10-20 07:43:42 CEST")
-    assert ts is not None and ts.year == 2026 and ts.second == 42
+    assert ts is not None and (ts.year, ts.hour, ts.minute, ts.second) == (2026, 5, 43, 42)
+    assert rh._parse_systemd_ts("Mon 2026-10-20 05:43:42 UTC") == ts
     assert rh._parse_systemd_ts("") is None
     assert rh._parse_systemd_ts("n/a") is None
+    assert rh._parse_systemd_ts("Mon 2026-10-20 07:43:42 XYZ") is None  # unknown zone: unmeasured, not guessed
     a = rh._parse_systemd_ts("Mon 2026-10-19 19:42:01 CEST")
     b = rh._parse_systemd_ts("Mon 2026-10-19 19:42:03 CEST")
     assert rh._span_seconds([a, b]) == 2.0
@@ -315,6 +319,37 @@ def test_parse_systemd_ts_and_span():
 def test_parse_iso_ts():
     ts = rh._parse_iso_ts("2026-10-20T05:43:40.784513+00:00")
     assert ts is not None and ts.second == 40
+    # an aware non-UTC input converts, a naive input is taken as UTC
+    assert rh._parse_iso_ts("2026-10-20T07:43:40+02:00") == ts.replace(microsecond=0)
+    assert rh._parse_iso_ts("2026-10-20T05:43:40.784513") == ts
     assert rh._parse_iso_ts("") is None
     assert rh._parse_iso_ts(None) is None
     assert rh._parse_iso_ts("not-a-date") is None
+
+
+def test_phase_timing_cest_systemd_vs_utc_block(tmp_path, monkeypatch, capsys):
+    """The reported delta: a CEST systemd string and a +00:00 block
+    timestamp seconds apart must yield a small positive measured delta —
+    this is the defect-1 repro (naive zones gave ~-7200s)."""
+    insts = rh.instances(tmp_path)
+    monkeypatch.setattr(rh, "instances", lambda root: insts)
+    monkeypatch.setattr(rh, "_unit_field", lambda name, prop: "Tue 2026-10-20 07:43:42 CEST")
+    monkeypatch.setattr(rh, "_block", lambda inst, h: {"timestamp": "2026-10-20T05:43:50+00:00"})
+    rh.phase_timing(tmp_path)
+    out = capsys.readouterr().out
+    assert "block 1: 8.0s" in out and "measured" in out
+
+
+def test_phase_timing_marks_mismatch_unmeasured(tmp_path, monkeypatch, capsys):
+    insts = rh.instances(tmp_path)
+    monkeypatch.setattr(rh, "instances", lambda root: insts)
+    monkeypatch.setattr(rh, "_unit_field", lambda name, prop: "Tue 2026-10-20 05:50:00 UTC")
+    monkeypatch.setattr(rh, "_block", lambda inst, h: {"timestamp": "2026-10-20T05:43:42+00:00"})
+    rh.phase_timing(tmp_path)
+    out = capsys.readouterr().out
+    assert (
+        "unmeasured" in out
+        and "clock mismatch" in out
+        and "block 1: 0" not in out
+        and "(measured: journal+block ts)" not in out
+    )
