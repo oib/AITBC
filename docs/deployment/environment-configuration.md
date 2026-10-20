@@ -791,6 +791,7 @@ Before starting services, verify:
 - Node Deployment Guide - Infrastructure setup
 - [Blockchain Node Schema](../apps/blockchain-node/SCHEMA.md) - Database schema reference
 - [bc-2 Environment Set](bc2-environment-set.md) - the `bc-2` chain environment-variable set
+- [bc-2 Consumers](bc2-consumers.md) - the `bc-2` cut-day consumer table
 - Multi-Node Setup Core - Workflow guide
 
 ---
