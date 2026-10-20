@@ -227,6 +227,18 @@ repos:
         files: ^(cli/aitbc_cli/|mcp-server/aitbc_mcp_(server|cli_tools_generated(_[a-z0-9_]+)?\.py)|scripts/(dev/generate_mcp_cli_tools\.py|ci/check-mcp-cli-drift\.sh))
         stages: [pre-commit]
 
+      - id: website-asset-stamp
+        name: website-asset-stamp
+        entry: bash scripts/ci/check-website-stamp.sh
+        language: system
+        pass_filenames: false
+        # .css/.js change the content hash; .html is in the pattern because
+        # a page edit can add a reference missing the ?v= stamp. The stamper
+        # and this check are in the pattern so an edit to either exercises
+        # the guard on its own commit.
+        files: ^(website/.*\.(css|js|html)|scripts/ops/stamp-website-assets\.py|scripts/ci/check-website-stamp\.sh)$
+        stages: [pre-commit]
+
       - id: openapi-drift
         name: openapi-specs-match-the-apps
         entry: bash scripts/ci/check-openapi-drift.sh
