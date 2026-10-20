@@ -23,6 +23,30 @@ def client():
 # --- Chains ---
 
 
+def test_chains_lists_only_the_local_chain(client):
+    """/api/chains reports the configured chain alone — no hard-coded
+    'coming soon' placeholder rows may ride alongside it."""
+    resp = client.get("/api/chains")
+    assert resp.status_code == 200
+    chains = resp.json()["chains"]
+    assert chains == [{"id": "ait-testchain", "name": "AIT Hub Network", "status": "active"}]
+
+
+def test_chains_unconfigured_when_no_chain_id(client, monkeypatch):
+    """Without a resolvable chain id the single row is marked unconfigured."""
+    from aitbc.utils.chain_id import ChainIdNotConfigured
+
+    import routers.chains as chains_router
+
+    def _unset():
+        raise ChainIdNotConfigured("test")
+
+    monkeypatch.setattr(chains_router, "resolve_chain_id", _unset)
+    resp = client.get("/api/chains")
+    assert resp.status_code == 200
+    assert resp.json()["chains"] == [{"id": "unconfigured", "name": "AIT Hub Network", "status": "unconfigured"}]
+
+
 # --- Health ---
 
 
