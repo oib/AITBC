@@ -173,7 +173,7 @@ No p2p unit. Timers (9): hub1's set minus none, plus
 
 ## Cut-day notes
 
-- `.pre-reset` destination: `/var/lib/aitbc/pre-reset-<YYYY-MM-DD>/` — a
+- `.pre-reset` destination: `/var/lib/aitbc/.pre-reset-<YYYY-MM-DD>/` — a
   **sibling of `data/`, never inside it**. Everything listed above (chain
   dir, service DBs, stray top-level `chain.db`, `*.bak` residue) moves
   into that tree, so the `data/*/chain.db` textfile exporters see no

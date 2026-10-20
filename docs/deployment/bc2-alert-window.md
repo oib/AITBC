@@ -93,13 +93,16 @@ anchored greps, sha256s, and journal lines — not alerts.
 blocks · every suspended-timer `*Stale`/`Failed` quiet (B0 set restored)
 · authority/governance float guards quiet · `BridgeSet*` quiet ·
 `ChainDiverged` quiet · next `aitbc-backup` generation green ·
-`alerts.log` window entries all from the expected-noise list.
+`alerts.log` window entries all from the expected-noise list ·
+store check: `data/` holds only `bc-2`
+(`find /var/lib/aitbc/data -name chain.db` lists the single live store).
 
-## Proposed but not landed
+## Placement ruled; hardenings still proposed
 
-The db-scan exposure is handled **by placement, not rules**: `.pre-reset`
-copies land in `/var/lib/aitbc/pre-reset-<date>/`, a sibling of `data/`
-(runbook C2), so `data/*/chain.db` scans see no archived store after C2.
+Ruled (operator, 20 Oct): the db-scan exposure is handled **by
+placement, not rules** — `.pre-reset` copies land in
+`/var/lib/aitbc/.pre-reset-<date>/`, a sibling of `data/` (runbook C2),
+so `data/*/chain.db` scans see no archived store after C2.
 Two optional hardenings stay proposed, not landed:
 
 - Alert-side `{db="bc-2"}` selectors on the already-labelled arms
