@@ -636,6 +636,10 @@ groups:
       # BackupSizeCollapse: a generation that still lands but is under half
       # the 7-day median size usually means the job degraded (empty dumps,
       # missing tarballs) rather than real growth change.
+      # bc-2 note: expected to fire ONCE on the first post-reset backup —
+      # a fresh chain's dump is far under the old chain's 7-day median.
+      # That single firing is benign (see docs/deployment/bc2-alert-window.md);
+      # a repeat on later generations is not.
       - alert: BackupSizeCollapse
         expr: aitbc_backup_last_generation_bytes < 0.5 * quantile_over_time(0.5, aitbc_backup_last_generation_bytes[7d])
         for: 1h
