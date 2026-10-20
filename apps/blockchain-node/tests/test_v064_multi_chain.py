@@ -207,10 +207,11 @@ class TestThresholdGuards:
 
 
 class TestMakeGenesisMultiGenesis:
-    """Test make_genesis.py multi-genesis support."""
+    """make_genesis.py is a stale builder — it hard-stops naming the canonical
+    builder (#290). These tests pin the refusal contract."""
 
     def test_single_genesis_backward_compat(self):
-        """Single genesis mode works as before."""
+        """Single genesis mode refuses with the do-not-use message."""
         import subprocess
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -237,14 +238,12 @@ class TestMakeGenesisMultiGenesis:
                 capture_output=True,
                 text=True,
             )
-            assert result.returncode == 0, f"make_genesis failed: {result.stderr}"
-            assert output_file.exists()
-            data = json.loads(output_file.read_text())
-            assert data["chain_id"] == "ait-test"
-            assert "island_id" not in data  # No island_id without flag
+            assert result.returncode != 0
+            assert not output_file.exists()
+            assert "genesis_builder.py" in result.stderr
 
     def test_multi_genesis_with_chains(self):
-        """Multi-genesis mode generates one file per chain."""
+        """Multi-genesis mode refuses with the do-not-use message."""
         import subprocess
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -273,24 +272,12 @@ class TestMakeGenesisMultiGenesis:
                 capture_output=True,
                 text=True,
             )
-            assert result.returncode == 0, f"make_genesis failed: {result.stderr}"
-
-            # Check both genesis files exist
-            genesis_a = output_dir / "chain-a" / "genesis.json"
-            genesis_b = output_dir / "chain-b" / "genesis.json"
-            assert genesis_a.exists()
-            assert genesis_b.exists()
-
-            data_a = json.loads(genesis_a.read_text())
-            assert data_a["chain_id"] == "chain-a"
-            assert data_a["island_id"] == "island-1"
-
-            data_b = json.loads(genesis_b.read_text())
-            assert data_b["chain_id"] == "chain-b"
-            assert data_b["island_id"] == "island-1"
+            assert result.returncode != 0
+            assert not (output_dir / "chain-a" / "genesis.json").exists()
+            assert "genesis_builder.py" in result.stderr
 
     def test_multi_genesis_island_id_optional(self):
-        """Multi-genesis works without --island-id."""
+        """Multi-genesis mode refuses with the do-not-use message."""
         import subprocess
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -317,12 +304,9 @@ class TestMakeGenesisMultiGenesis:
                 capture_output=True,
                 text=True,
             )
-            assert result.returncode == 0, f"make_genesis failed: {result.stderr}"
-
-            genesis = output_dir / "chain-x" / "genesis.json"
-            assert genesis.exists()
-            data = json.loads(genesis.read_text())
-            assert "island_id" not in data
+            assert result.returncode != 0
+            assert not (output_dir / "chain-x" / "genesis.json").exists()
+            assert "genesis_builder.py" in result.stderr
 
 
 # ---------------------------------------------------------------------------
