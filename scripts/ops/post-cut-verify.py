@@ -557,11 +557,12 @@ def check_stores(ctx: Ctx, name: str, h: dict) -> list[Result]:
         return [Result("service-stores", name, "INVESTIGATE", None, "stores map in manifest", "none listed")]
     data_dir = h.get("data_dir", "/var/lib/aitbc/data")
     bad = []
+    count_tables = "SELECT count(*) FROM sqlite_master WHERE type='table'"
     for db, want in stores.items():
         out = sh(
             ctx,
             h,
-            f"sqlite3 'file:{data_dir}/{db}?mode=ro' \"SELECT count(*) FROM sqlite_master WHERE type='table'\"",
+            f"sqlite3 'file:{data_dir}/{db}?mode=ro' \"{count_tables}\"",  # nosec B608 — constant query; only the file URI interpolates
         )
         try:
             got = int((out or "").strip())
