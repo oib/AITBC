@@ -231,6 +231,10 @@ row below is an **ABORT** entry keyed by the step reached.
 | C5 units started, nothing sealed yet (e.g. only one validator up) | stop the started units, delete `data/bc-2/` files, revert env, then the earlier rows | prove nothing sealed: `max(height)=0` on every started host's `bc-2` chain.db — rehearsal-evidenced (`RESET-ROLLBACK-1`: 130 s, 13 polls, all 0); nothing produced, nothing to abandon |
 | C5+ first seal | — | **the point**: abandoning bc-2 is a second reset-class event, not an abort |
 
+After the first seal the abort table no longer applies — post-PONR
+failure modes and the two-minute decision tree live in
+`bc2-post-ponr-failures.md`.
+
 **F1 (post-PONR unfreeze).** After the point, never before: unfreeze
 writes — market/exchange reopen, B1's env edit reverted, B0 timers
 restored (§F). The website maintenance-notice takedown is its **own F1

@@ -27,6 +27,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [bc-2 Host Inventory](bc2-host-inventory.md) - per-host unit/timer/store-file census the runbook's C1/C2 steps act on (reset planning)
 - [bc-2 Alert Window](bc2-alert-window.md) - what monitoring does through the cut: procedural silence, expected noise, post-cut green checks (reset planning)
 - [bc-2 Post-Cut Owed Items](bc2-post-cut-owed.md) - everything the cut leaves undone, ordered and gated (reset planning)
+- [bc-2 Post-PONR Failure Modes](bc2-post-ponr-failures.md) - what can fail after the first seal, the options per mode, and the two-minute decision tree (reset planning)
 
 ## See Also
 
