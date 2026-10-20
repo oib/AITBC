@@ -11,7 +11,7 @@ Companion documents (values live there, not restated here):
 `bc2-drain-checklist.md` (drain order, `RESET-DRAIN-1`),
 `bc2-host-inventory.md` (per-host unit lists, timers and store files —
 C1 and C2 act on it),
-`GATES.md` (why every gate height is `1`).
+`apps/blockchain-node/tests/golden/GATES.md` (why every gate height is `1`).
 
 ## Gate wording and evidence rules
 
@@ -145,7 +145,7 @@ with an **ungated** verify read.
 | B0 | timers suspended — per `bc2-host-inventory.md`: `aitbc-escrow-settlements.timer` first, then `aitbc-backup.timer`, `aitbc-native-energy-rate-refresh.timer` (hub) and the read-only monitor timers | operator-named | `systemctl list-timers 'aitbc-*'` shows the named timers inactive; restoration happens in §F |
 | B1 | faucet + coin-request intake parked — env edit `COIN_REQUEST_AUTO_APPROVE_MAX=0` in the file declaring it for `aitbc-agent-coordinator` on hub (resolve with `aitbc system env-names --service aitbc-agent-coordinator --names COIN_REQUEST_AUTO_APPROVE_MAX`; add to `aitbc-agent-coordinator.env` if unset) + restart `aitbc-agent-coordinator`. New requests park `PENDING` (policy `coin_request_policy.py`: the max-0 path returns "automatic approval is disabled on this hub"); a PENDING row still writes, so the sameness check is on **non-PENDING** statuses | operator-named | `SELECT status, count(*)` on `agent_coin_requests` + `hermes_coin_requests` — APPROVED/EXECUTED counts frozen after the edit. Plus the probe: one register POST lands `PENDING` with reason "automatic approval is disabled on this hub" — **the probe is a write; it runs only on the operator's line, and the operator rejects that row immediately after to restore the baseline** |
 | B2 | market + exchange order intake stopped — service stops: `aitbc-market` (hub + node2), `aitbc-exchange` (hub). A stopped unit answers connection refused, not a route-level refusal — that is the mechanism (no pause flag exists on these services). Accepted cost: website exchange/marketplace pages error during the window — cosmetic, no drain dependency | operator-named | `systemctl is-active` = `inactive` on all three units; `ss -ltn` shows the market/exchange ports gone; a POST to each route exits curl rc 7 (connection refused) |
-| B3 | `BRIDGE_LOCKS_PAUSED=true` (env edit + restart `aitbc-blockchain-node` + `aitbc-blockchain-rpc`). The name sits in **two** env files on hub (`blockchain.env` + `bootstrap.env`) — edit and verify every file holding it per host | operator-named | `grep '^BRIDGE_LOCKS_PAUSED' /etc/aitbc/*.env` — every file carrying the name shows `true`; the bridge GET reads answer (the 503 lock refusal is proven by the POST probe, which `post-cut-verify.py` runs only under `--probe` on the operator's line). Decided: the new chain launches paused too — C3 writes `true`; the unpause waits for `SEPOLIA-REDEPLOY-1` |
+| B3 | `BRIDGE_LOCKS_PAUSED=true` (env edit + restart `aitbc-blockchain-node` + `aitbc-blockchain-rpc` on all five). The name sits in **two** env files on hub (`blockchain.env` + `bootstrap.env`) — edit and verify every file holding it per host | operator-named — validator-interrupting, all five | `grep '^BRIDGE_LOCKS_PAUSED' /etc/aitbc/*.env` — every file carrying the name shows `true`; the bridge GET reads answer (the 503 lock refusal is proven by the POST probe, which `post-cut-verify.py` runs only under `--probe` on the operator's line). Decided: the new chain launches paused too — C3 writes `true`; the unpause waits for `SEPOLIA-REDEPLOY-1` |
 | B4 | escrow creation stopped — stop `aitbc-coordinator-api` on hub (the upstream surfaces `/v1/market/*`, `/api/orders`, `POST /jobs` → `escrow/create` are already dead under B2; the coordinator's own job/payment path is the last live leg). Stopping is safe pre-cut: the alembic-at-start trap is on *restart*, which next happens under release code on a fresh DB (C5/C6). Residual leg: direct `POST /rpc/escrow/create` on the node is API-key-gated internal — covered by the last-moment re-read | operator-named | `systemctl is-active aitbc-coordinator-api` = `inactive` on hub; **and the last-moment pending-count re-read** — escrow + job pending counts re-read immediately before C1 (any non-zero = stop the cut) |
 | B5 | record heads + roots **and re-run the drain zero-checks** | ungated | `sqlite3 "file:///var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db?mode=ro" "SELECT max(height), hash, state_root FROM block"` on all five — all equal; head hash + `state_root` written to the ledger. Plus the `bc2-drain-checklist.md` zero-check reads re-run here — a row that appeared since A3 is a **new drain item and stops the cut** |
 
@@ -206,10 +206,12 @@ read paths answer for `bc-2` — named sources: the `aitbc-blockchain-rpc`
 units (head/status routes), `aitbc-blockchain-explorer` (service active
 + page serving `bc-2` heights), the hub website (rendered site reflects
 the new chain), the bridge route (`GET /rpc/bridge/pending` on the rpc
-listener answers); **`data/` holds only `bc-2`** —
-`find /var/lib/aitbc/data -name chain.db` lists the single live store
-and `ls /var/lib/aitbc/data` shows only the `bc-2/` dir (the `.pre-reset`
-tree lives outside `data/`); alerts quiet — checked in the
+listener answers); **`data/` holds no old-chain store** —
+`find /var/lib/aitbc/data -name chain.db` lists only
+`data/bc-2/chain.db`, and no `ait-hub*` store or `.pre-reset` residue
+sits under `data/` (the `.pre-reset` tree lives outside `data/`; fresh
+service DBs alongside `bc-2/` are expected once C6 starts services);
+alerts quiet — checked in the
 `aitbc-prometheus-watch` journal and `/var/log/aitbc/alerts.log` (the
 public alerts page reads the same source).
 
@@ -238,7 +240,7 @@ failure modes and the two-minute decision tree live in
 **F1 (post-PONR unfreeze).** After the point, never before: unfreeze
 writes — market/exchange reopen, B1's env edit reverted, B0 timers
 restored (§F). The website maintenance-notice takedown is its **own F1
-sub-item** — it modifies public content. The bridge-lock unpause is **not**
+sub-item (F1a)** — it modifies public content. The bridge-lock unpause is **not**
 in this list — decided: locks stay paused until `SEPOLIA-REDEPLOY-1`
 (operator placed the redeploy "in the week after the cut"), a separate
 gated step outside the cut.
@@ -334,7 +336,7 @@ resolves v14, outside the flag's 2–8 window (`bc2-environment-set.md`).
 
 | step | who names it | evidence to record |
 |---|---|---|
-| ff to reset commit (first window action) | operator-named — the reset-release deploy | per-host `git rev-parse HEAD` + `ExecMainStartTimestamp` baseline |
+| FF1 ff to reset commit (first window action) | operator-named — the reset-release deploy | per-host `git rev-parse HEAD` + `ExecMainStartTimestamp` baseline |
 | freeze B0–B4 | operator-named | operator line verbatim + `list-timers` + refuse-read outputs |
 | B5 head record | ungated | 5× head+hash+state_root in ledger |
 | C1 stops | operator-named (validator-interrupting on 4 hosts) | operator line verbatim; `is-active` + timestamp fields |
@@ -343,9 +345,10 @@ resolves v14, outside the flag's 2–8 window (`bc2-environment-set.md`).
 | C4 genesis | ungated build; operator-named distribution | builder verdict + verify output + 5× sha256 |
 | C5 node starts | operator-named per host (validator-interrupting) | file-load line ×1, resolved-id line, timestamp fields |
 | C6 rpc + stores | rpc standing; stores operator-named | table counts, redis-backend evidence |
-| C7 checks | ungated | heads, proposer set, per-block quorum sweep, read-path results, `data/` holds only `bc-2` |
+| C7 checks | ungated | heads, proposer set, per-block quorum sweep, read-path results, `find data/ -name chain.db` lists only `data/bc-2/chain.db` and no `ait-hub*` store |
 | post-PONR unfreeze (F1) | operator-named | operator line verbatim + accept-read outputs |
 | `.pre-reset` deletion (F3) | per-item word, after the 3-day soak | operator line verbatim per item |
+| post-soak funding (F4) | operator-named, gated at soak-end | operator line verbatim + treasury→`0x40c7…`/`0x356d…` sealed txs + new balances |
 
 ### Operator line shapes — proposal (the operator writes his own lines)
 
@@ -356,19 +359,20 @@ rule that the operator's own message names action **and** hosts.
 | step | proposed shape | one line covers |
 |---|---|---|
 | FF1 | "Fast-forward all five hosts to `<sha>` in order node0, hub1, node1, node2, hub." | all five (order is procedure, not authorization) |
-| B0 | "Suspend the named timers on hub, hub1 and node2 and the monitor timers fleet-wide." | all |
+| B0 | "Suspend `aitbc-escrow-settlements.timer` and `aitbc-backup.timer` on all five hosts — hub, hub1, node0, node1, node2 — plus `aitbc-native-energy-rate-refresh.timer` on hub, and the monitor timers fleet-wide." | all |
 | B1 | "Park coin-request intake on hub; run the PENDING probe and reject that row." | hub — probe+reject inside one line |
 | B2 | "Stop `aitbc-market` on hub and node2 and `aitbc-exchange` on hub." | hub + node2 |
 | B3 | "Set `BRIDGE_LOCKS_PAUSED=true` in every file holding it and restart node+rpc on all five." | all five — validator-interrupting |
 | B4 | "Stop `aitbc-coordinator-api` on hub." | hub |
 | C1 | "Stop services in inventory order on hub, hub1, node0, node1, node2." | all five |
-| C2 | "Move the inventory store list to `/var/lib/aitbc/.pre-reset-<date>/` on `<host>`." | one host — per-host granularity is decided |
+| C2 | "Move the inventory store list to `/var/lib/aitbc/.pre-reset-<YYYY-MM-DD>/` on `<host>`." | one host — per-host granularity is decided |
 | C3 | "Apply the bc-2 env set on `<host>`." | one host |
 | C4 | "Distribute the verified `genesis.json` into `data/bc-2/` on all five hosts." | all five (build itself ungated) |
 | C5 | "Start the four validator node units now: hub, hub1, node1, node2." then "Start node0." | **two lines** — the simultaneous validator start is one action; node0 deliberately last |
 | C6 | "Start rpc units and the remaining service units fleet-wide." | all five (rpc leg already standing) |
-| F1 | "Post-PONR unfreeze: restore timers, reopen market/exchange, revert B1." **plus its own line** "Take the maintenance notice down." | two parts — the takedown modifies public content |
+| F1 | "Post-PONR unfreeze: restore timers, reopen market/exchange, revert B1." **plus its own line (F1a)** "Take the maintenance notice down." | two parts — the takedown modifies public content |
 | F3 | "Delete `<path>` on `<host>`." | never shared — per-item word by design |
+| F4 | "Fund sell-escrow `0x40c7…` and bridge payout `0x356d…` from the treasury — `<amount>` AIT each." | two chain writes — gated at soak-end, before locks unpause |
 | ABORT | "Abort at `<step>`: run the §D abort row." | per event |
 
 ## I. Decisions
