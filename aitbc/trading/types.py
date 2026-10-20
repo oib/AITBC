@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
 
+from ..utils.chain_id import default_chain_id
+
 
 class InterChainTradeStatus(StrEnum):
     """Status of an inter-chain trade.
@@ -91,7 +93,7 @@ class TradingConfig:
     rpc_url: str = "http://localhost:8104"  # trading service
     blockchain_rpc_url: str = "http://localhost:8202"  # blockchain node
     bridge_rpc_url: str = "http://localhost:8202"  # bridge (same as blockchain)
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     matching_enabled: bool = True
     execution_timeout: int = 300  # seconds
     island_registry_sync_interval: int = 300  # seconds
@@ -119,7 +121,7 @@ class InterChainTradeData:
     status: str = "pending"
     source_tx_hash: str | None = None
     dest_tx_hash: str | None = None
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     # v0.9.0 settlement fields
     escrow_id: str = ""
     settlement_phase: str = "none"  # SettlementPhase value
@@ -199,7 +201,7 @@ class CreateTradeRequest:
     offer_id: str | None = None
     price: Decimal = Decimal("0")
     quantity: int = 0
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
 
 
 @dataclass

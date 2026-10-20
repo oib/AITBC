@@ -9,11 +9,12 @@ validated action payloads.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from uuid import uuid4
 
 from aitbc.agent_economics import Budget, OnChainAction, OnChainActionType, RevenueRoute
+from aitbc.utils.chain_id import default_chain_id
 
 
 @dataclass
@@ -30,7 +31,7 @@ class ReinvestmentPolicy:
     staking_pct: Decimal = Decimal("60")
     capacity_reserve_pct: Decimal = Decimal("40")
     min_reinvest_amount: Decimal = Decimal("0.01")
-    chain_id: str = "ait-hub"
+    chain_id: str = field(default_factory=default_chain_id)
     staking_contract: str = ""
     reserve_address: str = ""
 
@@ -118,6 +119,5 @@ def build_revenue_route(agent_id: str, recipient: str, percentage: Decimal) -> R
         route_type="provider",
         recipient=recipient,
         percentage=percentage,
-        chain_id="ait-hub",
         meta={"agent_id": agent_id},
     )

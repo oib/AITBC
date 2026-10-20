@@ -15,6 +15,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 
 from aitbc.bridge import (
     REQUIRED_PROOF_FIELDS,
@@ -31,6 +32,16 @@ from aitbc.bridge import (
     verify_proposer_signature,
 )
 from aitbc.bridge.client import BridgeClient as _BridgeClient  # noqa: F401  (re-export sanity)
+
+
+@pytest.fixture(autouse=True)
+def _pin_chain_env(monkeypatch):
+    """Default-chain asserts below require a clean env — a leaked
+    CHAIN_ID/AITBC_CHAIN_ID (e.g. an app-test conftest setdefault) would
+    resolve the default to that id instead of bc-2."""
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    monkeypatch.delenv("AITBC_CHAIN_ID", raising=False)
+
 
 RPC_URL = "http://localhost:8202"
 
@@ -197,7 +208,7 @@ def test_required_proof_fields_complete() -> None:
 def test_bridge_config_defaults() -> None:
     c = BridgeConfig()
     assert c.rpc_url == "http://localhost:8202/rpc"
-    assert c.chain_id == "ait-hub"
+    assert c.chain_id == "bc-2"
     assert c.timeout == 30
     assert c.retry_limit == 3
     assert c.fee_basis_points == 10
@@ -212,7 +223,7 @@ def test_bridge_config_defaults() -> None:
 def test_bridge_client_init_default_config() -> None:
     c = BridgeClient()
     assert c.config.rpc_url == "http://localhost:8202/rpc"
-    assert c.config.chain_id == "ait-hub"
+    assert c.config.chain_id == "bc-2"
     assert c._client is None
 
 
