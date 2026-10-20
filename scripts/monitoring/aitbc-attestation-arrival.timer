@@ -1,0 +1,12 @@
+[Unit]
+Description=Export attestation arrival stats every minute
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+OnCalendar=minutely
+AccuracySec=10s
+Persistent=false
+Unit=aitbc-attestation-arrival.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,35 @@
+[Unit]
+Description=AITBC attestation arrival stats for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=aitbc-blockchain-node.service
+
+[Service]
+Type=oneshot
+# Attestation arrival is a property of the SEALED chain, which every host
+# holds byte-identical in its own data/*/chain.db — so this timer runs on
+# every host, like aitbc-escrow-settlements, not hub-only. Each node's
+# local Prometheus loads aitbc_rules.yml, so the series must exist
+# locally for AttestationValidatorSilent/AttestationArrivalDegraded to
+# evaluate there; hub additionally sees all five via remote_write.
+# AITBC_CHAIN_DB pins one database when set; the default glob follows the
+# chain-id automatically (data/bc-2/chain.db after the reset).
+Environment=AITBC_DATA_DIR=/var/lib/aitbc
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/attestation-arrival-textfile.py
+# Exits 1 when a chain.db could not be read (scrape_success reports which).
+SyslogIdentifier=aitbc-attestation-arrival
+
+# Reads local sqlite files read-only and writes one file in the textfile
+# directory. chain.db is WAL-mode: the -shm/-wal pair beside it is
+# required for the read-only open, so the whole data dir is exposed —
+# the running node keeps the pair present (verified under these same
+# properties on a scratch WAL copy).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ReadOnlyPaths=/var/lib/aitbc
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
