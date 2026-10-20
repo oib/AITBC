@@ -445,3 +445,31 @@ def test_wipe_store_keeps_only_genesis(tmp_path):
 def test_wipe_store_refuses_without_build_output(tmp_path):
     with pytest.raises(SystemExit):
         rh._wipe_store_keep_genesis(tmp_path, rh.instances(tmp_path)[0])
+
+
+def test_corrective_tx_signature_verifies():
+    """The corrective body must satisfy the same verification the rpc
+    admission runs: sign_transaction_data over the canonical unsigned
+    fields, recovered against the treasury address."""
+    pytest.importorskip("eth_keys")
+    pytest.importorskip("eth_utils")
+    from aitbc_chain.rpc.utils import verify_transaction_signature
+
+    keys = {**_keys(), "treasury": rh._mint_key()}
+    recipient = "0x" + "99" * 20
+    tx = rh._corrective_tx(keys, recipient, 7 * rh.UNITS_PER_AIT, 0)
+    assert tx["from"] == keys["treasury"]["address"]
+    assert tx["to"] == recipient
+    assert tx["chain_id"] == "bc-2"
+    assert tx["type"] == "TRANSFER"
+    assert verify_transaction_signature(tx, tx["signature"], keys["treasury"]["address"])
+    # a signature from a different key must not pass — the corrective is
+    # treasury-only on the production path too
+    assert not verify_transaction_signature(tx, tx["signature"], "0x" + "11" * 20)
+
+
+def test_corrective_tx_uses_live_nonce(tmp_path):
+    keys = _keys()
+    tx = rh._corrective_tx(keys, "0x" + "11" * 20, 1, 9)
+    assert tx["nonce"] == 9
+    assert "signature" in tx and tx["signature"].startswith("0x")

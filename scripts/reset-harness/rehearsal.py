@@ -38,10 +38,13 @@ Phases (also runnable individually):
                              then resume on rejoin (post-PONR M2)
     rehearsal.py resync      corrupt one store, prove it dead, wipe +
                              re-init from genesis + resync (post-PONR M7)
+    rehearsal.py alloc-fix   prove a missing allocation, then a post-seal
+                             corrective treasury transfer (post-PONR M4)
     rehearsal.py teardown    stop units, delete the scratch tree, show it empty
     rehearsal.py run         keys -> genesis -> up -> wait -> check ->
                              timing -> rejoin -> skip -> stall -> resync ->
-                             stores -> golden -> untrusted -> teardown
+                             stores -> golden -> untrusted -> alloc-fix ->
+                             teardown
 
 Live-host protection: before anything starts, the harness records
 ``ActiveEnterTimestamp``/``MainPID`` and head height of the live
@@ -1238,6 +1241,72 @@ def phase_resync(root: Path, python: str, timeout: int, max_load: float, min_ava
     raise _fail(f"{victim.name} did not resync to the fleet head within {timeout}s")
 
 
+def _corrective_tx(keys: dict, recipient: str, units: int, nonce: int) -> dict:
+    """Post-seal corrective transfer body, signed by the scratch treasury
+    key — the M4 'treasury pays out what the allocation missed' shape.
+    ``signature`` is produced with the same helper admission verifies
+    (``sign_transaction_data`` over the canonical unsigned fields)."""
+    from aitbc_chain.rpc.utils import sign_transaction_data
+
+    tx = {
+        "chain_id": CHAIN_ID,
+        "from": keys["treasury"]["address"],
+        "to": recipient,
+        "amount": units,
+        "fee": 0,
+        "nonce": nonce,
+        "type": "TRANSFER",
+    }
+    tx["signature"] = sign_transaction_data(tx, keys["treasury"]["private_key"])
+    return tx
+
+
+def _account_row(db: Path, address: str) -> tuple | None:
+    rows = _sql(db, "SELECT balance, nonce FROM account WHERE chain_id=? AND address=?", (CHAIN_ID, address))
+    return rows[0] if rows else None
+
+
+def phase_alloc_fix(root: Path, timeout: int) -> None:
+    """M4 — a missing allocation proven against the fixture, then repaired
+    post-seal by a corrective treasury transfer.
+
+    The rehearsal plays both halves of the production M4 decision: first
+    the mismatch (a fresh address absent from the fixture AND the account
+    table), then the correction the runbook names — a treasury-signed
+    TRANSFER that creates the row. On the live chain only the operator can
+    sign this (the treasury key never reaches a coder); on scratch the
+    generated treasury key does, which is exactly what the scratch harness
+    is for. The chain must stay valid: the assertion is the recipient row
+    landing at the corrective amount on the hub's own store."""
+    insts = instances(root)
+    keys = _load_keys(root)
+    hub = insts[0]
+    db = hub.dir / "data" / CHAIN_ID / "chain.db"
+    recipient = _mint_key()["address"]
+    fixture = {a["address"] for a in _allocations(keys)}
+    if recipient in fixture:
+        raise _fail("corrective target collided with the allocation fixture — mint again")
+    if _account_row(db, recipient) is not None:
+        raise _fail(f"corrective target {recipient} already has an account row — mismatch not established")
+    print(f"[*] mismatch proven: {recipient} absent from chain state and the allocation fixture")
+    treasury_row = _account_row(db, keys["treasury"]["address"])
+    nonce = int(treasury_row[1]) if treasury_row else 0
+    units = 7 * UNITS_PER_AIT  # a corrective-sized amount, well inside the treasury float
+    tx = _corrective_tx(keys, recipient, units, nonce)
+    code, payload = _post_json(f"http://127.0.0.1:{hub.rpc_port}/rpc/transaction", tx)
+    if code not in (200, 201, 202):
+        raise _fail(f"corrective transfer rejected: HTTP {code} {payload}")
+    print(f"[*] corrective transfer submitted (treasury -> {recipient[:16]}…, {units} units); waiting for seal")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        row = _account_row(db, recipient)
+        if row is not None and int(row[0]) == units:
+            print(f"[+] corrective transfer sealed: {recipient[:16]}… balance={units} — post-seal fix proven")
+            return
+        time.sleep(5)
+    raise _fail(f"corrective transfer not sealed within {timeout}s")
+
+
 def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
     inst = instances(root)[3]
     h0 = _head(inst)
@@ -1386,6 +1455,7 @@ def main() -> int:
             "stores",
             "golden",
             "untrusted",
+            "alloc-fix",
             "teardown",
             "run",
         ],
@@ -1444,6 +1514,7 @@ def main() -> int:
             _timed("stores", lambda: phase_stores(root, args.python))
             _timed("golden", lambda: phase_golden(root, args.python))
             _timed("untrusted", lambda: phase_untrusted(root, args.python, args.timeout))
+            _timed("alloc-fix", lambda: phase_alloc_fix(root, args.timeout))
             after = _live_snapshot()
             (root / "live-after.json").write_text(json.dumps(after, indent=2))
             print("[+] phase wall-clock: " + ", ".join(f"{n}={d:.1f}s" for n, d in wall) + " (measured: monotonic)")
@@ -1467,6 +1538,7 @@ def main() -> int:
         "stores": lambda: phase_stores(root, args.python),
         "golden": lambda: phase_golden(root, args.python),
         "untrusted": lambda: phase_untrusted(root, args.python, args.timeout),
+        "alloc-fix": lambda: phase_alloc_fix(root, args.timeout),
     }
     dispatch[args.phase]()
     return 0
