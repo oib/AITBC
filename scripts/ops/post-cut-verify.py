@@ -410,7 +410,10 @@ def check_env(ctx: Ctx, name: str, h: dict) -> list[Result]:
     bad, missing = [], []
     for ename, want in exp_env.items():
         out = sh(ctx, h, f"grep -h '^{ename}=' {env_dir}/*.env 2>/dev/null")
-        lines = [ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if "=" in ln]
+        vals = [ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if "=" in ln]
+        # Shell-sourced env files (rehearsal instance.env) quote values; the
+        # process sees the unquoted string — compare like-for-like.
+        lines = [v[1:-1] if len(v) > 1 and v[0] == v[-1] and v[0] in "'\"" else v for v in vals]
         if not lines:
             missing.append(ename)
             continue
