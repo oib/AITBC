@@ -12,6 +12,7 @@ point there so no real /var/lib/aitbc or /etc/aitbc content is touched.
 
 import json
 import os
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -528,6 +529,101 @@ def test_env_names_process_value_secret_shaped(runner, tmp_path, monkeypatch, ca
     assert "refused" in result.output.lower()
     assert secret_value not in result.output
     assert secret_value not in capsys.readouterr().out
+
+
+# --- plural/short deny spellings (GAP-ENVDENY-2) -----------------------------
+# Residual spellings the token-equality guard missed: plurals, the short
+# form PW, and compound words. "pw" is token-only — never a suffix — so
+# CREW/FLOW stay allowed. "authorization" is single-token-suffix only so
+# bare AUTHORIZATION refuses while the live flag ENABLE_AUTHORIZATION stays
+# allowed. "keyfile" is deliberately allowed: it names a path to key
+# material, not the secret itself — same class as the required-allow
+# KEYSTORE_DIR.
+
+
+@pytest.mark.parametrize(
+    "denied_name",
+    [
+        "DB_PW",
+        "ADMIN_PW",
+        "PW",
+        "SECRETS",
+        "PASSWORDS",
+        "TOKENS",
+        "APIKEYS",
+        "HMAC_SECRETS",
+        "AUTHORIZATION",
+        "BEARER",
+        "COOKIE",
+        "COOKIES",
+        "SESSION_COOKIE",
+        "PRIVKEY",
+        "SEEDPHRASE",
+        "SALT",
+        # separator-less spellings caught by the single-token suffix rule
+        "MYAUTHORIZATION",
+        "ETHPRIVKEY",
+        "MYSEEDPHRASE",
+        "MYSECRETS",
+    ],
+)
+def test_env_names_process_value_denied_plural_short_names(runner, tmp_path, monkeypatch, capsys, denied_name):
+    _fake_proc(tmp_path, monkeypatch, f"{denied_name}=shouldneverappear\x00".encode())
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", denied_name],
+        )
+    assert result.exit_code != 0, denied_name
+    assert "shouldneverappear" not in result.output
+    assert "shouldneverappear" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "allowed_name",
+    [
+        # must-allow names from the first round, still allowed
+        "KEYSTORE_DIR",
+        "SUPPORTED_CHAINS",
+        # "pw" is a token only, not a suffix: unrelated endings survive
+        "CREW_COUNT",
+        "FLOW_RATE",
+        # "salt" is a token only: unrelated containing tokens survive
+        "RESULT_FILE",
+        # live fleet flag: "authorization" is not a plain deny token
+        "ENABLE_AUTHORIZATION",
+        # a keyfile value is a path, not the secret — same class as
+        # KEYSTORE_DIR above
+        "ETH_KEYFILE",
+        "COOKIELESS",
+    ],
+)
+def test_env_names_process_value_allowed_residual_names(runner, tmp_path, monkeypatch, allowed_name):
+    _fake_proc(tmp_path, monkeypatch, f"{allowed_name}=safevalue\x00".encode())
+    with mock.patch("aitbc_cli.commands.system.subprocess.run", side_effect=_systemctl_dispatch()):
+        result = runner.invoke(
+            system,
+            obj={"output_format": "table"},
+            args=["env-names", "--service", "aitbc-svc", "--process", "--value", allowed_name],
+        )
+    assert result.exit_code == 0, f"{allowed_name}: {result.output}"
+    assert result.output.strip() == "safevalue"
+
+
+def test_env_names_denied_guard_allows_all_fleet_names():
+    """Every env name the fleet currently relies on stays allowed.
+
+    Fixture: cli/tests/fixtures/fleet_env_names_allowed.txt — the 246 distinct
+    names the guard allowed across the five hosts' /etc/aitbc/*.env files
+    on 20 Oct 2026 (names only, no values; director's census). A deny
+    token that trips a legitimate fleet name fails here.
+    """
+    fixture = Path(__file__).parent / "fixtures" / "fleet_env_names_allowed.txt"
+    names = [line.strip() for line in fixture.read_text().splitlines() if line.strip()]
+    assert len(names) == 246  # fixture drift guard
+    refused = [name for name in names if system_mod._field_name_denied(name)]
+    assert refused == []
 
 
 def test_file_info_field_secret_shaped_value_refused(runner, allowed, capsys):
