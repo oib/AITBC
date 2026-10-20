@@ -72,6 +72,7 @@ for _p in (str(REPO_ROOT), str(REPO_ROOT / "apps" / "blockchain-node" / "src"), 
         sys.path.insert(0, _p)
 
 from aitbc.utils import reset_guard
+from aitbc_chain.cross_chain.bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL
 
 CHAIN_ID = "bc-2"
 N_PROPOSERS = 4
@@ -967,10 +968,12 @@ def _check_bridge_paused(insts: list[Instance], failures: list[str]) -> None:
     }
     code, payload = _post_json(f"http://127.0.0.1:{insts[0].rpc_port}/cross-chain/bridge", body)
     detail = payload.get("detail", "") if isinstance(payload, dict) else ""
-    if code == 503:
-        print(f"[+] BRIDGE_LOCKS_PAUSED fence: /cross-chain/bridge -> 503 ({detail})")
-    else:
+    if code != 503:
         failures.append(f"bridge lock admission answered {code}, want 503 — pause fence not enforced")
+    elif detail != BRIDGE_LOCKS_PAUSED_DETAIL:
+        failures.append(f"bridge lock admission 503 with unexpected detail {detail!r} — not the pause fence")
+    else:
+        print(f"[+] BRIDGE_LOCKS_PAUSED fence: /cross-chain/bridge -> 503 ({detail})")
 
 
 def phase_check(root: Path) -> list[str]:
