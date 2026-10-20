@@ -154,7 +154,9 @@ def aitbc_blockchain_block(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_blockchain_consensus_slashing_history(
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
-    chain_id: Annotated[str | None, Field(description="Chain ID to query slashing history for")] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID to query slashing history for (default: CHAIN_ID or the node's own chain)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -203,7 +205,9 @@ def aitbc_blockchain_consensus_slashing_history(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_consensus_status(
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
-    chain_id: Annotated[str | None, Field(description="Chain ID to query consensus status for")] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID to query consensus status for (default: CHAIN_ID or the node's own chain)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -229,7 +233,9 @@ def aitbc_blockchain_consensus_status(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_consensus_validators(
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
-    chain_id: Annotated[str | None, Field(description="Chain ID to query validators for")] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID to query validators for (default: CHAIN_ID or the node's own chain)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
