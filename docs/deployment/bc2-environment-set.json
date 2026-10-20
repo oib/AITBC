@@ -112,7 +112,7 @@
     {"name": "GENESIS_WALLET_ADDRESS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator"},
     {"name": "BRIDGE_ADMIN_ADDRESSES", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
     {"name": "BRIDGE_RELEASE_AUTHORITY", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
-    {"name": "BRIDGE_MULTISIG_VALIDATORS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "the four current validators, threshold 2"},
+    {"name": "BRIDGE_MULTISIG_VALIDATORS", "op": "set", "value": "4", "scope": "carrying", "class": "public", "note": "integer count, not an address list; membership comes from the genesis bridge_validators rows"},
     {"name": "BRIDGE_MAX_LOCK_AMOUNT", "op": "set", "value": "36000000000", "scope": "carrying", "class": "public", "note": "1000 AIT (decided 20 Oct)"},
     {"name": "BOND_BURN_ADDRESS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
     {"name": "BOND_SLASH_AUTHORITY_ADDRESS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
