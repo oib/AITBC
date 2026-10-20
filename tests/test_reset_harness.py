@@ -266,6 +266,23 @@ def test_env_carries_the_decided_env_set_names(tmp_path):
     assert env["TRUSTED_PROPOSERS"].startswith("genesis,0x")
 
 
+def test_env_bridge_admission_rows(tmp_path):
+    """Env-set rows :64/:67/:68 — release admission + merkle-proof stay
+    fleet-true; supported-chains admits only bc-2."""
+    env = _parse_env(rh._env_lines(tmp_path, rh.instances(tmp_path)[0], _keys()))
+    assert env["BRIDGE_RELEASE_ENABLED"] == "true"
+    assert env["BRIDGE_SUPPORTED_CHAINS"] == "bc-2"
+    assert env["BRIDGE_REQUIRE_MERKLE_PROOF"] == "true"
+
+
+def test_env_documented_deviations_stay_at_defaults(tmp_path):
+    """BLOCK_TIME_SECONDS (fleet 60) and PARALLEL_TX_VALIDATION (inert on
+    bc-2) are documented deviations — the profile must NOT write them."""
+    env = _parse_env(rh._env_lines(tmp_path, rh.instances(tmp_path)[0], _keys()))
+    assert "BLOCK_TIME_SECONDS" not in env
+    assert "PARALLEL_TX_VALIDATION" not in env
+
+
 def test_untrusted_env_drops_only_the_named_address():
     keys = _keys()
     victim = keys["proposers"][3]["address"]
