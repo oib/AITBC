@@ -562,6 +562,12 @@ Consensus rules change by *height*, not by flag. Each `v<n>` adds rules to
 transaction application/validation; blocks below the activation height replay
 under the old, lenient rules so sealed history stays valid.
 
+> **bc-2 note**: the heights quoted in this table (11000, 24000, 24650,
+> 24800, 32100, 35400, 37500, and the shadow-mode v9 behavior) are the old
+> chain's history. On the `bc-2` chain every `STATE_TRANSITION_V<N>_HEIGHT`
+> is set to 1 — all rules apply from the first block after genesis and no
+> activation events exist.
+
 | Height knob | What activates |
 |---|---|
 | `STATE_TRANSITION_V2_HEIGHT` | Block-versioned apply rules (unversioned blocks below it replay as v1). |
