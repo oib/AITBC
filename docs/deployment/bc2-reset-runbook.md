@@ -8,8 +8,8 @@ below come from the AGENTS.md live-ops rules and are restated, not relaxed.
 Companion documents (values live there, not restated here):
 `bc2-environment-set.md` (per-unit env names + node0 pins),
 `bc2-consumers.md` (everything outside env that assumes the old chain),
-`bc2-drain-checklist.md` (drain order; produced by `RESET-DRAIN-1` — may
-not be merged yet), `GATES.md` (why every gate height is `1`).
+`bc2-drain-checklist.md` (drain order, `RESET-DRAIN-1`),
+`GATES.md` (why every gate height is `1`).
 
 ## Gate wording and evidence rules
 
@@ -41,18 +41,18 @@ the chain-formation phase only; nothing here is a downtime budget.
 
 | # | item | who names it | read-only verify | state |
 |---|---|---|---|---|
-| A1 | v1 key rotation confirmed complete **at least 3 days before the freeze** (operator card) — the genesis build, root check and rehearsal 4 then run on the real addresses | operator | operator states done; post-rotation addresses exist for every role in `bc2-environment-set.md` "Operator-decision names" | open; blocks the genesis cut |
-| A2 | allocation file + address list | operator | file parses; totals match the operator's final figures — working figures: treasury 100M AIT (36,000,000 units/AIT), 256 AIT floats outside it, 11 service ×1 AIT, 3 retired ×0, faucet 0 (plan, operator card answers 19 Oct); bond accounts ×2 at 0 (`bc2-environment-set.md` harness requirement) | working figures exist; final numbers are the operator's |
+| A1 | validator set for bc-2 — **decided (card 20 Oct): "No rotation for this reset"** ("this is not a v1 bc reset. after bc reset we are still on eth testnet"; the earlier "rotate, done ≥3 days before the freeze" answer is withdrawn). The bc-2 validator set is the four **current** validators (the set rotated in KR-5, `docs/releases/STATUS.md`) — no key task precedes the genesis build | operator confirms list | the four addresses match each host's live `VALIDATOR_SET`; a coder proposes the list, the operator confirms it | decided; address list outstanding |
+| A2 | allocation file + address list | operator | file parses; totals match the operator's figures — **decided (card 20 Oct): "Confirmed final"**: treasury 100M AIT (36,000,000 units/AIT), 256 AIT floats outside it, 11 service ×1 AIT, 3 retired ×0, faucet 0, bond accounts ×2 at 0 — supply 100,000,256 AIT. Addresses: treasury "**New address, will supply**"; every other account "**Same as live today**" — a coder proposes the list, the operator confirms it | figures final; **both address lists outstanding** |
 | A3 | drain executed | operator, per item | the drain **actions** — escrow refunds, the gap57 proposal, coin-request dispositions, Sepolia ledger reconciliation — run **days before the window** as operator-named steps per `bc2-drain-checklist.md`; the **zero-check reads** run again after the freeze (B5) and any new row found there is a new drain item that stops the cut | open |
-| A4 | `RESET-ROLLBACK-1` rehearsed | director schedules once this document exists | rehearsal ledger green against §E's acceptance list | **not run** — its ledger is a header stub |
-| A5 | `RESET-REHEARSAL-4` run — one final harness run on node2 at the release-candidate commit after this document, `RESET-ENV-NODE0-1`, `RESET-DRAIN-1` and `GAP-GENESIS-INIT-1` land (operator: "Yes, one final run"; registered parked row) | director schedules | rehearsal ledger green | registered, not run |
+| A4 | `RESET-ROLLBACK-1` rehearsed | done 20 Oct | rehearsal ledger green against §E's acceptance list | **rehearsed 20 Oct on the node2 scratch harness — green (§E)** |
+| A5 | `RESET-REHEARSAL-4` run — one final harness run on node2 at the release-candidate commit; its document dependencies all landed (`GAP-GENESIS-INIT-1` #322, `RESET-ENV-NODE0-1` #323, `RESET-DRAIN-1`, this runbook) (operator: "Yes, one final run"; registered parked row) | director schedules | rehearsal ledger green | registered, not run — waits on the release-candidate commit |
 | A6 | genesis write path | decided (card 20 Oct): "Scratch path is enough" — scratch build + `verify-genesis-root.py` + named per-host distribution; `RESET-GENESIS-LIVE-1` is not a blocker and stays parked | decided |
 | A7 | reset release commit named; diff-audit deployed→release | director | audit lists every runtime-visible change under unchanged env (see "First window action — code convergence") | open |
 | A8 | offline backups + `.pre-reset` capacity | operator-named for the copies | sizes below; checksums verified against live files | sized; copies not made |
 | A9 | consumer changes staged not live | repo | `bc2-consumers.md` rows ready: v9 alert removal staged, `WEBSITE_CHAIN_ID=bc-2` line prepared, `BACKUP_GOOD_CHAIN_GLOB` value prepared | staged per consumers doc |
 | A10 | public maintenance notice live **about 3 days ahead** of the window (operator card; publishes only on his word; comes down after the first seal — §D) | operator-named | notice page serves the window text | drafted (`tasks/CHAIN-RESET-NOTICE-DRAFT.md`), unpublished |
 | A11 | capacity re-check at freeze | ungated | fresh `df`/`du` per host at freeze time (today's reads below drift) | read once today |
-| A12 | window named | operator | — | blank field — decided placement: "After rehearsal 4" (card 20 Oct); the ≥3-day rotation lead (A1) and the ~3-day notice lead (A10) count back from it |
+| A12 | window named | operator | — | blank field — decided placement: "After rehearsal 4" (card 20 Oct); the ~3-day notice lead (A10) counts back from it |
 
 ### A8/A11 host sizes — measured (read-only `du`/`df`, 2026-10-20 ~07:03 CEST, per-host `date` reads recorded in the ledger)
 
@@ -130,7 +130,7 @@ non-validator — always last).
 |---|---|---|---|---|---|
 | C1 | stop services in dependency order: customer-facing → coordinator/exchange/market → rpc → node/p2p last | operator-named; node/p2p stops on hub/hub1/node1/node2 are validator-interrupting | `systemctl is-active` inactive; timestamp fields recorded | — | unmeasured |
 | C2 | move every chain + service store to dated `.pre-reset` copies (no deletion) | operator-named per host | `du -s` copy equals source; `.pre-reset` dir listing | — | unmeasured (sizes in A8) |
-| C3 | apply the env set on every unit | operator-named | anchored `grep` of each name in `bc2-environment-set.md`; node0 pins per `RESET-ENV-NODE0-1` (#323). Decided values on all five: `BRIDGE_LOCKS_PAUSED=true` (stays paused until `SEPOLIA-REDEPLOY-1`), `TRUSTED_PROPOSERS=genesis,<the four post-rotation validator addresses>`, `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=256` | — | unmeasured (~101 chain-id assignments across five hosts) |
+| C3 | apply the env set on every unit | operator-named | anchored `grep` of each name in `bc2-environment-set.md`; node0 pins per `RESET-ENV-NODE0-1` (#323). Decided values on all five: `BRIDGE_LOCKS_PAUSED=true` (stays paused until `SEPOLIA-REDEPLOY-1`), `TRUSTED_PROPOSERS=genesis,<the four current validators>`, `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=256` | — | unmeasured (~101 chain-id assignments across five hosts) |
 | C4 | build genesis on scratch → `verify-genesis-root.py` → distribute `genesis.json` into `data/bc-2/` on **all five** hosts | build/verify ungated (scratch); distribution operator-named (live data-dir writes) | per-host `sha256sum` equals the verified build output | `rehearsal.py genesis` (REHEARSAL-3) | estimate 20–90 s |
 | C5 | node units: **the rehearsed shape — all four validator node units up inside one short window**, then followers, node0 last. A serial "catch-up proof between hosts" has nothing to prove at height 0: with attestation minimum 2 and file-loaded block 0, no block can seal until a second validator is up — so validators start together as rehearsed, and the rejoin proof happens **after** sealing begins (stop one validator, watch it catch up — rehearsed `rejoin`). **Before the first unit starts:** `TRUSTED_PROPOSERS` on every host resolves to `genesis` plus the four genesis validator addresses — the membership check then governs every imported block. The first produced block lands shortly after the second validator is up — **that first seal is §D's point of no return, inside this step** | operator-named, validator-interrupting per host | `node.log` shows `Successfully created genesis block from genesis.json` exactly once and `Initializing databases for chains: ['bc-2']` per host; heads advancing | `up`, `wait`, `check`, `rejoin`, `skip` | **measured:** `up` ~11 s for all five units (journal 05:47:36→~47); rejoin-catch-up ~1.4 m (journal 05:53:49→05:55:03); fleet window 9 m 46 s (journal 05:47:36→05:57:22, REHEARSAL-3 ledger) |
 | C6 | rpc units + service stores fresh | rpc restarts standing; other first-starts operator-named | `GOSSIP_BACKEND=redis` on rpc units (env-set); coordinator 170 tables, trading 11 (rehearsal counts); `peer_keys.db` re-enrollment for issued-key joiners | `stores` | estimate ~1.25 m incl. golden (REHEARSAL-3 estimate) |
@@ -256,6 +256,12 @@ hub.
 release-candidate commit — it covers everything the earlier rehearsals
 proved, on the exact reset code; it does not shrink this residual list.
 
+Harness deviation from the decided env set, by design: the scratch
+profile runs `BLOCK_TIME_SECONDS=10` (code default) against the fleet
+value `60`, and leaves `PARALLEL_TX_VALIDATION` at its default (`false`)
+against the fleet `true` — inert on bc-2 where every produced height
+resolves v14, outside the flag's 2–8 window (`bc2-environment-set.md`).
+
 ## H. Gate table
 
 | step | who names it | evidence to record |
@@ -279,12 +285,15 @@ Taken (operator card, 20 Oct — answers in his words):
 
 | item | answer | carried into |
 |---|---|---|
-| `TRUSTED_PROPOSERS` | "Set it" — `genesis` plus the four post-rotation validator addresses | C3/C5 check + post-reset operating rule in §F |
-| `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | "256 on all five" | C3 decided value (the env-set doc line still reads "recommended" — a separate row updates it) |
+| `TRUSTED_PROPOSERS` | "Set it" — `genesis` plus the four current validators | C3/C5 check + post-reset operating rule in §F |
+| `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | "256 on all five" | C3 decided value (`bc2-environment-set.md` carries it) |
 | bridge locks after the cut | "Stay paused until redeploy" (redeploy placed "in the week after the cut") | B3, C3 decided value, §D/§F notes — `BRIDGE_LOCKS_PAUSED=true` launches with bc-2; unpause is a separate gated step after `SEPOLIA-REDEPLOY-1` |
 | rollback rehearsal venue | "node2 scratch harness" | §E acceptance list + residual |
 | node0 `STATE_SYNC_MAX_GAP` | `-1` (fleet value) | `RESET-ENV-NODE0-1` (#323) |
-| v1 key rotation timing | "at least 3 days before the freeze" | A1 |
+| key rotation | "No rotation for this reset" ("this is not a v1 bc reset. after bc reset we are still on eth testnet") — the earlier ≥3-day rotation answer is withdrawn; bc-2 is a testnet-era reset, Ethereum stays on Sepolia; the validator set is the four current validators | A1, C3, §F, `bc2-environment-set.md` operator rows |
+| allocation figures | "Confirmed final"; treasury "New address, will supply", all other addresses "Same as live today" | A2 — both address lists still outstanding |
+| bridge/escrow identities + lock cap | "Keep live + 1000 AIT" | `bc2-environment-set.md` operator rows — `BRIDGE_ADMIN_ADDRESSES`, `BRIDGE_RELEASE_AUTHORITY`, `ESCROW_*`, `BOND_*`, `BRIDGE_MAX_LOCK_AMOUNT` |
+| `.pre-reset` deletion | "Leave as owed item" — per-item word after the post-cut soak, nothing pre-authorised | §H gate row |
 | public maintenance notice | "about 3 days ahead" of the window | A10, §D |
 | final rehearsal | "Yes, one final run" → `RESET-REHEARSAL-4` | A5, §G |
 | node start order | "Short simultaneous start" | C5 |
@@ -292,13 +301,14 @@ Taken (operator card, 20 Oct — answers in his words):
 | genesis write path | "Scratch path is enough" | A6, C4 — `RESET-GENESIS-LIVE-1` parked, not a blocker |
 | window placement | "After rehearsal 4" | A12 |
 
-The env-set rows that still contradict the decided values
-(`BRIDGE_LOCKS_PAUSED` shown `false`, the gossip cap shown "recommended",
-`TRUSTED_PROPOSERS` shown set-or-unset) are `RESET-ENV-DECIDED-1` (#325,
-coder B) — not edited here.
+The env-set rows now carry the decided values (`RESET-ENV-DECIDED-1`
+#325, `988ac35e2`); its operator-table identity rows are decided by the
+20 Oct card answers above.
 
-Still owed (recommendation + cost; nothing picked):
+Still owed (nothing pre-authorised):
 
-| decision | recommendation | cost of the recommendation |
+| decision | state | cost |
 |---|---|---|
-| `.pre-reset` deletion | keep ≥7 days, per-item word | disk (≤534 M/host — trivial except watched on hub1) |
+| treasury address | operator will supply a new address (A2) | blocks the genesis cut |
+| address lists — validators and accounts | a coder proposes from live `VALIDATOR_SET` and today's balances; the operator confirms (A1/A2) | blocks the genesis cut |
+| window date | placement decided "After rehearsal 4" (A12); the date itself is blank | the freeze window cannot be scheduled |
