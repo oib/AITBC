@@ -301,6 +301,15 @@ def test_check_bridge_paused_flags_other_codes(tmp_path, monkeypatch):
         assert len(failures) == 1 and str(code) in failures[0]
 
 
+def test_check_bridge_paused_flags_wrong_detail(tmp_path, monkeypatch):
+    """A 503 that is NOT the pause fence (rpc not ready, db error, ...) must
+    fail — status alone is not proof of BRIDGE_LOCKS_PAUSED."""
+    monkeypatch.setattr(rh, "_post_json", lambda url, body: (503, {"detail": "database unavailable"}))
+    failures: list[str] = []
+    rh._check_bridge_paused(rh.instances(tmp_path), failures)
+    assert len(failures) == 1 and "unexpected detail" in failures[0] and "database unavailable" in failures[0]
+
+
 def test_parse_systemd_ts_and_span():
     # CEST input is normalized to naive UTC so the block-ts delta shares
     # one instant basis (a naive subtraction used to land ~-7200s).
