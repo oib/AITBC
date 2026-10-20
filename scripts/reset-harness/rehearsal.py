@@ -64,6 +64,8 @@ for _p in (str(REPO_ROOT), str(REPO_ROOT / "apps" / "blockchain-node" / "src"), 
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from aitbc.utils import reset_guard
+
 CHAIN_ID = "bc-2"
 N_PROPOSERS = 4
 N_INSTANCES = 5  # 4 proposers + 1 follower
@@ -132,7 +134,6 @@ GATE_ENV = {
     "ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT": "1",
 }
 
-FORBIDDEN_PREFIXES = (Path("/var/lib/aitbc"), Path("/etc/aitbc"), Path("/root"))
 LIVE_UNITS = [
     "aitbc-blockchain-node",
     "aitbc-blockchain-rpc",
@@ -166,19 +167,19 @@ def _fail(msg: str) -> SystemExit:
     return SystemExit(1)
 
 
-def _under(path: Path, root: Path) -> bool:
-    return path == root or root in path.parents
-
-
 def scratch_root(raw: str) -> Path:
-    root = Path(raw).expanduser()
-    if not root.is_absolute():
-        raise _fail(f"--scratch must be an absolute path: {raw}")
-    resolved = root.resolve()
-    for prefix in FORBIDDEN_PREFIXES:
-        if _under(resolved, prefix):
-            raise _fail(f"scratch root {resolved} is inside live path {prefix} — refusing")
-    return resolved
+    """Validate ``--scratch`` through the shared reset guard.
+
+    Same enforcement point as the legacy destructive tools
+    (``aitbc.utils.reset_guard.scratch_root``): absolute path, at least
+    three resolved path components, and outside the live prefixes. The
+    CLI value is wrapped as the guard's env dict so the harness keeps
+    its argument-driven contract — no env marker is required here.
+    """
+    try:
+        return reset_guard.scratch_root({reset_guard.SCRATCH_ENV: raw})
+    except reset_guard.ResetGuardError as exc:
+        raise _fail(f"--scratch {exc}") from exc
 
 
 def instances(root: Path) -> list[Instance]:
