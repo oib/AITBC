@@ -888,6 +888,14 @@ class ChainSettings(BaseSettings):
     # the rules as dead code. Both thresholds move together: the STOP-rule
     # "move H" path sets both on every host.
     state_transition_v14_height: int | None = SHARED_ACTIVATION_HEIGHT
+    # v15 (EDGE-REG-CONSENSUS-1, operator card 21 Oct): ``edge_node_registration``
+    # leaves the committed side-table set — ``committed_fingerprint`` covers 12
+    # tables at/after this height instead of 13. The v14 set stays frozen for
+    # replay of already-sealed eras. ``None`` (the default) keeps the rule
+    # unarmed: the activation height is a separate operator pin, set on every
+    # host together with the validator restart wave — a mid-rollout mixed set
+    # would reject blocks as aux_state_root mismatches.
+    state_transition_v15_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its

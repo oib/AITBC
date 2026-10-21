@@ -962,6 +962,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v15_threshold = getattr(settings, "state_transition_v15_height", None)
+    if v15_threshold and height >= v15_threshold:
+        return 15
     v14_threshold = getattr(settings, "state_transition_v14_height", None)
     if v14_threshold and height >= v14_threshold:
         return 14
