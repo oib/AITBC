@@ -341,7 +341,7 @@ groups:
       # itself must run and read its DBs, same reasoning as the settlement
       # exporter's guards.
       - alert: EscrowResidueCheckStale
-        expr: time() - aitbc_escrow_residue_scrape_timestamp_seconds > 86400
+        expr: absent(aitbc_escrow_residue_scrape_timestamp_seconds) or time() - aitbc_escrow_residue_scrape_timestamp_seconds > 86400
         for: 10m
         labels:
           severity: warning

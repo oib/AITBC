@@ -129,9 +129,16 @@ def render(counts: Counter[tuple[int, str]], now: float, ok: bool) -> str:
         "# HELP aitbc_journal_error_messages err-or-worse journal messages per unit in the last window.",
         "# TYPE aitbc_journal_error_messages gauge",
     ]
+    emitted = False
     for (is_error, unit), count in sorted(counts.items()):
         if is_error:
             lines.append(f'aitbc_journal_error_messages{{unit="{unit}"}} {count}')
+            emitted = True
+    if not emitted:
+        # Bare zero anchor: without it a quiet window leaves no
+        # aitbc_journal_error_messages series at all and AITBCJournalErrors
+        # cannot distinguish "no errors" from "exporter blind".
+        lines.append("aitbc_journal_error_messages 0")
     lines += [
         "# HELP aitbc_journal_warning_messages warning journal messages per unit in the last window.",
         "# TYPE aitbc_journal_warning_messages gauge",
