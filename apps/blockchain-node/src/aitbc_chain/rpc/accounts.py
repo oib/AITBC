@@ -295,7 +295,7 @@ async def get_supply(request: Request, chain_id: str | None = None) -> dict[str,
         "total_balance_units": total_units,
         "bond_burned_units": bond_burned,
         "circulating_units": circulating,
-        "circulating_ait": str((Decimal(circulating) / Decimal(UNITS_PER_AIT)).quantize(Decimal("0.00000001"))),
+        "circulating_ait": format((Decimal(circulating) / Decimal(UNITS_PER_AIT)).quantize(Decimal("0.00000001")), "f"),
         "accounts_with_balance": accounts_with_balance,
         "units_per_ait": UNITS_PER_AIT,
     }
