@@ -344,6 +344,31 @@ def order_my(ctx, wallet, address_opt, exchange_url):
     )
 
 
+@order.command(
+    "book",
+    epilog="""Examples:
+
+  aitbc exchange order book
+
+  aitbc exchange order book --exchange-url http://10.0.0.1:8106""",
+)
+@click.option("--exchange-url", default=None, help="Override exchange service base URL")
+@click.pass_context
+def order_book(ctx, exchange_url):
+    """Show the hub exchange's open order book (read-only).
+
+    Unlike ``order my`` this needs no wallet or address — the book is a
+    public read of open BUY/SELL orders on the exchange service.
+    """
+    client = _exchange_client(ctx, exchange_url)
+    try:
+        book = client.get("/api/orders/orderbook")
+    except NetworkError as e:
+        abort(ctx, f"Cannot reach exchange: {http_error_detail(e) or e}", from_exception=e)
+        return
+    output(book, resolve_output_format(ctx), title="Exchange order book")
+
+
 def _fund_wallet_address(ctx, wallet: str | None) -> tuple[str, str, Path | None]:
     """(address, wallet_id, wallet_path) for ``order fund`` — resolved
     without touching key material.

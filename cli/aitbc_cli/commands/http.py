@@ -148,7 +148,10 @@ def _error_response_body(exc: BaseException) -> Any:
 
 def _send(client: AITBCHTTPClient, method: str, path: str, query_params, request_body, idempotency_key):
     if method == "GET":
-        return client.get(path, params=query_params)
+        # get_json() accepts either JSON shape: several list endpoints
+        # (e.g. blockchain-rpc bridge/pending) return an array, and get()
+        # raises TypeError on those via expect_object.
+        return client.get_json(path, params=query_params)
     if method == "POST":
         return client.post(path, json=request_body, idempotency_key=idempotency_key)
     if method == "PUT":
