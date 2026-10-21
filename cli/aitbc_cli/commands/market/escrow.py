@@ -327,21 +327,29 @@ def escrow_status(ctx, job_id: str):
         rpc_url = _get_blockchain_rpc_url(config)
         hub_url = _hub_base_url(config)
         result = None
-        try:
-            http_client = _get_rpc_client(config, rpc_url, timeout=10)
-            result = http_client.get(f"/rpc/escrow/{job_id}")
-        except Exception:
-            logger.debug("Escrow request failed", exc_info=True)
-            pass
-        if not result:
+        failures: list[str] = []
+        for base in dict.fromkeys(b for b in (rpc_url, hub_url) if b):
             try:
-                http_client = _get_rpc_client(config, hub_url, timeout=10)
+                http_client = _get_rpc_client(config, base, timeout=10)
                 result = http_client.get(f"/rpc/escrow/{job_id}")
-            except Exception:
+                if result:
+                    break
+            except Exception as exc:
                 logger.debug("Escrow request failed", exc_info=True)
-                pass
+                status = http_response_status(exc)
+                # 404 is a real answer — the job has no escrow row; the hub
+                # fallback may still know it, so keep going.
+                if status == 404:
+                    continue
+                detail = http_error_detail(exc) or str(exc)
+                failures.append(f"{base}: HTTP {status} {detail}" if status is not None else f"{base}: {exc}")
         if result:
             output(result, ctx.obj.get("output_format", "table"), title=f"Escrow: {job_id}")
+        elif failures:
+            # Surface the actual failure — the old code folded every error into
+            # "No escrow found", so a missing RPC API key (403) read exactly
+            # like an absent row. Name the response so the fix is obvious.
+            error(f"Escrow status query failed for job {job_id}: " + "; ".join(failures))
         else:
             error(f"No escrow found for job {job_id}")
     except Exception as e:

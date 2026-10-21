@@ -437,8 +437,15 @@ def test_omitted_optional_params_never_reach_command():
 
     # Optional parameters carry a None default, so the call needs no nulls.
     sig = inspect.signature(generated.aitbc_prometheus_alerts)
-    for name in ("prometheus_url", "watch", "interval", "emit"):
+    for name in ("prometheus_url",):
         assert sig.parameters[name].default is None, f"{name} has no None default"
+
+    # The watch/notify surface of `prometheus alerts` is stripped on purpose
+    # (SKIP_OPTIONS_BY_PATH): it would turn a one-shot read tool into a
+    # polling/POST/file-write loop the agent cannot supervise. Assert the
+    # skip stays in place instead of silently drifting back.
+    for name in ("watch", "interval", "emit", "alert_log_path", "notify_urls"):
+        assert name not in sig.parameters, f"{name} reappeared — SKIP_OPTIONS_BY_PATH must keep stripping it"
 
     _clear()
     result = json.loads(generated.aitbc_prometheus_alerts(role="hub"))

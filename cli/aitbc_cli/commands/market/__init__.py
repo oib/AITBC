@@ -290,7 +290,7 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
 from ._group import market
 
 # Import submodules to register all commands
-from . import escrow, exchange, jobs, offers, ratings
+from . import escrow, exchange, jobs, offers, payments, ratings
 from .escrow import _escrow_create, _get_blockchain_rpc_url
 from . import gpu as gpu_module
 from .host import (
