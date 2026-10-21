@@ -44,7 +44,9 @@ def _make_tx(private_key: str, tx_data: dict) -> dict:
 
     tx = dict(tx_data)
     tx["from"] = derive_ethereum_address(private_key)
-    signable = {k: v for k, v in tx.items() if k != "signature"}
+    signable = {k: v for k, v in tx.items() if k not in ("signature",)}
+    if "amount" in signable:
+        signable.pop("value", None)
     tx["signature"] = _sign_data(private_key, signable)
     return tx
 
