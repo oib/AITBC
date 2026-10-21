@@ -776,6 +776,7 @@ async def test_pbft_continues_in_majority_partition():
     assert result is True, "majority partition should commit with 2f+1 validators"
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_pbft_minority_partition_cannot_commit():
     """A 4-validator network split 2/2 cannot commit when the proposer is in a minority partition.

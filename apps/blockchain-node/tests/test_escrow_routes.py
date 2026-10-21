@@ -816,6 +816,7 @@ async def test_release_quantizes_sub_unit_amount(release_key, monkeypatch):
     assert proof == (324295, 324295 - sealed_units)
 
 
+@pytest.mark.slow
 def test_sealed_release_units_match_recompute_sweep():
     """A7d sweep: for every billed N in the boundary window — including every
     exact .5 rounding tie (N·(10000−bps) ≡ 5000 mod 10000) — the value the
