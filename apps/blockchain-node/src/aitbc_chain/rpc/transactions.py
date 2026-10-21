@@ -703,3 +703,56 @@ async def get_transaction(request: Request, tx_hash: str, chain_id: str | None =
             "value": tx.value,
             "fee": tx.fee,
         }
+
+
+@rate_limit(rate=200, per=60)
+async def get_sealed_governance_proposal(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Look up the sealed GOVERNANCE_PROPOSE transaction for ``proposal_id``
+    (GAP-PROPOSAL-SHOW-1).
+
+    The v13 EXECUTE binds to the ``execution_payload`` its PROPOSE sealed, and
+    until now the only way to see that payload was a chain-DB read. The
+    transaction table is canonical — every node resolves the same row — so the
+    answer is identical wherever it is asked. Returns the full sealed payload
+    (which carries ``execution_payload`` inside it) plus whether an EXECUTE
+    for the proposal already sealed.
+    """
+    resolved_chain_id = get_chain_id(chain_id or None)
+    with session_scope() as session:
+        propose = session.exec(
+            select(Transaction)
+            .where(
+                Transaction.chain_id == resolved_chain_id,
+                Transaction.type == "GOVERNANCE_PROPOSE",
+                Transaction.payload["proposal_id"].as_string() == proposal_id,
+            )
+            .order_by(Transaction.block_height.desc())  # type: ignore[union-attr]
+        ).first()
+        if propose is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No sealed GOVERNANCE_PROPOSE for proposal_id={proposal_id}",
+            )
+        execute = session.exec(
+            select(Transaction)
+            .where(
+                Transaction.chain_id == resolved_chain_id,
+                Transaction.type == "GOVERNANCE_EXECUTE",
+                Transaction.payload["proposal_id"].as_string() == proposal_id,
+            )
+            .order_by(Transaction.block_height.desc())  # type: ignore[union-attr]
+        ).first()
+        return {
+            "proposal_id": proposal_id,
+            "tx_hash": propose.tx_hash,
+            "block_height": propose.block_height,
+            "sender": propose.sender,
+            "type": propose.type,
+            "status": propose.status,
+            "created_at": propose.created_at.isoformat() if propose.created_at else None,
+            "payload": propose.payload,
+            "execution_payload": (propose.payload or {}).get("execution_payload"),
+            "executed": execute is not None,
+            "execute_tx_hash": execute.tx_hash if execute else None,
+            "execute_block_height": execute.block_height if execute else None,
+        }
