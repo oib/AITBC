@@ -24,6 +24,10 @@ import pytest
 # the repo root and this app carry a `tests` package and the unqualified name
 # would resolve to the wrong one.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+# Golden vectors replay full block sequences — the suite's structural head
+# (~45 s across the six parametrized cases). Deselect with -m "not slow".
+pytestmark = pytest.mark.slow
 from golden import runner  # noqa: E402
 from golden.profiles import PROFILES  # noqa: E402
 

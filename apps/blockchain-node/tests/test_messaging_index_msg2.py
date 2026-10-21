@@ -473,6 +473,7 @@ class TestAuthorityProperty:
     canonical-order replay over all rows signed by anyone who ever held
     moderation — randomised grant/revoke/reorder sequences."""
 
+    @pytest.mark.slow
     def test_fixpoint_matches_brute_force_replay(self):
         import random
 
@@ -583,6 +584,7 @@ class TestReputationChunking:
         session.commit()
         return hashes
 
+    @pytest.mark.slow
     @pytest.mark.parametrize("n_posts", [499, 500, 501, 1200])
     def test_exact_across_chunk_boundaries(self, session, n_posts):
         posts = self._seed_posts(session, n_posts)
