@@ -4434,6 +4434,59 @@
         }
       }
     },
+    "/rpc/supply": {
+      "get": {
+        "tags": [
+          "rpc",
+          "core"
+        ],
+        "summary": "Get AIT supply aggregate",
+        "description": "Circulating and total supply over the committed account table (read-only).",
+        "operationId": "get_supply_route_rpc_supply_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Supply Route Rpc Supply Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/account/{address}": {
       "get": {
         "tags": [
@@ -15555,6 +15608,59 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response List Accounts Route V1 Accounts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/supply": {
+      "get": {
+        "tags": [
+          "v1",
+          "core"
+        ],
+        "summary": "Get AIT supply aggregate",
+        "description": "Circulating and total supply over the committed account table (read-only).",
+        "operationId": "get_supply_route_v1_supply_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Supply Route V1 Supply Get"
                 }
               }
             }
