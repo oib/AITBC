@@ -67,6 +67,48 @@ def test_v13_rung_when_armed_before_v14(monkeypatch):
     assert get_block_version_for_height(H) == 14
 
 
+def test_v15_rung_unarmed_by_default():
+    """EDGE-REG-CONSENSUS-1: the committed-set change sits behind
+    state_transition_v15_height, which is None until the operator pins a
+    fleet activation height — nothing changes while it is unset."""
+    assert settings.state_transition_v15_height is None
+    assert get_block_version_for_height(H) == 14
+    assert get_block_version_for_height(H + 10_000_000) == 14
+
+
+def test_v15_rung_when_armed(monkeypatch):
+    """Pinning the height stamps 15 from the boundary on; below it the
+    ladder is unchanged."""
+    monkeypatch.setattr(settings, "state_transition_v15_height", H + 1000)
+    assert get_block_version_for_height(H) == 14
+    assert get_block_version_for_height(H + 999) == 14
+    assert get_block_version_for_height(H + 1000) == 15
+    assert get_block_version_for_height(H + 1001) == 15
+
+
+def test_v15_fingerprint_excludes_edge_registration(session):
+    """The same database fingerprints differently at v14 vs v15 only via
+    edge_node_registration — the table a local RPC write can still touch."""
+    from aitbc_chain.state.gpu_resources import EdgeNodeRegistration
+
+    session.add(Account(chain_id=CHAIN, address="0x" + "11" * 20, balance=5, nonce=0))
+    session.add(EdgeNodeRegistration(chain_id=CHAIN, node_id="n1", endpoint="http://x", registered_by="0x" + "22" * 20))
+    session.commit()
+    conn = session.connection().connection
+    fp14 = committed_fingerprint(conn, 14)
+    fp15 = committed_fingerprint(conn, 15)
+    assert fp14["fingerprint"] != fp15["fingerprint"]
+    assert "edge_node_registration" in fp14["tables"]
+    assert "edge_node_registration" not in fp15["tables"]
+    # deleting the row changes v14 but cannot touch v15 — the table is out
+    # of its digest set entirely
+    session.query(EdgeNodeRegistration).delete()
+    session.commit()
+    conn = session.connection().connection
+    assert committed_fingerprint(conn, 15)["fingerprint"] == fp15["fingerprint"]
+    assert committed_fingerprint(conn, 14)["fingerprint"] != fp14["fingerprint"]
+
+
 # --- The hash: aux is a new preimage term only when set -------------------------
 
 
