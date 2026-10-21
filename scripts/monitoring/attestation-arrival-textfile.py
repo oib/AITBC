@@ -16,6 +16,14 @@ validators seen in the window unless ``AITBC_ATTESTATION_VALIDATORS``
 pins it. A validator-set rotation mixes two eras inside one window for a
 few runs — the alerting rule's ``for:`` absorbs that transient.
 
+The file-loaded genesis row names the pseudo-proposer ``genesis``, not a
+validator: it never went through attestation, so it never owes one either,
+and a block it "proposed" owes no remote attestations. It is excluded from
+the derived and pinned sets alike and its blocks add nothing to the owed
+totals — otherwise a freshly reset chain exports
+``consecutive_missed{validator="genesis"}`` equal to the head height and
+AttestationValidatorSilent false-fires on every host.
+
 A block whose metadata is malformed JSON counts as "no attestations"
 (all remote validators missing for it). A DB that cannot be opened or
 lacks the block table reads as failure, not "all clear".
@@ -50,6 +58,10 @@ from typing import NamedTuple
 
 OUTPUT_NAME = "aitbc_attestation_arrival.prom"
 DEFAULT_WINDOW_BLOCKS = 200
+
+# File-loaded genesis rows carry this as proposer; it is a placeholder, not
+# a validator, and its blocks never carried attestations.
+GENESIS_PROPOSER = "genesis"
 
 
 # NamedTuple, not @dataclass: the test suite importlib-loads this script without
@@ -116,6 +128,7 @@ def arrival_stats(con: sqlite3.Connection, window: int, validators: list[str] | 
         vset.discard("")
     else:
         vset = {v for v in validators if v}
+    vset.discard(GENESIS_PROPOSER)
     vlist = tuple(sorted(vset))
 
     expected_total = 0
@@ -124,6 +137,8 @@ def arrival_stats(con: sqlite3.Connection, window: int, validators: list[str] | 
     missed: dict[str, int] = dict.fromkeys(vlist, 0)
     owe_blocks: list[tuple[str, set[str]]] = []  # (proposer, present) head-first
     for _, proposer, present in parsed:
+        if proposer == GENESIS_PROPOSER:
+            continue
         expected_remote = vset - {proposer}
         arrived = present & expected_remote
         missing = expected_remote - arrived

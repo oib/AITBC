@@ -563,8 +563,11 @@ groups:
       # the head (blocks it proposed are skipped). That is silence, not
       # jitter — the validator is down, partitioned, or rejecting
       # attestations while the rest of the set still arrives.
+      # The "genesis" pseudo-proposer never owes an attestation; the
+      # exporter no longer emits its series and the label guard keeps even
+      # a stale series from firing this alert.
       - alert: AttestationValidatorSilent
-        expr: aitbc_attestation_consecutive_missed >= 20
+        expr: aitbc_attestation_consecutive_missed{validator!="genesis"} >= 20
         for: 10m
         labels:
           severity: warning
