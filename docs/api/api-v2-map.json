@@ -1925,6 +1925,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/supply",
+          "upstream": "/rpc/supply",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/swap",
           "upstream": "/rpc/swap",
           "methods": [
@@ -3118,6 +3125,13 @@
         {
           "public": "/api/v2/chain/v1/subscribers",
           "upstream": "/v1/subscribers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/supply",
+          "upstream": "/v1/supply",
           "methods": [
             "GET"
           ]
