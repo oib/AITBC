@@ -4,7 +4,7 @@
 # AITBC Mesh Network - Service Management Script
 # ============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -79,30 +79,6 @@ except Exception as e:
 "
 }
 
-# Start economic service
-start_economics() {
-    log_info "Starting AITBC Economic Service..."
-
-    cd "$AITBC_ROOT"
-    "$PYTHON_CMD" -c "
-import sys
-sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
-
-try:
-    from aitbc_chain.economics.staking import StakingManager
-    from aitbc_chain.economics.rewards import RewardDistributor
-
-    staking = StakingManager()
-    rewards = RewardDistributor()
-
-    print('✅ Economic services initialized')
-    print('✅ Staking Manager started')
-    print('✅ Reward Distributor started')
-except Exception as e:
-    print(f'⚠️ Economic service warning: {e}')
-    print('✅ Basic economic functionality available')
-"
-}
 
 # Start agent service
 start_agents() {
@@ -184,17 +160,6 @@ except:
     print('NETWORK:INACTIVE')
 " 2>/dev/null || echo "NETWORK:ERROR")
 
-    # Check economics
-    economics_status=$("$PYTHON_CMD" -c "
-import sys
-sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
-try:
-    from aitbc_chain.economics.staking import StakingManager
-    staking = StakingManager()
-    print('ECONOMICS:ACTIVE:Staking Manager')
-except:
-    print('ECONOMICS:INACTIVE')
-" 2>/dev/null || echo "ECONOMICS:ERROR")
 
     # Check agents
     agent_status=$("$PYTHON_CMD" -c "
@@ -221,7 +186,7 @@ except:
 " 2>/dev/null || echo "CONTRACTS:ERROR")
 
     # Display status
-    for status in "$consensus_status" "$network_status" "$economics_status" "$agent_status" "$contract_status"; do
+    for status in "$consensus_status" "$network_status" "$agent_status" "$contract_status"; do
         service=$(echo "$status" | cut -d: -f1)
         state=$(echo "$status" | cut -d: -f2)
         details=$(echo "$status" | cut -d: -f3-)
@@ -281,7 +246,6 @@ show_help() {
     echo "  start           Start all services"
     echo "  start-consensus Start consensus service only"
     echo "  start-network   Start network service only"
-    echo "  start-economics Start economic service only"
     echo "  start-agents    Start agent services only"
     echo "  start-contracts Start contract services only"
     echo "  status          Check service status"
@@ -301,7 +265,6 @@ case "${1:-help}" in
         log_info "Starting all AITBC Mesh Network services..."
         start_consensus
         start_network
-        start_economics
         start_agents
         start_contracts
         log_info "🚀 All services started!"
@@ -311,9 +274,6 @@ case "${1:-help}" in
         ;;
     "start-network")
         start_network
-        ;;
-    "start-economics")
-        start_economics
         ;;
     "start-agents")
         start_agents
@@ -325,7 +285,7 @@ case "${1:-help}" in
         check_status
         ;;
     "add-validator")
-        add_validator "$2" "$3"
+        add_validator "${2:-}" "${3:-}"
         ;;
     "help"|"-h"|"--help")
         show_help

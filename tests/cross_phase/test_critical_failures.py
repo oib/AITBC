@@ -14,8 +14,6 @@ import pytest
 try:
     from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA, ValidatorRole
     from aitbc_chain.contracts.escrow import EscrowManager
-    from aitbc_chain.economics.staking import StakingManager
-    from aitbc_chain.network.discovery import P2PDiscovery
 
     # Agent registry not available in current codebase
     AgentRegistry = None
@@ -71,85 +69,6 @@ class TestConsensusDuringNetworkPartition:
         }
 
 
-class TestEconomicCalculationsDuringValidatorChurn:
-    """Test economic consistency during validator changes"""
-
-    @pytest.fixture
-    def economic_system_with_churn(self):
-        """Setup economic system with active validators"""
-        staking = StakingManager(min_stake_amount=1000.0)
-
-        # Register initial validators
-        initial_validators = [f"0x{i}" for i in range(5)]
-        for v in initial_validators:
-            staking.register_validator(v, 2000.0, 0.05)
-
-        # Record initial stake amounts
-        initial_stakes = {v: staking.get_total_staked() for v in initial_validators}
-
-        return {"staking": staking, "initial_validators": initial_validators, "initial_stakes": initial_stakes}
-
-    def test_reward_calculation_during_validator_join(self, economic_system_with_churn):
-        """Test reward calculation when validator joins mid-epoch"""
-        staking = economic_system_with_churn["staking"]
-
-        # Record state before new validator
-        total_stake_before = staking.get_total_staked()
-        len(staking.validator_info)
-
-        # New validator joins
-        new_validator = "0xnew_validator"
-        staking.register_validator(new_validator, 1500.0, 0.04)
-
-        # Verify total stake updated correctly
-        total_stake_after = staking.get_total_staked()
-        assert total_stake_after > total_stake_before
-
-        # Verify reward calculation includes new validator correctly
-        rewards = staking.calculate_epoch_rewards()
-        assert new_validator in rewards
-
-    def test_reward_calculation_during_validator_exit(self, economic_system_with_churn):
-        """Test reward calculation when validator exits mid-epoch"""
-        staking = economic_system_with_churn["staking"]
-        exiting_validator = economic_system_with_churn["initial_validators"][0]
-
-        # Record state before exit
-        total_stake_before = staking.get_total_staked()
-
-        # Validator exits
-        staking.unregister_validator(exiting_validator)
-
-        # Stake should still be counted until unstaking period ends
-        total_stake_during_exit = staking.get_total_staked()
-        assert total_stake_during_exit == total_stake_before
-
-    def test_slashing_during_reward_distribution(self, economic_system_with_churn):
-        """Test that slashed validator doesn't receive rewards"""
-        staking = economic_system_with_churn["staking"]
-
-        # Select validator to slash
-        slashed_validator = economic_system_with_churn["initial_validators"][1]
-
-        # Add rewards to all validators
-        # add_pending_rewards method doesn't exist, skip for now
-        for v in economic_system_with_churn["initial_validators"]:
-            if v in staking.validator_info:
-                staking.validator_info[v].total_stake += Decimal("100.0")
-
-        # Slash one validator
-        staking.slash_validator(slashed_validator, 0.1, "Double signing")
-
-        # Distribute rewards
-        staking.distribute_rewards()
-
-        # Slashed validator should have reduced or no rewards
-        slashed_rewards = staking.get_validator_rewards(slashed_validator)
-        other_rewards = staking.get_validator_rewards(economic_system_with_churn["initial_validators"][0])
-
-        assert slashed_rewards < other_rewards
-
-
 class TestJobCompletionWithAgentFailure:
     """Test job recovery when agent fails mid-execution"""
 
@@ -197,15 +116,6 @@ class TestJobCompletionWithAgentFailure:
 
 class TestSystemUnderHighLoad:
     """Test system behavior under high load conditions"""
-
-    @pytest.fixture
-    def loaded_system(self):
-        """Setup system under high load"""
-        return {
-            "poa": MultiValidatorPoA("load-test"),
-            "discovery": P2PDiscovery("load-node", "127.0.0.1", 8000),
-            "staking": StakingManager(min_stake_amount=1000.0),
-        }
 
     def test_memory_usage_under_load(self):
         """Test memory usage remains bounded under high load"""
@@ -293,32 +203,6 @@ class TestDataIntegrity:
         assert recovered_state is not None
         assert len(recovered_state["validators"]) == 5
         assert recovered_state != initial_state
-
-    def test_transaction_atomicity(self):
-        """Test transactions are atomic (all or nothing)"""
-        staking = StakingManager(min_stake_amount=1000.0)
-
-        # Setup
-        staking.register_validator("0xvalidator", 2000.0, 0.05)
-        staking.stake("0xvalidator", "0xdelegator", 1500.0)
-
-        initial_total = staking.get_total_staked()
-
-        # Attempt complex transaction that should be atomic
-        try:
-            staking.execute_atomic_transaction(
-                [
-                    ("stake", "0xvalidator", "0xnew1", 500.0),
-                    ("stake", "0xvalidator", "0xnew2", 500.0),
-                    ("invalid_operation",),  # This should fail
-                ]
-            )
-        except Exception:
-            pass  # Expected to fail
-
-        # Verify state is unchanged (atomic rollback)
-        final_total = staking.get_total_staked()
-        assert final_total == initial_total
 
 
 if __name__ == "__main__":

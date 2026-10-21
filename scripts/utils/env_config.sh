@@ -32,7 +32,6 @@ TESTS_DIR="${AITBC_ROOT}/tests"
 # Phase-specific directories
 CONSENSUS_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/consensus"
 NETWORK_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/network"
-ECONOMICS_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/economics"
 CONTRACTS_DIR="${APPS_DIR}/blockchain-node/src/aitbc_chain/contracts"
 
 # Default configuration values

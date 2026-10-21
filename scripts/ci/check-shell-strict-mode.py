@@ -108,6 +108,10 @@ SKIP_SETTINGS: dict[str, tuple[str, ...]] = {
     "scripts/workflow-agent/05_complete_workflow_agent.sh": ("set -o pipefail",),
     # Sourced helpers should not flip the caller's shell options.
     "scripts/utils/agent_followup.sh": ("set -e", "set -u", "set -o pipefail"),
+    # env_config.sh is documented "Source this file:" — variable defaults
+    # for a parent shell; strict mode in it would leak into every caller
+    # (deploy-mesh-network.sh), the same reasoning as agent_followup.
+    "scripts/utils/env_config.sh": ("set -e", "set -u", "set -o pipefail"),
     # Bash/zsh completion scripts are sourced by the shell's completion system;
     # strict mode in them would leak into the user's interactive shell.
     "cli/completion/aitbc_completion.sh": ("set -e", "set -u", "set -o pipefail"),
