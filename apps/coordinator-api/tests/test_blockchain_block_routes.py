@@ -119,20 +119,53 @@ class TestBlockRoutes:
         mock_client.get.assert_called_once_with("http://localhost:8202/rpc/transaction/0xdead")
 
 
+_SUPPLY_LIVE = {
+    "chain_id": "bc-2",
+    "height": 419,
+    "total_balance_units": 3600009216000000,
+    "bond_burned_units": 0,
+    "circulating_units": 3600009216000000,
+    "circulating_ait": "100000256.00000000",
+    "accounts_with_balance": 18,
+    "units_per_ait": 36000000,
+}
+
+
 @pytest.mark.unit
 class TestSupplyRoute:
-    """``/v1/supply`` sums genesis allocation balances, which are base units
-    (36,000,000 per AIT). Before the fix the raw sum was returned labelled
-    ``"AIT"`` -- 36,000,000x too large once a genesis with allocation
-    metadata exists."""
+    """``/v1/supply``: ``total_supply`` stays genesis-derived while
+    ``circulating_supply`` comes from the node's live ``/rpc/supply``
+    aggregate over the committed account table. A node that does not answer
+    is an honest 503 — no stale genesis number standing in for the live one."""
 
     @staticmethod
-    def _respond(mock_client_class, mock_settings, payload):
+    def _respond(mock_client_class, mock_settings, genesis_payload, live_payload=None):
         mock_settings.blockchain_rpc_url = "http://localhost:8202"
         mock_client = Mock()
         mock_client_class.return_value = mock_client
-        mock_client.get.return_value = payload
+        live = _SUPPLY_LIVE if live_payload is None else live_payload
+        payloads = {"genesis_allocations": genesis_payload, "supply": live}
+        mock_client.get.side_effect = lambda url: payloads[url.rsplit("/rpc/", 1)[1]]
         return mock_client
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_circulating_uses_node_rpc(self, mock_client_class, mock_settings):
+        """``circulating_supply`` is the node's live figure with
+        ``basis: live_accounts``; ``bond_burned_units``/``height`` pass through."""
+        self._respond(
+            mock_client_class,
+            mock_settings,
+            {"allocations": [{"balance": 36000000000}]},
+            {**_SUPPLY_LIVE, "circulating_units": 3600009215000000, "bond_burned_units": 10000},
+        )
+
+        body = _client().get("/v1/supply").json()
+
+        assert body["basis"] == "live_accounts"
+        assert body["circulating_supply_units"] == 3600009215000000
+        assert body["bond_burned_units"] == 10000
+        assert body["height"] == 419
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
@@ -143,15 +176,15 @@ class TestSupplyRoute:
 
         assert body["total_supply"] == "1000"
         assert body["total_supply_units"] == 36000000000
-        assert body["circulating_supply"] == "1000"
-        assert body["circulating_supply_units"] == 36000000000
+        assert body["circulating_supply"] == _SUPPLY_LIVE["circulating_ait"]
+        assert body["circulating_supply_units"] == _SUPPLY_LIVE["circulating_units"]
         assert body["unit"] == "AIT"
         assert body["units_per_ait"] == 36000000
-        assert body["basis"] == "genesis_allocations"
+        assert body["basis"] == "live_accounts"
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
-    def test_bc2_sized_supply_stays_an_exact_decimal_string(self, mock_client_class, mock_settings):
+    def test_total_supply_stays_genesis(self, mock_client_class, mock_settings):
         """The bc-2 genesis total, expected value computed independently."""
         units = 3600009216000000
         expected = str(Decimal(units) / Decimal(36000000))
@@ -161,6 +194,7 @@ class TestSupplyRoute:
 
         assert body["total_supply"] == expected == "100000256"
         assert body["total_supply_units"] == units
+        assert body["total_supply_basis"] == "genesis_allocations"
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
@@ -174,15 +208,39 @@ class TestSupplyRoute:
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
-    def test_a_node_error_never_returns_a_number(self, mock_client_class, mock_settings):
+    def test_node_unreachable_503(self, mock_client_class, mock_settings):
+        """A dead node is a 503, not a 200 with an error body — and never a
+        stale genesis figure standing in for the live circulating number."""
         mock_settings.blockchain_rpc_url = "http://localhost:8202"
         mock_client = Mock()
         mock_client_class.return_value = mock_client
         mock_client.get.side_effect = _network_error_for_status(404)
 
+        response = _client().get("/v1/supply")
+
+        assert response.status_code == 503
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_schema_fields_present(self, mock_client_class, mock_settings):
+        self._respond(mock_client_class, mock_settings, {"allocations": [{"balance": 100}]})
+
         body = _client().get("/v1/supply").json()
 
-        assert body == {"status": "error", "error": "RPC connection failed"}
+        for key in (
+            "total_supply",
+            "total_supply_units",
+            "total_supply_basis",
+            "circulating_supply",
+            "circulating_supply_units",
+            "bond_burned_units",
+            "height",
+            "unit",
+            "units_per_ait",
+            "basis",
+        ):
+            assert key in body, key
+        assert body["units_per_ait"] == 36000000
 
 
 @pytest.mark.unit

@@ -30343,7 +30343,7 @@
           "blockchain"
         ],
         "summary": "Get Supply",
-        "description": "Get token supply, based on the genesis allocation sum.\n\n``total_supply`` is the amount minted at genesis: fee burns and any\nlater mints are not reflected. ``circulating_supply`` currently mirrors\nthe same figure (a true circulating number needs a live account-balance\naggregate, which the node RPC does not offer). AIT values are decimal\nstrings; the ``*_units`` fields carry the raw base-unit integers\n(``units_per_ait`` per AIT).",
+        "description": "Get token supply.\n\n``total_supply`` stays genesis-derived (``total_supply_basis``), while\n``circulating_supply`` is the node's live aggregate over the committed\naccount table (``/rpc/supply``; ``basis: live_accounts``) \u2014 net of fee\nburns by omission and of bond slashes via the bond-burn row. A dead node\nis an honest 503, not a stale-looking genesis number standing in for the\nlive one. AIT values are decimal strings; the ``*_units`` fields carry\nthe raw base-unit integers (``units_per_ait`` per AIT).",
         "operationId": "get_supply_v1_supply_get",
         "responses": {
           "200": {
@@ -30354,6 +30354,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Supply V1 Supply Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Blockchain RPC unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
