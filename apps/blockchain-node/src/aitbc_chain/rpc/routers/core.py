@@ -410,6 +410,25 @@ async def get_transaction_route(request: Request, tx_hash: str, chain_id: str | 
     return await get_transaction(request, tx_hash, chain_id)  # type: ignore[no-any-return]
 
 
+@router.get(
+    "/governance/sealed-proposal/{proposal_id}",
+    summary="Get the sealed GOVERNANCE_PROPOSE and its execution payload",
+)
+@rate_limit(rate=200, per=60)
+async def get_sealed_governance_proposal_route(
+    request: Request, proposal_id: str, chain_id: str | None = None
+) -> dict[str, Any]:
+    """The canonical, every-node answer for what a proposal id committed on
+    chain — the source of the execution_payload a v13 EXECUTE binds to
+    (GAP-PROPOSAL-SHOW-1). Deliberately not ``/governance/proposal/{id}``:
+    that path already serves the node-local ``governance_proposal`` table
+    (voting view, populated only on the host that served the create RPC),
+    which can never be a consensus input."""
+    from ..transactions import get_sealed_governance_proposal
+
+    return await get_sealed_governance_proposal(request, proposal_id, chain_id)  # type: ignore[no-any-return]
+
+
 @router.get("/accounts", summary="List accounts")
 @rate_limit(rate=10, per=60)
 async def list_accounts_route(
