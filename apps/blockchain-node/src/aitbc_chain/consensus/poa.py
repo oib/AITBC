@@ -1246,9 +1246,12 @@ class PoAProposer:
         # them. Below the shared activation height it stays None and the hash
         # preimage is byte-identical to the old formula.
         aux_state_root = None
-        if get_block_version_for_height(next_height) >= 14:
+        next_block_version = get_block_version_for_height(next_height)
+        if next_block_version >= 14:
             session.flush()
-            aux_state_root = side_root_shadow.committed_fingerprint(session.connection().connection)["fingerprint"]
+            aux_state_root = side_root_shadow.committed_fingerprint(session.connection().connection, next_block_version)[
+                "fingerprint"
+            ]
         # v0.7.2: block hash binds chain, height, parent, time, txs,
         # proposer, account state root, and bridge event trie root.
         block_hash = self._compute_block_hash(
@@ -1505,7 +1508,9 @@ class PoAProposer:
             journal.persist(session)
         session.commit()
         # V-3 shadow (flag-gated, compare-only — never affects the sealed block).
-        side_root_shadow.on_block_sealed(session, self._config.chain_id, block.height)
+        side_root_shadow.on_block_sealed(
+            session, self._config.chain_id, block.height, block_version=get_block_version(block, block.height)
+        )
         # Invalidate the in-process block header cache for the new block
         # so stale entries are not served by rpc/blocks.py.
         from ..block_cache import get_block_header_cache

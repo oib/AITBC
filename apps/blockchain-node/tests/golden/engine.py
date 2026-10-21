@@ -317,7 +317,7 @@ def apply_block(
                 "verdict": "accepted" if success else "rejected",
                 "reason": reason or "",
                 "accounts": _account_snapshot(session, chain_id, _touched_addresses(tx_data, sender_addr, recipient_addr)),
-                "committed_fingerprint": side_root_shadow.committed_fingerprint(conn)["fingerprint"],
+                "committed_fingerprint": side_root_shadow.committed_fingerprint(conn, block_version)["fingerprint"],
             }
         )
 
@@ -325,7 +325,7 @@ def apply_block(
     sealed_state_root = block_data.get("state_root")
     derived_bridge_root = _derive_bridge_root(session, chain_id, block_data, txs)
     sealed_bridge_root = block_data.get("bridge_state_root")
-    computed_aux = side_root_shadow.committed_fingerprint(conn)["fingerprint"]
+    computed_aux = side_root_shadow.committed_fingerprint(conn, block_version)["fingerprint"]
     sealed_aux = block_data.get("aux_state_root")
 
     # Block row persisted with the same fields _append_block stores: sealed

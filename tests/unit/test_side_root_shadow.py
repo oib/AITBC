@@ -17,7 +17,9 @@ import pytest
 from aitbc_chain.metrics import metrics_registry
 from aitbc_chain.state.side_root_shadow import (
     COMMITTED_TABLES,
+    COMMITTED_TABLES_V15,
     committed_fingerprint,
+    committed_tables_for_version,
     on_block_sealed,
     record_shadow,
     table_digest,
@@ -71,6 +73,93 @@ def _seed_rows(conn: sqlite3.Connection, seed: int) -> None:
 def test_committed_set_is_thirteen_tables() -> None:
     assert len(COMMITTED_TABLES) == 13
     assert COMMITTED_TABLES[0] == "account"
+
+
+def test_v15_set_is_committed_set_minus_edge_registration() -> None:
+    """EDGE-REG-CONSENSUS-1 (operator card B, 21 Oct): the only delta at v15 is
+    edge_node_registration leaving the set — everything else stays, ordering
+    is preserved, and the v14 set is untouched."""
+    assert len(COMMITTED_TABLES_V15) == 12
+    assert "edge_node_registration" not in COMMITTED_TABLES_V15
+    assert COMMITTED_TABLES_V15 == tuple(t for t in COMMITTED_TABLES if t != "edge_node_registration")
+    assert len(COMMITTED_TABLES) == 13  # the v14 set is frozen
+
+
+def test_committed_tables_for_version_selects_set() -> None:
+    assert committed_tables_for_version(None) == COMMITTED_TABLES
+    assert committed_tables_for_version(14) == COMMITTED_TABLES
+    assert committed_tables_for_version(13) == COMMITTED_TABLES
+    assert committed_tables_for_version(15) == COMMITTED_TABLES_V15
+    assert committed_tables_for_version(16) == COMMITTED_TABLES_V15
+
+
+def test_v15_block_version_gate_setting_default_unarmed() -> None:
+    """The committed-set change only matters where the version boundary
+    exists: state_transition_v15_height defaults to None so nothing switches
+    until the operator pins a fleet activation height."""
+    from aitbc_chain.config import settings
+
+    assert settings.state_transition_v15_height is None
+
+
+def _register_edge_row(conn: sqlite3.Connection, node_id: str) -> None:
+    """Reproduce the POST /rpc/edge/register write (gpu_resources.py) — a raw
+    insert on exactly one node, outside any apply."""
+    conn.execute(
+        "INSERT INTO edge_node_registration (id, chain_id, node_id, registered_at) VALUES (1, 'c1', ?, '2026-10-21 12:14:00')",
+        (node_id,),
+    )
+    conn.commit()
+
+
+def test_edge_register_rpc_write_diverges_v14_but_not_v15(tmp_path: Path) -> None:
+    """Two simulated nodes, one local register call — the 21 Oct node2
+    incident. At v14 the committed fingerprints diverge (this is the failure
+    the aux root caught at block 119); at v15 they stay equal because the
+    service-local table is no longer in the set. This test fails without the
+    v15 set."""
+    node_a = _mk_db(tmp_path / "node_a.db")  # the node that served the RPC
+    node_b = _mk_db(tmp_path / "node_b.db")  # a peer that never saw it
+    _register_edge_row(node_a, "node2-edge")
+
+    assert committed_fingerprint(node_a, 14)["fingerprint"] != committed_fingerprint(node_b, 14)["fingerprint"]
+    assert committed_fingerprint(node_a, 15)["fingerprint"] == committed_fingerprint(node_b, 15)["fingerprint"]
+    assert set(committed_fingerprint(node_a, 15)["tables"]) == set(COMMITTED_TABLES_V15)
+
+
+def test_direct_write_to_still_committed_table_is_detected(tmp_path: Path) -> None:
+    """Regression: the shadow compare still catches a non-apply local write to
+    a table that remains committed at v15 — the guard that fired on 21 Oct
+    keeps working for the remaining 12 tables."""
+    node_a = _mk_db(tmp_path / "node_a.db")
+    node_b = _mk_db(tmp_path / "node_b.db")
+    node_a.execute(
+        "INSERT INTO stake (id, chain_id, address, amount, locked_until, created_at)"
+        " VALUES (99, 'c1', '0xLocal', 1, '2027-01-01', 'x')"
+    )
+    node_a.commit()
+    assert committed_fingerprint(node_a, 15)["fingerprint"] != committed_fingerprint(node_b, 15)["fingerprint"]
+    # and the local same-height recompute flags it on the diverged node
+    first = record_shadow(node_a, "c1", 7, block_version=15)
+    node_a.execute("UPDATE account SET balance = balance + 1 WHERE id = 1")
+    node_a.commit()
+    second = record_shadow(node_a, "c1", 7, block_version=15)
+    assert first["recomputed_differed"] is False
+    assert second["recomputed_differed"] is True
+
+
+def test_edge_write_no_longer_flags_v15_recompute(tmp_path: Path) -> None:
+    """Inverse of the above at v15: a local edge-registration write between
+    two same-height shadow records is legitimate divergence now and does not
+    flag — while it still flags at v14 (the historical rule)."""
+    conn = _mk_db(tmp_path / "a.db")
+    record_shadow(conn, "c1", 7, block_version=15)
+    _register_edge_row(conn, "edge-x")
+    assert record_shadow(conn, "c1", 7, block_version=15)["recomputed_differed"] is False
+    assert record_shadow(conn, "c1", 8, block_version=14)["recomputed_differed"] is False
+    conn.execute("DELETE FROM edge_node_registration")
+    conn.commit()
+    assert record_shadow(conn, "c1", 8, block_version=14)["recomputed_differed"] is True
 
 
 def test_deterministic_fingerprint(tmp_path: Path) -> None:

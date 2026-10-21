@@ -75,6 +75,29 @@ COMMITTED_TABLES: tuple[str, ...] = (
     "stake",
 )
 
+# v15 (EDGE-REG-CONSENSUS-1, operator card 21 Oct): edge_node_registration
+# leaves the committed set. Nothing in apply reads or writes it and no tx type
+# produces it — its only writer is the node-local ``POST /rpc/edge/register``
+# handler and its only reader the local get-edge endpoint, so block_deltas
+# already classifies it SERVICE_STATE_TABLES (per-node divergence is
+# legitimate). Its committed membership was a misclassification: any
+# successful register call diverged the fingerprint on exactly one node
+# (21 Oct 12:14 incident — node2 stalled at 118 until the row was deleted).
+# The v14 set above is frozen: sealed v14 blocks committed a fingerprint over
+# all 13 tables and replay must reproduce it byte-for-byte.
+COMMITTED_TABLES_V15: tuple[str, ...] = tuple(t for t in COMMITTED_TABLES if t != "edge_node_registration")
+
+
+def committed_tables_for_version(block_version: int | None) -> tuple[str, ...]:
+    """Committed table set for a block version. ``None`` yields the v14 set —
+    the historical default — so unversioned callers keep byte-identical
+    behaviour on already-recorded eras; consensus paths must pass the sealed
+    or computed block version."""
+    if block_version is not None and block_version >= 15:
+        return COMMITTED_TABLES_V15
+    return COMMITTED_TABLES
+
+
 # Tables whose committed digest only exists under the canonicalization rules
 # below (RPC writers stamp local handles/timestamps into the same tables).
 CANONICALIZED_TABLES: tuple[str, ...] = (
@@ -157,11 +180,13 @@ def table_digest(conn: _DbConn, table: str) -> dict[str, Any]:
     return {"rows": len(rows), "digest": h.hexdigest()[:DIGEST_LEN], "skipped_cols": skipped}
 
 
-def committed_fingerprint(conn: _DbConn) -> dict[str, Any]:
-    """All 13 committed digests plus the set fingerprint — the same sha256
-    over ``sorted(table=digest;)`` pairs the probe prints."""
+def committed_fingerprint(conn: _DbConn, block_version: int | None = None) -> dict[str, Any]:
+    """Committed digests plus the set fingerprint — the same sha256 over
+    ``sorted(table=digest;)`` pairs the probe prints. The table set follows
+    ``block_version``: the 13-table v14 set by default, the 12-table v15 set
+    (without ``edge_node_registration``) from the v15 activation height."""
     digests: dict[str, Any] = {}
-    for table in COMMITTED_TABLES:
+    for table in committed_tables_for_version(block_version):
         digests[table] = table_digest(conn, table)
     h = hashlib.sha256()
     for table in sorted(digests):
@@ -189,7 +214,9 @@ CREATE TABLE IF NOT EXISTS shadow_side_root (
 """
 
 
-def record_shadow(conn: _DbConn, chain_id: str, height: int, *, retention: int = 10_000) -> dict[str, Any]:
+def record_shadow(
+    conn: _DbConn, chain_id: str, height: int, *, retention: int = 10_000, block_version: int | None = None
+) -> dict[str, Any]:
     """Compute the committed fingerprint over the live tables and persist it
     in ``shadow_side_root`` (node-local bookkeeping), then prune the table
     to the newest ``retention`` rows for this chain (``retention <= 0``
@@ -205,7 +232,7 @@ def record_shadow(conn: _DbConn, chain_id: str, height: int, *, retention: int =
         "SELECT block_height, fingerprint FROM shadow_side_root WHERE chain_id = ? ORDER BY block_height DESC LIMIT 1",
         (chain_id,),
     ).fetchone()
-    result = committed_fingerprint(conn)
+    result = committed_fingerprint(conn, block_version)
     fingerprint = result["fingerprint"]
     # Determinism check: recomputing a height we already shadowed must give
     # the identical fingerprint — anything else is a local divergence signal.
@@ -238,7 +265,7 @@ def record_shadow(conn: _DbConn, chain_id: str, height: int, *, retention: int =
     }
 
 
-def on_block_sealed(session: Session, chain_id: str, height: int) -> None:
+def on_block_sealed(session: Session, chain_id: str, height: int, block_version: int | None = None) -> None:
     """Post-seal hook: shadow-compute the side-table root for ``height``.
 
     Called after the block's own transaction has committed. When the
@@ -260,7 +287,7 @@ def on_block_sealed(session: Session, chain_id: str, height: int) -> None:
         return
     try:
         conn = session.connection().connection
-        info = record_shadow(conn, chain_id, height, retention=retention)
+        info = record_shadow(conn, chain_id, height, retention=retention, block_version=block_version)
         metrics_registry.increment("side_root_shadow_blocks_total")
         metrics_registry.set_gauge("side_root_shadow_last_height", float(height))
         if info["recomputed_differed"]:
