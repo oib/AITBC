@@ -186,6 +186,9 @@ def render(results: dict[str, list[ResidueRow] | None], now: float) -> str:
 def write_atomic(directory: str, text: str) -> None:
     """Write beside the target and rename: node_exporter never reads a half-written file."""
     fd, tmp = tempfile.mkstemp(dir=directory, prefix=".aitbc_escrow_residue.", suffix=".tmp")
+    # node-exporter scrapes as a different user — mkstemp's 0600 would
+    # hide the file and mark every scrape an error.
+    os.fchmod(fd, 0o644)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
