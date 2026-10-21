@@ -74,3 +74,13 @@ class BlockchainRPCClient:
         response = await self.client.post(f"{self.base_url}/rpc/islands/bridge", json={"target_island_id": target_island_id})
         response.raise_for_status()
         return cast(dict[str, Any], response.json())
+
+    async def register_edge(self, payload: dict[str, Any], timeout: float = 10.0) -> dict[str, Any]:
+        """Register this edge node via blockchain RPC (idempotent upsert).
+
+        /rpc/edge/register sits behind the rpc's verify_rpc_api_key — the
+        request must carry the X-API-Key header this client attaches, so a
+        bare SharedHttpClient.post gets a 403."""
+        response = await self.client.post(f"{self.base_url}/rpc/edge/register", json=payload, timeout=timeout)
+        response.raise_for_status()
+        return cast(dict[str, Any], response.json())
