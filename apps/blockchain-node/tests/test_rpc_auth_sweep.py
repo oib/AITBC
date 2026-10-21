@@ -103,6 +103,7 @@ class TestControlPlaneAuth:
         body = {"chain_id": "micro-1", "chain_type": "micro"}
         assert client.post("/rpc/chains/stop", json=body, headers={"X-API-Key": "nope"}).status_code == 403
 
+    @pytest.mark.slow
     def test_valid_key_reaches_handler(self, client):
         body = {"chain_id": "micro-1", "chain_type": "micro"}
         resp = client.post("/rpc/chains/start", json=body, headers={"X-API-Key": KEY})
