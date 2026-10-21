@@ -957,7 +957,7 @@ def _run_http(
         options["params"] = json.dumps(params, default=str)
     if body:
         options["body"] = json.dumps(body, default=str)
-    if auth in ("miner", "rpc"):
+    if auth in ("miner", "rpc", "trading"):
         options["auth"] = auth
     if expect_status:
         options["expect-status"] = [str(s) for s in expect_status]
@@ -990,7 +990,7 @@ def _http_dry_run_command(
         options["params"] = json.dumps(params, default=str)
     if body:
         options["body"] = json.dumps(body, default=str)
-    if auth in ("miner", "rpc"):
+    if auth in ("miner", "rpc", "trading"):
         options["auth"] = auth
     if expect_status:
         options["expect-status"] = [str(s) for s in expect_status]
@@ -2459,9 +2459,9 @@ def call_aitbc_http(
         Field(description="JSON body for POST/PUT/PATCH requests."),
     ] = None,
     auth: Annotated[
-        Literal["none", "miner"],
+        Literal["none", "miner", "rpc", "trading"],
         Field(
-            description="Authentication mode. 'miner' sources the first MINER_API_KEYS from the remote service env file and sends it as X-Api-Key without exposing the value."
+            description="Authentication mode. 'miner' sources the first MINER_API_KEYS from the remote service env file and sends it as X-Api-Key without exposing the value. 'rpc' uses the node's configured blockchain RPC API key (X-API-Key); 'trading' uses the trading API key (X-Trading-Api-Key)."
         ),
     ] = "none",
     auth_env: Annotated[
@@ -2501,7 +2501,9 @@ def call_aitbc_http(
     (POST, PUT, PATCH, DELETE) require ``dry_run=false`` and ``confirm=true``.
 
     Use ``auth='miner'`` to reach endpoints (such as ``/v1/zk/*``) that require
-    an API key without passing the key through the tool arguments.
+    an API key without passing the key through the tool arguments. Use
+    ``auth='rpc'`` for blockchain-RPC-keyed routes such as ``escrow/{job_id}``,
+    and ``auth='trading'`` for the trading service's X-Trading-Api-Key gate.
 
     Examples:
       - service="blockchain-rpc", path="info"
