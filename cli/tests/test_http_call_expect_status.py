@@ -111,16 +111,20 @@ class TestPlainNon2xx:
 
 
 class _RateLimitedClient(AITBCHTTPClient):
-    """Real client whose limiter trips on the first request."""
+    """Real client whose limiter trips on the first request.
 
-    def get(
+    ``http call`` GETs go through ``get_json`` (array-tolerant) — the hook
+    must intercept that method, not ``get``.
+    """
+
+    def get_json(
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
         raise RateLimitError("client-side rate limit exceeded")
 
 
 class _OpenCircuitClient(AITBCHTTPClient):
-    def get(
+    def get_json(
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
         raise CircuitBreakerOpenError("circuit breaker open")

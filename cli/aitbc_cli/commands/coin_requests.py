@@ -126,10 +126,31 @@ def send_agent_notification(recipient: str, content: str):
 
   aitbc coin-requests list
 
-  aitbc coin-requests show --request-id req-123"""
+  aitbc coin-requests show --request-id req-123
+
+  aitbc coin-requests --db /var/lib/aitbc/data/hermes.db list"""
 )
-def coin_requests():
+@click.option(
+    "--db",
+    "db_path",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH",
+)
+@click.pass_context
+def coin_requests(ctx, db_path):
     """List, approve, reject, execute, and inspect coin transfer requests."""
+    # --db has to land before init_db(): the env var is read when the engine is
+    # first created, and a group option is the only point earlier than that.
+    # The engine is cached module-level, so an already-built engine (a prior
+    # invocation in the same interpreter, e.g. tests) must be dropped or the
+    # override silently keeps the old database.
+    if db_path:
+        os.environ["AGENT_DB_PATH"] = db_path
+        from aitbc.db import agent_db
+
+        agent_db._engine = None
+        agent_db._SessionLocal = None
     init_db()
 
 

@@ -736,6 +736,10 @@ _KNOWN_READ_SIGNAL_PATHS = {
     "agent-task result",
     "analytics dashboard",
     "blockchain monitor",
+    # subprocess.run is the read vector, not a mutation: it shells the monitor's
+    # own `list`/`status` admin verbs and hardcodes them — no write verb (write-off,
+    # abandon, manual-payout) is reachable through this command.
+    "bridge deposits",
     "config export",
     "dispute evidence verify",
     "energy floor",
