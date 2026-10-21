@@ -23,6 +23,7 @@ from ..accounts import (
     get_balance_breakdown,
     get_state_delta,
     get_state_snapshot,
+    get_supply,
     list_accounts,
     reconcile_balance,
 )
@@ -439,6 +440,12 @@ async def list_accounts_route(
 ) -> dict[str, Any]:
     """List blockchain accounts with optional pagination."""
     return await list_accounts(request, chain_id, limit, offset)  # type: ignore[no-any-return]
+
+
+@router.get("/supply", summary="Get AIT supply aggregate")
+async def get_supply_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Circulating and total supply over the committed account table (read-only)."""
+    return await get_supply(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/account/{address}", summary="Get account information")

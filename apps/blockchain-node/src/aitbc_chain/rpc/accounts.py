@@ -2,9 +2,11 @@
 Account-related RPC endpoints.
 """
 
+from decimal import Decimal
 from typing import Any, cast
 
 from fastapi import HTTPException, Request, status
+from sqlalchemy import func
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
@@ -256,6 +258,47 @@ async def list_accounts(request: Request, chain_id: str | None = None, limit: in
             "limit": limit,
             "offset": offset,
         }
+
+
+UNITS_PER_AIT = 36_000_000
+
+
+@rate_limit(rate=60, per=60)
+async def get_supply(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Circulating and total AIT supply aggregated over the committed `account` table.
+
+    Fee burns net by omission — the apply path debits `value + fee` and credits
+    only `value`, so `SUM(balance)` already excludes them. The one explicit
+    exclusion is the bond-burn row that BOND_SLASH credits; its address is taken
+    from the state-transition constant the writer uses, never a copy here.
+    `account` is a committed table, so at a given `height` this figure is
+    identical on every synced host. Read-only; no write path.
+    """
+    from ..state.state_transition import _BOND_BURN_ADDRESS
+
+    chain_id = get_chain_id(chain_id)
+    with session_scope(chain_id) as session:
+        total_units = session.exec(
+            select(func.coalesce(func.sum(Account.balance), 0)).where(Account.chain_id == chain_id)
+        ).one()
+        accounts_with_balance = session.exec(
+            select(func.count()).select_from(Account).where(Account.chain_id == chain_id, Account.balance > 0)
+        ).one()
+        burn_row = session.get(Account, (chain_id, _BOND_BURN_ADDRESS))
+        bond_burned = burn_row.balance if burn_row else 0
+        head_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).one()
+
+    circulating = total_units - bond_burned
+    return {
+        "chain_id": chain_id,
+        "height": head_height or 0,
+        "total_balance_units": total_units,
+        "bond_burned_units": bond_burned,
+        "circulating_units": circulating,
+        "circulating_ait": str((Decimal(circulating) / Decimal(UNITS_PER_AIT)).quantize(Decimal("0.00000001"))),
+        "accounts_with_balance": accounts_with_balance,
+        "units_per_ait": UNITS_PER_AIT,
+    }
 
 
 async def get_state_delta(request: Request, from_height: int, to_height: int, chain_id: str | None = None) -> dict[str, Any]:
