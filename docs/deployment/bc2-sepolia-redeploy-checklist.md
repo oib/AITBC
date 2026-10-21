@@ -70,6 +70,10 @@ Rotation is entirely the operator's action; the order matters:
 - [ ] `DEPLOYER_KEY_FILE` points at the disposable key file (mode 0600);
       `BRIDGE_REQUIRE_CHAIN_ID` is set — the key file is refused before
       it is opened on a wrong chain.
+- [ ] `contracts/node_modules` is current — run `npm ci` in
+      `/opt/aitbc/contracts` before §3 on any host that hasn't deployed
+      since the last lockfile change (the window's dry run hit a missing
+      `@safe-global/protocol-kit` on a fresh checkout).
 - [ ] `BRIDGE_DEPLOY_RECORD` points at the real record
       `contracts/deployments-bridge-sepolia.json` (default for sepolia);
       a rehearsal must override it to a scratch path.
