@@ -159,6 +159,7 @@ async def test_import_unknown_parent_rejected(isolated_engine, mock_request):
     assert exc_info.value.status_code == 400
 
 
+@pytest.mark.slow
 @pytest.mark.asyncio
 async def test_conflicting_height_is_409_never_delete(isolated_engine, mock_request):
     """Same height, different hash: 409 and the original block survives."""
@@ -180,6 +181,7 @@ async def test_conflicting_height_is_409_never_delete(isolated_engine, mock_requ
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_conflicting_hash_elsewhere_is_409_never_delete(isolated_engine, mock_request):
     """Same hash at a different height: 409 and the original block survives.
 
@@ -206,6 +208,7 @@ async def test_conflicting_hash_elsewhere_is_409_never_delete(isolated_engine, m
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_idempotent_reimport_same_block(isolated_engine, mock_request):
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()

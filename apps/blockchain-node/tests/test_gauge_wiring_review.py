@@ -20,6 +20,8 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+
+import pytest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -115,6 +117,7 @@ class TestGaugeConsistencyUnderConcurrency:
         gauge = _metric_value("blockchain_mempool_pending_count", chain)
         assert gauge == float(real), f"gauge {gauge} != pool {real}"
 
+    @pytest.mark.slow
     def test_database_gauge_matches_pool_at_rest(self, tmp_path):
         chain = "gauge-conc-db"
         pool = DatabaseMempool(f"sqlite:///{tmp_path / 'mempool.db'}")
