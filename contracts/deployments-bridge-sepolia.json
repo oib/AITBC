@@ -52,6 +52,44 @@
         "result": "10 AIT swept to Safe; bridge drained",
         "note": "completeBridge cannot run on a single chain by construction \u2014 initiate forbids same-chain targets while complete requires target==block.chainid; the sweep exercises the funds-recovery owner path"
       }
+    },
+    "deprecated": true,
+    "deprecated_reason": "Replaced by the SEPOLIA-REDEPLOY-1 contract 0xFBAF71e0Cfb4f691ffFa5c0c54428abD841E7076 on 2026-10-21 (bc-2 chain reset). Fully drained (0 AIT / 0 ETH residuals) but still unpaused at deprecation time — a Safe pause() exec is staged at nonce 21 behind the new contract's S5 unpause. Do not point deposits at this address; hub BRIDGE_CONTRACT_ADDRESS moved to the replacement."
+  },
+  {
+    "contract": "CrossChainBridge",
+    "address": "0xFBAF71e0Cfb4f691ffFa5c0c54428abD841E7076",
+    "deployer": "0x818018F30d8F5FB7AE7a64f25895F15110923748",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "feeRecipient": "0x5f659B20a89279c815B5b8b98b423E26E2737032",
+    "pausedAtDeploy": true,
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-10-21T13:51:13.258Z",
+    "txHash": "0xf677bc2255c06b662cc6123e4faec6f31718fa5d1a146e53c18fc2dfad5e0b3b",
+    "note": "SEPOLIA-REDEPLOY-1. Safe-owned replacement for BR-1, deployed paused. Wired on hub as BRIDGE_CONTRACT_ADDRESS on 2026-10-21 (monitor restart deferred to the F5 window). Still paused at activation — unpause() is staged at Safe nonce 20 (S5) and stays held until the operator's F5 line.",
+    "activated": {
+      "timestamp": "2026-10-21",
+      "safe_exec_nonces": "16-19 via Safe 0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7 (2-of-3, signer1+signer3)",
+      "validators": [
+        "0x5f659B20a89279c815B5b8b98b423E26E2737032 (weight 1)",
+        "0xD7011e3E289b2E0B6cAD0B9A29Ce18B0290e3D3C (weight 1)",
+        "0x7bD563129Fe0822BB413b8C20Cdda1187a7091D2 (weight 1)"
+      ],
+      "addValidator_execs": [
+        "0xc4d5a71e41dba9fd407303c7ba364d7ca6f4b446f2e0d0dc3aef86a0536d7ef8",
+        "0x587ac2d1740a0f4014e6951f315001502525888160fa7335a12e5b1effdc50f2",
+        "0xb2928885a7ba2fe46faa4f59a6d6f40062040b3707e7f64d637b867079d6d099"
+      ],
+      "token": {
+        "contract": "AIToken (repo contracts/AIToken.sol)",
+        "address": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+        "bridgeLimit": "1000000 AIT",
+        "feePercentage": "100 bps",
+        "requiresWhitelist": false
+      },
+      "addSupportedToken_exec": "0x3972e6ce463a13cc4f9328cb3a616d3624f6cdac49c0941f5f9b87c5b5d48ea7",
+      "post_state": "validators() tuples confirmed for all three; supportedTokens(AIT) = supported/1e24/100/false; paused() still true; requestCounter = 0"
     }
   }
 ]
