@@ -153,36 +153,39 @@ async def get_validators() -> dict[str, Any]:
 
 @router.get("/supply")
 async def get_supply() -> dict[str, Any]:
-    """Get token supply, based on the genesis allocation sum.
+    """Get token supply.
 
-    ``total_supply`` is the amount minted at genesis: fee burns and any
-    later mints are not reflected. ``circulating_supply`` currently mirrors
-    the same figure (a true circulating number needs a live account-balance
-    aggregate, which the node RPC does not offer). AIT values are decimal
-    strings; the ``*_units`` fields carry the raw base-unit integers
-    (``units_per_ait`` per AIT).
+    ``total_supply`` stays genesis-derived (``total_supply_basis``), while
+    ``circulating_supply`` is the node's live aggregate over the committed
+    account table (``/rpc/supply``; ``basis: live_accounts``) — net of fee
+    burns by omission and of bond slashes via the bond-burn row. A dead node
+    is an honest 503, not a stale-looking genesis number standing in for the
+    live one. AIT values are decimal strings; the ``*_units`` fields carry
+    the raw base-unit integers (``units_per_ait`` per AIT).
     """
     try:
         from ....config import settings
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)
-        response = client.get(f"{rpc_url}/rpc/genesis_allocations")
-        allocations = response.get("allocations", [])
-        total_units = sum(alloc.get("balance", 0) for alloc in allocations)
-        total_ait = format(units_to_ait(total_units).normalize(), "f")
-        return {
-            "total_supply": total_ait,
-            "total_supply_units": total_units,
-            "circulating_supply": total_ait,
-            "circulating_supply_units": total_units,
-            "unit": "AIT",
-            "units_per_ait": UNITS_PER_AIT,
-            "basis": "genesis_allocations",
-        }
+        genesis = client.get(f"{rpc_url}/rpc/genesis_allocations")
+        live = client.get(f"{rpc_url}/rpc/supply")
     except NetworkError as e:
-        logger.error("RPC connection failed: %s", e)
-        return {"status": "error", "error": "RPC connection failed"}
+        logger.error("RPC request failed: %s", e)
+        raise HTTPException(status_code=503, detail="Blockchain RPC unavailable") from e
+    total_units = sum(alloc.get("balance", 0) for alloc in genesis.get("allocations", []))
+    return {
+        "total_supply": format(units_to_ait(total_units).normalize(), "f"),
+        "total_supply_units": total_units,
+        "total_supply_basis": "genesis_allocations",
+        "circulating_supply": live["circulating_ait"],
+        "circulating_supply_units": live["circulating_units"],
+        "bond_burned_units": live["bond_burned_units"],
+        "height": live["height"],
+        "unit": "AIT",
+        "units_per_ait": UNITS_PER_AIT,
+        "basis": "live_accounts",
+    }
 
 
 @router.get("/state/dump")
