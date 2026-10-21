@@ -7,6 +7,8 @@ implemented top-level group is documented.
 """
 
 import os
+import shlex
+import warnings
 import re
 from pathlib import Path
 
@@ -98,3 +100,55 @@ def test_man_page_commands_sync():
     assert int(count_match.group(1)) == len(top_level), (
         f"DESCRIPTION says {count_match.group(1)} groups, CLI has {len(top_level)}"
     )
+
+
+def _man_examples():
+    """Extract the curated ``aitbc ...`` example lines from the EXAMPLES
+    section of cli/man/aitbc.1 (hand-maintained — the generator only
+    refreshes COMMANDS and the group count)."""
+    man_text = (REPO / "cli" / "man" / "aitbc.1").read_text()
+    section = man_text.split("\n.SH EXAMPLES\n", 1)[1].split("\n.SH ", 1)[0]
+    return [line.strip() for line in section.splitlines() if line.strip().startswith("aitbc ")]
+
+
+def _remaining_args(ctx):
+    """Unconsumed args after a group's parse. ``Context.protected_args``
+    holds the subcommand name on click 8.x and is deprecated/removed on
+    click 9.x, where ``ctx.args`` carries the full remainder."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        protected = list(getattr(ctx, "protected_args", []) or [])
+    return protected + list(ctx.args)
+
+
+def _resolve_and_parse(argv):
+    """Walk ``argv`` (tokens after ``aitbc``) through the live command tree,
+    parsing options at each level and validating the leaf command's params —
+    without invoking any callback."""
+    ctx = cli.make_context("aitbc", list(argv))
+    node = cli
+    while isinstance(node, click.Group):
+        rest = _remaining_args(ctx)
+        if not rest:
+            raise AssertionError("resolves to a group, not a runnable command")
+        name, node, rest = node.resolve_command(ctx, rest)
+        if node is None:
+            raise AssertionError(f"no such command: {name}")
+        ctx = node.make_context(name, rest, parent=ctx)
+
+
+def test_man_page_examples_parse():
+    """Every example line in aitbc.1 EXAMPLES must resolve and parse against
+    the live CLI tree — catches stale group names, removed subcommands,
+    missing required options, and misplaced global flags (GAP-CLI-MAN-EXAMPLES-1)."""
+    examples = _man_examples()
+    assert examples, "no `aitbc ...` lines found in the aitbc.1 EXAMPLES section"
+    failures = []
+    for example in examples:
+        try:
+            _resolve_and_parse(shlex.split(example)[1:])
+        except click.ClickException as exc:
+            failures.append(f"  {example!r} -> {exc.format_message()}")
+        except AssertionError as exc:
+            failures.append(f"  {example!r} -> {exc}")
+    assert not failures, "man-page examples that no longer parse:\n" + "\n".join(failures)
