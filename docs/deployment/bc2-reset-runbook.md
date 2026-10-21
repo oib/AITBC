@@ -220,6 +220,25 @@ bc-2 is part of the C3 env apply (**operator-named** per host); the
 unpause after `SEPOLIA-REDEPLOY-1` is a separate gated env-edit-plus-
 restart outside this runbook.
 
+C3 coverage limits (21 Oct window findings): the env apply sweeps only
+`/etc/aitbc/*.env` names. `Environment=` keys inside unit and drop-in
+files (`/etc/systemd/system/aitbc-*.service`, `*.service.d/*.conf` — the
+window's live example was `AITBC_CHAIN_DB` pins in escrow-settlement
+drop-ins and hub's bridge-set unit) are outside that set and need their
+own anchored `grep -rn 'Environment=' /etc/systemd/system/aitbc-*` pass.
+The apply also never *removes* a name: stale values persist until a
+manual unset, so after apply, sweep for the **absence** of the old chain
+id (`grep -rn 'ait-hub\|ait-mainnet' /etc/aitbc/`), not only the presence
+of the new one. A remove/repoint path in the planner remains a tooling
+gap — until it exists, both sweeps are manual checklist rows.
+
+C5→C6 ordering note (21 Oct window finding): mesh-mode validators reach
+the attestation topics through `aitbc-blockchain-rpc` — a fleet sitting
+at height 0 in `consensus_gates` while C6's rpc leg is still down is
+expected, not a stall. Prefer starting the rpc units **with or right
+after** the validator units in C5 rather than waiting for the whole C6
+service block.
+
 C7 checks: five heads equal and advancing; all four proposers sealing in
 rotation (`SELECT DISTINCT proposer FROM block WHERE height>0`);
 attestation quorum ≥2 on **every** produced block (the sweep: per height,
@@ -374,6 +393,38 @@ Post-reset operating rule (decided): `TRUSTED_PROPOSERS` is set. Any later
 validator-set change must update the list on **every host in the same
 change** — the membership check governs every imported block, so a
 proposer not yet in the list has its blocks refused fleet-wide.
+
+Second standing rule (21 Oct incident, `EDGE-REG-CONSENSUS-1`): no write
+to a committed side-table may happen outside block apply. An RPC path
+that writes a `COMMITTED_TABLES` row on one host diverges that host's
+committed aux root from the fleet — node2's `edge_node_registration`
+register-write did exactly that and stalled the node on aux mismatch.
+The CI guard `tests/unit/test_rpc_committed_writes.py` fails on any new
+RPC write site against a committed table; the v15 rung removes that
+anomaly table from the committed set at its (operator-named) activation
+height.
+
+Window-proven ops rules (21 Oct, `RESET-RUNBOOK-GAPS-1`):
+
+- `.prom` textfile writers must `chmod 0644` the temp file **before** the
+  atomic rename — `mkstemp`+`os.replace` lands mode 0600 and
+  node-exporter then cannot read it (fixed in the attestation/residue
+  writers, `f5651b648`; `native-energy-rate-refresh.sh` was already
+  correct).
+- Alert-rules changes: build the new rules file from `/etc`'s current
+  content plus the named hunk only, `diff` it exactly,
+  `promtool check rules`, then `systemctl reload` prometheus — the drift
+  behind the stale `BackupNoGoodChain` came from regenerating the file by
+  hand.
+- Miner-authenticated CLI calls: coordinator logins mint only
+  admin/client JWTs — miner-role endpoints accept a miner-role JWT or
+  `X-Api-Key` from `MINER_API_KEYS`. The CLI path is
+  `aitbc --api-key <MINER_API_KEYS[0]> …`; a 401 there means a missing
+  header, not a broken login.
+- Coordinator singletons do not self-heal: on a fresh `coordinator.db`,
+  re-set `native_energy_rates` and re-register `native_energy_profiles`
+  (operator-set rows) — until then `NativeEnergyRateStale` and the
+  refresh oneshot's failure fire exactly as they did in this window.
 
 ## G. Not rehearsed — planned, not proven
 
