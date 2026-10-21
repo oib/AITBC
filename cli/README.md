@@ -26,7 +26,7 @@ aitbc --help
 | `bond` | Provider performance bond lifecycle commands. | `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up` |
 | `bootstrap` | Bootstrap local development and configuration files. | `bootstrap-env` |
 | `brand` | Show and manage white-label brand settings. | `list`, `show` |
-| `bridge` | Cross-chain bridge management | `attest`, `balance`, `confirm`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock` |
+| `bridge` | Cross-chain bridge management | `attest`, `balance`, `confirm`, `deposits`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock` |
 | `cluster` | Cluster management and operations | `balance`, `status`, `sync` |
 | `coin-requests` | Manage coin transfer requests. | `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `request`, `show` |
 | `compliance` | Compliance policy, classification, and audit commands. | `check`, `classify`, `export-audit` |
@@ -52,7 +52,7 @@ aitbc --help
 | `health` | Probe remote AITBC service health endpoints. |  |
 | `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `island`, `list`, `pin`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
-| `market` | GPU and software offers published by shop miners | `cancel`, `download`, `escrow`, `exchange`, `gpu`, `hermes`, `host`, `jobs`, `list`, `match`, `offer`, `offer-cancel`, `offer-disable`, `offer-list`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
+| `market` | GPU and software offers published by shop miners | `cancel`, `download`, `escrow`, `exchange`, `gpu`, `hermes`, `host`, `jobs`, `list`, `match`, `offer`, `offer-cancel`, `offer-disable`, `offer-list`, `payment`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
 | `messaging` | On-chain forum messaging (signed MESSAGE txs) | `dm`, `hide`, `list`, `lock`, `mod-grant`, `mod-revoke`, `moderators`, `pin`, `reputation`, `send`, `show`, `state`, `stats`, `subscribe`, `topic`, `topics`, `unhide`, `unlock`, `unpin`, `vote` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `sweepers`, `webhooks` |
