@@ -470,6 +470,46 @@ def get(ctx, proposal_id: str, format: str):
         error(f"Error getting proposal: {e}")
 
 
+@governance.group(
+    epilog="""Examples:
+
+  aitbc governance proposal show --proposal-id prop-123"""
+)
+def proposal():
+    """Inspect a proposal's sealed on-chain record."""
+    pass
+
+
+@proposal.command(
+    name="show",
+    epilog="""Examples:
+
+  aitbc governance proposal show --proposal-id prop-123
+
+  aitbc governance proposal show --proposal-id prop-123 --output json""",
+)
+@click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
+@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.pass_context
+def proposal_show(ctx, proposal_id: str, format: str):
+    """Show the sealed GOVERNANCE_PROPOSE record for a proposal id.
+
+    Reads the canonical transaction table on the node's blockchain RPC — the
+    same source the v13 EXECUTE precheck binds to — and returns the sealed
+    payload including ``execution_payload``, plus whether an EXECUTE already
+    sealed. ``governance get`` reads the governance *service* view instead;
+    this command answers what the chain itself committed (GAP-PROPOSAL-SHOW-1).
+    """
+    try:
+        client, chain_id = _governance_rpc(ctx)
+        result = client.get(f"/rpc/governance/sealed-proposal/{proposal_id}", params={"chain_id": chain_id})
+        output(result, ctx.obj.get("output_format", format))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error getting sealed proposal: {e}")
+
+
 # ============================================================================
 # v0.7.4 §B8: Cross-chain governance CLI commands
 # ============================================================================

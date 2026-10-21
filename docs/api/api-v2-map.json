@@ -1496,6 +1496,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/governance/sealed-proposal/{proposal_id}",
+          "upstream": "/rpc/governance/sealed-proposal/{proposal_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/governance/vote",
           "upstream": "/rpc/governance/vote",
           "methods": [
@@ -2706,6 +2713,13 @@
           "upstream": "/v1/governance/proposal/{proposal_id}/execute",
           "methods": [
             "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/governance/sealed-proposal/{proposal_id}",
+          "upstream": "/v1/governance/sealed-proposal/{proposal_id}",
+          "methods": [
+            "GET"
           ]
         },
         {
