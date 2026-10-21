@@ -1,0 +1,15 @@
+[Unit]
+Description=Export escrow custody residue hourly
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+# The residue threshold is 7d (AITBC_ESCROW_RESIDUE_MAX_AGE_SECONDS default)
+# and EscrowResidueCheckStale allows 86400s; hourly leaves 24 missed runs of
+# margin while keeping the class gauges current between sweep batches.
+OnCalendar=hourly
+AccuracySec=10s
+Persistent=false
+Unit=aitbc-escrow-residue.service
+
+[Install]
+WantedBy=timers.target
