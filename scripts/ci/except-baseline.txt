@@ -83,9 +83,6 @@
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
-      5 apps/blockchain-node/src/aitbc_chain/economics/attacks.py
-      1 apps/blockchain-node/src/aitbc_chain/economics/rewards.py
-      5 apps/blockchain-node/src/aitbc_chain/economics/staking.py
       6 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py
       4 apps/blockchain-node/src/aitbc_chain/gossip/backends/mesh.py
       4 apps/blockchain-node/src/aitbc_chain/gossip/backends/websocket.py
