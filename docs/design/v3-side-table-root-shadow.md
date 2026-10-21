@@ -1,14 +1,19 @@
-# V-3 — committed side-table root: 13-table set and per-block shadow compute
+# V-3 — committed side-table root: versioned table set and per-block shadow compute
 
-**Status:** design only; no consensus code. Operator decision 2026-10-12:
-the committed set is all 13 apply-written tables; shadow computation runs
-in compare-only mode first. Executable reference: `scripts/ops/side-root-probe.py
---canonical` (identical rules).
+**Status:** the 13-table design below is the frozen v14 spec — live since
+the shared activation height. **v15** (EDGE-REG-CONSENSUS-1, operator
+card answer B, 2026-10-21) removes `edge_node_registration` from the
+committed set; it activates at `STATE_TRANSITION_V15_HEIGHT`, which is
+unset (unarmed) until the operator pins a fleet activation height.
+Executable reference: `scripts/ops/side-root-probe.py --canonical`
+(identical rules).
 
 ## Committed set
 
-All 13 tables written by `StateTransition.apply_transaction` and its
-`state/*` helpers:
+The set is **versioned**: `committed_tables_for_version(block_version)`
+picks it. The v14 set — frozen, used for every block below the v15
+activation height including all replay — is the 13 tables that were
+believed to be apply-written:
 
 ```text
 account  bond  chain_parameter  chain_parameter_history
@@ -17,14 +22,24 @@ ipfs_subscription  liquidity_distribution  liquidity_pool
 liquidity_stake  receipt  stake
 ```
 
+The v15 set is the same minus `edge_node_registration` (12 tables).
+That table's committed membership was a misclassification: nothing in
+`apply_transaction` writes or reads it, no tx type produces it, and its
+only writer is the node-local `POST /rpc/edge/register` handler — so a
+successful register call diverged exactly one node's fingerprint
+(2026-10-21 incident: node2 stalled at height 118 until the row was
+deleted under the operator's card). `block_deltas` already classifies it
+`SERVICE_STATE_TABLES` — legitimately different per node. At v15 the
+RPC write stops being a consensus fault.
+
 `account` is the canary — already committed via `state_root`, so it must
 always agree. Verified fleet-wide at height 44672: every table's
 canonical digest is identical on all five hosts; set fingerprint
 `49da49df` everywhere.
 
 Excluded by design: node-local bookkeeping (escrow, governance_*,
-mempool, cross_chain_transfer, bridge_*, consensus_state) and history
-tables (block, transaction).
+mempool, cross_chain_transfer, bridge_*, consensus_state — and at v15
+also edge_node_registration) and history tables (block, transaction).
 
 ## Canonicalization rules (the spec)
 
@@ -62,7 +77,7 @@ and compare, never reject**:
 
 - After block `h` is applied, for each committed table compute the
   canonical digest from the live tables.
-- Store the 13 digests + set fingerprint in a node-local shadow table
+- Store the version's digests + set fingerprint in a node-local shadow table
   (`shadow_side_root(block_height, fingerprint)` is enough — the per-table
   digests are recomputed on demand for forensics).
 - Compare with the local previous value to detect churn, and across the
@@ -109,3 +124,21 @@ behind the same `STATE_VERSION` gate.
   13 tables (with `requires_rules` naming the 3 canonicalized members)
   and the fingerprint covers all 13.
 - This document is the spec for the shadow hook and the activation.
+- **v15 (EDGE-REG-CONSENSUS-1, 2026-10-21):** the committed set becomes
+  versioned. `COMMITTED_TABLES` stays the frozen 13-table v14 set;
+  `COMMITTED_TABLES_V15` drops `edge_node_registration` (documented
+  above). Seal (`poa.py`), import validation (`sync_block_import.py`),
+  the golden engine, and the shadow hook all take the block's
+  height-derived version. The gate is `STATE_TRANSITION_V15_HEIGHT`
+  (`state_transition_v15_height`, default `None` = unarmed): pinning it
+  is a separate operator decision made together with the validator
+  restart wave — a mid-rollout mixed set would reject blocks as
+  `aux_state_root` mismatches.
+- The same survey found the residual RPC-direct-write hazards on the
+  still-committed tables — `POST /gpu/register` / `/gpu/allocate` write
+  `gpu_registration`/`gpu_allocation` locally in parallel with the
+  apply-path tx types, `POST /escrow/create` can insert a zero-balance
+  `account` stub, and `/sync/import` rewrites `account`/`chain_parameter*`
+  (a maintenance path). `tests/unit/test_rpc_committed_writes.py` is the
+  guard: it fails when a new non-apply write site appears against any
+  v14-committed table.
