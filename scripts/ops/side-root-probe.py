@@ -124,6 +124,18 @@ CANONICALIZED_TABLES: tuple[str, ...] = (
 )
 
 
+def committed_tables_for_version(block_version: int) -> tuple[str, ...]:
+    """The committed set for a block version — mirror of
+    state/side_root_shadow.committed_tables_for_version. v15
+    (EDGE-REG-CONSENSUS-1) drops edge_node_registration, which is
+    service-local (no apply writer or reader); the v14 set stays frozen for
+    replay of already-sealed eras."""
+    restricted = (
+        RESTRICTED_TABLES if block_version < 15 else tuple(t for t in RESTRICTED_TABLES if t != "edge_node_registration")
+    )
+    return (*restricted, *CANONICALIZED_TABLES)
+
+
 # Canonical rule 1: every column whose name ends in ``_at`` is a locally
 # stamped timestamp (registered_at, allocated_at, completed_at, created_at,
 # updated_at) — excluded, matching the operator's "*_at exclusions" decision.
@@ -237,15 +249,17 @@ def head_height(conn: sqlite3.Connection) -> dict[str, int | None]:
     return out
 
 
-def collect(conn: sqlite3.Connection, *, canonical: bool = False) -> dict[str, Any]:
+def collect(conn: sqlite3.Connection, *, canonical: bool = False, block_version: int = 14) -> dict[str, Any]:
     result: dict[str, Any] = {"head": head_height(conn), "candidates": {}, "controls": {}}
     for table in CANDIDATE_TABLES:
         result["candidates"][table] = table_digest(conn, table, canonical=canonical)
     if canonical:
-        # V-3 committed set (operator 2026-10-12): all 13 apply-written
-        # tables. ``requires_rules`` names the members whose committed digest
-        # is only defined under the canonicalization rules.
-        result["committed_set"] = {t: result["candidates"].pop(t) for t in (*RESTRICTED_TABLES, *CANONICALIZED_TABLES)}
+        # V-3 committed set, versioned (v14 = 13 tables frozen for replay;
+        # v15 = 12 without edge_node_registration). ``requires_rules`` names
+        # the members whose committed digest is only defined under the
+        # canonicalization rules.
+        committed = committed_tables_for_version(block_version)
+        result["committed_set"] = {t: result["candidates"].pop(t) for t in committed if t in result["candidates"]}
         result["requires_rules"] = list(CANONICALIZED_TABLES)
     for table in CONTROL_TABLES:
         result["controls"][table] = table_digest(conn, table)
@@ -280,9 +294,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--canonical",
         action="store_true",
-        help="apply the V-3 activation rules: committed set = all 13 apply-written tables, "
+        help="apply the V-3 activation rules: committed set = the era's apply-written tables, "
         "digested with *_at columns excluded, node-local handle columns excluded, "
         "0x identifiers lowercased, and timestamp text normalized",
+    )
+    ap.add_argument(
+        "--block-version",
+        type=int,
+        default=14,
+        help="block version the committed set is computed for (default 14 = the frozen "
+        "13-table set; >=15 drops edge_node_registration — see EDGE-REG-CONSENSUS-1)",
     )
     args = ap.parse_args(argv)
 
@@ -292,7 +313,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"cannot open {args.db} read-only: {e}", file=sys.stderr)
         return 2
 
-    result = collect(conn, canonical=args.canonical)
+    result = collect(conn, canonical=args.canonical, block_version=args.block_version)
     conn.close()
 
     if args.json:
@@ -303,7 +324,10 @@ def main(argv: list[str] | None = None) -> int:
     heads = ", ".join(f"{cid}@{h}" for cid, h in result["head"].items())
     print(f"head: {heads}")
     if args.canonical:
-        _print_group("committed set (13 tables — proposed aux_state_root members)", result["committed_set"])
+        _print_group(
+            f"committed set ({len(result['committed_set'])} tables — block_version {args.block_version})",
+            result["committed_set"],
+        )
     else:
         _print_group("candidate tables (apply-written; V-3 committable iff digests agree fleet-wide)", result["candidates"])
     _print_group("control tables (node-local; expected to differ)", result["controls"])

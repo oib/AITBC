@@ -800,7 +800,9 @@ class BlockImportMixin(SyncBase):
         # so the block is rejected rather than sealing a divergence.
         if (not skip_state_root_validation) and block_version >= 14:
             session.flush()
-            computed_aux = side_root_shadow.committed_fingerprint(session.connection().connection)["fingerprint"]
+            computed_aux = side_root_shadow.committed_fingerprint(session.connection().connection, block_version)[
+                "fingerprint"
+            ]
             recorded_aux = block_data.get("aux_state_root")
             if not recorded_aux or computed_aux != str(recorded_aux):
                 metrics_registry.increment("sync_aux_root_rejected_total")
@@ -822,7 +824,7 @@ class BlockImportMixin(SyncBase):
             journal.persist(session)
         session.commit()
         # V-3 shadow (flag-gated, compare-only — never affects the imported block).
-        side_root_shadow.on_block_sealed(session, self._chain_id, int(block_data["height"]))
+        side_root_shadow.on_block_sealed(session, self._chain_id, int(block_data["height"]), block_version=block_version)
         if transactions:
             self._evict_included_from_mempool(transactions)
         self._reset_rejection_counter(self._chain_id)
