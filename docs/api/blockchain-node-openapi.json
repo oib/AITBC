@@ -4299,6 +4299,68 @@
         }
       }
     },
+    "/rpc/governance/sealed-proposal/{proposal_id}": {
+      "get": {
+        "tags": [
+          "rpc",
+          "core"
+        ],
+        "summary": "Get the sealed GOVERNANCE_PROPOSE and its execution payload",
+        "description": "The canonical, every-node answer for what a proposal id committed on\nchain \u2014 the source of the execution_payload a v13 EXECUTE binds to\n(GAP-PROPOSAL-SHOW-1). Deliberately not ``/governance/proposal/{id}``:\nthat path already serves the node-local ``governance_proposal`` table\n(voting view, populated only on the host that served the create RPC),\nwhich can never be a consensus input.",
+        "operationId": "get_sealed_governance_proposal_route_rpc_governance_sealed_proposal__proposal_id__get",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Sealed Governance Proposal Route Rpc Governance Sealed Proposal  Proposal Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/accounts": {
       "get": {
         "tags": [
@@ -15358,6 +15420,68 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Transaction Route V1 Transaction  Tx Hash  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/governance/sealed-proposal/{proposal_id}": {
+      "get": {
+        "tags": [
+          "v1",
+          "core"
+        ],
+        "summary": "Get the sealed GOVERNANCE_PROPOSE and its execution payload",
+        "description": "The canonical, every-node answer for what a proposal id committed on\nchain \u2014 the source of the execution_payload a v13 EXECUTE binds to\n(GAP-PROPOSAL-SHOW-1). Deliberately not ``/governance/proposal/{id}``:\nthat path already serves the node-local ``governance_proposal`` table\n(voting view, populated only on the host that served the create RPC),\nwhich can never be a consensus input.",
+        "operationId": "get_sealed_governance_proposal_route_v1_governance_sealed_proposal__proposal_id__get",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Sealed Governance Proposal Route V1 Governance Sealed Proposal  Proposal Id  Get"
                 }
               }
             }
