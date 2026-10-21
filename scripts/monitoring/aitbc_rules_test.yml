@@ -1263,6 +1263,19 @@ tests:
         eval_time: 15m
         exp_samples: []
 
+  # Genesis pseudo-proposer: a held consecutive_missed for the
+  # validator="genesis" series — the shape the exporter produced on bc-2
+  # while block 0 sat in the window — must never fire, even if such a
+  # series is still exported by an older exporter run.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_attestation_consecutive_missed{instance="hub:9100", db="/data/chain.db", validator="genesis"}'
+        values: '25x15'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AttestationValidatorSilent"}
+        eval_time: 15m
+        exp_samples: []
+
   # ---- MON-2 backup freshness alerts -------------------------------------
   # time() in promtool tests counts from test t=0, so a "stale" series is a
   # small constant and a "fresh" one a constant larger than any test time

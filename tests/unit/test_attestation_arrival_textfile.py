@@ -211,3 +211,65 @@ def test_fresh_chain_no_alert(tmp_path):
     assert s.arrival_share == 1.0
     assert all(v == 0 for v in s.consecutive_missed.values())
     assert all(v == 0 for v in s.missed_blocks.values())
+
+
+def _db_with_genesis(tmp_path: Path, produced: int = 25) -> Path:
+    """bc-2 shape: height 0 is the file-loaded genesis row (proposer
+    "genesis", no attestations list), heights 1..N are produced blocks."""
+    db = tmp_path / "chain.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+    _block(con, 0, "genesis", json.dumps({"allocations": []}))
+    vs = [A, B, C, D]
+    for h in range(1, produced + 1):
+        proposer = vs[h % 4]
+        _block(con, h, proposer, _atts(*[v for v in vs if v != proposer]))
+    con.commit()
+    con.close()
+    return db
+
+
+def test_genesis_pseudo_proposer_owes_nothing(tmp_path):
+    """The genesis row must never enter the validator set: on bc-2 its
+    block 0 sits inside the window, so a derived "genesis" validator would
+    miss every owed block and export consecutive_missed == head height —
+    AttestationValidatorSilent would false-fire on every host."""
+    s = _stats(_db_with_genesis(tmp_path))
+    assert s.window_blocks == 26  # genesis row still counted as examined
+    assert s.head_height == 25
+    assert "genesis" not in s.validators
+    assert s.validators == (A, B, C, D)
+    assert s.expected_remote_total == 25 * 3  # block 0 owes nothing
+    assert s.arrival_share == 1.0
+    assert s.missed_blocks == {A: 0, B: 0, C: 0, D: 0}
+    assert all(v == 0 for v in s.consecutive_missed.values())
+
+
+def test_genesis_pseudo_proposer_not_in_render(tmp_path):
+    db = _db_with_genesis(tmp_path)
+    text = exporter.render({str(db): _stats(db)}, now=NOW)
+    assert 'validator="genesis"' not in text
+
+
+def test_genesis_filtered_from_pinned_set(tmp_path):
+    """A pinned AITBC_ATTESTATION_VALIDATORS carrying "genesis" is cleaned
+    the same way — the pseudo-proposer owes nothing however it arrives."""
+    s = _stats(_db_with_genesis(tmp_path), validators=["genesis", A, B, C, D])
+    assert s.validators == (A, B, C, D)
+    assert "genesis" not in s.missed_blocks
+
+
+def test_genesis_only_chain_still_reports(tmp_path):
+    """A bare genesis row (pre-C5 shape) yields an empty validator set and
+    share 1.0 rather than a phantom silent validator."""
+    db = tmp_path / "chain.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+    _block(con, 0, "genesis", json.dumps({"allocations": []}))
+    con.commit()
+    con.close()
+    s = _stats(db)
+    assert s.head_height == 0
+    assert s.validators == ()
+    assert s.expected_remote_total == 0
+    assert s.arrival_share == 1.0
