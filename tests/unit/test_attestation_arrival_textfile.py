@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sqlite3
+import stat
 from pathlib import Path
 
 
@@ -167,6 +169,41 @@ def test_main_writes_prom(tmp_path, monkeypatch):
     assert exporter.main() == 0
     text = (outdir / "aitbc_attestation_arrival.prom").read_text()
     assert 'aitbc_attestation_scrape_success{db="' + str(db) + '"} 1' in text
+
+
+def test_write_atomic_world_readable(tmp_path):
+    """node-exporter runs as user prometheus — mkstemp's 0600 would hide the
+    file and blind every alert reading it. The writer must chmod 0644."""
+    exporter.write_atomic(str(tmp_path), "metric 1\n")
+    out = tmp_path / exporter.OUTPUT_NAME
+    assert stat.S_IMODE(os.stat(out).st_mode) == 0o644
+    assert out.read_text() == "metric 1\n"
+
+
+def test_write_atomic_rename_failure_leaves_target_and_no_litter(tmp_path, monkeypatch):
+    """A failed rename must not clobber the existing .prom or drop the temp."""
+    target = tmp_path / exporter.OUTPUT_NAME
+    target.write_text("old\n")
+    monkeypatch.setattr(exporter.os, "rename", lambda *a: (_ for _ in ()).throw(OSError("boom")))
+    try:
+        exporter.write_atomic(str(tmp_path), "new\n")
+        raise AssertionError("expected OSError")
+    except OSError:
+        pass
+    assert target.read_text() == "old\n"
+    assert list(tmp_path.glob(".aitbc_attestation_arrival.*.tmp")) == []
+
+
+def test_write_atomic_write_failure_no_partial(tmp_path, monkeypatch):
+    """A failed write must leave no partial target and no temp litter."""
+    monkeypatch.setattr(exporter.os, "fdopen", lambda *a, **k: (_ for _ in ()).throw(OSError("boom")))
+    try:
+        exporter.write_atomic(str(tmp_path), "x\n")
+        raise AssertionError("expected OSError")
+    except OSError:
+        pass
+    assert not (tmp_path / exporter.OUTPUT_NAME).exists()
+    assert list(tmp_path.glob(".aitbc_attestation_arrival.*.tmp")) == []
 
 
 def test_silent_validator_crosses_alert_thresholds(tmp_path):
