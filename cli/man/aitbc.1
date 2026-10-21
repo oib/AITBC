@@ -271,9 +271,9 @@ Inspect public Sepolia ETH activity — read-only, key-free, no polling
 
 .SH EXAMPLES
 .PP
-Submit a job:
+Submit an AI job:
 .RS
-aitbc client submit --prompt "What is AI?" --model gpt-4
+aitbc ai submit --prompt "What is AI?" --model gpt-4
 .RE
 .PP
 Check wallet balance:
@@ -281,11 +281,11 @@ Check wallet balance:
 aitbc wallet balance
 .RE
 .PP
-Start mining:
+Start mining and check status:
 .RS
-aitbc miner register --gpu-model RTX4090 --memory 24 --price 0.5
+aitbc mining start --wallet-name my-wallet
 .br
-aitbc miner poll --interval 5
+aitbc mining status
 .RE
 .PP
 Monitor system:
@@ -293,26 +293,26 @@ Monitor system:
 aitbc monitor dashboard --refresh 5
 .RE
 .PP
-List available GPUs:
+List GPU offers on the market:
 .RS
-aitbc market gpu list
+aitbc market offer-list --service-type gpu
 .RE
 .PP
-Query blockchain status:
+Query chain sync status:
 .RS
 aitbc blockchain sync-status
 .RE
 .PP
 Manage configuration:
 .RS
-aitbc config set api_key your_api_key_here
+aitbc config set --key api_key --value your_api_key_here
 .br
 aitbc config show
 .RE
 .PP
 Cross-chain agent communication:
 .RS
-aitbc agent-comm register --agent-id agent1 --chain-id ethereum
+aitbc agent-comm register --agent-id agent1 --name agent1 --endpoint http://node2:9100 --chain-id ethereum
 .br
 aitbc agent-comm list --chain-id ethereum
 .RE
@@ -326,28 +326,28 @@ aitbc analytics monitor --realtime
 .PP
 Multi-chain operations:
 .RS
-aitbc chain list
+aitbc blockchain list
 .br
-aitbc chain create --name test-chain --type ethereum
+aitbc blockchain info --chain-id bc-2
 .RE
 .PP
 Output in different formats:
 .RS
-aitbc wallet balance --output json
+aitbc --output json wallet balance
 .br
-aitbc market gpu list --output yaml
+aitbc --output yaml market offer-list
 .RE
 .PP
 Verbose output:
 .RS
-aitbc -vv blockchain blocks --limit 10
+aitbc -vv blockchain block --height 12500000
 .RE
 .PP
-Configuration management:
+Configuration profiles:
 .RS
-aitbc config profiles save production
+aitbc config profiles save --name production
 .br
-aitbc config profiles load production
+aitbc config profiles load --name production
 .RE
 .SH ENVIRONMENT
 .TP
