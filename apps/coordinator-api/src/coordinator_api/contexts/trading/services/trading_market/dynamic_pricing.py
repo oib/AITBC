@@ -8,9 +8,30 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
+
+class _LazyNumpy:
+    """numpy on first attribute access, not at module import.
+
+    This module sits in coordinator-api's startup import graph, where a
+    top-level ``import numpy`` cost ~9.4s of import time plus numpy's RSS
+    on every service start. The ~15 ``np.`` call sites below stay
+    untouched: the first one triggers the real import and swaps the
+    module into ``globals()`` so later lookups are direct.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        import numpy as _np_real
+
+        globals()["np"] = _np_real
+        return getattr(_np_real, name)
+
+
+if TYPE_CHECKING:
+    import numpy as np
+else:
+    np = _LazyNumpy()
 
 
 def _D(value: float | int | str | Decimal) -> Decimal:
