@@ -55,8 +55,17 @@ class TestRenderWebsite(unittest.TestCase):
         (self.site / "scripts" / "ops").mkdir(parents=True)
         shutil.copytree(WEBSITE, self.site / "website")
         shutil.copy2(SCRIPT, self.site / "scripts" / "ops" / "render-website.sh")
+        # The committed tree already ships bc-2; transition tests need the
+        # pre-migration start state, so seed the old id back into the two
+        # files a render would have rewritten at cutover.
+        for name in ("config.js", "dashboard.js"):
+            p = self.site / "website" / name
+            p.write_text(p.read_text().replace(NEW_ID, OLD_ID))
         self.env_file = self.tmp / "website.env"
         self.state_file = self.tmp / "state.env"
+        # A prior old-id render would have left the old id in the state file;
+        # that anchor is what lets the next render migrate the tokens.
+        self.state_file.write_text(f"WEBSITE_DOMAIN={DOMAIN}\nWEBSITE_CHAIN_ID={OLD_ID}\n")
 
     def _write_env(self, chain_id: str, contact: str | None = CONTACT) -> None:
         lines = [f"WEBSITE_DOMAIN={DOMAIN}", f"WEBSITE_CHAIN_ID={chain_id}"]
@@ -143,7 +152,8 @@ class TestRenderWebsite(unittest.TestCase):
 
     def test_partial_state_re_renders_to_new(self) -> None:
         self._render_to_new()
-        # A pull reverted one file to the committed (old-id) copy.
+        # A pull reverted one file to the committed copy (bc-2 since
+        # CHAINID-DEFAULT-1 — reverting can no longer reintroduce the old id).
         shutil.copy2(WEBSITE / "dashboard.js", self.site / "website" / "dashboard.js")
         r = self._render()
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
@@ -159,6 +169,17 @@ class TestRenderWebsite(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("Invalid WEBSITE_CHAIN_ID", r.stderr)
         self.assertEqual(before, _tree_files(self.site / "website"))
+
+    def test_committed_tree_already_carries_bc2(self) -> None:
+        """CHAINID-DEFAULT-1 pin: the committed website source is the bc-2
+        render — re-introducing the old chain id outside a keep region or
+        drifting the committed chainId fails here."""
+        for p in WEBSITE.rglob("*"):
+            if not p.is_file():
+                continue
+            stripped = _without_keep_regions(p.read_text(errors="replace"))
+            self.assertNotIn(OLD_ID, stripped, p)
+        self.assertIn(f"chainId: '{NEW_ID}'", (WEBSITE / "config.js").read_text())
 
     def test_unset_contact_empties_the_marked_region(self) -> None:
         """Documented design: unset CONTACT_EMAIL empties the aitbc-contact
