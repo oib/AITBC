@@ -231,6 +231,10 @@ SERVICE_STATE_TABLES = frozenset(
         "smart_contract",
         "htlc_swaps",
         "edge_node_registration",
+        # ai_job_cancellation: per-node AI-job cancel bookkeeping — written by
+        # POST /ai/job/{id}/cancel on the serving host only, deliberately
+        # instead of rewriting the sealed transaction row (AI-CANCEL-SEALED-TX-1).
+        "ai_job_cancellation",
         # Node-local operational tables:
         "mempool",
         "consensus_state",
