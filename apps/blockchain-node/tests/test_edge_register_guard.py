@@ -93,3 +93,90 @@ async def test_register_allowed_once_v15_committed_set(monkeypatch):
     assert result["status"] == "registered"
     rows = _rows(engine)
     assert len(rows) == 1 and rows[0].node_id == "edge-1"
+
+
+def _seed(engine, node_id: str, chain_id: str = CHAIN, **over) -> None:
+    with Session(engine) as session:
+        session.add(
+            EdgeNodeRegistration(
+                chain_id=chain_id,
+                node_id=node_id,
+                endpoint="https://edge.invalid",
+                region="eu-west",
+                gpu_count=1,
+                total_vram=24,
+                capabilities=["inference"],
+                registered_by="0x" + "aa" * 20,
+                **over,
+            )
+        )
+        session.commit()
+
+
+def _table_snapshot(engine) -> list[tuple]:
+    with Session(engine) as session:
+        return sorted(
+            (r.chain_id, r.node_id, r.status, r.registered_by) for r in session.exec(select(EdgeNodeRegistration)).all()
+        )
+
+
+async def test_list_nodes_returns_count_and_rows(monkeypatch):
+    """GET /edge/nodes exists so wave-Y B4 can count committed rows through
+    the RPC — no sqlite3, no list-less /edge/info guessing."""
+    engine = _engine()
+    _bind_session_scope(monkeypatch, engine)
+    _seed(engine, "edge-1")
+    _seed(engine, "edge-2", status="deactivated")
+
+    result = await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+
+    assert result["chain_id"] == CHAIN
+    assert result["count"] == 2
+    by_id = {n["node_id"]: n for n in result["nodes"]}
+    assert by_id["edge-1"]["status"] == "active"
+    assert by_id["edge-2"]["status"] == "deactivated"
+    assert by_id["edge-1"]["registered_by"] == "0x" + "aa" * 20
+    assert set(by_id["edge-1"]) == {
+        "node_id",
+        "endpoint",
+        "region",
+        "gpu_count",
+        "total_vram",
+        "capabilities",
+        "registered_by",
+        "status",
+        "registered_at",
+    }
+
+
+async def test_list_nodes_empty_table_returns_zero(monkeypatch):
+    engine = _engine()
+    _bind_session_scope(monkeypatch, engine)
+
+    result = await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+
+    assert result == {"chain_id": CHAIN, "count": 0, "nodes": []}
+
+
+async def test_list_nodes_filters_by_chain(monkeypatch):
+    engine = _engine()
+    _bind_session_scope(monkeypatch, engine)
+    _seed(engine, "edge-other", chain_id="other-chain")
+
+    result = await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+
+    assert result["count"] == 0 and result["nodes"] == []
+
+
+async def test_list_nodes_writes_nothing(monkeypatch):
+    """The route is the B4 read path: it must leave the committed table
+    byte-identical — called twice, snapshot compared."""
+    engine = _engine()
+    _bind_session_scope(monkeypatch, engine)
+    _seed(engine, "edge-1")
+    before = _table_snapshot(engine)
+
+    await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+    await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+
+    assert _table_snapshot(engine) == before
