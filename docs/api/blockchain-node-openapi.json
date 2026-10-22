@@ -10685,6 +10685,69 @@
         }
       }
     },
+    "/rpc/edge/nodes": {
+      "get": {
+        "tags": [
+          "rpc",
+          "gpu_resources"
+        ],
+        "summary": "List edge node registrations",
+        "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.",
+        "operationId": "list_edge_nodes_rpc_edge_nodes_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Edge Nodes Rpc Edge Nodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/ai/submit": {
       "post": {
         "tags": [
@@ -21889,6 +21952,69 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/edge/nodes": {
+      "get": {
+        "tags": [
+          "v1",
+          "gpu_resources"
+        ],
+        "summary": "List edge node registrations",
+        "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.",
+        "operationId": "list_edge_nodes_v1_edge_nodes_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Edge Nodes V1 Edge Nodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
