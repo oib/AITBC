@@ -294,3 +294,71 @@ def test_run_whisper_calls_local_service(mock_post, tmp_path):
     mock_post.assert_called_once()
     call_args = mock_post.call_args
     assert call_args[0][0] == "http://127.0.0.1:8110/transcribe"
+
+
+_TWO_OFFERS = [
+    {
+        "service_type": "whisper",
+        "model": "base",
+        "price": "0.001",
+        "unit": "per_minute",
+        "description": "offer-a",
+    },
+    {
+        "service_type": "ffmpeg",
+        "model": "h264-transcode",
+        "price": "0.002",
+        "unit": "per_minute",
+        "description": "offer-b",
+    },
+]
+
+
+@pytest.mark.unit
+@patch("production_miner.subprocess.run")
+def test_publish_default_offers_one_nonce_per_cycle(mock_run, monkeypatch, caplog):
+    """Sibling offers in one cycle must not share a nonce slot (MINER-OFFER-NONCE-1).
+
+    Each `aitbc market offer` subprocess fetches the confirmed account nonce,
+    which is blind to the mempool slot the previous sibling just occupied —
+    so only one offer may submit per cycle; the rest defer to the next.
+    """
+    monkeypatch.setattr(production_miner, "DEFAULT_SOFTWARE_OFFERS", _TWO_OFFERS)
+    mock_run.return_value = Mock(returncode=0, stdout="offer published tx=0xabc", stderr="")
+
+    with caplog.at_level("INFO", logger="production_miner"):
+        production_miner.publish_default_offers([])
+
+    assert mock_run.call_count == 1
+    assert "Deferring default offer ffmpeg/h264-transcode to next cycle" in caplog.text
+
+
+@pytest.mark.unit
+@patch("production_miner.subprocess.run")
+def test_publish_default_offers_unchanged_does_not_consume_cycle(mock_run, monkeypatch):
+    """An 'unchanged' offer submits no transaction and uses no nonce, so the
+    next offer in the same cycle must still be attempted."""
+    monkeypatch.setattr(production_miner, "DEFAULT_SOFTWARE_OFFERS", _TWO_OFFERS)
+    mock_run.side_effect = [
+        Mock(returncode=0, stdout="identical active offer exists, skipping", stderr=""),
+        Mock(returncode=0, stdout="offer published tx=0xdef", stderr=""),
+    ]
+
+    production_miner.publish_default_offers([])
+
+    assert mock_run.call_count == 2
+
+
+@pytest.mark.unit
+@patch("production_miner.subprocess.run")
+def test_publish_default_offers_failure_does_not_consume_cycle(mock_run, monkeypatch):
+    """A failed publish consumed no nonce slot — the sibling still runs."""
+    monkeypatch.setattr(production_miner, "DEFAULT_SOFTWARE_OFFERS", _TWO_OFFERS)
+    mock_run.side_effect = [
+        Mock(returncode=1, stdout="", stderr="boom"),
+        Mock(returncode=0, stdout="offer published tx=0x123", stderr=""),
+    ]
+
+    production_miner.publish_default_offers([])
+
+    assert mock_run.call_count == 2
