@@ -192,6 +192,13 @@ GPU, AI jobs, market, escrow, disputes, governance. Read-only tools are the
 default; mutating tools are `dry_run=true`-gated and require
 `confirm=true`. Prefer typed MCP tools over raw SSH when operating a node.
 
+## Agent exploration
+
+Prefer subagents for broad codebase exploration — multi-file questions,
+dependency tracing, "where is X handled" sweeps — rather than serial
+grep/read loops in the main session. Keep subagent tasks read-only and
+disjoint; targeted single-file lookups still go through direct tools.
+
 ## Task and history tracking
 
 `AGENTS.md` carries conventions only. Release history lives in
