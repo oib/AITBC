@@ -1412,6 +1412,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/edge/nodes",
+          "upstream": "/rpc/edge/nodes",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/edge/register",
           "upstream": "/rpc/edge/register",
           "methods": [
@@ -2662,6 +2669,13 @@
         {
           "public": "/api/v2/chain/v1/edge/info/{node_id}",
           "upstream": "/v1/edge/info/{node_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/edge/nodes",
+          "upstream": "/v1/edge/nodes",
           "methods": [
             "GET"
           ]
