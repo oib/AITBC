@@ -210,6 +210,55 @@ def test_grep_only_anchored_public_names():
         assert "^BRIDGE_LOCKS_PAUSED=" in c or "^BRIDGE_CONTRACT_ADDRESS=" in c
 
 
+def test_threshold_calls_safe_not_bridge():
+    # OBS-PRECHECK-1: getThreshold() lives on the Safe, not the bridge —
+    # the call must target sepolia.safe (the bridge ABI reverts on it).
+    targets = {}
+
+    def post(url, body, timeout=8):
+        first = body["params"][0]
+        if isinstance(first, dict):  # eth_call — params[0] is {to, data}
+            targets[first["data"]] = first["to"]
+        return fake_post(url, body, timeout)
+
+    upc.check_sepolia(ctx(report=GOOD_REPORT, post=post))
+    got = targets[upc.GETTHRESHOLD_SELECTOR]
+    assert got.lower() == SAFE.lower() and got.lower() != CONTRACT.lower()
+
+
+def test_http_post_sends_user_agent():
+    # OBS-PRECHECK-1: real_http_post must send a real User-Agent — public
+    # endpoints 403 the default Python-urllib UA.
+    import http.server
+    import threading
+
+    seen = {}
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            seen["ua"] = self.headers.get("User-Agent")
+            seen["ct"] = self.headers.get("Content-Type")
+            body = b'{"jsonrpc":"2.0","id":1,"result":"0x1"}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        code, _body = upc.real_http_post(f"http://127.0.0.1:{srv.server_address[1]}", {"x": 1})
+        assert code == 200
+        assert seen["ua"] == "aitbc-ops/1.0"
+        assert seen["ct"] == "application/json"
+    finally:
+        srv.shutdown()
+
+
 def test_other_env_name_refused():
     import pytest
 
