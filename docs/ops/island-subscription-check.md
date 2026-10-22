@@ -42,7 +42,7 @@ journalctl -u aitbc-island-subscription-check.service -n 5
 Expected journal line on success:
 
 ```text
-aitbc-island-sub-check[...]: [info] island subscription active (ait-localnet-island, wallet default)
+aitbc-island-sub-check[...]: [info] island subscription active (bc-2-island, wallet default)
 ```
 
 ## Exit codes
