@@ -97,6 +97,17 @@ def get_chain_id() -> str:
     if not chain_id:
         raise ValueError("Chain ID not found in island credentials")
 
+    # Island-scoped callers are correct to use the joined island's id; the
+    # env only warns on disagreement — credentials still win here.
+    env_chain_id = os.getenv("CHAIN_ID")
+    if env_chain_id and env_chain_id != chain_id:
+        logger.warning(
+            "chain id mismatch: island credentials at %s say %r but CHAIN_ID=%r — this island-scoped path uses the credentials",
+            CREDENTIALS_PATH,
+            chain_id,
+            env_chain_id,
+        )
+
     return chain_id  # type: ignore[no-any-return]
 
 
@@ -116,6 +127,15 @@ def get_island_id() -> str:
 
     if not island_id:
         raise ValueError("Island ID not found in island credentials")
+
+    env_island = os.getenv("ISLAND_ID")
+    if env_island and env_island != island_id:
+        logger.warning(
+            "island id mismatch: island credentials at %s say %r but ISLAND_ID=%r — this island-scoped path uses the credentials",
+            CREDENTIALS_PATH,
+            island_id,
+            env_island,
+        )
 
     return island_id  # type: ignore[no-any-return]
 
