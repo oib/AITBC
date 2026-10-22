@@ -636,13 +636,22 @@ class PoAProposer:
                 parent.state_root,
             )
             return False
+        # Re-apply under a savepoint: a failed repair must not leave flushed
+        # rows in the session — a caller that continues with this session
+        # would otherwise commit a half-repaired state.
+        repair = session.begin_nested()
         for tx_rec in tx_recs:
             sender = _to_ait_address(tx_rec.sender or "")
             recipient = _to_ait_address(tx_rec.recipient or "")
             if sender:
                 _ensure_account(session, chain_id, sender)
-            if recipient:
-                _ensure_account(session, chain_id, recipient)
+            # Do not create the recipient account here, matching the import
+            # path (sync_block_import) and the build path below:
+            # apply_transaction ensures the recipient itself on the paths
+            # that credit it. Pre-creating added a phantom leaf for
+            # zero-value types (GPU_MARKET offers carry to=0x0000…0000), so
+            # a parent carrying that shape could never recompute to its own
+            # recorded root — repair always failed on it (bc-2 fork at 1462).
             env = tx_rec.envelope if isinstance(tx_rec.envelope, dict) else None
             if env:
                 # Re-apply the signed original: rebuilding from row columns
@@ -665,8 +674,17 @@ class PoAProposer:
                     "signature": "",
                 }
             block_version = get_block_version(parent, parent.height)
+            # skip_dedup: these txs are already recorded in the transaction
+            # table — that is where we loaded them from — so the admission
+            # replay check would reject the re-apply it exists to perform.
             success, msg = state_transition.apply_transaction(
-                session, chain_id, tx_data, tx_rec.tx_hash, block_version=block_version, block_height=parent.height
+                session,
+                chain_id,
+                tx_data,
+                tx_rec.tx_hash,
+                block_version=block_version,
+                block_height=parent.height,
+                skip_dedup=True,
             )
             if not success:
                 self._logger.error(
@@ -675,6 +693,7 @@ class PoAProposer:
                     parent.height,
                     msg,
                 )
+                repair.rollback()
                 return False
         session.flush()
         recomputed = _compute_state_root(session, chain_id)
@@ -685,7 +704,9 @@ class PoAProposer:
                 parent.state_root,
                 recomputed,
             )
+            repair.rollback()
             return False
+        repair.commit()
         self._logger.info(
             "[PROPOSE] Re-applied parent block %s; local state now matches %s",
             parent.height,
