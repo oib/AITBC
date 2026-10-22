@@ -483,6 +483,17 @@ async def submit_transaction(
                         status_code=status_code,
                         content={"error": "blockchain admission refused the signed transaction", "detail": detail},
                     )
+                if isinstance(blockchain_error, ValueError):
+                    # Client-side envelope refusal (e.g. missing chain_id —
+                    # BlockchainRPCClient.submit_transaction raises before any
+                    # HTTP call). The envelope can never be submitted as-is, so
+                    # a local row would only hide the caller's bug: relay it as
+                    # a 400, never as a transport fallback.
+                    logger.warning("GPU_REGISTER envelope rejected client-side: %s", blockchain_error)
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "signed envelope rejected: " + str(blockchain_error)},
+                    )
                 logger.warning("Blockchain submission failed (transport), falling back to local storage: %s", blockchain_error)
             miner_id = payload.get("miner_id") or transaction_data.get("provider_node_id", "default_miner")
             gpu_data = {
