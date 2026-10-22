@@ -222,6 +222,35 @@ class TestSupplyRoute:
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_503_detail_carries_rpc_error(self, mock_client_class, mock_settings):
+        """The 503 detail names the upstream failure, per the design's
+        "503 with the RPC error detail" — not a static string."""
+        mock_settings.blockchain_rpc_url = "http://localhost:8202"
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.side_effect = _network_error_for_status(404)
+
+        response = _client().get("/v1/supply")
+
+        assert response.status_code == 503
+        detail = response.json()["detail"]
+        assert "Blockchain RPC unavailable" in detail
+        assert "404 Client Error" in detail
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_live_payload_missing_keys_is_503(self, mock_client_class, mock_settings):
+        """A 200 body without the /rpc/supply schema keys is the same
+        honest 503 as a dead node — never a KeyError 500."""
+        self._respond(mock_client_class, mock_settings, {"allocations": [{"balance": 100}]}, live_payload={})
+
+        response = _client().get("/v1/supply")
+
+        assert response.status_code == 503
+        assert "malformed /rpc/supply payload" in response.json()["detail"]
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
     def test_schema_fields_present(self, mock_client_class, mock_settings):
         self._respond(mock_client_class, mock_settings, {"allocations": [{"balance": 100}]})
 

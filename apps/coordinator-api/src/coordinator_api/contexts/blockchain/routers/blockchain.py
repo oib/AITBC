@@ -161,7 +161,9 @@ async def get_supply() -> dict[str, Any]:
     burns by omission and of bond slashes via the bond-burn row. A dead node
     is an honest 503, not a stale-looking genesis number standing in for the
     live one. AIT values are decimal strings; the ``*_units`` fields carry
-    the raw base-unit integers (``units_per_ait`` per AIT).
+    the raw base-unit integers (``units_per_ait`` per AIT). A node that
+    answers 200 with a malformed payload gets the same honest-503
+    treatment as a dead node — never a KeyError 500.
     """
     try:
         from ....config import settings
@@ -172,20 +174,27 @@ async def get_supply() -> dict[str, Any]:
         live = client.get(f"{rpc_url}/rpc/supply")
     except NetworkError as e:
         logger.error("RPC request failed: %s", e)
-        raise HTTPException(status_code=503, detail="Blockchain RPC unavailable") from e
+        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {e}") from e
     total_units = sum(alloc.get("balance", 0) for alloc in genesis.get("allocations", []))
-    return {
-        "total_supply": format(units_to_ait(total_units).normalize(), "f"),
-        "total_supply_units": total_units,
-        "total_supply_basis": "genesis_allocations",
-        "circulating_supply": live["circulating_ait"],
-        "circulating_supply_units": live["circulating_units"],
-        "bond_burned_units": live["bond_burned_units"],
-        "height": live["height"],
-        "unit": "AIT",
-        "units_per_ait": UNITS_PER_AIT,
-        "basis": "live_accounts",
-    }
+    try:
+        return {
+            "total_supply": format(units_to_ait(total_units).normalize(), "f"),
+            "total_supply_units": total_units,
+            "total_supply_basis": "genesis_allocations",
+            "circulating_supply": live["circulating_ait"],
+            "circulating_supply_units": live["circulating_units"],
+            "bond_burned_units": live["bond_burned_units"],
+            "height": live["height"],
+            "unit": "AIT",
+            "units_per_ait": UNITS_PER_AIT,
+            "basis": "live_accounts",
+        }
+    except KeyError as e:
+        logger.error("malformed /rpc/supply payload (missing %s): %r", e, live)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Blockchain RPC returned a malformed /rpc/supply payload (missing {e})",
+        ) from e
 
 
 @router.get("/state/dump")
