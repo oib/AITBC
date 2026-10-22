@@ -344,7 +344,7 @@ def check_sepolia(ctx: Ctx) -> list[Result]:
             owner or "no result",
         )
     )
-    th_hex = eth_rpc(ctx, "eth_call", [{"to": contract, "data": GETTHRESHOLD_SELECTOR}, "latest"])
+    th_hex = eth_rpc(ctx, "eth_call", [{"to": safe, "data": GETTHRESHOLD_SELECTOR}, "latest"]) if safe else None
     th = int(th_hex, 16) if th_hex else None
     rows.append(
         Result(
