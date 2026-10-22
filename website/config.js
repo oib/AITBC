@@ -10,7 +10,7 @@
  */
 window.AITBC_CONFIG = Object.freeze({
     // Chain identifier used by the explorer/marketplace analytics endpoints.
-    chainId: 'ait-hub.aitbc.bubuit.net',
+    chainId: 'bc-2',
     // Base URL for the explorer API (proxied by nginx).
     explorerApiUrl: '/explorer-api',
 });
