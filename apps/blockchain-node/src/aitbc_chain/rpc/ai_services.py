@@ -17,7 +17,7 @@ from sqlmodel import select
 from aitbc.utils import ait_to_units
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
-from ..base_models import Transaction, address_spellings
+from ..base_models import AIJobCancellation, Transaction, address_spellings
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
@@ -70,17 +70,29 @@ class AIJobResponse(BaseModel):
     result: dict[str, Any] | None = None
 
 
-def _job_from_tx(tx: Transaction) -> dict[str, Any]:
+def _cancelled_job_ids(session) -> set[str]:
+    """Job ids cancelled on this host via the ai_job_cancellation service table.
+
+    The sealed ``transaction`` row is never rewritten for a cancel
+    (AI-CANCEL-SEALED-TX-1); the mark lives in this per-node service table and
+    read paths overlay ``status="cancelled"`` from it.
+    """
+    return {r.job_id for r in session.exec(select(AIJobCancellation)).all()}
+
+
+def _job_from_tx(tx: Transaction, cancelled_ids: set[str] | None = None) -> dict[str, Any]:
     """Convert a Transaction row with type='ai_job' to a job dict."""
     payload = tx.payload or {}
+    job_id = payload.get("job_id", tx.tx_hash)
+    status = "cancelled" if cancelled_ids and job_id in cancelled_ids else tx.status
     return {
-        "job_id": payload.get("job_id", tx.tx_hash),
+        "job_id": job_id,
         "wallet_address": tx.sender,
         "job_type": payload.get("job_type", "unknown"),
         "prompt": payload.get("prompt", ""),
         "payment": payload.get("payment", 0.0),
         "parameters": payload.get("parameters", {}),
-        "status": tx.status,
+        "status": status,
         "created_at": tx.created_at.isoformat() if tx.created_at else None,
         "estimated_completion": payload.get("estimated_completion"),
         "result": payload.get("result"),
@@ -178,12 +190,15 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
             if wallet_address:
                 # Verbatim column, so match every spelling of the account (V23-65).
                 stmt = stmt.where(sql_func.lower(Transaction.sender).in_(address_spellings(wallet_address)))
-            if status:
-                stmt = stmt.where(Transaction.status == status)
             stmt = stmt.order_by(Transaction.created_at.desc())  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
 
-            jobs = [_job_from_tx(tx) for tx in txs]
+            # 'cancelled' is an overlay from the service table, not the stored
+            # status — the status filter applies to the effective value.
+            cancelled_ids = _cancelled_job_ids(session)
+            jobs = [_job_from_tx(tx, cancelled_ids) for tx in txs]
+            if status:
+                jobs = [j for j in jobs if j["status"] == status]
 
         return {
             "jobs": jobs,
@@ -210,6 +225,7 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
             # we filter in Python after fetching ai_job transactions
             stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
+            cancelled_ids = _cancelled_job_ids(session)
 
             for tx in txs:
                 payload = tx.payload or {}
@@ -217,7 +233,7 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
                 # hash; older rows carry an explicit job_id in the payload. Match
                 # the same identity _job_from_tx reports.
                 if payload.get("job_id", tx.tx_hash) == job_id:
-                    return {"job": _job_from_tx(tx), "found": True}
+                    return {"job": _job_from_tx(tx, cancelled_ids), "found": True}
 
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -239,6 +255,7 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
         with session_scope("") as session:
             stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
+            cancelled_ids = _cancelled_job_ids(session)
 
             for tx in txs:
                 payload = tx.payload or {}
@@ -246,13 +263,20 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
                 # hash; older rows carry an explicit job_id in the payload. Match
                 # the same identity _job_from_tx reports.
                 if payload.get("job_id", tx.tx_hash) == job_id:
-                    current_status = tx.status
+                    current_status = "cancelled" if job_id in cancelled_ids else tx.status
                     if current_status in ["completed", "cancelled"]:
                         raise HTTPException(status_code=400, detail=f"Cannot cancel job with status: {current_status}")
 
-                    tx.status = "cancelled"
-                    tx.payload = {**payload, "cancelled_at": datetime.now(UTC).isoformat()}
-                    session.add(tx)
+                    # The sealed transaction row is never rewritten
+                    # (AI-CANCEL-SEALED-TX-1): the cancel is service-table
+                    # bookkeeping on this host.
+                    session.add(
+                        AIJobCancellation(
+                            job_id=job_id,
+                            chain_id=tx.chain_id,
+                            tx_hash=tx.tx_hash,
+                        )
+                    )
                     session.commit()
 
                     return {"job_id": job_id, "status": "cancelled", "message": "AI job cancelled successfully"}
@@ -277,6 +301,7 @@ async def ai_stats() -> dict[str, Any]:
         with session_scope("") as session:
             stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
             txs = session.exec(stmt).all()
+            cancelled_ids = _cancelled_job_ids(session)
 
             total_jobs = len(txs)
             status_counts: dict[str, int] = {}
@@ -285,8 +310,9 @@ async def ai_stats() -> dict[str, Any]:
 
             for tx in txs:
                 payload = tx.payload or {}
-                # Count by status
-                status = tx.status or "unknown"
+                # Count by effective status (cancelled overlays the stored value)
+                job_id = payload.get("job_id", tx.tx_hash)
+                status = ("cancelled" if job_id in cancelled_ids else tx.status) or "unknown"
                 status_counts[status] = status_counts.get(status, 0) + 1
 
                 # Count by type
