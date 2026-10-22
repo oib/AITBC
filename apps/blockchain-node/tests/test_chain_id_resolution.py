@@ -1,6 +1,6 @@
 """RESET-W2B-1: chain-id resolution and the removed ``ait-mainnet`` fallback.
 
-The autouse conftest fixture pins ``settings.chain_id`` to ``"ait-mainnet"``
+The autouse conftest fixture pins ``settings.chain_id`` to ``"bc-2.test"``
 (an explicit test-only default), so the unset-case tests below must
 monkeypatch it back to ``""`` to simulate an unconfigured node.
 """
@@ -177,7 +177,7 @@ class TestSQLCipherGate:
         fake.paramstyle = "qmark"  # dialect reads these at engine construction
         fake.sqlite_version_info = (3, 45, 0)
         monkeypatch.setitem(sys.modules, "sqlcipher3", fake)
-        engine = get_engine("test-chain")  # not "ait-mainnet"
+        engine = get_engine("test-chain")  # not the pinned default
         assert engine.dialect.dbapi is fake
 
     def test_flag_on_missing_keyfile_unchanged(self, monkeypatch, tmp_path):
