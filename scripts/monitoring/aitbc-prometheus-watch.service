@@ -24,6 +24,7 @@ EnvironmentFile=-/etc/aitbc/prometheus-watch.env
 # knob); everything else comes from the defaults or the env file above.
 ExecStart=/opt/aitbc/venv/bin/aitbc prometheus alerts --watch --alert-log /var/log/aitbc/alerts.log
 Restart=on-failure
+OOMScoreAdjust=500
 RestartSec=10
 # Restart a hung watcher, not just a crashed one: the CLI pings WATCHDOG=1 once
 # per poll while NOTIFY_SOCKET is set, so this must stay comfortably above the
