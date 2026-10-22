@@ -90,9 +90,28 @@ class ResidueRow(NamedTuple):
     cls: str
 
 
+def _is_sqlite_db(path: str) -> bool:
+    """True for real SQLite files — zero-byte strays and non-db files that
+    land in the scan path (probe artifacts) get skipped, never opened."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(16) == b"SQLite format 3\x00"
+    except OSError:
+        return False
+
+
 def find_chain_dbs(data_dir: str) -> list[str]:
-    """Every ``data/*/chain.db`` under the data dir, sorted for determinism."""
-    return sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db")))
+    """Usable ``data/*/chain.db`` files under the data dir, sorted. Zero-byte
+    and non-sqlite glob hits are skipped with a log line — the scan is a
+    discovery path, so a stray file is noise; an explicit ``AITBC_CHAIN_DB``
+    pin still fails strict."""
+    dbs = []
+    for p in sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db"))):
+        if _is_sqlite_db(p):
+            dbs.append(p)
+        else:
+            print(f"escrow-residue: skipping non-sqlite glob hit {p}", file=sys.stderr)
+    return dbs
 
 
 def stale_residues(
@@ -216,12 +235,14 @@ def main() -> int:
     rc = 0
     for db in dbs or ["<none>"]:
         if db == "<none>":
+            print("escrow-residue: no chain.db found to read", file=sys.stderr)
             results[db] = None
             rc = 1
             continue
         rows = read_db(db, now, max_age, v3_height, dust)
         results[db] = rows
         if rows is None:
+            print(f"escrow-residue: could not read {db}", file=sys.stderr)
             rc = 1
     write_atomic(directory, render(results, now))
     return rc

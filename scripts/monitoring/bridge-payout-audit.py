@@ -31,9 +31,18 @@ SSH = ["ssh", "-o", "ConnectTimeout=8", "-o", "BatchMode=yes"]
 
 LEDGER_REMOTE = r"""
 import glob, json, sqlite3
+def _usable(p):
+    try:
+        with open(p, 'rb') as f:
+            return f.read(16) == b'SQLite format 3\x00'
+    except OSError:
+        return False
 rows = []
 for db in sorted(glob.glob('/var/lib/aitbc/**/bridge_deposits*.db', recursive=True)):
     if db.endswith('.bak'):
+        continue
+    if not _usable(db):
+        rows.append({'db': db, 'skipped': 'zero-byte or non-sqlite file'})
         continue
     try:
         con = sqlite3.connect('file:%s?mode=ro' % db, uri=True, timeout=10)
@@ -53,8 +62,18 @@ CHAIN_REMOTE = r"""
 import glob, json, sqlite3, sys
 hashes = json.loads(sys.argv[1])
 # several island dirs can coexist; the live chain db has the highest head
+def _usable(p):
+    try:
+        with open(p, 'rb') as f:
+            return f.read(16) == b'SQLite format 3\x00'
+    except OSError:
+        return False
 best, best_h = None, -1
+skipped = []
 for db in sorted(glob.glob('/var/lib/aitbc/data/*/chain.db')):
+    if not _usable(db):
+        skipped.append(db)
+        continue
     try:
         c = sqlite3.connect('file:%s?mode=ro' % db, uri=True, timeout=10)
         h = c.execute('SELECT MAX(height) FROM block').fetchone()[0]
@@ -67,7 +86,7 @@ if best is None:
     print(json.dumps({'error': 'no chain.db under /var/lib/aitbc/data'}))
     sys.exit(0)
 con = sqlite3.connect('file:%s?mode=ro' % best, uri=True, timeout=10)
-out = {'db': best, 'sealed': {}, 'pending': {}}
+out = {'db': best, 'sealed': {}, 'pending': {}, 'skipped': skipped}
 for h in hashes:
     row = con.execute('SELECT block_height FROM "transaction" WHERE tx_hash = ?', (h,)).fetchone()
     if row is None:
@@ -131,6 +150,9 @@ def main() -> int:
         n = 0
         for row in rows:
             row["host"] = name
+            if "skipped" in row:
+                print(f"  {name:<14} note: {row['db']}: skipped ({row['skipped']})", flush=True)
+                continue
             if "error" in row:
                 print(f"  {name:<14} FAIL: {row['db']}: {row['error']}", flush=True)
                 bad = 1
@@ -219,6 +241,8 @@ def main() -> int:
             sealed = out["sealed"]
             pending = set(out.get("pending", {}))
             chain_desc = f"{name}:{out['db']}"
+            for skipped_db in out.get("skipped", []):
+                print(f"  {name:<14} note: {skipped_db}: skipped (zero-byte or non-sqlite)", flush=True)
             break
         if sealed is None:
             print("  FAIL: no host could answer the chain query", flush=True)
