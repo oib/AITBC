@@ -11,7 +11,6 @@ import base64
 from typing import Any
 from uuid import uuid4
 
-import numpy as np
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -20,7 +19,22 @@ from ..services.fhe_service import EncryptedData, FHEService, FHEContext
 
 router = APIRouter(prefix="/fhe", tags=["fhe"])
 
-_service = FHEService()
+_service: FHEService | None = None
+
+
+def _get_service() -> FHEService:
+    """Construct the FHE service on first endpoint use, not at import.
+
+    ``FHEService()`` probes every provider backend (tenseal, openfhe, ...)
+    in ``__init__``; tenseal pulls in numpy, so constructing it here kept
+    ~9.4s of numpy import plus RSS on every coordinator-api start even
+    though the FHE endpoints are rarely hit.
+    """
+    global _service
+    if _service is None:
+        _service = FHEService()
+    return _service
+
 
 # In-memory registries keyed by UUID. Encrypted payloads are returned as
 # base64 so clients can store or pass them without binary transport issues.
@@ -82,7 +96,7 @@ def _from_b64(text: str) -> bytes:
 
 def _ensure_available() -> None:
     try:
-        provider = _service.get_provider()
+        provider = _get_service().get_provider()
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -121,7 +135,7 @@ async def generate_context(req: GenerateContextRequest, current_user: AuthDep) -
     """Generate a new FHE encryption context with keys."""
     _ensure_available()
     try:
-        context = _service.generate_fhe_context(
+        context = _get_service().generate_fhe_context(
             scheme=req.scheme,
             poly_modulus_degree=req.poly_modulus_degree,
             plain_modulus=req.plain_modulus,
@@ -140,9 +154,11 @@ async def encrypt_data(req: EncryptRequest, current_user: AuthDep) -> dict[str, 
     if req.context_id not in _contexts:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FHE context not found")
     context = _contexts[req.context_id]
+    import numpy as np
+
     data = np.array(req.data, dtype=np.float64)
     try:
-        encrypted = _service.encrypt_ml_data(data, context)
+        encrypted = _get_service().encrypt_ml_data(data, context)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _encrypted_response(encrypted)
@@ -156,7 +172,7 @@ async def decrypt_data(req: DecryptRequest, current_user: AuthDep) -> dict[str, 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
     encrypted = _encrypted[req.encrypted_id]
     try:
-        plaintext = _service.decrypt_ml_data(encrypted)
+        plaintext = _get_service().decrypt_ml_data(encrypted)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return {"plaintext": plaintext.tolist()}
@@ -173,7 +189,7 @@ async def homomorphic_add(req: HomomorphicOpRequest, current_user: AuthDep) -> d
     if req.encrypted_a_id not in _encrypted or req.encrypted_b_id not in _encrypted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
     try:
-        result = _service.add(_encrypted[req.encrypted_a_id], _encrypted[req.encrypted_b_id])
+        result = _get_service().add(_encrypted[req.encrypted_a_id], _encrypted[req.encrypted_b_id])
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _encrypted_response(result)
@@ -190,7 +206,7 @@ async def homomorphic_multiply(req: HomomorphicOpRequest, current_user: AuthDep)
     if req.encrypted_a_id not in _encrypted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
     try:
-        result = _service.multiply_scalar(_encrypted[req.encrypted_a_id], float(req.scalar))
+        result = _get_service().multiply_scalar(_encrypted[req.encrypted_a_id], float(req.scalar))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _encrypted_response(result)
@@ -205,7 +221,7 @@ async def encrypted_inference(req: InferenceRequest, current_user: AuthDep) -> d
     if req.encrypted_input_id not in _encrypted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Encrypted payload not found")
     try:
-        result = _service.encrypted_inference(req.model, _encrypted[req.encrypted_input_id])
+        result = _get_service().encrypted_inference(req.model, _encrypted[req.encrypted_input_id])
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _encrypted_response(result)
@@ -223,9 +239,9 @@ async def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, 
 @router.get("/health", summary="Health check")
 async def fhe_health(current_user: AuthDep) -> dict[str, Any]:
     """Check FHE service health."""
-    providers = _service.list_providers()
+    providers = _get_service().list_providers()
     try:
-        provider = _service.get_provider()
+        provider = _get_service().get_provider()
         available = provider.available
     except RuntimeError:
         available = False
