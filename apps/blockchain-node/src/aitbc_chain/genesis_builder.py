@@ -50,8 +50,9 @@ _HEX_RE = re.compile(r"(?:0x)?[0-9a-fA-F]+")
 FORBIDDEN_WRITE_PREFIXES = ("/var/lib/aitbc", "/etc/aitbc", "/root")
 
 #: Chain ids a scratch build refuses outright — the live fleet's id lives here
-#: until the shared guard module owns the canonical list.
-LIVE_CHAIN_IDS = ("ait-hub.aitbc.bubuit.net",)
+#: until the shared guard module owns the canonical list. The pre-reset id
+#: stays: its data dirs still exist as custody archives a build must not touch.
+LIVE_CHAIN_IDS = ("ait-hub.aitbc.bubuit.net", "bc-2")
 
 
 class GenesisBuildError(ValueError):
