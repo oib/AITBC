@@ -127,28 +127,23 @@ class PoolHubBlockchainClient:
         logger.info("Reward tx submitted: miner=%s, amount=%d, job=%s", miner_address, amount, job_id)
         return result
 
-    async def register_miner_on_chain(self, miner_id: str, gpu_info: dict[str, Any], address: str) -> dict[str, Any]:
-        """Register a miner on the blockchain via GPU registration endpoint.
+    async def register_miner_on_chain(self, signed_tx: dict[str, Any]) -> dict[str, Any]:
+        """Submit a miner's signed GPU_REGISTER transaction on its behalf.
+
+        The GPU register route only accepts a signed envelope (FORK-OOB-1,
+        issue #382) and pool-hub holds no miner key — signing stays with the
+        miner (``aitbc gpu onchain register`` or the gpu_service relayer on
+        the miner's own host). This method is a relay, not a second
+        registration path.
 
         Args:
-            miner_id: Miner ID
-            gpu_info: GPU specifications (model, memory, etc.)
-            address: Miner's wallet address
+            signed_tx: Signed GPU_REGISTER transaction envelope.
 
         Returns:
-            Blockchain response dict
+            Blockchain response dict (tx hash, pending status).
         """
-        registration_data = {
-            "chain_id": self._chain_id,
-            "gpu_id": miner_id,
-            "miner_id": address,
-            "model": gpu_info.get("model", "Unknown"),
-            "memory_gb": gpu_info.get("memory_gb", 0),
-            "region": gpu_info.get("region", ""),
-            "registered_by": address,
-        }
-        result = await self._rpc.register_gpu(registration_data)
-        logger.info("Miner registered on-chain: miner_id=%s, chain=%s", miner_id, self._chain_id)
+        result = await self._rpc.register_gpu(signed_tx)
+        logger.info("Miner registration submitted on-chain: chain=%s", self._chain_id)
         return result
 
     async def distribute_rewards(self, block_height: int, session: AsyncSession) -> list[dict[str, Any]]:
