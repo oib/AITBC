@@ -164,6 +164,17 @@ def test_node_5xx_falls_back_to_local_row(client, monkeypatch):
     assert _registry_row("gpu_relay_d") is not None
 
 
+def test_client_side_envelope_error_is_relayed_not_masked(client, monkeypatch):
+    """A ValueError from the client (envelope without chain_id — raised
+    before any HTTP call) is a refusal class: the envelope can never be
+    submitted, so relay 400 and write nothing instead of falling back."""
+    _stub_submit(monkeypatch, exc=ValueError("tx_data must include 'chain_id'"))
+    resp = client.post("/v1/transactions", json=_body("gpu_relay_f"))
+    assert resp.status_code == 400, resp.text
+    assert "chain_id" in resp.json()["error"]
+    assert _registry_row("gpu_relay_f") is None, "unsubmittable envelope must not leave a local row"
+
+
 def test_missing_signed_tx_refused(client, monkeypatch):
     """The legacy flat body (specs+signature, no `tx`) can never produce a
     valid tx — refuse it with a pointer instead of silently rebuilding."""
