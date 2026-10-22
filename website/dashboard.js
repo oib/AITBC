@@ -14,7 +14,7 @@
  * rejected.
  */
 
-const AITBC = window.AITBC_CONFIG || { chainId: 'ait-hub.aitbc.bubuit.net', explorerApiUrl: '/explorer-api' };
+const AITBC = window.AITBC_CONFIG || { chainId: 'bc-2', explorerApiUrl: '/explorer-api' };
 
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

@@ -132,8 +132,9 @@ def test_doubled_0x_pubkey_is_refused() -> None:
 def test_empty_allocations_and_live_chain_id_are_refused() -> None:
     with pytest.raises(GenesisBuildError, match="non-empty"):
         build_genesis_doc(chain_id=CHAIN_ID, allocations=[])
-    with pytest.raises(GenesisBuildError, match="live chain id"):
-        build_genesis_doc(chain_id="ait-hub.aitbc.bubuit.net", allocations=ALLOCS)
+    for live_id in ("ait-hub.aitbc.bubuit.net", "bc-2"):
+        with pytest.raises(GenesisBuildError, match="live chain id"):
+            build_genesis_doc(chain_id=live_id, allocations=ALLOCS)
 
 
 def test_digest_is_order_independent() -> None:
