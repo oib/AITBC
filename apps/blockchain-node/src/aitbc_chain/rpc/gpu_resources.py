@@ -2,9 +2,7 @@
 
 import logging
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Any
-from uuid import uuid4
 
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -16,27 +14,68 @@ from .router import router
 
 
 class GPURegistrationRequest(BaseModel):
-    """Request to register GPU on-chain."""
+    """Signed GPU_REGISTER envelope — kept for API shape compatibility.
 
-    gpu_id: str = Field(..., description="GPU unique identifier")
-    miner_id: str = Field(..., description="Miner/provider ID")
-    model: str = Field(..., description="GPU model (e.g., RTX 4090)")
-    memory_gb: int = Field(..., ge=0, description="GPU memory in GB")
-    cuda_version: str = Field(default="", description="CUDA version")
-    region: str = Field(default="", description="Geographic region")
-    capabilities: list[Any] = Field(default_factory=list, description="GPU capabilities")
-    price_per_hour: Decimal = Field(..., ge=0, description="Price per hour in AIT")
-    registered_by: str = Field(..., description="Wallet address of registrant")
+    The route no longer writes ``gpu_registration`` rows itself (FORK-OOB-1,
+    issue #382): a direct insert committed state on exactly the node that
+    served the call, diverging that node's side-table fingerprint at the next
+    block. Send a signed ``GPU_REGISTER`` transaction in ``tx`` instead; the
+    row appears on every node when it seals.
+    """
+
+    tx: dict[str, Any] | None = Field(default=None, description="Signed GPU_REGISTER transaction envelope")
 
 
 class GPUAllocationRequest(BaseModel):
-    """Request to allocate GPU on-chain."""
+    """Signed GPU_ALLOCATE envelope — see :class:`GPURegistrationRequest`.
 
-    gpu_id: str = Field(..., description="GPU ID to allocate")
-    client_id: str = Field(..., description="Client wallet address")
-    duration_hours: float = Field(..., ge=0, description="Allocation duration in hours")
-    total_cost: Decimal = Field(..., ge=0, description="Total cost in AIT")
-    allocated_by: str = Field(..., description="Wallet address of allocator")
+    ``allocation_id`` must be carried in the transaction payload by the
+    caller (e.g. ``alloc_<uuid>``); the route no longer generates it. It is
+    readable from the sealed transaction/row after the block commits.
+    """
+
+    tx: dict[str, Any] | None = Field(default=None, description="Signed GPU_ALLOCATE transaction envelope")
+
+
+def _require_signed_gpu_tx(body: dict[str, Any], tx_type: str) -> dict[str, Any]:
+    """Return the signed ``tx`` envelope or refuse with a 4xx.
+
+    The unsigned legacy shape (bare registration/allocation fields) is not
+    accepted: nothing unsigned may write a committed table outside a block.
+    """
+    tx = body.get("tx")
+    if not isinstance(tx, dict):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"send {{'tx': <signed {tx_type} envelope>}} — this route submits "
+                "transactions; the state row lands when the block seals "
+                "(unsigned field bodies are refused, FORK-OOB-1/#382)"
+            ),
+        )
+    if tx.get("type") != tx_type:
+        raise HTTPException(status_code=400, detail=f"tx.type must be {tx_type}")
+    if not tx.get("signature"):
+        raise HTTPException(status_code=400, detail=f"tx.signature is required for {tx_type}")
+    if not tx.get("from"):
+        raise HTTPException(status_code=400, detail=f"tx.from is required for {tx_type}")
+    return tx
+
+
+async def _submit_gpu_tx(tx: dict[str, Any], tx_type: str) -> str:
+    """Submit a signed GPU_* transaction via market admission; return its hash."""
+    from aitbc.network import SharedHttpClient
+
+    from .escrow_routes import _HUB_RPC_URL
+
+    resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=10.0)
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=400, detail=f"{tx_type} submission failed: {resp.status_code} {resp.text[:200]}")
+    result = resp.json()
+    tx_hash = result.get("transaction_hash")
+    if not tx_hash:
+        raise HTTPException(status_code=400, detail=f"{tx_type} accepted but no transaction_hash returned")
+    return str(tx_hash)
 
 
 @router.get("/gpus", summary="List all registered GPUs", tags=["gpu_resources"])
@@ -144,64 +183,31 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
     dependencies=[Depends(verify_rpc_api_key)],
 )
 async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
-    """Register GPU with immutable specs on blockchain."""
-    # Use env var or provided chain_id
+    """Submit a signed GPU_REGISTER transaction.
+
+    FORK-OOB-1/#382: this route no longer writes the ``gpu_registration``
+    row itself — a direct insert committed state on exactly the node that
+    served the call, diverging that node's committed fingerprint at the
+    next block (the escrow-phantom shape). The row lands fleet-wide when
+    the signed transaction seals.
+    """
     if chain_id is None:
         chain_id = resolve_chain_id()
 
     try:
         metrics_registry.increment("rpc_gpu_register_total")
-
-        from ..database import session_scope
-        from ..state.gpu_resources import GPURegistration
-
-        with session_scope() as session:
-            # Check if GPU already registered
-            from sqlalchemy import and_, select
-
-            result = session.execute(
-                select(GPURegistration).where(
-                    and_(
-                        GPURegistration.chain_id == chain_id,  # type: ignore[arg-type]
-                        GPURegistration.gpu_id == request.gpu_id,  # type: ignore[arg-type]
-                    )
-                )
-            )
-            existing = result.scalar_one_or_none()
-
-            if existing:
-                # Update existing registration
-                existing.model = request.model
-                existing.memory_gb = request.memory_gb
-                existing.cuda_version = request.cuda_version
-                existing.region = request.region
-                existing.capabilities = request.capabilities
-                existing.price_per_hour = request.price_per_hour
-                existing.status = "active"
-                existing.updated_at = datetime.now(UTC)
-                session.commit()
-                return {"gpu_id": request.gpu_id, "status": "updated", "message": "GPU registration updated on-chain"}
-
-            # Create new registration
-            registration = GPURegistration(
-                chain_id=chain_id,
-                gpu_id=request.gpu_id,
-                miner_id=request.miner_id,
-                model=request.model,
-                memory_gb=request.memory_gb,
-                cuda_version=request.cuda_version,
-                region=request.region,
-                capabilities=request.capabilities,
-                price_per_hour=request.price_per_hour,
-                registered_by=request.registered_by,
-                registered_at=datetime.now(UTC),
-                status="active",
-            )
-            session.add(registration)
-            session.commit()
-
-            return {"gpu_id": request.gpu_id, "status": "registered", "message": "GPU registered on-chain successfully"}
-
+        tx = _require_signed_gpu_tx(request.model_dump(), "GPU_REGISTER")
+        if tx.get("chain_id") not in (None, chain_id):
+            raise HTTPException(status_code=400, detail=f"tx.chain_id {tx['chain_id']!r} does not match {chain_id!r}")
+        tx_hash = await _submit_gpu_tx(tx, "GPU_REGISTER")
+        return {
+            "gpu_id": (tx.get("payload") or {}).get("gpu_id"),
+            "status": "submitted",
+            "tx_hash": tx_hash,
+            "message": "GPU_REGISTER accepted to mempool; the registration row lands when the block seals",
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         metrics_registry.increment("rpc_gpu_register_errors_total")
         logging.getLogger(__name__).exception("Unhandled exception")
@@ -268,43 +274,38 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     dependencies=[Depends(verify_rpc_api_key)],
 )
 async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = None) -> dict[str, Any]:
-    """Record GPU allocation on blockchain."""
-    # Use env var or provided chain_id
+    """Submit a signed GPU_ALLOCATE transaction.
+
+    Same committed-table rule as ``register_gpu`` (FORK-OOB-1/#382): the
+    ``gpu_allocation`` row lands fleet-wide when the signed transaction
+    seals. ``payload.allocation_id`` is required — the caller picks it
+    (``alloc_<uuid>`` is the existing convention) and reads it back from
+    the sealed transaction.
+    """
     if chain_id is None:
         chain_id = resolve_chain_id()
 
     try:
         metrics_registry.increment("rpc_gpu_allocate_total")
-
-        from ..database import session_scope
-        from ..state.gpu_resources import GPUAllocation
-
-        with session_scope() as session:
-            # Generate allocation ID
-            allocation_id = f"alloc_{uuid4().hex[:12]}"
-
-            # Create allocation record
-            allocation = GPUAllocation(
-                chain_id=chain_id,
-                allocation_id=allocation_id,
-                gpu_id=request.gpu_id,
-                client_id=request.client_id,
-                duration_hours=request.duration_hours,
-                total_cost=request.total_cost,
-                status="active",
-                allocated_by=request.allocated_by,
-                allocated_at=datetime.now(UTC),
+        tx = _require_signed_gpu_tx(request.model_dump(), "GPU_ALLOCATE")
+        if tx.get("chain_id") not in (None, chain_id):
+            raise HTTPException(status_code=400, detail=f"tx.chain_id {tx['chain_id']!r} does not match {chain_id!r}")
+        allocation_id = (tx.get("payload") or {}).get("allocation_id")
+        if not allocation_id:
+            raise HTTPException(
+                status_code=400,
+                detail="GPU_ALLOCATE tx.payload must carry allocation_id (caller-generated, e.g. alloc_<uuid>)",
             )
-            session.add(allocation)
-            session.commit()
-
-            return {
-                "allocation_id": allocation_id,
-                "gpu_id": request.gpu_id,
-                "status": "allocated",
-                "message": "GPU allocation recorded on-chain",
-            }
-
+        tx_hash = await _submit_gpu_tx(tx, "GPU_ALLOCATE")
+        return {
+            "allocation_id": allocation_id,
+            "gpu_id": (tx.get("payload") or {}).get("gpu_id"),
+            "status": "submitted",
+            "tx_hash": tx_hash,
+            "message": "GPU_ALLOCATE accepted to mempool; the allocation row lands when the block seals",
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         metrics_registry.increment("rpc_gpu_allocate_errors_total")
         logging.getLogger(__name__).exception("Unhandled exception")
