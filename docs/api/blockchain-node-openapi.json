@@ -10204,7 +10204,7 @@
           "gpu_resources"
         ],
         "summary": "Register GPU on-chain",
-        "description": "Register GPU with immutable specs on blockchain.",
+        "description": "Submit a signed GPU_REGISTER transaction.\n\nFORK-OOB-1/#382: this route no longer writes the ``gpu_registration``\nrow itself \u2014 a direct insert committed state on exactly the node that\nserved the call, diverging that node's committed fingerprint at the\nnext block (the escrow-phantom shape). The row lands fleet-wide when\nthe signed transaction seals.",
         "operationId": "register_gpu_rpc_gpu_register_post",
         "security": [
           {
@@ -10258,6 +10258,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "send {'tx': <signed {tx_type} envelope>} \u2014 this route submits transactions; the state row lands when the block seals (unsigned field bodies are refused, FORK-OOB-1/#382) / tx.type must be {tx_type} / tx.signature is required for {tx_type} / tx.from is required for {tx_type} / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10384,7 +10394,7 @@
           "gpu_resources"
         ],
         "summary": "Allocate GPU on-chain",
-        "description": "Record GPU allocation on blockchain.",
+        "description": "Submit a signed GPU_ALLOCATE transaction.\n\nSame committed-table rule as ``register_gpu`` (FORK-OOB-1/#382): the\n``gpu_allocation`` row lands fleet-wide when the signed transaction\nseals. ``payload.allocation_id`` is required \u2014 the caller picks it\n(``alloc_<uuid>`` is the existing convention) and reads it back from\nthe sealed transaction.",
         "operationId": "allocate_gpu_rpc_gpu_allocate_post",
         "security": [
           {
@@ -10438,6 +10448,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "send {'tx': <signed {tx_type} envelope>} \u2014 this route submits transactions; the state row lands when the block seals (unsigned field bodies are refused, FORK-OOB-1/#382) / tx.type must be {tx_type} / tx.signature is required for {tx_type} / tx.from is required for {tx_type} / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21395,7 +21415,7 @@
           "gpu_resources"
         ],
         "summary": "Register GPU on-chain",
-        "description": "Register GPU with immutable specs on blockchain.",
+        "description": "Submit a signed GPU_REGISTER transaction.\n\nFORK-OOB-1/#382: this route no longer writes the ``gpu_registration``\nrow itself \u2014 a direct insert committed state on exactly the node that\nserved the call, diverging that node's committed fingerprint at the\nnext block (the escrow-phantom shape). The row lands fleet-wide when\nthe signed transaction seals.",
         "operationId": "register_gpu_v1_gpu_register_post",
         "security": [
           {
@@ -21449,6 +21469,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "send {'tx': <signed {tx_type} envelope>} \u2014 this route submits transactions; the state row lands when the block seals (unsigned field bodies are refused, FORK-OOB-1/#382) / tx.type must be {tx_type} / tx.signature is required for {tx_type} / tx.from is required for {tx_type} / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21575,7 +21605,7 @@
           "gpu_resources"
         ],
         "summary": "Allocate GPU on-chain",
-        "description": "Record GPU allocation on blockchain.",
+        "description": "Submit a signed GPU_ALLOCATE transaction.\n\nSame committed-table rule as ``register_gpu`` (FORK-OOB-1/#382): the\n``gpu_allocation`` row lands fleet-wide when the signed transaction\nseals. ``payload.allocation_id`` is required \u2014 the caller picks it\n(``alloc_<uuid>`` is the existing convention) and reads it back from\nthe sealed transaction.",
         "operationId": "allocate_gpu_v1_gpu_allocate_post",
         "security": [
           {
@@ -21629,6 +21659,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "send {'tx': <signed {tx_type} envelope>} \u2014 this route submits transactions; the state row lands when the block seals (unsigned field bodies are refused, FORK-OOB-1/#382) / tx.type must be {tx_type} / tx.signature is required for {tx_type} / tx.from is required for {tx_type} / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -23905,125 +23945,43 @@
       },
       "GPUAllocationRequest": {
         "properties": {
-          "gpu_id": {
-            "type": "string",
-            "title": "Gpu Id",
-            "description": "GPU ID to allocate"
-          },
-          "client_id": {
-            "type": "string",
-            "title": "Client Id",
-            "description": "Client wallet address"
-          },
-          "duration_hours": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Duration Hours",
-            "description": "Allocation duration in hours"
-          },
-          "total_cost": {
+          "tx": {
             "anyOf": [
               {
-                "type": "number",
-                "minimum": 0.0
+                "additionalProperties": true,
+                "type": "object"
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "null"
               }
             ],
-            "title": "Total Cost",
-            "description": "Total cost in AIT"
-          },
-          "allocated_by": {
-            "type": "string",
-            "title": "Allocated By",
-            "description": "Wallet address of allocator"
+            "title": "Tx",
+            "description": "Signed GPU_ALLOCATE transaction envelope"
           }
         },
         "type": "object",
-        "required": [
-          "gpu_id",
-          "client_id",
-          "duration_hours",
-          "total_cost",
-          "allocated_by"
-        ],
         "title": "GPUAllocationRequest",
-        "description": "Request to allocate GPU on-chain."
+        "description": "Signed GPU_ALLOCATE envelope \u2014 see :class:`GPURegistrationRequest`.\n\n``allocation_id`` must be carried in the transaction payload by the\ncaller (e.g. ``alloc_<uuid>``); the route no longer generates it. It is\nreadable from the sealed transaction/row after the block commits."
       },
       "GPURegistrationRequest": {
         "properties": {
-          "gpu_id": {
-            "type": "string",
-            "title": "Gpu Id",
-            "description": "GPU unique identifier"
-          },
-          "miner_id": {
-            "type": "string",
-            "title": "Miner Id",
-            "description": "Miner/provider ID"
-          },
-          "model": {
-            "type": "string",
-            "title": "Model",
-            "description": "GPU model (e.g., RTX 4090)"
-          },
-          "memory_gb": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Memory Gb",
-            "description": "GPU memory in GB"
-          },
-          "cuda_version": {
-            "type": "string",
-            "title": "Cuda Version",
-            "description": "CUDA version",
-            "default": ""
-          },
-          "region": {
-            "type": "string",
-            "title": "Region",
-            "description": "Geographic region",
-            "default": ""
-          },
-          "capabilities": {
-            "items": {},
-            "type": "array",
-            "title": "Capabilities",
-            "description": "GPU capabilities"
-          },
-          "price_per_hour": {
+          "tx": {
             "anyOf": [
               {
-                "type": "number",
-                "minimum": 0.0
+                "additionalProperties": true,
+                "type": "object"
               },
               {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                "type": "null"
               }
             ],
-            "title": "Price Per Hour",
-            "description": "Price per hour in AIT"
-          },
-          "registered_by": {
-            "type": "string",
-            "title": "Registered By",
-            "description": "Wallet address of registrant"
+            "title": "Tx",
+            "description": "Signed GPU_REGISTER transaction envelope"
           }
         },
         "type": "object",
-        "required": [
-          "gpu_id",
-          "miner_id",
-          "model",
-          "memory_gb",
-          "price_per_hour",
-          "registered_by"
-        ],
         "title": "GPURegistrationRequest",
-        "description": "Request to register GPU on-chain."
+        "description": "Signed GPU_REGISTER envelope \u2014 kept for API shape compatibility.\n\nThe route no longer writes ``gpu_registration`` rows itself (FORK-OOB-1,\nissue #382): a direct insert committed state on exactly the node that\nserved the call, diverging that node's side-table fingerprint at the next\nblock. Send a signed ``GPU_REGISTER`` transaction in ``tx`` instead; the\nrow appears on every node when it seals."
       },
       "GetArbitrationVotesResponse": {
         "properties": {
