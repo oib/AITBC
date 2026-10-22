@@ -211,6 +211,10 @@ class _SnapshotSource:
                     "tx_count": b["tx_count"],
                     "state_root": b["state_root"],
                     "bridge_state_root": b["bridge_state_root"],
+                    # .get() not []: snapshots recorded before the column
+                    # existed must still serve (None == "no aux root"),
+                    # not crash the range fetch on IndexError.
+                    "aux_state_root": dict(b).get("aux_state_root"),
                     "block_metadata": b["block_metadata"],
                     "signature": b["signature"],
                     "transactions": txs_by_height.get(int(b["height"]), []),
@@ -324,10 +328,28 @@ def _seed_genesis(session: Any, chain_id: str, genesis_path: str, snapshot: _Sna
     )
     session.add(genesis)
     for alloc in allocations:
+        address = alloc["address"]
+        # init_db's ensure_bond_accounts may already have created this row
+        # (the fleet genesis.json files list both bond accounts). Inserting
+        # verbatim would collide on the primary key, so existing rows are
+        # kept — but a balance/nonce disagreement between the init-time row
+        # and the genesis allocation is real divergence and must surface.
+        existing = session.get(Account, (chain_id, address))
+        if existing is not None:
+            want = (int(alloc["balance"]), int(alloc.get("nonce", 0)))
+            if (int(existing.balance), int(existing.nonce)) != want:
+                print(
+                    f"WARNING: genesis allocation {address} "
+                    f"(balance={want[0]}, nonce={want[1]}) differs from the "
+                    f"init-seeded row (balance={existing.balance}, nonce={existing.nonce}) — "
+                    "keeping the existing row",
+                    file=sys.stderr,
+                )
+            continue
         session.add(
             Account(
                 chain_id=chain_id,
-                address=alloc["address"],
+                address=address,
                 balance=int(alloc["balance"]),
                 nonce=int(alloc.get("nonce", 0)),
             )
