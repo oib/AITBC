@@ -39,7 +39,7 @@ STATE_FILE="${STATE_FILE:-/etc/aitbc/.website-rendered.env}"
 # website.env change re-renders even when the working tree keeps the
 # previously rendered content (update.sh stash/pop preserves it across pulls).
 DEFAULT_DOMAIN="hub.aitbc.bubuit.net"
-DEFAULT_CHAIN_ID="ait-hub.aitbc.bubuit.net"
+DEFAULT_CHAIN_ID="bc-2"
 EXTRA_DOMAINS="hub.example.net"
 
 # Unlikely sentinel used to shield chain-id occurrences while the domain is
