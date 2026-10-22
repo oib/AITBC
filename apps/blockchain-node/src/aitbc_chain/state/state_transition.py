@@ -1291,6 +1291,8 @@ class StateTransition:
         tx_hash: str,
         block_version: int = 2,
         block_height: int | None = None,
+        *,
+        skip_dedup: bool = False,
     ) -> tuple[bool, str]:
         """
         Validate a transaction before applying state changes.
@@ -1321,17 +1323,23 @@ class StateTransition:
                 False,
                 f"Chain isolation violation: transaction chain_id={tx_chain_id} does not match node chain_id={chain_id}",
             )
-        if tx_hash in self._processed_tx_hashes:
-            logger.warning("Replay attack detected: Transaction %s already processed", tx_hash)
-            return (False, f"Transaction {tx_hash} already processed (replay attack)")
-        # Persistent replay protection: the in-memory set above is lost on
-        # restart; the DB unique constraint on (chain_id, tx_hash) is not.
-        persisted_tx = session.exec(
-            select(Transaction.tx_hash).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
-        ).first()
-        if persisted_tx is not None:
-            logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
-            return (False, f"Transaction {tx_hash} already processed (replay attack)")
+        # Replay protection exists to refuse a sealed tx pushed back through
+        # admission. The parent-repair path (poa.py _reapply_parent_block)
+        # re-executes exactly the rows it loaded from the transaction table —
+        # dedup would reject the very txs it is asked to re-apply, so it opts
+        # out via skip_dedup. That call site is the only one allowed to.
+        if not skip_dedup:
+            if tx_hash in self._processed_tx_hashes:
+                logger.warning("Replay attack detected: Transaction %s already processed", tx_hash)
+                return (False, f"Transaction {tx_hash} already processed (replay attack)")
+            # Persistent replay protection: the in-memory set above is lost on
+            # restart; the DB unique constraint on (chain_id, tx_hash) is not.
+            persisted_tx = session.exec(
+                select(Transaction.tx_hash).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
+            ).first()
+            if persisted_tx is not None:
+                logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
+                return (False, f"Transaction {tx_hash} already processed (replay attack)")
         sender_addr = _to_ait_address(tx_data.get("from") or "")
         recipient_addr = _to_ait_address(tx_data.get("to") or "")
         value = tx_data.get("value", 0)
@@ -1792,6 +1800,8 @@ class StateTransition:
         tx_hash: str,
         block_version: int = 2,
         block_height: int | None = None,
+        *,
+        skip_dedup: bool = False,
     ) -> tuple[bool, str]:
         """
         Apply a validated transaction to update state.
@@ -1816,7 +1826,7 @@ class StateTransition:
         """
         logger.info("apply_transaction called for tx %s, tx_data keys: %s", tx_hash, list(tx_data.keys()))
         is_valid, error_msg = self.validate_transaction(
-            session, chain_id, tx_data, tx_hash, block_version=block_version, block_height=block_height
+            session, chain_id, tx_data, tx_hash, block_version=block_version, block_height=block_height, skip_dedup=skip_dedup
         )
         if not is_valid:
             return (False, error_msg)
