@@ -337,7 +337,16 @@ class EdgeNodeRegistrationRequest(BaseModel):
     dependencies=[Depends(verify_rpc_api_key)],
 )
 async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
-    """Register an edge node on the blockchain (v0.6.6)."""
+    """Register an edge node on the blockchain (v0.6.6).
+
+    EDGE-REG-CONSENSUS-1/#361: refused while ``edge_node_registration``
+    sits in the committed table set (below v15) — the write would land on
+    exactly the node that served the call and diverge that node's
+    committed fingerprint at the next block (the 21 Oct stall at 118).
+    The check reads the version the *next* block will carry, so the guard
+    lifts itself when the v15 pin activates and the table leaves the
+    committed set — no second deploy.
+    """
     if chain_id is None:
         chain_id = resolve_chain_id()
 
@@ -348,7 +357,24 @@ async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str
         from ..state.gpu_resources import EdgeNodeRegistration
 
         with session_scope() as session:
-            from sqlalchemy import and_, select
+            from sqlalchemy import and_, func, select
+            from sqlmodel import col
+
+            from ..base_models import Block
+            from ..state.side_root_shadow import committed_tables_for_version
+            from ..state.state_transition import get_block_version_for_height
+
+            head = session.execute(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).scalar()
+            next_version = get_block_version_for_height((head or 0) + 1)
+            if "edge_node_registration" in committed_tables_for_version(next_version):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "edge node registration via RPC is disabled while "
+                        "edge_node_registration is consensus-committed; it "
+                        "returns when v15 activates (EDGE-REG-CONSENSUS-1, #361)"
+                    ),
+                )
 
             result = session.execute(
                 select(EdgeNodeRegistration).where(
@@ -392,6 +418,8 @@ async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str
                 "message": "Edge node registered on-chain successfully",
             }
 
+    except HTTPException:
+        raise
     except Exception as e:
         metrics_registry.increment("rpc_edge_register_errors_total")
         logging.getLogger(__name__).exception("Unhandled exception")

@@ -10502,7 +10502,7 @@
           "gpu_resources"
         ],
         "summary": "Register edge node on-chain",
-        "description": "Register an edge node on the blockchain (v0.6.6).",
+        "description": "Register an edge node on the blockchain (v0.6.6).\n\nEDGE-REG-CONSENSUS-1/#361: refused while ``edge_node_registration``\nsits in the committed table set (below v15) \u2014 the write would land on\nexactly the node that served the call and diverge that node's\ncommitted fingerprint at the next block (the 21 Oct stall at 118).\nThe check reads the version the *next* block will carry, so the guard\nlifts itself when the v15 pin activates and the table leaves the\ncommitted set \u2014 no second deploy.",
         "operationId": "register_edge_node_rpc_edge_register_post",
         "security": [
           {
@@ -10556,6 +10556,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "edge node registration via RPC is disabled while edge_node_registration is consensus-committed; it returns when v15 activates (EDGE-REG-CONSENSUS-1, #361)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21713,7 +21723,7 @@
           "gpu_resources"
         ],
         "summary": "Register edge node on-chain",
-        "description": "Register an edge node on the blockchain (v0.6.6).",
+        "description": "Register an edge node on the blockchain (v0.6.6).\n\nEDGE-REG-CONSENSUS-1/#361: refused while ``edge_node_registration``\nsits in the committed table set (below v15) \u2014 the write would land on\nexactly the node that served the call and diverge that node's\ncommitted fingerprint at the next block (the 21 Oct stall at 118).\nThe check reads the version the *next* block will carry, so the guard\nlifts itself when the v15 pin activates and the table leaves the\ncommitted set \u2014 no second deploy.",
         "operationId": "register_edge_node_v1_edge_register_post",
         "security": [
           {
@@ -21767,6 +21777,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "edge node registration via RPC is disabled while edge_node_registration is consensus-committed; it returns when v15 activates (EDGE-REG-CONSENSUS-1, #361)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
