@@ -79,9 +79,28 @@ class ArrivalStats(NamedTuple):
     consecutive_missed: dict[str, int]
 
 
+def _is_sqlite_db(path: str) -> bool:
+    """True for real SQLite files — zero-byte strays and non-db files that
+    land in the scan path (probe artifacts) get skipped, never opened."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(16) == b"SQLite format 3\x00"
+    except OSError:
+        return False
+
+
 def find_chain_dbs(data_dir: str) -> list[str]:
-    """Every ``data/*/chain.db`` under the data dir, sorted for determinism."""
-    return sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db")))
+    """Usable ``data/*/chain.db`` files under the data dir, sorted. Zero-byte
+    and non-sqlite glob hits are skipped with a log line — the scan is a
+    discovery path, so a stray file is noise; an explicit ``AITBC_CHAIN_DB``
+    pin still fails strict."""
+    dbs = []
+    for p in sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db"))):
+        if _is_sqlite_db(p):
+            dbs.append(p)
+        else:
+            print(f"attestation-arrival: skipping non-sqlite glob hit {p}", file=sys.stderr)
+    return dbs
 
 
 def _attesting_validators(block_metadata: object) -> set[str]:
@@ -274,12 +293,14 @@ def main() -> int:
     rc = 0
     for db in dbs or ["<none>"]:
         if db == "<none>":
+            print("attestation-arrival: no chain.db found to read", file=sys.stderr)
             results[db] = None
             rc = 1
             continue
         stats = read_db(db, window, validators)
         results[db] = stats
         if stats is None:
+            print(f"attestation-arrival: could not read {db}", file=sys.stderr)
             rc = 1
     write_atomic(directory, render(results, now))
     return rc

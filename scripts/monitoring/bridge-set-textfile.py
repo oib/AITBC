@@ -124,10 +124,28 @@ def _parse_ts(raw: str) -> float | None:
     return dt.timestamp()
 
 
+def _is_sqlite_db(path: str) -> bool:
+    """True for real SQLite files — zero-byte strays and non-db files that
+    land in the scan path (probe artifacts) get skipped, never opened."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(16) == b"SQLite format 3\x00"
+    except OSError:
+        return False
+
+
 def find_dbs(explicit: str | None, data_dir: str) -> list[str]:
+    """Explicit pin returns strict (bad file -> same failure as always); the
+    scan path skips zero-byte and non-sqlite glob hits with a log line."""
     if explicit:
         return [explicit]
-    return sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db")))
+    dbs = []
+    for p in sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db"))):
+        if _is_sqlite_db(p):
+            dbs.append(p)
+        else:
+            print(f"bridge-set: skipping non-sqlite glob hit {p}", file=sys.stderr)
+    return dbs
 
 
 def render(results: list[Result], consensus: set[str], threshold: int, grace: int, now: float) -> str:
@@ -215,6 +233,8 @@ def main(argv: list[str] | None = None) -> int:
 
     text = render(results, consensus, threshold, grace, now)
     write_atomic(textfile_dir, text)
+    if not results:
+        print("bridge-set: no readable chain.db", file=sys.stderr)
     return 0 if results else 1
 
 

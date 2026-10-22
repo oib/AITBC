@@ -391,10 +391,12 @@ class TestMain:
         assert 'db="' + str(db1) + '"' in text and 'db="' + str(db2) + '"' in text
 
     def test_failed_db_exits_1_but_still_writes(self, tmp_path, monkeypatch):
+        # strict failure now lives on the explicit pin: a non-sqlite file in the
+        # scan path is skipped (MON-DB-GLOB-1), but a pinned path must fail.
         db = tmp_path / "data" / "bad" / "chain.db"
         db.parent.mkdir(parents=True)
         db.write_text("not sqlite")
-        self._env(monkeypatch, tmp_path, db_path=None)
+        self._env(monkeypatch, tmp_path, db_path=str(db))
         assert exporter.main() == 1
         text = (tmp_path / "out" / exporter.OUTPUT_NAME).read_text()
         assert 'aitbc_escrow_settlement_scrape_success{db="' + str(db) + '"} 0' in text
