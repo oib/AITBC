@@ -14,8 +14,6 @@ from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Any
 
-import numpy as np
-
 
 @dataclass
 class TEEBenchmarkResult:
@@ -82,6 +80,13 @@ class TEEBenchmark:
         # Avoid division by zero for instantaneous runs.
         ops_per_sec = 1000.0 / avg if avg > 0 else 0.0
         peak_memory = max(r.memory_bytes for r in self.results)
+        # numpy is imported lazily: this module is pulled in by
+        # ``aitbc.tee.__init__`` at coordinator-api startup, and a
+        # top-level numpy import cost ~9.4s of import time plus its RSS
+        # for a percentile call that runs only when a benchmark asks for
+        # a summary.
+        import numpy as np
+
         p50, p95, p99 = np.percentile(latencies, [50, 95, 99]).tolist()
         return {
             "count": float(len(self.results)),

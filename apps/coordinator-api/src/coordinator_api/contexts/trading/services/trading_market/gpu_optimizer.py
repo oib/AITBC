@@ -12,27 +12,45 @@ from uuid import uuid4
 
 from aitbc.aitbc_logging import get_logger
 
-try:
-    import pycuda.driver as cuda
+_cuda: Any = None
+_cuda_checked = False
 
-    cuda.init()
-    import pycuda.autoinit  # noqa: F401
-    from pycuda.compiler import SourceModule  # noqa: F401
+logger = get_logger(__name__)
 
-    CUDA_AVAILABLE = True
-except (ImportError, Exception) as e:
-    CUDA_AVAILABLE = False
-    logger = get_logger(__name__)
-    logger.debug(
-        "PyCUDA not available or no CUDA-capable device detected: %s. GPU optimization will run in simulation mode", e
-    )
+
+def _ensure_cuda() -> Any:
+    """Import and initialise PyCUDA on first GPU use, not at module import.
+
+    This module sits in coordinator-api's startup import graph, where the
+    top-level ``import pycuda.driver`` pulled numpy in transitively (~9.4s
+    of import time plus RSS) and ran ``cuda.init()`` — a real driver call —
+    on every service start, GPU or not. First call performs the same
+    import+init; the result is memoised for later calls.
+    """
+    global _cuda, _cuda_checked
+    if not _cuda_checked:
+        _cuda_checked = True
+        try:
+            import pycuda.driver as cuda
+
+            cuda.init()
+            import pycuda.autoinit  # noqa: F401
+            from pycuda.compiler import SourceModule  # noqa: F401
+
+            _cuda = cuda
+        except Exception as e:
+            logger.debug(
+                "PyCUDA not available or no CUDA-capable device detected: %s. GPU optimization will run in simulation mode",
+                e,
+            )
+    return _cuda
 
 
 class MarketGPUOptimizer:
     """Optimizes GPU resources for market AI power trading"""
 
-    def __init__(self, simulation_mode: bool = not CUDA_AVAILABLE):
-        self.simulation_mode = simulation_mode
+    def __init__(self, simulation_mode: bool | None = None):
+        self.simulation_mode = _ensure_cuda() is None if simulation_mode is None else simulation_mode
         self.gpu_devices: list[dict[str, Any]] = []
         self.gpu_memory_pools: dict[int, dict[str, Any]] = {}
         self.active_jobs: dict[str, dict[str, Any]] = {}
@@ -94,7 +112,10 @@ class MarketGPUOptimizer:
             ]
             logger.debug("Initialized %s simulated GPU devices", len(self.gpu_devices))
         else:
+            cuda = _ensure_cuda()
             try:
+                if cuda is None:
+                    raise RuntimeError("PyCUDA unavailable")
                 num_devices = cuda.Device.count()
                 for i in range(num_devices):
                     dev = cuda.Device(i)

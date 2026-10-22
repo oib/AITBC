@@ -8,12 +8,33 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
-
-import numpy as np
+from typing import TYPE_CHECKING, Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
+
+
+class _LazyNumpy:
+    """numpy on first attribute access, not at module import.
+
+    This module sits in coordinator-api's startup import graph, where a
+    top-level ``import numpy`` cost ~9.4s of import time plus numpy's RSS
+    on every service start. The ``np.`` call sites below stay untouched:
+    the first one triggers the real import and swaps the module into
+    ``globals()`` so later lookups are direct.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        import numpy as _np_real
+
+        globals()["np"] = _np_real
+        return getattr(_np_real, name)
+
+
+if TYPE_CHECKING:
+    import numpy as np
+else:
+    np = _LazyNumpy()
 
 logger = get_logger(__name__)
 
