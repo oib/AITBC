@@ -963,3 +963,23 @@ class IPFSSubscription(ChainBase, table=True):
     updated_tx_hash: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AIJobCancellation(ChainBase, table=True):
+    """Per-node service bookkeeping for an AI-job cancel.
+
+    Deliberately NOT the sealed ``transaction`` row: a cancel used to rewrite
+    ``tx.status``/``tx.payload`` on the serving host only, leaving the
+    canonical copy of a sealed row divergent across the fleet
+    (AI-CANCEL-SEALED-TX-1, #386). The mark lives here instead; read paths
+    overlay ``status="cancelled"`` when a row for the job exists. The table
+    is in no committed fingerprint set at any version, so per-node
+    divergence is legitimate service state.
+    """
+
+    __tablename__ = "ai_job_cancellation"
+
+    job_id: str = Field(primary_key=True)
+    chain_id: str = Field(index=True)
+    tx_hash: str = Field(index=True)
+    cancelled_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

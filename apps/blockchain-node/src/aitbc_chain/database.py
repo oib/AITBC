@@ -22,6 +22,7 @@ from aitbc.aitbc_logging import get_logger
 # package owns has to be imported here, or `create_all` below silently skips it.
 from .base_models import (  # noqa: F401
     Account,
+    AIJobCancellation,
     Block,
     Bond,
     Escrow,
