@@ -35,7 +35,7 @@ from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import escrow_fee_sweep_total, escrow_settlement_refused_total
-from ..models import Account, Escrow
+from ..models import Escrow
 
 from .utils import _unsigned_tx_fields
 
@@ -1426,11 +1426,6 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     # ``_reconstruct_escrow_from_chain`` — the funds are never orphaned.
     try:
         with session_scope() as session:
-            for addr in (buyer, provider):
-                ait_addr = _to_canonical(addr)
-                account = session.get(Account, (_chain_id(), ait_addr))
-                if account is None:
-                    session.add(Account(chain_id=_chain_id(), address=ait_addr, balance=0, nonce=0))
             existing = session.get(Escrow, job_id)
             if existing:
                 existing.status = "locked"
