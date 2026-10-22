@@ -19,7 +19,6 @@ from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
-from aitbc.utils.units import DEFAULT_TX_FEE_UNITS  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -39,6 +38,25 @@ _rpc_client = BlockchainRPCClient(
     rpc_url=settings.blockchain_rpc_url,
     api_key=settings.blockchain_rpc_api_key,
 )
+
+
+def _admission_refusal(exc: Exception) -> tuple[int, Any] | None:
+    """Return ``(status, detail)`` when `exc` carries a 4xx HTTP response — the node
+    heard the transaction and refused it. 5xx and transport failures
+    (connect/timeout, no response) return None so the caller may fall back to
+    local storage; an admission refusal must never be masked as a local write
+    (GPU-RELAYER-1, #385).
+    """
+    response = getattr(exc, "response", None)
+    if response is None or getattr(response, "status_code", None) is None:
+        return None
+    if 400 <= response.status_code < 500:
+        try:
+            detail: Any = response.json()
+        except Exception:
+            detail = response.text
+        return response.status_code, detail
+    return None
 
 
 # Map GPURegistry status strings to OfferStatus for FSM validation
@@ -431,79 +449,52 @@ async def submit_transaction(
     try:
         if action == "offer":
             gpu_specs = transaction_data.get("specs", {})
-            provider_address = transaction_data.get("provider_address", "")
-            logger.info("GPU registration request for %s from %s", gpu_specs.get("model", "Unknown"), provider_address)
-            cuda_cores = gpu_specs.get("cuda_cores", 0)
-            if cuda_cores is None:
-                cuda_cores = 0
-            blockchain_tx = {
-                "from": provider_address,
-                "to": "0x0000000000000000000000000000000000000000",
-                "amount": 0,
-                "fee": DEFAULT_TX_FEE_UNITS,
-                "nonce": 0,
-                "type": "GPU_REGISTER",
-                "value": 0,
-                "chain_id": transaction_data.get("chain_id") or settings.default_chain_id,
-                "payload": {
-                    "amount": 0,
-                    "gpu_model": gpu_specs.get("model", "Unknown"),
-                    "memory_gb": gpu_specs.get("memory_gb", 0),
-                    "cuda_cores": cuda_cores,
-                    "compute_capability": gpu_specs.get("compute_capability", ""),
-                    # not-money: this payload is the signed body of a GPU_REGISTER
-                    # transaction, hashed as JSON. Decimal is not JSON-serializable and a
-                    # string would change the hash. Same boundary as PR #162.
-                    "price_per_hour": transaction_data.get("price_per_gpu", 0.0),
-                    "description": gpu_specs.get("description", ""),
-                    "miner_id": transaction_data.get("provider_node_id", "default_miner"),
-                    "provider_address": provider_address,
-                },
-                "signature": transaction_data.get("signature", "") or "",
-            }
-            logger.info("Submitting GPU_REGISTER transaction to blockchain")
-            blockchain_tx_hash = None
-            if provider_address:
-                try:
-                    # v0.6.6: use BlockchainRPCClient (chain-aware) instead of raw httpx
-                    import httpx
-
-                    async with httpx.AsyncClient(timeout=30) as client:
-                        account_info_response = await client.get(
-                            f"{settings.blockchain_rpc_url}/rpc/account/{provider_address}"
+            signed_tx = transaction_data.get("tx")
+            if not isinstance(signed_tx, dict):
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": (
+                            "signed transaction required: post {'type': 'gpu_market', 'action': 'offer', "
+                            "'tx': <signed GPU_REGISTER envelope>} — the service holds no wallet key and "
+                            "cannot rebuild or sign the envelope (GPU-RELAYER-1, #385). Build and sign "
+                            "with `aitbc gpu onchain register` on the key-owning host."
                         )
-                        account_info = account_info_response.json()
-                        correct_nonce = account_info.get("nonce", 0) if isinstance(account_info, dict) else 0
-                        blockchain_tx["nonce"] = correct_nonce
-                        logger.info("Using nonce %s for address %s", correct_nonce, provider_address)
-                    result = await _rpc_client.submit_transaction(blockchain_tx)
-                    blockchain_tx_hash = result.get("transaction_hash")
-                    if blockchain_tx_hash:
-                        logger.info("GPU registered on blockchain: %s", blockchain_tx_hash)
-                except Exception as blockchain_error:
-                    logger.warning("Blockchain submission failed, falling back to local storage: %s", blockchain_error)
-                    logger.warning("Error type: %s", type(blockchain_error))
-                    if hasattr(blockchain_error, "args"):
-                        logger.warning("Error args: %s", blockchain_error.args)
-                    if hasattr(blockchain_error, "response"):
-                        logger.warning("Response: %s", blockchain_error.response)
-                        if hasattr(blockchain_error.response, "text"):
-                            logger.warning("Response text: %s", blockchain_error.response.text)
-                    if hasattr(blockchain_error, "__str__"):
-                        logger.warning("Error string: %s", str(blockchain_error))
-            else:
-                logger.info("No provider address provided, skipping blockchain registration")
+                    },
+                )
+            payload = signed_tx.get("payload") or {}
+            logger.info(
+                "Relaying signed GPU_REGISTER for %s from %s",
+                payload.get("gpu_id") or payload.get("model", "unknown"),
+                signed_tx.get("from", ""),
+            )
+            blockchain_tx_hash = None
+            try:
+                result = await _rpc_client.submit_transaction(signed_tx)
+                blockchain_tx_hash = result.get("transaction_hash")
+                if blockchain_tx_hash:
+                    logger.info("GPU_REGISTER submitted on-chain: %s", blockchain_tx_hash)
+            except Exception as blockchain_error:
+                refusal = _admission_refusal(blockchain_error)
+                if refusal is not None:
+                    status_code, detail = refusal
+                    logger.warning("GPU_REGISTER refused at admission (%s): %s", status_code, detail)
+                    return JSONResponse(
+                        status_code=status_code,
+                        content={"error": "blockchain admission refused the signed transaction", "detail": detail},
+                    )
+                logger.warning("Blockchain submission failed (transport), falling back to local storage: %s", blockchain_error)
+            miner_id = payload.get("miner_id") or transaction_data.get("provider_node_id", "default_miner")
             gpu_data = {
-                "id": transaction_data.get("offer_id", f"gpu_{transaction_data.get('provider_node_id', 'unknown')}"),
-                "miner_id": transaction_data.get("provider_node_id", "default_miner"),
-                "model": gpu_specs.get("model", "Unknown"),
-                "memory_gb": gpu_specs.get("memory_gb", 0),
-                "price_per_hour": Decimal(str(transaction_data.get("price_per_gpu", 0))),
+                "id": transaction_data.get("offer_id") or payload.get("gpu_id") or f"gpu_{miner_id}",
+                "miner_id": miner_id,
+                "model": payload.get("model", gpu_specs.get("model", "Unknown")),
+                "memory_gb": payload.get("memory_gb", gpu_specs.get("memory_gb", 0)),
+                "price_per_hour": Decimal(str(payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0)))),
                 "status": transaction_data.get("status", "available"),
-                "region": gpu_specs.get("region", ""),
-                "capabilities": gpu_specs.get("capabilities", []),
-                "chain_id": blockchain_tx.get("chain_id", settings.default_chain_id),
-                "blockchain_tx_hash": blockchain_tx_hash,
+                "region": payload.get("region", gpu_specs.get("region", "")),
+                "capabilities": payload.get("capabilities", gpu_specs.get("capabilities", [])),
+                "chain_id": signed_tx.get("chain_id", settings.default_chain_id),
             }
             from .domain.gpu_market import GPURegistry
 
