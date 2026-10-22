@@ -123,6 +123,21 @@ class TestRequestLoggingLevels:
         assert resp.status_code == 400
         assert any(r.levelno == logging.WARNING for r in _client_errors(caplog))
 
+    def test_unknown_chain_id_is_a_clean_400(self, client):
+        """RPC-ACCT-UNKNOWN-CHAIN-1 (#375): a chain_id outside supported_chains
+        is a client error, not an unhandled engine failure — and it must never
+        reach the database layer (unknown ids could touch a stray or archived
+        chain.db on disk)."""
+        resp = client.get(f"/rpc/accounts/{_MISSING_ADDR}?chain_id=ait-hub.aitbc.bubuit.net")
+        assert resp.status_code == 400
+        assert "ait-hub.aitbc.bubuit.net" in resp.json()["detail"]
+
+    def test_known_chain_id_keeps_the_404_contract(self, client):
+        """The supported chain still answers the ordinary account miss — the
+        guard rejects unknown ids, not the known one."""
+        resp = client.get(f"/rpc/accounts/{_MISSING_ADDR}?chain_id=ait-mainnet")
+        assert resp.status_code == 404
+
     def test_pending_tx_hash_404_logs_info_not_warning(self, client, caplog):
         """A well-formed hash that is not sealed yet is the same expected
         miss shape as a missing account — the pending-tx poller's normal 404."""
