@@ -258,3 +258,41 @@ def test_failed_repair_leaves_no_pending_rows(tmp_path):
         assert _accounts(engine) == before
         sender = session.get(Account, (CHAIN, ADDR_A))
         assert sender is not None and (int(sender.balance), int(sender.nonce)) == (10**9, 1)
+
+
+def test_exception_mid_repair_releases_savepoint(tmp_path, monkeypatch):
+    """POA-SAVEPOINT-1: a bare ``begin_nested()`` leaves the savepoint open
+    when ``apply_transaction`` raises — the session then carries a nested
+    transaction into whatever the caller does next. The ``with`` form rolls
+    the savepoint back on unwind: the exception still propagates, nothing
+    is pending, and ``in_nested_transaction()`` is False afterwards."""
+    import aitbc_chain.consensus.poa as poa_mod
+
+    tx = _gpu_market_1462()
+    engine = _engine(tmp_path, "fixture.db")
+    _seed_lagging(engine)
+    parent = _parent_block(1, "0x" + "ff" * 32, [tx])
+    _record_parent(engine, parent, [tx])
+
+    class _Raising:
+        def reset_processed_cache(self):
+            pass
+
+        def apply_transaction(self, *args, **kwargs):
+            raise RuntimeError("boom mid-repair")
+
+    monkeypatch.setattr(poa_mod, "get_state_transition", lambda: _Raising())
+
+    proposer = _proposer(engine)
+    with Session(engine) as session:
+        bound = session.exec(select(Block).where(Block.chain_id == CHAIN, Block.height == 1)).one()
+        before = _accounts(engine)
+        try:
+            proposer._reapply_parent_block(session, bound)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("the mid-repair exception must propagate")
+        assert session.in_nested_transaction() is False
+        assert session.new == set() or all(not isinstance(o, Account) for o in session.new)
+        assert _accounts(engine) == before
