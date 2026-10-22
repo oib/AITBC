@@ -627,10 +627,11 @@ def check_stores(ctx: Ctx, name: str, h: dict) -> list[Result]:
     bad = []
     count_tables = "SELECT count(*) FROM sqlite_master WHERE type='table'"
     for db, want in stores.items():
+        db_path = f"{data_dir}/{db}"
         out = sh(
             ctx,
             h,
-            f"sqlite3 'file:{data_dir}/{db}?mode=ro' \"{count_tables}\"",  # nosec B608 — constant query; only the file URI interpolates
+            f"[ -f {shlex.quote(db_path)} ] && sqlite3 -readonly 'file:{db_path}?mode=ro' \"{count_tables}\"",  # nosec B608 — constant query; only the file URI interpolates
         )
         try:
             got = int((out or "").strip())
