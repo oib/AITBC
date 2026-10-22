@@ -20,7 +20,7 @@ from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
 from ...utils.error_handling import abort
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ...utils.island_credentials import load_island_credentials
+from ...utils.island_credentials import CREDENTIALS_PATH, load_island_credentials
 from ...utils.wallet_loader import find_wallet_by_address, load_wallet_for_payment
 from ...utils.wallet_paths import find_wallet_file
 
@@ -58,24 +58,44 @@ def safe_load_credentials():
 
 
 def get_chain_id() -> str:
-    """Get chain ID from island credentials, CHAIN_ID, or the configured node RPC.
+    """Get chain ID from CHAIN_ID, island credentials, or the configured node RPC.
 
     Signing callers must never sign a fabricated chain id — a wrong value
     produces a transaction no node serves. When no honest source answers,
     abort instead of guessing one from the hub's hostname.
+
+    CHAIN_ID wins: it is the deployment truth the node's own units run.
+    Credentials are a join-time cache that can go stale (a chain rebirth
+    leaves the old id behind); when the file and the env disagree the env
+    wins and the mismatch is warned about, never silent. A credentials file
+    that exists but cannot be loaded (permission guard, bad JSON) must not
+    shadow a usable CHAIN_ID either.
     """
+    creds_chain_id: str | None = None
     try:
         creds = load_island_credentials()
         # Credentials use 'island_chain_id' key
-        chain_id = creds.get("island_chain_id") or creds.get("chain_id")
-        if chain_id:
-            return str(chain_id)
+        raw = creds.get("island_chain_id") or creds.get("chain_id")
+        creds_chain_id = str(raw) if raw else None
     except (FileNotFoundError, ValueError):
         logger.debug("Island credentials not available for chain_id", exc_info=True)
+    except PermissionError:
+        logger.warning(
+            "island credentials at %s are present but unreadable (mode/owner guard) — falling through to CHAIN_ID",
+            CREDENTIALS_PATH,
+        )
 
     env_chain_id = os.getenv("CHAIN_ID")
     if env_chain_id:
+        if creds_chain_id and creds_chain_id != env_chain_id:
+            warning(
+                f"chain id mismatch: island credentials at {CREDENTIALS_PATH} say "
+                f"'{creds_chain_id}' but CHAIN_ID='{env_chain_id}' — signing for "
+                f"'{env_chain_id}'. Refresh credentials: aitbc node island join"
+            )
         return env_chain_id
+    if creds_chain_id:
+        return creds_chain_id
 
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
@@ -93,16 +113,27 @@ def get_chain_id() -> str:
 
 
 def get_island_id() -> str:
-    """Get island ID from island credentials or blockchain config for hub nodes"""
+    """Get island ID — env ISLAND_ID first, then island credentials.
+
+    Env stays authoritative (same rule as get_chain_id); a credentials file
+    carrying a different island id produces a warning, not silence.
+    """
     env_island = os.getenv("ISLAND_ID")
-    if env_island:
-        return env_island
+    creds_island: str | None = None
     try:
-        island_id = load_island_credentials().get("island_id")
-        if island_id:
-            return str(island_id)
+        raw = load_island_credentials().get("island_id")
+        creds_island = str(raw) if raw else None
     except FileNotFoundError:
         pass
+    if env_island:
+        if creds_island and creds_island != env_island:
+            warning(
+                f"island id mismatch: island credentials at {CREDENTIALS_PATH} say "
+                f"'{creds_island}' but ISLAND_ID='{env_island}' — using ISLAND_ID"
+            )
+        return env_island
+    if creds_island:
+        return creds_island
     # Hub / shop / follower nodes all publish to the hub island by default.
     return os.getenv("ISLAND_ID", "ait-hub")
 
