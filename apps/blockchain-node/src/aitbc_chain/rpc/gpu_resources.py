@@ -474,3 +474,53 @@ async def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, 
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/edge/nodes", summary="List edge node registrations", tags=["gpu_resources"])
+async def list_edge_nodes(chain_id: str | None = None) -> dict[str, Any]:
+    """List edge node registrations for the chain.
+
+    Read-only. Exists so wave-Y row B4 ("edge_node_registration has no stray
+    rows") and similar checks can count committed rows through the RPC without
+    touching the chain database file — every field returned is the public
+    registration record already produced by ``POST /rpc/edge/register``.
+    """
+    if chain_id is None:
+        chain_id = resolve_chain_id()
+
+    try:
+        metrics_registry.increment("rpc_edge_list_total")
+
+        from ..database import session_scope
+        from ..state.gpu_resources import EdgeNodeRegistration
+
+        with session_scope() as session:
+            from sqlalchemy import select
+
+            result = session.execute(
+                select(EdgeNodeRegistration).where(EdgeNodeRegistration.chain_id == chain_id)  # type: ignore[arg-type]
+            )
+            rows = result.scalars().all()
+            nodes = [
+                {
+                    "node_id": node.node_id,
+                    "endpoint": node.endpoint,
+                    "region": node.region,
+                    "gpu_count": node.gpu_count,
+                    "total_vram": node.total_vram,
+                    "capabilities": node.capabilities,
+                    "registered_by": node.registered_by,
+                    "status": node.status,
+                    "registered_at": node.registered_at.isoformat() if node.registered_at else None,
+                }
+                for node in rows
+            ]
+            return {"chain_id": chain_id, "count": len(nodes), "nodes": nodes}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        metrics_registry.increment("rpc_edge_list_errors_total")
+        logging.getLogger(__name__).exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
