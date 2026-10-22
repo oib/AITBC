@@ -121,6 +121,7 @@ def host_sh_factory(
             lambda c: "Successfully created genesis block from genesis.json\nInitializing databases for chains: ['bc-2']\n",
         ),
         ("sqlite3", lambda c: f"{store_count}\n"),
+        ("[ -f", lambda c: f"{store_count}\n"),  # guarded probe: [ -f db ] && sqlite3 -readonly … → file exists → count
     ]
 
     def sh(ssh, cmd):
@@ -278,6 +279,61 @@ def test_units_and_timers(tmp_path):
     c3 = ctx(tmp_path, host_sh=host_sh_factory(timer_active=False))
     assert pcv.check_timers(c3, "hub", c3.manifest["hosts"]["hub"])[0].ok is False
     assert pcv.check_timers(c, "i1", c.manifest["hosts"]["i1"])[0].ok is None  # none listed → SKIP
+
+
+def test_expected_inactive_units(tmp_path):
+    # OBS-PRECHECK-1: manifest expected_inactive entries that stay down pass;
+    # one that reports active fails the units-expected-inactive row.
+    c = ctx(tmp_path)
+    m = c.manifest
+    m["hosts"]["hub"]["expected_inactive"] = {"oneshot.svc": "rests inactive", "held.svc": "held for F5"}
+
+    def down_sh(ssh, cmd):
+        if "is-active" in cmd and any(u in cmd for u in ("oneshot.svc", "held.svc")):
+            return "inactive\n"
+        return host_sh_factory()(ssh, cmd)
+
+    c2 = ctx(tmp_path, host_sh=down_sh)
+    c2.manifest["hosts"]["hub"]["expected_inactive"] = m["hosts"]["hub"]["expected_inactive"]
+    rows = pcv.check_units(c2, "hub", c2.manifest["hosts"]["hub"])
+    ei = [r for r in rows if r.check == "units-expected-inactive"][0]
+    assert ei.ok is True
+
+    def up_sh(ssh, cmd):
+        if "is-active" in cmd and "held.svc" in cmd:
+            return "active\n"
+        return down_sh(ssh, cmd)
+
+    c3 = ctx(tmp_path, host_sh=up_sh)
+    c3.manifest["hosts"]["hub"]["expected_inactive"] = m["hosts"]["hub"]["expected_inactive"]
+    ei3 = [r for r in pcv.check_units(c3, "hub", c3.manifest["hosts"]["hub"]) if r.check == "units-expected-inactive"][0]
+    assert ei3.ok is False and "held.svc" in ei3.found
+
+
+def test_stores_probe_is_guarded_readonly(tmp_path):
+    # OBS-PRECHECK-1: the stores probe must never invoke sqlite3 on a path
+    # that might not exist — sqlite3 auto-creates a zero-byte file. The
+    # command carries a [ -f ] existence guard plus -readonly + mode=ro.
+    seen = []
+
+    def spy_sh(ssh, cmd):
+        seen.append(cmd)
+        if "sqlite3" in cmd:
+            assert cmd.startswith("[ -f"), f"unguarded probe: {cmd}"
+            assert "-readonly" in cmd and "mode=ro" in cmd
+            return "3\n"  # file exists → table count
+        return host_sh_factory()(ssh, cmd)
+
+    c = ctx(tmp_path, host_sh=spy_sh)
+    rows = pcv.check_stores(c, "hub", c.manifest["hosts"]["hub"])
+    assert rows[0].ok is True
+    assert any("sqlite3" in cmd for cmd in seen)
+
+    # missing file: the [ -f ] guard short-circuits to empty output → -1 row,
+    # sqlite3 never runs — nothing is created on the measured host.
+    c2 = ctx(tmp_path, host_sh=lambda ssh, cmd: "" if "sqlite3" in cmd or "[ -f" in cmd else host_sh_factory()(ssh, cmd))
+    rows2 = pcv.check_stores(c2, "hub", c2.manifest["hosts"]["hub"])
+    assert rows2[0].ok is False and "-1" in rows2[0].found
 
 
 def test_journal(tmp_path):

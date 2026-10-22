@@ -566,6 +566,23 @@ def check_units(ctx: Ctx, name: str, h: dict) -> list[Result]:
             f"inactive={bad or 'none'} stale={stale or 'none'}",
         )
     )
+    expected_inactive = h.get("expected_inactive") or {}
+    if expected_inactive:
+        up = []
+        for u in expected_inactive:
+            out = sh(ctx, h, f"systemctl is-active {shlex.quote(u)}")
+            if (out or "").strip() == "active":
+                up.append(u)
+        rows.append(
+            Result(
+                "units-expected-inactive",
+                name,
+                "STOP",
+                not up,
+                f"{len(expected_inactive)} units expected inactive (oneshot/held)",
+                f"unexpectedly-active={up or 'none'}",
+            )
+        )
     return rows
 
 
