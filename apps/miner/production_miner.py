@@ -129,7 +129,15 @@ def publish_default_offers(ollama_models: list[str]) -> None:
     active offer already exists, so this can be called every refresh cycle
     without creating duplicate listings.
     """
+    published_tx = False
     for offer in DEFAULT_SOFTWARE_OFFERS:
+        if published_tx:
+            logger.info(
+                "Deferring default offer %s/%s to next cycle (one nonce per cycle)",
+                offer["service_type"],
+                offer["model"],
+            )
+            continue
         if offer["service_type"] == "ollama" and offer["model"] not in ollama_models:
             logger.info("Skipping default offer for Ollama model %s (not available)", offer["model"])
             continue
@@ -161,6 +169,7 @@ def publish_default_offers(ollama_models: list[str]) -> None:
                     logger.info("Default offer unchanged: %s/%s", offer["service_type"], offer["model"])
                 else:
                     logger.info("Published default offer: %s/%s", offer["service_type"], offer["model"])
+                    published_tx = True
             else:
                 logger.warning(
                     "Default offer %s/%s failed (rc=%s): stderr=%s stdout=%s",
