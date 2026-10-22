@@ -18,6 +18,7 @@ Environment="IPFS_BIN=/usr/local/bin/ipfs"
 WorkingDirectory=/opt/aitbc/apps/ipfs
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ipfs/ipfs-daemon.py daemon --enable-gc
 Restart=on-failure
+OOMScoreAdjust=300
 RestartSec=10
 # Same wrapper shape as aitbc-island-ipfs, where this was observed: systemd
 # signals the whole cgroup on stop/restart, so the Python wrapper sees its own

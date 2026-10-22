@@ -18,7 +18,8 @@ Environment=MARKET_BIND_HOST=127.0.0.1
 Environment=MARKET_BIND_PORT=8102
 ExecStart=/opt/aitbc/venv/bin/python -m market_service.main
 Restart=on-failure
-RestartSec=5
+OOMScoreAdjust=400
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-market

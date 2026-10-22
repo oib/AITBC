@@ -39,7 +39,8 @@ KillMode=mixed
 KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=on-failure
-RestartSec=5
+OOMScoreAdjust=-300
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-coordinator-api
@@ -48,6 +49,7 @@ LogsDirectory=aitbc
 # Note: ProtectSystem=no removed for service user compatibility
 # Database writes handled through proper file permissions
 # Memory limits
+MemoryHigh=819M
 MemoryMax=1G
 # Security hardening (v0.5.0)
 PrivateTmp=yes

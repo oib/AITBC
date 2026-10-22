@@ -24,10 +24,12 @@ Environment=HERMES_BIND_HOST=127.0.0.1
 ExecStartPre=+/usr/bin/install -d -o aitbc-hermes -g aitbc-hermes -m 0755 /var/log/aitbc/hermes-agent
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/hermes_agent/main.py
 Restart=on-failure
-RestartSec=5
+OOMScoreAdjust=300
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-hermes-agent
+MemoryHigh=1638M
 MemoryMax=2G
 # Security hardening (v0.5.0)
 PrivateTmp=yes
