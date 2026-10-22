@@ -171,10 +171,10 @@ Retrieve network configuration for joining the island. The node derives the publ
 ```json
 {
   "node_id": "node-...",
-  "chain_id": "ait-localnet",
-  "island_id": "ait-localnet-island",
+  "chain_id": "bc-2",
+  "island_id": "bc-2-island",
   "network_type": "open_island",
-  "supported_chains": ["ait-localnet"],
+  "supported_chains": ["bc-2"],
   "is_hub": true,
   "role": "hub",
   "public_rpc_url": "https://hub.example.net/rpc",
