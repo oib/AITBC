@@ -17,7 +17,7 @@ from ..logger import get_logger
 from ..aux_state import serialize_aux_rows
 from ..base_models import ChainParameter, ChainParameterHistory
 from ..models import Account, Block, Transaction
-from .utils import get_chain_id
+from .utils import get_chain_id, validate_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
 
 _logger = get_logger(__name__)
@@ -27,6 +27,8 @@ _logger = get_logger(__name__)
 async def get_account(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
+    if not validate_chain_id(chain_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported chain_id: {chain_id}")
     evm_addr = canonical_address(address)
     if not evm_addr.startswith("0x"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account address")
