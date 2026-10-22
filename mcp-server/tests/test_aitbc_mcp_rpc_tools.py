@@ -276,3 +276,32 @@ def test_cross_chain_tools_require_confirmation():
         )
     )
     assert result["error"] == "Confirmation required"
+
+
+def test_register_gpu_forwards_signed_envelope():
+    """FORK-OOB-1/#382: the route takes only a signed ``tx`` envelope; the
+    tool is a pure relay (the MCP server holds no wallet)."""
+    captured = _capture_write_body()
+    envelope = {
+        "type": "GPU_REGISTER",
+        "from": "0x" + "aa" * 20,
+        "signature": "0x" + "ee" * 65,
+        "payload": {"gpu_id": "gpu-1"},
+    }
+    result = json.loads(rpc_tools.register_gpu(tx=envelope, dry_run=False, confirm=True, host="node.test"))
+    assert captured["path"] == "gpu/register"
+    assert captured["body"] == {"tx": envelope}
+    assert "ok" in str(result)
+
+
+def test_allocate_gpu_forwards_signed_envelope():
+    captured = _capture_write_body()
+    envelope = {
+        "type": "GPU_ALLOCATE",
+        "from": "0x" + "aa" * 20,
+        "signature": "0x" + "ee" * 65,
+        "payload": {"gpu_id": "gpu-1", "allocation_id": "alloc_1"},
+    }
+    rpc_tools.allocate_gpu(tx=envelope, dry_run=False, confirm=True, host="node.test")
+    assert captured["path"] == "gpu/allocate"
+    assert captured["body"] == {"tx": envelope}

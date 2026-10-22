@@ -1104,46 +1104,16 @@ def create_market_listing(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def register_gpu(
-    gpu_id: Annotated[
-        str,
-        Field(description="GPU unique identifier."),
+    tx: Annotated[
+        dict[str, Any],
+        Field(
+            description=(
+                "Signed GPU_REGISTER transaction envelope. The MCP server holds no wallet; "
+                "produce the envelope with `aitbc gpu onchain register` (wallet-signed CLI) "
+                "or the gpu_service relayer on the host that owns the key."
+            )
+        ),
     ],
-    miner_id: Annotated[
-        str,
-        Field(description="Miner/provider ID."),
-    ],
-    model: Annotated[
-        str,
-        Field(description="GPU model."),
-    ],
-    memory_gb: Annotated[
-        int,
-        Field(description="GPU memory in GB.", ge=0),
-    ],
-    price_per_hour: Annotated[
-        Decimal,
-        Field(description="Price per hour in AIT.", ge=0),
-    ],
-    registered_by: Annotated[
-        str,
-        Field(description="Wallet address of registrant."),
-    ],
-    cuda_version: Annotated[
-        str | None,
-        Field(description="CUDA version."),
-    ] = None,
-    region: Annotated[
-        str | None,
-        Field(description="Geographic region."),
-    ] = None,
-    capabilities: Annotated[
-        list[str] | None,
-        Field(description="GPU capabilities, e.g. ['inference']"),
-    ] = None,
-    chain_id: Annotated[
-        str | None,
-        Field(description="Chain ID override."),
-    ] = None,
     dry_run: Annotated[
         bool,
         Field(description="Show the command without executing it."),
@@ -1161,47 +1131,21 @@ def register_gpu(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Register a GPU on the blockchain."""
-    body: dict[str, Any] = {
-        "gpu_id": gpu_id,
-        "miner_id": miner_id,
-        "model": model,
-        "memory_gb": memory_gb,
-        "price_per_hour": str(price_per_hour),
-        "registered_by": registered_by,
-    }
-    if cuda_version is not None:
-        body["cuda_version"] = cuda_version
-    if region is not None:
-        body["region"] = region
-    if capabilities is not None:
-        body["capabilities"] = capabilities
-    if chain_id is not None:
-        body["chain_id"] = chain_id
-    return _http_write_tool(role, host, "blockchain-rpc", "gpu/register", body, dry_run, confirm, auth="rpc")
+    """Submit a signed GPU_REGISTER transaction; the registration row lands when it seals."""
+    return _http_write_tool(role, host, "blockchain-rpc", "gpu/register", {"tx": tx}, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def allocate_gpu(
-    gpu_id: Annotated[
-        str,
-        Field(description="GPU ID to allocate."),
-    ],
-    client_id: Annotated[
-        str,
-        Field(description="Client wallet address."),
-    ],
-    duration_hours: Annotated[
-        float,
-        Field(description="Allocation duration in hours.", ge=0),
-    ],
-    total_cost: Annotated[
-        Decimal,
-        Field(description="Total cost in AIT.", ge=0),
-    ],
-    allocated_by: Annotated[
-        str,
-        Field(description="Wallet address of allocator."),
+    tx: Annotated[
+        dict[str, Any],
+        Field(
+            description=(
+                "Signed GPU_ALLOCATE transaction envelope (payload must carry allocation_id). "
+                "The MCP server holds no wallet; produce the envelope with "
+                "`aitbc gpu onchain allocate` or the gpu_service relayer on the owning host."
+            )
+        ),
     ],
     dry_run: Annotated[
         bool,
@@ -1220,15 +1164,8 @@ def allocate_gpu(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Allocate a GPU on the blockchain."""
-    body = {
-        "gpu_id": gpu_id,
-        "client_id": client_id,
-        "duration_hours": duration_hours,
-        "total_cost": str(total_cost),
-        "allocated_by": allocated_by,
-    }
-    return _http_write_tool(role, host, "blockchain-rpc", "gpu/allocate", body, dry_run, confirm, auth="rpc")
+    """Submit a signed GPU_ALLOCATE transaction; the allocation row lands when it seals."""
+    return _http_write_tool(role, host, "blockchain-rpc", "gpu/allocate", {"tx": tx}, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
