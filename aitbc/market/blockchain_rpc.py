@@ -246,26 +246,26 @@ class BlockchainRPCClient:
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())
 
-    async def register_gpu(self, registration_data: dict[str, Any]) -> dict[str, Any]:
-        """Register a GPU on the blockchain.
+    async def register_gpu(self, signed_tx: dict[str, Any]) -> dict[str, Any]:
+        """Submit a signed GPU_REGISTER transaction via POST /rpc/gpu/register.
 
-        Calls POST /rpc/gpu/register. The registration_data must include ``chain_id``.
+        The route only accepts a signed envelope (FORK-OOB-1, issue #382); this
+        client is a relay and never sees a key. Produce the envelope with the
+        wallet-signed path (``aitbc gpu onchain register`` or the gpu_service
+        relayer) on the host that owns the key.
         """
-        if not registration_data.get("chain_id"):
-            raise ValueError("registration_data must include 'chain_id'")
         async with self._client() as client:
-            resp = await client.post(f"{self._rpc_url}/rpc/gpu/register", json=registration_data)
+            resp = await client.post(f"{self._rpc_url}/rpc/gpu/register", json={"tx": signed_tx})
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())
 
-    async def allocate_gpu(self, allocation_data: dict[str, Any]) -> dict[str, Any]:
-        """Allocate a GPU on the blockchain (record a booking).
+    async def allocate_gpu(self, signed_tx: dict[str, Any]) -> dict[str, Any]:
+        """Submit a signed GPU_ALLOCATE transaction via POST /rpc/gpu/allocate.
 
-        Calls POST /rpc/gpu/allocate. The allocation_data must include ``chain_id``.
+        Same signed-envelope contract as :meth:`register_gpu`; the payload must
+        carry ``allocation_id`` (caller-generated, e.g. ``alloc_<uuid>``).
         """
-        if not allocation_data.get("chain_id"):
-            raise ValueError("allocation_data must include 'chain_id'")
         async with self._client() as client:
-            resp = await client.post(f"{self._rpc_url}/rpc/gpu/allocate", json=allocation_data)
+            resp = await client.post(f"{self._rpc_url}/rpc/gpu/allocate", json={"tx": signed_tx})
             resp.raise_for_status()
             return cast(dict[str, Any], resp.json())

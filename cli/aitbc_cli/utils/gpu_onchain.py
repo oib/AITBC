@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 from typing import Any
+from uuid import uuid4
 
 from aitbc.crypto.crypto import sign_transaction_hash
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
@@ -143,11 +144,13 @@ def submit_gpu_allocate(
     password_stdin: bool = False,
 ) -> dict[str, Any]:
     """Build, sign and submit a GPU_ALLOCATE transaction."""
+    allocation_id = f"alloc_{uuid4().hex[:12]}"
     payload = {
         "gpu_id": gpu_id,
         "client_id": client_id,
         "duration_hours": duration_hours,
         "total_cost": str(total_cost),
+        "allocation_id": allocation_id,
     }
     tx, private_key = _build_gpu_tx(
         ctx,
@@ -162,7 +165,9 @@ def submit_gpu_allocate(
         password_stdin=password_stdin,
     )
     tx["signature"] = _sign_tx(tx, private_key)
-    return _submit_signed_tx(rpc_url, tx)
+    result = _submit_signed_tx(rpc_url, tx)
+    result.setdefault("allocation_id", allocation_id)
+    return result
 
 
 def submit_gpu_deregister(
