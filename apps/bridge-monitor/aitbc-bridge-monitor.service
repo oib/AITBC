@@ -18,7 +18,8 @@ EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=/etc/aitbc/aitbc-bridge-monitor.env
 ExecStart=/opt/aitbc/venv/bin/python -m bridge_monitor.main
 Restart=on-failure
-RestartSec=5
+OOMScoreAdjust=400
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 # Security hardening (v0.5.0)

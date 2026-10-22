@@ -19,7 +19,8 @@ Environment="AITBC_WALLET_DIR=/var/lib/aitbc/wallets"
 EnvironmentFile=/etc/aitbc/%N.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/miner/production_miner.py
 Restart=on-failure
-RestartSec=5
+OOMScoreAdjust=300
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-miner

@@ -22,6 +22,7 @@ EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=/etc/aitbc/%N.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py
 Restart=on-failure
+OOMScoreAdjust=-900
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
