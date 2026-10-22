@@ -28,6 +28,7 @@ KillMode=mixed
 TimeoutStopSec=10
 # Production reliability
 Restart=on-failure
+OOMScoreAdjust=-900
 RestartSec=5
 # Production logging
 StandardOutput=journal
@@ -39,6 +40,7 @@ NoNewPrivileges=yes
 # Production performance
 LimitNOFILE=65536
 LimitNPROC=4096
+MemoryHigh=1638M
 MemoryMax=2G
 CPUQuota=50%
 # Security hardening (v0.5.0)

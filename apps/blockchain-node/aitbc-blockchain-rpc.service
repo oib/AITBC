@@ -28,6 +28,7 @@ Environment=AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false
 Environment=enable_block_production=false
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host ${RPC_BIND_HOST} --port ${RPC_BIND_PORT} --workers 1 --timeout-keep-alive 30 --timeout-graceful-shutdown 15 --limit-concurrency 1000 --backlog 2048 --log-level critical --no-access-log --proxy-headers
 Restart=on-failure
+OOMScoreAdjust=-900
 RestartSec=5
 # Graceful shutdown should finish quickly now that the gossip backend polls
 # Redis with a short timeout and app.py enforces a shutdown deadline.
@@ -37,6 +38,7 @@ KillMode=mixed
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=BlockchainRPC
+MemoryHigh=410M
 MemoryMax=512M
 # Security hardening (v0.5.0)
 PrivateTmp=yes
