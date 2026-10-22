@@ -647,19 +647,19 @@ class BlockImportMixin(SyncBase):
                     int(tx_data.get("fee", 0) or 0)
                     tx_hash = tx_data.get("tx_hash", "")
                     raw_from = tx_data.get("from", "")
-                    raw_to = tx_data.get("to", "")
                     if raw_from not in {"bridge_release", "bridge_refund"}:
                         sender_acct = session.get(Account, (self._chain_id, sender_addr))
                         if sender_acct is None and block_version >= 2:
                             sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
                             session.add(sender_acct)
                             session.flush()
-                    if raw_to != "bridge_lock":
-                        recipient_acct = session.get(Account, (self._chain_id, recipient_addr))
-                        if recipient_acct is None and block_version >= 2:
-                            recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
-                            session.add(recipient_acct)
-                            session.flush()
+                    # Do not create the recipient account here, matching the
+                    # proposer (poa.py): apply_transaction ensures the recipient
+                    # itself on the paths that credit it. Pre-creating left a
+                    # phantom row for zero-value types (GPU_MARKET offers carry
+                    # to=0x0000…0000), so the importer computed a state root the
+                    # committed header never had — every validator rejected the
+                    # block (bc-2 fork at height 1462).
                     # Bump tx_data nonce/value to the live account state before
                     # applying, mirroring the block producer.  Blocks may contain
                     # multiple same-sender transactions that share the stored nonce
