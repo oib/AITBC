@@ -638,75 +638,77 @@ class PoAProposer:
             return False
         # Re-apply under a savepoint: a failed repair must not leave flushed
         # rows in the session — a caller that continues with this session
-        # would otherwise commit a half-repaired state.
-        repair = session.begin_nested()
-        for tx_rec in tx_recs:
-            sender = _to_ait_address(tx_rec.sender or "")
-            recipient = _to_ait_address(tx_rec.recipient or "")
-            if sender:
-                _ensure_account(session, chain_id, sender)
-            # Do not create the recipient account here, matching the import
-            # path (sync_block_import) and the build path below:
-            # apply_transaction ensures the recipient itself on the paths
-            # that credit it. Pre-creating added a phantom leaf for
-            # zero-value types (GPU_MARKET offers carry to=0x0000…0000), so
-            # a parent carrying that shape could never recompute to its own
-            # recorded root — repair always failed on it (bc-2 fork at 1462).
-            env = tx_rec.envelope if isinstance(tx_rec.envelope, dict) else None
-            if env:
-                # Re-apply the signed original: rebuilding from row columns
-                # drops the signature, which the v9 apply gate rejects.
-                tx_data = dict(env)
-                tx_data["tx_hash"] = tx_rec.tx_hash
-                if "amount" in tx_data:
-                    tx_data["value"] = tx_data["amount"]
-                tx_data.setdefault("signature", "")
-            else:
-                tx_data = {
-                    "from": sender,
-                    "to": recipient,
-                    "amount": tx_rec.value,
-                    "value": tx_rec.value,
-                    "fee": tx_rec.fee,
-                    "nonce": tx_rec.nonce,
-                    "type": (tx_rec.type or "TRANSFER").upper(),
-                    "payload": tx_rec.payload or {},
-                    "signature": "",
-                }
-            block_version = get_block_version(parent, parent.height)
-            # skip_dedup: these txs are already recorded in the transaction
-            # table — that is where we loaded them from — so the admission
-            # replay check would reject the re-apply it exists to perform.
-            success, msg = state_transition.apply_transaction(
-                session,
-                chain_id,
-                tx_data,
-                tx_rec.tx_hash,
-                block_version=block_version,
-                block_height=parent.height,
-                skip_dedup=True,
-            )
-            if not success:
-                self._logger.error(
-                    "[PROPOSE] Failed to re-apply parent tx %s at height %s: %s",
+        # would otherwise commit a half-repaired state. The `with` form also
+        # covers an exception mid-loop: a bare begin_nested() would leave the
+        # savepoint open. Failure exits still roll back explicitly — a clean
+        # `with` exit would release the savepoint over half-applied work.
+        with session.begin_nested() as repair:
+            for tx_rec in tx_recs:
+                sender = _to_ait_address(tx_rec.sender or "")
+                recipient = _to_ait_address(tx_rec.recipient or "")
+                if sender:
+                    _ensure_account(session, chain_id, sender)
+                # Do not create the recipient account here, matching the import
+                # path (sync_block_import) and the build path below:
+                # apply_transaction ensures the recipient itself on the paths
+                # that credit it. Pre-creating added a phantom leaf for
+                # zero-value types (GPU_MARKET offers carry to=0x0000…0000), so
+                # a parent carrying that shape could never recompute to its own
+                # recorded root — repair always failed on it (bc-2 fork at 1462).
+                env = tx_rec.envelope if isinstance(tx_rec.envelope, dict) else None
+                if env:
+                    # Re-apply the signed original: rebuilding from row columns
+                    # drops the signature, which the v9 apply gate rejects.
+                    tx_data = dict(env)
+                    tx_data["tx_hash"] = tx_rec.tx_hash
+                    if "amount" in tx_data:
+                        tx_data["value"] = tx_data["amount"]
+                    tx_data.setdefault("signature", "")
+                else:
+                    tx_data = {
+                        "from": sender,
+                        "to": recipient,
+                        "amount": tx_rec.value,
+                        "value": tx_rec.value,
+                        "fee": tx_rec.fee,
+                        "nonce": tx_rec.nonce,
+                        "type": (tx_rec.type or "TRANSFER").upper(),
+                        "payload": tx_rec.payload or {},
+                        "signature": "",
+                    }
+                block_version = get_block_version(parent, parent.height)
+                # skip_dedup: these txs are already recorded in the transaction
+                # table — that is where we loaded them from — so the admission
+                # replay check would reject the re-apply it exists to perform.
+                success, msg = state_transition.apply_transaction(
+                    session,
+                    chain_id,
+                    tx_data,
                     tx_rec.tx_hash,
+                    block_version=block_version,
+                    block_height=parent.height,
+                    skip_dedup=True,
+                )
+                if not success:
+                    self._logger.error(
+                        "[PROPOSE] Failed to re-apply parent tx %s at height %s: %s",
+                        tx_rec.tx_hash,
+                        parent.height,
+                        msg,
+                    )
+                    repair.rollback()
+                    return False
+            session.flush()
+            recomputed = _compute_state_root(session, chain_id)
+            if recomputed != parent.state_root:
+                self._logger.error(
+                    "[PROPOSE] Parent block %s state still mismatched after re-apply: expected %s, got %s",
                     parent.height,
-                    msg,
+                    parent.state_root,
+                    recomputed,
                 )
                 repair.rollback()
                 return False
-        session.flush()
-        recomputed = _compute_state_root(session, chain_id)
-        if recomputed != parent.state_root:
-            self._logger.error(
-                "[PROPOSE] Parent block %s state still mismatched after re-apply: expected %s, got %s",
-                parent.height,
-                parent.state_root,
-                recomputed,
-            )
-            repair.rollback()
-            return False
-        repair.commit()
         self._logger.info(
             "[PROPOSE] Re-applied parent block %s; local state now matches %s",
             parent.height,
