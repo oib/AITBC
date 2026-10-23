@@ -12,6 +12,8 @@ Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/u
 # Optional per-node tuning without editing this unit -- the env keys feed the
 # watcher's click envvars (missing file is fine, "-" prefix):
 #   AITBC_WATCH_INTERVAL=15            poll interval; keep WatchdogSec >= 5x this
+#                                      (15x5=75 is the floor; 300 below is the
+#                                      margin for a saturated box)
 #   AITBC_WATCH_NOTIFY_URL="..."       space-separated webhook URLs
 #   AITBC_WATCH_NOTIFY_MIN_SEVERITY=.. push floor: info|warning|critical; lower
 #                                      severities stay in the alert log for the
@@ -26,10 +28,15 @@ ExecStart=/opt/aitbc/venv/bin/aitbc prometheus alerts --watch --alert-log /var/l
 Restart=on-failure
 OOMScoreAdjust=500
 RestartSec=10
-# Restart a hung watcher, not just a crashed one: the CLI pings WATCHDOG=1 once
-# per poll while NOTIFY_SOCKET is set, so this must stay comfortably above the
-# poll interval (>= 5x).
-WatchdogSec=75
+# Restart a hung watcher, not just a crashed one: the CLI pings WATCHDOG=1 at
+# the top of each poll, after the Prometheus query, and after every notify
+# attempt while NOTIFY_SOCKET is set, so a slow-but-alive iteration stays fed.
+# 75s proved too tight -- during the 22 Oct OOM pressure a single iteration
+# (query + notify retries) outlasted it and systemd killed the watcher with
+# SIGABRT 21 times. A genuinely hung process still gets caught: worst case is
+# WatchdogSec plus the longest bounded step (~60s notify budget), i.e. a hang
+# is detected within ~6 minutes.
+WatchdogSec=300
 
 # Hardening
 NoNewPrivileges=true
