@@ -65,6 +65,7 @@ import json
 import shlex
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -190,7 +191,30 @@ def sh(ctx: Ctx, hspec: dict, cmd: str) -> str | None:
 
 
 def hget(ctx: Ctx, hspec: dict, path: str) -> tuple[int, dict]:
-    return ctx.http_get(hspec["rpc"].rstrip("/") + path)
+    return _get(ctx, hspec["rpc"].rstrip("/") + path)
+
+
+def _get(ctx: Ctx, url: str) -> tuple[int, dict]:
+    """ctx.http_get with bounded retry on transport failures only.
+
+    ``code == -1`` means the request never got an HTTP answer — timeout,
+    refused, or a dropped leg. node1's reads go through ``ssh node1
+    curl`` (AllowTcpForwarding no) and stall under load; a short backoff
+    absorbs that without masking definitive answers: real status codes,
+    even 5xx, return on the first attempt. Tunables:
+    expected.http_attempts (default 3), expected.http_retry_backoff_s
+    (default 0.4, doubled per retry).
+    """
+    exp = ctx.manifest.get("expected") or {}
+    attempts = max(1, int(exp.get("http_attempts", 3)))
+    backoff = float(exp.get("http_retry_backoff_s", 0.4))
+    code, body = ctx.http_get(url)
+    for i in range(attempts - 1):
+        if code != -1:
+            break
+        time.sleep(backoff * (2**i))
+        code, body = ctx.http_get(url)
+    return code, body
 
 
 # --- HTTP checks ----------------------------------------------------------
@@ -548,7 +572,7 @@ def check_pages(ctx: Ctx) -> list[Result]:
             url = h.get(key)
             if not url:
                 continue
-            code, body = ctx.http_get(url)
+            code, body = _get(ctx, url)
             text = json.dumps(body)[:400] if isinstance(body, (dict, list)) else str(body)[:400]
             rows.append(Result(chk, name, "INVESTIGATE", code == 200, "200 + bc-2 visible", f"{code} {cid in text}"))
     if not rows:
@@ -560,7 +584,7 @@ def check_alerts(ctx: Ctx) -> list[Result]:
     prom = ctx.manifest.get("prom_url")
     if not prom:
         return [Result("alerts-quiet", "fleet", "NOTE", None, "prom_url in manifest", "not configured")]
-    code, body = ctx.http_get(prom.rstrip("/") + "/api/v1/alerts")
+    code, body = _get(ctx, prom.rstrip("/") + "/api/v1/alerts")
     if code != 200:
         return [Result("alerts-quiet", "fleet", "INVESTIGATE", False, "200", str(code))]
     firing = [a["labels"]["alertname"] for a in body.get("data", {}).get("alerts", []) if a.get("state") == "firing"]

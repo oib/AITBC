@@ -552,3 +552,92 @@ def test_result_line_public(tmp_path):
     for r in rows:
         line = r.line()
         assert "PRIVATE" not in line and "KEY" not in line.upper() or "peer_keys" in line
+
+
+# --- LATE-23OCT: bounded retries on transport failures (node1 ssh-curl) --
+
+
+def _retry_manifest(tmp_path: Path, attempts: int | None = None) -> dict:
+    m = manifest(tmp_path)
+    m["expected"]["http_retry_backoff_s"] = 0
+    if attempts is not None:
+        m["expected"]["http_attempts"] = attempts
+    return m
+
+
+def test_http_get_retries_transport_failure(tmp_path):
+    """-1 (no HTTP answer) retries until a real answer arrives."""
+    calls = {"n": 0}
+    good = http_get_factory()
+
+    def flaky(url: str, timeout: int = 5):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            return -1, {"error": "ssh: connection timed out"}
+        return good(url, timeout)
+
+    c = pcv.Ctx(
+        manifest=_retry_manifest(tmp_path),
+        http_get=flaky,
+        http_post=lambda u, b, timeout=5: (503, {}),
+        host_sh=host_sh_factory(),
+    )
+    rows = pcv.check_heads(c)
+    assert all(r.ok for r in rows)
+    assert calls["n"] > 1  # retried, then served
+
+
+def test_http_get_no_retry_on_definitive_code(tmp_path):
+    """A real HTTP status (even an error) is returned on the first try."""
+    calls = {"n": 0}
+
+    def gone(url: str, timeout: int = 5):
+        calls["n"] += 1
+        return 404, {}
+
+    c = pcv.Ctx(
+        manifest=_retry_manifest(tmp_path),
+        http_get=gone,
+        http_post=lambda u, b, timeout=5: (503, {}),
+        host_sh=host_sh_factory(),
+    )
+    pcv.check_heads(c)
+    assert calls["n"] == 2  # one call per host, zero retries
+
+
+def test_http_get_retry_exhaustion_still_reports(tmp_path):
+    """Persistent -1 exhausts attempts and still yields a failing row."""
+    calls = {"n": 0}
+
+    def dead(url: str, timeout: int = 5):
+        calls["n"] += 1
+        return -1, {"error": "timeout"}
+
+    m = _retry_manifest(tmp_path, attempts=3)
+    c = pcv.Ctx(
+        manifest=m,
+        http_get=dead,
+        http_post=lambda u, b, timeout=5: (503, {}),
+        host_sh=host_sh_factory(),
+    )
+    rows = [r for r in pcv.check_heads(c) if r.check == "head-equality"]
+    assert rows and rows[0].ok is False
+    assert calls["n"] == 2 * 3  # 2 hosts x 3 attempts
+
+
+def test_http_get_attempts_one_disables_retry(tmp_path):
+    calls = {"n": 0}
+
+    def dead(url: str, timeout: int = 5):
+        calls["n"] += 1
+        return -1, {"error": "timeout"}
+
+    m = _retry_manifest(tmp_path, attempts=1)
+    c = pcv.Ctx(
+        manifest=m,
+        http_get=dead,
+        http_post=lambda u, b, timeout=5: (503, {}),
+        host_sh=host_sh_factory(),
+    )
+    pcv.check_heads(c)
+    assert calls["n"] == 2  # 2 hosts, no retries
