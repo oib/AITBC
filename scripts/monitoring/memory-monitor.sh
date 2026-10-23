@@ -192,12 +192,19 @@ check_oom_events() {
         [ "$scope" != "root" ] && sdir="$CGROUP_ROOT/$scope"
         local sevents="$sdir/memory.events"
         [ -r "$sevents" ] || continue
-        local sk
+        local sk sm
         sk=$(awk '/^oom_kill /{print $2}' "$sevents" 2>/dev/null)
+        sm=$(awk '/^max /{print $2}' "$sevents" 2>/dev/null)
         [[ "$sk" =~ ^[0-9]+$ ]] || continue
         scope_found=1
         scope_report="$scope_report $scope=$sk"
         metrics="${metrics}aitbc_cgroup_oom_kill_total{cgroup=\"$scope\"} $sk
+"
+        # The `max` field counts times the scope's usage reached its
+        # memory.max wall -- the synchronous-reclaim signature that climbs
+        # before any kill (hub's root counter has risen since the cap went
+        # in; per-unit log warnings alone left no scrapeable series).
+        [[ "$sm" =~ ^[0-9]+$ ]] && metrics="${metrics}aitbc_cgroup_memory_max_events{cgroup=\"$scope\"} $sm
 "
     done
 
@@ -239,6 +246,8 @@ check_oom_events() {
                 echo "# TYPE aitbc_cgroup_memory_peak_bytes gauge"
                 echo "# HELP aitbc_cgroup_memory_max_bytes Root cgroup memory.max; +Inf when uncapped."
                 echo "# TYPE aitbc_cgroup_memory_max_bytes gauge"
+                echo "# HELP aitbc_cgroup_memory_max_events Cumulative count of times a scope cgroup (root/slice) hit its memory.max limit, from memory.events."
+                echo "# TYPE aitbc_cgroup_memory_max_events gauge"
                 printf '%s' "$metrics"
             } > "$tmp"
             chmod 644 "$tmp" 2>/dev/null || true
