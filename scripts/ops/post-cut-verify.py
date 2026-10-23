@@ -838,6 +838,34 @@ def check_stores(ctx: Ctx, name: str, h: dict) -> list[Result]:
 # --- runner ----------------------------------------------------------------
 
 
+def _apply_overrides(h: dict, produced: list[Result]) -> list[Result]:
+    """Honor per-host ``check_overrides`` manifest entries.
+
+    ``check_overrides.<check-name>.skip: true`` replaces the check's
+    results with a SKIP row carrying ``reason`` — used for checks that
+    can never pass again (e.g. journal-evidence after journald rotates
+    past the genesis window) so the gate stops reporting them as FAIL.
+    """
+    overrides = h.get("check_overrides") or {}
+    out: list[Result] = []
+    for r in produced:
+        ov = overrides.get(r.check) or {}
+        if ov.get("skip"):
+            out.append(
+                Result(
+                    r.check,
+                    r.host,
+                    r.severity,
+                    None,
+                    "check_overrides.skip",
+                    ov.get("reason", "skipped by manifest"),
+                )
+            )
+        else:
+            out.append(r)
+    return out
+
+
 def per_host_env_checks(ctx: Ctx) -> list[Result]:
     rows: list[Result] = []
     for name, h in ctx.manifest["hosts"].items():
@@ -850,8 +878,8 @@ def per_host_env_checks(ctx: Ctx) -> list[Result]:
             check_timers,
             check_stores,
         ):
-            rows.extend(fn(ctx, name, h))
-        rows.extend(check_proposer_route(ctx, name, h))
+            rows.extend(_apply_overrides(h, fn(ctx, name, h)))
+        rows.extend(_apply_overrides(h, check_proposer_route(ctx, name, h)))
     return rows
 
 

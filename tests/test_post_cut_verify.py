@@ -641,3 +641,17 @@ def test_http_get_attempts_one_disables_retry(tmp_path):
     )
     pcv.check_heads(c)
     assert calls["n"] == 2  # 2 hosts, no retries
+def test_check_overrides_skip(tmp_path):
+    c = ctx(tmp_path)
+    h = dict(c.manifest["hosts"]["hub"])
+    h["check_overrides"] = {"journal-evidence": {"skip": True, "reason": "journal rotated"}}
+    rows = pcv._apply_overrides(h, pcv.check_journal(c, "hub", h))
+    assert len(rows) == 1 and rows[0].ok is None and "journal rotated" in rows[0].found
+
+
+def test_check_overrides_untouched(tmp_path):
+    c = ctx(tmp_path)
+    h = dict(c.manifest["hosts"]["hub"])
+    h["check_overrides"] = {"other-check": {"skip": True}}
+    rows = pcv._apply_overrides(h, pcv.check_journal(c, "hub", h))
+    assert rows[0].check == "journal-evidence" and rows[0].ok is not None
