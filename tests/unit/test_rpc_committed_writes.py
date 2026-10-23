@@ -185,20 +185,20 @@ def _scan_rpc() -> list[tuple[str, int, str, str]]:
 # entry is a known residual hazard tracked for its own remediation row;
 # any site not listed here fails the test.
 #
-#   gpu_resources register/allocate/edge-register — parallel local writes
-#     beside the apply-path tx types (edge: the only writer, de-committed
+#   gpu_resources register/allocate writers — REMOVED: gpu_registration
+#     session.add + attr-mutation and gpu_allocation session.add moved to
+#     the out-of-band writer route by 8bd0fa619 and 6e0f3c341 (FORK-OOB-1,
+#     #382); only the edge_node_registration writer remains (de-committed
 #     at v15 but still a hazard for every v14 block until activation)
-#   escrow_routes :1433 — zero-balance account stub on POST /escrow/create
+#   escrow_routes account stub — REMOVED: the :1433 zero-balance account
+#     write on POST /escrow/create is gone (8bd0fa619); the remaining
+#     session.add calls touch escrow rows, not the account table
 #   sync.py import path — full-chain import replaces account/chain_parameter*
 #     (deletes + the insert loop; maintenance path, admin-only; documented
 #     in the v3 design doc)
 _ALLOWED: set[tuple[str, str, str]] = {
-    ("rpc/gpu_resources.py", "gpu_registration", "session.add"),
-    ("rpc/gpu_resources.py", "gpu_registration", "attr-mutation"),
-    ("rpc/gpu_resources.py", "gpu_allocation", "session.add"),
     ("rpc/gpu_resources.py", "edge_node_registration", "session.add"),
     ("rpc/gpu_resources.py", "edge_node_registration", "attr-mutation"),
-    ("rpc/escrow_routes.py", "account", "session.add"),
     ("rpc/sync.py", "account", "sql.delete"),
     ("rpc/sync.py", "account", "session.add"),
     ("rpc/sync.py", "chain_parameter", "sql.delete"),
