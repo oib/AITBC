@@ -1184,7 +1184,14 @@ async def withdrawal_monitor_loop() -> None:
         try:
             summary = await poll_withdrawals_once()
             if not summary.get("skipped"):
-                logger.info("Withdrawal poll completed: %s", summary)
+                # INFO on activity (a recorded row or any outcome bucket),
+                # DEBUG on a routine empty sweep — see bridge_monitor.py.
+                quiet_keys = {"scanned", "recorded", "skipped", "duplicate", "still_open", "reason"}
+                did_work = summary.get("recorded", 0) > 0 or any(
+                    count for key, count in summary.items() if key not in quiet_keys
+                )
+                log = logger.info if did_work else logger.debug
+                log("Withdrawal poll completed: %s", summary)
         except Exception as e:
             logger.error("Error in withdrawal monitor loop: %s", e)
 
