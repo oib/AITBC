@@ -15,7 +15,6 @@ EnvironmentFile=/etc/aitbc/%N.env
 Environment=GPU_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python -m gpu_service.main
 Restart=on-failure
-OOMScoreAdjust=300
 RestartSec=10
 StandardOutput=journal
 StandardError=journal

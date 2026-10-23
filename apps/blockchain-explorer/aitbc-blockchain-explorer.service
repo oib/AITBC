@@ -19,7 +19,6 @@ EnvironmentFile=-/etc/aitbc/node.env
 Environment=EXPLORER_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-explorer/main.py
 Restart=on-failure
-OOMScoreAdjust=500
 RestartSec=10
 StandardOutput=journal
 StandardError=journal

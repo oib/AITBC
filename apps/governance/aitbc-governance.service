@@ -16,7 +16,6 @@ EnvironmentFile=/etc/aitbc/%N.env
 Environment=GOVERNANCE_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python -m governance_service.main
 Restart=on-failure
-OOMScoreAdjust=300
 RestartSec=10
 StandardOutput=journal
 StandardError=journal

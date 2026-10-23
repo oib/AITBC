@@ -23,7 +23,6 @@ KillMode=mixed
 TimeoutStopSec=10
 # Production reliability
 Restart=on-failure
-OOMScoreAdjust=400
 RestartSec=10
 # Production logging
 StandardOutput=journal
