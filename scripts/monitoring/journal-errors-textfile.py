@@ -161,22 +161,10 @@ def collect(window: str) -> tuple[Counter[tuple[int, str]], bool]:
             continue
         unit = _LABEL_SAFE.sub("_", entry_unit(record))[:80]
         counts[(1 if is_error else 0, unit)] += 1
-    ok = real_status["rc"] == 0 or text_status["rc"] == 0 or any_rows or _journald_reachable()
+    # success means a query actually returned rows or exited 0 — a reachable
+    # journald with both queries failed is a blind scan, not a clean one.
+    ok = real_status["rc"] == 0 or text_status["rc"] == 0 or any_rows
     return counts, ok
-
-
-def _journald_reachable() -> bool:
-    """True when journalctl can read the system journal (empty is still fine)."""
-    try:
-        out = subprocess.run(
-            ["journalctl", "--system", "-n", "1", "-o", "json", "--no-pager", "-q"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return out.returncode == 0 and bool(out.stdout.strip())
 
 
 def render(counts: Counter[tuple[int, str]], now: float, ok: bool) -> str:
