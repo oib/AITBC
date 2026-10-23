@@ -12,7 +12,6 @@ Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/ap
 Environment=API_GATEWAY_BIND_HOST=0.0.0.0
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn api_gateway.main:app --host ${API_GATEWAY_BIND_HOST} --port 8201 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --no-access-log --log-level critical
 Restart=on-failure
-OOMScoreAdjust=300
 RestartSec=10
 # Security hardening (v0.5.0)
 PrivateTmp=yes

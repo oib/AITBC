@@ -27,7 +27,6 @@ EnvironmentFile=-/etc/aitbc/%N.env
 WorkingDirectory=/opt/aitbc/apps/ipfs
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ipfs/island_ipfs_daemon.py
 Restart=on-failure
-OOMScoreAdjust=300
 RestartSec=10
 # systemd signals the whole cgroup on stop/restart, so the Python wrapper sees
 # its own SIGTERM race Kubo's and exits 255 (EXCEPTION). The exit is clean --

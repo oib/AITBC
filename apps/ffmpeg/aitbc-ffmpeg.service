@@ -19,7 +19,6 @@ Environment=FFMPEG_HW_ACCEL=cuda
 Environment=FFMPEG_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ffmpeg/main.py
 Restart=on-failure
-OOMScoreAdjust=300
 RestartSec=10
 StandardOutput=journal
 StandardError=journal

@@ -23,7 +23,6 @@ KillMode=mixed
 TimeoutStopSec=5
 PrivateTmp=yes
 Restart=on-failure
-OOMScoreAdjust=-300
 RestartSec=10
 StartLimitInterval=60
 StartLimitBurst=3
