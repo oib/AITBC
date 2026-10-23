@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -199,6 +200,76 @@ class TestRunRemoteTargetVisibility:
         assert result["target"] == "root@hub.aitbc"
         assert result["mode"] == "ssh"
         assert result["returncode"] == -1
+
+
+class TestSshMux:
+    """Connection-reuse options in _ssh_opts / _run_remote (SSH-MUX-1)."""
+
+    def test_mux_opts_default_on(self, monkeypatch):
+        """Default: ControlMaster=auto + ControlPersist + ControlPath are added."""
+        monkeypatch.delenv("AITBC_SSH_MUX", raising=False)
+        opts = mcp_server._ssh_opts("hub.aitbc")
+        assert "ControlMaster=auto" in opts
+        assert f"ControlPersist={mcp_server.SSH_MUX_PERSIST}" in opts
+        control_path = next(opt for opt in opts if opt.startswith("ControlPath="))
+        assert ".ssh" in control_path
+        assert "%C" in control_path
+
+    def test_mux_opts_disabled_by_env(self, monkeypatch):
+        """AITBC_SSH_MUX=0 removes every Control* option."""
+        monkeypatch.setenv("AITBC_SSH_MUX", "0")
+        opts = mcp_server._ssh_opts("hub.aitbc")
+        assert not any(opt.startswith("Control") for opt in opts)
+
+    def test_mux_opts_reach_run_remote_argv(self, monkeypatch):
+        server = _load_isolated_server()
+        monkeypatch.delenv("AITBC_SSH_MUX", raising=False)
+        run = mock.Mock(return_value=_completed(stdout="{}"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=False),
+            mock.patch.object(server, "_ssh_target", return_value="root@hub.aitbc"),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            server._run_remote("hub.aitbc", "true")
+        argv = run.call_args[0][0]
+        assert "ControlMaster=auto" in argv
+
+    def test_mux_opts_absent_in_run_remote_argv_when_off(self, monkeypatch):
+        server = _load_isolated_server()
+        monkeypatch.setenv("AITBC_SSH_MUX", "0")
+        run = mock.Mock(return_value=_completed(stdout="{}"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=False),
+            mock.patch.object(server, "_ssh_target", return_value="root@hub.aitbc"),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            server._run_remote("hub.aitbc", "true")
+        argv = run.call_args[0][0]
+        assert not any(arg.startswith("Control") for arg in argv)
+
+    def test_fake_ssh_records_mux_args(self, monkeypatch, tmp_path):
+        """End-to-end through a real spawn: a fake `ssh` on PATH logs its argv."""
+        log = tmp_path / "ssh-argv.log"
+        fake_ssh = tmp_path / "ssh"
+        fake_ssh.write_text('#!/bin/sh\nfor a in "$@"; do printf \'%s\\n\' "$a" >> "$FAKE_SSH_LOG"; done\nexit 0\n')
+        fake_ssh.chmod(0o755)
+        monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+        monkeypatch.setenv("FAKE_SSH_LOG", str(log))
+        monkeypatch.delenv("AITBC_SSH_MUX", raising=False)
+        server = _load_isolated_server()
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=False),
+            mock.patch.object(server, "_ssh_target", return_value="root@hub.aitbc"),
+        ):
+            first = server._run_remote("hub.aitbc", "true")
+            second = server._run_remote("hub.aitbc", "true")
+        assert first["returncode"] == 0 and second["returncode"] == 0
+        args = log.read_text().splitlines()
+        assert "ControlMaster=auto" in args
+        # Both calls to the same target name the same control socket, which is
+        # what lets the second call share the first call's connection.
+        control_paths = [a for a in args if a.startswith("ControlPath=")]
+        assert len(control_paths) == 2 and control_paths[0] == control_paths[1]
 
 
 class TestDryRunTargetVisibility:
