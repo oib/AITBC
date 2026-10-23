@@ -1574,3 +1574,37 @@ tests:
             exp_annotations:
               summary: "chain-head metric missing on localhost:8202"
               description: "localhost:8202 answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height, so ChainHeadStalled cannot see a stall there. Check for 'messaging metrics: collect failed' in the rpc journal and that the metrics endpoint still serves the messaging family."
+
+  # MEMMON-ROOT-OOM-1: the scope-level oom_kill counter is cumulative since
+  # boot, so the proof is two-part -- a step in the series fires, and the
+  # known pre-existing count (hub's 18 from the 22 Oct incident) stays
+  # silent because increase() only sees the delta.
+  - interval: 1m
+    input_series:
+      # Flat at the pre-existing 18 for 10m, then one new kill at t=11m.
+      - series: 'aitbc_cgroup_oom_kill_total{cgroup="root", instance="hub:9100", job="node"}'
+        values: '18x10 19x10'
+      # A second scope whose counter never moves must not alert at all --
+      # this is the "does not fire on the existing count" half of the proof.
+      - series: 'aitbc_cgroup_oom_kill_total{cgroup="user.slice", instance="hub:9100", job="node"}'
+        values: '15x20'
+
+    alert_rule_test:
+      # Inside the 15m increase() window before the step: both flat.
+      - eval_time: 9m
+        alertname: CgroupOomKill
+        exp_alerts: []
+
+      # After the step: the root series fires with its cgroup label;
+      # user.slice's never-moving counter still does not.
+      - eval_time: 12m
+        alertname: CgroupOomKill
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              cgroup: root
+              instance: hub:9100
+              job: node
+            exp_annotations:
+              summary: "New OOM kill in cgroup root (hub:9100)"
+              description: "aitbc_cgroup_oom_kill_total for cgroup root increased over the last 15m on hub:9100 — the kernel killed a process in that scope. A root or slice-scope kill is enforced by the container/systemd limit, not the unit's own MemoryMax, so per-unit memory.events stays at 0: check memory-monitor.log and journalctl -k/systemctl --failed for the victim."

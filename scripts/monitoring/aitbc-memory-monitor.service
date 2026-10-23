@@ -9,8 +9,11 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
 ExecStart=/opt/aitbc/scripts/monitoring/memory-monitor.sh
-# Exits 1 when a service is over its memory threshold or an OOM kill is found.
+# Exits 1 when a service is over its memory threshold or an OOM kill is found
+# -- per-unit counters plus the root/user.slice/system.slice scope counters
+# (MEMMON-ROOT-OOM-1: scope-level kills were invisible to the per-unit scan).
 SyslogIdentifier=aitbc-memory-monitor
 
 # Hardening
@@ -28,7 +31,7 @@ LockPersonality=true
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 ProtectKernelTunables=true
-ReadWritePaths=/var/log/aitbc
+ReadWritePaths=/var/log/aitbc /var/lib/prometheus/node-exporter
 
 # Deliberately no [Install] section. This is a oneshot activated by
 # aitbc-memory-monitor.timer, so the timer is the unit that belongs in the boot
