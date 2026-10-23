@@ -554,7 +554,11 @@ async def monitor_loop() -> None:
         try:
             summary = await poll_once()
             if not summary.get("skipped"):
-                logger.info("Bridge poll completed: %s", summary)
+                # Empty polls are routine — ~99% of volume per B6's count.
+                # Deposits/releases still surface at INFO; the rest demote
+                # to DEBUG so journal stays a signal channel.
+                log = logger.info if summary.get("recorded", 0) > 0 else logger.debug
+                log("Bridge poll completed: %s", summary)
         except Exception as e:
             logger.error("Error in monitor loop: %s", e)
 
