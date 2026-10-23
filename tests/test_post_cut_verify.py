@@ -378,6 +378,141 @@ def test_full_run_exit(tmp_path):
     assert pcv.worst(pcv.run(c2)) == 1
 
 
+# --- SOAK-GATE-WINDOW-1: windowed validator coverage + head progression --
+#
+# The 23 Oct hub series is the failure shape this row exists for: hub
+# (`0xAa`) was dark 07:28-09:42 — 10 proposals against ~34 expected and a
+# ~135-block silent run — while the other three validators rotated through
+# the window. The gate must fail hub's coverage row on that series and
+# pass a healthy rotation.
+
+
+BASE_HEAD = 5
+WINDOW_HEAD = 141  # baseline 5 + 136 blocks, mirroring the outage window
+
+
+def _series(proposers: list[str], base: int = BASE_HEAD) -> list[dict]:
+    return [{"height": base + i + 1, "proposer": p} for i, p in enumerate(proposers)]
+
+
+def _outage_series() -> list[dict]:
+    """The 23 Oct shape: hub proposes its first 10, then goes dark for the
+    remaining ~126 blocks while hub1/node1/node2 rotate."""
+    props = [VALS[0]] * 10 + [VALS[1 + (i % 3)] for i in range(126)]
+    return _series(props)
+
+
+def _blocks_get(blocks: list[dict], head_h: int = WINDOW_HEAD):
+    base_get = http_get_factory(head_h=head_h)
+
+    def get(url: str, timeout: int = 5):
+        if "/rpc/blocks-range?" in url:
+            return 200, {"success": True, "blocks": blocks, "count": len(blocks)}
+        return base_get(url, timeout)
+
+    return get
+
+
+def _gate_ctx(tmp_path: Path, blocks: list[dict], head_h: int = WINDOW_HEAD, heads=None) -> pcv.Ctx:
+    m = manifest(tmp_path)
+    m["expected"]["baseline_head_height"] = BASE_HEAD
+    c = ctx(tmp_path, manifest_over={"expected": m["expected"]}, http_get=_blocks_get(blocks, head_h))
+    c.heads = heads if heads is not None else {"hub": {"height": head_h, "hash": "0xhead"}}
+    return c
+
+
+def test_head_progression(tmp_path):
+    c = _gate_ctx(tmp_path, _outage_series())
+    row = pcv.check_head_progression(c)[0]
+    assert row.ok is True
+    stalled = _gate_ctx(tmp_path, [], head_h=BASE_HEAD, heads={"hub": {"height": BASE_HEAD, "hash": "0xsame"}})
+    assert pcv.check_head_progression(stalled)[0].ok is False
+    unconfigured = ctx(tmp_path)
+    unconfigured.heads = {"hub": {"height": 9, "hash": "0xh"}}
+    assert pcv.check_head_progression(unconfigured)[0].ok is None
+
+
+def test_validator_coverage_outage_fails(tmp_path):
+    """The 23 Oct hub series fails BOTH coverage thresholds on hub."""
+    c = _gate_ctx(tmp_path, _outage_series())
+    rows = {r.host: r for r in pcv.check_validator_coverage(c)}
+    hub_row = rows[VALS[0][:8]]
+    assert hub_row.ok is False
+    # 126-block silent run (> 40 floor) and 10 proposals (< 0.4x34 floor)
+    assert "silent=126" in hub_row.found
+    assert "proposals=10/136" in hub_row.found
+    for v in VALS[1:]:
+        assert rows[v[:8]].ok is True, rows[v[:8]].line()
+
+
+def test_validator_coverage_healthy_passes(tmp_path):
+    """A rotating 4-validator window passes every coverage row."""
+    c = _gate_ctx(tmp_path, _series([VALS[i % 4] for i in range(136)]))
+    for r in pcv.check_validator_coverage(c):
+        assert r.ok is True, r.line()
+
+
+def _alerts_ctx(tmp_path: Path, firing: list[str], heads=None, mode: str = "split") -> pcv.Ctx:
+    m = manifest(tmp_path)
+    m["prom_url"] = "http://p"
+    m["expected"]["v9_alert_mode"] = mode
+    c = pcv.Ctx(
+        manifest=m,
+        http_get=lambda u, timeout=5: (
+            200,
+            {"data": {"alerts": [{"state": "firing", "labels": {"alertname": a}} for a in firing]}},
+        ),
+        http_post=None,
+        host_sh=host_sh_factory(),
+    )
+    if heads is not None:
+        c.heads = heads
+    return c
+
+
+UNIFORM = {"hub": {"height": 10, "hash": "0xsame"}, "node1": {"height": 10, "hash": "0xsame"}}
+DIVERGENT = {"hub": {"height": 10, "hash": "0xa"}, "node1": {"height": 11, "hash": "0xb"}}
+V9_PAIR = ["V9AttestationRefusal", "V9ShadowRejection"]
+
+
+def test_v9_split_alone_uniform_is_noise(tmp_path):
+    row = pcv.check_alerts(_alerts_ctx(tmp_path, V9_PAIR, heads=UNIFORM))[0]
+    assert row.ok is True
+    assert "flag_v9" not in row.detail
+
+
+def test_v9_split_flags_on_degradation(tmp_path):
+    row = pcv.check_alerts(_alerts_ctx(tmp_path, V9_PAIR + ["AttestationArrivalDegraded"], heads=UNIFORM))[0]
+    assert row.ok is False
+    assert "flag_v9" in row.detail
+
+
+def test_v9_split_flags_on_divergent_heads(tmp_path):
+    row = pcv.check_alerts(_alerts_ctx(tmp_path, V9_PAIR, heads=DIVERGENT))[0]
+    assert row.ok is False
+    assert "flag_v9" in row.detail
+
+
+def test_v9_surface_always_flags(tmp_path):
+    row = pcv.check_alerts(_alerts_ctx(tmp_path, V9_PAIR, heads=UNIFORM, mode="surface"))[0]
+    assert row.ok is False
+
+
+def test_v9_noise_always_expected(tmp_path):
+    row = pcv.check_alerts(_alerts_ctx(tmp_path, V9_PAIR, heads=DIVERGENT, mode="noise"))[0]
+    assert row.ok is True
+
+
+def test_journal_evidence_aged_out(tmp_path):
+    """genesis-created may age out of journal retention; init bc2 stays required."""
+
+    def sh(ssh, cmd):
+        return "Initializing databases for chains: ['bc-2']\n" if cmd.startswith("journalctl") else host_sh_factory()(ssh, cmd)
+
+    c = ctx(tmp_path, host_sh=sh)
+    assert pcv.check_journal(c, "hub", c.manifest["hosts"]["hub"])[0].ok is True
+
+
 def test_result_line_public(tmp_path):
     c = ctx(tmp_path)
     rows = pcv.run(c)
