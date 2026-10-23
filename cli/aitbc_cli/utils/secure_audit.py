@@ -10,8 +10,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from eth_utils import keccak
-
 
 class SecureAuditLogger:
     """
@@ -99,6 +97,8 @@ class SecureAuditLogger:
             "previous_hash": previous_hash,
             "nonce": entry.get("nonce", ""),
         }
+
+        from eth_utils import keccak
 
         # Sort keys for deterministic ordering
         entry_str = json.dumps(entry_data, sort_keys=True, separators=(",", ":"))

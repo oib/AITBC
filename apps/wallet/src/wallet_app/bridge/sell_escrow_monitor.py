@@ -882,10 +882,12 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
         )
         return
 
+    from eth_account import Account as EthAccount
+
     key, error = wdm._validate_release_key()
     if not key:
         raise RuntimeError(error)
-    account = wdm.EthAccount.from_key(key)
+    account = EthAccount.from_key(key)
     async with wdm.ETH_RELEASE_NONCE_LOCK:
         nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
         raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)

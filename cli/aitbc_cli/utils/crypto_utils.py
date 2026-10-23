@@ -14,8 +14,6 @@ from aitbc import ValidationError
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.validation import validate_address_strict
 
-from eth_account import Account
-from eth_utils import is_address, keccak, to_checksum_address
 
 from .http_client import get_logger
 
@@ -44,6 +42,8 @@ def create_signature_challenge(tx_data: dict, nonce: str) -> str:
 
     # Sort keys for deterministic ordering
     challenge_str = json.dumps(challenge_data, sort_keys=True, separators=(",", ":"))
+    from eth_utils import keccak
+
     challenge_hash = keccak(challenge_str.encode())
 
     return f"AITBC_MULTISIG_CHALLENGE:{challenge_hash.hex()}"
@@ -70,6 +70,9 @@ def verify_signature(challenge: str, signature: str, signer_address: str) -> boo
         signature_bytes = bytes.fromhex(signature)
 
         # Recover address from signature
+        from eth_account import Account
+        from eth_utils import keccak, to_checksum_address
+
         message_hash = keccak(challenge.encode())
         recovered_address = Account.recover_message(signable_hash=message_hash, signature=signature_bytes)
 
@@ -96,6 +99,9 @@ def sign_challenge(challenge: str, private_key: str) -> str:
         # Remove 0x prefix if present
         if private_key.startswith("0x"):
             private_key = private_key[2:]
+
+        from eth_account import Account
+        from eth_utils import keccak
 
         account = Account.from_key("0x" + private_key)
         message_hash = keccak(challenge.encode())
@@ -305,6 +311,8 @@ def _canonical_address(address: str) -> str:
         raise ValueError(f"Legacy address format is not supported: {address}")
 
     try:
+        from eth_utils import is_address
+
         if not is_address(address):
             raise ValueError(f"Invalid 0x address: {address}")
     except ImportError:

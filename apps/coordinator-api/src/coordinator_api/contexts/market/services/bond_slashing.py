@@ -19,7 +19,6 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from eth_account import Account
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
@@ -125,6 +124,9 @@ class BondSlashingService:
         """
         if not private_key or not authority:
             return private_key
+        from eth_account import Account  # function-local: keeps the
+
+        # coincurve/eth-keys chain out of the coordinator import graph
         try:
             derived = Account.from_key(private_key).address
         except Exception as exc:

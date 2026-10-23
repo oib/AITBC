@@ -3,17 +3,38 @@ Web3 utilities for AITBC
 Provides Ethereum blockchain interaction utilities using web3.py
 """
 
+import importlib.util
 from decimal import Decimal
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-try:
+if TYPE_CHECKING:
     from web3 import Web3
-    from web3.middleware.proof_of_authority import ExtraDataToPOAMiddleware as geth_poa_middleware
+    from web3.middleware.proof_of_authority import (
+        ExtraDataToPOAMiddleware as geth_poa_middleware,
+    )
     from web3.types import HexStr, TxParams
 
-    WEB3_AVAILABLE = True
-except ImportError:
-    WEB3_AVAILABLE = False
+# find_spec answers "is web3 installed" without importing it; the real
+# import is deferred to _ensure_web3() so 'import aitbc.network' no longer
+# pays ~0.5 s / ~30 MB for web3+eth_account on services that never touch
+# an EVM chain. Kept a plain bool: callers and tests read it directly.
+WEB3_AVAILABLE = importlib.util.find_spec("web3") is not None
+
+
+def _ensure_web3() -> None:
+    """Import web3 on first use; flips WEB3_AVAILABLE False on failure so
+    the caller's friendly ImportError path stays unchanged."""
+    global WEB3_AVAILABLE
+    if "Web3" in globals() or not WEB3_AVAILABLE:
+        return
+    try:
+        from web3 import Web3 as _Web3
+        from web3.middleware.proof_of_authority import ExtraDataToPOAMiddleware
+    except ImportError:
+        WEB3_AVAILABLE = False
+        return
+    globals()["Web3"] = _Web3
+    globals()["geth_poa_middleware"] = ExtraDataToPOAMiddleware
 
 
 class Web3Client:
@@ -21,6 +42,7 @@ class Web3Client:
 
     def __init__(self, rpc_url: str, timeout: int = 30):
         """Initialize Web3 client with RPC URL"""
+        _ensure_web3()
         if not WEB3_AVAILABLE:
             raise ImportError("web3 is required for blockchain operations. Install with: pip install web3")
 
@@ -52,19 +74,19 @@ class Web3Client:
             padded_address = address[2:].lower().zfill(64)
             call_data = balance_of_signature + padded_address
 
-            result = self.w3.eth.call({"to": token_address, "data": cast(HexStr, f"0x{call_data}")})
+            result = self.w3.eth.call({"to": token_address, "data": cast("HexStr", f"0x{call_data}")})
 
             balance = int(result.hex(), 16)
 
             # Get token decimals
             decimals_signature = "0x313ce567"
-            decimals_result = self.w3.eth.call({"to": token_address, "data": cast(HexStr, decimals_signature)})
+            decimals_result = self.w3.eth.call({"to": token_address, "data": cast("HexStr", decimals_signature)})
             decimals = int(decimals_result.hex(), 16)
 
             # Get token symbol (optional, may fail for some tokens)
             try:
                 symbol_signature = "0x95d89b41"
-                symbol_result = self.w3.eth.call({"to": token_address, "data": cast(HexStr, symbol_signature)})
+                symbol_result = self.w3.eth.call({"to": token_address, "data": cast("HexStr", symbol_signature)})
                 symbol_bytes = bytes.fromhex(symbol_result.hex()[2:])
                 symbol = symbol_bytes.rstrip(b"\x00").decode("utf-8")
             except (UnicodeDecodeError, ValueError):
@@ -101,7 +123,7 @@ class Web3Client:
     def send_raw_transaction(self, signed_transaction: str) -> str:
         """Send raw transaction to blockchain"""
         try:
-            tx_hash = self.w3.eth.send_raw_transaction(cast(HexStr, signed_transaction))
+            tx_hash = self.w3.eth.send_raw_transaction(cast("HexStr", signed_transaction))
             return tx_hash.hex()
         except Exception as e:
             raise ValueError(f"Failed to send raw transaction: {e}") from e
@@ -144,7 +166,7 @@ class Web3Client:
     def estimate_gas(self, transaction: dict[str, Any]) -> int:
         """Estimate gas for transaction"""
         try:
-            gas_estimate = self.w3.eth.estimate_gas(cast(TxParams, transaction))
+            gas_estimate = self.w3.eth.estimate_gas(cast("TxParams", transaction))
             return gas_estimate
         except Exception as e:
             raise ValueError(f"Failed to estimate gas: {e}") from e
