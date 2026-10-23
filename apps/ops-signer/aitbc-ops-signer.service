@@ -26,7 +26,6 @@ Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/ops-signer/src"
 EnvironmentFile=-/etc/aitbc/ops-signer.env
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_ops_signer
 Restart=on-failure
-OOMScoreAdjust=300
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
