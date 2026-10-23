@@ -27,7 +27,7 @@ class TestAuthCommands:
         assert "logout" in auth.commands
 
     @patch("aitbc_cli.commands.auth.AITBCHTTPClient")
-    @patch("aitbc_cli.commands.auth.Account")
+    @patch("eth_account.Account")
     @patch("aitbc_cli.commands.auth.AuthManager")
     @patch("aitbc_cli.commands.auth.get_config")
     def test_auth_login_stores_token(
