@@ -61,6 +61,8 @@ def test_ai_submit_reaches_local_coordinator(mock_config, mock_http_client):
     result = runner.invoke(
         cli,
         [
+            "--api-key",
+            "test-token",
             "ai",
             "submit",
             "--prompt",

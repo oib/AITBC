@@ -164,7 +164,7 @@ class TestCrossChainSigning:
 
     @patch("aitbc_cli.commands.cross_chain.AITBCHTTPClient")
     def test_bridge_posts_signed_lock_payload(self, mock_http_class, runner, mock_config):
-        """``crosschain bridge`` signs the six-field lock payload like /rpc/bridge/lock."""
+        """``crosschain bridge`` signs the eight-field lock payload (incl. issued_at+nonce)."""
         mock_client = mock_http_class.return_value
         mock_client.post.return_value = {
             "success": True,
@@ -196,8 +196,8 @@ class TestCrossChainSigning:
         assert called_path == "/rpc/cross-chain/bridge"
         posted = called_kwargs["json"]
         assert posted["signature"].startswith("0x")
-        # The bridge lock payload is exactly the six fields the RPC verifies.
-        sign_data = {k: posted[k] for k in ("source_chain", "target_chain", "sender", "recipient", "amount", "asset")}
+        # The bridge lock payload signs every posted field except the signature itself.
+        sign_data = {k: v for k, v in posted.items() if k != "signature"}
         recovered = self._recover(posted["signature"], sign_data)
         assert recovered.lower() == posted["sender"].lower()
 
