@@ -6,14 +6,23 @@ tags every such line PRIORITY=6 (info), so the true level only exists in the
 message text as a leading ``[WARNING]``/``[ERROR]``/... token. Systemd's own
 records (watchdog kills, failed units, coredumps) carry a real PRIORITY. So:
 
-    pass 1: journalctl -p err            -> real priorities emerg..err
-    pass 2: journalctl -g '[LEVEL]'      -> text levels our services emit
+    pass 1: journalctl -p err                        -> real priorities emerg..err
+    pass 2: journalctl _TRANSPORT=stdout -g '[LEVEL]' -> text levels our services emit
 
 Every entry is counted per unit under ``aitbc_journal_error_messages``
 (real priority <= 3, or text level ERROR/CRITICAL/FATAL) or
 ``aitbc_journal_warning_messages`` (real priority 4, or text WARNING/WARN).
 Counts are gauges over a rolling window (default 15 min): a burst fires
 AITBCJournalErrors while it is ongoing and clears when the window moves on.
+
+Memory discipline: ``-g`` is an unindexed regex over every journal entry in
+the window, so pass 2 pre-narrows with the indexed ``_TRANSPORT=stdout``
+match — text-level tokens only ever appear in service stdout payloads, and
+the real-priority cases are already covered by pass 1. Both passes request
+only the fields the counter reads and are streamed line-by-line: the parent
+never buffers the whole window and the journalctl child serializes far less.
+Measured on hub's journal this halves the pass-2 byte stream; the child's
+remaining RSS is journald file-mapping, which no query shaping removes.
 
 Run by a systemd timer (aitbc-journal-errors.timer); stdlib only. The unit runs
 as aitbc with SupplementaryGroups=systemd-journal, which is what lets
@@ -26,20 +35,29 @@ Environment:
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import re
+import select
 import subprocess
 import sys
 import tempfile
 import time
 from collections import Counter
+from collections.abc import Iterator
 
 OUTPUT_NAME = "aitbc_journal.prom"
 
+JOURNALCTL_TIMEOUT = 60
+# Only the fields the counter reads -- full -o json rows carry a dozen extra
+# trusted fields per entry and roughly doubled the serialized stream.
+JOURNAL_FIELDS = ("__CURSOR", "PRIORITY", "MESSAGE", "_SYSTEMD_UNIT", "SYSLOG_IDENTIFIER", "_COMM")
+
 TEXT_ERROR_LEVELS = ("ERROR", "CRITICAL", "FATAL")
 TEXT_WARNING_LEVELS = ("WARNING", "WARN")
-TEXT_LEVEL_RE = re.compile(r"^\[(WARNING|WARN|ERROR|CRITICAL|FATAL)\]")
+TEXT_LEVEL_PATTERN = r"\[(WARNING|WARN|ERROR|CRITICAL|FATAL)\]"
+TEXT_LEVEL_RE = re.compile("^" + TEXT_LEVEL_PATTERN)
 
 _LABEL_SAFE = re.compile(r"[^a-zA-Z0-9_.-]")
 
@@ -53,42 +71,79 @@ def entry_unit(record: dict) -> str:
     return "unknown"
 
 
-def _journalctl(extra: list[str], window: str) -> list[dict]:
-    """Parsed journalctl -o json rows for one query; [] on any failure."""
+def _iter_journalctl(extra: list[str], window: str, status: dict) -> Iterator[dict]:
+    """Stream ``journalctl -o json`` rows for one query, parsed per line.
+
+    The pipe is drained as the child writes it, so neither side ever holds
+    the whole window: the old ``capture_output`` variant buffered ~13 MB of
+    JSON text plus the parsed record list in the parent on a busy 15-minute
+    window. ``status["rc"]`` records the child's exit code (``None`` when the
+    query could not even be started) so callers can tell "journald empty"
+    from "journalctl failed" without a sentinel row.
+    """
+    status["rc"] = None
+    argv = [
+        "journalctl",
+        "--since",
+        window,
+        "-o",
+        "json",
+        "--output-fields=" + ",".join(JOURNAL_FIELDS),
+        "--no-pager",
+        "-q",
+        *extra,
+    ]
     try:
-        out = subprocess.run(
-            ["journalctl", "--since", window, "-o", "json", "--no-pager", "-q", *extra],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return []
-    if out.returncode != 0:
-        return []
-    records = []
-    for line in out.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
+        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, text=True)
+    except OSError:
+        return
+    assert proc.stdout is not None
+    deadline = time.monotonic() + JOURNALCTL_TIMEOUT
+    try:
+        while True:
+            # select() gives the readline a deadline: a wedged journalctl is
+            # killed instead of blocking the oneshot past its budget.
+            ready, _, _ = select.select([proc.stdout], [], [], max(0.0, deadline - time.monotonic()))
+            if not ready:
+                proc.kill()
+                proc.wait()
+                return
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict):
+                yield record
+    finally:
         try:
-            record = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(record, dict):
-            records.append(record)
-    return records
+            status["rc"] = proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            status["rc"] = proc.wait()
 
 
 def collect(window: str) -> tuple[Counter[tuple[int, str]], bool]:
     """{(is_error, unit): count} over the window, plus an all-queries-failed flag."""
+    real_status: dict = {}
+    text_status: dict = {}
     # Real priorities: emerg..err (systemd's own records, watchdog kills, etc.)
-    real = _journalctl(["-p", "err"], window)
-    # Text levels our services emit at stdout priority 6.
-    text = _journalctl(["-g", r"\[(WARNING|WARN|ERROR|CRITICAL|FATAL)\]"], window)
+    real = _iter_journalctl(["-p", "err"], window, real_status)
+    # Text levels our services emit at stdout priority 6. _TRANSPORT=stdout
+    # is indexed, so the -g regex only runs over stdout payloads instead of
+    # every entry in the window; the transport check is also semantically
+    # exact here -- a [LEVEL] token is meaningful only in stdout text.
+    text = _iter_journalctl(["_TRANSPORT=stdout", "-g", TEXT_LEVEL_PATTERN], window, text_status)
     counts: Counter[tuple[int, str]] = Counter()
     seen: set[str] = set()
-    for record in real + text:
+    any_rows = False
+    for record in itertools.chain(real, text):
+        any_rows = True
         cursor = record.get("__CURSOR")
         if cursor is not None:
             if cursor in seen:
@@ -106,7 +161,7 @@ def collect(window: str) -> tuple[Counter[tuple[int, str]], bool]:
             continue
         unit = _LABEL_SAFE.sub("_", entry_unit(record))[:80]
         counts[(1 if is_error else 0, unit)] += 1
-    ok = bool(real) or bool(text) or _journald_reachable()
+    ok = real_status["rc"] == 0 or text_status["rc"] == 0 or any_rows or _journald_reachable()
     return counts, ok
 
 
