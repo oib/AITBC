@@ -526,6 +526,24 @@ groups:
           summary: "node-exporter on {{ $labels.instance }} exposes no systemd-unit series"
           description: "The node job on {{ $labels.instance }} (job {{ $labels.job }}) is up but has exported no node_systemd_unit_state series for >15m — its --collector.systemd is disabled, so AitbcSystemdUnitFailed is blind there. Enable the collector in the node-exporter unit and restart it."
 
+  # aitbc-cgroup-oom (MEMMON-ROOT-OOM-1): scope-level OOM kills, the blind
+  # spot that made 22 Oct's kills invisible — per-unit memory.events all
+  # read 0 while the container ROOT cgroup enforced its 3.9 GiB wall 18
+  # times. scripts/monitoring/memory-monitor.sh exports
+  # aitbc_cgroup_oom_kill_total{cgroup="root|user.slice|system.slice"} as a
+  # cumulative-since-boot counter, so increase() is the right check: it
+  # ignores the known pre-existing count and fires only on a NEW kill.
+  - name: aitbc-cgroup-oom
+    rules:
+      - alert: CgroupOomKill
+        expr: increase(aitbc_cgroup_oom_kill_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "New OOM kill in cgroup {{ $labels.cgroup }} ({{ $labels.instance }})"
+          description: "aitbc_cgroup_oom_kill_total for cgroup {{ $labels.cgroup }} increased over the last 15m on {{ $labels.instance }} — the kernel killed a process in that scope. A root or slice-scope kill is enforced by the container/systemd limit, not the unit's own MemoryMax, so per-unit memory.events stays at 0: check memory-monitor.log and journalctl -k/systemctl --failed for the victim."
+
   # aitbc-attestation-arrival (MON-1): remote-attestation arrival measured
   # from the sealed outcome — a block's block_metadata.attestations holds
   # only the remote attestations that arrived before sealing, so an absent

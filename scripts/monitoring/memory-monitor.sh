@@ -7,6 +7,14 @@ set -euo pipefail
 ALERT_THRESHOLD=90  # System memory usage alert threshold
 LOG_FILE="${AITBC_MEMMON_LOG:-/var/log/aitbc/memory-monitor.log}"
 ALERT_EMAIL="admin@aitbc.bubuit.net"  # Optional: configure email alerts
+# Scope-cgroup OOM accounting (MEMMON-ROOT-OOM-1): the kills that took the
+# hub down on 22 Oct were enforced by the container root cgroup -- every
+# per-unit memory.events read 0 while the root counter climbed to 18.
+CGROUP_ROOT="${AITBC_CGROUP_ROOT:-/sys/fs/cgroup}"
+TEXTFILE_DIR="${AITBC_TEXTFILE_DIR:-/var/lib/prometheus/node-exporter}"
+# Previous-run oom_kill counts, so the log line distinguishes a NEW kill from
+# the cumulative-since-boot counter. Lives under the same writable log dir.
+STATE_FILE="${AITBC_MEMMON_STATE:-$(dirname "$LOG_FILE")/memory-monitor.oom-state}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -139,7 +147,7 @@ check_oom_events() {
         cgroup=$(systemctl show -p ControlGroup --value "$unit" 2>/dev/null)
         [ -z "$cgroup" ] && continue
 
-        local events="/sys/fs/cgroup${cgroup}/memory.events"
+        local events="$CGROUP_ROOT${cgroup}/memory.events"
         [ -r "$events" ] || continue
         found=1
 
@@ -164,19 +172,143 @@ check_oom_events() {
     done
 
     if [ "$found" -eq 0 ]; then
-        echo -e "${YELLOW}SKIPPED: no readable cgroup memory.events; OOM check did not run${NC}"
-        log_message "WARNING" "No readable cgroup memory.events; OOM check did not run"
-        return 0
+        echo -e "${YELLOW}SKIPPED: no readable per-unit cgroup memory.events; per-unit OOM check did not run${NC}"
+        log_message "WARNING" "No readable per-unit cgroup memory.events; per-unit OOM check did not run"
+    fi
+
+    # --- Scope-level counters (MEMMON-ROOT-OOM-1) ---
+    # Per-unit memory.events stayed at 0 through the whole 22 Oct incident
+    # because the kills were enforced by the container ROOT cgroup's 3.9 GiB
+    # wall (root oom_kill 18, unit counters 0). A check that only reads unit
+    # cgroups prints "no kills" while the kernel is killing processes, so the
+    # root, user.slice and system.slice counters are read here too.
+    local scope_found=0
+    local scope_new=0
+    local scope_report=""
+    local metrics=""
+
+    for scope in root user.slice system.slice; do
+        local sdir="$CGROUP_ROOT"
+        [ "$scope" != "root" ] && sdir="$CGROUP_ROOT/$scope"
+        local sevents="$sdir/memory.events"
+        [ -r "$sevents" ] || continue
+        local sk
+        sk=$(awk '/^oom_kill /{print $2}' "$sevents" 2>/dev/null)
+        [[ "$sk" =~ ^[0-9]+$ ]] || continue
+        scope_found=1
+        scope_report="$scope_report $scope=$sk"
+        metrics="${metrics}aitbc_cgroup_oom_kill_total{cgroup=\"$scope\"} $sk
+"
+    done
+
+    local m_cur="" m_peak="" m_max=""
+    if [ -r "$CGROUP_ROOT/memory.current" ]; then
+        m_cur=$(cat "$CGROUP_ROOT/memory.current" 2>/dev/null)
+    fi
+    if [ -r "$CGROUP_ROOT/memory.peak" ]; then
+        m_peak=$(cat "$CGROUP_ROOT/memory.peak" 2>/dev/null)
+    fi
+    if [ -r "$CGROUP_ROOT/memory.max" ]; then
+        m_max=$(cat "$CGROUP_ROOT/memory.max" 2>/dev/null)
+    fi
+    [[ "$m_cur" =~ ^[0-9]+$ ]] && metrics="${metrics}aitbc_cgroup_memory_current_bytes{cgroup=\"root\"} $m_cur
+"
+    [[ "$m_peak" =~ ^[0-9]+$ ]] && metrics="${metrics}aitbc_cgroup_memory_peak_bytes{cgroup=\"root\"} $m_peak
+"
+    if [[ "$m_max" =~ ^[0-9]+$ ]]; then
+        metrics="${metrics}aitbc_cgroup_memory_max_bytes{cgroup=\"root\"} $m_max
+"
+    elif [ "$m_max" = "max" ]; then
+        # Uncapped in cgroup v2 reads as the literal word "max"; +Inf is the
+        # honest encoding -- 0 would look like a zero limit.
+        metrics="${metrics}aitbc_cgroup_memory_max_bytes{cgroup=\"root\"} +Inf
+"
+    fi
+
+    # Emit the textfile whenever any counter was read -- a missing or
+    # unwritable textfile dir degrades to a warning, never a failed unit.
+    if [ "$scope_found" -eq 1 ] || [ -n "$m_cur" ]; then
+        local tmp
+        if [ -d "$TEXTFILE_DIR" ] && tmp=$(mktemp "$TEXTFILE_DIR/.memory-monitor.XXXXXX" 2>/dev/null); then
+            {
+                echo "# HELP aitbc_cgroup_oom_kill_total Cumulative OOM kills recorded by a scope cgroup (root/slice), as reported by memory.events."
+                echo "# TYPE aitbc_cgroup_oom_kill_total counter"
+                echo "# HELP aitbc_cgroup_memory_current_bytes Root cgroup memory.current."
+                echo "# TYPE aitbc_cgroup_memory_current_bytes gauge"
+                echo "# HELP aitbc_cgroup_memory_peak_bytes Root cgroup memory.peak (high-water mark)."
+                echo "# TYPE aitbc_cgroup_memory_peak_bytes gauge"
+                echo "# HELP aitbc_cgroup_memory_max_bytes Root cgroup memory.max; +Inf when uncapped."
+                echo "# TYPE aitbc_cgroup_memory_max_bytes gauge"
+                printf '%s' "$metrics"
+            } > "$tmp"
+            chmod 644 "$tmp" 2>/dev/null || true
+            # temp-then-rename so a scrape never catches a partial file.
+            mv -f "$tmp" "$TEXTFILE_DIR/memory-monitor.prom" 2>/dev/null \
+                || { rm -f "$tmp"; log_message "WARNING" "could not publish memory-monitor.prom under $TEXTFILE_DIR"; }
+        else
+            log_message "WARNING" "textfile dir $TEXTFILE_DIR not writable; cgroup OOM metrics skipped"
+        fi
+    fi
+
+    # Delta vs the previous run: oom_kill counters are cumulative since boot,
+    # so the log/exit verdict must compare against the stored baseline or a
+    # one-time kill would fail every future run forever.
+    local prev_line=""
+    [ -r "$STATE_FILE" ] && prev_line=$(cat "$STATE_FILE" 2>/dev/null)
+    local deltas=""
+    if [ "$scope_found" -eq 1 ]; then
+        for scope in root user.slice system.slice; do
+            local sdir="$CGROUP_ROOT"
+            [ "$scope" != "root" ] && sdir="$CGROUP_ROOT/$scope"
+            local sk
+            sk=$(awk '/^oom_kill /{print $2}' "$sdir/memory.events" 2>/dev/null)
+            [[ "$sk" =~ ^[0-9]+$ ]] || continue
+            local pv
+            pv=$(echo "$prev_line" | tr ' ' '\n' | awk -F= -v s="$scope" '$1==s{print $2}')
+            if [[ ! "$pv" =~ ^[0-9]+$ ]]; then
+                # No prior record for this scope (first run, or a scope that
+                # only just appeared): its cumulative count is the baseline,
+                # not "new kills" -- otherwise the known pre-existing root
+                # count would fire a one-time false alert on deploy.
+                pv=$sk
+            fi
+            local d=$((sk - pv))
+            [ "$d" -lt 0 ] && d=0
+            scope_new=$((scope_new + d))
+            [ "$d" -gt 0 ] && deltas="$deltas $scope:+$d"
+        done
+        # Persist the new baseline every run -- also after an alert, so one
+        # incident alerts once instead of permanently.
+        if [ -n "$scope_report" ]; then
+            mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null || true
+            echo "$scope_report" > "$STATE_FILE" 2>/dev/null \
+                || log_message "WARNING" "could not write OOM state file $STATE_FILE"
+        fi
     fi
 
     if [ "$oom_total" -gt 0 ]; then
         echo -e "${RED}ALERT: $oom_total OOM kill(s) recorded across AITBC services${NC}"
         log_message "ALERT" "$oom_total OOM kill(s) recorded across AITBC services"
+    fi
+    if [ "$scope_new" -gt 0 ]; then
+        echo -e "${RED}ALERT: $scope_new new cgroup OOM kill(s) at scope level (${deltas# })${NC}"
+        log_message "ALERT" "$scope_new new cgroup OOM kill(s) at scope level (${deltas# }); counters:${scope_report}"
+    fi
+    if [ "$oom_total" -gt 0 ] || [ "$scope_new" -gt 0 ]; then
         return 1
     fi
 
-    echo -e "${GREEN}OK: No OOM kills recorded for any AITBC service${NC}"
-    log_message "INFO" "No OOM kills recorded for any AITBC service"
+    # No "OK" unless BOTH sides were actually read and show no new kills --
+    # the failure that made this rewrite necessary was an OK printed off a
+    # scan that could not see the enforcing cgroup at all.
+    if [ "$found" -eq 1 ] && [ "$scope_found" -eq 1 ]; then
+        echo -e "${GREEN}OK: no OOM kills recorded for any AITBC service or scope cgroup${NC}"
+        log_message "INFO" "No OOM kills: per-unit counters clean; scope counters${scope_report} unchanged"
+        return 0
+    fi
+
+    echo -e "${YELLOW}INCOMPLETE: OOM check partial -- per-unit readable=$found scope readable=$scope_found; no kills seen on what could be read (counters:${scope_report:-none})${NC}"
+    log_message "WARNING" "OOM check partial (per-unit readable=$found scope readable=$scope_found); counters:${scope_report:-none}"
     return 0
 }
 
