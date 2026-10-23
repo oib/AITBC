@@ -313,6 +313,118 @@ def check_quorum(ctx: Ctx) -> list[Result]:
     return rows
 
 
+# SOAK-GATE-WINDOW-1: the 23 Oct hub outage (2h14m dark, zero proposals in
+# ~135 consecutive blocks) passed every point-in-time row because
+# proposer-rotation only asks presence in the sweep range. These checks
+# answer "was every validator working through the window", not "is every
+# validator working now". Thresholds are manifest-tunable under expected.*.
+
+
+def check_head_progression(ctx: Ctx) -> list[Result]:
+    """head_at_run must strictly exceed the baseline-capture head.
+
+    Catches the hub-only-proposer-stall case where head-equality goes green
+    on equal stale heads. Needs expected.baseline_head_height in the
+    manifest (set from the baseline capture's head).
+    """
+    base = ctx.manifest["expected"].get("baseline_head_height")
+    if base is None:
+        return [Result("head-progression", "fleet", "INVESTIGATE", None, "expected.baseline_head_height", "not configured")]
+    heights = {n: int(b.get("height", 0)) for n, b in ctx.heads.items() if b}
+    if not heights:
+        return [Result("head-progression", "fleet", "STOP", None, "a head read", "no head read")]
+    head = max(heights.values())
+    return [
+        Result(
+            "head-progression",
+            "fleet",
+            "INVESTIGATE",
+            head > int(base),
+            f"head > baseline {base}",
+            f"head={head}",
+        )
+    ]
+
+
+def _proposer(b: dict) -> str:
+    return (b.get("proposer") or "").lower()
+
+
+def check_validator_coverage(ctx: Ctx) -> list[Result]:
+    """Per-validator windowed coverage: max silent run and proposal share.
+
+    Window = (baseline_head_height, head_at_run] read from hub's block
+    table via /rpc/blocks-range?start&end (proposer column only —
+    attestations add nothing per the 23 Oct data). A validator fails when
+    its longest run of consecutive blocks it did not propose exceeds
+    expected.coverage_max_silent_run (default 40, ~45 min at 66 s
+    cadence), or its in-window proposals fall below
+    expected.coverage_min_share x window_blocks/n_validators (default
+    0.4 — tolerates single missed slots, not hours-long absences).
+    """
+    exp = ctx.manifest["expected"]
+    vals = exp.get("validators") or []
+    base = exp.get("baseline_head_height")
+    if not vals or base is None:
+        return [
+            Result(
+                "validator-coverage",
+                "fleet",
+                "INVESTIGATE",
+                None,
+                "expected.validators + baseline_head_height",
+                "not configured",
+            )
+        ]
+    ref = ctx.heads.get("hub") or next((b for b in ctx.heads.values() if b), None)
+    head = int(ref.get("height", 0)) if ref else 0
+    start = int(base) + 1
+    if head < start:
+        return [
+            Result(
+                "validator-coverage",
+                "fleet",
+                "INVESTIGATE",
+                None,
+                f"non-empty window ({start}..head]",
+                f"head={head} baseline={base}",
+            )
+        ]
+    hub = ctx.manifest["hosts"].get("hub") or next(iter(ctx.manifest["hosts"].values()))
+    code, body = hget(ctx, hub, f"/rpc/blocks-range?start={start}&end={head}&include_tx=false")
+    if code != 200:
+        return [Result("validator-coverage", "fleet", "INVESTIGATE", None, "200", str(code))]
+    blocks = body.get("blocks") or []
+    window = len(blocks)
+    max_silent = int(exp.get("coverage_max_silent_run", 40))
+    share_floor = float(exp.get("coverage_min_share", 0.4))
+    expected_share = window / len(vals)
+    rows: list[Result] = []
+    for v in vals:
+        vl = v.lower()
+        proposals = 0
+        silent = run = 0
+        for b in blocks:
+            if _proposer(b) == vl:
+                proposals += 1
+                run = 0
+            else:
+                run += 1
+                silent = max(silent, run)
+        ok = silent <= max_silent and proposals >= expected_share * share_floor
+        rows.append(
+            Result(
+                "validator-coverage",
+                v[:8],
+                "INVESTIGATE",
+                ok,
+                f"silent<={max_silent} proposals>={share_floor}x{expected_share:.1f}",
+                f"silent={silent} proposals={proposals}/{window}",
+            )
+        )
+    return rows
+
+
 def _snapshot_accounts(body: dict) -> dict[str, int]:
     out = {}
     for a in body.get("accounts") or []:
@@ -448,6 +560,28 @@ def check_alerts(ctx: Ctx) -> list[Result]:
         return [Result("alerts-quiet", "fleet", "INVESTIGATE", False, "200", str(code))]
     firing = [a["labels"]["alertname"] for a in body.get("data", {}).get("alerts", []) if a.get("state") == "firing"]
     allowed = set(ctx.manifest["expected"].get("expected_noise") or [])
+    # SOAK-GATE-WINDOW-1 card ruling: the V9 pair fires for hours on
+    # healthy chains. expected.v9_alert_mode picks the treatment — a
+    # one-line manifest change flips the ruling either way:
+    #   "split"   (default, confirmed ruling): expected noise only while
+    #             the pair fires alone with uniform heads; flag on
+    #             co-occurrence with AttestationArrivalDegraded or any
+    #             mempool alert, or on non-uniform heads.
+    #   "surface": the pair is always unexpected when firing.
+    #   "noise"  : the pair is always expected noise.
+    v9_pair = {"V9AttestationRefusal", "V9ShadowRejection"}
+    mode = ctx.manifest["expected"].get("v9_alert_mode", "split")
+    flag_v9 = False
+    if mode == "noise":
+        allowed |= v9_pair
+    elif mode == "split":
+        co = [a for a in firing if a == "AttestationArrivalDegraded" or "empool" in a]
+        heads = {(b.get("height"), b.get("hash")) for b in ctx.heads.values() if b}
+        if len(heads) == 1 and not co:
+            allowed |= v9_pair
+        else:
+            flag_v9 = bool(v9_pair & set(firing))
+    # "surface": the pair is simply never added to allowed.
     unexpected = [a for a in firing if a not in allowed]
     return [
         Result(
@@ -457,6 +591,7 @@ def check_alerts(ctx: Ctx) -> list[Result]:
             not unexpected,
             f"only expected noise {sorted(allowed) or '[]'}",
             f"firing={firing or 'none'}",
+            "flag_v9" if flag_v9 else "",
         )
     ]
 
@@ -602,14 +737,17 @@ def check_journal(ctx: Ctx, name: str, h: dict) -> list[Result]:
     init = out.count("Initializing databases for chains")
     cid = ctx.manifest["expected"]["chain_id"]
     init_bc2 = f"['{cid}']" in out or f'["{cid}"]' in out
-    ok = created == 1 and init >= 1 and init_bc2
+    # SOAK-GATE-WINDOW-1 baseline refresh: genesis-created markers age out
+    # of journal retention, so absence is no longer a fail — but a count
+    # above 1 would still mean the chain was re-created.
+    ok = created <= 1 and init >= 1 and init_bc2
     return [
         Result(
             "journal-evidence",
             name,
             "STOP",
             ok,
-            f"genesis-created ×1 + init ['{cid}']",
+            f"genesis-created <=1 + init ['{cid}']",
             f"created={created} init={init} bc2={init_bc2}",
         )
     ]
@@ -693,6 +831,8 @@ def run(ctx: Ctx) -> list[Result]:
     rows.extend(check_heads(ctx))
     rows.extend(check_block0(ctx))
     rows.extend(check_quorum(ctx))
+    rows.extend(check_head_progression(ctx))
+    rows.extend(check_validator_coverage(ctx))
     rows.extend(check_supply_alloc(ctx))
     rows.extend(check_bridge(ctx))
     rows.extend(check_mempool(ctx))
