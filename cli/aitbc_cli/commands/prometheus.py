@@ -48,7 +48,21 @@ def _prometheus_url(ctx: click.Context, url: str | None) -> str:
 def _prometheus_get(url: str, path: str, params: dict[str, Any] | None = None, timeout: int = 10) -> dict[str, Any]:
     """Issue a GET against the Prometheus expression/admin API."""
     try:
-        response = httpx.get(f"{url}{path}", params=params, timeout=timeout)
+        # One scalar bound used to cover every phase: a wedged connect could
+        # sit inside the watch iteration for minutes and starve the systemd
+        # watchdog even though "timeout=10" looked bounded. connect is capped
+        # separately so a dead listener fails fast while a slow query still
+        # gets the full read window.
+        response = httpx.get(
+            f"{url}{path}",
+            params=params,
+            timeout=httpx.Timeout(
+                connect=min(5.0, float(timeout)),
+                read=float(timeout),
+                write=min(10.0, float(timeout)),
+                pool=min(5.0, float(timeout)),
+            ),
+        )
         response.raise_for_status()
         return cast(dict[str, Any], response.json())
     except httpx.RequestError as e:
@@ -232,6 +246,14 @@ def _load_silences(path: str | None, cache: dict[str, Any]) -> list[dict[str, An
     return entries
 
 
+# Notify-side watchdog budget: each POST attempt gets an explicit
+# connect/read/write bound, and the whole pass stops spending attempts once
+# _NOTIFY_BUDGET_SECONDS is spent. 60s sits far under the unit's
+# WatchdogSec=300 window even with several configured URLs.
+_NOTIFY_TIMEOUT = httpx.Timeout(connect=3.0, read=5.0, write=5.0, pool=3.0)
+_NOTIFY_BUDGET_SECONDS = 60.0
+
+
 def _notify(
     urls: tuple[str, ...],
     record: dict[str, Any],
@@ -256,6 +278,13 @@ def _notify(
     else:
         body = record
     headers = {"Authorization": f"Bearer {token}"} if token else None
+    # Hard ceiling for the whole notification pass: worst case is
+    # len(urls) x 2 attempts x the per-attempt timeout, which used to scale
+    # with the configured URL list and could keep a watch iteration silent
+    # for minutes on a saturated box. The budget stops spending attempts
+    # once it is spent -- remaining deliveries are counted and logged, so
+    # the gap is auditable instead of silent.
+    deadline = time.monotonic() + _NOTIFY_BUDGET_SECONDS
     for notify_url in urls:
         if notify_format == "ntfy" and not token:
             stats["notify_errors"] = stats.get("notify_errors", 0) + 1
@@ -265,8 +294,16 @@ def _notify(
             )
             continue
         for attempt in range(2):
+            if time.monotonic() >= deadline:
+                stats["notify_errors"] = stats.get("notify_errors", 0) + 1
+                logger.warning(
+                    "notify POST to %s skipped: %.0fs notify budget spent",
+                    notify_url.split("?", 1)[0],
+                    _NOTIFY_BUDGET_SECONDS,
+                )
+                break
             try:
-                httpx.post(notify_url, json=body, headers=headers, timeout=5).raise_for_status()
+                httpx.post(notify_url, json=body, headers=headers, timeout=_NOTIFY_TIMEOUT).raise_for_status()
                 break
             except Exception as exc:  # noqa: BLE001 -- transport and HTTP failures are alike here
                 if attempt == 1:
@@ -276,6 +313,11 @@ def _notify(
                     # even if one were ever embedded in the configured URL.
                     detail = str(exc).replace(token, "***") if token else str(exc)
                     logger.warning("notify POST to %s failed: %s", notify_url.split("?", 1)[0], detail)
+            finally:
+                # Ping after every attempt, success or failure: a notify pass
+                # over several slow URLs is exactly the long step that used
+                # to leave the watchdog unfed mid-iteration.
+                _sd_notify_watchdog()
 
 
 _NTFY_FLEET_HOSTS = {"hub", "hub1", "node0", "node1", "node2"}
@@ -697,8 +739,17 @@ def alerts(
     metrics_warn: dict[str, bool] = {}
     try:
         while True:
+            # Feed the watchdog at the top of every iteration, not only at
+            # the bottom: under load one iteration used to exceed
+            # WatchdogSec between end-of-loop pings and systemd SIGABRT'd
+            # the watcher (21 restarts on hub during the 22 Oct OOM night).
+            _sd_notify_watchdog()
             now_mono = time.monotonic()
             raw = _fetch()
+            # The Prometheus query is the iteration's first long step; ping
+            # again once it returns so a slow query plus a slow notify pass
+            # cannot chain into one silent window.
+            _sd_notify_watchdog()
             if raw is None:
                 if not unreachable:
                     logger.warning("Prometheus did not answer; alert state is unknown until it does")
