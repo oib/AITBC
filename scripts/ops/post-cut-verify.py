@@ -353,18 +353,23 @@ def _proposer(b: dict) -> str:
 def check_validator_coverage(ctx: Ctx) -> list[Result]:
     """Per-validator windowed coverage: max silent run and proposal share.
 
-    Window = (baseline_head_height, head_at_run] read from hub's block
-    table via /rpc/blocks-range?start&end (proposer column only —
-    attestations add nothing per the 23 Oct data). A validator fails when
-    its longest run of consecutive blocks it did not propose exceeds
-    expected.coverage_max_silent_run (default 40, ~45 min at 66 s
-    cadence), or its in-window proposals fall below
+    Window = (window_start, head_at_run] read from hub's block table via
+    /rpc/blocks-range?start&end (proposer column only — attestations add
+    nothing per the 23 Oct data). expected.window_start picks the window's
+    start height (baseline 5 = whole post-cut history incl. the 21-22 Oct
+    stall era; a later pick scopes to the soak after it). Falls back to
+    expected.baseline_head_height when unset — head-progression always
+    uses baseline_head_height, they answer different questions.
+
+    A validator fails when its longest run of consecutive blocks it did
+    not propose exceeds expected.coverage_max_silent_run (default 40,
+    ~45 min at 66 s cadence), or its in-window proposals fall below
     expected.coverage_min_share x window_blocks/n_validators (default
     0.4 — tolerates single missed slots, not hours-long absences).
     """
     exp = ctx.manifest["expected"]
     vals = exp.get("validators") or []
-    base = exp.get("baseline_head_height")
+    base = exp.get("window_start", exp.get("baseline_head_height"))
     if not vals or base is None:
         return [
             Result(
@@ -372,7 +377,7 @@ def check_validator_coverage(ctx: Ctx) -> list[Result]:
                 "fleet",
                 "INVESTIGATE",
                 None,
-                "expected.validators + baseline_head_height",
+                "expected.validators + window_start|baseline_head_height",
                 "not configured",
             )
         ]

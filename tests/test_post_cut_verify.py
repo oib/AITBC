@@ -8,7 +8,10 @@ fabricated fleet answers — no network, no systemd, no ssh.
 from __future__ import annotations
 
 import json
+import urllib.parse
 from pathlib import Path
+
+import pytest
 
 
 import importlib.util
@@ -89,7 +92,11 @@ def http_get_factory(
         for suffix, ans in table.items():
             if url.endswith(suffix):
                 return ans
-        return 404, {}
+        # Reject, don't 404: a check hitting an unmapped route is a bug in
+        # the check or the fixture — the 23 Oct `/rpc/blocks` typo slid
+        # through because checks turn any non-200 into a SKIP row, and
+        # no test noticed the row never ran.
+        raise AssertionError(f"fixture fake: unmapped GET {url}")
 
     return get
 
@@ -407,15 +414,20 @@ def _blocks_get(blocks: list[dict], head_h: int = WINDOW_HEAD):
 
     def get(url: str, timeout: int = 5):
         if "/rpc/blocks-range?" in url:
-            return 200, {"success": True, "blocks": blocks, "count": len(blocks)}
+            q = {k: v[0] for k, v in urllib.parse.parse_qs(urllib.parse.urlsplit(url).query).items()}
+            start, end = int(q["start"]), int(q["end"])
+            sliced = [b for b in blocks if start <= b["height"] <= end]
+            return 200, {"success": True, "blocks": sliced, "count": len(sliced)}
         return base_get(url, timeout)
 
     return get
 
 
-def _gate_ctx(tmp_path: Path, blocks: list[dict], head_h: int = WINDOW_HEAD, heads=None) -> pcv.Ctx:
+def _gate_ctx(tmp_path: Path, blocks: list[dict], head_h: int = WINDOW_HEAD, heads=None, window_start=None) -> pcv.Ctx:
     m = manifest(tmp_path)
     m["expected"]["baseline_head_height"] = BASE_HEAD
+    if window_start is not None:
+        m["expected"]["window_start"] = window_start
     c = ctx(tmp_path, manifest_over={"expected": m["expected"]}, http_get=_blocks_get(blocks, head_h))
     c.heads = heads if heads is not None else {"hub": {"height": head_h, "hash": "0xhead"}}
     return c
@@ -450,6 +462,27 @@ def test_validator_coverage_healthy_passes(tmp_path):
     c = _gate_ctx(tmp_path, _series([VALS[i % 4] for i in range(136)]))
     for r in pcv.check_validator_coverage(c):
         assert r.ok is True, r.line()
+
+
+def test_validator_coverage_window_start_narrows(tmp_path):
+    """expected.window_start overrides baseline_head_height for the
+    coverage window — the same series then shows a smaller denominator."""
+    series = _series([VALS[i % 4] for i in range(136)])
+    c = _gate_ctx(tmp_path, series, window_start=100)
+    for r in pcv.check_validator_coverage(c):
+        assert r.ok is True, r.line()
+        assert "/41" in r.found  # heights 101..141, not the full 136
+    # And without the key the check falls back to baseline_head_height:
+    c2 = _gate_ctx(tmp_path, series)
+    assert "/136" in pcv.check_validator_coverage(c2)[0].found
+
+
+def test_fake_rejects_unknown_route():
+    """The fixture contract itself: an unmapped URL must raise, not 404 —
+    checks turn non-200 into SKIP rows that silently hide a wrong path."""
+    get = http_get_factory()
+    with pytest.raises(AssertionError, match="unmapped"):
+        get("http://h/rpc/blocks?start=1&end=5")
 
 
 def _alerts_ctx(tmp_path: Path, firing: list[str], heads=None, mode: str = "split") -> pcv.Ctx:
