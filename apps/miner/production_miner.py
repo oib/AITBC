@@ -130,8 +130,10 @@ def publish_default_offers(ollama_models: list[str]) -> None:
     without creating duplicate listings.
     """
     published_tx = False
+    deferred = 0
     for offer in DEFAULT_SOFTWARE_OFFERS:
         if published_tx:
+            deferred += 1
             logger.info(
                 "Deferring default offer %s/%s to next cycle (one nonce per cycle)",
                 offer["service_type"],
@@ -181,6 +183,8 @@ def publish_default_offers(ollama_models: list[str]) -> None:
                 )
         except Exception as e:
             logger.warning("Error publishing default offer %s/%s: %s", offer["service_type"], offer["model"], e)
+    if deferred:
+        logger.info("Deferred %d default offer(s) to next refresh", deferred)
 
 
 def classify_architecture(name: str) -> str:

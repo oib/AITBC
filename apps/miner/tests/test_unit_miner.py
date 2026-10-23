@@ -331,6 +331,21 @@ def test_publish_default_offers_one_nonce_per_cycle(mock_run, monkeypatch, caplo
 
     assert mock_run.call_count == 1
     assert "Deferring default offer ffmpeg/h264-transcode to next cycle" in caplog.text
+    assert "Deferred 1 default offer(s) to next refresh" in caplog.text
+
+
+@pytest.mark.unit
+@patch("production_miner.subprocess.run")
+def test_publish_default_offers_no_defer_summary_when_clean(mock_run, monkeypatch, caplog):
+    """All-unchanged (or all-skipped) cycles stay silent — the summary only
+    marks cycles that actually deferred (Card 5 / #387 observability)."""
+    monkeypatch.setattr(production_miner, "DEFAULT_SOFTWARE_OFFERS", _TWO_OFFERS)
+    mock_run.return_value = Mock(returncode=0, stdout="identical active offer exists, skipping", stderr="")
+
+    with caplog.at_level("INFO", logger="production_miner"):
+        production_miner.publish_default_offers([])
+
+    assert "Deferred" not in caplog.text
 
 
 @pytest.mark.unit
