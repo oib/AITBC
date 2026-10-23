@@ -272,14 +272,7 @@ def test_g_pass_uses_indexed_transport_and_field_projection(tmp_path, monkeypatc
 
         return _Proc()
 
-    # The reachable check still uses subprocess.run; leave it functional by
-    # stubbing the journald-probe call too.
     monkeypatch.setattr(exporter.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(
-        exporter,
-        "_journald_reachable",
-        lambda: True,
-    )
     exporter.collect("15 minutes ago")
 
     g_pass = [a for a in argv_seen if "-g" in a]
@@ -288,3 +281,24 @@ def test_g_pass_uses_indexed_transport_and_field_projection(tmp_path, monkeypatc
         assert any(a.startswith("--output-fields=") for a in argv), argv
     for argv in g_pass:
         assert "_TRANSPORT=stdout" in argv, argv
+
+
+def test_failed_queries_report_scan_failure_not_success(tmp_path, monkeypatch):
+    """Regression for the unquoted-Environment bug: AITBC_JOURNAL_WINDOW=15
+    reached journalctl as --since 15, both passes exited 1, and the
+    journald-reachability fallback still reported scan_success 1 -- the
+    metric was blind while claiming health. Success now requires a query
+    that returned rows or exited 0."""
+    fake = tmp_path / "journalctl"
+    fake.write_text(
+        "#!/usr/bin/env python3\nimport sys\nsys.stderr.write('journalctl: Failed to parse timestamp: 15\\n')\nsys.exit(1)\n"
+    )
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
+    monkeypatch.setenv("AITBC_TEXTFILE_DIR", str(tmp_path))
+    monkeypatch.setenv("AITBC_JOURNAL_WINDOW", "15")
+
+    assert exporter.main() == 1
+    prom = (tmp_path / exporter.OUTPUT_NAME).read_text()
+    assert "aitbc_journal_scan_success 0" in prom
