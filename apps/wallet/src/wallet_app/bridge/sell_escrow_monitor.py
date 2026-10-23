@@ -1256,7 +1256,9 @@ async def sell_monitor_loop() -> None:
         try:
             summary = await poll_sells_once()
             if not summary.get("skipped"):
-                logger.info("Sell poll completed: %s", summary)
+                did_work = summary.get("recorded", 0) > 0 or summary.get("processed", 0) > 0
+                log = logger.info if did_work else logger.debug
+                log("Sell poll completed: %s", summary)
         except Exception as e:  # noqa: BLE001 - poll containment — a failed pass must not end the monitor loop
             logger.error("Error in sell monitor loop: %s", e)
         for _ in range(cfg.poll_interval):
