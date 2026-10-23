@@ -11,7 +11,7 @@ Group=aitbc
 # it comes from the unit, no /etc/group edit needed.
 SupplementaryGroups=systemd-journal
 Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
-Environment=AITBC_JOURNAL_WINDOW=15 minutes ago
+Environment="AITBC_JOURNAL_WINDOW=15 minutes ago"
 ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/journal-errors-textfile.py
 # Exits 1 when the journal could not be read (aitbc_journal_scan_success then
 # says 0).
