@@ -111,12 +111,39 @@ except ImportError:
     logger.warning("Multi-modal RL router not available (missing torch)")
 
 
+def _sweeper_stagger_seconds() -> float:
+    """Per-sweeper first-run delay step from COORDINATOR_SWEEPER_STAGGER_SECONDS."""
+    import os
+
+    try:
+        return max(0.0, float(os.environ.get("COORDINATOR_SWEEPER_STAGGER_SECONDS", "10")))
+    except ValueError:
+        return 10.0
+
+
+async def _sweeper_after_delay(delay: float, factory) -> None:
+    """Sleep ``delay`` then construct and run the sweeper's run_forever.
+
+    Every sweeper loop sleeps ``interval_seconds`` before its first sweep,
+    so all eight previously began their interval countdowns at the same
+    instant — after every respawn five 60 s sweepers fired in the same
+    second, on top of alembic and router warm-up. A fixed i×stagger first
+    offset keeps same-period loops permanently desynchronized and defers
+    the sweeper's constructor past the delay.
+    """
+    import asyncio
+
+    if delay > 0:
+        await asyncio.sleep(delay)
+    await factory().run_forever()
+
+
 async def _maybe_start_sweeper(
-    task_manager, name: str, enabled: Callable[[], bool], factory, on_msg: str, off_msg: str
+    task_manager, name: str, enabled: Callable[[], bool], factory, on_msg: str, off_msg: str, stagger_index: int = 0
 ) -> None:
     """Start a background sweeper when its env flag is on; log either way."""
     if enabled():
-        await task_manager.start_task(name, factory().run_forever)
+        await task_manager.start_task(name, _sweeper_after_delay, stagger_index * _sweeper_stagger_seconds(), factory)
         logger.info(on_msg)
     else:
         logger.info(off_msg)
@@ -170,6 +197,7 @@ async def _start_sweepers(task_manager) -> None:
         SettlementReconciler,
         "Escrow settlement reconciler enabled",
         "Escrow settlement reconciler disabled (set ESCROW_RECONCILER_ENABLED=true to enable)",
+        stagger_index=0,
     )
     await _maybe_start_sweeper(
         task_manager,
@@ -178,6 +206,7 @@ async def _start_sweepers(task_manager) -> None:
         ZkRefundSweeper,
         "ZK refund sweeper enabled",
         "ZK refund sweeper disabled (set COORDINATOR_ZK_REFUND_SWEEP_ENABLED=true to enable)",
+        stagger_index=1,
     )
     await _maybe_start_sweeper(
         task_manager,
@@ -186,6 +215,7 @@ async def _start_sweepers(task_manager) -> None:
         AcceptanceSweeper,
         f"Acceptance window enabled: {default_window_seconds()}s before escrow auto-releases",
         "Acceptance window disabled (COORDINATOR_ACCEPTANCE_WINDOW_SECONDS=0); escrow releases on result",
+        stagger_index=2,
     )
     await _maybe_start_sweeper(
         task_manager,
@@ -194,13 +224,16 @@ async def _start_sweepers(task_manager) -> None:
         StuckEscrowSweeper,
         "Stuck escrow sweeper enabled",
         "Stuck escrow sweeper disabled (set COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=true to enable)",
+        stagger_index=3,
     )
 
     # Not opt-in like the sweepers: the payments operation ledger sweep must
-    # run whenever the service does.
+    # run whenever the service does. It still joins the stagger slots.
     await task_manager.start_task(
         "payments_operation_reconciler",
-        OperationReconciler(get_operations_ledger, env_prefix="COORDINATOR_OPS").run_forever,
+        _sweeper_after_delay,
+        4 * _sweeper_stagger_seconds(),
+        lambda: OperationReconciler(get_operations_ledger, env_prefix="COORDINATOR_OPS"),
     )
 
     await _maybe_start_sweeper(
@@ -210,6 +243,7 @@ async def _start_sweepers(task_manager) -> None:
         BondSlashSweeper,
         "Bond slash sweeper started",
         "Bond slash sweeper disabled (BOND_SLASH_SWEEPER_ENABLED=false)",
+        stagger_index=5,
     )
     await _maybe_start_sweeper(
         task_manager,
@@ -218,6 +252,7 @@ async def _start_sweepers(task_manager) -> None:
         StaleMinerReaper,
         "Stale miner reaper started",
         "Stale miner reaper disabled (COORDINATOR_STALE_MINER_REAPER_ENABLED=false)",
+        stagger_index=6,
     )
     await _maybe_start_sweeper(
         task_manager,
@@ -226,6 +261,7 @@ async def _start_sweepers(task_manager) -> None:
         StaleJobReaper,
         "Stale job reaper started",
         "Stale job reaper disabled (COORDINATOR_STALE_JOB_REAPER_ENABLED=false)",
+        stagger_index=7,
     )
 
 
