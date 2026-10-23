@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 
 import click
-from eth_account import Account
-from eth_account.messages import encode_defunct
 
 from ..auth import AuthManager
 from ..config import get_config
@@ -134,6 +132,10 @@ def login(
         return
 
     try:
+        # Function-local: the CLI's auth path is exercised only on login;
+        # eth_account no longer taxes every `aitbc` invocation.
+        from eth_account import Account
+
         account = Account.from_key(raw_key)
     except Exception as e:
         abort(ctx, f"Invalid private key: {e}", from_exception=e)
@@ -156,6 +158,8 @@ def login(
         return
 
     message = _build_sign_message(address, nonce)
+    from eth_account.messages import encode_defunct
+
     signable = encode_defunct(text=message)
     try:
         signed = account.sign_message(signable)

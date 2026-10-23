@@ -14,8 +14,6 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any, cast
 
-from eth_account import Account
-from eth_account.messages import encode_defunct
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 
@@ -69,6 +67,12 @@ def _verify_wallet_signature(wallet_address: str, signature: str, nonce: str) ->
         return False
 
     message = _build_sign_message(wallet_address, nonce)
+    # Function-local: eth_account pulls in the coincurve/eth-keys chain (~0.3 s)
+    # and this router is imported on every coordinator start, while signature
+    # verification only runs on login attempts.
+    from eth_account import Account
+    from eth_account.messages import encode_defunct
+
     try:
         signable = encode_defunct(text=message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))

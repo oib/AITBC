@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import click
-from eth_keys import keys
 from eth_utils import keccak
 
 from aitbc import ValidationError
@@ -102,6 +101,8 @@ def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any],
         # Strip 0x prefix if present
         if isinstance(private_key_hex, str) and private_key_hex.startswith("0x"):
             private_key_hex = private_key_hex[2:]
+
+        from eth_keys import keys
 
         return keys.PrivateKey(bytes.fromhex(private_key_hex))
     except Exception as e:
