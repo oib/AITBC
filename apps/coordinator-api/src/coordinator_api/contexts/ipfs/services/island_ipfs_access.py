@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from eth_utils import keccak
 
 from aitbc.crypto.signature_recovery import (  # PYTHONPATH makes this available
     canonical_address,
@@ -173,6 +172,8 @@ def verify_member_signature(
     """Verify that member_address signed the swarm-key challenge message."""
     if not signature or not member_address:
         return False
+    from eth_utils import keccak
+
     message = f"{island_id}:{member_address}:{nonce}".encode()
     msg_hash = keccak(message)
     try:

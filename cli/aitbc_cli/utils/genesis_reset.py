@@ -18,8 +18,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from eth_account import Account
-from eth_keys import keys
 
 from . import error, success
 
@@ -189,6 +187,9 @@ def _generate_wallet(
     chain_id: str,
     wallet_password: str | None = None,
 ) -> tuple[str, str]:
+    from eth_account import Account
+    from eth_keys import keys
+
     account = Account.create()
     private_key_hex = account.key.hex()
     address = account.address

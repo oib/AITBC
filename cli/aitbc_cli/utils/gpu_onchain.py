@@ -14,7 +14,6 @@ from uuid import uuid4
 
 from aitbc.crypto.crypto import sign_transaction_hash
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
-from eth_utils import keccak
 
 from .escrow import get_buyer_nonce
 from .error_handling import abort
@@ -26,6 +25,8 @@ def _sign_tx(tx: dict[str, Any], private_key: str) -> str:
     """Sign a transaction dict and return the hex signature."""
     has_amount = "amount" in tx
     tx_for_sign = {k: v for k, v in tx.items() if k not in ("signature", "sig") and not (has_amount and k == "value")}
+    from eth_utils import keccak
+
     canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
     tx_hash = "0x" + keccak(canonical).hex()
     return sign_transaction_hash(tx_hash, private_key)

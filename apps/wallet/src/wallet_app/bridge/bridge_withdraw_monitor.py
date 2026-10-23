@@ -18,7 +18,6 @@ from decimal import Decimal
 from typing import Any, cast
 
 import httpx
-from eth_account import Account as EthAccount
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.network import SharedHttpClient
@@ -140,6 +139,10 @@ def _validate_release_key() -> tuple[str, str] | tuple[None, str]:
     if not key:
         return (None, "No ETH_WALLET_PRIVATE_KEY or BRIDGE_ADMIN_PRIVATE_KEY configured")
     try:
+        # Function-local: eth_account's coincurve chain stays out of the
+        # wallet service import graph; this runs only on release validation.
+        from eth_account import Account as EthAccount
+
         account = EthAccount.from_key(key)
         derived = account.address
     except Exception as e:
@@ -330,6 +333,8 @@ async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
     if not key:
         raise RuntimeError(error)
 
+    from eth_account import Account as EthAccount
+
     account = EthAccount.from_key(key)
     gas_price = await _eth_gas_price()
     gas_limit = await _release_gas_limit(to_address, amount_eth)
@@ -486,6 +491,8 @@ async def _release_eth_for_withdrawal(
     key, error = _validate_release_key()
     if not key:
         raise RuntimeError(error)
+    from eth_account import Account as EthAccount
+
     account = EthAccount.from_key(key)
     async with ETH_RELEASE_NONCE_LOCK:
         if nonce is None:
