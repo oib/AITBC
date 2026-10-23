@@ -96,14 +96,27 @@ async def get_async_engine() -> AsyncEngine:
             async_url = effective_url.replace("sqlite:///", "sqlite+aiosqlite:///")
         else:
             async_url = effective_url.replace("postgresql://", "postgresql+asyncpg://")
-        _async_engine = create_async_engine(
-            async_url,
-            echo=settings.db_echo,
-            pool_size=settings.db_pool_size,
-            max_overflow=settings.db_max_overflow,
-            pool_recycle=settings.db_pool_recycle,
-            pool_pre_ping=settings.db_pool_pre_ping,
-        )
+        if "sqlite" in effective_url:
+            # Secondary async pool on sqlite: aiosqlite serializes writers
+            # anyway, so the configured 10+20 connection ceiling only holds
+            # mostly-idle connections across a respawn.
+            _async_engine = create_async_engine(
+                async_url,
+                echo=settings.db_echo,
+                pool_size=2,
+                max_overflow=3,
+                pool_recycle=settings.db_pool_recycle,
+                pool_pre_ping=settings.db_pool_pre_ping,
+            )
+        else:
+            _async_engine = create_async_engine(
+                async_url,
+                echo=settings.db_echo,
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
+                pool_recycle=settings.db_pool_recycle,
+                pool_pre_ping=settings.db_pool_pre_ping,
+            )
     return _async_engine
 
 
