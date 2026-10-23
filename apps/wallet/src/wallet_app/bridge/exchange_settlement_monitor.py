@@ -1486,7 +1486,16 @@ async def exchange_settlement_loop() -> None:
         try:
             summary = await poll_exchange_settlements_once()
             if not summary.get("skipped"):
-                logger.info("Exchange settlement poll completed: %s", summary)
+                # INFO on settlements processed, rows created, or a
+                # new_rows failure string; DEBUG on routine empty polls.
+                new_rows = summary.get("new_rows")
+                did_work = (
+                    summary.get("processed", 0) > 0
+                    or (isinstance(new_rows, dict) and new_rows.get("created", 0) > 0)
+                    or isinstance(new_rows, str)
+                )
+                log = logger.info if did_work else logger.debug
+                log("Exchange settlement poll completed: %s", summary)
         except Exception as e:  # noqa: BLE001 - poll containment — a failed pass must not end the monitor loop
             logger.error("Error in exchange settlement loop: %s", e)
         for _ in range(cfg.poll_interval):
