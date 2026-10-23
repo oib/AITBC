@@ -13,7 +13,6 @@ from decimal import Decimal
 from typing import Any, cast
 
 from aitbc.crypto.crypto import sign_transaction_hash
-from eth_utils import keccak
 
 from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units
 
@@ -151,6 +150,8 @@ def sign_escrow_lock_tx(lock_tx: dict[str, Any], private_key: str) -> str:
     """Sign an ESCROW_LOCK transaction and return the signature hex string."""
     has_amount = "amount" in lock_tx
     tx_for_sign = {k: v for k, v in lock_tx.items() if k not in ("signature", "sig") and not (has_amount and k == "value")}
+    from eth_utils import keccak
+
     canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
     tx_hash = "0x" + keccak(canonical).hex()
     return sign_transaction_hash(tx_hash, private_key)

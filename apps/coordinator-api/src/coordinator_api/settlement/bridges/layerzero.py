@@ -2,12 +2,16 @@
 LayerZero bridge adapter implementation
 """
 
+from __future__ import annotations
+
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from eth_utils.address import to_checksum_address
-from web3 import Web3
-from web3.contract import Contract
+
+if TYPE_CHECKING:
+    from web3 import Web3
+    from web3.contract import Contract
 
 from .base import (
     BridgeAdapter,

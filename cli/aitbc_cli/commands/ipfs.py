@@ -15,7 +15,10 @@ import tempfile
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from eth_keys.datatypes import PrivateKey
 
 import click
 import requests
@@ -520,6 +523,8 @@ def _load_wallet_key(wallet_name: str, password: str) -> tuple[str, PrivateKey]:
         private_key_hex = private_key_hex[2:]
 
     try:
+        from eth_keys.datatypes import PrivateKey
+
         private_key = PrivateKey(bytes.fromhex(private_key_hex))
     except ValueError as e:
         raise click.BadParameter(f"Invalid private key in wallet '{wallet_name}': {e}") from e

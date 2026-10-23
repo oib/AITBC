@@ -14,7 +14,6 @@ import os
 import time
 from dataclasses import dataclass
 
-from eth_keys import keys
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.consensus_signing import (
@@ -87,6 +86,10 @@ class KeyManager:
 
         # Generate a random secp256k1 private key
         private_key_bytes = secrets.token_bytes(32)
+        # Function-local: eth_keys' secp256k1 backend stays out of the
+        # blockchain-node import graph; signing keys load once at use.
+        from eth_keys import keys
+
         pk = keys.PrivateKey(private_key_bytes)
         derived_address = pk.public_key.to_checksum_address()
         final_address = address or derived_address

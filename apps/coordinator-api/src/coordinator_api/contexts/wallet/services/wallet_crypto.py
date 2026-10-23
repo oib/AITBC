@@ -10,9 +10,6 @@ from typing import Any
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from eth_account import Account
-from eth_keys import keys as eth_keys
-from eth_utils.address import to_checksum_address
 
 
 def generate_ethereum_keypair() -> tuple[str, str, str]:
@@ -22,7 +19,12 @@ def generate_ethereum_keypair() -> tuple[str, str, str]:
     Returns:
         Tuple of (private_key, public_key, address)
     """
-    # Use eth_account which properly implements secp256k1
+    # Function-local: eth_account/eth_keys carry the coincurve secp256k1
+    # chain; this module is imported at coordinator startup while keypair
+    # generation only runs on wallet creation calls.
+    from eth_account import Account
+    from eth_keys import keys as eth_keys
+
     account = Account.create()
 
     private_key = account.key.hex()
@@ -43,6 +45,9 @@ def verify_keypair_consistency(private_key: str, expected_address: str) -> bool:
     Returns:
         True if keypair is consistent
     """
+    from eth_account import Account
+    from eth_utils.address import to_checksum_address
+
     try:
         account = Account.from_key(private_key)
         return to_checksum_address(account.address) == to_checksum_address(expected_address)
@@ -155,6 +160,8 @@ def validate_private_key_format(private_key: str) -> bool:
         int(private_key, 16)
 
         # Try to create account to verify it's a valid secp256k1 key
+        from eth_account import Account
+
         Account.from_key("0x" + private_key)
 
         return True
@@ -230,6 +237,9 @@ def recover_wallet(encrypted_data: dict[str, str], password: str) -> dict[str, s
         raise ValueError("Decrypted private key has invalid format")
 
     # Derive address and public key to verify
+    from eth_account import Account
+    from eth_keys import keys as eth_keys
+
     account = Account.from_key("0x" + private_key)
 
     return {
