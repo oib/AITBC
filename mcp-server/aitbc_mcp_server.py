@@ -211,6 +211,41 @@ def _ssh_strict() -> bool:
     return os.getenv("AITBC_MCP_SSH_STRICT", "true").lower() not in {"0", "false", "no", "off"}
 
 
+# How long an idle multiplexed master stays up after the last session closes,
+# so back-to-back tool calls keep reusing it without pinning it forever.
+SSH_MUX_PERSIST = "10m"
+
+
+def _ssh_mux_enabled() -> bool:
+    """Return True unless the operator explicitly opts out of ssh connection reuse."""
+    return os.getenv("AITBC_SSH_MUX", "1").lower() not in {"0", "false", "no", "off"}
+
+
+def _ssh_mux_opts() -> list[str]:
+    """ControlMaster/ControlPersist options so repeat calls share one session.
+
+    ``ControlMaster=auto`` lets the first call to a host become the master and
+    later calls ride the same TCP connection over a control socket, skipping
+    the per-call handshake (and the PAM/systemd session each side would
+    otherwise create). ``%C`` hashes the full connection tuple, so distinct
+    user/host/port/jump combinations get distinct sockets in a short,
+    unix-path-safe name. Stale sockets are handled by ssh itself: ``auto``
+    replaces a dead master. Set ``AITBC_SSH_MUX=0`` to return to one
+    connection per call.
+    """
+    if not _ssh_mux_enabled():
+        return []
+    control_path = Path.home() / ".ssh" / "aitbc-mcp-%C"
+    return [
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        f"ControlPersist={SSH_MUX_PERSIST}",
+        "-o",
+        f"ControlPath={control_path}",
+    ]
+
+
 def _ssh_opts(host: str) -> list[str]:
     """Build SSH options for ``host`` using a managed known_hosts file.
 
@@ -228,6 +263,7 @@ def _ssh_opts(host: str) -> list[str]:
         opts.extend(["-o", "StrictHostKeyChecking=yes"])
     else:
         opts.extend(["-o", "StrictHostKeyChecking=accept-new"])
+    opts.extend(_ssh_mux_opts())
     return opts
 
 
