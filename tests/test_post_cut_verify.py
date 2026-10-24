@@ -117,12 +117,24 @@ def _is_active(cmd: str, unit_active: bool, timer_active: bool) -> str:
 
 
 def host_sh_factory(
-    env_ok: bool = True, stray: bool = False, unit_active: bool = True, timer_active: bool = True, store_count: int = 3
+    env_ok: bool = True,
+    stray: bool = False,
+    stray_size: int | None = None,
+    unit_active: bool = True,
+    timer_active: bool = True,
+    store_count: int = 3,
 ):
     handlers = [
         ("grep -h", lambda c: _grep_answer(env_ok, c)),
         ("sha256sum", lambda c: "ab" * 32 + "  /d/bc-2/genesis.json\n"),
-        ("find", lambda c: "/d/bc-2/chain.db\n" + ("/d/old/chain.db\n" if stray else "")),
+        (
+            "find",
+            lambda c: (
+                "0 /d/bc-2/chain.db\n" + (f"{stray_size or 0} /d/old/chain.db\n" if stray else "")
+                if "-printf" in c
+                else "/d/bc-2/chain.db\n" + ("/d/old/chain.db\n" if stray else "")
+            ),
+        ),
         (
             "journalctl",
             lambda c: "Successfully created genesis block from genesis.json\nInitializing databases for chains: ['bc-2']\n",
@@ -258,11 +270,28 @@ def test_env_denied_name(tmp_path):
 
 
 def test_stray_dbs(tmp_path):
-    c = ctx(tmp_path, host_sh=host_sh_factory(stray=True))
+    c = ctx(tmp_path, host_sh=host_sh_factory(stray=True, stray_size=4096))
     rows = pcv.check_no_stray_dbs(c, "hub", c.manifest["hosts"]["hub"])
     assert rows[0].ok is False
     c2 = ctx(tmp_path)
     assert pcv.check_no_stray_dbs(c2, "hub", c2.manifest["hosts"]["hub"])[0].ok is True
+
+
+def test_stray_dbs_zero_byte_warns_not_fails(tmp_path):
+    """Zero-byte strays (sqlite auto-create accidents) warn; gate stays green."""
+    c = ctx(tmp_path, host_sh=host_sh_factory(stray=True, stray_size=0))
+    rows = pcv.check_no_stray_dbs(c, "hub", c.manifest["hosts"]["hub"])
+    assert rows[0].ok is True
+    assert rows[0].severity == "INVESTIGATE"
+    assert "/d/old/chain.db" in rows[0].found
+
+
+def test_stray_dbs_nonempty_still_fails(tmp_path):
+    """A stray chain.db with real content is a possible divergent chain — STOP."""
+    c = ctx(tmp_path, host_sh=host_sh_factory(stray=True, stray_size=4096))
+    rows = pcv.check_no_stray_dbs(c, "hub", c.manifest["hosts"]["hub"])
+    assert rows[0].ok is False
+    assert rows[0].severity == "STOP"
 
 
 def test_genesis_file(tmp_path):
@@ -381,8 +410,10 @@ def test_full_run_exit(tmp_path):
     c = ctx(tmp_path, window_start_epoch=1)
     rows = pcv.run(c)
     assert pcv.worst(rows) == 0, [r.line() for r in rows if r.ok is False]
-    c2 = ctx(tmp_path, host_sh=host_sh_factory(stray=True), window_start_epoch=1)
+    c2 = ctx(tmp_path, host_sh=host_sh_factory(stray=True, stray_size=4096), window_start_epoch=1)
     assert pcv.worst(pcv.run(c2)) == 1
+    c3 = ctx(tmp_path, host_sh=host_sh_factory(stray=True, stray_size=0), window_start_epoch=1)
+    assert pcv.worst(pcv.run(c3)) == 0  # zero-byte stray warns; gate stays green
 
 
 # --- SOAK-GATE-WINDOW-1: windowed validator coverage + head progression --
