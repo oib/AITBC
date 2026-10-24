@@ -627,6 +627,14 @@ if [[ -d "$REPO_CONFIG_DIR" ]]; then
         if [[ -f "$file" ]]; then
             filename=$(basename "$file")
             target="$ACTIVE_TMPFILES_DIR/$filename"
+            # tmpfiles.d lines start with a one-letter type (+optional !,=,-,+ prefix)
+            # then whitespace. Anything else (e.g. a systemd.exec key like
+            # CPUAffinity=) is not a tmpfiles file — deploying it fires
+            # "Syntax error" on every systemd-tmpfiles run fleet-wide.
+            if ! grep -qE '^[[:space:]]*[!+=-]?[a-zA-Z][[:space:]]' "$file"; then
+                echo "    ⚠️  Skipping $filename: no tmpfiles.d-format line — not a tmpfiles config"
+                continue
+            fi
             echo "  📋 Deploying: $filename -> $target"
             if deploy_err=$(cp "$file" "$target" 2>&1); then
                 echo "    ✅ Successfully deployed: $filename"
