@@ -91,8 +91,11 @@ in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS`) and receive pushes on
 BLOCKCHAIN_MODE=follower MARKET_ROLE=shop HARDWARE_PROFILE=gpu ./scripts/deployment/setup.sh
 ```
 
-Adds `aitbc-gpu`, `aitbc-miner`, `aitbc-edge`, `aitbc-pool-hub`, and
-`aitbc-market` on top of the follower set.
+Adds `aitbc-gpu`, `aitbc-miner`, `aitbc-edge` and `aitbc-market` on top of
+the follower set. `setup.sh`'s shop enable list still names `aitbc-pool-hub`,
+but pool hub is a single hub-side authority and `link-systemd.sh`'s shop
+link set excludes it — see
+[Service selection](../getting-started/setup-service-selection.md).
 
 ### 5. Datastores
 
