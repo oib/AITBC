@@ -29,7 +29,7 @@ from .network.island_manager import create_island_manager
 from .rpc.escrow_routes import get_node_wallet_address
 from .rpc.escrow_routes import router as escrow_router
 from .rpc.router import router as rpc_router
-from .rpc.utils import set_poa_proposer
+from .rpc.utils import get_supported_chains, set_poa_proposer
 from .rpc.websocket import router as websocket_router
 
 from aitbc.aitbc_logging import configure_logging
@@ -134,6 +134,26 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         if x_forwarded:
             client_host = x_forwarded.split(",")[0].strip() or client_host
         user_agent = request.headers.get("user-agent", "unknown")
+        # An explicit chain_id outside supported_chains can only fail later —
+        # unguarded routes resolve it into session_scope, where get_engine
+        # opens a stray data/<chain>/chain.db and the request dies as an
+        # unhandled 503 (the ait-hub residual: ~5.1k outside hits each logged
+        # as an unhandled error). Answer the 400 contract
+        # RPC-ACCT-UNKNOWN-CHAIN-1 shipped, at debug: one stale poller must
+        # not fill the journal or feed the error alert.
+        chain_id_param = request.query_params.get("chain_id")
+        if chain_id_param and chain_id_param not in get_supported_chains():
+            metrics_registry.increment("rpc_requests_total")
+            metrics_registry.increment("rpc_client_errors_total")
+            _app_logger.debug(
+                "Rejected unsupported chain_id %r: %s %s from %s (UA: %s)",
+                chain_id_param,
+                method,
+                path_with_qs,
+                client_host,
+                user_agent,
+            )
+            return JSONResponse(status_code=400, content={"detail": f"Unsupported chain_id: {chain_id_param}"})
         try:
             response = await call_next(request)
             duration = time.perf_counter() - start
