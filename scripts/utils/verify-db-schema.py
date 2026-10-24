@@ -433,13 +433,11 @@ KNOWN_DBS: dict[str, Any] = {
             ],
         },
     },
-    "agent_management": {
-        "type": "sqlmodel",
-        "path": _data_dir() / "agent_management.db",
-        "modules": ["coordinator_api.main"],
-        "metadata": ["sqlmodel.SQLModel.metadata"],
-        "required_tables": ["agent_executions"],
-    },
+    # "agent_management" deliberately has no entry: agent_management.db was
+    # the deleted aitbc-agent-management app's store (removed v0.10.7); no
+    # code path creates that filename post-reset — the agent_executions
+    # table is coordinator_api's and lives in coordinator.db. A file by
+    # that name is a legacy leftover and surfaces via _auto_discover.
     "agent_coordinator": {
         "type": "static",
         "path": _data_dir() / "agent_coordinator.db",
@@ -515,7 +513,6 @@ DB_SERVICE_MAP: dict[str, str | None] = {
     "market": "aitbc-market",
     "exchange": "aitbc-exchange",
     "hermes": "aitbc-agent-coordinator",
-    "agent_management": "aitbc-agent-coordinator",
     "agent_coordinator": "aitbc-agent-coordinator",
     "agent_coin_requests": "aitbc-agent-coordinator",
     "keystore": "aitbc-wallet",
