@@ -33,13 +33,14 @@ Env names are the pydantic field names uppercased (`STATE_TRANSITION_V9_HEIGHT`,
 | `state_transition_v12_height` | 37500 | 37500 | truthy `and h >= t` | 1 | v12 inactive | `state_transition.py:971-973`; default `config.py:873` |
 | `state_transition_v13_height` | 46100 (`SHARED_ACTIVATION_HEIGHT`, `config.py:57`; `V13_HEIGHT_NOT_ARMED=2**62` parks it, `config.py:47`) | 46100 | truthy `and h >= t` | 1 | v13 inactive — executes unbound to proposals | `state_transition.py:968-970`; default `config.py:881` |
 | `state_transition_v14_height` | 46100 | 46100 | truthy `and h >= t` | 1 | v14 inactive — no aux-state-root commit/check, unreadable bridge leaves grandfathered | `state_transition.py:965-967`; default `config.py:890` |
+| `state_transition_v15_height` | None (`config.py:898`; unset = unarmed) | 0 — never set on the corpus chain (bc-2 carries 1732) | truthy `and h >= t` | — | v15 inactive — `edge_node_registration` stays committed | `state_transition.py:965-966`; default `config.py:898` |
 | `state_transition_v16_height` | unset | — (unpinned) | truthy `and h >= t` | unarmed | v16 inactive — GPU_ALLOCATE keeps minting `alloc_<uuid4>` when `allocation_id` is omitted; missing `gpu_id` dies at apply | `state_transition.py` cascade top; field `config.py` ~L898 (GPU-ADMISSION-1 #384) |
 
 Replay-path readers: `get_block_version` (`state_transition.py:906-955`)
 checks the v8 switch first (`:923-924`), then walks v7..v2 with `> 0 and
 height >= t`, stamp wins below v8.
 Producer-path readers: `get_block_version_for_height`
-(`state_transition.py:958-1004`) walks v14..v9 on truthiness, v8..v3 on
+(`state_transition.py:958-1004`) walks v15..v9 on truthiness, v8..v3 on
 `> 0`, and has the v2 special tail (`if t > 0 and h < t: return 1;
 return 2` — with t=0 the `return 2` always hits). The two tails disagree
 under all-zero: replay v1, producer v2 — a produced block would not replay
