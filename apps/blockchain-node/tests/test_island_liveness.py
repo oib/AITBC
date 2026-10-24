@@ -90,3 +90,67 @@ def test_hub_never_evaluates_itself():
 def test_follower_still_evaluates():
     s = _state(self_is_hub=False, seconds_since_hub_observation=900, consecutive_missed_hub_slots=12)
     assert evaluate_island_state(**s) is Tier.ISLAND_DEGRADED
+
+
+# ── monitor / gauges / deferral (#393 remaining surface) ──────────────
+
+
+def _monitor(**kw):
+    from aitbc_chain.island_monitor import IslandMonitor
+
+    base = {"beacon_interval": 60.0, "is_hub_self": False, "validator_count": 4}
+    base.update(kw)
+    return IslandMonitor(**base)
+
+
+def test_health_payload_reports_tier_and_silence():
+    m = _monitor()
+    m.tick(100)
+    h = m.health()
+    assert h["degraded"] == "none"
+    assert h["hub_silence_seconds"] >= 0 and h["gossip_silence_seconds"] >= 0
+
+
+def test_gauges_refresh_on_tick():
+    import time as _t
+    from aitbc_chain import island_monitor as im
+
+    m = _monitor()
+    m.last_hub_observation_at = _t.monotonic() - 30
+    m.tick(100)
+    assert im.island_hub_silence_seconds() >= 30
+
+
+def test_defer_off_by_default_changes_nothing(monkeypatch):
+    monkeypatch.delenv("ISLAND_DEFER_ENABLED", raising=False)
+    import importlib
+    from aitbc_chain import island_monitor as im
+
+    importlib.reload(im)
+    m = im.IslandMonitor(beacon_interval=60.0, is_hub_self=False, validator_count=4)
+    m._tier = im_island_degraded()
+    assert m.defer_if_island_degraded("offer-publish") is False
+
+
+def im_island_degraded():
+    from aitbc_chain.island_liveness import Tier
+
+    return Tier.ISLAND_DEGRADED
+
+
+def test_defer_only_when_flag_on_and_island_degraded(monkeypatch):
+    monkeypatch.setenv("ISLAND_DEFER_ENABLED", "true")
+    import importlib
+    from aitbc_chain import island_monitor as im
+
+    importlib.reload(im)
+    m = im.IslandMonitor(beacon_interval=60.0, is_hub_self=False, validator_count=4)
+    from aitbc_chain.island_liveness import Tier
+
+    m._tier = Tier.GOSSIP_DEGRADED
+    assert m.defer_if_island_degraded("offer-publish") is False  # tier1 never defers
+    m._tier = Tier.ISLAND_DEGRADED
+    assert m.defer_if_island_degraded("offer-publish") is True
+    assert m.defer_if_island_degraded("job-submit") is True
+    monkeypatch.delenv("ISLAND_DEFER_ENABLED", raising=False)
+    importlib.reload(im)
