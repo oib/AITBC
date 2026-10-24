@@ -1,0 +1,40 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x199bf7987c00d2cb5ff99a4da199d1ed0fea2e955d6ad096654e22a0898f05b0",
+  "height": 100,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gpu-allocate-v16-unknown-gpu",
+ "description": "GPU_ALLOCATE naming an unregistered gpu \u2014 refused at/after v16, dies at apply below.",
+ "gate": "v16",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "nonce": 0,
+  "payload": {
+   "allocation_id": "alloc-fixed-1",
+   "client_id": "c1",
+   "duration_hours": 1,
+   "gpu_id": "gpu-nope",
+   "total_cost": 10
+  },
+  "signature": "0x288ad7f5d791220893af50dd517073acf2658cde85d927767dcf2a90a5d8983870a99ae731067eafb924edbd9a186e5f83a5d2c94d4d22a038857ae4add9089e01",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0x358b16503f4d02ee16bef02332ecd6897bfd8d6eeebedb0d35049e45941ef2f8",
+  "type": "GPU_ALLOCATE",
+  "value": 0
+ }
+}
