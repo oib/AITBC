@@ -46,15 +46,17 @@ read-only baseline 20 Oct: **0 firing, 0 pending**).
 
 ## Expected noise — after the cut (first hour, all benign)
 
-- **`BackupSizeCollapse`** — first bc-2 backup is far under the 7-day
-  median of the old chain's generations; the rule has a comment noting
-  this as expected once at the cut. A single warning, no action.
+- **`BackupSizeCollapse`** — each bc-2 backup generation lands far under
+  the 7-day median while that median still holds old-chain sizes, so the
+  alert fires on every post-reset generation until the median re-anchors
+  (~a week; the post-drop samples pass 50% of the `[7d]` window ~3.5 days
+  after the size drop). Benign while the run journals stay clean; the
+  approved handling is a per-host silence with an expiry, recorded in
+  hub's `/etc/aitbc/prometheus-silences.json`.
 - **`NativeEnergyRate*Stale`** — until the first refresh lands on the
   fresh service db.
 - **`AttestationArrivalDegraded`** — only if early produced blocks are
   sparse; needs 30 m of sustained sub-0.97 share.
-- **`BackupSizeCollapse` does NOT repeat** after the first generation —
-  the median re-anchors within days on the small fresh dumps.
 
 ## Self-clearing by design (no action needed)
 
