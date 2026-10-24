@@ -680,18 +680,34 @@ def check_genesis_file(ctx: Ctx, name: str, h: dict) -> list[Result]:
 def check_no_stray_dbs(ctx: Ctx, name: str, h: dict) -> list[Result]:
     exp = ctx.manifest["expected"]
     data_dir = h.get("data_dir", "/var/lib/aitbc/data")
-    out = sh(ctx, h, f"find {shlex.quote(data_dir)} -name chain.db 2>/dev/null")
-    paths = [p for p in (out or "").splitlines() if p.strip()]
+    out = sh(ctx, h, f"find {shlex.quote(data_dir)} -name chain.db -printf '%s %p\\n' 2>/dev/null")
     allowed = f"/{exp['chain_id']}/chain.db"
-    stray = [p for p in paths if not p.endswith(allowed)]
+    empty, nonempty = [], []
+    for line in (out or "").splitlines():
+        size, _, path = line.strip().partition(" ")
+        if path and not path.endswith(allowed):
+            (nonempty if size not in ("", "0") else empty).append(path)
+    if nonempty:
+        return [
+            Result(
+                "no-stray-chaindb",
+                name,
+                "STOP",
+                False,
+                f"only */{exp['chain_id']}/chain.db under data/",
+                str(sorted(nonempty + empty)),
+                f"non-empty stray chain.db: {nonempty}",
+            )
+        ]
     return [
         Result(
             "no-stray-chaindb",
             name,
-            "STOP",
-            not stray,
+            "INVESTIGATE" if empty else "STOP",
+            True,
             f"only */{exp['chain_id']}/chain.db under data/",
-            str(stray or "clean"),
+            str(sorted(empty) or "clean"),
+            "zero-byte stray(s) — sqlite auto-create accident, not state" if empty else "",
         )
     ]
 
