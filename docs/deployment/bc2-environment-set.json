@@ -50,6 +50,7 @@
     {"name": "STATE_TRANSITION_V12_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
     {"name": "STATE_TRANSITION_V13_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
     {"name": "STATE_TRANSITION_V14_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
+    {"name": "STATE_TRANSITION_V16_HEIGHT", "op": "keep", "scope": "carrying", "class": "carry", "note": "GPU-ADMISSION-1 gate; unarmed until the operator pins a height fleet-wide"},
     {"name": "BRIDGE_LOCK_LEAF_V2_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
     {"name": "ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
 

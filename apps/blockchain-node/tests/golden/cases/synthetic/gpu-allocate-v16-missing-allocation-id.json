@@ -1,0 +1,54 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x199bf7987c00d2cb5ff99a4da199d1ed0fea2e955d6ad096654e22a0898f05b0",
+  "height": 100,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "gpu-allocate-v16-missing-allocation-id",
+ "description": "GPU_ALLOCATE without allocation_id \u2014 refused at/after v16, minted below.",
+ "gate": "v16",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ],
+  "gpu_registration": [
+   {
+    "capabilities": [],
+    "chain_id": "gv-synth",
+    "cuda_version": "12.4",
+    "gpu_id": "gpu-1",
+    "memory_gb": 24,
+    "miner_id": "miner-1",
+    "model": "test-gpu",
+    "price_per_hour": "1.0",
+    "region": "test",
+    "registered_by": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "status": "active"
+   }
+  ]
+ },
+ "tx": {
+  "amount": 0,
+  "chain_id": "gv-synth",
+  "fee": 1,
+  "from": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "nonce": 0,
+  "payload": {
+   "client_id": "c1",
+   "duration_hours": 1,
+   "gpu_id": "gpu-1",
+   "total_cost": 10
+  },
+  "signature": "0x18edfe2e0cd78fbce841f883f0f48e584b762f6eede958edca23306f952dd216254ddbef9421dc6bcb28208162feb3e5b01271ececebb945916c1c68d048728600",
+  "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+  "tx_hash": "0xa34311f9f80156a9eb9a248afc04fcddc3f47469081cc7b1f803a8366348370c",
+  "type": "GPU_ALLOCATE",
+  "value": 0
+ }
+}

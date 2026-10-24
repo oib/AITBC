@@ -44,6 +44,7 @@ from .gpu_resources import (
     GPU_STATUS_DEACTIVATED,
     GPUAllocation,
     GPURegistration,
+    gpu_allocate_admission_error,
     gpu_allocate_deactivated_error,
     gpu_deregister_error,
     retired_gpu_error,
@@ -962,6 +963,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v16_threshold = getattr(settings, "state_transition_v16_height", None)
+    if v16_threshold and height >= v16_threshold:
+        return 16
     v15_threshold = getattr(settings, "state_transition_v15_height", None)
     if v15_threshold and height >= v15_threshold:
         return 15
@@ -1772,6 +1776,13 @@ class StateTransition:
                 deactivated_error = gpu_allocate_deactivated_error(session, chain_id, payload)
                 if deactivated_error:
                     return (False, deactivated_error)
+            if block_version >= 16:
+                # v16 (GPU-ADMISSION-1 #384): allocation_id is mandatory and gpu_id must
+                # resolve — apply can no longer be the first place that checks, and it can
+                # no longer mint a nondeterministic alloc_<uuid4> for a sealed tx.
+                admission_error = gpu_allocate_admission_error(session, chain_id, payload)
+                if admission_error:
+                    return (False, admission_error)
             if not payload.get("client_id"):
                 return (False, "GPU_ALLOCATE payload must include client_id")
             try:

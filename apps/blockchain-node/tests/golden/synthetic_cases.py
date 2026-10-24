@@ -464,7 +464,7 @@ def cases() -> list[dict[str, Any]]:
         },
     ]
     cases += _bridge_cases() + _v5_cases() + _v9_cases() + _v10_cases()
-    cases += _governance_cases() + _v14_cases() + _stake_cases() + _boundary_cases()
+    cases += _governance_cases() + _v14_cases() + _stake_cases() + _boundary_cases() + _v16_cases()
     cases += _first_block_cases() + _gates1_signed_cases()
     return cases
 
@@ -1187,6 +1187,67 @@ def _v10_cases() -> list[dict[str, Any]]:
             "prestate": {"account": [_acct(ADDR_B, 10_000)], "gpu_registration": [reg]},
             "block": _block(25000),
             "tx": reg_foreign,
+        },
+    ]
+
+
+def _v16_cases() -> list[dict[str, Any]]:
+    """GPU-ADMISSION-1 (#384): v16 requires allocation_id + existing gpu_id."""
+    reg = {
+        "chain_id": CHAIN,
+        "gpu_id": "gpu-1",
+        "miner_id": "miner-1",
+        "model": "test-gpu",
+        "memory_gb": 24,
+        "cuda_version": "12.4",
+        "region": "test",
+        "capabilities": [],
+        "registered_by": ADDR_A,
+        "status": "active",
+        "price_per_hour": "1.0",
+    }
+    alloc_noid = _tx(
+        "gpu-allocate-v16-missing-allocation-id",
+        0,
+        "GPU_ALLOCATE",
+        sender=ADDR_B,
+        to=ADDR_B,
+        value=0,
+        payload={"gpu_id": "gpu-1", "client_id": "c1", "duration_hours": 1, "total_cost": 10},
+    )
+    alloc_bogus = _tx(
+        "gpu-allocate-v16-unknown-gpu",
+        0,
+        "GPU_ALLOCATE",
+        sender=ADDR_B,
+        to=ADDR_B,
+        value=0,
+        payload={
+            "gpu_id": "gpu-nope",
+            "client_id": "c1",
+            "duration_hours": 1,
+            "total_cost": 10,
+            "allocation_id": "alloc-fixed-1",
+        },
+    )
+    _sign(alloc_noid, KEY_B)
+    _sign(alloc_bogus, KEY_B)
+    return [
+        {
+            "case_id": "gpu-allocate-v16-missing-allocation-id",
+            "gate": "v16",
+            "description": "GPU_ALLOCATE without allocation_id — refused at/after v16, minted below.",
+            "prestate": {"account": [_acct(ADDR_B, 10_000)], "gpu_registration": [reg]},
+            "block": _block(100),
+            "tx": alloc_noid,
+        },
+        {
+            "case_id": "gpu-allocate-v16-unknown-gpu",
+            "gate": "v16",
+            "description": "GPU_ALLOCATE naming an unregistered gpu — refused at/after v16, dies at apply below.",
+            "prestate": {"account": [_acct(ADDR_B, 10_000)]},
+            "block": _block(100),
+            "tx": alloc_bogus,
         },
     ]
 
