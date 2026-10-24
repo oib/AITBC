@@ -64,13 +64,14 @@ Exit codes: 0 = every check PASS/NOTE/SKIP, 1 = any FAIL, 2 = run error.
 """
 
 from __future__ import annotations
+import importlib.util
+from pathlib import Path
 
 import argparse
 import json
 import shlex
 import subprocess
 import sys
-import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -191,93 +192,22 @@ def real_host_sh(ssh_target: str | None, cmd: str, timeout: int = 15) -> str | N
         return None
 
 
-def sh(ctx: Ctx, hspec: dict, cmd: str) -> str | None:
-    return ctx.host_sh(hspec.get("ssh"), cmd)
+# Shared host-HTTP transport: ops_http.py sits next to this file and is
+# loaded by location because tests load this script via
+# spec_from_file_location (no package import is possible). Names are
+# re-bound so every existing caller — including run-postcut.py's
+# ``pcv.`` attribute access — keeps working.
+_spec = importlib.util.spec_from_file_location("aitbc_ops_http", Path(__file__).resolve().with_name("ops_http.py"))
+_ops_http = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ops_http)
 
-
-def _ssh_curl(ctx: Ctx, alias: str, argv_tail: list[str]) -> tuple[int, dict]:
-    """One HTTP request through ``ssh <alias> curl`` — for listeners bound
-    to the remote loopback that no local tunnel reaches (manifest
-    ``rpc_via_ssh``/``prom_via_ssh``). The remote curl prints the body,
-    then ``\\n%{http_code}``; the last stdout line is the status and
-    everything above it the body. ``(-1, …)`` marks a transport failure —
-    the ssh leg died or curl never printed a status — so ``_retry`` treats
-    it exactly like an unanswered socket."""
-    cmd = "curl -s -m 10 -w '\\n%{http_code}' " + " ".join(argv_tail)
-    out = ctx.host_sh(alias, cmd)
-    if not out:
-        return -1, {"error": f"ssh {alias} curl: no output"}
-    lines = out.splitlines()
-    try:
-        code = int(lines[-1].strip())
-    except (IndexError, ValueError):
-        return -1, {"error": f"ssh {alias} curl: bad status line {out[-80:]!r}"}
-    try:
-        return code, json.loads("\n".join(lines[:-1]))
-    except Exception:
-        return code, {}
-
-
-def _get_via_ssh(ctx: Ctx, hspec: dict, url: str) -> tuple[int, dict]:
-    alias = hspec.get("ssh")
-    if not alias:
-        return -1, {"error": "rpc_via_ssh set but host has no ssh alias"}
-    return _retry(ctx, lambda: _ssh_curl(ctx, alias, [shlex.quote(url)]))
-
-
-def hget(ctx: Ctx, hspec: dict, path: str) -> tuple[int, dict]:
-    url = hspec["rpc"].rstrip("/") + path
-    if hspec.get("rpc_via_ssh"):
-        return _get_via_ssh(ctx, hspec, url)
-    return _get(ctx, url)
-
-
-def hpost(ctx: Ctx, hspec: dict, path: str, body: dict) -> tuple[int, dict]:
-    url = hspec["rpc"].rstrip("/") + path
-    if not hspec.get("rpc_via_ssh"):
-        return ctx.http_post(url, body)
-    return _retry(
-        ctx,
-        lambda: _ssh_curl(
-            ctx,
-            hspec["ssh"],
-            [
-                "-X",
-                "POST",
-                "-H",
-                shlex.quote("Content-Type: application/json"),
-                "--data",
-                shlex.quote(json.dumps(body)),
-                shlex.quote(url),
-            ],
-        ),
-    )
-
-
-def _get(ctx: Ctx, url: str) -> tuple[int, dict]:
-    return _retry(ctx, lambda: ctx.http_get(url))
-
-
-def _retry(ctx: Ctx, fetch) -> tuple[int, dict]:
-    """Bounded retry on transport failures only.
-
-    ``code == -1`` means the request never got an HTTP answer — timeout,
-    refused, or a dropped leg (the ssh-curl legs stall under load the same
-    way a dead tunnel does); a short backoff absorbs that without masking
-    definitive answers: real status codes, even 5xx, return on the first
-    attempt. Tunables: expected.http_attempts (default 3),
-    expected.http_retry_backoff_s (default 0.4, doubled per retry).
-    """
-    exp = ctx.manifest.get("expected") or {}
-    attempts = max(1, int(exp.get("http_attempts", 3)))
-    backoff = float(exp.get("http_retry_backoff_s", 0.4))
-    code, body = fetch()
-    for i in range(attempts - 1):
-        if code != -1:
-            break
-        time.sleep(backoff * (2**i))
-        code, body = fetch()
-    return code, body
+sh = _ops_http.sh
+_ssh_curl = _ops_http._ssh_curl
+_get_via_ssh = _ops_http._get_via_ssh
+hget = _ops_http.hget
+hpost = _ops_http.hpost
+_get = _ops_http._get
+_retry = _ops_http._retry
 
 
 # --- HTTP checks ----------------------------------------------------------
