@@ -1,51 +1,92 @@
 # v0.26.0 — post-v0.25.12 work
 
-**Baseline**: `v0.25.12` finalised at `a63b94a906` (2026-10-21). Sections below cover commits accrued on `main` after it, per the release-tag policy (`AGENTS.md`: the version's changelog is finalised in the tagged commit; later entries go to the next version's log).
-**Date**: staged 2026-10-22 — committed at the bc-2 reset window close.
-**Tag**: `v0.26.0` (pending; renamed from the working title `v0.25.13` per the operator's 22 Oct directive).
+**Baseline**: `v0.25.12` tag. Sections below cover commits accrued on `main` after it.
+**Tag**: `v0.25.12` → this log collects the post-tag window (bc-2 reset window work).
 
-### v0.25.12 strays — shipped in v0.25.12, logged late
+### Late-logged v0.25.12 entries
 
-The tag commit itself and two earlier same-day commits missed the frozen v0.25.12 log:
+*(shipped in v0.25.12, logged late)*
 
-- `a63b94a90` — `feat(monitoring): journal error anchor + escrow-residue timer and absent guard` (ATTEST-PROM-FOLLOW-1, #360) — shipped in v0.25.12, logged late. **This is also the v0.25.12 tag commit.**
-- `0b9b6afeb` — `fix(edge): send the startup register through BlockchainRPCClient` (RESET-EDGE-REG-1, #358) — shipped in v0.25.12, logged late.
-- `f5651b648` — `fix(monitoring): chmod 0644 textfile .prom writers before the atomic rename` (ATTEST-PROM-MODE-1, #359) — shipped in v0.25.12, logged late.
+- `a63b94a90` — `feat(monitoring): journal error anchor + escrow-residue timer and absent guard` *(shipped in v0.25.12, logged late)*
+- `0b9b6afeb` — `fix(edge): send the startup register through BlockchainRPCClient` *(shipped in v0.25.12, logged late)*
+- `f5651b648` — `fix(monitoring): chmod 0644 textfile .prom writers before the atomic rename` *(shipped in v0.25.12, logged late)*
 
-### consensus + supply surface
+### consensus: v15 de-commits edge_node_registration
 
-- `df6e49ec3` — `feat(consensus): v15 de-commits edge_node_registration from the side-root set` (EDGE-REG-CONSENSUS-1, #361). **Ships dormant, active on v15 activation**: the table leaves the committed fingerprint only when the v15 activation height is armed — on this commit the era's behaviour is unchanged.
-- `6f353f872` — `chore(legacy): delete the unused aitbc_chain.economics package` (LEGACY-ECONOMICS-1, #311).
-- `412defd0f` — `feat(blockchain-node): /rpc/supply — live aggregate over the committed account table` (GAP-SUPPLY-LIVE-1): circulating supply = `SUM(account.balance) − bond_burn`, read straight off chain.db.
-- `41cd4102f` — `feat(coordinator-api): /v1/supply circulating figure from live /rpc/supply`.
-- `236cb64a3` — `fix(blockchain-node): supply decimal formatting and signable-tx test fixup`.
-- `29d30cabf` — `fix(coordinator-api): /v1/supply 503 carries upstream error + malformed-body guard` (SUPPLY-REVIEW-FIX-1, #372): the 503 detail now names the upstream failure; a 200-with-missing-keys node body gets honest-503 instead of KeyError-500.
-- `0fa445d8c` — `test(blockchain-node): tag the structural-slow tests for a quick lane` (TEST-AUDIT-1 part 2).
+- `df6e49ec3` — `feat(consensus): v15 de-commits edge_node_registration from the side-root set`. **Ships dormant, active on v15 activation** — no behaviour change at current heights.
 
-### CLI + governance read paths
+### fix(rpc): early 400 for unsupported chain_id query param (#397)
 
-- `eeec39dfa` — `feat(cli): close the four read-path gaps from RESET-DRAIN-1 Phase 0` (#362).
-- `aa0d2830e` — `feat(governance): sealed-proposal reader — /rpc/governance/sealed-proposal/{id} + aitbc governance proposal show` (#363).
-- `a60f3b05e` — `docs(cli): rewrite aitbc.1 EXAMPLES against the live tree + parse test` (#364).
+- `681f4c6bc` — an explicit `chain_id` outside `supported_chains` now gets a clean 400 `{"detail": "Unsupported chain_id: <id>"}` from `RequestLoggingMiddleware` before the handler runs; previously only `/rpc/account(s)/{address}` was guarded (RPC-ACCT-UNKNOWN-CHAIN-1) and every other scope-reading route resolved the id into `session_scope`, opened a stray `data/<chain>/chain.db` and died as an unhandled 503 — the ait-hub residual of ~5,100 unhandled-error journal lines on 20–22 Oct. Rejection is counted in `rpc_requests_total`/`rpc_client_errors_total` and logged at debug. Deployed fleet-wide 24 Oct; live replay confirms 400 on list/details/supply.
 
-### reset-window runbook + contract docs
+### feat/test/refactor(post-cut-verify): reset-window gate tooling
 
-- `a877a757c` — `docs(reset): fold the nine 21-Oct window gaps into the runbook + sepolia checklist` (RESET-RUNBOOK-GAPS-1, #365).
-- `7f66bb96e` — `docs(contracts): record SEPOLIA-REDEPLOY-1 activation; deprecate BR-1`.
-- `3db4d1a55` — `docs(design): renumber the multisig gate to v16 — v15 is the edge de-commit`.
-- `7473f0fee` — `docs(bc-2): replace stale ait-localnet(-island) values in live docs` (DOCS-BC2-SWEEP-1, #371): island-subscription-check journal line + network-info example now carry `bc-2`/`bc-2-island`.
+- `1b80e7969` — windowed validator coverage, head progression, V9 alert flag (SOAK-GATE-WINDOW-1).
+- `6c5f27579` — `window_start` manifest key + strict test fake.
+- `7b024419d` — bounded retries on transport failures (code −1 only; real status codes return first attempt).
+- `13bb13e3f` — per-host `check_overrides` skip entries.
+- `27853b3bf` — ssh-curl transport for loopback-only rpc/prom endpoints (`rpc_via_ssh`/`prom_via_ssh`).
+- `f9a461aac` — pin ssh-curl parse edges, non-ssh single POST, `prom_via_ssh` type check (clear failing row instead of cryptic −1 on `"prom_via_ssh": true`).
+- `7a1a895b8` — share the ssh-curl transport between `post-cut-verify.py` and `unpause-precheck.py` (UNPAUSE-PRECHECK-SSH-1, #398): helpers extracted to `scripts/ops/ops_http.py`, both scripts load it by location and re-bind names; precheck decision logic unchanged, sepolia `eth_*` reads stay direct. *(landed rebased from `8dc3040f5`)*
 
-### observer + precheck tooling (21-Oct bc-2 reset window)
+### docs/test/ops: reset-window corrections and fixes
 
-- `e6b0427c5` — `fix(ops): post-cut-verify stores probe can no longer create a missing db` (existence guard + `sqlite3 -readonly` — the probe that self-created the `coordinator_api.db` stray).
-- `5cba58100` — `fix(ops): unpause-precheck — send a real User-Agent on JSON-RPC POSTs` (public Sepolia endpoints reject urllib's default UA).
-- `98def375a` — `fix(ops): unpause-precheck — read getThreshold() on the Safe, not the bridge` (the bridge reverts; threshold is a multisig-Safe function).
-- `af7bc5666` — `test(ops): OBS-PRECHECK-1 — commit expected_inactive support + observer regression tests` (#368): `units-expected-inactive` rows assert held services stay *down*; regression tests for the three fixes above.
-- `e96fd2298` — `fix(monitoring): skip zero-byte and non-sqlite glob hits in chain-db scans` (MON-DB-GLOB-1, #367): five glob users skip probe-artifact files with a log line; `AITBC_CHAIN_DB` pins stay strict; silent exit-1 paths now log a reason.
+- `3467686ea` — `docs(reset): correct BackupSizeCollapse repeat claim and dead agent_management.db expectation` (#388 option A): the collapse can recur on new 03:05 generations (repeat claim corrected; option A re-baseline chosen).
+- `3b283fe94` — `test(rpc): drop four stale allow-list entries for removed writers`.
+- `9a850afaf` — `test(cli): fix two stale assertions — auth-gated ai submit, 8-field bridge sign`.
+- `a7d993e10` — `feat(ops): host-compare.py — read-only two-host failover comparison`.
 
-### chain-id defaults (bc-2)
 
-- `4f6b9a7ff` — `fix(website,genesis): committed defaults emit bc-2, live-id guard covers bc-2` (CHAINID-DEFAULT-1, #373): render-website.sh's fallback + the committed `config.js`/`dashboard.js` values now carry `bc-2` (hub already served it via env); `LIVE_CHAIN_IDS` refuses scratch builds for both the old id and `bc-2`.
-- `7a6d764c7` — `fix(blockchain-node): unknown chain_id on /rpc/account(s)/{address} is a clean 400` (RPC-ACCT-UNKNOWN-CHAIN-1, #375): an explicit `?chain_id=` outside `supported_chains` no longer reaches the engine — read path only; kills the stray-db/stale-404 class that the node2 miner poller was hitting.
-- `52d8ff816` — `test(blockchain-node): conftest chain-id pin becomes bc-2.test` (CHAINID-FIXTURE-PIN-1, #376): the autouse `settings.chain_id` fixture stands in for the live id's shape without colliding; readiness URLs renamed in the same coordinated change (they mean "the node's own chain").
-- `fe7131674` — `fix(cli): chain-id precedence — env CHAIN_ID wins on signing paths, mismatch warns` (CLI-CHAINID-PRECEDENCE-1, #377): `market.get_chain_id()` resolves env → `island_credentials.json` → RPC probe → aborts (a failed lookup never means nonce 0); env-vs-creds mismatch warns naming both values + the creds path, never the dict; `get_island_id()` stays env-first; server-side island readers untouched.
+### Additional post-tag commits collected by the director (24 Oct evening; not in B's first draft)
+
+Collected from `git log v0.25.12..origin/main`: every commit not yet named in a staged log. Grouped by type. Placement of the four 24 Oct docs/replay commits (`acff2d112`, `2d64ce7ef`, `d25295eb4`, `8d1f06175`) is a proposal — they could equally go to v0.28.0. The AGENTS.md subagent doc commit and its revert (`701e98e16`, `baa92f80a`) cancel out and are omitted.
+
+**chore**
+- `6f353f872` — `chore(legacy): delete the unused aitbc_chain.economics package`
+
+**feat**
+- `eeec39dfa` — `feat(cli): close the four read-path gaps from RESET-DRAIN-1 Phase 0`
+- `aa0d2830e` — `feat(governance): sealed-proposal reader — /rpc/governance/sealed-proposal/{id} + aitbc governance proposal show`
+- `412defd0f` — `feat(blockchain-node): /rpc/supply — live aggregate over the committed account table`
+- `41cd4102f` — `feat(coordinator-api): /v1/supply circulating figure from live /rpc/supply`
+- `66468d6bc` — `feat(rpc): add read-only GET /rpc/edge/nodes list route`
+
+**docs**
+- `a60f3b05e` — `docs(cli): rewrite aitbc.1 EXAMPLES against the live tree + parse test`
+- `a877a757c` — `docs(reset): fold the nine 21-Oct window gaps into the runbook + sepolia checklist`
+- `3db4d1a55` — `docs(design): renumber the multisig gate to v16 — v15 is the edge de-commit`
+- `7f66bb96e` — `docs(contracts): record SEPOLIA-REDEPLOY-1 activation; deprecate BR-1`
+- `7473f0fee` — `docs(bc-2): replace stale ait-localnet(-island) values in live docs (#371)`
+- `acff2d112` — `docs(features): no import-chain calls inside a consensus-table window`
+- `2d64ce7ef` — `docs(replay-chain): note the lingering http stub and the pgrep self-match wart`
+- `d25295eb4` — `docs(design): v15 is armed and active on bc-2, not unset`
+- `8d1f06175` — `docs(design): v15 activation readback — block 1732 sealed 22 Oct 19:52`
+
+**test**
+- `0fa445d8c` — `test(blockchain-node): tag the structural-slow tests for a quick lane`
+- `af7bc5666` — `test(ops): OBS-PRECHECK-1 — commit expected_inactive support + observer regression tests`
+- `52d8ff816` — `test(blockchain-node): conftest chain-id pin becomes bc-2.test`
+
+**fix**
+- `236cb64a3` — `fix(blockchain-node): supply decimal formatting and signable-tx test fixup`
+- `e6b0427c5` — `fix(ops): post-cut-verify stores probe can no longer create a missing db`
+- `5cba58100` — `fix(ops): unpause-precheck — send a real User-Agent on JSON-RPC POSTs`
+- `98def375a` — `fix(ops): unpause-precheck — read getThreshold() on the Safe, not the bridge`
+- `e96fd2298` — `fix(monitoring): skip zero-byte and non-sqlite glob hits in chain-db scans (#367)`
+- `29d30cabf` — `fix(coordinator-api): /v1/supply 503 carries upstream error + malformed-body guard (#372)`
+- `4f6b9a7ff` — `fix(website,genesis): committed defaults emit bc-2, live-id guard covers bc-2`
+- `7a6d764c7` — `fix(blockchain-node): unknown chain_id on /rpc/account(s)/{address} is a clean 400`
+- `fe7131674` — `fix(cli): chain-id precedence — env CHAIN_ID wins on signing paths, mismatch warns`
+- `c7c186744` — `fix(sync): stop pre-creating recipient accounts on block import`
+- `f7a2f5baf` — `fix(scripts): replay-chain.py survives bc-2 genesis replay`
+- `85272b5ae` — `fix(consensus): parent-repair no longer pre-creates recipients or self-rejects`
+- `9b03fd41d` — `fix(consensus): scope parent-repair savepoint to a with-block`
+- `d06496d7b` — `fix(rpc): refuse edge-register while its table is consensus-committed`
+- `ff931f993` — `fix(gpu): gpu_service relays the signed GPU_REGISTER envelope verbatim`
+- `11b0c6dff` — `fix(gpu): relay client-side envelope errors as 400, not local fallback`
+- `26833b94d` — `fix(miner): publish at most one default offer tx per cycle`
+- `ceb631945` — `fix(rpc): record AI-job cancels in a service table, not on the sealed tx`
+
+---
+
+*NOT in this log (see #399, v0.27.0): RAM/journal wave commits — cgroup metrics/alerting, watchdog timeout, OOMScoreAdjust strip, tmpfs guard, journal-volume demotes `eda7ace90` `baa89292c`, and `93f116f47` → **v0.28.0** (#401 TMPFILES-CPUSET-1, operator ruling).*
