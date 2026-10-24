@@ -94,6 +94,12 @@ _INFLIGHT_SWEEP_STATUSES = ("settling", "refunding")
 # deficit text.
 _FEE_FLOAT_DEFICIT_MARK = "; escrow fee float deficit"
 
+# Warned-once fee-float deficits: (ait_tx_hash, deficit, park_status). A
+# parked row retries every poll — the WARNING must fire once per deficit
+# state, not per cycle (journal noise feeds JournalErrors). A deficit that
+# changes is a new state and warns again.
+_fee_float_warned: set[tuple[str, str, str]] = set()
+
 
 def _sweep_fee_ait() -> Decimal:
     """Each escrow sweep spends the standard transfer fee on top of the
@@ -530,6 +536,10 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
 
         amount_ait = units_to_ait(int(tx.get("value", 0) or 0))
         payload = tx.get("payload") or {}
+        if payload.get("sell_float"):
+            # Operator float top-up marked in-band — never a sell lock,
+            # regardless of sender (complements the funding-source allowlist).
+            continue
         quote_id = payload.get("sell_quote")
         if _exchange_lock_lane(quote_id):
             # An int order id in sell_quote belongs to the exchange
@@ -714,14 +724,17 @@ async def _escrow_sweep(
             fee_park_status,
             error=f"{reason}{_FEE_FLOAT_DEFICIT_MARK} {deficit} AIT (need {required} AIT, have {balance})",
         )
-        logger.warning(
-            "Sell lock %s: escrow fee float short %s AIT (balance %s, need %s) — parked %s",
-            row["ait_tx_hash"],
-            deficit,
-            balance,
-            required,
-            fee_park_status,
-        )
+        warn_key = (str(row["ait_tx_hash"]), str(deficit), fee_park_status)
+        if warn_key not in _fee_float_warned:
+            _fee_float_warned.add(warn_key)
+            logger.warning(
+                "Sell lock %s: escrow fee float short %s AIT (balance %s, need %s) — parked %s",
+                row["ait_tx_hash"],
+                deficit,
+                balance,
+                required,
+                fee_park_status,
+            )
         return "fee_parked"
 
     payload_extra = {"sell_ref": row["ait_tx_hash"], "reason": reason}
