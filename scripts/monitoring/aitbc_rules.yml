@@ -97,6 +97,22 @@ groups:
           summary: "Chain head on {{ $labels.chain_id }} has not advanced for 15 minutes on {{ $labels.instance }}"
           description: "aitbc_messaging_chain_head_height on {{ $labels.instance }} has stayed at {{ $value }} for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
 
+      # DEAD-ISLAND-GOSSIP-1 (#393): the hub is silent while the head keeps
+      # advancing — the surviving validators rotate, so ChainHeadStalled
+      # stays green. aitbc_island_hub_silence_seconds is the island
+      # monitor's in-memory gauge: seconds since the last hub-originated
+      # observation on ANY path (gossip block with proposer=hub, pull sync
+      # answer, hub RPC read). Warning, not critical — the island survives
+      # hub loss; a survivable loss must not page critical.
+      - alert: IslandHubSilent
+        expr: aitbc_island_hub_silence_seconds > 600
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No hub-originated observation for 15+ minutes on {{ $labels.instance }}"
+          description: "aitbc_island_hub_silence_seconds on {{ $labels.instance }} is {{ $value }}s. The monitor counts silence across every observation path — hub-proposed gossip blocks, pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while the head keeps advancing. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
+
       # CHAIN-STALL-2: ChainHeadStalled reads the messaging head gauge, so a
       # target that keeps scraping but stops exposing the series leaves the
       # stall rule blind — collect_gauges crashed or the RPC dropped the
