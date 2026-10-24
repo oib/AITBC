@@ -1,0 +1,79 @@
+# v0.27.0 — RAM optimization wave (staging text; not committed)
+
+**Baseline**: staged from `tasks/v0.27.0-change-log-DRAFT.md` (director's commit table,
+operator-placed 24 Oct: "the ram optimization is not part of v0.26.0 change-log it has its
+own release v0.27.0 change-log"). 13 commits, all on `origin/main` as of `3467686ea` plus
+the two listed below.
+**Tag**: `v0.27.0` (pending — nothing enters `docs/releases/` until the operator says so).
+**Figures**: only values already in the ledgers. Sampler numbers are A8's final readout
+(n=8,640, `tasks/progress/RAM-MEASURE-A.md`).
+
+### Systemd memory ranking and caps — `6ad0e809c` (23 Oct)
+
+Rank OOM scores and MemoryHigh caps across the unit set. Positive `OOMScoreAdjust` works in
+the unprivileged LXC; negative is inert (EPERM) — the ranking is what protects the hub's
+4,096,000,000 B container cap. Includes restart-delay lint and
+`tests/test_service_file_memory_knobs.py` (31 files).
+
+### Coordinator startup footprint — `6b184ddc4`, `1d1c10a5e`, `50dcc73a8` (23 Oct)
+
+- `6b184ddc4`: defer numpy out of the coordinator-api startup import graph — smaller startup RSS.
+- `1d1c10a5e`: lazy-load web3/eth_account/eth_utils outside hot paths — smaller idle RSS in
+  six modules.
+- `50dcc73a8`: desynchronize sweeper first-run slots and shrink the async sqlite pool —
+  removes the startup stampede.
+
+### Journal-errors streaming rewrite + unblind fix — `07f6ff849`, `f29ee39f1` (23 Oct, #396)
+
+`07f6ff849`: stream journalctl output line-by-line and pre-narrow the `-g` pass with the
+indexed `_TRANSPORT=stdout` match — measured before/after on node2 (real 3-day window,
+438k lines): script peak **87 MB → 15 MB**, journalctl child **243 MB → 176 MB** (the
+indexed pass maps ~27% fewer journal pages; the residual is journald file-mapping, which
+scales with volume, not with our code). On the 20k-line fixture the script peak drops
+54.2 MB → ~14 MB; per-unit counts identical on both fixture and real window.
+(JOURNAL-ERRORS-STREAM-1; the row's original ~210 MB figure was the child's live peak on a
+hub 15-minute window — same order as measured here.) `f29ee39f1`: quote `AITBC_JOURNAL_WINDOW` (the
+unquoted env had silently blinded every scan since the rewrite) and stop a reachable
+journald masking failed queries — `aitbc_journal_scan_success` is now honest, and per-unit
+`aitbc_journal_{error,warning}_messages` series flow again fleet-wide (verified live 24 Oct).
+
+### Watchdog + OOM visibility — `5eab9971b`, `5c7640ac6`, `872b6b9e3`, `486f25e03` (23 Oct)
+
+- `5eab9971b`: feed the prometheus-watch watchdog inside long iterations and bound blocking
+  calls — ends the SIGABRT loop (NRestarts 21) found during the RAM investigation (#394 — clean 24 h window, NRestarts=0, closed verified 24 Oct).
+- `5c7640ac6`: memory-monitor reads root/slice `memory.events` and exports `oom_kill`
+  metrics — container-root OOM kills become visible (#395, closed verified).
+- `872b6b9e3`: scope-cgroup `memory.max` event gauge (no alert rule yet).
+- `486f25e03`: tmpfs-fill guard alert + strip the inert `OOMScoreAdjust` keys from units.
+
+### SSH session footprint — `5ab6e0753` (23 Oct, SSH-MUX-1)
+
+Reuse ssh connections across MCP tool calls — fewer per-call ssh session scopes on hub;
+the kills observed earlier were hitting session cgroups.
+
+### Journal-volume reduction — `eda7ace90`, `baa89292c` (23 Oct)
+
+- `eda7ace90`: demote empty bridge poll-completed lines to DEBUG (B6-1).
+- `baa89292c`: miner emits one cycle-summary line for deferred default offers instead of one
+  info line each (Card 5).
+
+Both shrink journal volume, which is what the journal-errors window scan prices.
+
+### Deployment/operations notes
+
+- Deploy wave (host timestamps, A's read): hub1 13:01:37; hub unit files 09:37:57 and
+  watchdog restart 19:10:45; `486f25e03` at 18:58 on all five; `3467686ea` 24 Oct 09:5x to
+  10:2x on all five.
+- hub is an unprivileged LXC, memory cap 4,096,000,000 B; negative OOMScoreAdjust is inert.
+- A serial RPC restart wave produces ~6 minutes of transient journal-error counts on the
+  exporter across the fleet — expected noise during restarts, not a defect (observed 24 Oct).
+- Sampler (hub, 24 h post-reboot window, n=8,640, decimal GB): p50 2.840, p95 3.242,
+  p99 3.362, mean 2.852; one sample at the cap (4,095,799,296 B at 10:36:21 on 23 Oct).
+
+### Placement notes (not in this version)
+
+- `93f116f47` (tmpfiles cpuset fix) is placed in **v0.28.0** (operator ruling) — not this
+  version.
+- Post-cut-verify ssh-curl transport + gate commits (`27853b3bf`, `f9a461aac`, `7a1a895b8`,
+  `1b80e7969`, `6c5f27579`, `7b024419d`, `13bb13e3f`) are placed in **v0.26.0** (operator
+  ruling); reset-window/test fixes are likewise outside this version.
