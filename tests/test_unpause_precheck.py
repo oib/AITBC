@@ -279,3 +279,82 @@ def test_main_exit_codes(tmp_path, monkeypatch, capsys):
     assert "GO" in out and "NO-GO" not in out
     assert upc.main(["--manifest", str(mf)]) == 1  # no report → NO-GO
     assert upc.main(["--manifest", str(tmp_path / "absent.json")]) == 2
+
+
+# --- UNPAUSE-PRECHECK-SSH-1 (#398): rpc_via_ssh host reads ---------------------
+
+
+def _ctx(m, get=None, post=None, sh_=None):
+    return upc.Ctx(
+        manifest=m,
+        http_get=get or fake_get,
+        http_post=post or fake_post,
+        host_sh=sh_ or fake_sh,
+        report=None,
+    )
+
+
+def _ssh_manifest():
+    m = manifest()
+    m["hosts"]["hub"]["ssh"] = "hub"
+    m["hosts"]["hub"]["rpc_via_ssh"] = True
+    m["hosts"]["node0"]["ssh"] = "node0"
+    m["hosts"]["node0"]["rpc_via_ssh"] = True
+    return m
+
+
+def test_host_rpc_routes_over_ssh_when_rpc_via_ssh():
+    """A manifest host with rpc_via_ssh must read /rpc/head through
+    ``ssh <alias> curl`` — the direct http_get path points at dead tunnel
+    ends on the real fleet."""
+    calls = {"get": [], "sh": []}
+
+    def get(url, timeout=5):
+        calls["get"].append(url)
+        return -1, {"error": "direct path must not be used"}
+
+    def sh_(ssh, cmd, timeout=15):
+        calls["sh"].append((ssh, cmd))
+        return json.dumps({"height": 42, "hash": "0xhead"}) + "\n200"
+
+    rows = upc.check_heads_agree(_ctx(_ssh_manifest(), get=get, sh_=sh_))
+    assert calls["get"] == []
+    assert all("curl" in c for _, c in calls["sh"])
+    assert [r.ok for r in rows] == [True]
+
+
+def test_rpc_via_ssh_without_alias_fails_clean():
+    m = _ssh_manifest()
+    del m["hosts"]["node0"]["ssh"]
+    rows = upc.check_heads_agree(_ctx(m))
+    assert rows[0].ok is False and "code=-1" in rows[0].found
+
+
+def test_dead_ssh_leg_retries_then_succeeds():
+    attempts = {"n": 0}
+
+    def sh_(ssh, cmd, timeout=15):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            return None  # dead leg
+        return json.dumps({"height": 42, "hash": "0xhead"}) + "\n200"
+
+    m = _ssh_manifest()
+    m["hosts"] = {"hub": m["hosts"]["hub"]}
+    rows = upc.check_heads_agree(_ctx(m, sh_=sh_))
+    assert [r.ok for r in rows] == [True]
+    assert attempts["n"] == 2
+
+
+def test_sepolia_reads_stay_direct():
+    """The sepolia endpoint is a public URL — it must keep using http_post
+    directly even when fleet hosts are ssh-routed."""
+    seen = []
+
+    def post(url, body, timeout=8):
+        seen.append(url)
+        return 200, {"jsonrpc": "2.0", "id": 1, "result": "0x60"}
+
+    c = _ctx(_ssh_manifest(), post=post)
+    assert upc.eth_rpc(c, "eth_getCode", [CONTRACT, "latest"]) == "0x60"
+    assert seen == ["http://sep"]

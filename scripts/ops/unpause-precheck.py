@@ -52,6 +52,8 @@ Exit codes: 0 = GO (every STOP check passed), 1 = NO-GO, 2 = run error.
 """
 
 from __future__ import annotations
+import importlib.util
+from pathlib import Path
 
 import argparse
 import json
@@ -136,12 +138,17 @@ def real_host_sh(ssh_target: str | None, cmd: str, timeout: int = 15) -> str | N
         return None
 
 
-def sh(ctx: Ctx, hspec: dict, cmd: str) -> str | None:
-    return ctx.host_sh(hspec.get("ssh"), cmd)
+# Shared host-HTTP transport: ops_http.py sits next to this file and is
+# loaded by location because tests load this script via
+# spec_from_file_location (no package import is possible). Names are
+# re-bound so every existing caller — including run-postcut.py's
+# ``pcv.`` attribute access — keeps working.
+_spec = importlib.util.spec_from_file_location("aitbc_ops_http", Path(__file__).resolve().with_name("ops_http.py"))
+_ops_http = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ops_http)
 
-
-def hget(ctx: Ctx, hspec: dict, path: str) -> tuple[int, dict]:
-    return ctx.http_get(hspec["rpc"].rstrip("/") + path)
+sh = _ops_http.sh
+hget = _ops_http.hget
 
 
 def eth_rpc(ctx: Ctx, method: str, params: list) -> str | None:
