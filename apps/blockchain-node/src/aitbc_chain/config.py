@@ -896,6 +896,12 @@ class ChainSettings(BaseSettings):
     # host together with the validator restart wave — a mid-rollout mixed set
     # would reject blocks as aux_state_root mismatches.
     state_transition_v15_height: int | None = None
+    # v16 (GPU-ADMISSION-1 #384, operator ruling 24 Oct — multisig-accounts moves
+    # to v17 if it lands second): GPU_ALLOCATE must name ``allocation_id`` and an
+    # existing ``gpu_id`` at validation, not only at apply. ``None`` (the
+    # default) keeps the rule unarmed: the activation height is a separate
+    # operator pin, set on every host together with the validator restart wave.
+    state_transition_v16_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
