@@ -232,6 +232,14 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 deactivated_error = gpu_allocate_deactivated_error(session, chain_id, tx_data.get("payload"))
                 if deactivated_error:
                     raise ValueError(deactivated_error)
+            if get_block_version_for_height(next_height) >= 16:
+                # v16 (GPU-ADMISSION-1 #384): allocation_id + existing gpu_id at the door
+                # too — shared helper, same verdict as the block-time rule.
+                from ..state.gpu_resources import gpu_allocate_admission_error
+
+                allocate_error = gpu_allocate_admission_error(session, chain_id, tx_data.get("payload"))
+                if allocate_error:
+                    raise ValueError(allocate_error)
 
         # MSG-1: a payload claiming the forum namespace must be a valid
         # envelope — refuse it at the door so the signer hears why before

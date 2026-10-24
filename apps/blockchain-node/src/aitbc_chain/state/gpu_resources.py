@@ -145,3 +145,29 @@ def gpu_allocate_deactivated_error(session: Session, chain_id: str, payload: Any
     if target is not None and target.status == GPU_STATUS_DEACTIVATED:
         return f"GPU {gpu_id} is deactivated; it takes no new allocations"
     return None
+
+
+def gpu_allocate_admission_error(session: Session, chain_id: str, payload: Any) -> str | None:
+    """Why a ``GPU_ALLOCATE`` may not be admitted at/after v16, or None.
+
+    The single definition of the v16 rule (GPU-ADMISSION-1 #384):
+    ``StateTransition.validate_transaction`` applies it at block time and
+    mempool admission applies it at the door, so a transaction the proposer
+    would drop is refused up front. Below v16 nothing is checked here and the
+    apply path keeps minting ``alloc_<uuid4>`` for omitted ids (pre-height
+    replay). At/after v16 the payload must carry ``allocation_id`` and the
+    ``gpu_id`` must resolve to a registered GPU — otherwise the allocate
+    reached the mempool on payload apply alone would have rejected anyway.
+    """
+    if not isinstance(payload, dict):
+        return None
+    if not payload.get("allocation_id"):
+        return "GPU_ALLOCATE payload must include allocation_id"
+    gpu_id = payload.get("gpu_id")
+    if gpu_id is not None:
+        target = session.exec(
+            select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == str(gpu_id))
+        ).first()
+        if target is None:
+            return f"GPU not found: {gpu_id}"
+    return None
