@@ -3,8 +3,10 @@
 **Status:** the 13-table design below is the frozen v14 spec — live since
 the shared activation height. **v15** (EDGE-REG-CONSENSUS-1, operator
 card answer B, 2026-10-21) removes `edge_node_registration` from the
-committed set; it activates at `STATE_TRANSITION_V15_HEIGHT`, which is
-unset (unarmed) until the operator pins a fleet activation height.
+committed set; it activates at `STATE_TRANSITION_V15_HEIGHT`. The code
+default is `None` (unarmed); on bc-2 the fleet pin is set — all hosts
+carry `STATE_TRANSITION_V15_HEIGHT=1732` — and v15 is armed and active
+(chain head passed it on 24 Oct).
 Executable reference: `scripts/ops/side-root-probe.py --canonical`
 (identical rules).
 
