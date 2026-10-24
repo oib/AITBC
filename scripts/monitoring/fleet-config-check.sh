@@ -266,7 +266,7 @@ echo "=== effective transition heights (process env shadows code default) ==="
 # default: env-if-present else code IS the effective value, and it catches
 # all three sources at once. Convention (v0.25.8 changelog): v2=0/v3=5470
 # are env-set on all five nodes by design; v4+ are code-pinned literals —
-# so env presence for V4..V9 is a violation, V9's most of all because the
+# so env presence for V4..V15 is a violation, V9's most of all because the
 # pin lands in config.py and a stray env value would shadow it silently.
 height_bad=0
 declare -A EFF=()
