@@ -79,9 +79,11 @@ mkdir -p "${BACKUP_DIR}"
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 # Back up AITBC PostgreSQL databases that actually exist.
 # aitbc_user is a role, not a database; aitbc_poolhub is added for the pool-hub service.
+# aitbc/aitbc_ai/aitbc_coordinator/aitbc_exchange/aitbc_wallet exist but are
+# empty fleet-wide (24 Oct census, BACKUP-COVERAGE-1) — intentionally unlisted.
 PG_DBS=(
     "aitbc_governance"
-    "aitbc_market"
+    "aitbc_marketplace"
     "aitbc_trading"
     "aitbc_mempool"
     "aitbc_gpu"
