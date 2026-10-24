@@ -138,6 +138,29 @@ class TestRequestLoggingLevels:
         resp = client.get(f"/rpc/accounts/{_MISSING_ADDR}?chain_id=bc-2.test")
         assert resp.status_code == 404
 
+    def test_unknown_chain_id_rejected_on_list_route(self, client, caplog):
+        """RPC-UNKNOWN-CHAIN-2 (#397): routes that resolve chain_id straight
+        into session_scope without validate_chain_id open a stray
+        data/<chain>/chain.db in get_engine and die as an unhandled 503 —
+        the ait-hub residual was ~5.1k such hits each logged as an unhandled
+        error. The early reject must answer before the handler runs."""
+        caplog.set_level(logging.INFO, logger="aitbc_chain.app")
+        resp = client.get("/rpc/accounts?chain_id=ait-hub.aitbc.bubuit.net")
+        assert resp.status_code == 400
+        assert "ait-hub.aitbc.bubuit.net" in resp.json()["detail"]
+        assert not [r for r in _client_errors(caplog) if r.levelno >= logging.WARNING]
+
+    def test_unknown_chain_id_rejected_on_snapshot_and_supply(self, client):
+        """Same early reject on the other unguarded scope-reading routes."""
+        for path in ("/rpc/state/snapshot", "/rpc/supply"):
+            resp = client.get(path, params={"chain_id": "ait-hub.aitbc.bubuit.net"})
+            assert resp.status_code == 400, path
+            assert "ait-hub.aitbc.bubuit.net" in resp.json()["detail"]
+
+    def test_supported_chain_id_still_served_on_list_route(self, client):
+        resp = client.get("/rpc/accounts?chain_id=bc-2.test")
+        assert resp.status_code == 200
+
     def test_pending_tx_hash_404_logs_info_not_warning(self, client, caplog):
         """A well-formed hash that is not sealed yet is the same expected
         miss shape as a missing account — the pending-tx poller's normal 404."""
