@@ -142,3 +142,9 @@ behind the same `STATE_VERSION` gate.
   (a maintenance path). `tests/unit/test_rpc_committed_writes.py` is the
   guard: it fails when a new non-apply write site appears against any
   v14-committed table.
+- Everything else in `data/<chain>/chain.db` is a **service-layer table and
+  diverges per node by design**: escrow and governance views, the
+  `ai_job_cancellation` overlay, stake memos, contract registration —
+  none are in the committed set, none are replicated, and readers must not
+  assume two hosts agree on them. Only the committed tables and the block
+  stream itself are replicated state.
