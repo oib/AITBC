@@ -36,12 +36,17 @@ Manifest (JSON):
         "old_chain_glob": "ait-hub*",             # names that must NOT appear under data/
         "expected_noise": ["BackupSizeCollapse", …]
       },
+      "prom_url": "http://127.0.0.1:9090",   # optional; "prom_via_ssh": "<alias>"
+                                             # fetches it through ssh <alias> curl
       "hosts": {
         "hub": {"ssh": "hub", "rpc": "http://hub:8303", "env_dir": "/etc/aitbc",
                 "data_dir": "/var/lib/aitbc/data", "node_unit": "aitbc-blockchain-node",
                 "units": ["aitbc-blockchain-node", …], "timers": ["aitbc-backup.timer", …],
                 "stores": {"coordinator_api.db": 170},
                 "explorer_url": "http://…", "validator": true},
+        "n0": {"ssh": "n0", "rpc": "http://127.0.0.1:8202", "rpc_via_ssh": true, …},
+               # rpc_via_ssh: rpc names the REMOTE loopback listener; every
+               # GET/POST runs as `ssh n0 curl …` — no local tunnel needed.
         "i0": {"rpc": "http://127.0.0.1:18402", "env_dir": "<scratch>/i0",
                "data_dir": "<scratch>/i0/data", "node_unit": "bc2-i0-node.service", …}
       }
@@ -190,30 +195,88 @@ def sh(ctx: Ctx, hspec: dict, cmd: str) -> str | None:
     return ctx.host_sh(hspec.get("ssh"), cmd)
 
 
+def _ssh_curl(ctx: Ctx, alias: str, argv_tail: list[str]) -> tuple[int, dict]:
+    """One HTTP request through ``ssh <alias> curl`` — for listeners bound
+    to the remote loopback that no local tunnel reaches (manifest
+    ``rpc_via_ssh``/``prom_via_ssh``). The remote curl prints the body,
+    then ``\\n%{http_code}``; the last stdout line is the status and
+    everything above it the body. ``(-1, …)`` marks a transport failure —
+    the ssh leg died or curl never printed a status — so ``_retry`` treats
+    it exactly like an unanswered socket."""
+    cmd = "curl -s -m 10 -w '\\n%{http_code}' " + " ".join(argv_tail)
+    out = ctx.host_sh(alias, cmd)
+    if not out:
+        return -1, {"error": f"ssh {alias} curl: no output"}
+    lines = out.splitlines()
+    try:
+        code = int(lines[-1].strip())
+    except (IndexError, ValueError):
+        return -1, {"error": f"ssh {alias} curl: bad status line {out[-80:]!r}"}
+    try:
+        return code, json.loads("\n".join(lines[:-1]))
+    except Exception:
+        return code, {}
+
+
+def _get_via_ssh(ctx: Ctx, hspec: dict, url: str) -> tuple[int, dict]:
+    alias = hspec.get("ssh")
+    if not alias:
+        return -1, {"error": "rpc_via_ssh set but host has no ssh alias"}
+    return _retry(ctx, lambda: _ssh_curl(ctx, alias, [shlex.quote(url)]))
+
+
 def hget(ctx: Ctx, hspec: dict, path: str) -> tuple[int, dict]:
-    return _get(ctx, hspec["rpc"].rstrip("/") + path)
+    url = hspec["rpc"].rstrip("/") + path
+    if hspec.get("rpc_via_ssh"):
+        return _get_via_ssh(ctx, hspec, url)
+    return _get(ctx, url)
+
+
+def hpost(ctx: Ctx, hspec: dict, path: str, body: dict) -> tuple[int, dict]:
+    url = hspec["rpc"].rstrip("/") + path
+    if not hspec.get("rpc_via_ssh"):
+        return ctx.http_post(url, body)
+    return _retry(
+        ctx,
+        lambda: _ssh_curl(
+            ctx,
+            hspec["ssh"],
+            [
+                "-X",
+                "POST",
+                "-H",
+                shlex.quote("Content-Type: application/json"),
+                "--data",
+                shlex.quote(json.dumps(body)),
+                shlex.quote(url),
+            ],
+        ),
+    )
 
 
 def _get(ctx: Ctx, url: str) -> tuple[int, dict]:
-    """ctx.http_get with bounded retry on transport failures only.
+    return _retry(ctx, lambda: ctx.http_get(url))
+
+
+def _retry(ctx: Ctx, fetch) -> tuple[int, dict]:
+    """Bounded retry on transport failures only.
 
     ``code == -1`` means the request never got an HTTP answer — timeout,
-    refused, or a dropped leg. node1's reads go through ``ssh node1
-    curl`` (AllowTcpForwarding no) and stall under load; a short backoff
-    absorbs that without masking definitive answers: real status codes,
-    even 5xx, return on the first attempt. Tunables:
-    expected.http_attempts (default 3), expected.http_retry_backoff_s
-    (default 0.4, doubled per retry).
+    refused, or a dropped leg (the ssh-curl legs stall under load the same
+    way a dead tunnel does); a short backoff absorbs that without masking
+    definitive answers: real status codes, even 5xx, return on the first
+    attempt. Tunables: expected.http_attempts (default 3),
+    expected.http_retry_backoff_s (default 0.4, doubled per retry).
     """
     exp = ctx.manifest.get("expected") or {}
     attempts = max(1, int(exp.get("http_attempts", 3)))
     backoff = float(exp.get("http_retry_backoff_s", 0.4))
-    code, body = ctx.http_get(url)
+    code, body = fetch()
     for i in range(attempts - 1):
         if code != -1:
             break
         time.sleep(backoff * (2**i))
-        code, body = ctx.http_get(url)
+        code, body = fetch()
     return code, body
 
 
@@ -538,7 +601,7 @@ def check_bridge(ctx: Ctx) -> list[Result]:
             "amount": 1,
             "signature": "0x00",
         }
-        code, body = ctx.http_post(hub["rpc"].rstrip("/") + "/rpc/bridge/lock", probe)
+        code, body = hpost(ctx, hub, "/rpc/bridge/lock", probe)
         detail = json.dumps(body)[:80]
         ok = code == 503
         rows.append(
@@ -584,7 +647,13 @@ def check_alerts(ctx: Ctx) -> list[Result]:
     prom = ctx.manifest.get("prom_url")
     if not prom:
         return [Result("alerts-quiet", "fleet", "NOTE", None, "prom_url in manifest", "not configured")]
-    code, body = _get(ctx, prom.rstrip("/") + "/api/v1/alerts")
+    if ctx.manifest.get("prom_via_ssh"):
+        # loopback-only Prometheus (e.g. hub 127.0.0.1:9090): fetch through
+        # ``ssh <alias> curl`` instead of a dead local tunnel end.
+        pspec = {"ssh": ctx.manifest["prom_via_ssh"], "rpc": prom, "rpc_via_ssh": True}
+        code, body = hget(ctx, pspec, "/api/v1/alerts")
+    else:
+        code, body = _get(ctx, prom.rstrip("/") + "/api/v1/alerts")
     if code != 200:
         return [Result("alerts-quiet", "fleet", "INVESTIGATE", False, "200", str(code))]
     firing = [a["labels"]["alertname"] for a in body.get("data", {}).get("alerts", []) if a.get("state") == "firing"]

@@ -641,6 +641,8 @@ def test_http_get_attempts_one_disables_retry(tmp_path):
     )
     pcv.check_heads(c)
     assert calls["n"] == 2  # 2 hosts, no retries
+
+
 def test_check_overrides_skip(tmp_path):
     c = ctx(tmp_path)
     h = dict(c.manifest["hosts"]["hub"])
@@ -655,3 +657,107 @@ def test_check_overrides_untouched(tmp_path):
     h["check_overrides"] = {"other-check": {"skip": True}}
     rows = pcv._apply_overrides(h, pcv.check_journal(c, "hub", h))
     assert rows[0].check == "journal-evidence" and rows[0].ok is not None
+
+
+# --- rpc_via_ssh / prom_via_ssh: loopback-only remote endpoints read through
+# ssh <alias> curl instead of a local tunnel (dead-forward manifest fix, 24 Oct)
+
+
+def _ssh_manifest(tmp_path: Path, **host_extra) -> dict:
+    m = manifest(tmp_path)
+    hub = dict(m["hosts"]["hub"])
+    hub.update({"rpc": "http://127.0.0.1:8202", "ssh": "hub", "rpc_via_ssh": True})
+    hub.update(host_extra)
+    m["hosts"] = {"hub": hub}
+    return m
+
+
+def _curl_sh(canned: dict, calls: list, code: int = 200):
+    base = host_sh_factory()
+
+    def sh(ssh, cmd):
+        calls.append(cmd)
+        if cmd.startswith("curl"):
+            return json.dumps(canned) + f"\n{code}"
+        return base(ssh, cmd)
+
+    return sh
+
+
+def test_rpc_via_ssh_routes_through_host_sh(tmp_path):
+    calls = []
+    c = ctx(
+        tmp_path,
+        manifest_over=_ssh_manifest(tmp_path),
+        http_get=lambda u, timeout=5: (_ for _ in ()).throw(AssertionError(f"direct GET {u}")),
+        host_sh=_curl_sh({"height": 7, "hash": "0xs"}, calls),
+    )
+    rows = pcv.check_heads(c)
+    assert rows[0].ok is True and rows[0].found == "200"
+    assert any("curl" in cmd and "127.0.0.1:8202/rpc/head" in cmd for cmd in calls)
+
+
+def test_rpc_via_ssh_missing_alias_fails(tmp_path):
+    m = _ssh_manifest(tmp_path)
+    del m["hosts"]["hub"]["ssh"]
+    c = ctx(
+        tmp_path,
+        manifest_over=m,
+        http_get=lambda u, timeout=5: (_ for _ in ()).throw(AssertionError(f"direct GET {u}")),
+        host_sh=host_sh_factory(),
+    )
+    rows = pcv.check_heads(c)
+    assert rows[0].ok is False and rows[0].found == "-1"
+
+
+def test_rpc_via_ssh_retries_on_dead_leg(tmp_path):
+    calls = []
+    c = ctx(
+        tmp_path,
+        manifest_over=_ssh_manifest(tmp_path),
+        http_get=lambda u, timeout=5: (-1, {"error": "must not be used"}),
+        host_sh=lambda ssh, cmd: calls.append(cmd) or "",
+    )
+    rows = pcv.check_heads(c)
+    assert rows[0].ok is False
+    assert len([c2 for c2 in calls if c2.startswith("curl")]) == 3  # default http_attempts
+
+
+def test_bridge_probe_post_via_ssh(tmp_path):
+    calls = []
+
+    def sh(ssh, cmd):
+        calls.append(cmd)
+        if cmd.startswith("curl") and "-X POST" in cmd:
+            return json.dumps({"detail": "paused"}) + "\n503"
+        if cmd.startswith("curl"):
+            return json.dumps({"pending": []}) + "\n200"
+        return host_sh_factory()(ssh, cmd)
+
+    c = ctx(
+        tmp_path,
+        manifest_over=_ssh_manifest(tmp_path),
+        http_get=lambda u, timeout=5: (_ for _ in ()).throw(AssertionError(f"direct GET {u}")),
+        http_post=lambda u, b, timeout=5: (_ for _ in ()).throw(AssertionError(f"direct POST {u}")),
+        host_sh=sh,
+        probe=True,
+    )
+    rows = pcv.check_bridge(c)
+    assert statuses(rows)["bridge-paused-probe"] is True
+    assert any("-X POST" in cmd and "/rpc/bridge/lock" in cmd for cmd in calls)
+
+
+def test_prom_via_ssh(tmp_path):
+    calls = []
+    m = manifest(tmp_path)
+    m["prom_url"] = "http://127.0.0.1:9090"
+    m["prom_via_ssh"] = "hub"
+    c = ctx(
+        tmp_path,
+        manifest_over=m,
+        http_get=lambda u, timeout=5: (_ for _ in ()).throw(AssertionError(f"direct GET {u}")),
+        host_sh=_curl_sh({"data": {"alerts": []}}, calls),
+    )
+    rows = pcv.check_alerts(c)
+    assert rows[0].ok is True
+    assert any("127.0.0.1:9090/api/v1/alerts" in cmd for cmd in calls)
