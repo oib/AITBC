@@ -1579,3 +1579,34 @@ class TestEthAmountStorage:
         cap = Decimal("0.03")  # SELL_MAX_ETH_PER_DAY default
         assert not committed + Decimal("0.01") > cap  # 0.02 + 0.01 admitted
         assert committed + Decimal("0.0100001") > cap  # anything more refused
+
+
+@pytest.mark.asyncio
+async def test_fee_deficit_warning_logs_once_per_deficit(sell_env, caplog):
+    """Log-once for the fee-float WARNING (wallet log-once row, pending
+    registration): while the same deficit keeps a lock parked, every poll
+    currently re-emits "escrow fee float short" at WARNING — journal noise
+    that feeds the JournalErrors alert. One warning per deficit state;
+    a deficit that CHANGES may warn again."""
+    import logging
+
+    insert_sell_lock(
+        ait_tx_hash="0x" + "f3" * 32,
+        shop_ait_address=SHOP_AIT,
+        shop_eth_address=SHOP_ETH,
+        amount_ait=Decimal("10"),
+        eth_amount=Decimal("0.0009"),
+        status="released",
+        locked_height=900,
+    )
+    sell_env["escrow_balance"] = Decimal("10")  # locked 10, nothing for the fee
+
+    caplog.set_level(logging.WARNING)
+    cfg = sellmon._sell_config()
+    row = get_sell_lock_by_ait_tx_hash("0x" + "f3" * 32)
+    await sellmon._settle_lock(cfg, row)
+    row = get_sell_lock_by_ait_tx_hash("0x" + "f3" * 32)
+    await sellmon._settle_lock(cfg, row)  # second poll, same deficit
+
+    warns = [r for r in caplog.records if r.levelno >= logging.WARNING and "fee float short" in r.getMessage()]
+    assert len(warns) == 1
