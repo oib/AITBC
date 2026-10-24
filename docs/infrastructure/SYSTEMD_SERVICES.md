@@ -7,7 +7,7 @@ AITBC runs as a set of `systemd` units. Service startup, stop, restart, and heal
 
 ## Service inventory
 
-The exact units installed vary by node role. The hub runs the coordinator, customer-facing services and block production. The shop/follower runs the miner, pool hub, GPU and island services. A follower/customer replica runs a subset of the hub's blockchain services. Which host holds which role is deployment-specific and is not recorded here.
+The exact units installed vary by node role. The hub runs the coordinator, customer-facing services and block production — including `aitbc-pool-hub`, the single pool-hub/SLA authority (shop miners register and heartbeat to the hub's pool hub; no shop-side instance runs). The shop/follower runs the miner, GPU and island services. A follower/customer replica runs a subset of the hub's blockchain services. Which host holds which role is deployment-specific and is not recorded here.
 
 ### Core blockchain services (all node types)
 
@@ -40,7 +40,6 @@ On the hub an additional `aitbc-blockchain-p2p.service` may run the gossip relay
 | Unit | Purpose | Port | Health |
 |------|---------|------|--------|
 | `aitbc-miner.service` | Production miner; polls coordinator for jobs | — | `journalctl -u aitbc-miner -n 20` |
-| `aitbc-pool-hub.service` | Local pool hub for miner coordination | 8210 | `curl -s http://localhost:8210/health` |
 | `aitbc-gpu.service` | GPU market and hardware registration | 8101 | `curl -s http://localhost:8101/health` |
 | `aitbc-ffmpeg.service` | FFmpeg media processing | 8230 | `curl -s http://localhost:8230/health` |
 | `aitbc-whisper.service` | Whisper transcription | 8110 | `curl -s http://localhost:8110/health` |
