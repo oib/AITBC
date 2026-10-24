@@ -647,10 +647,15 @@ def check_alerts(ctx: Ctx) -> list[Result]:
     prom = ctx.manifest.get("prom_url")
     if not prom:
         return [Result("alerts-quiet", "fleet", "NOTE", None, "prom_url in manifest", "not configured")]
-    if ctx.manifest.get("prom_via_ssh"):
+    prom_alias = ctx.manifest.get("prom_via_ssh")
+    if prom_alias and not isinstance(prom_alias, str):
+        # "prom_via_ssh": true fails cryptically inside host_sh — name the
+        # expected type instead (unlike rpc_via_ssh, this takes the alias).
+        return [Result("alerts-quiet", "fleet", "INVESTIGATE", False, "prom_via_ssh = ssh alias string", repr(prom_alias))]
+    if prom_alias:
         # loopback-only Prometheus (e.g. hub 127.0.0.1:9090): fetch through
         # ``ssh <alias> curl`` instead of a dead local tunnel end.
-        pspec = {"ssh": ctx.manifest["prom_via_ssh"], "rpc": prom, "rpc_via_ssh": True}
+        pspec = {"ssh": prom_alias, "rpc": prom, "rpc_via_ssh": True}
         code, body = hget(ctx, pspec, "/api/v1/alerts")
     else:
         code, body = _get(ctx, prom.rstrip("/") + "/api/v1/alerts")

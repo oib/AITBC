@@ -761,3 +761,40 @@ def test_prom_via_ssh(tmp_path):
     rows = pcv.check_alerts(c)
     assert rows[0].ok is True
     assert any("127.0.0.1:9090/api/v1/alerts" in cmd for cmd in calls)
+
+
+def test_ssh_curl_parse_edges(tmp_path):
+    c = ctx(tmp_path)
+    # 200 with empty body -> (200, {}) — the -w code is the only line needed
+    c.host_sh = lambda ssh, cmd: "\n200"
+    assert pcv._ssh_curl(c, "hub", ["http://x"]) == (200, {})
+    # body whose last line is numeric — the status is still the final line
+    c.host_sh = lambda ssh, cmd: "42\n200"
+    assert pcv._ssh_curl(c, "hub", ["http://x"])[0] == 200
+    # non-JSON error body -> (code, {})
+    c.host_sh = lambda ssh, cmd: "bad gateway\n503"
+    assert pcv._ssh_curl(c, "hub", ["http://x"]) == (503, {})
+    # no output at all -> -1 transport failure
+    c.host_sh = lambda ssh, cmd: ""
+    assert pcv._ssh_curl(c, "hub", ["http://x"])[0] == -1
+
+
+def test_hpost_non_ssh_single_call(tmp_path):
+    calls = {"n": 0}
+
+    def post(url, body, timeout=5):
+        calls["n"] += 1
+        return 503, {"detail": "paused"}
+
+    c = ctx(tmp_path, probe=True, http_post=post)
+    rows = pcv.check_bridge(c)
+    assert statuses(rows)["bridge-paused-probe"] is True and calls["n"] == 1
+
+
+def test_prom_via_ssh_nonstring_fails_clear(tmp_path):
+    m = manifest(tmp_path)
+    m["prom_url"] = "http://127.0.0.1:9090"
+    m["prom_via_ssh"] = True  # boolean by analogy with rpc_via_ssh — must fail clearly
+    c = ctx(tmp_path, manifest_over=m)
+    rows = pcv.check_alerts(c)
+    assert rows[0].ok is False and "prom_via_ssh" in rows[0].expected
