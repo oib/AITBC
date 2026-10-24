@@ -69,3 +69,28 @@ def test_run_case_restores_settings_on_raise():
         # was already pinned — the restore must still happen.
         runner.run_case({"case_id": "raise-probe"}, "gates1")
     assert vars(settings) == before
+
+
+def test_every_transition_height_pin_is_in_golden_lists():
+    """GOLDEN-GATES-V15-1 (#405): every state_transition_v*_height field
+    defined in config.py must be covered by the golden corpus lists —
+    GATE_ATTRS, DEPLOYED_PINS and GATES.md. v15 was omitted, so a v15 pin
+    drift would never diff against the corpus."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3]
+    cfg = (root / "apps/blockchain-node/src/aitbc_chain/config.py").read_text()
+    expected = {f"state_transition_v{n}_height" for n in re.findall(r"state_transition_v(\d+)_height\s*:", cfg)}
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("golden_profiles", root / "apps/blockchain-node/tests/golden/profiles.py")
+    profiles = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(profiles)
+    missing_attrs = expected - set(profiles.GATE_ATTRS)
+    missing_pins = expected - set(profiles.DEPLOYED_PINS)
+    gates_md = (root / "apps/blockchain-node/tests/golden/GATES.md").read_text()
+    missing_doc = {n for n in expected if n not in gates_md}
+    assert not (missing_attrs or missing_pins or missing_doc), (
+        f"attrs missing {sorted(missing_attrs)}; pins missing {sorted(missing_pins)}; GATES.md missing {sorted(missing_doc)}"
+    )
