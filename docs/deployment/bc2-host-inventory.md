@@ -12,6 +12,13 @@ node, node/p2p last. Monitoring units (`aitbc-prometheus-watch`,
 observability, not writers — they stay up through the window so the
 alert evidence keeps flowing (see `RESET-ALERTS-1`).
 
+Post-reset note (24 Oct): the Service DB lists below are the pre-reset
+census. `agent_management.db` is a dead name — it belonged to the
+`aitbc-agent-management` service deleted in v0.10.7; no code path
+recreates the file post-reset (the `agent_executions` table lives in
+`coordinator.db`), so a file by that name is a legacy leftover, not an
+expected store.
+
 ## hub — proposer + all customer services (34 active aitbc units)
 
 ### Stop order for C1 (unit names)
@@ -55,7 +62,8 @@ have no such unit (`systemctl cat` → "No files found"); their
   -20260927-fork, -20260928-27207wedge, -pre-gpu-clean-20261002).
 - **Top-level `chain.db`** (legacy, outside any chain dir).
 - Service DBs: `admin_nonces.db`, `agent_coin_requests.db`,
-  `agent_coordinator.db`, `agent_management.db`, `bridge_deposits.db`,
+  `agent_coordinator.db`, `agent_management.db` (dead name — see note above),
+  `bridge_deposits.db`,
   `coordinator_api.db`, `coordinator.db`, `coordinator_operations.db`,
   `governance_service.db`, `hermes_coin_requests.db`, `keystore.db`,
   `market_operations.db`, `marketplace_service.db` (+4 `.bak`),
@@ -86,7 +94,8 @@ ships inert on this host (enabled post-cut, operator-named).
 - Chain dir `ait-hub.aitbc.bubuit.net/` with `chain.db`.
 - Top-level `genesis.json` (old artifact).
 - Service DBs: `admin_nonces.db`, `agent_coordinator.db`,
-  `agent_management.db`, `bridge_deposits.db`, `coordinator.db`,
+  `agent_management.db` (dead name — see note above),
+  `bridge_deposits.db`, `coordinator.db`,
   `coordinator_operations.db`, `governance_service.db`, `gpu_service.db`,
   `hermes_coin_requests.db`, `keystore.db` (+`keystore/` dir),
   `market_operations.db`, `marketplace.db`, `marketplace_service.db`,
@@ -169,7 +178,8 @@ operator-named).
   `chain_aitbc.db`, `chain-backup-2026-08-22.db`,
   `pre-migrate-20260816_220424-island-chain.db`.
 - Service DBs: `admin_nonces.db`, `agent_coin_requests.db`,
-  `agent_coordinator.db`, `agent_management.db`, `aitbc_edge.db`
+  `agent_coordinator.db`, `agent_management.db` (dead name — see note above),
+  `aitbc_edge.db`
   (+`.bak-pre-sweep`), `bridge_deposits.db`, `coordinator_api.db`,
   `coordinator.db` (+5 `.bak`), `coordinator_operations.db`,
   `governance_service.db`, `gpu_service.db`, `hermes_coin_requests.db`,
