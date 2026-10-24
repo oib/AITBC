@@ -1610,3 +1610,20 @@ async def test_fee_deficit_warning_logs_once_per_deficit(sell_env, caplog):
 
     warns = [r for r in caplog.records if r.levelno >= logging.WARNING and "fee float short" in r.getMessage()]
     assert len(warns) == 1
+
+
+@pytest.mark.asyncio
+async def test_float_marked_topup_creates_no_lock(sell_env, caplog):
+    """WALLET-FLOAT-LOCK (#404): a top-up carrying a payload marker
+    (sell_float) is a float send, not a sell lock — the scan must skip it
+    regardless of sender, so a mistyped or rotating float wallet can never
+    create a lock that parks and warns every poll. Fails until the scan
+    honors the marker (option B, WALLET-FLOAT-LOCK-B.md)."""
+    import logging
+
+    tx = _lock_tx(None, tx_hash="0x" + "f4" * 32, height=100, ait=Decimal("100"), sender="0x" + "f0" * 20)
+    tx["payload"] = {"sell_float": True}
+    sell_env["transfers"] = [tx]
+    caplog.set_level(logging.WARNING)
+    await sellmon.poll_sells_once()
+    assert get_sell_lock_by_ait_tx_hash("0x" + "f4" * 32) is None
