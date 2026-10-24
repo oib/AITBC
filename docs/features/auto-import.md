@@ -30,3 +30,17 @@ Auto-import genesis wallet and wallet directory on startup
 ## Operational Notes
 
 - **Status / Release:** `✅` / `—`
+
+## Operational Notes — out-of-band write window
+
+`POST /rpc/import-chain` (`import_chain`) bulk-rewrites consensus-committed
+tables (`account`, `block`, `transaction`, `chain_parameter(_history)`)
+outside any block — it is the largest out-of-band writer in the tree
+(FORK-OOB-WRITERS-1, #382). It is admin-signature gated, so it is only
+reachable with the operator's admin key.
+
+**Precondition for any consensus-table change window** (e.g. a
+side-root version-height pin, "wave Y"): no `import-chain` calls inside
+the window on any host. An import mid-window diverges committed tables
+per-node and forks the state root. If a rescue import is genuinely needed,
+all hosts must take the same import before any new block is sealed.
