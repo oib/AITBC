@@ -6,7 +6,7 @@ card answer B, 2026-10-21) removes `edge_node_registration` from the
 committed set; it activates at `STATE_TRANSITION_V15_HEIGHT`. The code
 default is `None` (unarmed); on bc-2 the fleet pin is set — all hosts
 carry `STATE_TRANSITION_V15_HEIGHT=1732` — and v15 is armed and active
-(chain head passed it on 24 Oct).
+(block 1732 sealed 2026-10-22 19:52:18; head is well past it).
 Executable reference: `scripts/ops/side-root-probe.py --canonical`
 (identical rules).
 
