@@ -83,3 +83,26 @@ class TestFleetCheckVarsDocCoverage:
             "drift-watched vars in fleet-config-check.sh absent from "
             "docs/deployment/environment-configuration.md: " + ", ".join(missing)
         )
+
+
+class TestFleetCheckHeightPinCoverage:
+    """FLEET-CONFIG-V13-1 (#402): every STATE_TRANSITION_V*_HEIGHT pin
+    defined in aitbc_chain.config must be drift-watched and env-shadow
+    scanned by fleet-config-check.sh — v13/v14/v15 pins exist in code but
+    were absent from the watch list."""
+
+    def test_all_transition_height_pins_are_watched(self):
+        cfg = (ROOT / "apps" / "blockchain-node" / "src" / "aitbc_chain" / "config.py").read_text()
+        expected = {f"STATE_TRANSITION_V{n}_HEIGHT" for n in re.findall(r"state_transition_v(\d+)_height\s*:", cfg)}
+        watched = {n for n in _fleet_check_names() if n.startswith("STATE_TRANSITION_")}
+        missing = expected - watched
+        assert not missing, f"transition pins not drift-watched: {sorted(missing)}"
+
+    def test_env_shadow_scan_covers_all_pinned_versions(self):
+        m = re.search(r"for v in ([\d ]+); do", FLEET_CHECK.read_text())
+        assert m, "env-shadow scan loop not found in fleet-config-check.sh"
+        covered = {int(x) for x in m.group(1).split()}
+        cfg = (ROOT / "apps" / "blockchain-node" / "src" / "aitbc_chain" / "config.py").read_text()
+        expected = {int(n) for n in re.findall(r"state_transition_v(\d+)_height\s*:", cfg)}
+        missing = expected - covered
+        assert not missing, f"env-shadow scan misses versions: {sorted(missing)}"
