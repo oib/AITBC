@@ -101,6 +101,12 @@ Retired GPU rows (--sweep-retired-gpu):
 Exit status: 0 when the whole range replays hash/state-root identical,
 1 when a block rejects or state diverges (the offending height, block hash,
 expected vs replayed root, and the rejection reason are printed).
+
+Operational warts (24 Oct): the snapshot-serving http stub keeps the process
+alive after "REPLAY OK" — kill it once the final line is logged rather than
+waiting for it to exit on its own. And when killing it, pattern-match with
+``replay-chain[.]py``: a literal ``pgrep -f replay-chain.py``/``pkill -f``
+matches the *remote shell's own* command line and kills the ssh session too.
 """
 
 from __future__ import annotations
