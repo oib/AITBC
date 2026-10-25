@@ -526,7 +526,7 @@ class BridgeMonitor:
             logger.info(
                 "Payout for deposit %s broadcast as %s — awaiting %s-block seal",
                 tx_hash,
-                ait_tx_hash,
+                posted,
                 self.payout_seal_depth,
             )
         else:
