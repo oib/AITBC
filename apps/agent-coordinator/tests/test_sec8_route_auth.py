@@ -252,6 +252,11 @@ class TestHealthDetailGating:
         assert resp.status_code == 200
         assert "version" in resp.json()
 
+    def test_head_allowed_for_uptime_monitors(self, enforce):
+        resp = enforce.head("/health")
+        assert resp.status_code == 200
+        assert not resp.content
+
 
 class TestRouteInventory:
     """A new POST/PUT/DELETE/PATCH route on these routers must carry an

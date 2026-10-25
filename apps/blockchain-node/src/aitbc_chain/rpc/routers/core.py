@@ -66,6 +66,7 @@ async def get_chain_head_alias_route(request: Request, chain_id: str | None = No
     return await get_head(request, chain_id)  # type: ignore[no-any-return]
 
 
+@router.head("/head", include_in_schema=False)
 @router.get("/head", summary="Get current chain head")
 @rate_limit(rate=200, per=60)
 async def get_head_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
@@ -205,6 +206,7 @@ async def get_status_route(request: Request, chain_id: str | None = None) -> dic
     return await get_info_route(request, chain_id)  # type: ignore[no-any-return]
 
 
+@router.head("/network-info", include_in_schema=False)
 @router.get("/network-info", summary="Get network information for joining")
 @rate_limit(rate=100, per=60)
 async def get_network_info_route(request: Request) -> dict[str, Any]:
