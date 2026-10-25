@@ -738,7 +738,8 @@ def aitbc_exchange_register(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_exchange_sell_admin_status(
     hub_url: Annotated[
-        str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
+        str | None,
+        Field(description="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)"),
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
