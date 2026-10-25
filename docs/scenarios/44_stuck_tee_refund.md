@@ -102,7 +102,7 @@ This updates the coordinator `JobPayment` and the on-chain escrow in one call.
 
 ### Step 3: Refund through the blockchain directly (fallback)
 
-If you do not have a client token, refund the on-chain escrow directly:
+If you do not have a client token, refund the on-chain escrow directly. Refund is a **settlement-node operation** — there is no relay for it, so this must reach a settlement node's rpc (allowlisted + API key) — see the [escrow-relays runbook](../ops/escrow-relays.md):
 
 ```bash
 aitbc market escrow refund --job-id <job_id> --reason "TEE attestation rejected"
