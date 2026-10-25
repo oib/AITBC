@@ -491,3 +491,11 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   pair/side instead of empty fields. A cancel for an unknown or
   already-cancelled order is a no-op. Read-model only — no apply or
   consensus change.
+
+
+### NITS-B-1
+
+- `resource status --output json` prints `[]` on an empty answer;
+  `_apply_cancels` cancels every row with a duplicated `order_id` and
+  fills from the first; `assert_local_pg_url` counts a hostname-only
+  DSN as implicit 5432 and refuses it (unix-socket DSNs unaffected).
