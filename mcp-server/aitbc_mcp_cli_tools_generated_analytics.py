@@ -29,6 +29,7 @@ from aitbc_mcp_server import (
 def aitbc_analytics_alerts(
     severity: Annotated[Literal["all", "critical", "warning"] | None, Field(description="Alert severity filter")] = None,
     hours: Annotated[int | None, Field(description="Time range in hours")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -37,7 +38,7 @@ def aitbc_analytics_alerts(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"severity": "severity", "hours": "hours"},
+        values={"severity": "severity", "hours": "hours", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -81,6 +82,7 @@ def aitbc_analytics_monitor(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_analytics_optimize(
     chain_id: Annotated[str | None, Field(description="Specific chain ID for recommendations")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -91,7 +93,7 @@ def aitbc_analytics_optimize(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id"},
+        values={"chain_id": "chain-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -130,6 +132,7 @@ def aitbc_analytics_optimize(
 def aitbc_analytics_predict(
     chain_id: Annotated[str | None, Field(description="Specific chain ID for predictions")] = None,
     hours: Annotated[int | None, Field(description="Prediction time horizon in hours")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -138,7 +141,7 @@ def aitbc_analytics_predict(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id", "hours": "hours"},
+        values={"chain_id": "chain-id", "hours": "hours", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(

@@ -29,6 +29,7 @@ from aitbc_mcp_server import (
 def aitbc_market_cancel(
     job_id: Annotated[str, Field(description="Market job ID to cancel")],
     reason: Annotated[str | None, Field(description="Reason for cancellation")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -39,7 +40,7 @@ def aitbc_market_cancel(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"job_id": "job-id", "reason": "reason"},
+        values={"job_id": "job-id", "reason": "reason", "output_format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -81,6 +82,7 @@ def aitbc_market_download(
     cid: Annotated[str | None, Field(description="Free CID retrieval (bypasses access token)")] = None,
     output_path: Annotated[str | None, Field(description="Write retrieved content to this path")] = None,
     wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -91,7 +93,13 @@ def aitbc_market_download(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
-        values={"rental_id": "rental-id", "access_key": "access-key", "cid": "cid", "output_path": "output-path"},
+        values={
+            "rental_id": "rental-id",
+            "access_key": "access-key",
+            "cid": "cid",
+            "output_path": "output-path",
+            "output_format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -833,6 +841,7 @@ def aitbc_market_hermes(
     proposer_id: Annotated[
         str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
     ] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -848,6 +857,7 @@ def aitbc_market_hermes(
             "prompt": "prompt",
             "max_time": "max-time",
             "proposer_id": "proposer",
+            "output_format": "format",
         },
     )
     args = None
@@ -890,6 +900,7 @@ def aitbc_market_host(
     days: Annotated[int | None, Field(description="Rental duration in days")] = None,
     pin: Annotated[bool | None, Field(description="Pin the CID after paying the rental")] = None,
     proposer_id: Annotated[str | None, Field(description="Override hub proposer address for escrow")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -905,6 +916,7 @@ def aitbc_market_host(
             "cid_or_file": "cid-or-file",
             "days": "days",
             "proposer_id": "proposer-id",
+            "output_format": "format",
         },
     )
     args = None
@@ -947,6 +959,7 @@ def aitbc_market_jobs(
     buyer_address: Annotated[str | None, Field(description="Filter by buyer address")] = None,
     offer_id: Annotated[str | None, Field(description="Filter by offer ID")] = None,
     limit: Annotated[int | None, Field(description="Maximum jobs to return")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -961,6 +974,7 @@ def aitbc_market_jobs(
             "buyer_address": "buyer-address",
             "offer_id": "offer-id",
             "limit": "limit",
+            "output_format": "format",
         },
     )
     args = None
@@ -987,6 +1001,7 @@ def aitbc_market_list(
         ),
     ] = None,
     mine: Annotated[bool | None, Field(description="Show only offers published by the local wallet/node")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -995,7 +1010,13 @@ def aitbc_market_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"mine": "mine"},
-        values={"provider": "provider", "status": "status", "service_type": "service-type", "sort": "sort"},
+        values={
+            "provider": "provider",
+            "status": "status",
+            "service_type": "service-type",
+            "sort": "sort",
+            "output_format": "format",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -1011,12 +1032,17 @@ def aitbc_market_list(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_match(
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Match GPU bids with offers for price discovery."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"output_format": "format"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1158,6 +1184,7 @@ def aitbc_market_offer_cancel(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_offer_disable(
     plugin_id: Annotated[str, Field(description="Plugin ID to disable")],
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1168,7 +1195,7 @@ def aitbc_market_offer_disable(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"plugin_id": "plugin-id"},
+        values={"plugin_id": "plugin-id", "output_format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1207,6 +1234,7 @@ def aitbc_market_offer_disable(
 def aitbc_market_offer_list(
     service_type: Annotated[str | None, Field(description="Filter by service type")] = None,
     status: Annotated[str | None, Field(description="Filter by status (active/inactive)")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1217,7 +1245,7 @@ def aitbc_market_offer_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"service_type": "service-type", "status": "status"},
+        values={"service_type": "service-type", "status": "status", "output_format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1309,6 +1337,7 @@ def aitbc_market_process(
     codec: Annotated[str | None, Field(description="Target codec (e.g. h264, vp9, av1)")] = None,
     resolution: Annotated[str | None, Field(description="Target resolution (e.g. 1080p, 720p, 480p)")] = None,
     bitrate: Annotated[str | None, Field(description="Target bitrate (e.g. 5M, 10M)")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1326,6 +1355,7 @@ def aitbc_market_process(
             "codec": "codec",
             "resolution": "resolution",
             "bitrate": "bitrate",
+            "output_format": "format",
         },
     )
     args = None
@@ -1363,12 +1393,17 @@ def aitbc_market_process(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_providers(
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List the providers behind the live market offers."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"output_format": "format"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1487,6 +1522,7 @@ def aitbc_market_run(
     proposer_id: Annotated[
         str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
     ] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1511,6 +1547,7 @@ def aitbc_market_run(
             "max_time": "max-time",
             "days": "days",
             "proposer_id": "proposer",
+            "output_format": "format",
         },
     )
     args = None
@@ -1627,6 +1664,7 @@ def aitbc_market_transcribe(
     language: Annotated[str | None, Field(description="Language code (e.g. en, de, fr). Auto-detect if omitted.")] = None,
     task: Annotated[Literal["transcribe", "translate"] | None, Field(description="transcribe or translate to English")] = None,
     fmt: Annotated[Literal["text", "srt", "json"] | None, Field(description="Output format")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1643,6 +1681,7 @@ def aitbc_market_transcribe(
             "language": "language",
             "task": "task",
             "fmt": "output-format",
+            "output_format": "format",
         },
     )
     args = None

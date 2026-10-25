@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -93,6 +93,7 @@ def aitbc_system_cat(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_system_check(
     service: Annotated[str | None, Field(description="Check a specific systemd service")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -101,7 +102,7 @@ def aitbc_system_check(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"service": "service"},
+        values={"service": "service", "output_format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -186,6 +186,7 @@ def aitbc_config_environments(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_config_export(
+    output_format: Annotated[Literal["yaml", "json"] | None, Field(description="Output format")] = None,
     global_config: Annotated[bool | None, Field(description="Export global config")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -197,7 +198,7 @@ def aitbc_config_export(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"global_config": "global"},
-        values={},
+        values={"output_format": "format"},
     )
     args = None
     target = _host_for_role(role, host)

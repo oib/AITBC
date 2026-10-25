@@ -1339,3 +1339,228 @@ class TestDestructivePathSplitting:
             )
         )
         assert result.get("error") == "Confirmation required"
+
+class TestSplitPosixPrefix:
+    """MCP-MISC-1/SM-11: POSIX prefixes in a command string become real
+    child env/cwd on the local exec path."""
+
+    def test_plain_command_untouched(self):
+        env, cwd, argv = mcp_server._split_posix_prefix("aitbc blockchain height")
+        assert env == {}
+        assert cwd is None
+        assert argv == ["aitbc", "blockchain", "height"]
+
+    def test_env_assignments_peeled(self):
+        env, cwd, argv = mcp_server._split_posix_prefix(
+            "HOME=/var/tmp/sc AITBC_WALLET_DIR='/var/tmp/sc/wallets dir' aitbc wallet list"
+        )
+        assert env == {"HOME": "/var/tmp/sc", "AITBC_WALLET_DIR": "/var/tmp/sc/wallets dir"}
+        assert cwd is None
+        assert argv == ["aitbc", "wallet", "list"]
+
+    def test_cd_clause_peeled_before_env(self):
+        env, cwd, argv = mcp_server._split_posix_prefix("cd /var/tmp/sc && HOME=/var/tmp/sc aitbc wallet list")
+        assert env == {"HOME": "/var/tmp/sc"}
+        assert cwd == "/var/tmp/sc"
+        assert argv == ["aitbc", "wallet", "list"]
+
+    def test_mid_command_assignment_not_peeled(self):
+        """Only leading NAME=value tokens are env; a later token stays argv."""
+        env, cwd, argv = mcp_server._split_posix_prefix("aitbc wallet list --name=x")
+        assert env == {}
+        assert argv == ["aitbc", "wallet", "list", "--name=x"]
+
+
+class TestLocalRunRemoteEnvCwd:
+    """The local branch of _run_remote applies peeled prefixes via
+    subprocess env=/cwd= instead of exec'ing the prefix as argv[0]."""
+
+    def test_env_prefix_applied_to_child_env(self):
+        server = _load_isolated_server()
+        run = mock.Mock(return_value=_completed(stdout="{}"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=True),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            server._run_remote("localhost", "HOME=/var/tmp/sc aitbc blockchain height")
+        argv = run.call_args[0][0]
+        assert argv == ["aitbc", "blockchain", "height"]
+        child_env = run.call_args.kwargs["env"]
+        assert child_env["HOME"] == "/var/tmp/sc"
+        # Parent environment is preserved underneath the override.
+        assert "PATH" in child_env
+
+    def test_cd_clause_applied_to_child_cwd(self):
+        server = _load_isolated_server()
+        run = mock.Mock(return_value=_completed(stdout="{}"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=True),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            server._run_remote("localhost", "cd /var/tmp/sc && HOME=/var/tmp/sc aitbc blockchain height")
+        argv = run.call_args[0][0]
+        assert argv == ["aitbc", "blockchain", "height"]
+        assert run.call_args.kwargs["cwd"] == "/var/tmp/sc"
+        assert run.call_args.kwargs["env"]["HOME"] == "/var/tmp/sc"
+
+    def test_no_prefix_runs_without_env_or_cwd(self):
+        server = _load_isolated_server()
+        run = mock.Mock(return_value=_completed(stdout="{}"))
+        with (
+            mock.patch.object(server, "_is_local_host", return_value=True),
+            mock.patch.object(server.subprocess, "run", run),
+        ):
+            server._run_remote("localhost", "aitbc blockchain height")
+        assert run.call_args.kwargs["env"] is None
+        assert run.call_args.kwargs["cwd"] is None
+
+
+class TestGenericCliEnvCwd:
+    """MCP-MISC-1/SM-11: env/cwd parameters on run_aitbc_cli / read_aitbc_cli."""
+
+    def _capture(self, server):
+        captured: list[str] = []
+
+        def fake(host: str, command: str, timeout: int = 60):
+            captured.append(command)
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        return captured, mock.patch.object(server, "_run_remote", fake)
+
+    def test_env_prefix_reaches_read_command(self):
+        captured, patcher = self._capture(mcp_server)
+        with patcher:
+            result = json.loads(
+                mcp_server.read_aitbc_cli(
+                    group="wallet",
+                    subcommand=["list"],
+                    env={"HOME": "/var/tmp/mcp-scratch"},
+                    host="node2",
+                )
+            )
+        assert result["returncode"] == 0
+        assert captured[0].startswith("HOME=/var/tmp/mcp-scratch ")
+        assert "aitbc" in captured[0] and "wallet list" in captured[0]
+
+    def test_env_and_cwd_render_as_posix_prefix(self):
+        captured, patcher = self._capture(mcp_server)
+        with patcher:
+            result = json.loads(
+                mcp_server.read_aitbc_cli(
+                    group="wallet",
+                    subcommand=["list"],
+                    env={"HOME": "/var/tmp/sc", "AITBC_WALLET_DIR": "/var/tmp/sc/wallets"},
+                    cwd="/var/tmp/sc",
+                    host="node2",
+                )
+            )
+        assert result["returncode"] == 0
+        assert captured[0].startswith("cd /var/tmp/sc && HOME=/var/tmp/sc AITBC_WALLET_DIR=/var/tmp/sc/wallets ")
+
+    def test_env_prefix_shown_in_dry_run(self):
+        result = json.loads(
+            mcp_server.run_aitbc_cli(
+                group="wallet",
+                subcommand="create",
+                options={"name": "scratch"},
+                env={"HOME": "/var/tmp/sc"},
+                dry_run=True,
+                host="node2",
+            )
+        )
+        assert result["dry_run"] is True
+        assert result["command"].startswith("HOME=/var/tmp/sc ")
+
+    def test_env_on_destructive_subcommand_still_needs_confirm(self):
+        result = json.loads(
+            mcp_server.run_aitbc_cli(
+                group="wallet",
+                subcommand="create",
+                options={"name": "scratch"},
+                env={"HOME": "/var/tmp/sc"},
+                dry_run=False,
+                confirm=False,
+                host="node2",
+            )
+        )
+        assert result["error"] == "Confirmation required"
+        assert result["command"].startswith("HOME=/var/tmp/sc ")
+
+    def test_secret_shaped_env_name_refused(self):
+        for name in ("AITBC_API_KEY", "AITBC_JWT_SECRET", "AITBC_WALLET_PASSWORD", "MY_TOKEN"):
+            result = json.loads(
+                mcp_server.read_aitbc_cli(
+                    group="wallet",
+                    subcommand=["list"],
+                    env={name: "/var/tmp/sc"},
+                    host="node2",
+                )
+            )
+            assert "not allowed" in result["error"], name
+
+    def test_non_allowlisted_env_name_refused(self):
+        result = json.loads(
+            mcp_server.read_aitbc_cli(
+                group="wallet",
+                subcommand=["list"],
+                env={"PATH": "/var/tmp/sc"},
+                host="node2",
+            )
+        )
+        assert "not allowed" in result["error"]
+
+    def test_env_value_outside_scratch_refused(self):
+        for value in ("/etc/aitbc", "/var/tmp/../etc", "relative/path", "/var/lib/aitbc/wallets"):
+            result = json.loads(
+                mcp_server.read_aitbc_cli(
+                    group="wallet",
+                    subcommand=["list"],
+                    env={"HOME": value},
+                    host="node2",
+                )
+            )
+            assert "under /var/tmp" in result["error"], value
+
+    def test_env_value_at_scratch_root_accepted(self):
+        captured, patcher = self._capture(mcp_server)
+        with patcher:
+            result = json.loads(
+                mcp_server.read_aitbc_cli(
+                    group="wallet",
+                    subcommand=["list"],
+                    env={"HOME": "/var/tmp"},
+                    host="node2",
+                )
+            )
+        assert result["returncode"] == 0
+
+    def test_invalid_env_name_refused(self):
+        result = json.loads(
+            mcp_server.read_aitbc_cli(
+                group="wallet",
+                subcommand=["list"],
+                env={"BAD;NAME": "/var/tmp/sc"},
+                host="node2",
+            )
+        )
+        assert "invalid environment variable name" in result["error"]
+
+    def test_cwd_outside_scratch_refused(self):
+        for value in ("/root", "/var/tmp/../etc", "tmp/scratch"):
+            result = json.loads(
+                mcp_server.read_aitbc_cli(
+                    group="wallet",
+                    subcommand=["list"],
+                    cwd=value,
+                    host="node2",
+                )
+            )
+            assert "under /var/tmp" in result["error"], value
+
+    def test_no_env_no_cwd_unchanged(self):
+        captured, patcher = self._capture(mcp_server)
+        with patcher:
+            result = json.loads(mcp_server.read_aitbc_cli(group="wallet", subcommand=["list"], host="node2"))
+        assert result["returncode"] == 0
+        assert not captured[0].startswith("cd ")
+        assert "=" not in captured[0].split(" ", 1)[0]

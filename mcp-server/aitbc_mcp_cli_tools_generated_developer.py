@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -30,6 +30,7 @@ def aitbc_developer_list(
     active_only: Annotated[bool | None, Field(description="List only active developers")] = None,
     limit: Annotated[int | None, Field(description="Maximum number of developers")] = None,
     offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -38,7 +39,7 @@ def aitbc_developer_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"active_only": "active-only"},
-        values={"limit": "limit", "offset": "offset"},
+        values={"limit": "limit", "offset": "offset", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -58,6 +59,7 @@ def aitbc_developer_register(
     name: Annotated[str | None, Field(description="Developer name")] = None,
     email: Annotated[str | None, Field(description="Developer email")] = None,
     github_handle: Annotated[str | None, Field(description="GitHub handle")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -68,7 +70,13 @@ def aitbc_developer_register(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"wallet_address": "wallet-address", "name": "name", "email": "email", "github_handle": "github-handle"},
+        values={
+            "wallet_address": "wallet-address",
+            "name": "name",
+            "email": "email",
+            "github_handle": "github-handle",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -31,6 +31,7 @@ def aitbc_bond_appeal(
     reason: Annotated[str | None, Field(description="Reason for the appeal")] = None,
     evidence: Annotated[str | None, Field(description="Evidence URL or CID")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -41,7 +42,13 @@ def aitbc_bond_appeal(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"bond_id": "bond-id", "reason": "reason", "evidence": "evidence", "coordinator_url": "coordinator-url"},
+        values={
+            "bond_id": "bond-id",
+            "reason": "reason",
+            "evidence": "evidence",
+            "coordinator_url": "coordinator-url",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -83,6 +90,7 @@ def aitbc_bond_create(
     required_amount: Annotated[str | None, Field(description="Required bond amount for this provider")] = None,
     bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -99,6 +107,7 @@ def aitbc_bond_create(
             "required_amount": "required-amount",
             "bond_id": "bond-id",
             "coordinator_url": "coordinator-url",
+            "format": "format",
         },
     )
     args = None
@@ -138,6 +147,7 @@ def aitbc_bond_create(
 def aitbc_bond_lock(
     provider_id: Annotated[str, Field(description="Provider ID.")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -148,7 +158,7 @@ def aitbc_bond_lock(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
+        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -187,6 +197,7 @@ def aitbc_bond_lock(
 def aitbc_bond_release(
     provider_id: Annotated[str, Field(description="Provider ID.")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -197,7 +208,7 @@ def aitbc_bond_release(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
+        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -237,6 +248,7 @@ def aitbc_bond_slash(
     provider_id: Annotated[str, Field(description="Provider ID.")],
     reason: Annotated[str | None, Field(description="Reason for the slash")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -247,7 +259,7 @@ def aitbc_bond_slash(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"provider_id": "provider-id", "reason": "reason", "coordinator_url": "coordinator-url"},
+        values={"provider_id": "provider-id", "reason": "reason", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -286,6 +298,7 @@ def aitbc_bond_slash(
 def aitbc_bond_status(
     provider_id: Annotated[str, Field(description="Provider ID.")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -294,7 +307,7 @@ def aitbc_bond_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
+        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -314,6 +327,7 @@ def aitbc_bond_top_up(
     amount: Annotated[str | None, Field(description="Amount to add to the bond")] = None,
     bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -324,7 +338,13 @@ def aitbc_bond_top_up(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"provider_id": "provider-id", "amount": "amount", "bond_id": "bond-id", "coordinator_url": "coordinator-url"},
+        values={
+            "provider_id": "provider-id",
+            "amount": "amount",
+            "bond_id": "bond-id",
+            "coordinator_url": "coordinator-url",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
