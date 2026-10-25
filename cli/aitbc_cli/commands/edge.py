@@ -48,9 +48,9 @@ def status(ctx):
         success("Edge Status:")
         output(status_data, resolve_output_format(ctx))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error fetching edge status: {e}")
+        abort(None, f"Error fetching edge status: {e}")
 
 
 @edge.command(
@@ -71,9 +71,9 @@ def balance(ctx):
         success("Edge Wallet Balance:")
         output(balance_data, resolve_output_format(ctx))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error fetching edge balance: {e}")
+        abort(None, f"Error fetching edge balance: {e}")
 
 
 @edge.command(
@@ -101,9 +101,9 @@ def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
         success(f"Transfer of {amount} to {to_address} submitted")
         output(result, resolve_output_format(ctx))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error executing transfer: {e}")
+        abort(None, f"Error executing transfer: {e}")
 
 
 def get_edge_client():
@@ -162,7 +162,7 @@ def join(ctx, island_id: str, island_name: str, chain_id: str, role: str, is_hub
         else:
             error(f"Failed to join island: {result.get('message', 'Unknown error')}")
     except Exception as e:
-        error(f"Error joining island: {str(e)}")
+        abort(None, f"Error joining island: {str(e)}")
 
 
 @island.command(
@@ -186,7 +186,7 @@ def leave(ctx, island_id: str):
         else:
             error(f"Failed to leave island: {result.get('message', 'Unknown error')}")
     except Exception as e:
-        error(f"Error leaving island: {str(e)}")
+        abort(None, f"Error leaving island: {str(e)}")
 
 
 @island.command(
@@ -212,7 +212,7 @@ def list_islands(ctx):
         else:
             info("No islands found")
     except Exception as e:
-        error(f"Error listing islands: {str(e)}")
+        abort(None, f"Error listing islands: {str(e)}")
 
 
 @island.command(
@@ -233,7 +233,7 @@ def get(ctx, island_id: str):
         result = response.json()
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error getting island details: {str(e)}")
+        abort(None, f"Error getting island details: {str(e)}")
 
 
 @island.command(
@@ -259,7 +259,7 @@ def bridge(ctx, target_island_id: str):
         else:
             error(f"Failed to request bridge: {result.get('message', 'Unknown error')}")
     except Exception as e:
-        error(f"Error requesting bridge: {str(e)}")
+        abort(None, f"Error requesting bridge: {str(e)}")
 
 
 @edge.group(
@@ -307,7 +307,7 @@ def list_gpus(ctx, architecture: str | None, edge_optimized: bool, min_memory_gb
         else:
             info("No GPUs found")
     except Exception as e:
-        error(f"Error listing GPUs: {str(e)}")
+        abort(None, f"Error listing GPUs: {str(e)}")
 
 
 @gpu.command(
@@ -328,7 +328,7 @@ def get_gpu(ctx, gpu_id: str):
         result = response.json()
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error getting GPU details: {str(e)}")
+        abort(None, f"Error getting GPU details: {str(e)}")
 
 
 @gpu.command(
@@ -346,7 +346,7 @@ def remove_gpu(gpu_id: str):
         result = response.json()
         success(result.get("message", f"GPU {gpu_id} removed"))
     except Exception as e:
-        error(f"Error removing GPU: {str(e)}")
+        abort(None, f"Error removing GPU: {str(e)}")
 
 
 @gpu.command(
@@ -368,7 +368,7 @@ def scan_gpus(ctx, miner_id: str):
         success(f"GPU scan initiated for miner {miner_id}")
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error scanning GPUs: {str(e)}")
+        abort(None, f"Error scanning GPUs: {str(e)}")
 
 
 @gpu.command(
@@ -390,7 +390,7 @@ def gpu_metrics(ctx, gpu_id: str, limit: int):
         result = response.json()
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error getting GPU metrics: {str(e)}")
+        abort(None, f"Error getting GPU metrics: {str(e)}")
 
 
 @edge.group(
@@ -430,7 +430,7 @@ def init_db(ctx, database_id: str, island_id: str, capacity_gb: int):
         else:
             error(f"Failed to initialize database: {result.get('message', 'Unknown error')}")
     except Exception as e:
-        error(f"Error initializing database: {str(e)}")
+        abort(None, f"Error initializing database: {str(e)}")
 
 
 @database.command(
@@ -460,7 +460,7 @@ def list_dbs(ctx, island_id: str | None):
         else:
             info("No databases found")
     except Exception as e:
-        error(f"Error listing databases: {str(e)}")
+        abort(None, f"Error listing databases: {str(e)}")
 
 
 @database.command(
@@ -481,7 +481,7 @@ def get_db(ctx, database_id: str):
         result = response.json()
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error getting database details: {str(e)}")
+        abort(None, f"Error getting database details: {str(e)}")
 
 
 @database.command(
@@ -499,7 +499,7 @@ def delete_db(database_id: str):
         result = response.json()
         success(result.get("message", f"Database {database_id} deleted"))
     except Exception as e:
-        error(f"Error deleting database: {str(e)}")
+        abort(None, f"Error deleting database: {str(e)}")
 
 
 @database.command(
@@ -594,7 +594,7 @@ def submit_request(
         else:
             error(f"Failed to submit request: {result.get('message', 'Unknown error')}")
     except Exception as e:
-        error(f"Error submitting compute request: {str(e)}")
+        abort(None, f"Error submitting compute request: {str(e)}")
 
 
 @serve.command(
@@ -627,7 +627,7 @@ def list_requests(ctx, gpu_id: str | None, status: str | None):
         else:
             info("No requests found")
     except Exception as e:
-        error(f"Error listing requests: {str(e)}")
+        abort(None, f"Error listing requests: {str(e)}")
 
 
 @serve.command(
@@ -648,7 +648,7 @@ def get_request(ctx, request_id: str):
         result = response.json()
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error getting request details: {str(e)}")
+        abort(None, f"Error getting request details: {str(e)}")
 
 
 @serve.command(
@@ -666,7 +666,7 @@ def cancel_request(request_id: str):
         result = response.json()
         success(result.get("message", f"Request {request_id} cancelled"))
     except Exception as e:
-        error(f"Error cancelling request: {str(e)}")
+        abort(None, f"Error cancelling request: {str(e)}")
 
 
 @serve.command(
@@ -687,7 +687,7 @@ def get_result(ctx, request_id: str):
         result = response.json()
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error getting result: {str(e)}")
+        abort(None, f"Error getting result: {str(e)}")
 
 
 @edge.group(
@@ -728,7 +728,7 @@ def record(ctx, gpu_id: str, metrics: str):
         else:
             error(f"Failed to record metrics: {result.get('message', 'Unknown error')}")
     except Exception as e:
-        error(f"Error recording metrics: {str(e)}")
+        abort(None, f"Error recording metrics: {str(e)}")
 
 
 @metrics.command(
@@ -759,7 +759,7 @@ def list_metrics(ctx, gpu_id: str | None, limit: int):
         else:
             info("No metrics found")
     except Exception as e:
-        error(f"Error listing metrics: {str(e)}")
+        abort(None, f"Error listing metrics: {str(e)}")
 
 
 @metrics.command(
@@ -780,7 +780,7 @@ def get_metric(ctx, metric_id: str):
         result = response.json()
         output(result, resolve_output_format(ctx))
     except Exception as e:
-        error(f"Error getting metric details: {str(e)}")
+        abort(None, f"Error getting metric details: {str(e)}")
 
 
 @metrics.command(
@@ -798,4 +798,4 @@ def delete_metric(metric_id: str):
         result = response.json()
         success(result.get("message", f"Metric {metric_id} deleted"))
     except Exception as e:
-        error(f"Error deleting metric: {str(e)}")
+        abort(None, f"Error deleting metric: {str(e)}")
