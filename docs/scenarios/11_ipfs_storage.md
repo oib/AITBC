@@ -101,6 +101,24 @@ aitbc oracle listings
 
 **Expected output:** an `announcement_id` like `ann_…` and a listings payload that includes the CID at price `15.0`.
 
+### Step 4b: Pay for cross-node hosting (market offer)
+
+Announcing is free; durable replication on a provider's island IPFS is a
+paid market job. `aitbc market host` takes the offer and either a CID or a
+local file (a file is uploaded to your daemon first), rents it for `--days`
+days at the offer's `per_day` price, and escrows the cost:
+
+```bash
+aitbc market host --offer-id-or-plugin-id ipfs-ipfs-host --cid-or-file "$CID" --days 7
+# or hand it a local file instead of a CID:
+aitbc market host --offer-id-or-plugin-id ipfs-ipfs-host --cid-or-file /tmp/finetune-run-042.weights --days 3
+```
+
+**Expected output:** `Hosted <cid> for 7 day(s); cost <price×days> AIT;
+market job sw_job_ipfs_…; escrow <contract-id>`. Retrieval afterwards is
+`aitbc market download --rental-id <job-id>` (see Step 3 for the local
+variant).
+
 ---
 
 ## Code Examples Using Agent SDK
