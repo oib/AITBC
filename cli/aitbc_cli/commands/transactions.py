@@ -412,8 +412,7 @@ def _process_batch_entry(
                         "error": f"duplicate transaction hash {tx_hash}",
                     }
                 )
-                error(f"Transaction produced a duplicate hash: {tx['from_wallet']} → {tx['to_address']}")
-                return
+                abort(None, f"Transaction produced a duplicate hash: {tx['from_wallet']} → {tx['to_address']}")
             seen_hashes.add(tx_hash)
         results.append({"transaction": tx, "hash": tx_hash, "success": tx_hash is not None})
 
@@ -517,11 +516,11 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             click.echo(json.dumps(result, indent=2))
         except NetworkError as e:
             if http_response_status(e) == 404:
-                error(f"Transaction {tx_hash} not found")
+                abort(None, f"Transaction {tx_hash} not found", from_exception=e)
             else:
-                error(f"Explorer API unavailable: {e}")
+                abort(None, f"Explorer API unavailable: {e}", from_exception=e)
         except Exception as e:
-            error(f"Error: {e}")
+            abort(None, f"Error: {e}", from_exception=e)
     else:
         if not rpc_url:
             rpc_url = _resolve_transaction_rpc_url(None)
@@ -532,9 +531,9 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             success(f"Transaction status for {tx_hash}")
             click.echo(json.dumps(result, indent=2))
         except NetworkError as e:
-            error(f"Error getting transaction status: {e}")
+            abort(None, f"Error getting transaction status: {e}", from_exception=e)
         except Exception as e:
-            error(f"Error: {e}")
+            abort(None, f"Error: {e}", from_exception=e)
 
 
 @transactions.command(
@@ -609,8 +608,7 @@ def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: st
 def search(address: str, sender: str, recipient: str, limit: int, use_explorer: bool, rpc_url: str):
     """Search transactions by address, sender, or recipient."""
     if not address and not sender and not recipient:
-        error("Provide at least one of --address, --sender or --recipient.")
-        return
+        abort(None, "Provide at least one of --address, --sender or --recipient.")
     filters = {k: v for k, v in {"address": address, "sender": sender, "recipient": recipient}.items() if v}
     if use_explorer:
         if sender or recipient:

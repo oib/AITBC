@@ -48,6 +48,8 @@ from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from aitbc.utils import format_ait  # noqa: E402
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units  # noqa: E402
 
+from ..utils.error_handling import abort  # noqa: E402
+
 
 def _agent_api_base() -> str:
     """Where the agent API lives, seen from this node (V23-92).
@@ -212,11 +214,11 @@ def approve(ctx, request_id, reason):
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
         if not req:
-            click.echo(f"Request {request_id} not found.")
+            abort(ctx, f"Request {request_id} not found.")
             return
 
         if req.status != CoinRequestStatus.PENDING:
-            click.echo(f"Request {request_id} is not pending (status: {req.status.value if req.status else 'N/A'}).")
+            abort(ctx, f"Request {request_id} is not pending (status: {req.status.value if req.status else 'N/A'}).")
             return
 
         req.status = CoinRequestStatus.APPROVED
@@ -252,11 +254,11 @@ def reject(ctx, request_id, reason):
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
         if not req:
-            click.echo(f"Request {request_id} not found.")
+            abort(ctx, f"Request {request_id} not found.")
             return
 
         if req.status != CoinRequestStatus.PENDING:
-            click.echo(f"Request {request_id} is not pending (status: {req.status.value if req.status else 'N/A'}).")
+            abort(ctx, f"Request {request_id} is not pending (status: {req.status.value if req.status else 'N/A'}).")
             return
 
         req.status = CoinRequestStatus.REJECTED
@@ -288,15 +290,15 @@ def execute(ctx, request_id):
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
         if not req:
-            click.echo(f"Request {request_id} not found.")
+            abort(ctx, f"Request {request_id} not found.")
             return
 
         if req.status != CoinRequestStatus.APPROVED:
-            click.echo(f"Request {request_id} is not approved (status: {req.status.value if req.status else 'N/A'}).")
+            abort(ctx, f"Request {request_id} is not approved (status: {req.status.value if req.status else 'N/A'}).")
             return
 
         if req.transaction_hash:
-            click.echo(f"Request {request_id} already executed (tx hash: {req.transaction_hash}).")
+            abort(ctx, f"Request {request_id} already executed (tx hash: {req.transaction_hash}).")
             return
 
         # Initialize transaction service
@@ -470,7 +472,7 @@ def show(ctx, request_id):
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
 
         if not req:
-            click.echo(f"Request {request_id} not found.")
+            abort(ctx, f"Request {request_id} not found.")
             return
 
         click.echo(f"Request ID: {req.id}")
@@ -586,10 +588,10 @@ def reopen(ctx, request_id, rpc_url, force, chain_id):
     with get_db_session() as session:
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
         if not req:
-            click.echo(f"Request {request_id} not found.")
+            abort(ctx, f"Request {request_id} not found.")
             return
         if not req.transaction_hash:
-            click.echo(f"Request {request_id} has no transaction hash — it is already executable.")
+            abort(ctx, f"Request {request_id} has no transaction hash — it is already executable.")
             return
 
         tx_hash = str(req.transaction_hash)
