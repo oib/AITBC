@@ -117,6 +117,12 @@ my-agent-wallet: 0xFcC9fc2df09814507dBda31f89265c487003CC9c
 test-wallet: 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8
 ```
 
+The legacy top-level alias `aitbc list` forwards to `aitbc wallet list` and prints the same table — a read-only local lookup, same output as above:
+
+```bash
+aitbc list
+```
+
 ### Step 4: Switch the Active Wallet
 
 The active wallet is stored in `~/.aitbc/config.yaml` and used by default by other CLI commands (transactions, messaging, etc.).
@@ -502,6 +508,10 @@ Cost: returns the staked principal — no new spend.
 ```bash
 aitbc wallet unstake --stake-id 1
 ```
+
+### Step 27a: Top-level staking aliases
+
+`aitbc unstake --stake-id <id>` and `aitbc liquidity-stake --amount <units>` are top-level shortcuts that delegate to the same wallet-signed implementations as `aitbc wallet unstake` / `aitbc wallet liquidity-stake` — fund-moving operations; not played, needs the operator's line.
 
 ### Step 28: Send a small ETH transfer
 
