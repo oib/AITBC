@@ -348,7 +348,11 @@ def _scrape(text=None):
 
         text = generate_latest(REGISTRY).decode()
     vals = []
-    for name in ("aitbc_island_hub_silence_seconds", "aitbc_island_gossip_silence_seconds"):
+    for name in (
+        "aitbc_island_hub_silence_seconds",
+        "aitbc_island_import_silence_seconds",
+        "aitbc_island_gossip_silence_seconds",
+    ):
         hit = re.search(rf"^{name} ([0-9.eE+-]+)$", text, re.M)
         vals.append(float(hit.group(1)) if hit else None)
     return tuple(vals)
@@ -385,10 +389,12 @@ def test_tick_exports_silences_to_prometheus():
     m.last_hub_observation_at = _t.monotonic() - 300
     m.last_gossip_block_at = _t.monotonic() - 120
     im.publish_silence_gauges(m)
-    hub, gos = _scrape()
-    assert hub is not None and gos is not None, "gauges missing from REGISTRY export"
+    hub, imp, gos = _scrape()
+    assert hub is not None and imp is not None and gos is not None, "gauges missing from REGISTRY export"
     assert 295 <= hub <= 305
-    assert 115 <= gos <= 125
+    assert 115 <= imp <= 125
+    # Deprecated alias exports the same series for one release (ISLAND-GAUGE-RENAME-1).
+    assert abs(imp - gos) < 1.0
 
 
 def test_silences_grow_at_scrape_time_without_tick(monkeypatch):
@@ -400,12 +406,12 @@ def test_silences_grow_at_scrape_time_without_tick(monkeypatch):
     m = _monitor()
     monkeypatch.setattr(m, "tick", _no_tick)
     im.publish_silence_gauges(m)
-    assert _scrape() == (0.0, 0.0)
+    assert _scrape() == (0.0, 0.0, 0.0)
     clock[0] += 300
-    assert _scrape() == (300.0, 300.0)
+    assert _scrape() == (300.0, 300.0, 300.0)
     m.on_hub_observation()  # pull answer from the hub, still no gossip
     clock[0] += 60
-    assert _scrape() == (60.0, 360.0)
+    assert _scrape() == (60.0, 360.0, 360.0)
 
 
 def test_scrape_right_after_build_is_small_non_negative(monkeypatch):
@@ -416,7 +422,7 @@ def test_scrape_right_after_build_is_small_non_negative(monkeypatch):
     _hub_configured(monkeypatch)
     m = build_monitor_from_settings()
     assert m is not None
-    hub, gos = _scrape()
+    hub, imp, gos = _scrape()
     assert hub is not None and 0.0 <= hub < 5.0
     assert gos is not None and 0.0 <= gos < 5.0
 
@@ -429,7 +435,7 @@ def test_monitor_off_exports_no_silence_series(monkeypatch):
     from prometheus_client import REGISTRY, generate_latest
     from aitbc_chain import island_monitor as im
 
-    for name in (im.HUB_SILENCE_METRIC, im.GOSSIP_SILENCE_METRIC):
+    for name in (im.HUB_SILENCE_METRIC, im.IMPORT_SILENCE_METRIC, im.GOSSIP_SILENCE_METRIC):
         collector = REGISTRY._names_to_collectors.get(name)
         if collector is not None:
             REGISTRY.unregister(collector)
@@ -443,6 +449,7 @@ def test_monitor_off_exports_no_silence_series(monkeypatch):
     out = generate_latest(REGISTRY).decode()
     assert "aitbc_island_hub_silence_seconds" not in out
     assert "aitbc_island_gossip_silence_seconds" not in out
+    assert "aitbc_island_import_silence_seconds" not in out
 
 
 def test_reload_rebuilt_monitor_replaces_callback_real_scrape(monkeypatch):
@@ -460,7 +467,7 @@ def test_reload_rebuilt_monitor_replaces_callback_real_scrape(monkeypatch):
     old = im.build_monitor_from_settings()
     old.last_hub_observation_at = clock[0] - 100
     old.last_gossip_block_at = clock[0] - 100
-    assert _scrape() == (100.0, 100.0)
+    assert _scrape() == (100.0, 100.0, 100.0)
     importlib.reload(im)
     importlib.reload(im)
     new = im.build_monitor_from_settings()
@@ -478,4 +485,5 @@ def test_reload_rebuilt_monitor_replaces_callback_real_scrape(monkeypatch):
     finally:
         server.shutdown()
         server.server_close()
-    assert _scrape(body) == (55.0, 52.0)  # new monitor; the old one would read 150.0
+    hub, imp, gos = _scrape(body)
+    assert (hub, imp, gos) == (55.0, 52.0, 52.0)  # new monitor; the old one would read 150.0

@@ -106,7 +106,7 @@ groups:
       # hub loss; a survivable loss must not page critical.
       # Both silences are computed at scrape time, so a node that stops
       # importing sees both climb. Despite the gauge name,
-      # aitbc_island_gossip_silence_seconds counts silence since the last
+      # aitbc_island_import_silence_seconds counts silence since the last
       # ACCEPTED IMPORT on any transport — gossip, subscription sync or
       # pull — not gossip traffic only (verified 25 Oct: node0 imported
       # 997 blocks via subscription sync and 0 via gossip over 24 h, and
@@ -117,7 +117,7 @@ groups:
       # neither. The hub runs no monitor and exports neither series, so
       # neither rule can fire there. A restarted node starts both at 0.
       - alert: IslandHubSilent
-        expr: aitbc_island_hub_silence_seconds > 600 and on(instance, job) aitbc_island_gossip_silence_seconds < 300
+        expr: aitbc_island_hub_silence_seconds > 600 and on(instance, job) aitbc_island_import_silence_seconds < 300
         for: 15m
         labels:
           severity: warning
@@ -131,13 +131,13 @@ groups:
       # (shared 300s boundary). The gauge name says "gossip" but the
       # monitor is fed on every accepted import (see above).
       - alert: IslandImportSilent
-        expr: aitbc_island_gossip_silence_seconds >= 300
+        expr: aitbc_island_import_silence_seconds >= 300
         for: 15m
         labels:
           severity: warning
         annotations:
           summary: "No block import for 20+ minutes on {{ $labels.instance }}"
-          description: "aitbc_island_gossip_silence_seconds on {{ $labels.instance }} is {{ $value }}s: this node has imported no block from any validator on any transport (the gauge name says gossip but the monitor counts every accepted import), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
+          description: "aitbc_island_import_silence_seconds on {{ $labels.instance }} is {{ $value }}s: this node has imported no block from any validator on any transport (the gauge counts every accepted import on any transport), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
 
       # CHAIN-STALL-2: ChainHeadStalled reads the messaging head gauge, so a
       # target that keeps scraping but stops exposing the series leaves the

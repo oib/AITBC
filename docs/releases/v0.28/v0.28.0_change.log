@@ -30,3 +30,12 @@
   Click parsing; leaf-redeclared flags keep their leaf position.
   Secret-value options (`--password`, `--password-stdin`) stay excluded
   per SM-03; `--password-file` is forwarded as a path. Refs #438.
+
+
+### ISLAND-GAUGE-RENAME-1
+
+- `aitbc_island_gossip_silence_seconds` counted every accepted import,
+  not gossip — the name lied. The node now exports
+  `aitbc_island_import_silence_seconds` bound to the same feed, and keeps
+  the old name exported as a deprecated alias for one release. Alert
+  rules (`IslandImportSilent`, `IslandHubSilent`) read the new name.
