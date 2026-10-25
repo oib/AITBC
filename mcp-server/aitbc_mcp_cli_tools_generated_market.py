@@ -292,14 +292,12 @@ def aitbc_market_escrow_release(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_escrow_status(
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check the on-chain escrow state for a job."""
     options: dict[str, Any] = _collect_options(
@@ -308,35 +306,14 @@ def aitbc_market_escrow_status(
         values={"job_id": "job-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "market",
         subcommand=["escrow", "status"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "market",
-            subcommand=["escrow", "status"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
@@ -395,15 +372,13 @@ def aitbc_market_exchange_deposit_eth(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_exchange_list_deposits(
     status: Annotated[str | None, Field(description="Filter by status (pending, verified, completed, rejected)")] = None,
     limit: Annotated[int | None, Field(description="Maximum number of results")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List ETH deposits and their status."""
     options: dict[str, Any] = _collect_options(
@@ -412,35 +387,14 @@ def aitbc_market_exchange_list_deposits(
         values={"status": "status", "limit": "limit"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "market",
         subcommand=["exchange", "list-deposits"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "market",
-            subcommand=["exchange", "list-deposits"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
@@ -492,46 +446,23 @@ def aitbc_market_exchange_mint_ait(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_exchange_price(
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the current ETH-AIT exchange rate."""
     options: dict[str, Any] = {}
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "market",
         subcommand=["exchange", "price"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "market",
-            subcommand=["exchange", "price"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 

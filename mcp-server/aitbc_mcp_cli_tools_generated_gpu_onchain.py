@@ -88,14 +88,12 @@ def aitbc_gpu_onchain_allocate(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_gpu_onchain_allocations(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Query on-chain allocations for a GPU."""
     options: dict[str, Any] = _collect_options(
@@ -104,35 +102,14 @@ def aitbc_gpu_onchain_allocations(
         values={"gpu_id": "gpu-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "gpu-onchain",
         subcommand=["allocations"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "gpu-onchain",
-            subcommand=["allocations"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
@@ -214,14 +191,12 @@ def aitbc_gpu_onchain_list(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_gpu_onchain_query(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Query a GPU's on-chain registration details."""
     options: dict[str, Any] = _collect_options(
@@ -230,35 +205,14 @@ def aitbc_gpu_onchain_query(
         values={"gpu_id": "gpu-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "gpu-onchain",
         subcommand=["query"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "gpu-onchain",
-            subcommand=["query"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
