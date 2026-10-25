@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-10-20
+**Last Updated**: 2026-10-25
 
 ---
 
@@ -66,7 +66,7 @@ docs/
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
 | [apps](apps/) | 15 | Application catalog and per-app landing pages |
 | [architecture](architecture/) | 15 | System architecture and design patterns |
-| [archive](archive/) | 50 | Historical documents and archive |
+| [archive](archive/) | 51 | Historical documents and archive |
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
@@ -88,7 +88,7 @@ docs/
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 54 | End-to-end usage scenarios |
+| [scenarios](scenarios/) | 53 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |
 | [testing](testing/) | 6 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
