@@ -300,6 +300,21 @@ print(f"Verification: {is_valid}")
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 8: Search transactions by address
+
+Searches the chain for transactions touching an address; `--sender`/`--recipient` narrow the match and `--use-explorer` offloads to the explorer API.
+
+```bash
+aitbc transactions search --address 0xYourAddress --limit 10
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
