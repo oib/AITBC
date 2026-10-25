@@ -152,6 +152,26 @@ def _escrow_locked_amount(config, job_id: str, timeout: int = 10) -> str | None:
     return None
 
 
+def _resolve_release_amount(config, job_id: str, amount: Any) -> tuple[str | None, str | None]:
+    """Return ``(amount_str, skip_reason)`` for the release relay body.
+
+    ``skip_reason`` set → the relay cannot accept this amount (unreadable,
+    non-numeric or non-positive — it would answer a terminal 400) and the
+    caller should use the rpc path directly.
+    """
+    if amount is None:
+        amount = _escrow_locked_amount(config, job_id)
+        if amount is None:
+            return None, "escrow amount unreadable for the release relay body"
+    try:
+        amount_dec = Decimal(str(amount))
+    except (InvalidOperation, ValueError, TypeError):
+        return None, f"amount {amount!r} is not a number the release relay accepts"
+    if not amount_dec.is_finite() or amount_dec <= 0:
+        return None, f"amount {amount!r} is not positive — the release relay requires > 0"
+    return str(amount), None
+
+
 def _release_via_relay(
     ctx,
     config,
@@ -192,21 +212,14 @@ def _release_via_relay(
                 "(`aitbc auth login` as the escrow buyer enables it)"
             ),
         )
-    if amount is None:
-        amount = _escrow_locked_amount(config, job_id)
-        if amount is None:
-            return None, None, "escrow amount unreadable for the release relay body"
     # The relay requires a positive amount (400 'escrow amount must be
     # positive' — a terminal refusal). A zero or unparseable metered amount
     # must go straight to the rpc path, which reports the same refusal
     # without a pointless relay round-trip.
-    try:
-        amount_dec = Decimal(str(amount))
-    except (InvalidOperation, ValueError, TypeError):
-        return None, None, f"amount {amount!r} is not a number the release relay accepts"
-    if not amount_dec.is_finite() or amount_dec <= 0:
-        return None, None, f"amount {amount!r} is not positive — the release relay requires > 0"
-    body: dict[str, Any] = {"job_id": job_id, "amount": str(amount)}
+    amount_str, skip = _resolve_release_amount(config, job_id, amount)
+    if skip is not None:
+        return None, None, skip
+    body: dict[str, Any] = {"job_id": job_id, "amount": amount_str}
     if job_tx_hash:
         body["job_tx_hash"] = job_tx_hash
     client = AITBCHTTPClient(
