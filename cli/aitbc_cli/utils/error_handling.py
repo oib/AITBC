@@ -107,6 +107,21 @@ def _categorize(message: str, from_exception: Exception | None) -> type[CLIError
     return CLIError
 
 
+# Canonical "log in first" message — printed when a command needs a
+# credential and the store has none for this environment (CLI-AUTHHINT-1).
+LOGIN_HINT = "No login for this environment. Run: aitbc auth login --wallet <name>"
+
+
+def is_unauthorized(exc: BaseException | None) -> bool:
+    """True when the exception's underlying HTTP response was a 401.
+
+    ``AITBCHTTPClient`` wraps ``requests.HTTPError``; the status lives on
+    ``__cause__.response.status_code``.
+    """
+    response = getattr(getattr(exc, "__cause__", None), "response", None)
+    return getattr(response, "status_code", None) == 401
+
+
 # ---------------------------------------------------------------------------
 # abort() — the canonical way to signal an error from a command
 # ---------------------------------------------------------------------------
