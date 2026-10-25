@@ -62,6 +62,24 @@ compliance-aware job submission, and plugin discovery.
      --prompt "patient notes" --compliance-framework hipaa --classification phi
    ```
 
+<!-- COVERAGE-LEFT-1: remaining white-label/compliance leaves (issue #445) -->
+
+9. List brand plugin commands (read-only):
+   ```bash
+   aitbc brand list
+   ```
+
+10. Export a compliance audit report to a local file (reads the coordinator API, writes `--output-file`; no chain or service mutation):
+    ```bash
+    aitbc compliance export-audit --output-file /tmp/compliance-audit.json
+    ```
+
+11. Scaffold a white-label platform manifest, then "deploy" it. Both commands only write files under the given local directories — despite the name, `deploy deploy-brand` copies the manifest JSON to `--storage`; nothing reaches a network:
+    ```bash
+    aitbc platform init-platform --name "Demo Platform" --output /tmp/platform-demo
+    aitbc deploy deploy-brand --config /tmp/platform-demo/brand-manifest.json --network local --storage /tmp/deployments
+    ```
+
 ## Expected results
 
 - `aitbc brand show` returns brand fields (`name`, `token_symbol`, etc.).
