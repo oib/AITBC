@@ -799,7 +799,6 @@ def download_market_ipfs(
     cid: Annotated[str | None, Field(description="Free CID to retrieve.")] = None,
     rental_id: Annotated[str | None, Field(description="Market job ID for a paid rental.")] = None,
     access_key: Annotated[str | None, Field(description="Rental access key.")] = None,
-    access_secret: Annotated[str | None, Field(description="Rental access secret.")] = None,
     output: Annotated[str | None, Field(description="Output file path.")] = None,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
@@ -816,6 +815,12 @@ def download_market_ipfs(
 
     Writes the retrieved content to a file on the remote host (a tempfile when
     ``output`` is not given), so it is gated like ``aitbc_market_download``.
+
+    MCP-SECRETS-1: the ``access_secret`` value parameter was removed — secret
+    values must never appear as MCP call arguments. The access-token route
+    stays unavailable until the CLI leaf gains an ``--access-secret-file``
+    form (follow-up); ``access_key`` is kept for parity with the generated
+    twin.
     """
     subcommand_options: dict[str, str | None] = {}
     if cid:
@@ -824,8 +829,6 @@ def download_market_ipfs(
         subcommand_options["rental-id"] = rental_id
     if access_key:
         subcommand_options["access-key"] = access_key
-    if access_secret:
-        subcommand_options["access-secret"] = access_secret
     if output:
         subcommand_options["output"] = output
     return _run_aitbc_cli_write(
