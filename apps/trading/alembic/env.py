@@ -1,6 +1,5 @@
 """Alembic environment for trading service (v0.8.0)."""
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -17,24 +16,19 @@ config = context.config
 
 
 def _sync_database_url() -> str:
-    """Build a sync DB URL from the same env vars as storage.py.
+    """The same resolver storage.py uses, in the sync-driver form Alembic needs.
 
-    storage.py uses async drivers (asyncpg/aiosqlite); Alembic uses sync
-    drivers (psycopg2/sqlite). Convert the async URL to its sync equivalent.
+    Kept in ``aitbc.database.target`` so the app and the migrator can never
+    disagree (PG-TARGET-1).
     """
-    db_type = os.getenv("DB_TYPE", "sqlite")
-    if db_type == "postgresql":
-        host = os.getenv("DB_HOST", "localhost")
-        port = os.getenv("DB_PORT", "5432")
-        name = os.getenv("DB_NAME", "aitbc_trading")
-        user = os.getenv("DB_USER", "aitbc")
-        password = os.getenv("DB_PASS", "")
-        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
     from aitbc.constants import DATA_DIR
+    from aitbc.database.target import resolve_service_database_url
 
-    url = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/data/trading_service.db")
-    # Convert async driver to sync for Alembic
-    return url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    return resolve_service_database_url(
+        default_url=f"sqlite+aiosqlite:///{DATA_DIR}/data/trading_service.db",
+        default_db_name="aitbc_trading",
+        async_=False,
+    )
 
 
 # Override the hardcoded URL in alembic.ini with the env-var-derived one
