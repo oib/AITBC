@@ -9,7 +9,10 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aitbc_chain.island_monitor import IslandMonitor
 
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.sync import PeerCapability, PeerCapabilityTracker, SyncSourceResolver
@@ -89,6 +92,8 @@ class SyncManager:
         self._chains = chains or self._resolve_chains()
         self._node_id = node_id or settings.proposer_id or settings.p2p_node_id or "unknown"
         self._proposer_id = proposer_id or settings.proposer_id or ""
+        self._island_monitor: IslandMonitor | None = self._build_island_monitor()
+        self._hub_id_lower = (settings.island_hub_proposer_id or "").lower()
         self._production_chains = set(production_chains or self._resolve_production_chains())
         self._use_gossip = use_gossip if use_gossip is not None else getattr(settings, "sync_manager_use_gossip", True)
         self._use_subscription = (
@@ -116,6 +121,30 @@ class SyncManager:
         # Rejection/divergence counters that outlive a single ChainSync call.
         self._rejection_counts: dict[str, int] = {}
         self._consecutive_divergence: dict[str, int] = {}
+
+    @staticmethod
+    def _build_island_monitor() -> IslandMonitor | None:
+        from aitbc_chain.island_monitor import build_monitor_from_settings
+
+        return build_monitor_from_settings()
+
+    def island_health(self) -> dict[str, Any]:
+        if self._island_monitor is None:
+            return {"degraded": "monitor-off", "hub_silence_seconds": None, "gossip_silence_seconds": None}
+        return self._island_monitor.health()
+
+    def _feed_island_monitor(self, block_data: dict) -> None:
+        """Post-import observation feed. Detection-only: a monitor fault
+        must never change import behaviour."""
+        if self._island_monitor is None:
+            return
+        try:
+            self._island_monitor.on_gossip_block(
+                proposer_is_hub=(block_data.get("proposer") or "").lower() == self._hub_id_lower
+            )
+            self._island_monitor.tick(int(block_data.get("height") or 0))
+        except Exception:
+            pass
 
     @staticmethod
     def _resolve_chains() -> list[str]:
@@ -386,6 +415,8 @@ class SyncManager:
                 transactions=block_data.get("transactions"),
                 skip_state_root_validation=not settings.sync_state_root_validation_enabled,
             )
+            if self._island_monitor is not None and result.accepted:
+                self._feed_island_monitor(block_data)
 
             # Cache the block hash for accepted results and for permanent rejection
             # reasons, so that the same block delivered over multiple transports

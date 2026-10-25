@@ -154,3 +154,48 @@ def test_defer_only_when_flag_on_and_island_degraded(monkeypatch):
     assert m.defer_if_island_degraded("job-submit") is True
     monkeypatch.delenv("ISLAND_DEFER_ENABLED", raising=False)
     importlib.reload(im)
+
+
+# ── call-site wiring (#393): flag-off changes nothing ─────────────────
+
+
+def test_monitor_off_when_hub_id_unset(monkeypatch):
+    from aitbc_chain import config
+
+    monkeypatch.setattr(config.settings, "island_hub_proposer_id", "", raising=False)
+    from aitbc_chain.island_monitor import build_monitor_from_settings
+
+    assert build_monitor_from_settings() is None
+
+
+def test_monitor_built_when_hub_id_set(monkeypatch):
+    from aitbc_chain import config
+
+    monkeypatch.setattr(config.settings, "island_hub_proposer_id", "0xHUB", raising=False)
+    monkeypatch.setattr(config.settings, "validator_set", "0xHUB,0xA,0xB,0xC", raising=False)
+    monkeypatch.setattr(config.settings, "proposer_id", "0xA", raising=False)
+    from aitbc_chain.island_monitor import build_monitor_from_settings
+
+    m = build_monitor_from_settings()
+    assert m is not None and m.validator_count == 4 and m.is_hub_self is False
+
+
+def test_monitor_identity_skip_for_hub(monkeypatch):
+    from aitbc_chain import config
+
+    monkeypatch.setattr(config.settings, "island_hub_proposer_id", "0xHUB", raising=False)
+    monkeypatch.setattr(config.settings, "validator_set", "0xHUB,0xA", raising=False)
+    monkeypatch.setattr(config.settings, "proposer_id", "0xHUB", raising=False)
+    from aitbc_chain.island_monitor import build_monitor_from_settings
+
+    assert build_monitor_from_settings().is_hub_self is True
+
+
+def test_sync_manager_health_shape_off(monkeypatch):
+    from aitbc_chain.sync_manager import SyncManager
+
+    m = SyncManager(chains=[], use_gossip=False, use_subscription=False)
+    if m._island_monitor is None:
+        assert m.island_health()["degraded"] == "monitor-off"
+    else:
+        assert "degraded" in m.island_health()
