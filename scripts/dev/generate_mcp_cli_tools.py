@@ -730,6 +730,39 @@ def _choose_format_options(cmd: click.Command) -> dict[str, click.Option]:
     return chosen
 
 
+def _group_options(path: tuple[str, ...], options: list[dict[str, Any]], seen_names: set[str]) -> list[dict[str, Any]]:
+    """Hoist non-secret options declared on the leaf's top-level Click group.
+
+    They are part of the leaf's real CLI surface: Click accepts them between
+    the group token and the subcommand path (`aitbc wallet --wallet-name
+    genesis send …`). Dropping them produced MCP tools that could not select
+    a wallet and silently used the ACTIVE wallet for spends (PLAY3
+    option-missing). Kept separate from the leaf ``options`` so the wrapper
+    emits them ahead of the subcommand tokens — merging would place them
+    after the leaf, where Click rejects group flags. Only the top-level
+    group is hoisted: deeper intermediate groups could not be placed
+    correctly and none declare options today.
+    """
+    group_options: list[dict[str, Any]] = []
+    top_group = cli.commands.get(path[0]) if len(path) >= 2 else None
+    if not isinstance(top_group, click.Group):
+        return group_options
+    leaf_flags = {o["flag"] for o in options}
+    for j, param in enumerate(top_group.params):
+        if not isinstance(param, click.Option):
+            continue
+        flag = get_flag_name(param)
+        if flag and flag in leaf_flags:
+            # The leaf redeclares the same flag — the leaf parameter already
+            # covers it, so a second parameter would only alias it.
+            continue
+        option = _parse_option(param, 10_000 + j, seen_names)
+        if option is not None:
+            group_options.append(option)
+            leaf_flags.add(option["flag"])
+    return group_options
+
+
 def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
     """Extract parameters for one command."""
     options: list[dict[str, Any]] = []
@@ -753,33 +786,7 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
             if argument is not None:
                 positional.append(argument)
 
-    # Options declared on the leaf's top-level Click group are part of the
-    # leaf's real CLI surface: Click accepts them between the group token and
-    # the subcommand path (`aitbc wallet --wallet-name genesis send …`).
-    # Dropping them produced MCP tools that could not select a wallet and
-    # silently used the ACTIVE wallet for spends (PLAY3 option-missing).
-    # They are collected separately into ``group_options`` so the wrapper
-    # emits them ahead of the subcommand tokens — merging them into the leaf
-    # ``options`` would place them after the leaf, where Click rejects group
-    # flags.  Only the top-level group is hoisted: deeper intermediate groups
-    # could not be placed correctly and none declare options today.
-    group_options: list[dict[str, Any]] = []
-    top_group = cli.commands.get(path[0]) if len(path) >= 2 else None
-    if isinstance(top_group, click.Group):
-        leaf_flags = {o["flag"] for o in options}
-        for j, param in enumerate(top_group.params):
-            if not isinstance(param, click.Option):
-                continue
-            flag = get_flag_name(param)
-            if flag and flag in leaf_flags:
-                # The leaf redeclares the same flag — the leaf parameter
-                # already covers it (Click accepts leaf options at leaf
-                # position), so a second parameter would only alias it.
-                continue
-            option = _parse_option(param, 10_000 + j, seen_names)
-            if option is not None:
-                group_options.append(option)
-                leaf_flags.add(option["flag"])
+    group_options = _group_options(path, options, seen_names)
 
     return {
         "path": path,
