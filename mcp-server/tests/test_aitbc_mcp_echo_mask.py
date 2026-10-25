@@ -326,3 +326,78 @@ def test_bypassing_the_mask_leaks_mutation_check() -> None:
         leaked = mcp_server.run_aitbc_command(role="hub", command=f"wallet unlock --password {FAKE}")
     assert FAKE in leaked
     assert FAKE not in mcp_server.run_aitbc_command(role="hub", command=f"wallet unlock --password {FAKE}")
+
+
+def test_unbalanced_quote_masks_json_body() -> None:
+    masked = mask.mask_command(f'aitbc http call x --body={{"api_key": "{FAKE}')
+    assert FAKE not in masked
+    assert MARKER in masked
+
+
+def test_deny_name_tables_match_aitbc_cli() -> None:
+    """The mask's secret-name tables are a copy of aitbc_cli's deny list.
+
+    The MCP server must start without ``aitbc_cli`` on its path, so
+    ``aitbc_mcp_mask`` carries its own copy of ``_field_name_denied`` and its
+    tables. This test is the only place that imports the CLI originals — it
+    fails when the copy drifts.
+    """
+    from aitbc_cli.commands import system as cli_system
+
+    for attr in (
+        "_FIELD_DENY_NAMES",
+        "_FIELD_DENY_NORMALIZED",
+        "_FIELD_DENY_KEY_PREFIXES",
+        "_FIELD_DENY_TOKENS",
+        "_FIELD_DENY_SUFFIXES",
+        "_FIELD_DENY_TAIL",
+        "_CONN_STRING_TOKENS",
+    ):
+        assert getattr(mask, attr) == getattr(cli_system, attr), attr
+    assert mask._CAMEL_BOUNDARY.pattern == cli_system._CAMEL_BOUNDARY.pattern
+
+    names = sorted(
+        cli_system._FIELD_DENY_NAMES
+        | cli_system._FIELD_DENY_NORMALIZED
+        | set(cli_system._FIELD_DENY_TOKENS)
+        | set(cli_system._FIELD_DENY_SUFFIXES)
+        | {
+            "",
+            "x",
+            "KEY",
+            "DATABASE_URL",
+            "databaseUrl",
+            "db_uri",
+            "db_dsn",
+            "redis_url",
+            "PGPASSWORD",
+            "pgpassword",
+            "keyfile",
+            "keystore",
+            "monkey",
+            "pubkey",
+            "keynote",
+            "crew",
+            "flow",
+            "compass",
+            "oauth",
+            "designing",
+            "authorization",
+            "ENABLE_AUTHORIZATION",
+            "signingkey",
+            "auth_key",
+            "access-key",
+            "access_key",
+            "public_key",
+            "PROPOSER_ID",
+            "wallet_name",
+            "password-stdin",
+            "private-key-file",
+            "seedPhrase",
+        }
+    )
+    for name in names:
+        for flag in (True, False):
+            assert mask._field_name_denied(name, deny_conn_strings=flag) == cli_system._field_name_denied(
+                name, deny_conn_strings=flag
+            ), name
