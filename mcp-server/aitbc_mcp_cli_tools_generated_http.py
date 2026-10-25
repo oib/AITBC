@@ -32,9 +32,6 @@ def aitbc_http_call(
     params: Annotated[str | None, Field(description="JSON object of query parameters")] = None,
     body: Annotated[str | None, Field(description="JSON object request body")] = None,
     url: Annotated[str | None, Field(description="Override the service base URL")] = None,
-    api_key: Annotated[
-        str | None, Field(description="API key header (X-API-Key; X-Trading-Api-Key with --auth trading)")
-    ] = None,
     auth_kind: Annotated[
         Literal["none", "miner", "rpc", "trading"] | None,
         Field(
@@ -66,7 +63,6 @@ def aitbc_http_call(
             "params": "params",
             "body": "body",
             "url": "url",
-            "api_key": "api-key",
             "auth_kind": "auth",
             "timeout_opt": "timeout",
             "idempotency_key": "idempotency-key",

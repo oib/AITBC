@@ -688,8 +688,6 @@ def aitbc_exchange_prepay_deposit(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_register(
     name: Annotated[str, Field(description="Exchange name (e.g., Binance, Coinbase, Kraken)")],
-    api_key: Annotated[str, Field(description="Exchange API key")],
-    secret_key: Annotated[str | None, Field(description="Exchange API secret key")] = None,
     sandbox: Annotated[bool | None, Field(description="Use sandbox/testnet environment")] = None,
     description: Annotated[str | None, Field(description="Exchange description")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -702,7 +700,7 @@ def aitbc_exchange_register(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"sandbox": "sandbox"},
-        values={"name": "name", "api_key": "api-key", "secret_key": "secret-key", "description": "description"},
+        values={"name": "name", "description": "description"},
     )
     args = None
     target = _host_for_role(role, host)
