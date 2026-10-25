@@ -90,7 +90,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index("ix_feedback_job_id", table_name="feedback")
-    op.drop_index("ix_feedback_miner_id", table_name="feedback")
+    # if_exists: c3b2d6e7f8a9 also drops ix_feedback_miner_id on downgrade
+    # (PG-TARGET-1 stream 3).
+    op.drop_index("ix_feedback_miner_id", table_name="feedback", if_exists=True)
     op.drop_table("feedback")
 
     op.drop_index("ix_match_results_request_id", table_name="match_results")
