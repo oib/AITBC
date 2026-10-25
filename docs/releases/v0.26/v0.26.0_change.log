@@ -560,3 +560,14 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   errors. `market-api.md` corrected to describe the relay split; the
   route security matrix gained `/v1/escrow/*` rows; scenarios 34/44
   note the planned CLI-uses-relay path and the settlement-node refund.
+
+
+### OPS-NOISE-2
+
+- `escrow_routes._require_settlement_signing` logs its designed refusal
+  at WARNING not ERROR — a node without a settlement key must refuse
+  settlement ops; that is expected, not a fault (response unchanged).
+- `RpcErrorsSpiking` retuned: the 5xx lane keeps the 5% threshold; the
+  4xx lane now needs >20% AND >0.5 requests/s — wrong-route 404s,
+  429s and replay traffic on quiet nodes no longer fire it. promtool
+  unit test pins both lanes.
