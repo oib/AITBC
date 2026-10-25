@@ -63,7 +63,7 @@ sweep (30 s) — visible via the CLI discovery path (`POST /v1/agents/discover`
 on the coordinator):
 
 ```bash
-aitbc agent-comm discover --chain-id ait-hub
+aitbc agent-comm discover --chain-id bc-2
 ```
 
 Expect an agent `aitbc-miner-1` with `services: [whisper, ffmpeg, ollama, ipfs]`

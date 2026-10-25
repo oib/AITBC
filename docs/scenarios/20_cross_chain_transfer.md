@@ -96,7 +96,7 @@ Check available exchange rates between chains. Without filters, all rates are di
 aitbc crosschain rates
 
 # Show rate for a specific pair
-aitbc crosschain rates --from-chain ait-hub --to-chain ait-devnet
+aitbc crosschain rates --from-chain bc-2 --to-chain bc-2
 ```
 
 **Expected output (no rates configured):**
@@ -107,7 +107,7 @@ Cross-chain swap rates (operator-configured):
 No configured swap rates; same-asset pairs settle at parity (1.0)
 ```
 
-Rates come from the node's `cross_chain_swap_rates` setting (e.g. `ait-hub::ait-devnet=1.05`). There is no cross-chain AMM, so pairs without a configured rate are refused rather than priced from a fabricated table; same-asset pairs always settle at parity.
+Rates come from the node's `cross_chain_swap_rates` setting (e.g. `bc-2::bc-3=1.05`). There is no cross-chain AMM, so pairs without a configured rate are refused rather than priced from a fabricated table; same-asset pairs always settle at parity.
 
 ### Step 2: Create a Cross-Chain Swap
 
@@ -115,8 +115,8 @@ Initiate a token swap between two chains. The `--from-chain`, `--to-chain`, `--f
 
 ```bash
 aitbc crosschain swap \
-    --from-chain ait-hub \
-    --to-chain ait-devnet \
+    --from-chain bc-2 \
+    --to-chain bc-2 \
     --from-token AIT \
     --to-token AIT \
     --amount 100 \
@@ -132,8 +132,8 @@ Cross-chain swap locked on the source chain
 
 Swap ID           swap_abc123
 Transfer ID       0x9f2c...        # real BRIDGE_LOCK transaction hash
-From Chain        ait-hub
-To Chain          ait-devnet
+From Chain        bc-2
+To Chain          bc-2
 Amount            100
 Expected Amount   100
 Rate              1.0
@@ -164,8 +164,8 @@ aitbc crosschain status --swap-id swap_abc123
 
 Swap ID           swap_abc123
 Transfer ID       0x9f2c...
-From Chain        ait-hub
-To Chain          ait-devnet
+From Chain        bc-2
+To Chain          bc-2
 From Token        AIT
 To Token          AIT
 Amount            100
@@ -202,9 +202,9 @@ Found 3 cross-chain swaps:
 +----------+----------+----------+--------+-----------+---------------------+
 | ID       | From     | To       | Amount | Status    | Created             |
 +==========+==========+==========+========+===========+=====================+
-| swap_a...| ait-hub  | ait-dev  | 100    | pending   | 2026-06-25 10:00:00 |
-| swap_b...| ait-dev  | ait-hub  | 50     | completed | 2026-06-25 09:30:00 |
-| swap_c...| ait-hub  | ait-test | 200    | completed | 2026-06-25 08:15:00 |
+| swap_a...| bc-2  | ait-dev  | 100    | pending   | 2026-06-25 10:00:00 |
+| swap_b...| ait-dev  | bc-2  | 50     | completed | 2026-06-25 09:30:00 |
+| swap_c...| bc-2  | ait-test | 200    | completed | 2026-06-25 08:15:00 |
 +----------+----------+----------+--------+-----------+---------------------+
 ```
 
@@ -214,8 +214,8 @@ Bridge tokens from one chain to another using the bridge subcommand.
 
 ```bash
 aitbc crosschain bridge \
-    --source-chain ait-hub \
-    --target-chain ait-devnet \
+    --source-chain bc-2 \
+    --target-chain bc-2 \
     --token AIT \
     --amount 500 \
     --wallet wallet-1 \
@@ -228,8 +228,8 @@ aitbc crosschain bridge \
 Cross-chain bridge lock submitted
 
 Bridge ID         0x9f2c...        # transfer id == real source tx hash
-Source Chain      ait-hub
-Target Chain      ait-devnet
+Source Chain      bc-2
+Target Chain      bc-2
 Token             AIT
 Amount            500
 Bridge Fee        0.5
@@ -253,8 +253,8 @@ aitbc crosschain bridge-status --bridge-id 0x9f2c... --wait
 ⏳ pending — lock submitted, awaiting block seal/finality
 
 Bridge ID           0x9f2c...
-Source Chain        ait-hub
-Target Chain        ait-devnet
+Source Chain        bc-2
+Target Chain        bc-2
 Asset               AIT
 Amount              500
 Sender              0xsender...
@@ -486,8 +486,8 @@ async def main():
     result = subprocess.run(
         [
             "aitbc", "crosschain", "swap",
-            "--from-chain", "ait-hub",
-            "--to-chain", "ait-devnet",
+            "--from-chain", "bc-2",
+            "--to-chain", "bc-2",
             "--from-token", "AIT",
             "--to-token", "AIT",
             "--amount", "100",

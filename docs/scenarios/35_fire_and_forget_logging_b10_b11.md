@@ -67,7 +67,7 @@ Restarting coordinator-api is enough to re-enter the lifespan that starts B11 ta
 
 ```bash
 aitbc agent-comm list
-aitbc agent-comm discover --chain-id ait-hub
+aitbc agent-comm discover --chain-id bc-2
 aitbc agent-comm status --agent-id <agent-id>
 ```
 

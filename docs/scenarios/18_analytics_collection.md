@@ -69,7 +69,7 @@ Generate a performance summary across all configured chains. Without `--chain-id
 aitbc analytics summary
 
 # Summary for a specific chain over the last 48 hours
-aitbc analytics summary --chain-id ait-hub --hours 48
+aitbc analytics summary --chain-id bc-2 --hours 48
 ```
 
 **Expected output (cross-chain):**
@@ -90,18 +90,18 @@ Total Agents          8
 Chain Performance Comparison
 
 Chain ID     TPS       Block Time   Health Score
-ait-hub      125.50    2.10s        85.0/100
-ait-devnet   98.30     3.20s        72.0/100
-ait-testnet  45.00     5.00s        60.0/100
+bc-2      125.50    2.10s        85.0/100
+bc-2   98.30     3.20s        72.0/100
+bc-2  45.00     5.00s        60.0/100
 ```
 
 **Expected output (single chain):**
 
 ```
-Chain Summary: ait-hub
+Chain Summary: bc-2
 
 Metric              Value
-Chain ID            ait-hub
+Chain ID            bc-2
 Time Range          48 hours
 Data Points         1440
 Health Score        85.0/100
@@ -120,7 +120,7 @@ Take a single snapshot of chain metrics, or start a real-time monitoring dashboa
 aitbc analytics monitor
 
 # Single snapshot of a specific chain
-aitbc analytics monitor --chain-id ait-hub
+aitbc analytics monitor --chain-id bc-2
 
 # Real-time monitoring with 15-second refresh
 aitbc analytics monitor --realtime --interval 15
@@ -145,10 +145,10 @@ Critical Alerts       0
 **Expected output (single snapshot, specific chain):**
 
 ```
-Chain Monitor: ait-hub
+Chain Monitor: bc-2
 
 Metric              Value
-Chain ID            ait-hub
+Chain ID            bc-2
 Current TPS         128.40
 Current Block Time  2.05s
 Health Score        86.0/100
@@ -169,13 +169,13 @@ Generate performance predictions for the next time horizon. The command collects
 aitbc analytics predict --hours 24
 
 # Predict for a specific chain over the next 12 hours
-aitbc analytics predict --chain-id ait-hub --hours 12
+aitbc analytics predict --chain-id bc-2 --hours 12
 ```
 
 **Expected output (single chain):**
 
 ```
-Performance Predictions: ait-hub
+Performance Predictions: bc-2
 
 Metric          Predicted Value   Confidence   Time Horizon
 tps             130.50            87.5%        12h
@@ -202,8 +202,8 @@ aitbc analytics alerts --severity critical --hours 6
 Performance Alerts (Last 24h)
 
 Chain ID     Type            Severity   Message                    Current Value   Threshold    Time
-ait-devnet   high_block_time  warning    Block time above 3s        3.20            3.00         2026-06-25 09:30:00
-ait-testnet  low_tps          warning    TPS below 50               45.00           50.00        2026-06-25 08:15:00
+bc-2   high_block_time  warning    Block time above 3s        3.20            3.00         2026-06-25 09:30:00
+bc-2  low_tps          warning    TPS below 50               45.00           50.00        2026-06-25 08:15:00
 ```
 
 ### Step 5: Get Optimization Recommendations
@@ -212,7 +212,7 @@ Receive actionable recommendations for improving chain performance.
 
 ```bash
 # Recommendations for a specific chain
-aitbc analytics optimize --chain-id ait-devnet
+aitbc analytics optimize --chain-id bc-2
 
 # Recommendations for all chains
 aitbc analytics optimize
@@ -221,7 +221,7 @@ aitbc analytics optimize
 **Expected output (single chain):**
 
 ```
-Optimization Recommendations: ait-devnet
+Optimization Recommendations: bc-2
 
 Type        Priority   Issue               Current Value   Recommended Action              Expected Improvement
 scaling     high       High block time     3.20s           Increase validator count        25%
@@ -243,7 +243,7 @@ aitbc analytics dashboard
   "overview": {
     "total_chains": 3,
     "active_chains": 3,
-    "health_scores": {"ait-hub": 85.0, "ait-devnet": 72.0, "ait-testnet": 60.0}
+    "health_scores": {"bc-2": 85.0, "bc-2": 72.0, "bc-2": 60.0}
   },
   "alerts": [...],
   "performance_comparison": {...},
@@ -336,7 +336,7 @@ def monitoring_loop(chain_id: str, interval: int = 60):
         time.sleep(interval)
 
 # Run the monitoring loop (Ctrl+C to stop)
-# monitoring_loop("ait-hub", interval=60)
+# monitoring_loop("bc-2", interval=60)
 ```
 
 ---
@@ -363,13 +363,13 @@ Verify that analytics commands return data correctly:
 aitbc analytics summary --format json
 
 # Verify predictions are generated
-aitbc analytics predict --chain-id ait-hub --hours 6 --format json
+aitbc analytics predict --chain-id bc-2 --hours 6 --format json
 
 # Check for active alerts
 aitbc analytics alerts --severity all --hours 24
 
 # Validate dashboard export is valid JSON
-aitbc analytics dashboard | python -m json.tool
+aitbc analytics dashboard | python3 -m json.tool
 ```
 
 ---
