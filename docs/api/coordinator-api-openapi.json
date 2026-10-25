@@ -11115,6 +11115,76 @@
         }
       }
     },
+    "/v1/escrow/release": {
+      "post": {
+        "tags": [
+          "escrow"
+        ],
+        "summary": "Relay an escrow release to the settlement node",
+        "description": "Relay an escrow release to the chain RPC.\n\nAuth: the on-chain escrow's ``buyer`` must equal the wallet bound to\nthe JWT subject (admin may release any buyer's escrow \u2014 the chain\nstill owns settlement validation). The release amount is bounded by\nthe escrow's locked amount for non-admin callers. Replays of the same\njob \u2014 a stored relay row or an already-released escrow \u2014 return the\nstored ``tx_hash`` without a second chain call.",
+        "operationId": "relay_escrow_release_v1_escrow_release_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscrowReleaseRelayRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EscrowReleaseRelayResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/inference/generate": {
       "post": {
         "tags": [
@@ -36638,6 +36708,136 @@
         ],
         "title": "EscrowRelease",
         "description": "Request to release escrow payment"
+      },
+      "EscrowReleaseRelayRequest": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Job Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Amount"
+          },
+          "job_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Tx Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "amount"
+        ],
+        "title": "EscrowReleaseRelayRequest",
+        "description": "The relayed release payload \u2014 ``job_tx_hash`` is the optional\nproof-of-work reference the chain route accepts."
+      },
+      "EscrowReleaseRelayResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tx Hash"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate",
+            "default": false
+          },
+          "released_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released Amount"
+          },
+          "refunded_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refunded Amount"
+          },
+          "refund_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Tx Hash"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "EscrowReleaseRelayResponse",
+        "description": "The chain's release result (``duplicate`` marks a replayed relay)."
       },
       "EvaluateCreationRequest": {
         "properties": {
