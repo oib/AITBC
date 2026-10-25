@@ -249,3 +249,29 @@ def test_bulk_pull_feeds_hub_observation():
 
     src = inspect.getsource(SyncManager._bulk_pull)
     assert "on_hub_observation" in src and "_island_monitor is not None" in src
+
+
+# ── consumer call sites (#393): 503 + Retry-After, flag-off no-change ──
+
+
+def _fn_source(rel: str, fn: str) -> str:
+    from pathlib import Path as _P
+
+    root = _P(__file__).resolve().parents[3]  # worktree root
+    src = (root / rel).read_text()
+    assert f"def {fn}" in src, f"{fn} not found in {rel}"
+    return src
+
+
+def test_market_offer_deferral_site():
+    """create_offer defers with 503+Retry-After only via should_defer."""
+    src = _fn_source("apps/market/src/market_service/main.py", "create_offer")
+    assert 'should_defer("offer-publish")' in src
+    assert "Retry-After" in src and "503" in src
+
+
+def test_agent_submit_deferral_site():
+    """submit_task defers with 503+Retry-After only via should_defer."""
+    src = _fn_source("apps/agent-coordinator/src/agent_app/routing/load_balancer.py", "submit_task")
+    assert 'should_defer("job-submit")' in src
+    assert "Retry-After" in src and "503" in src
