@@ -22,6 +22,9 @@ class TestLocalUrlGuard:
             "postgresql://u:p@db.internal.example:5432/aitbc",
             "postgresql+asyncpg://u:p@10.0.0.5:5432/aitbc",
             "postgresql+psycopg2:///d?host=remote.example.com&port=5432",
+            "postgresql://postgres@localhost:5432/db",
+            "postgresql://postgres@127.0.0.1:5432/db",
+            "postgresql://postgres@[::1]:5432/db",
             "postgresql+psycopg2://u:p@192.168.1.10/x",
             "mysql://u:p@localhost/db",
         ],
@@ -35,9 +38,6 @@ class TestLocalUrlGuard:
         [
             "postgresql+psycopg2:///postgres?host=/var/tmp/sock&port=55432",
             "postgresql+asyncpg://postgres@/db?host=/tmp/s",
-            "postgresql://postgres@localhost:5432/db",
-            "postgresql://postgres@127.0.0.1:5432/db",
-            "postgresql://postgres@[::1]:5432/db",
             "postgresql://%2Fvar%2Ftmp%2Fsock/db",
         ],
     )
@@ -72,3 +72,24 @@ class TestThrowawayCluster:
                 assert cur.fetchone() == ("pgfix_b",)
         finally:
             conn.close()
+
+
+def test_port_5432_refused():
+    import pytest
+    from aitbc.testing.pg_cluster import assert_local_pg_url
+
+    with pytest.raises(ValueError):
+        assert_local_pg_url("postgresql://postgres@127.0.0.1:5432/x")
+    with pytest.raises(ValueError):
+        assert_local_pg_url("postgresql://postgres@/x?host=/tmp&port=5432")
+
+
+def test_assert_own_dsn(postgres_cluster):
+    import pytest
+
+    dsn = postgres_cluster.dsn("x")
+    postgres_cluster.assert_own_dsn(dsn)
+    with pytest.raises(ValueError):
+        postgres_cluster.assert_own_dsn("postgresql://postgres@/x?host=/tmp&port=1")
+    with pytest.raises(ValueError):
+        postgres_cluster.assert_own_dsn(dsn.replace(f"port={postgres_cluster.port}", "port=59999"))
