@@ -295,7 +295,7 @@ def _require_settlement_signing(job_id: str, op: str) -> None:
     """
     if _settlement_signing_ready():
         return
-    _logger.error(
+    _logger.warning(
         "%s: refusing job_id=%s - settlement key/address is missing or mismatched",
         op,
         job_id,
