@@ -126,6 +126,33 @@ Expected response:
 }
 ```
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+## Step 5: Verify a TEE attestation
+
+Verifies an enclave attestation quote or a job's recorded attestation.
+
+```bash
+aitbc tee verify --job-id job-001
+```
+
+## Step 6: Generate TEE keys
+
+`aitbc tee keygen --key-file /tmp/tee-key.pem` is writes enclave key material — a key operation; not played, needs the operator's line.
+
+## Step 7: Launch an enclave
+
+`aitbc tee launch --enclave-id enc-001` is launches a TEE enclave — needs the operator's enclave provisioning; not played, needs the operator's line.
+
+## Step 8: Attest an enclave
+
+`aitbc tee attest --enclave-id enc-001` is produces an enclave attestation — needs the operator's enclave provisioning; not played, needs the operator's line.
+
+---
+
 ## What the CLI actually does
 
 - `--confidential` sets `job.constraints.confidential = true` and
