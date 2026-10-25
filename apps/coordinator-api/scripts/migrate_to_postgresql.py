@@ -1,365 +1,443 @@
 #!/usr/bin/env python3
-"""Migration script for Coordinator API from SQLite to PostgreSQL"""
+"""Copy coordinator-api rows from SQLite into a PostgreSQL database.
 
+PG-TARGET-1 stream 4 rewrite. The previous version dropped target tables
+``CASCADE`` and hand-wrote a schema that diverged from the models (a ``user``
+table that never existed, indexes on ``marketoffer``/``marketbid`` while the
+real tables are ``marketplaceoffer``/``marketplacebid``, positional
+``SELECT *`` copies into fixed INSERT lists). This script instead:
+
+* builds the target schema with ``alembic upgrade head`` — the same
+  migrations the service runs — never hand-written DDL;
+* never issues ``DROP`` or ``CASCADE``; a target that already holds rows is
+  refused unless ``--allow-nonempty`` is passed;
+* copies table by table in foreign-key dependency order with *named*
+  columns resolved per-table from the reflected target schema;
+* treats ``--allow-nonempty`` as insert-missing-only: a row whose primary
+  key already exists is skipped and counted, never updated, never deleted;
+* is a **dry run by default** — it prints the plan and per-table counts and
+  writes nothing; ``--execute`` performs the schema upgrade and the copy;
+* verifies per-table row counts and a checksum over primary keys after the
+  copy and exits non-zero on any mismatch.
+
+The target database URL is only ever printed in
+:func:`aitbc.database.target.redacted_url` form.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sqlite3
+import subprocess
 import sys
+import uuid
+from datetime import date, datetime, time
+from decimal import Decimal
 from pathlib import Path
 
-from aitbc.constants import DATA_DIR
+import sqlalchemy as sa
 
-# Add the src directory to the path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_APP_ROOT = _SCRIPT_DIR.parent  # apps/coordinator-api
+_REPO_ROOT = _APP_ROOT.parent.parent
+for _p in (str(_REPO_ROOT), str(_APP_ROOT / "src")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-import json
-import sqlite3
-from decimal import Decimal
+from aitbc.constants import DATA_DIR  # noqa: E402
+from aitbc.database.target import redacted_url, to_sync_url  # noqa: E402
 
-import psycopg2
+# Tables that must never be copied: alembic's own bookkeeping (the target is
+# stamped by ``upgrade head``) and SQLite internals.
+_SKIP_TABLES = {"alembic_version"}
+_SKIP_PREFIXES = ("sqlite_",)
 
-# Database configurations
-SQLITE_DB = str(DATA_DIR / "data/coordinator.db")
-PG_CONFIG = {
-    "host": "localhost",
-    "database": "aitbc_coordinator",
-    "user": "aitbc_user",
-    "password": "aitbc_password",  # nosec
-    "port": 5432,
-}
+DEFAULT_SOURCE = DATA_DIR / "data" / "coordinator.db"
 
 
-def create_pg_schema():
-    """Create PostgreSQL schema with optimized types"""
+class MigrationError(RuntimeError):
+    """Fatal precondition or verification failure."""
 
-    conn = psycopg2.connect(**PG_CONFIG)
-    cursor = conn.cursor()
 
-    print("Creating PostgreSQL schema...")
+# ---------------------------------------------------------------------------
+# Source helpers
 
-    # Drop existing tables
-    cursor.execute("DROP TABLE IF EXISTS jobreceipt CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS marketplacebid CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS marketplaceoffer CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS job CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS usersession CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS wallet CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS miner CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS transaction CASCADE")
-    cursor.execute("DROP TABLE IF EXISTS user CASCADE")
 
-    # Create user table
-    cursor.execute("""
-        CREATE TABLE user (
-            id VARCHAR(255) PRIMARY KEY,
-            email VARCHAR(255),
-            username VARCHAR(255),
-            status VARCHAR(20) CHECK (status IN ('active', 'inactive', 'suspended')),
-            created_at TIMESTAMP WITH TIME ZONE,
-            updated_at TIMESTAMP WITH TIME ZONE,
-            last_login TIMESTAMP WITH TIME ZONE
+def _open_source(path: Path) -> sqlite3.Connection:
+    if not path.is_file():
+        raise MigrationError(f"SQLite source database not found: {path}")
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _source_tables(conn: sqlite3.Connection) -> list[str]:
+    rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    return [r[0] for r in rows if r[0] not in _SKIP_TABLES and not any(r[0].startswith(p) for p in _SKIP_PREFIXES)]
+
+
+def _source_columns(conn: sqlite3.Connection, table: str) -> list[str]:
+    rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+    return [r[1] for r in rows]
+
+
+def _source_count(conn: sqlite3.Connection, table: str) -> int:
+    return int(conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
+
+
+# ---------------------------------------------------------------------------
+# Schema creation: alembic upgrade head, exactly as the service runs it
+
+
+def _build_target_schema(target_url: str) -> None:
+    """Run ``alembic upgrade head`` against the target database.
+
+    Invoked in a subprocess so the coordinator's ``alembic/env.py`` resolves
+    the URL itself (``DATABASE_URL`` override path) — identical to the
+    documented operator command.
+    """
+    env = os.environ.copy()
+    env["DATABASE_URL"] = target_url
+    env.pop("SQLITE_URL", None)
+    env["PYTHONPATH"] = f"{_APP_ROOT / 'src'}:{_REPO_ROOT}"
+    env.setdefault("TEST_MODE", "true")
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=_APP_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
+    if result.returncode != 0:
+        raise MigrationError(
+            f"alembic upgrade head failed against the target database:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
-    """)
-
-    # Create wallet table
-    cursor.execute("""
-        CREATE TABLE wallet (
-            id SERIAL PRIMARY KEY,
-            user_id VARCHAR(255) REFERENCES user(id),
-            address VARCHAR(255) UNIQUE,
-            balance NUMERIC(20, 8) DEFAULT 0,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
-
-    # Create usersession table
-    cursor.execute("""
-        CREATE TABLE usersession (
-            id SERIAL PRIMARY KEY,
-            user_id VARCHAR(255) REFERENCES user(id),
-            token VARCHAR(255) UNIQUE,
-            expires_at TIMESTAMP WITH TIME ZONE,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            last_used TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
-
-    # Create miner table
-    cursor.execute("""
-        CREATE TABLE miner (
-            id VARCHAR(255) PRIMARY KEY,
-            region VARCHAR(100),
-            capabilities JSONB,
-            concurrency INTEGER DEFAULT 1,
-            status VARCHAR(20) DEFAULT 'active',
-            inflight INTEGER DEFAULT 0,
-            extra_metadata JSONB,
-            last_heartbeat TIMESTAMP WITH TIME ZONE,
-            session_token VARCHAR(255),
-            last_job_at TIMESTAMP WITH TIME ZONE,
-            jobs_completed INTEGER DEFAULT 0,
-            jobs_failed INTEGER DEFAULT 0,
-            total_job_duration_ms BIGINT DEFAULT 0,
-            average_job_duration_ms NUMERIC(10, 2) DEFAULT 0,
-            last_receipt_id VARCHAR(255)
-        )
-    """)
-
-    # Create job table
-    cursor.execute("""
-        CREATE TABLE job (
-            id VARCHAR(255) PRIMARY KEY,
-            client_id VARCHAR(255),
-            state VARCHAR(20) CHECK (state IN ('pending', 'assigned', 'running', 'completed', 'failed', 'expired')),
-            payload JSONB,
-            constraints JSONB,
-            ttl_seconds INTEGER,
-            requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            expires_at TIMESTAMP WITH TIME ZONE,
-            assigned_miner_id VARCHAR(255) REFERENCES miner(id),
-            result JSONB,
-            receipt JSONB,
-            receipt_id VARCHAR(255),
-            error TEXT
-        )
-    """)
-
-    # Create marketplaceoffer table
-    cursor.execute("""
-        CREATE TABLE marketplaceoffer (
-            id VARCHAR(255) PRIMARY KEY,
-            provider VARCHAR(255),
-            capacity INTEGER,
-            price NUMERIC(20, 8),
-            sla JSONB,
-            status VARCHAR(20) CHECK (status IN ('active', 'inactive', 'filled', 'expired')),
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            attributes JSONB
-        )
-    """)
-
-    # Create marketplacebid table
-    cursor.execute("""
-        CREATE TABLE marketplacebid (
-            id VARCHAR(255) PRIMARY KEY,
-            provider VARCHAR(255),
-            capacity INTEGER,
-            price NUMERIC(20, 8),
-            notes TEXT,
-            status VARCHAR(20) DEFAULT 'pending',
-            submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
-
-    # Create jobreceipt table
-    cursor.execute("""
-        CREATE TABLE jobreceipt (
-            id VARCHAR(255) PRIMARY KEY,
-            job_id VARCHAR(255) REFERENCES job(id),
-            receipt_id VARCHAR(255),
-            payload JSONB,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-    """)
-
-    # Create transaction table
-    cursor.execute("""
-        CREATE TABLE transaction (
-            id VARCHAR(255) PRIMARY KEY,
-            user_id VARCHAR(255),
-            type VARCHAR(50),
-            amount NUMERIC(20, 8),
-            status VARCHAR(20),
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            metadata JSONB
-        )
-    """)
-
-    # Create indexes for performance
-    print("Creating indexes...")
-    cursor.execute("CREATE INDEX idx_job_state ON job(state)")
-    cursor.execute("CREATE INDEX idx_job_client ON job(client_id)")
-    cursor.execute("CREATE INDEX idx_job_expires ON job(expires_at)")
-    cursor.execute("CREATE INDEX idx_miner_status ON miner(status)")
-    cursor.execute("CREATE INDEX idx_miner_heartbeat ON miner(last_heartbeat)")
-    cursor.execute("CREATE INDEX idx_wallet_user ON wallet(user_id)")
-    cursor.execute("CREATE INDEX idx_usersession_token ON usersession(token)")
-    cursor.execute("CREATE INDEX idx_usersession_expires ON usersession(expires_at)")
-    cursor.execute("CREATE INDEX idx_marketoffer_status ON marketoffer(status)")
-    cursor.execute("CREATE INDEX idx_marketoffer_provider ON marketoffer(provider)")
-    cursor.execute("CREATE INDEX idx_marketbid_provider ON marketbid(provider)")
-
-    conn.commit()
-    conn.close()
-    print("✅ PostgreSQL schema created successfully!")
 
 
-def migrate_data():
-    """Migrate data from SQLite to PostgreSQL"""
+# ---------------------------------------------------------------------------
+# Value normalisation SQLite -> SQLAlchemy bind values
 
-    print("\nStarting data migration...")
 
-    # Connect to SQLite
-    sqlite_conn = sqlite3.connect(SQLITE_DB)
-    sqlite_conn.row_factory = sqlite3.Row
-    sqlite_cursor = sqlite_conn.cursor()
+def _normalise(value, column: sa.Column):
+    """Convert a raw sqlite3 value into something the target type accepts.
 
-    # Connect to PostgreSQL
-    pg_conn = psycopg2.connect(**PG_CONFIG)
-    pg_cursor = pg_conn.cursor()
+    Money columns stay exact: integers pass through untouched and any other
+    number becomes ``Decimal(str(v))`` — never a float round trip.
+    """
+    if value is None:
+        return None
+    coltype = column.type
+    if isinstance(coltype, sa.JSON) and isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    if isinstance(coltype, sa.Numeric) and not isinstance(coltype, sa.Boolean):
+        return value if isinstance(value, int) else Decimal(str(value))
+    if isinstance(coltype, sa.Boolean) and isinstance(value, int):
+        return bool(value)
+    if isinstance(coltype, sa.DateTime) and isinstance(value, str):
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if isinstance(coltype, sa.Date) and not isinstance(coltype, sa.DateTime) and isinstance(value, str):
+        return date.fromisoformat(value)
+    if isinstance(coltype, sa.Time) and isinstance(value, str):
+        return time.fromisoformat(value)
+    if isinstance(coltype, sa.LargeBinary) and isinstance(value, (str, bytearray, memoryview)):
+        return bytes(value, "utf-8") if isinstance(value, str) else bytes(value)
+    return value
 
-    # Migration order respecting foreign keys
-    migrations = [
-        (
-            "user",
-            """
-            INSERT INTO "user" (id, email, username, status, created_at, updated_at, last_login)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "wallet",
-            """
-            INSERT INTO wallet (id, user_id, address, balance, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "miner",
-            """
-            INSERT INTO miner (id, region, capabilities, concurrency, status, inflight,
-                              extra_metadata, last_heartbeat, session_token, last_job_at,
-                              jobs_completed, jobs_failed, total_job_duration_ms,
-                              average_job_duration_ms, last_receipt_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "job",
-            """
-            INSERT INTO job (id, client_id, state, payload, constraints, ttl_seconds,
-                           requested_at, expires_at, assigned_miner_id, result, receipt,
-                           receipt_id, error)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "marketplaceoffer",
-            """
-            INSERT INTO marketplaceoffer (id, provider, capacity, price, sla, status,
-                                        created_at, attributes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "marketplacebid",
-            """
-            INSERT INTO marketplacebid (id, provider, capacity, price, notes, status,
-                                       submitted_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "jobreceipt",
-            """
-            INSERT INTO jobreceipt (id, job_id, receipt_id, payload, created_at)
-            VALUES (%s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "usersession",
-            """
-            INSERT INTO usersession (id, user_id, token, expires_at, created_at, last_used)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """,
-        ),
-        (
-            "transaction",
-            """
-            INSERT INTO transaction (id, user_id, type, amount, status, created_at, metadata)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """,
-        ),
-    ]
 
-    for table_name, insert_sql in migrations:
-        # Validate table name to prevent SQL injection
-        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "market_listing"]
-        if table_name not in allowed_tables:
-            print(f"Skipping table {table_name} (not in allowed list)")
+# ---------------------------------------------------------------------------
+# Verification helpers
+
+
+def _canon_value(value) -> str:
+    """Canonical string form for one primary-key element.
+
+    SQLite hands back ints/floats/ISO strings while psycopg2 returns
+    ``Decimal``/``datetime`` — the same logical key must compare equal on
+    both sides, so each element is reduced to a canonical string.
+    """
+    if value is None:
+        return "∅"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, (float, Decimal)):
+        return str(Decimal(str(value)))
+    if isinstance(value, datetime):
+        return value.isoformat(sep=" ")
+    if isinstance(value, (date, time)):
+        return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return value.hex  # undashed form matches SQLite's CHAR(32)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value).hex()
+    return str(value)
+
+
+def _canon_pk(row) -> tuple:
+    return tuple(_canon_value(v) for v in row)
+
+
+def _pk_checksum(pks: set[tuple]) -> str:
+    """Deterministic checksum over a set of canonical primary-key tuples."""
+    digest = hashlib.sha256()
+    for pk in sorted(pks):
+        digest.update(repr(pk).encode("utf-8"))
+        digest.update(b"\x00")
+    return digest.hexdigest()
+
+
+def _pk_columns(table: sa.Table) -> list[str]:
+    return [c.name for c in table.primary_key.columns]
+
+
+def _fetch_target_pks(conn: sa.Connection, table: sa.Table) -> set[tuple]:
+    """Primary keys present in the target, in canonical form."""
+    cols = [table.c[name] for name in _pk_columns(table)]
+    return {_canon_pk(row) for row in conn.execute(sa.select(*cols))}
+
+
+# ---------------------------------------------------------------------------
+# Copy plan and execution
+
+
+def _plan_tables(source_conn: sqlite3.Connection, target_meta: sa.MetaData) -> list[tuple[str, sa.Table, list[str], int]]:
+    """Resolve ``(source_name, target_table, shared_columns, source_count)``.
+
+    Dependency order comes from ``MetaData.sorted_tables`` over the reflected
+    target schema, filtered to tables that also exist in the SQLite source.
+    Only named columns present on both sides are copied.
+    """
+    source_tables = set(_source_tables(source_conn))
+    target_tables = {t.name: t for t in target_meta.sorted_tables}
+    for name in sorted(source_tables - set(target_tables)):
+        print(f"  ! source table {name!r} has no target table — skipped")
+    # Iterate the reflected schema in foreign-key dependency order — parents
+    # (users, tenants) are copied before their children (job, usage_records).
+    plan: list[tuple[str, sa.Table, list[str], int]] = []
+    for table in target_meta.sorted_tables:
+        name = table.name
+        if name not in source_tables:
             continue
-
-        print(f"Migrating {table_name}...")
-        # table_name comes from a hardcoded literal migrations list above, further validated against allowed_tables
-        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec
-        rows = sqlite_cursor.fetchall()
-
-        count = 0
-        for row in rows:
-            # Convert row to dict and handle JSON fields
-            values = []
-            for key in row.keys():
-                value = row[key]
-                if key in [
-                    "payload",
-                    "constraints",
-                    "result",
-                    "receipt",
-                    "capabilities",
-                    "extra_metadata",
-                    "sla",
-                    "attributes",
-                    "metadata",
-                ]:
-                    # Handle JSON fields
-                    if isinstance(value, str):
-                        try:
-                            value = json.loads(value)
-                        except Exception:  # nosec
-                            pass
-                elif key in ["balance", "price", "average_job_duration_ms"]:
-                    # Handle numeric fields
-                    if value is not None:
-                        value = Decimal(str(value))
-                values.append(value)
-
-            pg_cursor.execute(insert_sql, values)
-            count += 1
-
-        print(f"  - Migrated {count} {table_name} records")
-
-    pg_conn.commit()
-
-    print("\n✅ Migration complete!")
-    sqlite_conn.close()
-    pg_conn.close()
+        src_cols = set(_source_columns(source_conn, name))
+        columns = [c.name for c in table.columns if c.name in src_cols]
+        missing = [c.name for c in table.columns if c.name not in src_cols]
+        if missing:
+            print(f"  ! {name}: target columns absent from source (left at defaults): {missing}")
+        if not _pk_columns(table):
+            raise MigrationError(f"target table {name!r} has no primary key — refusing to copy")
+        plan.append((name, table, columns, _source_count(source_conn, name)))
+    return plan
 
 
-def main():
-    """Main migration process"""
+def _copy_table(
+    source_conn: sqlite3.Connection,
+    target_conn: sa.Connection,
+    table: sa.Table,
+    columns: list[str],
+    existing_pks: set[tuple],
+    batch_size: int,
+) -> tuple[int, int]:
+    """Insert source rows missing from the target. Returns (inserted, skipped)."""
+    pk_names = _pk_columns(table)
+    pk_idx = [columns.index(c) for c in pk_names]
+    col_objs = [table.c[c] for c in columns]
+    inserted = 0
+    skipped = 0
+    batch: list[dict] = []
+    cursor = source_conn.execute(f'SELECT {", ".join(chr(34) + c + chr(34) for c in columns)} FROM "{table.name}"')
+    for row in cursor:
+        pk = _canon_pk(row[i] for i in pk_idx)
+        if pk in existing_pks:
+            skipped += 1
+            continue
+        existing_pks.add(pk)  # guard against duplicate PKs inside the source
+        batch.append({c.name: _normalise(v, c) for c, v in zip(col_objs, row, strict=False)})
+        if len(batch) >= batch_size:
+            target_conn.execute(table.insert(), batch)
+            inserted += len(batch)
+            batch = []
+    if batch:
+        target_conn.execute(table.insert(), batch)
+        inserted += len(batch)
+    return inserted, skipped
+
+
+# ---------------------------------------------------------------------------
+# CLI
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Copy the coordinator SQLite database into a PostgreSQL target. "
+        "Dry-run by default; --execute performs the migration.",
+    )
+    parser.add_argument(
+        "--source",
+        type=Path,
+        default=DEFAULT_SOURCE,
+        help=f"SQLite database file (default: {DEFAULT_SOURCE})",
+    )
+    parser.add_argument(
+        "--target-url",
+        default=None,
+        help="PostgreSQL SQLAlchemy URL for the target database "
+        "(or set TARGET_DATABASE_URL / DATABASE_URL). Never printed unredacted.",
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually run 'alembic upgrade head' and copy rows. Without this flag the script only prints what it would do.",
+    )
+    parser.add_argument(
+        "--allow-nonempty",
+        action="store_true",
+        help="Permit a target that already contains rows. Insert-missing-only: "
+        "existing primary keys are skipped and counted — never updated or deleted.",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=1000,
+        help="Rows per INSERT batch (default: 1000).",
+    )
+    return parser.parse_args(argv)
+
+
+def _resolve_target(args: argparse.Namespace) -> str:
+    url = args.target_url or os.environ.get("TARGET_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if not url:
+        raise MigrationError("no target database URL: pass --target-url or set TARGET_DATABASE_URL")
+    url = to_sync_url(url)
+    if not url.startswith(("postgresql", "postgres")):
+        raise MigrationError(f"target is not a PostgreSQL URL: {redacted_url(url)} — this script only migrates to PostgreSQL")
+    return url
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    if args.batch_size < 1:
+        raise MigrationError("--batch-size must be >= 1")
+    target_url = _resolve_target(args)
+    mode = "EXECUTE" if args.execute else "DRY-RUN"
 
     print("=" * 60)
-    print("AITBC Coordinator API SQLite to PostgreSQL Migration")
+    print("AITBC Coordinator SQLite -> PostgreSQL migration")
+    print(f"mode        : {mode}")
+    print(f"source      : {args.source}")
+    print(f"target      : {redacted_url(target_url)}")
+    print(f"nonempty    : {'insert-missing-only allowed' if args.allow_nonempty else 'refused'}")
     print("=" * 60)
 
-    # Check if SQLite DB exists
-    if not Path(SQLITE_DB).exists():
-        print(f"❌ SQLite database '{SQLITE_DB}' not found!")
-        return
+    source_conn = _open_source(args.source)
 
-    # Create PostgreSQL schema
-    create_pg_schema()
+    if not args.execute:
+        # Dry run: touch nothing on the target. Report the plan only.
+        print("\nDRY-RUN — no writes will be made.\n")
+        print("plan:")
+        print("  1. build the target schema via 'alembic upgrade head'")
+        print(
+            "  2. refuse to continue if the target already holds rows"
+            + (" (waived: insert-missing-only)" if args.allow_nonempty else "")
+        )
+        print("  3. copy rows per table in dependency order, named columns only")
+        print("  4. verify per-table row counts and a checksum over primary keys\n")
+        for name in sorted(_source_tables(source_conn)):
+            print(f"  {name:<55} {_source_count(source_conn, name):>10} source rows")
+        print("\nRe-run with --execute to perform the migration.")
+        return 0
 
-    # Migrate data
-    migrate_data()
+    # -- execute ------------------------------------------------------------
+    engine = sa.create_engine(target_url)
+    try:
+        # Refusal check runs *before* the schema build: rows already present
+        # are pre-existing data the copy must not touch. Rows seeded by the
+        # migrations themselves during 'upgrade head' are not pre-existing —
+        # they appear identically in the source, so the insert-missing logic
+        # counts them as skips rather than violations.
+        inspector = sa.inspect(engine)
+        preexisting: dict[str, int] = {}
+        for tname in inspector.get_table_names():
+            if tname in _SKIP_TABLES or any(tname.startswith(p) for p in _SKIP_PREFIXES):
+                continue
+            with engine.connect() as conn:
+                count = int(conn.execute(sa.text(f'SELECT COUNT(*) FROM "{tname}"')).scalar_one())
+            if count:
+                preexisting[tname] = count
+        if preexisting and not args.allow_nonempty:
+            raise MigrationError(
+                "target database already holds rows — refusing to copy "
+                "(re-run with --allow-nonempty for insert-missing-only): "
+                + ", ".join(f"{n}={c}" for n, c in sorted(preexisting.items()))
+            )
 
-    print("\n" + "=" * 60)
-    print("Migration completed successfully!")
-    print("=" * 60)
-    print("\nNext steps:")
-    print("1. Update coordinator-api configuration")
-    print("2. Install PostgreSQL dependencies")
-    print("3. Restart the coordinator service")
-    print("4. Verify data integrity")
+        print("\nBuilding target schema via 'alembic upgrade head' ...")
+        _build_target_schema(target_url)
+
+        meta = sa.MetaData()
+        meta.reflect(bind=engine)
+        plan = _plan_tables(source_conn, meta)
+
+        with engine.begin() as target_conn:
+            # Baseline = every PK present right after the schema build
+            # (pre-existing rows + migration seeds). Verification then requires
+            # source ⊆ target ⊆ source ∪ baseline — no row may be lost and no
+            # foreign row may appear.
+            baseline_pks = {name: _fetch_target_pks(target_conn, t) for name, t, _, _ in plan}
+
+            total_inserted = 0
+            total_skipped = 0
+            for name, table, columns, src_count in plan:
+                inserted, skipped = _copy_table(
+                    source_conn, target_conn, table, columns, set(baseline_pks[name]), args.batch_size
+                )
+                total_inserted += inserted
+                total_skipped += skipped
+                print(f"  {name:<55} src={src_count:<8} inserted={inserted:<8} skipped={skipped}")
+
+            # Verification inside the same transaction: row counts and a
+            # checksum over primary keys. Any mismatch raises before commit.
+            print("\nverifying ...")
+            failures: list[str] = []
+            for name, table, _columns, _src_count in plan:
+                tgt_pks = _fetch_target_pks(target_conn, table)
+                src_pks = {
+                    _canon_pk(r)
+                    for r in source_conn.execute(
+                        f'SELECT {", ".join(chr(34) + c + chr(34) for c in _pk_columns(table))} FROM "{name}"'
+                    )
+                }
+                expected = src_pks | baseline_pks[name]
+                if src_pks - tgt_pks:
+                    failures.append(f"{name}: {len(src_pks - tgt_pks)} source primary keys missing from target")
+                if tgt_pks != expected:
+                    failures.append(
+                        f"{name}: target row count {len(tgt_pks)} != expected {len(expected)} "
+                        f"(source {len(src_pks)} + pre-existing {len(baseline_pks[name])})"
+                    )
+                elif _pk_checksum(tgt_pks) != _pk_checksum(expected):
+                    failures.append(f"{name}: primary-key checksum mismatch")
+            if failures:
+                raise MigrationError("post-copy verification failed:\n  " + "\n  ".join(failures))
+
+            print(f"\nOK — {total_inserted} rows inserted, {total_skipped} existing rows skipped.")
+            print("All per-table counts and primary-key checksums verified.")
+    finally:
+        engine.dispose()
+        source_conn.close()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(main())
+    except MigrationError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)

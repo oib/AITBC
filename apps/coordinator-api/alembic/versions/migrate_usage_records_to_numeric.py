@@ -61,8 +61,13 @@ def upgrade() -> None:
                     nullable=False,
                 )
         else:
+            # The "aitbc." prefix is a SQLite ATTACH-schema leftover: the
+            # tables live in the default schema under both dialects (the
+            # existence check above already strips it). Quoting the dotted
+            # name on PostgreSQL looks for a literal "aitbc.usage_records"
+            # table that does not exist.
             op.alter_column(
-                table_name=table,
+                table_name=table.split(".")[-1],
                 column_name=column,
                 type_=sa.Numeric(18, 8),
                 existing_type=sa.Float(),
@@ -85,7 +90,7 @@ def downgrade() -> None:
                 )
         else:
             op.alter_column(
-                table_name=table,
+                table_name=table.split(".")[-1],
                 column_name=column,
                 type_=sa.Float(),
                 existing_type=sa.Numeric(18, 8),

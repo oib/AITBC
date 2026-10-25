@@ -499,3 +499,44 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `_apply_cancels` cancels every row with a duplicated `order_id` and
   fills from the first; `assert_local_pg_url` counts a hostname-only
   DSN as implicit 5432 and refuses it (unix-socket DSNs unaffected).
+### PG-TARGET-1 (stream 4) — populated SQLite-to-PostgreSQL transfer (#436)
+
+- `apps/coordinator-api/scripts/migrate_to_postgresql.py` rewritten: the old
+  script dropped target tables `CASCADE`, hand-wrote a schema that diverged
+  from the models (a `user` table that never existed, indexes on
+  `marketoffer`/`marketbid` while the real tables are
+  `marketplaceoffer`/`marketplacebid`) and copied with positional
+  `SELECT *` into fixed INSERT lists.
+- The target schema is now built by `alembic upgrade head` — the same
+  migrations the service runs — never hand-written DDL; no `DROP`, no
+  `CASCADE` anywhere.
+- Dry-run is the default and only prints the plan and per-table source
+  counts; `--execute` performs the schema upgrade and the copy. Rows are
+  copied table-by-table in foreign-key dependency order with named columns
+  resolved per-table from the reflected target schema; JSON/NUMERIC/
+  boolean/datetime/UUID values are normalised, with money kept exact
+  (ints pass through, everything else via `Decimal(str(v))`).
+- A target that already holds rows before the run is refused unless
+  `--allow-nonempty` is passed — defined as insert-missing-only: existing
+  primary keys are skipped and counted, never updated, never deleted.
+  Rows seeded by the migrations during `upgrade head` are not
+  "pre-existing" (they appear identically in the source and count as
+  skips).
+- After the copy the script verifies per-table row counts and a checksum
+  over primary keys (`source ⊆ target ⊆ source ∪ baseline`) and exits
+  non-zero on any mismatch. Target URLs are only ever printed redacted
+  via `aitbc.database.target.redacted_url`.
+- Made the coordinator migration graph actually reach `head` on
+  PostgreSQL: `migrate_usage_records_to_numeric` addressed tables as
+  `"aitbc.usage_records"` (a SQLite ATTACH-schema leftover quoted as one
+  identifier — UndefinedTable on PG; now uses the unprefixed name on
+  non-sqlite dialects), `d38eb9f3a80b` read `sqlite_master` unconditionally
+  (now a PG branch dropping the wrong FK constraints by name via the
+  inspector), and `f53990f9d6cc` backfilled `protected = 0` into a boolean
+  column (PG type mismatch; now `FALSE`).
+- Tests: `apps/coordinator-api/tests/integration/test_migrate_to_postgresql.py`
+  builds a real coordinator SQLite DB (`upgrade head` + rows covering JSON,
+  enum, boolean, datetime and NUMERIC money columns), transfers it to the
+  stream-3 throwaway cluster, verifies counts and keys, reruns to see the
+  nonempty refusal, and checks `--allow-nonempty` preserves target-only
+  rows.
