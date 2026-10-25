@@ -142,6 +142,16 @@ class BridgeMonitor:
         # is silent by nature — the scan "finds nothing" forever — so a
         # streak past the threshold emits ALERT lines the fleet check counts.
         self._poll_fail_streak = 0
+        # Poll-cycle watchdog: the loop used to freeze in total silence —
+        # a single unbounded RPC call, or an LB-pinned backend serving a
+        # frozen head, looks exactly like "nothing found" at INFO level
+        # (the only per-cycle log was debug, and the deposit then waited
+        # for a restart). Bound the scan, heartbeat every cycle, and alert
+        # when the observed head stops advancing.
+        self.cycle_timeout = float(os.getenv("BRIDGE_CYCLE_TIMEOUT_SECONDS", "300"))
+        self.head_stall_seconds = float(os.getenv("BRIDGE_HEAD_STALL_SECONDS", "600"))
+        self._last_eth_head: int | None = None
+        self._eth_head_stall_since: float | None = None
         # Last submit/rebroadcast rejection text — lets callers distinguish a
         # nonce-slot occupation (alert now, auto-abandon proof owns recovery)
         # from an ordinary transport failure.
@@ -516,12 +526,7 @@ class BridgeMonitor:
             **price_fields,
         )
         posted = self._post_signed_tx(transaction)
-        if posted and posted != ait_tx_hash:
-            # The RPC normalized the tx differently — its hash is what the
-            # chain/mempool will store, so seal lookups must use it. The
-            # derived envelope_hash stays as the envelope-integrity anchor.
-            logger.warning("RPC returned hash %s differing from derived %s", posted, ait_tx_hash)
-            update_deposit(tx_hash, ait_tx_hash=posted)
+        self._adopt_posted_hash(tx_hash, posted, ait_tx_hash)
         if posted:
             logger.info(
                 "Payout for deposit %s broadcast as %s — awaiting %s-block seal",
@@ -542,6 +547,22 @@ class BridgeMonitor:
             else:
                 logger.warning("Payout %s submit failed; sweep will rebroadcast the same envelope", ait_tx_hash)
         return True
+
+    def _adopt_posted_hash(self, tx_hash: str, posted: str | None, derived: str) -> None:
+        """Keep ait_tx_hash on the hash the chain actually reported.
+
+        The RPC may normalize the envelope differently, making its returned
+        hash — not our derived one — the key the chain/mempool stores the
+        payout under. The seal probe and the abandon proof both look up
+        ait_tx_hash, so leaving the derived hash there makes the row poll a
+        hash that can never seal: the deposit stays SUBMITTED forever (and
+        the abandon proof sees "not sealed" on a payout that already
+        landed — the precondition for an unsafe re-sign). The derived
+        envelope_hash stays as the envelope-integrity anchor.
+        """
+        if posted and posted != derived:
+            logger.warning("RPC returned hash %s differing from derived %s", posted, derived)
+            update_deposit(tx_hash, ait_tx_hash=posted)
 
     def _post_rejection_is_nonce_conflict(self) -> bool:
         """True when the last RPC rejection was a nonce-slot occupation."""
@@ -694,6 +715,9 @@ class BridgeMonitor:
                 retry_count=d.get("retry_count", 0),
             )
             posted = self._post_signed_tx(transaction)
+            # Same fix-up as _submit_payout: the seal probe keys on
+            # ait_tx_hash, so it must hold the hash the chain reported.
+            self._adopt_posted_hash(tx_hash, posted, payout_hash)
             if posted:
                 logger.info("Retry payout for deposit %s broadcast as %s", tx_hash, posted)
             else:
@@ -1061,6 +1085,30 @@ class BridgeMonitor:
         if written:
             logger.info("Outbound %s recorded: %s -> %s", kind, tx_hash, to_address)
 
+    def _watch_eth_head(self, latest_block: int) -> None:
+        """Alert when the connected ETH endpoint stops serving new heads.
+
+        A stale backend (a load-balanced pool member behind in sync) answers
+        requests fine but never advances its head — deposits seal on the
+        real chain while the scan range stays frozen, and no exception ever
+        fires to explain the silence. A restart "fixes" it only because the
+        fresh connection lands on a different backend. Throttled like the
+        float alerts; clears as soon as the head moves again.
+        """
+        now = time.monotonic()
+        if self._last_eth_head is None or latest_block > self._last_eth_head:
+            self._last_eth_head = latest_block
+            self._eth_head_stall_since = now
+            self._float_alert_last.pop("eth_head_stall", None)
+            return
+        since = self._eth_head_stall_since if self._eth_head_stall_since is not None else now
+        if now - since >= self.head_stall_seconds:
+            self._float_alert(
+                "eth_head_stall",
+                f"ALERT: ETH head stuck at {latest_block} for {int(now - since)}s — endpoint is "
+                "likely serving stale state; deposits sealing on-chain are not being scanned",
+            )
+
     def poll_ethereum(self) -> None:
         """Poll Ethereum for new transactions to bridge address."""
         try:
@@ -1070,6 +1118,7 @@ class BridgeMonitor:
             # a reorg of an unconfirmed deposit must never have been paid.
             latest_block = max(0, w3.eth.block_number - self.confirmations)
             self._poll_fail_streak = 0  # RPC answered — endpoint is live
+            self._watch_eth_head(latest_block)
             logger.debug("Latest confirmed block: %s", latest_block)
 
             # Use persistent cursor; bootstrap from latest_block - 10 on first run
@@ -1083,7 +1132,22 @@ class BridgeMonitor:
                 logger.debug("No new blocks since cursor (%s)", start_block - 1)
                 return
 
+            # Bound the scan: each get_block has a per-request timeout, but
+            # a large catch-up range (or a dribbling endpoint resetting the
+            # inter-byte timer) can otherwise pin the whole cycle — and the
+            # payout sweep with it — in silence. A breach keeps the cursor
+            # on the last fully processed block; the next poll resumes.
+            scan_deadline = time.monotonic() + self.cycle_timeout
             for block_num in range(start_block, latest_block + 1):
+                if time.monotonic() > scan_deadline:
+                    logger.critical(
+                        "ALERT: poll scan exceeded %ss at block %s of %s — cursor held at %s, remainder next cycle",
+                        self.cycle_timeout,
+                        block_num,
+                        latest_block,
+                        block_num - 1,
+                    )
+                    break
                 block = w3.eth.get_block(block_num, full_transactions=True)
                 if not block or not block.get("transactions"):
                     set_cursor("last_processed_block", block_num)
@@ -1208,6 +1272,7 @@ class BridgeMonitor:
                 next_poll = 0.0
                 logger.info("Poll kick received - burst polling for %ss", self.burst_window)
             if now >= next_poll:
+                started = time.monotonic()
                 try:
                     self.poll_ethereum()
                     self.process_retry_queue()
@@ -1215,7 +1280,18 @@ class BridgeMonitor:
                     self._check_queue_health()
                 except Exception as e:  # noqa: BLE001 - monitor service-loop containment
                     logger.error("Error in polling loop: %s", e)
+                elapsed = time.monotonic() - started
                 interval = self.burst_interval if now < self._burst_until else self.poll_interval
+                # Heartbeat: an idle cycle used to log nothing at INFO, so a
+                # frozen/hung cycle was indistinguishable from "nothing to
+                # scan" — the exact shape of the missed-deposit outage.
+                logger.info("poll cycle done in %.1fs — next poll in %ss", elapsed, interval)
+                if elapsed > self.cycle_timeout:
+                    logger.critical(
+                        "ALERT: poll cycle ran %.0fs (limit %.0fs) — deposits went unscanned for that span",
+                        elapsed,
+                        self.cycle_timeout,
+                    )
                 next_poll = time.monotonic() + interval
             await asyncio.sleep(1.0)
 

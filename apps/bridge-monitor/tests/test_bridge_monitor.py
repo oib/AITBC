@@ -1287,3 +1287,136 @@ class TestOutboundLedger:
         assert row[4] == "withdrawal"
         assert "failed" in row[6] and "exchange_settlements release" in row[6]
         assert float(row[2]) == 0.0
+
+
+class TestPostedHashAdoption:
+    """BRIDGE-MONITOR-1: the seal probe and the abandon proof key on
+    ait_tx_hash. When the RPC reports a hash differing from the derived
+    envelope hash, the retry path must adopt the chain-reported hash —
+    otherwise the row polls a hash that can never seal and stays
+    SUBMITTED forever (the C2/P8 status lag)."""
+
+    def _due_retry_row(self, tx_hash="0xretry1"):
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        create_deposit(tx_hash, "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            tx_hash,
+            ait_amount="100",
+            status=BridgeDepositStatus.PENDING_RETRY,
+            next_retry_at="2000-01-01T00:00:00+00:00",
+        )
+
+    def test_retry_adopts_chain_reported_hash(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        self._due_retry_row()
+        envelope = {"type": "TRANSFER", "nonce": 3, "to": "0x" + "d" * 40}
+        with (
+            patch.object(monitor, "_build_signed_transfer", return_value=envelope),
+            patch.object(monitor, "_post_signed_tx", return_value="0xchain_hash"),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            monitor.process_retry_queue()
+
+        d = get_deposit("0xretry1")
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert d["ait_tx_hash"] == "0xchain_hash"  # chain-reported, not derived
+        assert d["envelope_hash"] == monitor._envelope_tx_hash(envelope)
+
+    def test_retry_same_hash_left_unchanged(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        self._due_retry_row()
+        envelope = {"type": "TRANSFER", "nonce": 3, "to": "0x" + "d" * 40}
+        derived = monitor._envelope_tx_hash(envelope)
+        with (
+            patch.object(monitor, "_build_signed_transfer", return_value=envelope),
+            patch.object(monitor, "_post_signed_tx", return_value=derived),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            monitor.process_retry_queue()
+
+        assert get_deposit("0xretry1")["ait_tx_hash"] == derived
+
+    def test_adopted_hash_is_what_the_seal_probe_uses(self, monitor):
+        """End-to-end: adopted hash seals → the row completes."""
+        from bridge_monitor.storage import get_deposit
+
+        self._due_retry_row()
+        envelope = {"type": "TRANSFER", "nonce": 3, "to": "0x" + "d" * 40}
+        with (
+            patch.object(monitor, "_build_signed_transfer", return_value=envelope),
+            patch.object(monitor, "_post_signed_tx", return_value="0xchain_hash"),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            monitor.process_retry_queue()
+
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = {"block_height": 97, "status": "confirmed"}
+        with (
+            patch.object(monitor, "_head_height", return_value=100),
+            patch("httpx.get", return_value=resp) as mock_get,
+        ):
+            monitor.process_submitted_deposits()
+
+        # The seal probe must have queried the chain-reported hash, and the
+        # row must have completed — the exact flip the old code missed.
+        assert any("0xchain_hash" in str(c) for c in mock_get.call_args_list)
+        assert get_deposit("0xretry1")["status"] == BridgeDepositStatus.COMPLETED.value
+
+
+class TestPollWatchdog:
+    """BRIDGE-MONITOR-1 idle-miss watchdogs: a frozen head and an
+    over-running scan must be loud, not silent."""
+
+    def test_stale_eth_head_alerts(self, monitor, caplog):
+        import logging
+
+        monitor.head_stall_seconds = 0  # alert on the first repeated head
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            caplog.at_level(logging.CRITICAL),
+        ):
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = {"transactions": []}
+            monitor.poll_ethereum()  # first head observation
+            monitor.poll_ethereum()  # same head again → stalled
+        assert any("head stuck" in r.getMessage() for r in caplog.records if r.levelno >= logging.CRITICAL)
+
+    def test_head_advance_clears_stall(self, monitor, caplog):
+        import logging
+
+        monitor.head_stall_seconds = 0
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            caplog.at_level(logging.CRITICAL),
+        ):
+            w3 = mock_rpc._get_web3.return_value
+            w3.eth.get_block.return_value = {"transactions": []}
+            w3.eth.block_number = 100
+            monitor.poll_ethereum()
+            w3.eth.block_number = 101  # head moved → stall resets
+            monitor.poll_ethereum()
+        assert not any("head stuck" in r.getMessage() for r in caplog.records)
+
+    def test_scan_deadline_holds_cursor_and_alerts(self, monitor, caplog):
+        import logging
+
+        from bridge_monitor.storage import get_cursor, set_cursor
+
+        monitor.cycle_timeout = -1.0  # deadline already passed
+        set_cursor("last_processed_block", 96)
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            caplog.at_level(logging.CRITICAL),
+        ):
+            w3 = mock_rpc._get_web3.return_value
+            w3.eth.block_number = 110
+            monitor.poll_ethereum()
+        w3.eth.get_block.assert_not_called()  # deadline checked before the fetch
+        assert get_cursor("last_processed_block") == 96  # nothing skipped
+        assert any("poll scan exceeded" in r.getMessage() for r in caplog.records)
