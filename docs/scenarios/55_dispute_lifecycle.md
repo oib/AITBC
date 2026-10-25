@@ -114,6 +114,41 @@ settlement.
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### 6. List arbitrators
+
+Lists addresses authorized to arbitrate disputes.
+
+```bash
+aitbc dispute arbitrator list
+```
+
+### 7. Show an arbitrator's queue
+
+Lists disputes assigned to an arbitrator.
+
+```bash
+aitbc dispute arbitrator queue 0xArbitrator
+```
+
+### 8. Authorize an arbitrator
+
+`aitbc dispute arbitrator authorize 0xArbitrator` is grants arbitration rights — an operator/signature-gated action; not played, needs the operator's line.
+
+### 9. Verify dispute evidence
+
+`aitbc dispute evidence verify --dispute-id 42 --evidence-id 1` is rules on evidence validity — arbitrator credentials required; not played, needs the operator's line.
+
+### 10. Auto-adjudicate open disputes
+
+`aitbc dispute auto-adjudicate --yes` is executes rulings on open disputes — irreversible, operator action; not played, needs the operator's line.
+
+---
+
 ## Verification
 
 - `dispute get <id>` shows status transitions (open → voting → resolved).
