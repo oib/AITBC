@@ -63,7 +63,11 @@ journalctl -u aitbc-blockchain-node -f
 ## Verify
 
 ```bash
-# Height is advancing again
+# Height is advancing again — `blockchain height` reads this node's own rpc
+# (127.0.0.1:8202); the output names its `source`. For a heads-equal gate
+# across hosts, read each host's own head — `aitbc blockchain height --db`
+# (read-only chain.db) or `status --local`. Plain `blockchain status` queries
+# the configured blockchain_rpc_url, i.e. the hub on follower hosts.
 aitbc blockchain height
 watch -n5 'aitbc blockchain height'
 
