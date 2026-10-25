@@ -11,7 +11,7 @@ import pytest
 from click.testing import CliRunner
 
 import aitbc_cli.commands.wallet.bridge as bridge_mod
-from aitbc_cli.commands.wallet.bridge import float_cmd, status
+from aitbc_cli.commands.wallet.bridge import _normalize_hub_url, float_cmd, sell_status, status
 
 
 @pytest.fixture
@@ -163,3 +163,81 @@ class TestSellAdminStatus:
             result = runner.invoke(sa_status, obj={"output_format": "table"}, args=[])
         assert result.exit_code != 0
         assert "Failed to read sell config status" in result.output
+
+
+class TestNormalizeHubUrl:
+    """SELL-59-FINDINGS-1: --hub-url must collapse to the bare origin — the
+    hub proxies /v1/bridge/* at the root, so a path-suffixed URL 404s."""
+
+    def test_bare_origin_unchanged(self):
+        assert _normalize_hub_url("https://hub.aitbc.bubuit.net") == "https://hub.aitbc.bubuit.net"
+
+    def test_trailing_slash_stripped(self):
+        assert _normalize_hub_url("https://hub.aitbc.bubuit.net/") == "https://hub.aitbc.bubuit.net"
+
+    def test_path_stripped(self):
+        assert _normalize_hub_url("https://hub.aitbc.bubuit.net/wallet") == "https://hub.aitbc.bubuit.net"
+
+    def test_port_preserved(self):
+        assert _normalize_hub_url("http://hub:8108/wallet/") == "http://hub:8108"
+
+    def test_scheme_less_gets_https(self):
+        assert _normalize_hub_url("hub.aitbc.bubuit.net") == "https://hub.aitbc.bubuit.net"
+
+
+_SELL_QUOTE_LOCKED = {
+    "kind": "quote",
+    "quote_id": "sellq_abc123",
+    "status": "locked",
+    "escrow_address": "0x" + "33" * 20,
+    "ait_amount": "10",
+    "eth_amount": "0.00093",
+    "lock": {
+        "id": "sell_8e3efc9e",
+        "quote_id": "sellq_abc123",
+        "ait_tx_hash": "0x" + "aa" * 32,
+        "status": "settled",
+        "eth_tx_hash": "0x" + "bb" * 32,
+        "settle_tx_hash": "0x" + "cc" * 32,
+        "refund_tx_hash": None,
+        "error": None,
+        "settled_at": "2026-10-22T01:00:00",
+    },
+}
+
+
+class TestSellStatus:
+    def test_settled_lock_row_surfaces(self, runner):
+        """The quote row stays 'locked' after settle — status must report the
+        lock row's state (SELL-59-FINDINGS-1)."""
+        client = _fake_client(_SELL_QUOTE_LOCKED)
+        with mock.patch.object(bridge_mod, "_hub_bridge_client", return_value=client):
+            result = runner.invoke(sell_status, obj={"output_format": "json"}, args=["--id", "sellq_abc123"])
+        assert result.exit_code == 0, result.output
+        client.get.assert_called_once_with("/v1/bridge/sell/status/sellq_abc123")
+        body = json.loads(result.output)
+        assert body["kind"] == "lock"
+        assert body["status"] == "settled"
+        assert body["quote_status"] == "locked"
+        assert body["lock_id"] == "sell_8e3efc9e"
+        assert body["settle_tx_hash"] == "0x" + "cc" * 32
+
+    def test_quote_without_lock_passes_through(self, runner):
+        doc = {"kind": "quote", "quote_id": "sellq_x", "status": "quoted", "lock": None}
+        client = _fake_client(doc)
+        with mock.patch.object(bridge_mod, "_hub_bridge_client", return_value=client):
+            result = runner.invoke(sell_status, obj={"output_format": "json"}, args=["--id", "sellq_x"])
+        assert result.exit_code == 0, result.output
+        body = json.loads(result.output)
+        assert body["kind"] == "quote"
+        assert body["status"] == "quoted"
+
+    def test_lock_kind_passes_through(self, runner):
+        doc = {"kind": "lock", "id": "sell_1", "status": "released"}
+        client = _fake_client(doc)
+        with mock.patch.object(bridge_mod, "_hub_bridge_client", return_value=client):
+            result = runner.invoke(sell_status, obj={"output_format": "json"}, args=["--id", "sell_1"])
+        assert result.exit_code == 0, result.output
+        body = json.loads(result.output)
+        assert body["kind"] == "lock"
+        assert body["status"] == "released"
