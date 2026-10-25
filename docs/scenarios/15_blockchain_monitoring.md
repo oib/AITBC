@@ -308,6 +308,293 @@ print(add_alert("miner-watch", "miner_offline", "https://hooks.example/aitbc"))
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 8: Show chain height
+
+Prints the current head height.
+
+```bash
+aitbc blockchain height
+```
+
+### Step 9: Show chain info
+
+Prints chain configuration and sync state.
+
+```bash
+aitbc blockchain info --chain-id ait-mainnet
+```
+
+### Step 10: List chains
+
+Lists chains known to the CLI.
+
+```bash
+aitbc blockchain list
+```
+
+### Step 11: List running instances
+
+Shows running blockchain-node instances.
+
+```bash
+aitbc blockchain instances
+```
+
+### Step 12: Show a block by height
+
+Prints one block.
+
+```bash
+aitbc blockchain block --height 42
+```
+
+### Step 13: Show sync status
+
+Reports sync progress against the hub.
+
+```bash
+aitbc blockchain sync-status
+```
+
+### Step 14: Monitor a chain
+
+Streams new blocks as they arrive.
+
+```bash
+aitbc blockchain monitor --chain-id ait-mainnet
+```
+
+### Step 15: Consensus status
+
+Shows consensus round and phase.
+
+```bash
+aitbc blockchain consensus status
+```
+
+### Step 16: List validators
+
+Prints the active validator set.
+
+```bash
+aitbc blockchain consensus validators
+```
+
+### Step 17: Slashing history
+
+Lists recorded slashing events.
+
+```bash
+aitbc blockchain consensus slashing-history
+```
+
+### Step 18: Back up a chain database
+
+Writes a backup of the chain database to a file.
+
+```bash
+aitbc blockchain backup --chain-id ait-mainnet --path /tmp/chain-backup
+```
+
+### Step 19: Explorer: chains
+
+Lists chains visible to the explorer API.
+
+```bash
+aitbc explorer chains
+```
+
+### Step 20: Explorer: block by hash
+
+Fetches a block by hash.
+
+```bash
+aitbc explorer block-by-hash --block-hash 0xBlockHash
+```
+
+### Step 21: Explorer: blocks by address
+
+Lists blocks involving an address.
+
+```bash
+aitbc explorer blocks-by-address --address 0xAddress --limit 10
+```
+
+### Step 22: Explorer: transaction by hash
+
+Fetches a transaction by hash.
+
+```bash
+aitbc explorer transaction-by-hash --tx-hash 0xTxHash
+```
+
+### Step 23: Explorer: search transactions
+
+Searches transactions touching an address.
+
+```bash
+aitbc explorer search-transactions --address 0xAddress --limit 10
+```
+
+### Step 24: Explorer: top addresses
+
+Lists the richest/most active addresses.
+
+```bash
+aitbc explorer top-addresses --limit 10
+```
+
+### Step 25: Explorer: activity timeline
+
+Plots chain activity over a period.
+
+```bash
+aitbc explorer activity-timeline
+```
+
+### Step 26: Explorer: provider reputation
+
+Reads a provider's reputation rollup.
+
+```bash
+aitbc explorer provider-reputation --provider-id 0xProvider
+```
+
+### Step 27: Monitor: campaigns
+
+Lists monitoring campaigns.
+
+```bash
+aitbc monitor campaigns
+```
+
+### Step 28: Monitor: campaign stats
+
+Prints statistics for one campaign.
+
+```bash
+aitbc monitor campaign-stats camp-001
+```
+
+### Step 29: Monitor: sweepers
+
+Lists configured sweeper jobs.
+
+```bash
+aitbc monitor sweepers
+```
+
+### Step 30: Monitor: list webhooks
+
+Lists registered webhook endpoints.
+
+```bash
+aitbc monitor webhooks list
+```
+
+### Step 31: Prometheus: active alerts
+
+Shows currently firing alerts.
+
+```bash
+aitbc prometheus alerts
+```
+
+### Step 32: Prometheus: alert history
+
+Lists past alert transitions.
+
+```bash
+aitbc prometheus alert-history
+```
+
+### Step 33: Prometheus: config check
+
+Validates the Prometheus configuration and rules files.
+
+```bash
+aitbc prometheus check
+```
+
+### Step 34: Prometheus: one metric
+
+Prints the current value of one metric.
+
+```bash
+aitbc prometheus metric --name aitbc_block_height
+```
+
+### Step 35: Prometheus: ad-hoc query
+
+Runs a PromQL expression.
+
+```bash
+aitbc prometheus query --expr 'aitbc_block_height'
+```
+
+### Step 36: Prometheus: rules
+
+Lists loaded alerting/recording rules.
+
+```bash
+aitbc prometheus rules
+```
+
+### Step 37: Prometheus: series
+
+Lists stored metric series.
+
+```bash
+aitbc prometheus series
+```
+
+### Step 38: Prometheus: targets
+
+Shows scrape targets and their health.
+
+```bash
+aitbc prometheus targets
+```
+
+### Step 39: Add a node to a chain
+
+`aitbc blockchain add --chain-id ait-mainnet --node-id node-9` is adds a node to chain membership — a validator/fleet operation; not played, needs the operator's line.
+
+### Step 40: Create a new chain
+
+`aitbc blockchain create --config-file chain.yaml` is spins up a new chain instance — a fleet/validator operation; not played, needs the operator's line.
+
+### Step 41: Delete a chain
+
+`aitbc blockchain delete --chain-id ait-testnet --force` is deletes chain data — destructive; not played, needs the operator's line.
+
+### Step 42: Migrate a chain between nodes
+
+`aitbc blockchain migrate --chain-id ait-mainnet --from-node node-a --to-node node-b` is moves a chain instance between nodes — a fleet operation; not played, needs the operator's line.
+
+### Step 43: Remove a node from a chain
+
+`aitbc blockchain remove --chain-id ait-mainnet --node-id node-9` is removes a node from chain membership — a validator/fleet operation; not played, needs the operator's line.
+
+### Step 44: Restore a chain backup
+
+`aitbc blockchain restore --backup-file /tmp/chain-backup` is overwrites local chain state from a backup — destructive; not played, needs the operator's line.
+
+### Step 45: Start a chain instance
+
+`aitbc blockchain start --chain-id ait-mainnet` is starts a stopped chain instance — service control; not played, needs the operator's line.
+
+### Step 46: Stop a chain instance
+
+`aitbc blockchain stop --chain-id ait-mainnet` is stops a running chain instance — service control; not played, needs the operator's line.
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
