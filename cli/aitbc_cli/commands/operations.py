@@ -136,13 +136,12 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, m
             click.echo(f"Payment: {payment} AIT")
             return result
         except NetworkError as e:
-            error(f"Error submitting AI job: {e}")
-            return None
+            abort(None, f"Error submitting AI job: {e}", from_exception=e)
         except Exception as e:
-            error(f"Error: {e}")
-            return None
+            abort(None, f"Error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
+        return
 
 
 @ai.command(
@@ -175,9 +174,10 @@ def status(job_id: str | None, format: str):
                 for job in result.get("jobs", []):
                     click.echo(f"  - {job.get('job_id', 'unknown')}: {job.get('state', 'unknown')}")
     except NetworkError as e:
-        error(f"Error getting AI job status: {e}")
+        abort(None, f"Error getting AI job status: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
+        return
 
 
 @ai.command(
@@ -189,7 +189,7 @@ def status(job_id: str | None, format: str):
 def cancel(job_id: str | None):
     """Cancel an AI job by its ID."""
     if not job_id:
-        error("Job ID is required")
+        abort(None, "Job ID is required")
         return
 
     try:
@@ -197,9 +197,10 @@ def cancel(job_id: str | None):
         _ = http_client.post(f"/v1/jobs/{job_id}/cancel")
         success(f"AI job {job_id} cancelled")
     except NetworkError as e:
-        error(f"Error cancelling AI job: {e}")
+        abort(None, f"Error cancelling AI job: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
+        return
 
 
 # Agent operations
@@ -233,9 +234,10 @@ def register(agent_id: str, status: str):
         _ = http_client.post("/v1/agents/register", json=agent_config)
         success(f"Agent {agent_id} registered with status {status}")
     except NetworkError as e:
-        error(f"Error registering agent: {e}")
+        abort(None, f"Error registering agent: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
+        return
 
 
 @agent.command(
@@ -274,7 +276,8 @@ def list(status: str | None, format: str):
         else:
             error(f"Error listing agents: {response.status_code}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
+        return
 
 
 @agent.command(
@@ -290,9 +293,10 @@ def deregister(agent_id: str):
         _ = http_client.post(f"/v1/agents/{agent_id}/deregister")
         success(f"Agent {agent_id} deregistered")
     except NetworkError as e:
-        error(f"Error deregistering agent: {e}")
+        abort(None, f"Error deregistering agent: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
+        return
 
 
 @agent.command(
@@ -325,7 +329,7 @@ def message(
     report = find_wallet_file_report(wallet)
     keystore_path = report.path
     if keystore_path is None:
-        error(wallet_not_found_message(report))
+        abort(None, wallet_not_found_message(report))
         return
     service_note = service_dir_wallet_note(report)
     if service_note:
@@ -397,7 +401,8 @@ def message(
     except (CLIError, click.Abort):
         raise
     except Exception as e:
-        error(f"Error sending message: {e}")
+        abort(None, f"Error sending message: {e}")
+        return
 
 
 # Governance operations
@@ -455,7 +460,7 @@ def vote(
         # Get wallet address from correct wallet directory
         wallet_path = find_wallet_file(wallet)
         if wallet_path is None:
-            error(f"Wallet '{wallet}' not found")
+            abort(None, f"Wallet '{wallet}' not found")
             return
 
         wallet_data = _load_wallet(
@@ -465,7 +470,7 @@ def vote(
 
         hex_address = canonical_address(voter_address)
         if not validate_address(hex_address):
-            error(f"Invalid voter address: {voter_address}")
+            abort(None, f"Invalid voter address: {voter_address}")
             return
 
         # Submit vote to blockchain RPC
@@ -483,11 +488,12 @@ def vote(
         success(f"Vote '{vote}' cast for proposal {proposal_id}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except (CLIError, click.Abort):
         raise
     except Exception as e:
-        error(f"Error casting vote: {e}")
+        abort(None, f"Error casting vote: {e}")
+        return
 
 
 @governance.command(
@@ -539,7 +545,7 @@ def proposal(
         # Get wallet address from correct wallet directory
         wallet_path = find_wallet_file(wallet)
         if wallet_path is None:
-            error(f"Wallet '{wallet}' not found")
+            abort(None, f"Wallet '{wallet}' not found")
             return
 
         wallet_data = _load_wallet(
@@ -549,7 +555,7 @@ def proposal(
 
         hex_address = canonical_address(proposer_address)
         if not validate_address(hex_address):
-            error(f"Invalid proposer address: {proposer_address}")
+            abort(None, f"Invalid proposer address: {proposer_address}")
             return
 
         # Calculate voting times
@@ -564,7 +570,7 @@ def proposal(
             try:
                 execution_payload = json.loads(params)
             except json.JSONDecodeError:
-                error("Invalid JSON in --params")
+                abort(None, "Invalid JSON in --params")
                 return
 
         # Submit proposal to blockchain RPC
@@ -585,11 +591,12 @@ def proposal(
         success(f"Proposal created: {proposal_id}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except (CLIError, click.Abort):
         raise
     except Exception as e:
-        error(f"Error creating proposal: {e}")
+        abort(None, f"Error creating proposal: {e}")
+        return
 
 
 @governance.command(
@@ -616,9 +623,10 @@ def get_proposal(ctx, proposal_id: str, format: str):
 
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting proposal: {e}")
+        abort(None, f"Error getting proposal: {e}")
+        return
 
 
 # v0.4.12 New CLI Commands
@@ -645,7 +653,7 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
 
     try:
         if lock_days < 30:
-            error("Lock period must be at least 30 days")
+            abort(None, "Lock period must be at least 30 days")
             return
 
         # Get governance service URL
@@ -659,9 +667,10 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
         success(f"Staked {amount} tokens for {lock_days} days")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error staking tokens: {e}")
+        abort(None, f"Error staking tokens: {e}")
+        return
 
 
 @governance.command(
@@ -690,9 +699,10 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
         success(f"Delegated {amount} voting power from {delegator} to {delegate}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error delegating voting power: {e}")
+        abort(None, f"Error delegating voting power: {e}")
+        return
 
 
 @governance.command(
@@ -720,9 +730,10 @@ def execute(ctx, proposal_id: str, format: str):
         success(f"Executed proposal {proposal_id}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error executing proposal: {e}")
+        abort(None, f"Error executing proposal: {e}")
+        return
 
 
 @governance.command(
@@ -749,6 +760,7 @@ def voting_power(ctx, address: str, format: str):
 
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting voting power: {e}")
+        abort(None, f"Error getting voting power: {e}")
+        return

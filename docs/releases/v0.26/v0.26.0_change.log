@@ -371,3 +371,17 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   mismatch. The serial path reproduces `pure_state_transition` exactly;
   the 6 strict xfails in `test_importer_parallel_v2v8_parity.py` now
   pass. v9+ is unchanged.
+
+
+### CLI-EXIT-2
+
+- Second exit-code sweep (CLI-EXIT-1 residual): ~120 more
+  `error()`-then-return sites across 14 command files
+  (agent, chain, config, edge, energy, genesis, ipfs, market/gpu,
+  market/offers, mining, operations, system, transactions, update,
+  wallet/{misc,multisig,staking,bridge}, workflow) now raise through
+  `abort()` so the CLI exits non-zero. The AST corpus guard now also
+  walks `except` handlers — the shape it previously missed — and covers
+  18 more files. `edge.py`'s 30 helper sites are deferred: they mix
+  deliberate retry-swallows with real exit-0 paths and need per-site
+  classification.

@@ -107,7 +107,7 @@ def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any],
         return keys.PrivateKey(bytes.fromhex(private_key_hex))
     except Exception as e:
         logger.error("Error loading private key: %s", e)
-        error(f"Error loading private key: {e}")
+        abort(None, f"Error loading private key: {e}")
         return None
 
 
@@ -154,7 +154,7 @@ def _send_transaction_impl(
         validate_address_strict(to_address)
     except ValidationError as e:
         logger.error("Invalid recipient address: %s", e)
-        error(f"Invalid recipient address: {e}")
+        abort(None, f"Invalid recipient address: {e}")
         return None
 
     # Validate amount/fee. Zero-value types (mirrors
@@ -265,11 +265,11 @@ def _send_transaction_impl(
         return tx_hash
     except NetworkError as e:
         logger.error("Network error submitting transaction: %s", e)
-        error(f"Error submitting transaction: {e}")
+        abort(None, f"Error submitting transaction: {e}")
         return None
     except Exception as e:
         logger.error("Error submitting transaction: %s", e)
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
         return None
 
 
@@ -284,7 +284,7 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
             return None
         return parsed_payload
     except json.JSONDecodeError as e:
-        error(f"Invalid payload JSON: {e}")
+        abort(None, f"Invalid payload JSON: {e}")
         return None
 
 
@@ -364,7 +364,7 @@ def send(
                 else:
                     error(f"Explorer API unavailable: {e}")
             except Exception as e:
-                error(f"Error checking status via Explorer: {e}")
+                abort(None, f"Error checking status via Explorer: {e}")
 
     # Check if first wallet is unencrypted
 
@@ -429,7 +429,7 @@ def _process_batch_entry(
         raise
     except Exception as e:
         results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
-        error(f"Transaction error: {e}")
+        abort(None, f"Transaction error: {e}")
 
 
 @transactions.command(
@@ -564,9 +564,9 @@ def pending(rpc_url: str | None):
             else:
                 click.echo(f"  - {tx_type} {amount} AIT from {sender[:16]}...")
     except NetworkError as e:
-        error(f"Error getting pending transactions: {e}")
+        abort(None, f"Error getting pending transactions: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 @transactions.command(
@@ -612,8 +612,7 @@ def search(address: str, sender: str, recipient: str, limit: int, use_explorer: 
     filters = {k: v for k, v in {"address": address, "sender": sender, "recipient": recipient}.items() if v}
     if use_explorer:
         if sender or recipient:
-            error("The Explorer API cannot filter by sender or recipient. Omit --use-explorer to use the RPC path.")
-            return
+            abort(None, "The Explorer API cannot filter by sender or recipient. Omit --use-explorer to use the RPC path.")
         _search_via_explorer(address, limit)
     else:
         _search_via_rpc(filters, sender, recipient, limit, rpc_url)
@@ -629,9 +628,9 @@ def _search_via_explorer(address: str, limit: int) -> None:
         success(f"Found {len(transactions)} transactions for {address} (via Explorer)")
         click.echo(json.dumps(transactions, indent=2))
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}")
     except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure reports cleanly
-        error(f"Error searching transactions: {e}")
+        abort(None, f"Error searching transactions: {e}")
 
 
 def _row_matches(row: object, key: str, want: str) -> bool:
@@ -671,6 +670,6 @@ def _search_via_rpc(filters: dict, sender: str | None, recipient: str | None, li
         success(f"Found {len(transactions)} transactions matching {names} (via RPC)")
         click.echo(json.dumps(transactions, indent=2))
     except NetworkError as e:
-        error(f"RPC unavailable: {e}")
+        abort(None, f"RPC unavailable: {e}")
     except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure reports cleanly
-        error(f"Error searching transactions: {e}")
+        abort(None, f"Error searching transactions: {e}")

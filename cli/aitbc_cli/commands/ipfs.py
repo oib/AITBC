@@ -31,6 +31,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..config import _resolve_api_key, get_config
 from ..utils import DECIMAL, error, info, success, warning
+from ..utils.error_handling import abort
 from ..utils.chain_id import get_chain_id
 from ..utils.http_client import AITBCHTTPClient, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -627,7 +628,7 @@ def subscribe(
             )
         )
     else:
-        error("Failed to send island IPFS subscription transaction")
+        abort(None, "Failed to send island IPFS subscription transaction")
 
 
 @island.command(name="swarm-key")
@@ -684,8 +685,7 @@ def swarm_key(
     if not resolved_api_key:
         resolved_api_key = _resolve_api_key({})
     if not resolved_api_key:
-        error("No API key available; set AITBC_API_KEY, add api_key to config, or pass --api-key")
-        return
+        abort(None, "No API key available; set AITBC_API_KEY, add api_key to config, or pass --api-key")
 
     nonce = f"{datetime.now(UTC).isoformat()}:{secrets.token_hex(8)}"
     challenge = f"{island_id}:{member_address}:{nonce}".encode()

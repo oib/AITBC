@@ -10,7 +10,7 @@ from click import echo
 from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
-from ..utils import OUTPUT_FORMAT_OPTION, error, output, resolve_output_format, success
+from ..utils import OUTPUT_FORMAT_OPTION, output, resolve_output_format, success
 from ..utils.chain_id import resolve_chain_id
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -1011,7 +1011,7 @@ def consensus_status(ctx, node_url: str, chain_id: str | None, format: str):
         }
         output(consensus_info, ctx.obj.get("output_format", format), title="Consensus Status")
     except Exception as e:
-        error(f"Error getting consensus status: {e}")
+        abort(None, f"Error getting consensus status: {e}")
 
 
 @consensus_group.command(
@@ -1035,8 +1035,7 @@ def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
             query = f"?chain_id={chain_id}" if chain_id else ""
             result = client.get(f"/rpc/consensus/validators{query}")
         except NetworkError as e:
-            error(f"Cannot connect to node at {node_url}: {e}")
-            return
+            abort(None, f"Cannot connect to node at {node_url}: {e}")
         finally:
             client.close()
 
@@ -1058,7 +1057,7 @@ def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
         ]
         output(rows, ctx.obj.get("output_format", format), title=f"Validators for {chain_id}")
     except Exception as e:
-        error(f"Error listing validators: {e}")
+        abort(None, f"Error listing validators: {e}")
 
 
 def _slash_rate(event: dict) -> str:
@@ -1102,8 +1101,7 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format:
             query = f"?chain_id={chain_id}" if chain_id else ""
             result = client.get(f"/rpc/consensus/slashing-history{query}")
         except NetworkError as e:
-            error(f"Cannot connect to node at {node_url}: {e}")
-            return
+            abort(None, f"Cannot connect to node at {node_url}: {e}")
         finally:
             client.close()
 
@@ -1129,7 +1127,7 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format:
         ]
         output(rows, ctx.obj.get("output_format", format), title=f"Slashing History for {chain_id}")
     except Exception as e:
-        error(f"Error getting slashing history: {e}")
+        abort(None, f"Error getting slashing history: {e}")
 
 
 @chain.command(
@@ -1156,7 +1154,7 @@ def height(ctx, node_url: str, from_db: bool, output_format: str):
             result.setdefault("source", node_url)
         output(result, output_format, title="Blockchain Height")
     except NetworkError as e:
-        error(f"Cannot connect to node at {node_url}: {e}")
+        abort(None, f"Cannot connect to node at {node_url}: {e}")
     finally:
         client.close()
 
@@ -1182,6 +1180,6 @@ def block(ctx, block_height: int, node_url: str, output_format: str):
             result.setdefault("source", node_url)
         output(result, output_format, title=f"Block {block_height}")
     except NetworkError as e:
-        error(f"Cannot connect to node at {node_url}: {e}")
+        abort(None, f"Cannot connect to node at {node_url}: {e}")
     finally:
         client.close()
