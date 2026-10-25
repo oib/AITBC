@@ -370,6 +370,43 @@ if wait_for_proposal_pass("prop-002"):
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 9: Show a proposal
+
+Prints one proposal's metadata, votes, and state.
+
+```bash
+aitbc governance proposal show --proposal-id 1
+```
+
+### Step 10: Aggregate votes
+
+Aggregates votes on a proposal across chains.
+
+```bash
+aitbc governance aggregate-votes --proposal-id 1
+```
+
+### Step 11: Propagate a proposal
+
+Pushes a proposal to target chains for local voting.
+
+Cost: 0 units — replication only.
+
+```bash
+aitbc governance propagate --proposal-id 1 --target-chains ait-sidechain
+```
+
+### Step 12: Execute a cross-chain proposal
+
+`aitbc governance execute-cross-chain --proposal-id 1` is executes a passed proposal on target chains — irreversible governance execution; not played, needs the operator's line.
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
