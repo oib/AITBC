@@ -72,11 +72,12 @@ aitbc config get --global         # global file only
 
 ```bash
 aitbc config set output_format table            # played in 07/25/34
-aitbc config unset output_format                # remove a key
+aitbc config unset --key output_format          # remove a key
 aitbc config edit                               # open the file in $EDITOR
 ```
 
-`unset`/`edit`/`reset` mutate the local config. `config reset` restores
+`unset`/`edit`/`reset` mutate the local config. `aitbc config reset`
+(optionally `--global`) restores
 defaults — destructive to local settings; use `--global` deliberately and
 note that it does not touch chain or service state.
 
@@ -124,6 +125,22 @@ aitbc config get-secret --key api_token
 Secrets go through the CLI's secret store rather than the plain config
 file. Never commit a file produced by `config export` if it may contain
 resolved secrets — check with `config check-keys` (scenario 32).
+
+<!-- COVERAGE-LEFT-1: bootstrap-env leaf (issue #445) -->
+
+### 7. Bootstrap a starter env file
+
+`aitbc bootstrap bootstrap-env` writes a starter `.env` template to
+`--output` (default `.env` in the current directory); a local file write
+only, nothing is sourced or applied:
+
+```bash
+aitbc bootstrap bootstrap-env --output /tmp/aitbc-bootstrap.env
+```
+
+Review the generated file before copying any line into a real
+`/etc/aitbc/*.env` — applying it is an env edit; not played, needs the
+operator's line.
 
 ---
 
