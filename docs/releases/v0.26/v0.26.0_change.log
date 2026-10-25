@@ -465,3 +465,11 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   are created by revision 003 — already dropped by `downgrade base` before
   002 runs. The downgrade now applies upgrade()'s inspector guards
   symmetrically.
+
+
+### RESOURCE-STATUS-1
+
+- `aitbc resource status` already read array answers since cf40214b8;
+  it now also prints an explicit "No resource allocations found" line
+  instead of an empty table when the array is empty. Stubbed-client
+  tests pin array, dict, empty and network-error shapes.

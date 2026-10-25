@@ -12,7 +12,7 @@ from typing import Any
 import click
 
 from ..config import get_config
-from ..utils import error, output, success
+from ..utils import error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger, service_root_url
 
@@ -206,6 +206,9 @@ def status(ctx, agent_id: str | None, status_filter: str | None, limit: int):
         rows: Any = _client().get_json("/v1/agent-performance/resources", params=params)
         if not isinstance(rows, list):
             rows = [rows] if rows else []
+        if not rows:
+            info("No resource allocations found")
+            return
         output(
             [
                 {
