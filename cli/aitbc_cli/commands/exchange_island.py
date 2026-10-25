@@ -49,6 +49,37 @@ def _transaction_rows(response: Any) -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], rows or [])
 
 
+def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], set[str]]:
+    """Correlate cancel transactions to their orders in the read model.
+
+    A sealed EXCHANGE ``{"action": "cancel", "order_id": ...}`` tx marks the
+    order it names cancelled: the order row's status flips to "cancelled"
+    and the cancel row inherits the order's pair/side so it no longer
+    reads as an empty-side row. Idempotent — a second cancel for the same
+    order is a no-op. Returns (rows, cancelled order_ids).
+    """
+    cancels: dict[str, dict[str, Any]] = {}
+    originals: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        payload = row.get("payload") or row
+        if not isinstance(payload, dict):
+            continue
+        oid = payload.get("order_id", "")
+        if payload.get("action") == "cancel":
+            cancels.setdefault(oid, payload)
+        elif oid:
+            originals[oid] = payload
+    cancelled_ids = set(cancels)
+    for oid, cancel in cancels.items():
+        orig = originals.get(oid)
+        if orig is not None:
+            orig["status"] = "cancelled"
+            for key in ("pair", "side", "user_id"):
+                if not cancel.get(key) and orig.get(key):
+                    cancel[key] = orig[key]
+    return rows, cancelled_ids
+
+
 SIMULATED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
 
 
@@ -452,6 +483,8 @@ def orderbook(ctx, pair: str, limit: int):
             transactions = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
         except NetworkError:
             transactions = _simulated_orderbook_transactions(pair, limit)
+        transactions, _book_cancelled = _apply_cancels(transactions)
+        transactions = [t for t in transactions if ((t.get("payload") or t).get("order_id") not in _book_cancelled)]
 
         def _order_payload(order: dict[str, Any]) -> dict[str, Any]:
             return order.get("payload") or order
@@ -551,6 +584,8 @@ def rates(ctx):
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             try:
                 orders = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
+                orders, _rates_cancelled = _apply_cancels(orders)
+                orders = [o for o in orders if ((o.get("payload") or o).get("order_id") not in _rates_cancelled)]
             except NetworkError:
                 orders = _simulated_orders_for_pair(pair, 100)
 
@@ -618,6 +653,9 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
         except NetworkError:
             orders = _simulated_order_list(user, status, pair, island_id)
 
+        orders, _cancelled_ids = _apply_cancels(orders)
+        if status:
+            orders = [o for o in orders if ((o.get("payload") or o).get("status") == status)]
         if not orders:
             info("No exchange orders found")
             return
