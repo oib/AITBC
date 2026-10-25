@@ -62,9 +62,10 @@ def upgrade() -> None:
     _add_column_if_absent("gpu_bookings", "energy_quote_snapshot", sa.JSON())
 
     # Backfill boolean flags to false so existing rows remain unprotected.
-    op.execute("UPDATE job SET protected = 0 WHERE protected IS NULL")
-    op.execute("UPDATE gpu_registry SET protected = 0 WHERE protected IS NULL")
-    op.execute("UPDATE gpu_bookings SET protected = 0 WHERE protected IS NULL")
+    # FALSE works on both dialects: PostgreSQL refuses integer 0 for boolean.
+    op.execute("UPDATE job SET protected = FALSE WHERE protected IS NULL")
+    op.execute("UPDATE gpu_registry SET protected = FALSE WHERE protected IS NULL")
+    op.execute("UPDATE gpu_bookings SET protected = FALSE WHERE protected IS NULL")
 
 
 def downgrade() -> None:
