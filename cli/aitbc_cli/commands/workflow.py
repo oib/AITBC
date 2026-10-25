@@ -10,7 +10,8 @@ import click
 import yaml
 
 from ..config import get_config
-from ..utils import error, success
+from ..utils import success
+from ..utils.error_handling import abort
 from ..utils.http_client import auth_headers, service_root_url
 
 
@@ -75,8 +76,7 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         )
 
         if response.status_code != 200:
-            error(f"Failed to start workflow: {response.text}")
-            return
+            abort(None, f"Failed to start workflow: {response.text}")
 
         result = response.json()
         execution_id = result.get("execution_id")
@@ -89,11 +89,9 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         click.echo(f"Status: {result.get('status', 'Running')}")
 
     except FileNotFoundError:
-        error(f"Config file not found: {config}")
-        return
+        abort(None, f"Config file not found: {config}")
     except Exception as e:
-        error(f"Error running workflow: {e}")
-        return
+        abort(None, f"Error running workflow: {e}")
 
 
 @workflow.command(
@@ -141,8 +139,7 @@ def status(workflow_name: str):
         )
 
         if response.status_code != 200:
-            error(f"Failed to get execution status: {response.text}")
-            return
+            abort(None, f"Failed to get execution status: {response.text}")
 
         result = response.json()
 
@@ -154,7 +151,7 @@ def status(workflow_name: str):
             click.echo(f"Error: {result['error_message']}")
 
     except Exception as e:
-        error(f"Error getting workflow status: {e}")
+        abort(None, f"Error getting workflow status: {e}")
 
 
 @workflow.command(
@@ -179,11 +176,10 @@ def stop(workflow_name: str):
         )
 
         if response.status_code != 200:
-            error(f"Failed to cancel workflow: {response.text}")
-            return
+            abort(None, f"Failed to cancel workflow: {response.text}")
 
         success(f"Cancel workflow {workflow_name}")
         click.echo("Status: Cancelled")
 
     except Exception as e:
-        error(f"Error stopping workflow: {e}")
+        abort(None, f"Error stopping workflow: {e}")

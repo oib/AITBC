@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from ..utils import OUTPUT_FORMAT_OPTION, error, info, success
+from ..utils.error_handling import abort
 from ..utils.output import resolve_output_format
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -117,8 +118,7 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
     git_dir = REPO_ROOT / ".git"
     # .git is a file (not a dir) in linked worktrees — check existence, not dir-ness.
     if not git_dir.exists():
-        error(f"{REPO_ROOT} is not a git repository. Install or clone AITBC first.")
-        return
+        abort(None, f"{REPO_ROOT} is not a git repository. Install or clone AITBC first.")
 
     upstream = f"{remote}/{branch}"
     before = _short_sha("HEAD", cwd=REPO_ROOT)
@@ -128,8 +128,7 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
         return
 
     if not no_deploy and not UPDATE_SCRIPT.exists():
-        error(f"Update script not found: {UPDATE_SCRIPT}")
-        return
+        abort(None, f"Update script not found: {UPDATE_SCRIPT}")
 
     if output_format != "json":
         info(f"Pulling {branch} from {remote}...")
