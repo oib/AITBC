@@ -319,3 +319,20 @@ def test_escrow_post_deferral_raises(monkeypatch):
     assert 'should_defer("escrow-submit")' in src and "IslandDegradedError" in src
     os.environ.pop("ISLAND_DEFER_ENABLED", None)
     importlib.reload(_d)
+
+
+def test_escrow_degraded_error_is_dual_typed():
+    """EscrowDegradedError catches under BOTH EscrowRPCError (existing
+    failure handling) and IslandDegradedError (deferral detection)."""
+    import importlib.util as _u
+    from pathlib import Path as _P
+
+    spec = _u.spec_from_file_location(
+        "chain_escrow", _P(__file__).resolve().parents[3] / "apps/agent-coordinator/src/agent_app/services/chain_escrow.py"
+    )
+    ce = _u.module_from_spec(spec)
+    spec.loader.exec_module(ce)
+    from aitbc.island_deferral import IslandDegradedError
+
+    assert issubclass(ce.EscrowDegradedError, ce.EscrowRPCError)
+    assert issubclass(ce.EscrowDegradedError, IslandDegradedError)
