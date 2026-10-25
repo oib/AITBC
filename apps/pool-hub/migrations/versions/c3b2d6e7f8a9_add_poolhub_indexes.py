@@ -21,14 +21,19 @@ depends_on = None
 
 
 # (index_name, table_name, column_name) for single-column indexes.
+#
+# Ownership matters on the way down: a58c1f3b3e87 already created
+# ix_feedback_miner_id, and b2a1c4d5e6f7 already created
+# ix_sla_metrics_miner_id, ix_sla_violations_miner_id and
+# ix_sla_violations_created_at when it built those tables, so this
+# revision's `if_not_exists` made them no-ops. Listing them here anyway
+# made downgrade() drop indexes this revision never created — and then
+# the owning revision's own downgrade failed dropping them a second
+# time. This list is exactly the indexes upgrade() can create.
 _INDEXES: list[tuple[str, str, str]] = [
     ("ix_match_results_miner_id", "match_results", "miner_id"),
     ("ix_match_results_created_at", "match_results", "created_at"),
-    ("ix_feedback_miner_id", "feedback", "miner_id"),
     ("ix_feedback_created_at", "feedback", "created_at"),
-    ("ix_sla_metrics_miner_id", "sla_metrics", "miner_id"),
-    ("ix_sla_violations_miner_id", "sla_violations", "miner_id"),
-    ("ix_sla_violations_created_at", "sla_violations", "created_at"),
 ]
 
 
@@ -39,4 +44,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     for index_name, _table_name, _column_name in reversed(_INDEXES):
-        op.drop_index(index_name, table_name=_table_name)
+        op.drop_index(index_name, table_name=_table_name, if_exists=True)

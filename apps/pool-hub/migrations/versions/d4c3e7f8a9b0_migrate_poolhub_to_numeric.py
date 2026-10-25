@@ -40,23 +40,39 @@ _COLUMNS: list[tuple[str, str, bool]] = [
 ]
 
 
-def upgrade() -> None:
+def _convert(to_type: sa.types.TypeEngine, from_type: sa.types.TypeEngine) -> None:
+    bind = op.get_bind()
+    sqlite = bind.dialect.name == "sqlite"
     for table, column, nullable in _COLUMNS:
-        op.alter_column(
-            table_name=table,
-            column_name=column,
-            type_=sa.Numeric(20, 8),
-            existing_type=sa.Float(),
-            nullable=nullable,
-        )
+        # SQLite has no `ALTER COLUMN`/`SET NOT NULL` at all, so it takes the
+        # batch copy-and-rebuild path; PostgreSQL keeps the native ALTER the
+        # bare op.alter_column used to emit. The rebuild does not carry
+        # separately-created indexes across, so snapshot and restore them.
+        inspector = sa.inspect(bind)
+        indexes = inspector.get_indexes(table) if sqlite else []
+        with op.batch_alter_table(table, recreate="always" if sqlite else "auto") as batch_op:
+            batch_op.alter_column(
+                column_name=column,
+                type_=to_type,
+                existing_type=from_type,
+                nullable=nullable,
+            )
+        if sqlite:
+            surviving = {i["name"] for i in sa.inspect(bind).get_indexes(table)}
+            for index in indexes:
+                if index["name"] not in surviving:
+                    op.create_index(
+                        index["name"],
+                        table,
+                        index["column_names"],
+                        unique=index["unique"],
+                        if_not_exists=True,
+                    )
+
+
+def upgrade() -> None:
+    _convert(sa.Numeric(20, 8), sa.Float())
 
 
 def downgrade() -> None:
-    for table, column, nullable in _COLUMNS:
-        op.alter_column(
-            table_name=table,
-            column_name=column,
-            type_=sa.Float(),
-            existing_type=sa.Numeric(20, 8),
-            nullable=nullable,
-        )
+    _convert(sa.Float(), sa.Numeric(20, 8))
