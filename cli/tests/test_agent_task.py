@@ -220,3 +220,53 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     # The lock tx was signed to the coordinator's settlement wallet,
     # not the buyer's local node wallet.
     assert mock_lock.call_args.kwargs["node_wallet"] == "0xSettleNode"
+
+
+# --- ESCROW-TO-2 (#455): settlement wallet order --------------------------
+#
+# The escrow lock `to` must be the settlement node's node wallet (custody
+# address), not the consensus proposer id. _settlement_wallet order:
+# coordinator /v1/tasks/escrow-config -> RPC /health node_wallet ->
+# warned HUB_PROPOSER_ID.
+
+
+def test_settlement_wallet_prefers_health_over_hub_proposer():
+    """hub_proposer_id set but /health answers: the /health wallet wins."""
+    from types import SimpleNamespace
+
+    from aitbc_cli.commands.agent_task import _settlement_wallet
+
+    client = MagicMock()
+    client.get.return_value = {}  # coordinator names no settlement_wallet
+    config = SimpleNamespace(hub_proposer_id="0xPROP")
+    with patch("aitbc_cli.utils.escrow.get_node_wallet", return_value="0xHEALTH") as g:
+        assert _settlement_wallet(client, config, SimpleNamespace(), "http://rpc:8202") == "0xHEALTH"
+    g.assert_called_once()
+
+
+def test_settlement_wallet_warned_hub_proposer_fallback(capsys):
+    """No coordinator answer and no /health: HUB_PROPOSER_ID is the warned
+    last resort."""
+    from types import SimpleNamespace
+
+    from aitbc_cli.commands.agent_task import _settlement_wallet
+
+    client = MagicMock()
+    client.get.side_effect = Exception("no endpoint")
+    config = SimpleNamespace(hub_proposer_id="0xPROP")
+    with patch("aitbc_cli.utils.escrow.get_node_wallet", side_effect=Exception("no health")):
+        assert _settlement_wallet(client, config, SimpleNamespace(), "http://rpc:8202") == "0xPROP"
+    assert "consensus proposer" in capsys.readouterr().out
+
+
+def test_settlement_wallet_coordinator_wins():
+    """The coordinator's escrow-config still outranks everything else."""
+    from types import SimpleNamespace
+
+    from aitbc_cli.commands.agent_task import _settlement_wallet
+
+    client = MagicMock()
+    client.get.return_value = {"settlement_wallet": "0xCOORD"}
+    config = SimpleNamespace(hub_proposer_id="0xPROP")
+    with patch("aitbc_cli.utils.escrow.get_node_wallet", side_effect=AssertionError("must not be called")):
+        assert _settlement_wallet(client, config, SimpleNamespace(), "http://rpc:8202") == "0xCOORD"
