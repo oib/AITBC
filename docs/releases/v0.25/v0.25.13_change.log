@@ -48,3 +48,5 @@
 ### ESCROW-ROUTE-1
 
 - fix(cli): relay buyer-signed market escrow creates through the coordinator (`POST /v1/escrow/relay`) before the settlement-node retry, so customer nodes blocked by the hub nginx `/rpc/escrow/` allowlist can create escrows once the relay endpoint ships; a 404 (older coordinator) or missing client credential falls through to the existing hub/loopback retry. Refs #442
+### MCP-DRIFT-1
+- `generate_mcp_cli_tools.py --check` now formats emitted output in memory (same `ruff format` pipeline as the write path) before comparing, and verifies the committed split-by-group layout (mode `all`) like `scripts/ci/check-mcp-cli-drift.sh`; previously it compared raw unformatted text against the formatted committed files and failed on every tree. New unit test `tests/unit/test_generate_mcp_cli_tools_check.py` pins the format-then-compare behaviour. (Refs #443)
