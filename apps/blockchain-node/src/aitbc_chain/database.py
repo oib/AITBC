@@ -111,23 +111,31 @@ def _release_keeper_connection(chain_id: str) -> None:
         logger.warning("Could not close the keeper connection for chain %s: %s", chain_id, e)
 
 
-def get_engine(chain_id: str = "") -> Engine:
-    """Get database engine for a specific chain.
+class ChainDbMissingError(FileNotFoundError):
+    """A resolved chain_id whose ``data/<id>/chain.db`` is absent and the
+    caller did not opt into creation. Distinct from a generic
+    FileNotFoundError so the app maps it to a clean 503 (comment 2775)
+    while unrelated missing files keep their own behaviour."""
 
-    Uses SQLCipher for encryption when enabled (db_encryption_enabled plus
-    the key file present).
-    SQLCipher maintains SQLite's internal format while encrypting data at rest.
 
-    Args:
-        chain_id: Chain ID to get engine for. If empty, uses default chain.
+def get_engine(chain_id: str = "", create_ok: bool = False) -> Engine:
+    """Return the cached engine for ``chain_id``, creating it on first use.
 
-    Returns:
-        SQLAlchemy engine for the chain.
+    ``create_ok``: must be True to materialize a missing
+    ``data/<chain_id>/chain.db`` (genesis/init/replay callers only). With
+    the default False, a missing db file raises FileNotFoundError — the
+    guard that keeps a stray chain_id or a computed path from silently
+    creating 0-byte databases (NO-CREATE-DB-OPEN-1, #408).
     """
     resolved_chain_id = resolve_chain_id(chain_id)
 
     if resolved_chain_id not in _engines:
         db_path = settings.get_db_path(resolved_chain_id)
+
+        from pathlib import Path as _Path
+
+        if not create_ok and not _Path(db_path).is_file():
+            raise ChainDbMissingError(f"chain db missing: {db_path} (pass create_ok=True to create — genesis/init only)")
 
         # SQLCipher applies to whichever chain is configured when the flag and
         # the key file are both present; no chain-id literal gates it.
@@ -244,11 +252,11 @@ _session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False,
 _session_factories: dict[str, sessionmaker] = {}
 
 
-def _get_session_factory(chain_id: str) -> sessionmaker:
+def _get_session_factory(chain_id: str, create_ok: bool = False) -> sessionmaker:
     """Get (or create and cache) a sessionmaker bound to the chain's engine."""
     resolved_chain_id = resolve_chain_id(chain_id)
     if resolved_chain_id not in _session_factories:
-        engine = get_engine(chain_id)
+        engine = get_engine(chain_id, create_ok=create_ok)
         _session_factories[resolved_chain_id] = sessionmaker(
             bind=engine, autoflush=False, autocommit=False, class_=Session, expire_on_commit=False
         )
@@ -265,13 +273,13 @@ def _secure_session_scope() -> Generator[Session]:
 
 # Public session scope wrapper with validation
 @contextmanager
-def session_scope(chain_id: str = "") -> Generator[Session]:
+def session_scope(chain_id: str = "", create_ok: bool = False) -> Generator[Session]:
     """Public session scope with application-layer validation
 
     Args:
         chain_id: Chain ID to use for database connection. If empty, uses default chain.
     """
-    factory = _get_session_factory(chain_id)
+    factory = _get_session_factory(chain_id, create_ok=create_ok)
     with factory() as session:
         yield session
 
@@ -607,7 +615,7 @@ def init_db(chain_id: str = "") -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Get or create chain-specific engine
-    engine = get_engine(resolved_chain_id)
+    engine = get_engine(resolved_chain_id, create_ok=True)
     _hold_keeper_connection(resolved_chain_id, engine)
 
     # No try/except here. This used to swallow anything whose message contained "already
