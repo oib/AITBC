@@ -473,3 +473,12 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   it now also prints an explicit "No resource allocations found" line
   instead of an empty table when the array is empty. Stubbed-client
   tests pin array, dict, empty and network-error shapes.
+### TEE-ENVNAME-1
+
+- `aitbc tee` commands resolved credentials in the wrong order
+  (`config.api_key` before the `auth login` store), so a stale config
+  key beat the stored `client@default` login and `tee status` 401'd
+  where `ai jobs` passed. `_api_client` now uses the shared
+  `auth_client_kwargs` resolver (store wins, explicit `--api-key` still
+  top). Tests pin stored-JWT-over-config, config-fallback and no-URL
+  paths.
