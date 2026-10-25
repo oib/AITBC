@@ -190,3 +190,24 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - Tests: every pattern, the must-not-mask list, list/string forms, error
   text, byte-identical executed argv (local and ssh), and an AST coverage
   test that fails when an envelope is serialised without the mask.
+
+### CLI-EXIT-1 — error paths exit non-zero instead of printing and returning (CLI; #423)
+
+- 44+ read-only commands exited 0 while printing an error (SP-13), so
+  scripted plays and the MCP result field could not tell failure from
+  success. The swallowed paths now route through the shared ``abort()``
+  helper (printed message unchanged, exit non-zero):
+  ``transactions status``, ``explorer`` (all read commands), ``governance``
+  (all commands), ``crosschain`` (all commands; the status poll helper keeps
+  its transient-tolerant return, now labelled ``warning``), ``gpu discover``
+  and the rest of ``gpu_market``, ``monitor alerts/webhooks/campaign/
+  sweepers``, ``agent-msg peers``, ``agent discover agents`` (coordinator
+  down), ``wallet`` in ``basic.py`` (not-found and error paths), and
+  ``coin-requests show/approve/reject/execute/reopen`` refusals.
+- Deliberately unchanged: empty-list results (``market list``, alert lists),
+  the ``monitor dashboard`` live TUI error rows, ``transactions send``'s
+  post-send explorer check, and wallet warnings (daemon fallback, integrity
+  mismatch) — those are informational, not failures.
+- Tests: ``cli/tests/test_cli_exit_codes.py`` — stubbed-failure invocations
+  per command group asserting non-zero exit plus an AST guard that fails on
+  any ``error(...)`` immediately followed by ``return`` in the fixed files.

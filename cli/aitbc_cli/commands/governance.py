@@ -20,7 +20,8 @@ import uuid
 import click
 
 from ..config import get_config
-from ..utils import error, output
+from ..utils import output
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet_secret import wallet_password_options
 
@@ -223,11 +224,11 @@ def propose(
         result = client.post("/v1/governance/proposals", json=proposal_data)
         output(result, ctx.obj.get("output_format", format))
     except json.JSONDecodeError:
-        error("Invalid JSON in --params")
+        abort(ctx, "Invalid JSON in --params")
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error creating proposal: {e}")
+        abort(ctx, f"Error creating proposal: {e}", from_exception=e)
 
 
 @governance.command(
@@ -309,9 +310,9 @@ def vote(
         result = client.post("/v1/governance/votes", json=vote_data)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error casting vote: {e}")
+        abort(ctx, f"Error casting vote: {e}", from_exception=e)
 
 
 @governance.command(
@@ -340,9 +341,9 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
         result = client.get("/v1/governance/proposals", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error listing proposals: {e}")
+        abort(ctx, f"Error listing proposals: {e}", from_exception=e)
 
 
 @governance.command(
@@ -400,9 +401,9 @@ def execute(
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}", json=body)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error executing proposal: {e}")
+        abort(ctx, f"Error executing proposal: {e}", from_exception=e)
 
 
 @governance.command(
@@ -422,9 +423,9 @@ def close(ctx, proposal_id: str, format: str):
         result = client.post(f"/v1/governance/proposals/{proposal_id}/close")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error closing proposal: {e}")
+        abort(ctx, f"Error closing proposal: {e}", from_exception=e)
 
 
 @governance.command(
@@ -443,9 +444,9 @@ def status(ctx, format: str):
         result = client.get("/v1/governance/status")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting governance status: {e}")
+        abort(ctx, f"Error getting governance status: {e}", from_exception=e)
 
 
 @governance.command(
@@ -465,9 +466,9 @@ def get(ctx, proposal_id: str, format: str):
         result = client.get(f"/v1/governance/proposals/{proposal_id}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting proposal: {e}")
+        abort(ctx, f"Error getting proposal: {e}", from_exception=e)
 
 
 @governance.group(
@@ -505,9 +506,9 @@ def proposal_show(ctx, proposal_id: str, format: str):
         result = client.get(f"/rpc/governance/sealed-proposal/{proposal_id}", params={"chain_id": chain_id})
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting sealed proposal: {e}")
+        abort(ctx, f"Error getting sealed proposal: {e}", from_exception=e)
 
 
 # ============================================================================
@@ -531,7 +532,7 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
     try:
         chains = [c.strip() for c in target_chains.split(",") if c.strip()]
         if not chains:
-            error("--target-chains must specify at least one chain ID")
+            abort(ctx, "--target-chains must specify at least one chain ID")
             return
         client = _get_client(ctx)
         result = client.post(
@@ -540,9 +541,9 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
         )
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error propagating proposal: {e}")
+        abort(ctx, f"Error propagating proposal: {e}", from_exception=e)
 
 
 @governance.command(
@@ -563,9 +564,9 @@ def aggregate_votes(ctx, proposal_id: str, format: str):
         result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error aggregating votes: {e}")
+        abort(ctx, f"Error aggregating votes: {e}", from_exception=e)
 
 
 @governance.command(
@@ -586,9 +587,9 @@ def execute_cross_chain(ctx, proposal_id: str, format: str):
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute-cross-chain")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error executing cross-chain: {e}")
+        abort(ctx, f"Error executing cross-chain: {e}", from_exception=e)
 
 
 __all__ = ["governance"]
