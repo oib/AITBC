@@ -36731,6 +36731,9 @@
               {
                 "type": "string",
                 "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
               }
             ],
             "title": "Amount"
@@ -36750,8 +36753,7 @@
         },
         "type": "object",
         "required": [
-          "job_id",
-          "amount"
+          "job_id"
         ],
         "title": "EscrowReleaseRelayRequest",
         "description": "The relayed release payload \u2014 ``job_tx_hash`` is the optional\nproof-of-work reference the chain route accepts."
