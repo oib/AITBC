@@ -523,14 +523,6 @@ async def create_offer(
     offer_data: dict[str, Any], request: Request, svc: Annotated[MarketService, Depends(get_market_service)]
 ) -> Any:
     """Create a new market offer"""
-    from aitbc.island_deferral import should_defer
-
-    if should_defer("offer-publish"):
-        raise HTTPException(
-            status_code=503,
-            detail="island-degraded: offer publish deferred",
-            headers={"Retry-After": "60"},
-        )
     key = ""
     attempt = 0
     try:

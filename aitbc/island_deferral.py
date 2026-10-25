@@ -18,6 +18,11 @@ _DEFAULT_PORT = 8204
 _TIMEOUT = 1.5
 
 
+class IslandDegradedError(Exception):
+    """Raised by guarded submit paths when island-degraded: the envelope
+    was not sent; the caller retries on its next cycle."""
+
+
 def defer_enabled() -> bool:
     return os.getenv("ISLAND_DEFER_ENABLED", "").lower() in ("1", "true", "yes")
 

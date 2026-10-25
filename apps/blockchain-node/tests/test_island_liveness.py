@@ -251,27 +251,71 @@ def test_bulk_pull_feeds_hub_observation():
     assert "on_hub_observation" in src and "_island_monitor is not None" in src
 
 
-# ── consumer call sites (#393): 503 + Retry-After, flag-off no-change ──
+# ── corrected deferral sites (#393, director ruling): miner cycle + escrow submit ──
 
 
-def _fn_source(rel: str, fn: str) -> str:
+def _load_miner():
+    import os as _o
+    import sys as _s
+    import importlib.util as _u
     from pathlib import Path as _P
 
-    root = _P(__file__).resolve().parents[3]  # worktree root
-    src = (root / rel).read_text()
-    assert f"def {fn}" in src, f"{fn} not found in {rel}"
-    return src
+    _o.environ.setdefault("MINER_ID", "test-miner")
+    _o.environ.setdefault("MINER_AUTH_TOKEN", "test-token")
+    miner_dir = _P(__file__).resolve().parents[3] / "apps/miner"
+    _s.path.insert(0, str(miner_dir))
+    spec = _u.spec_from_file_location("production_miner", miner_dir / "production_miner.py")
+    pm = _u.module_from_spec(spec)
+    spec.loader.exec_module(pm)
+    return pm
 
 
-def test_market_offer_deferral_site():
-    """create_offer defers with 503+Retry-After only via should_defer."""
-    src = _fn_source("apps/market/src/market_service/main.py", "create_offer")
-    assert 'should_defer("offer-publish")' in src
-    assert "Retry-After" in src and "503" in src
+def test_miner_offer_cycle_defers_and_logs(monkeypatch, capsys):
+    """should_defer True -> no publishes, one 'Deferred N' line."""
+    import asyncio
+    import importlib
+
+    pm = _load_miner()
+    sent = []
+    monkeypatch.setattr(pm, "publish_default_offers", lambda models: sent.append(models))
+    monkeypatch.setenv("ISLAND_DEFER_ENABLED", "true")
+    import aitbc.island_deferral as _d
+
+    importlib.reload(_d)
+    monkeypatch.setattr(_d, "island_degraded", lambda **kw: True)
+    out = asyncio.run(pm.offer_publish_cycle([]))
+    assert out is False and sent == []
+    assert "Deferred 4 default offer(s) — island-degraded" in capsys.readouterr().out
 
 
-def test_agent_submit_deferral_site():
-    """submit_task defers with 503+Retry-After only via should_defer."""
-    src = _fn_source("apps/agent-coordinator/src/agent_app/routing/load_balancer.py", "submit_task")
-    assert 'should_defer("job-submit")' in src
-    assert "Retry-After" in src and "503" in src
+def test_miner_offer_cycle_publishes_when_off(monkeypatch):
+    import asyncio
+    import importlib
+
+    pm = _load_miner()
+    sent = []
+    monkeypatch.setattr(pm, "publish_default_offers", lambda models: sent.append(models))
+    monkeypatch.delenv("ISLAND_DEFER_ENABLED", raising=False)
+    import aitbc.island_deferral as _d
+
+    importlib.reload(_d)
+    monkeypatch.setattr(_d, "island_degraded", lambda **kw: True)
+    out = asyncio.run(pm.offer_publish_cycle(["m"]))
+    assert out is True and sent == [["m"]]  # flag off: publishes even if degraded
+
+
+def test_escrow_post_deferral_raises(monkeypatch):
+    """_post raises IslandDegradedError before the HTTP call when flagged."""
+    import os
+
+    os.environ["ISLAND_DEFER_ENABLED"] = "true"
+    import importlib
+    import aitbc.island_deferral as _d
+
+    importlib.reload(_d)
+    from pathlib import Path as _P
+
+    src = (_P(__file__).resolve().parents[3] / "apps/agent-coordinator/src/agent_app/services/chain_escrow.py").read_text()
+    assert 'should_defer("escrow-submit")' in src and "IslandDegradedError" in src
+    os.environ.pop("ISLAND_DEFER_ENABLED", None)
+    importlib.reload(_d)

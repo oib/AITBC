@@ -305,16 +305,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "island-degraded: offer publish deferred",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
