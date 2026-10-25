@@ -1610,7 +1610,7 @@ tests:
               description: "aitbc_cgroup_oom_kill_total for cgroup root increased over the last 15m on hub:9100 — the kernel killed a process in that scope. A root or slice-scope kill is enforced by the container/systemd limit, not the unit's own MemoryMax, so per-unit memory.events stays at 0: check memory-monitor.log and journalctl -k/systemctl --failed for the victim."
   # IslandHubSilent / IslandImportSilent (#393, #435): one shared
   # import-silence boundary at 300s, both for 15m. The gauge is named
-  # aitbc_island_gossip_silence_seconds but counts silence since the last
+  # aitbc_island_import_silence_seconds but counts silence since the last
   # accepted import on any transport. node1: hub silent + imports fresh
   # -> hub rule only. node2: both silent -> import rule only. node0:
   # import silence at exactly 300 -> import rule only. hub: no island
@@ -1623,19 +1623,19 @@ tests:
     input_series:
       - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node1", job="blockchain-node"}'
         values: '0x10 60x10 700x20'
-      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node1", job="blockchain-node"}'
+      - series: 'aitbc_island_import_silence_seconds{chain_id="bc-2", instance="node1", job="blockchain-node"}'
         values: '60x42'
       - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node2", job="blockchain-node"}'
         values: '0x10 60x10 900x20'
-      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node2", job="blockchain-node"}'
+      - series: 'aitbc_island_import_silence_seconds{chain_id="bc-2", instance="node2", job="blockchain-node"}'
         values: '0x10 60x10 900x20'
       - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node0", job="blockchain-node"}'
         values: '0x10 60x10 700x20'
-      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node0", job="blockchain-node"}'
+      - series: 'aitbc_island_import_silence_seconds{chain_id="bc-2", instance="node0", job="blockchain-node"}'
         values: '0x10 60x10 300x20'
       - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node3", job="blockchain-node"}'
         values: '0x10 60x10 700x20'
-      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node3", job="blockchain-node"}'
+      - series: 'aitbc_island_import_silence_seconds{chain_id="bc-2", instance="node3", job="blockchain-node"}'
         values: '60x30 180 60x10'
       - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="hub", job="blockchain-node"}'
         values: '0x10 60x10 800x20'
@@ -1678,7 +1678,7 @@ tests:
               alertname: IslandImportSilent
             exp_annotations:
               summary: "No block import for 20+ minutes on node0"
-              description: "aitbc_island_gossip_silence_seconds on node0 is 300s: this node has imported no block from any validator on any transport (the gauge name says gossip but the monitor counts every accepted import), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
+              description: "aitbc_island_import_silence_seconds on node0 is 300s: this node has imported no block from any validator on any transport (the gauge counts every accepted import on any transport), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
           - exp_labels:
               severity: warning
               chain_id: bc-2
@@ -1687,4 +1687,4 @@ tests:
               alertname: IslandImportSilent
             exp_annotations:
               summary: "No block import for 20+ minutes on node2"
-              description: "aitbc_island_gossip_silence_seconds on node2 is 900s: this node has imported no block from any validator on any transport (the gauge name says gossip but the monitor counts every accepted import), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
+              description: "aitbc_island_import_silence_seconds on node2 is 900s: this node has imported no block from any validator on any transport (the gauge counts every accepted import on any transport), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
