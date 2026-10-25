@@ -80,6 +80,9 @@ aitbc edge gpu get-gpu --gpu-id gpu-1
 aitbc edge gpu gpu-metrics --gpu-id gpu-1 --limit 20
 ```
 
+**Not played:** `aitbc edge gpu remove-gpu --gpu-id <id>` deregisters a GPU
+from the edge inventory — destructive; needs the operator's line.
+
 ### 3. Record and inspect metrics
 
 ```bash
@@ -141,7 +144,7 @@ queued request — only cancel requests you own.
 
 ### 7. Edge transfer (spends — operator line required)
 
-`aitbc edge transfer --to-address 0x… --amount <n> [--note …]` moves AIT out
+`aitbc edge transfer --to-address <addr> --amount <n>` (optional `--note <text>`) moves AIT out
 of the edge wallet. Any amount is a real spend; not played without the
 operator's line.
 
