@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-51 operator plays of **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Each play is driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
+66 operator plays of **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Each play is driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
 
 The closed economic loop these plays sit on (tokens → job → GPU → escrow → reputation) is documented in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md). Features that are CLI shells or roadmap items are **not** given scenarios until they join that loop.
 
@@ -171,3 +171,18 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 57 | [Coin Requests](./57_coin_requests.md) | New-node initial coin grant: request → operator approve/reject → execute → reconcile | `aitbc coin-requests` |
 || 58 | [Economics & OpenClaw DAO](./58_economics_dao.md) | Economic-parameter proposals and votes via the coordinator | `aitbc economics` |
 || 59 | [Sepolia Buy/Sell AIT via the ETH Bridge](./59_sepolia_buy_sell_ait.md) | ETH→AIT deposit on node0, AIT→ETH withdraw on node2; BRIDGE_WITHDRAW sealing finding | `aitbc wallet bridge` |
+| 60 | [Edge Compute & Islands](./60_edge_compute_islands.md) | Edge wallet, GPU inventory/metrics, island membership, edge databases, serve requests | `aitbc edge` |
+| 61 | [Node Mesh Management](./61_node_mesh_management.md) | Node registry, probes, chain inventory, island health, bridge requests | `aitbc node` |
+| 62 | [Inter-Chain Trading](./62_interchain_trade.md) | Chain registry, offer discovery, trade lifecycle, escrowed settlement | `aitbc trade` |
+| 63 | [CLI Configuration](./63_cli_configuration.md) | Config keys, export/import, environments, profiles, secrets | `aitbc config` |
+| 64 | [Operations Admin](./64_operations_admin.md) | Legacy umbrella group: agent registry, AI jobs, governance (deprecated surface) | `aitbc operations` |
+| 65 | [Simulated Workloads](./65_simulate_workloads.md) | Local simulators: wallets, price, network, AI jobs; server-side gap documented | `aitbc simulate` |
+| 66 | [Coordinator Workflows](./66_coordinator_workflows.md) | List, dry-run, execute, monitor, and stop coordinator workflows | `aitbc workflow` |
+| 67 | [DAO Grants](./67_dao_grants.md) | Grant proposals, voting, milestone disbursement | `aitbc grant` |
+| 68 | [RPC Performance](./68_rpc_performance.md) | Real RPC latency benchmark; tuner leaves documented as a CLI gap | `aitbc performance` |
+| 69 | [Cluster Ops](./69_cluster_ops.md) | Cluster status/sync/balance (stub output documented) | `aitbc cluster` |
+| 70 | [Script Runner](./70_script_runner.md) | Discover and run ops scripts through the CLI | `aitbc script` |
+| 71 | [Reinvest Policy](./71_reinvest_policy.md) | Miner earnings reinvestment policy and split simulation | `aitbc reinvest` |
+| 72 | [Developer Registry](./72_developer_registry.md) | DAO developer registration and listing | `aitbc developer` |
+| 73 | [Contract Deploy & Call](./73_contract_deploy_call.md) | Generic contract deployment and method calls | `aitbc contract` |
+| 74 | [Confidential Payments](./74_confidential_payments.md) | Confidential wallet balance and committed sends (simulated path) | `aitbc confidential` |
