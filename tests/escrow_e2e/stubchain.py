@@ -86,7 +86,14 @@ class StubChain:
         if path == "/health":
             # The settlement wallet is advertised at the blockchain RPC's own
             # /health — the same field get_node_wallet reads.
-            return {"status": "ok", "node_wallet": self.node_wallet, "chain_id": self.chain_id}
+            # Real nodes advertise both the custody wallet and the consensus
+            # proposer id — the confusion between them is the regression.
+            return {
+                "status": "ok",
+                "node_wallet": self.node_wallet,
+                "proposer_id": "0x02B8cC0D4f4d84e5D0a4a4c9a9D04A9C7Dd3Ef01",
+                "chain_id": self.chain_id,
+            }
         if path == "/proposer":
             return {"chain_id": self.chain_id}
         if path.startswith("/rpc/account/"):
