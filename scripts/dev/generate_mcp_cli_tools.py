@@ -1049,18 +1049,24 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mode",
         choices=["safe", "safeguarded", "all", "read_only"],
-        default="safe",
+        default=None,
         help=(
             "Generation mode. 'safe' emits only read-only commands; "
             "'safeguarded' also emits mutating commands with dry_run/confirm guards; "
             "'all' emits every command except the explicit skip list; "
-            "'read_only' is an alias for 'safe'."
+            "'read_only' is an alias for 'safe'. Defaults to 'safe' when "
+            "writing and to 'all' with --check (the committed modules are "
+            "generated with --mode all)."
         ),
     )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Compare the generated module to the existing file and exit with status 1 if it would change.",
+        help=(
+            "Compare the committed generated modules to what the generator would emit "
+            "and exit with status 1 if they would change. Verifies the split-by-group "
+            "layout — the same artifacts scripts/ci/check-mcp-cli-drift.sh gates on."
+        ),
     )
     parser.add_argument(
         "--split-by-group",
@@ -1103,23 +1109,23 @@ def _collect_specs(mode: str, existing: set[str]) -> list[dict[str, Any]]:
 def main() -> int:
     args = _build_parser().parse_args()
 
-    if args.mode == "read_only":
+    if args.mode is None:
+        # The committed artifacts are the --mode all --split-by-group modules,
+        # which is also what scripts/ci/check-mcp-cli-drift.sh regenerates — a
+        # bare --check verifies those. A plain write keeps the 'safe' default.
+        args.mode = "all" if args.check else "safe"
+    elif args.mode == "read_only":
         args.mode = "safe"
 
     results = _collect_specs(args.mode, existing_tool_names())
 
-    if args.split_by_group:
+    if args.split_by_group or args.check:
+        # The tracked generated files are the split modules; --check always
+        # verifies that committed layout, like the drift gate does.
         return write_split_modules(results, args)
 
     out_path = Path(args.output)
     output = render_module(args.mode, results)
-
-    if args.check:
-        if out_path.exists() and out_path.read_text() == output:
-            print("Generated module is up to date.")
-            return 0
-        print(f"Generated module would change: {out_path}")
-        return 1
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(output)
@@ -1168,7 +1174,7 @@ def _write_groups_list_module(
         ]
     )
     if args.check:
-        if not groups_list_path.exists() or groups_list_path.read_text() != groups_list_output:
+        if not groups_list_path.exists() or not _emitted_matches(groups_list_path, groups_list_output):
             print(f"Generated module would change: {groups_list_path}")
             return 1
     else:
@@ -1202,7 +1208,7 @@ def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace)
         group_output = render_module(args.mode, specs)
 
         if args.check:
-            if not group_path.exists() or group_path.read_text() != group_output:
+            if not group_path.exists() or not _emitted_matches(group_path, group_output):
                 print(f"Generated module would change: {group_path}")
                 return 1
             continue
@@ -1234,7 +1240,7 @@ def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace)
     master_output = "\n".join(master_lines) + "\n"
 
     if args.check:
-        if not out_path.exists() or out_path.read_text() != master_output:
+        if not out_path.exists() or not _emitted_matches(out_path, master_output):
             print(f"Generated master module would change: {out_path}")
             return 1
         print("All generated modules are up to date.")
@@ -1246,6 +1252,40 @@ def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace)
     _format_written(written)
     print(f"Wrote master imports for {len(group_modules)} groups to {out_path}")
     return 0
+
+
+def _format_emitted(text: str) -> str:
+    """Return ``text`` as ``ruff format`` would write it.
+
+    The write path runs ``_format_written`` on the emitted files, so the
+    committed modules are always ruff-formatted.  ``--check`` must compare
+    against the same shape — formatting the emitted text in memory keeps the
+    check honest without touching the working tree.  If ruff is unavailable
+    or fails, the unformatted text is returned so the check degrades to the
+    previous raw comparison rather than crashing.
+    """
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "ruff", "format", "--quiet", "-"],
+            input=text,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        print(f"warning: could not run `python -m ruff format` ({exc}) — comparing unformatted output", file=sys.stderr)
+        return text
+    if result.returncode != 0:
+        print(
+            "warning: `python -m ruff format` failed — comparing unformatted output; run with the repo venv",
+            file=sys.stderr,
+        )
+        return text
+    return result.stdout
+
+
+def _emitted_matches(path: Path, emitted_text: str) -> bool:
+    """True when ``path`` holds exactly what the write path would produce."""
+    return path.read_text() == _format_emitted(emitted_text)
 
 
 def _format_written(paths: list[Path]) -> None:
