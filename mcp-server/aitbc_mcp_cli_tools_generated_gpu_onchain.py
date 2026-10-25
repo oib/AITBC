@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -36,6 +36,7 @@ def aitbc_gpu_onchain_allocate(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -53,6 +54,7 @@ def aitbc_gpu_onchain_allocate(
             "total_cost": "total-cost",
             "wallet": "wallet",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None
@@ -91,6 +93,7 @@ def aitbc_gpu_onchain_allocate(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_gpu_onchain_allocations(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -99,7 +102,7 @@ def aitbc_gpu_onchain_allocations(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"gpu_id": "gpu-id"},
+        values={"gpu_id": "gpu-id", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -121,6 +124,7 @@ def aitbc_gpu_onchain_deregister(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -131,7 +135,7 @@ def aitbc_gpu_onchain_deregister(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
-        values={"gpu_id": "gpu-id", "wallet": "wallet", "password_file": "password-file"},
+        values={"gpu_id": "gpu-id", "wallet": "wallet", "password_file": "password-file", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -169,6 +173,7 @@ def aitbc_gpu_onchain_deregister(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_gpu_onchain_list(
     status: Annotated[str | None, Field(description="Filter by status (active, deactivated)")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -177,7 +182,7 @@ def aitbc_gpu_onchain_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"status": "status"},
+        values={"status": "status", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -194,6 +199,7 @@ def aitbc_gpu_onchain_list(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_gpu_onchain_query(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -202,7 +208,7 @@ def aitbc_gpu_onchain_query(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"gpu_id": "gpu-id"},
+        values={"gpu_id": "gpu-id", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -231,6 +237,7 @@ def aitbc_gpu_onchain_register(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -252,6 +259,7 @@ def aitbc_gpu_onchain_register(
             "price_per_hour": "price-per-hour",
             "wallet": "wallet",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None

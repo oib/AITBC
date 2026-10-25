@@ -131,3 +131,31 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   supply any destructive leaf (e.g. `monitor alerts remove`).
 - Tests: error-pattern table (20 false / 10 true cases), timeout byte
   decode, both spellings for every multi-token destructive path.
+
+
+
+### MCP-MISC-1 — leaf --format forwarded on typed tools, canonical --bridge-id emitted, scratch env/cwd on the generic CLI lane (SM-08, SM-10, SM-11; #421)
+
+- Generated typed tools now forward leaf-declared output-format options:
+  ``format``/``output``/``output_format`` were removed from the generator's
+  skip list, so ~90 tools gained a ``format``/``output_format`` parameter
+  (Literal-typed from the leaf's Choice). ``OUTPUT_FORMAT_OPTION``'s twin
+  ``--output``/``--format`` Click options sharing one param name are deduped
+  to a single parameter, ``--format`` preferred. The global ``--output=json``
+  still precedes the group; a leaf option wins where the leaf honours it, and
+  a non-JSON response simply yields no parsed ``json`` field in the envelope.
+- ``get_flag_name`` now prefers the first-declared long option instead of the
+  longest: ``crosschain bridge-status`` emits ``--bridge-id`` (the canonical
+  spelling the CLI epilog and scenarios use) rather than the ``--transfer-id``
+  alias. It was the only multi-long-option leaf in the tree.
+- ``run_aitbc_cli`` and ``read_aitbc_cli`` accept ``env``/``cwd`` for scratch
+  plays: env names are allow-listed (``HOME`` or non-secret ``AITBC_*``
+  names), every value must be a path under ``/var/tmp/``, and ``cwd`` must be
+  under ``/var/tmp/``. Values travel as a POSIX ``cd <dir> && KEY=value``
+  prefix in the remote command string (SSH SendEnv is not used); the
+  mutating-command gate is unchanged.
+- Bug fixed on the local exec path: ``_run_remote`` previously ran
+  ``shlex.split(command)`` directly, so a baked ``KEY=value`` prefix or
+  ``cd <dir> &&`` clause became argv[0] and any env-using tool failed with
+  FileNotFoundError on the MCP host's own node. The local branch now peels
+  POSIX prefixes off the string and applies them as real child env/cwd.

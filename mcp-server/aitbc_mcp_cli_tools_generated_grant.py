@@ -32,6 +32,7 @@ def aitbc_grant_create(
     requested_amount: Annotated[str, Field(description="Requested amount as decimal string")],
     description: Annotated[str | None, Field(description="Grant description")] = None,
     voting_days: Annotated[int | None, Field(description="Voting period in days")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -48,6 +49,7 @@ def aitbc_grant_create(
             "description": "description",
             "requested_amount": "requested-amount",
             "voting_days": "voting-days",
+            "format": "format",
         },
     )
     args = None
@@ -88,6 +90,7 @@ def aitbc_grant_disburse(
     grant_id: Annotated[str, Field(description="The Grant id.")],
     milestone_id: Annotated[str | None, Field(description="Milestone to disburse")] = None,
     amount: Annotated[str | None, Field(description="Amount to disburse (decimal string)")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -98,7 +101,7 @@ def aitbc_grant_disburse(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"grant_id": "grant-id", "milestone_id": "milestone-id", "amount": "amount"},
+        values={"grant_id": "grant-id", "milestone_id": "milestone-id", "amount": "amount", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -139,6 +142,7 @@ def aitbc_grant_list(
     developer_id: Annotated[str | None, Field(description="Filter by developer ID")] = None,
     limit: Annotated[int | None, Field(description="Maximum number of grants")] = None,
     offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -147,7 +151,7 @@ def aitbc_grant_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"status": "status", "developer_id": "developer-id", "limit": "limit", "offset": "offset"},
+        values={"status": "status", "developer_id": "developer-id", "limit": "limit", "offset": "offset", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -166,6 +170,7 @@ def aitbc_grant_vote(
     grant_id: Annotated[str, Field(description="The Grant id.")],
     vote: Annotated[Literal["for", "against", "abstain"], Field(description="Vote choice")],
     voting_power: Annotated[float | None, Field(description="Voting power")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -176,7 +181,7 @@ def aitbc_grant_vote(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"grant_id": "grant-id", "vote": "vote", "voting_power": "voting-power"},
+        values={"grant_id": "grant-id", "vote": "vote", "voting_power": "voting-power", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)

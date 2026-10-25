@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -28,6 +28,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_zk_circuits(
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -36,7 +37,7 @@ def aitbc_zk_circuits(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"coordinator_url": "coordinator-url"},
+        values={"coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -53,6 +54,7 @@ def aitbc_zk_circuits(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_zk_health(
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -61,7 +63,7 @@ def aitbc_zk_health(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"coordinator_url": "coordinator-url"},
+        values={"coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -82,6 +84,7 @@ def aitbc_zk_verify(
     public_signals: Annotated[str | None, Field(description="Public signals JSON, @file, or base64 string")] = None,
     circuit: Annotated[str | None, Field(description="Circuit name to verify against")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -98,6 +101,7 @@ def aitbc_zk_verify(
             "public_signals": "public-signals",
             "circuit": "circuit",
             "coordinator_url": "coordinator-url",
+            "format": "format",
         },
     )
     args = None

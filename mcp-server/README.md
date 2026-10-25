@@ -273,6 +273,23 @@ Examples of `run_aitbc_cli`:
 - group="system", subcommand="check", options={"service": "coordinator-api"}
 - group="http", subcommand="call", args=["blockchain-rpc", "height"]
 - group="blockchain", subcommand="height"
+- scratch play: group="wallet", subcommand="list", env={"HOME": "/var/tmp/scratch"}, cwd="/var/tmp/scratch"
+
+**Output format.** Every command runs with the global `--output=json` flag, so
+typed tools get machine-parseable output by default and the result envelope
+carries a parsed `json` field. Where a leaf command declares its own
+`--format`/`--output` option, the typed tool exposes it (`format` /
+`output_format` parameter) and the leaf option wins over the global default —
+`format="table"` returns the table text, `format="json"` forces JSON on leaves
+whose leaf default is `table` (e.g. `aitbc_reputation_profile`).
+
+**Scratch env/cwd.** `run_aitbc_cli` and `read_aitbc_cli` accept an optional
+`env` map and `cwd`. `env` names are allow-listed — `HOME` or non-secret
+`AITBC_*` names — and every value must be a path under `/var/tmp/`; `cwd` must
+also be under `/var/tmp/`. Values travel as a POSIX `cd <dir> && KEY=value`
+prefix in the remote command string (SSH `SendEnv` is not used); on the MCP
+host's own node they are applied as real child-process `env`/`cwd` instead.
+This is the lane for scratch-wallet/scratch-HOME plays.
 
 The installed CLI only exposes a validated subset of commands. The `blockchain`
 group is exposed for reading chain height and blocks; the legacy `chain` group

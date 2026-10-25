@@ -76,6 +76,7 @@ def aitbc_operations_agent_deregister(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_operations_agent_list(
     status: Annotated[str | None, Field(description="Filter by status")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -84,7 +85,7 @@ def aitbc_operations_agent_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"status": "status"},
+        values={"status": "status", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -258,6 +259,7 @@ def aitbc_operations_ai_cancel(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_operations_ai_status(
     job_id: Annotated[str | None, Field(description="Specific job ID")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -266,7 +268,7 @@ def aitbc_operations_ai_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"job_id": "job-id"},
+        values={"job_id": "job-id", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -343,6 +345,7 @@ def aitbc_operations_governance_delegate(
     delegator: Annotated[str, Field(description="Delegator address")],
     delegate: Annotated[str, Field(description="Delegate address")],
     amount: Annotated[int, Field(description="Amount of voting power to delegate")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -353,7 +356,7 @@ def aitbc_operations_governance_delegate(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"delegator": "delegator", "delegate": "delegate", "amount": "amount"},
+        values={"delegator": "delegator", "delegate": "delegate", "amount": "amount", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -391,6 +394,7 @@ def aitbc_operations_governance_delegate(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_operations_governance_execute(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -401,7 +405,7 @@ def aitbc_operations_governance_execute(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id"},
+        values={"proposal_id": "proposal-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -439,6 +443,7 @@ def aitbc_operations_governance_execute(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_operations_governance_get_proposal(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -449,7 +454,7 @@ def aitbc_operations_governance_get_proposal(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id"},
+        values={"proposal_id": "proposal-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -501,6 +506,7 @@ def aitbc_operations_governance_proposal(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -520,6 +526,7 @@ def aitbc_operations_governance_proposal(
             "wallet": "wallet",
             "voting_days": "voting-days",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None
@@ -560,6 +567,7 @@ def aitbc_operations_governance_stake(
     address: Annotated[str, Field(description="Staker address")],
     amount: Annotated[int, Field(description="Amount of tokens to stake")],
     lock_days: Annotated[int | None, Field(description="Lock period in days (min 30)")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -570,7 +578,7 @@ def aitbc_operations_governance_stake(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"address": "address", "amount": "amount", "lock_days": "lock-days"},
+        values={"address": "address", "amount": "amount", "lock_days": "lock-days", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -615,6 +623,7 @@ def aitbc_operations_governance_vote(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -632,6 +641,7 @@ def aitbc_operations_governance_vote(
             "voting_power": "voting-power",
             "reason": "reason",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None
@@ -670,6 +680,7 @@ def aitbc_operations_governance_vote(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_operations_governance_voting_power(
     address: Annotated[str, Field(description="Blockchain address to fund.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -680,7 +691,7 @@ def aitbc_operations_governance_voting_power(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"address": "address"},
+        values={"address": "address", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
