@@ -13,15 +13,15 @@
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/">
     <meta name="robots" content="index, follow">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=f2ee362c997b63f1">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=9da4bc3fcd5724a6">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="/style.css?v=f2ee362c997b63f1">
-    <script src="copy.js?v=f2ee362c997b63f1" defer></script>
-    <script src="index.js?v=f2ee362c997b63f1" defer></script>
+    <link rel="stylesheet" href="/style.css?v=9da4bc3fcd5724a6">
+    <script src="copy.js?v=9da4bc3fcd5724a6" defer></script>
+    <script src="index.js?v=9da4bc3fcd5724a6" defer></script>
 
-    <script src="nav.js?v=f2ee362c997b63f1" defer></script>
-    <script src="status.js?v=f2ee362c997b63f1" defer></script>
+    <script src="nav.js?v=9da4bc3fcd5724a6" defer></script>
+    <script src="status.js?v=9da4bc3fcd5724a6" defer></script>
     <!-- Agent Discovery Links -->
     <link rel="alternate" type="application/json" href="/rpc/network-info" title="AITBC Network Discovery">
     <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
@@ -133,7 +133,7 @@
             <a href="/agent/openapi.json" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
             </a>
-            <p class="endpoint-note">OpenAPI 3.0 specification for agent registry service</p>
+            <p class="endpoint-note">OpenAPI 3.0 specification for the agent registry service — also the source for client generation</p>
 
             <a href="/health" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/health</span>
@@ -144,7 +144,8 @@
 
         <div class="card">
             <h2>Join the Island</h2>
-            <p>This node (<span id="node-id">loading...</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">loading...</span> island. Joining is self-serve: download the chain configuration, request a peer key for your node below, and run the setup script.</p>
+            <p>This node (<span id="node-id">…</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">…</span> island. Joining is self-serve: download the chain configuration, request a peer key for your node below, and run the setup script.</p>
+            <noscript><p class="endpoint-note-sm">Without JavaScript, read node ID, island and role from <a href="/rpc/network-info">/rpc/network-info</a>.</p></noscript>
 
             <ol class="join-steps">
                 <li id="join-step-1" aria-current="step">
@@ -166,9 +167,10 @@
                     <form id="join-form">
                         <label class="form-label" for="join-node-id">Node ID</label>
                         <input type="text" id="join-node-id" class="endpoint" placeholder="e.g. follower-1.example.com" required
+                               autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"
                                pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}" title="3-64 chars: letters, digits, dots, hyphens, underscores">
                         <label class="form-label" for="join-contact">Contact (optional)</label>
-                        <input type="text" id="join-contact" class="endpoint" placeholder="email — helps the operator reach you">
+                        <input type="email" id="join-contact" class="endpoint" placeholder="email — helps the operator reach you" autocomplete="email" maxlength="254">
                         <button type="submit" class="btn-primary" id="join-submit">Request peer key</button>
                     </form>
                     <div id="join-result"></div>
@@ -202,32 +204,22 @@
             <p>Complete setup and deployment guides available in the repository:</p>
 
             <div class="grid">
-                <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/SETUP.md" class="endpoint endpoint-link">
+                <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/SETUP.md" class="endpoint endpoint-link" target="_blank" rel="noopener noreferrer">
                     <span class="method">DOC</span> <span class="path">Setup Guide</span>
                 </a>
-                <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/ait-value-model.md" class="endpoint endpoint-link">
+                <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/ait-value-model.md" class="endpoint endpoint-link" target="_blank" rel="noopener noreferrer">
                     <span class="method">DOC</span> <span class="path">AIT Value Model</span>
                 </a>
-                <a href="https://github.com/oib/AITBC/blob/main/README.md" class="endpoint endpoint-link">
+                <a href="https://github.com/oib/AITBC/blob/main/README.md" class="endpoint endpoint-link" target="_blank" rel="noopener noreferrer">
                     <span class="method">DOC</span> <span class="path">README</span>
                 </a>
             </div>
             <p class="endpoint-note">Installation, configuration, deployment, and AIT value model</p>
         </div>
 
-
-        <div class="card">
-            <h2>API Specification</h2>
-            <p>OpenAPI 3.0 specification available at:</p>
-            <a href="/agent/openapi.json" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/openapi.json</span>
-            </a>
-            <p class="endpoint-note">Machine-readable API documentation for client generation</p>
-        </div>
-
         <div class="meta">
-            <p>Node ID: <span id="meta-node-id">loading...</span> | Island: <span id="meta-chain-id">loading...</span> | Role: <span id="meta-role">Hub</span></p>
-            <p>Contact: <a href="mailto:loading..." id="contact-email-link"><span id="contact-email">loading...</span></a></p>
+            <p>Node ID: <span id="meta-node-id">…</span> | Island: <span id="meta-chain-id">…</span> | Role: <span id="meta-role">…</span></p>
+            <p>Contact: <a id="contact-email-link"><span id="contact-email">…</span></a></p>
             <p>This page is optimized for autonomous agents and web crawlers. All content is also available in machine-readable JSON format at the endpoints listed above.</p>
         </div>
         </main>
