@@ -257,7 +257,8 @@ def aitbc_wallet_bridge_deposit(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_bridge_float(
     hub_url: Annotated[
-        str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
+        str | None,
+        Field(description="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)"),
     ] = None,
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
@@ -302,7 +303,7 @@ def aitbc_wallet_bridge_float(
 def aitbc_wallet_bridge_sell_lock(
     quote_id: Annotated[str, Field(description="Sell quote id from `sell quote`.")],
     wallet_name: Annotated[str | None, Field(description="Shop wallet name (signs the lock).")] = None,
-    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for status lookup.")] = None,
+    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL — bare origin, path is stripped.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -373,7 +374,7 @@ def aitbc_wallet_bridge_sell_quote(
     amount: Annotated[str, Field(description="AIT amount to sell.")],
     eth_address: Annotated[str, Field(description="Ethereum address to receive ETH.")],
     wallet_name: Annotated[str | None, Field(description="Shop wallet name (AIT source).")] = None,
-    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for the quote routes.")] = None,
+    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL — bare origin, path is stripped.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -448,7 +449,7 @@ def aitbc_wallet_bridge_sell_quote(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_bridge_sell_status(
     identifier: Annotated[str, Field(description="Quote id, lock id, or lock transaction hash.")],
-    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL.")] = None,
+    hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL — bare origin, path is stripped.")] = None,
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
     use_daemon: Annotated[
@@ -520,7 +521,8 @@ def aitbc_wallet_bridge_settlements(
     kind: Annotated[Literal["trade", "order_refund"] | None, Field(description="Filter by settlement kind")] = None,
     limit: Annotated[int | None, Field(description="Max rows (server caps at 500)")] = None,
     hub_url: Annotated[
-        str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
+        str | None,
+        Field(description="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)"),
     ] = None,
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
@@ -598,7 +600,8 @@ def aitbc_wallet_bridge_status(
         bool | None, Field(description="Aggregate releases over the rolling 24h window (the sell day-cap basis).")
     ] = None,
     hub_url: Annotated[
-        str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
+        str | None,
+        Field(description="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)"),
     ] = None,
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,

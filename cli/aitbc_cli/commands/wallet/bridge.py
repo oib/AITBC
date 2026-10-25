@@ -325,7 +325,12 @@ def withdraw(
     default=False,
     help="Aggregate releases over the rolling 24h window (the sell day-cap basis).",
 )
-@click.option("--hub-url", "hub_url", default=None, help="Hub wallet-service base URL (default: configured wallet daemon)")
+@click.option(
+    "--hub-url",
+    "hub_url",
+    default=None,
+    help="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)",
+)
 @click.pass_context
 def status(ctx, ait_tx_hash: str | None, today: bool, last_24h: bool, hub_url: str | None):
     """Check an AIT->ETH withdrawal, or aggregate ETH released over a
@@ -373,9 +378,14 @@ def status(ctx, ait_tx_hash: str | None, today: bool, last_24h: bool, hub_url: s
     epilog="""Examples:
 
   aitbc wallet bridge float
-  aitbc wallet bridge float --hub-url https://hub.example/wallet   # from a shop node""",
+  aitbc wallet bridge float --hub-url https://hub.example   # from a shop node""",
 )
-@click.option("--hub-url", "hub_url", default=None, help="Hub wallet-service base URL (default: configured wallet daemon)")
+@click.option(
+    "--hub-url",
+    "hub_url",
+    default=None,
+    help="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)",
+)
 @click.pass_context
 def float_cmd(ctx, hub_url: str | None):
     """Show the bridge ETH float: wallet balance, pending reserve across
@@ -395,12 +405,17 @@ def float_cmd(ctx, hub_url: str | None):
 
   aitbc wallet bridge settlements
   aitbc wallet bridge settlements --state needs_review --kind order_refund
-  aitbc wallet bridge settlements --hub-url https://hub.example/wallet   # from a shop node""",
+  aitbc wallet bridge settlements --hub-url https://hub.example   # from a shop node""",
 )
 @click.option("--state", "state", default=None, help="Filter by settlement status (needs_review, settled, refunded, ...)")
 @click.option("--kind", "kind", type=click.Choice(["trade", "order_refund"]), default=None, help="Filter by settlement kind")
 @click.option("--limit", "limit", type=int, default=50, show_default=True, help="Max rows (server caps at 500)")
-@click.option("--hub-url", "hub_url", default=None, help="Hub wallet-service base URL (default: configured wallet daemon)")
+@click.option(
+    "--hub-url",
+    "hub_url",
+    default=None,
+    help="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)",
+)
 @click.pass_context
 def settlements(ctx, state, kind, limit, hub_url):
     """List exchange-settlement ledger rows on the hub wallet service
@@ -423,15 +438,32 @@ def sell():
     pass
 
 
+def _normalize_hub_url(hub_url: str) -> str:
+    """Normalize ``--hub-url`` to the bare origin ``scheme://host[:port]``.
+
+    The hub's nginx mounts ``/v1/bridge/*`` at the origin root — a path-
+    suffixed URL (e.g. ``https://hub.example``) silently 404s, so any
+    path/query/fragment is stripped. A scheme-less value gets ``https://``.
+    """
+    from urllib.parse import urlsplit
+
+    raw = hub_url.strip()
+    if "://" not in raw:
+        raw = "https://" + raw
+    parts = urlsplit(raw)
+    return f"{parts.scheme}://{parts.netloc}"
+
+
 def _hub_bridge_client(hub_url: str | None) -> AITBCHTTPClient:
     """HTTP client for the hub's wallet service carrying the sell routes.
 
     Defaults to the configured wallet daemon; on a shop node pass
     ``--hub-url`` for the hub's bridge mount (the hub wallet daemon itself is
-    loopback-only).
+    loopback-only). An explicit ``--hub-url`` is normalized to its bare
+    origin — the bridge routes live at the root, not under a path prefix.
     """
     config = get_config()
-    base_url = (hub_url or config.wallet_daemon_url).rstrip("/")
+    base_url = _normalize_hub_url(hub_url) if hub_url else config.wallet_daemon_url.rstrip("/")
     return AITBCHTTPClient(base_url=base_url, timeout=30, max_retries=0, api_key=config.wallet_api_key)
 
 
@@ -457,14 +489,14 @@ def _resolve_wallet(
     name="quote",
     epilog="""Examples:
 
-  aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc... --hub-url https://hub.example/wallet
+  aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc... --hub-url https://hub.example
 
   aitbc wallet bridge sell quote --amount 10 --eth-address 0xAbc...   # on the hub itself""",
 )
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="AIT amount to sell.")
 @click.option("--eth-address", "eth_address", required=True, help="Ethereum address to receive ETH.")
 @click.option("--wallet-name", "wallet_name", required=False, help="Shop wallet name (AIT source).")
-@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL for the quote routes.")
+@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL — bare origin, path is stripped.")
 @wallet_password_options
 @click.pass_context
 def sell_quote(
@@ -520,7 +552,7 @@ def sell_quote(
 )
 @click.option("--quote-id", "quote_id", required=True, help="Sell quote id from `sell quote`.")
 @click.option("--wallet-name", "wallet_name", required=False, help="Shop wallet name (signs the lock).")
-@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL for status lookup.")
+@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL — bare origin, path is stripped.")
 @wallet_password_options
 @click.pass_context
 def sell_lock(
@@ -631,7 +663,7 @@ def sell_lock(
   aitbc wallet bridge sell status --id sellq_ab12...""",
 )
 @click.option("--id", "identifier", required=True, help="Quote id, lock id, or lock transaction hash.")
-@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL.")
+@click.option("--hub-url", "hub_url", required=False, help="Hub wallet-service base URL — bare origin, path is stripped.")
 @click.pass_context
 def sell_status(ctx, identifier: str, hub_url: str | None):
     """Check the status of a sell quote or lock."""
@@ -641,5 +673,27 @@ def sell_status(ctx, identifier: str, hub_url: str | None):
     except Exception as e:
         error(f"Failed to get sell status: {http_error_detail(e) or e}")
         raise click.Abort() from e
+
+    # The quote row freezes at 'locked' once a lock exists — the live state
+    # (releasing/released/settled/refunded) is on the lock row the hub embeds
+    # under "lock". Hoist it so the reported status is the lock's.
+    lock = info.get("lock")
+    if info.get("kind") == "quote" and isinstance(lock, dict):
+        out = {k: v for k, v in info.items() if k not in ("kind", "lock")}
+        out.update(
+            {
+                "kind": "lock",
+                "quote_status": info.get("status"),
+                "status": lock.get("status"),
+                "lock_id": lock.get("id"),
+                "ait_tx_hash": lock.get("ait_tx_hash"),
+                "eth_tx_hash": lock.get("eth_tx_hash"),
+                "settle_tx_hash": lock.get("settle_tx_hash"),
+                "refund_tx_hash": lock.get("refund_tx_hash"),
+                "error": lock.get("error"),
+                "settled_at": lock.get("settled_at"),
+            }
+        )
+        info = out
 
     output(info, ctx.obj.get("output_format", "table"))
