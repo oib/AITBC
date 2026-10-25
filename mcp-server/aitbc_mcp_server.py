@@ -365,12 +365,32 @@ def _build_env_prefix(env: dict[str, str] | None) -> str:
 # ---------------------------------------------------------------------------
 
 
+# Safe shape for an explicit host override: an ssh-config alias, hostname, IP
+# literal, or optional ``user@`` prefix. Leading ``-`` and whitespace/``=`` are
+# excluded so the value can never become an ssh option token in argv.
+_HOST_PATTERN = re.compile(r"^(?:[A-Za-z0-9_.]+@)?[A-Za-z0-9_][A-Za-z0-9_.:\-]*$")
+
+
 def _host_for_role(role: str | None, host: str | None = None) -> str:
-    """Resolve the SSH host for a node role or an explicit host."""
+    """Resolve the SSH host for a node role or an explicit host.
+
+    ``role`` and ``host`` are mutually exclusive: passing both is refused so a
+    caller can never silently land on a different node than the role intends.
+    An unknown role is refused instead of falling through to be used as the
+    ssh target itself. Explicit hosts are validated against ``_HOST_PATTERN``
+    so a value cannot be parsed as an ssh option.
+    """
+    if host and role:
+        raise ValueError("pass either role or host, not both")
     if host:
+        if not _HOST_PATTERN.fullmatch(host):
+            raise ValueError(f"invalid host override: {host!r}")
         return host
     if role:
-        return _role_hosts().get(role, role)
+        resolved = _role_hosts().get(role)
+        if not resolved:
+            raise ValueError(f"unknown role: {role}")
+        return resolved
     return _default_host()
 
 
@@ -401,9 +421,10 @@ def _execution_context(host: str) -> dict[str, str]:
     (including the user) or ``local``, plus the execution mode, before a
     confirmed call runs.
     """
+    base = {"host": host, "resolved_host": host, "role_used": _role_for_host(host)}
     if _is_local_host(host):
-        return {"host": host, "target": "local", "mode": "local"}
-    return {"host": host, "target": _ssh_target(host), "mode": "ssh"}
+        return {**base, "target": "local", "mode": "local"}
+    return {**base, "target": _ssh_target(host), "mode": "ssh"}
 
 
 def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
