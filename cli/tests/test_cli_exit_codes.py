@@ -219,6 +219,7 @@ GUARD = {
     "agent.py": ["No wallet directory found"],
     "chain.py": ["Error from /rpc/network-info"],
     "config.py": [],
+    "edge.py": ["not implemented", "Failed to sync", "Network error"],
     "energy.py": [],
     "genesis.py": [],
     "ipfs.py": ["Failed to send island IPFS"],
