@@ -169,7 +169,7 @@ aitbc ai submit --prompt "Cross-node paid job test" \
 >
 > **Known telemetry gap:** `--buyer-address` is carried in the escrow payload but the job record currently reports `buyer_address: null` — the flag is honored on-chain, the listing just doesn't echo it.
 
-Release the escrow explicitly (needed only for non-`--wait` submissions) with the `accept` command:
+Release the escrow explicitly (needed only for non-`--wait` submissions) with the `accept` command. The release travels via the coordinator's buyer-bound JWT relay `POST /v1/escrow/release` (see [escrow-relays runbook](../ops/escrow-relays.md)) — the CLI-uses-relay path is **planned** under ESCROW-RELEASE-2; until it lands the call uses the settlement node's rpc directly:
 
 ```bash
 aitbc ai accept --job-id "$JOB_ID"
