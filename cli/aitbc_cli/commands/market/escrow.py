@@ -163,7 +163,10 @@ def _resolve_release_amount(config, job_id: str, amount: Any) -> tuple[str | Non
     if amount is None:
         amount = _escrow_locked_amount(config, job_id)
         if amount is None:
-            return None, "escrow amount unreadable for the release relay body"
+            # Unreadable amount is no longer fatal for the relay: the
+            # coordinator accepts an omitted amount and releases the full
+            # lock (director ruling on #469).
+            return None, None
     try:
         amount_dec = Decimal(str(amount))
     except (InvalidOperation, ValueError, TypeError):
@@ -299,7 +302,9 @@ def _release_via_relay(
     amount_str, skip = _resolve_release_amount(config, job_id, amount)
     if skip is not None:
         return None, None, skip
-    body: dict[str, Any] = {"job_id": job_id, "amount": amount_str}
+    body: dict[str, Any] = {"job_id": job_id}
+    if amount_str is not None:
+        body["amount"] = amount_str
     if job_tx_hash:
         body["job_tx_hash"] = job_tx_hash
     client = AITBCHTTPClient(
