@@ -61,7 +61,7 @@ def test_get_engine_opens_no_file_when_unconfigured(unconfigured, monkeypatch):
     )
     before = set(database._engines)
     with pytest.raises(ChainIdNotConfigured):
-        get_engine()
+        get_engine(create_ok=True)
     assert calls == []  # resolution failed before any path was consulted
     assert set(database._engines) == before  # no new engine was opened
 
@@ -165,7 +165,7 @@ class TestSQLCipherGate:
 
     def test_flag_off_no_encryption_any_id(self, monkeypatch):
         monkeypatch.setattr(settings, "db_encryption_enabled", False)
-        engine = get_engine("test-chain")
+        engine = get_engine("test-chain", create_ok=True)
         assert engine.dialect.dbapi.__name__ == "sqlite3.dbapi2"
 
     def test_flag_on_with_keyfile_encrypts_non_mainnet_id(self, monkeypatch, tmp_path):
@@ -177,11 +177,11 @@ class TestSQLCipherGate:
         fake.paramstyle = "qmark"  # dialect reads these at engine construction
         fake.sqlite_version_info = (3, 45, 0)
         monkeypatch.setitem(sys.modules, "sqlcipher3", fake)
-        engine = get_engine("test-chain")  # not the pinned default
+        engine = get_engine("test-chain", create_ok=True)  # not the pinned default
         assert engine.dialect.dbapi is fake
 
     def test_flag_on_missing_keyfile_unchanged(self, monkeypatch, tmp_path):
         monkeypatch.setattr(settings, "db_encryption_enabled", True)
         monkeypatch.setattr(settings, "db_encryption_key_path", tmp_path / "missing.key")
-        engine = get_engine("test-chain")
+        engine = get_engine("test-chain", create_ok=True)
         assert engine.dialect.dbapi.__name__ == "sqlite3.dbapi2"
