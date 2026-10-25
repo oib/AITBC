@@ -9,7 +9,17 @@ from pathlib import Path
 MCP_SERVER_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(MCP_SERVER_DIR))
 
+import aitbc_mcp_server as mcp_server
 import aitbc_mcp_rpc_tools as rpc_tools
+
+# Deterministic role map: unmapped roles are refused now (MCP-ROUTING-1), so
+# tests must not depend on the machine's real mcp-hosts.yaml. Identical map
+# in test_aitbc_mcp_cli_tools.py — last-writer-wins stays order-safe.
+mcp_server._HOSTS_CONFIG = {
+    "roles": {"hub": "hub", "customer": "node0", "shop": "node2"},
+    "default_host": "hub",
+    "ssh_user": "",
+}
 
 
 FULL_BRIDGE_STATUS: dict[str, object] = {

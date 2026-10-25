@@ -11,6 +11,15 @@ sys.path.insert(0, str(MCP_SERVER_DIR))
 
 import aitbc_mcp_server as mcp_server
 
+# Deterministic role map: unmapped roles are refused now (MCP-ROUTING-1), so
+# tests must not depend on the machine's real mcp-hosts.yaml. Identical map
+# in test_aitbc_mcp_rpc_tools.py — last-writer-wins stays order-safe.
+mcp_server._HOSTS_CONFIG = {
+    "roles": {"hub": "hub", "customer": "node0", "shop": "node2"},
+    "default_host": "hub",
+    "ssh_user": "",
+}
+
 # Replace remote SSH execution with a recorder so tests run offline.
 CAPTURED: list[dict[str, object]] = []
 
