@@ -91,6 +91,11 @@ def _settlement_node_url(detail: str) -> str | None:
     if idx < 0:
         return None
     url = detail[idx + len(marker) :].strip().rstrip(".")
+    # The named URL may carry a trailing /rpc — strip it like
+    # _get_blockchain_rpc_url does, or callers double the path segment.
+    url = url.rstrip("/")
+    if url.endswith("/rpc"):
+        url = url[:-4]
     return url or None
 
 
