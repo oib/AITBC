@@ -139,6 +139,18 @@ Cost: 0 units — recommendation/adjustment only.
 aitbc resource optimize --agent-id agent-001 --target-metric latency
 ```
 
+<!-- COVERAGE-LEFT-1: generic HTTP pivot leaf (issue #445) -->
+
+### Step 11: HTTP pivot (read-only GET)
+
+`aitbc http call` reaches a named local service without remembering its port. A GET is read-only:
+
+```bash
+aitbc http call blockchain-rpc /health
+```
+
+**Expected output:** the service's `/health` JSON. Non-GET `--method` values and paths that mutate state are not played, needs the operator's line.
+
 ---
 
 ## Expected Outcomes
