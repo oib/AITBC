@@ -18,6 +18,36 @@ class JobState(StrEnum):
     expired = "EXPIRED"
 
 
+# Aliases accepted for the ?status= filter on the job-list endpoints. "pending"
+# is the name the CLI and scenario docs use for a not-yet-started job; it maps to
+# QUEUED. "all"/"any" mean "no filter" and resolve to None.
+JOB_STATE_ALIASES: dict[str, JobState] = {"PENDING": JobState.queued}
+JOB_STATE_UNFILTERED = {"ALL", "ANY", "*"}
+
+
+def parse_job_state_filter(value: str) -> JobState | None:
+    """Resolve a ``?status=`` query value to a JobState.
+
+    Returns ``None`` for the explicit "no filter" values (all/any/*). Raises
+    ``ValueError`` for anything that is neither a JobState name/value nor a
+    known alias, so callers can answer 400 instead of silently dropping the
+    filter.
+    """
+    normalized = value.strip().upper()
+    if normalized in JOB_STATE_UNFILTERED:
+        return None
+    if normalized in JOB_STATE_ALIASES:
+        return JOB_STATE_ALIASES[normalized]
+    return JobState(normalized)
+
+
+def job_state_filter_help() -> str:
+    """Human-readable list of valid status filter values for error messages."""
+    valid = ", ".join(s.value.lower() for s in JobState)
+    aliases = ", ".join(f"{k.lower()}→{v.value.lower()}" for k, v in JOB_STATE_ALIASES.items())
+    return f"valid values: {valid}; aliases: {aliases}; 'all' disables the filter"
+
+
 class Constraints(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
