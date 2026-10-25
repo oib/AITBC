@@ -293,6 +293,17 @@ asyncio.run(main())
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 6: Reset genesis state
+
+`aitbc genesis reset --chain-id ait-testnet --yes` is wipes the local chain database and regenerates genesis state — destructive; not played, needs the operator's line.
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
