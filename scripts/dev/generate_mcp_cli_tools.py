@@ -753,10 +753,39 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
             if argument is not None:
                 positional.append(argument)
 
+    # Options declared on the leaf's top-level Click group are part of the
+    # leaf's real CLI surface: Click accepts them between the group token and
+    # the subcommand path (`aitbc wallet --wallet-name genesis send …`).
+    # Dropping them produced MCP tools that could not select a wallet and
+    # silently used the ACTIVE wallet for spends (PLAY3 option-missing).
+    # They are collected separately into ``group_options`` so the wrapper
+    # emits them ahead of the subcommand tokens — merging them into the leaf
+    # ``options`` would place them after the leaf, where Click rejects group
+    # flags.  Only the top-level group is hoisted: deeper intermediate groups
+    # could not be placed correctly and none declare options today.
+    group_options: list[dict[str, Any]] = []
+    top_group = cli.commands.get(path[0]) if len(path) >= 2 else None
+    if isinstance(top_group, click.Group):
+        leaf_flags = {o["flag"] for o in options}
+        for j, param in enumerate(top_group.params):
+            if not isinstance(param, click.Option):
+                continue
+            flag = get_flag_name(param)
+            if flag and flag in leaf_flags:
+                # The leaf redeclares the same flag — the leaf parameter
+                # already covers it (Click accepts leaf options at leaf
+                # position), so a second parameter would only alias it.
+                continue
+            option = _parse_option(param, 10_000 + j, seen_names)
+            if option is not None:
+                group_options.append(option)
+                leaf_flags.add(option["flag"])
+
     return {
         "path": path,
         "command": cmd,
         "options": options,
+        "group_options": group_options,
         "positional": positional,
         "help": (cmd.help or "").strip(),
         "callback": cmd.callback,
@@ -777,7 +806,7 @@ def render_field(param: dict[str, Any], *, is_timeout: bool = False) -> str:
 
 def _render_signature(spec: dict[str, Any], func_name: str, read_only: bool) -> list[str]:
     """Emit the def line, parameter list and docstring of one tool."""
-    all_params = build_param_schema(spec["positional"] + spec["options"])
+    all_params = build_param_schema(spec["positional"] + spec["options"] + spec.get("group_options", []))
 
     lines: list[str] = [f"def {func_name}("]
     for param in all_params:
@@ -813,17 +842,31 @@ def _render_options_block(spec: dict[str, Any]) -> list[str]:
     ``locals()`` is passed so the helper can look each parameter up by name;
     the flag/value maps use the python parameter names as keys.
     """
+    lines: list[str]
     if not spec["options"]:
-        return ["    options: dict[str, Any] = {}"]
-    flags = {p["py_name"]: p["flag"] for p in spec["options"] if p["is_flag"]}
-    values = {p["py_name"]: p["flag"] for p in spec["options"] if not p["is_flag"]}
-    return [
-        "    options: dict[str, Any] = _collect_options(",
-        "        locals(),",
-        f"        flags={_render_str_map(flags)},",
-        f"        values={_render_str_map(values)},",
-        "    )",
-    ]
+        lines = ["    options: dict[str, Any] = {}"]
+    else:
+        flags = {p["py_name"]: p["flag"] for p in spec["options"] if p["is_flag"]}
+        values = {p["py_name"]: p["flag"] for p in spec["options"] if not p["is_flag"]}
+        lines = [
+            "    options: dict[str, Any] = _collect_options(",
+            "        locals(),",
+            f"        flags={_render_str_map(flags)},",
+            f"        values={_render_str_map(values)},",
+            "    )",
+        ]
+    group_params = spec.get("group_options") or []
+    if group_params:
+        gflags = {p["py_name"]: p["flag"] for p in group_params if p["is_flag"]}
+        gvalues = {p["py_name"]: p["flag"] for p in group_params if not p["is_flag"]}
+        lines += [
+            "    group_options: dict[str, Any] = _collect_options(",
+            "        locals(),",
+            f"        flags={_render_str_map(gflags)},",
+            f"        values={_render_str_map(gvalues)},",
+            "    )",
+        ]
+    return lines
 
 
 def _render_args_block(spec: dict[str, Any]) -> list[str]:
@@ -857,9 +900,11 @@ def _render_call_block(spec: dict[str, Any], read_only: bool) -> list[str]:
     path = spec["path"]
     group = quote(path[0])
     subcommand = _subcommand_literal(path)
+    has_group_options = bool(spec.get("group_options"))
+    group_options_line = "        group_options=group_options,"
 
     if read_only:
-        return [
+        lines = [
             "    return _aitbc_cli_read_tool(",
             "        role,",
             "        host,",
@@ -867,9 +912,14 @@ def _render_call_block(spec: dict[str, Any], read_only: bool) -> list[str]:
             f"        subcommand={subcommand},",
             "        args=args,",
             "        options=options,",
+        ]
+        if has_group_options:
+            lines.append(group_options_line)
+        lines += [
             "        timeout=timeout,",
             "    )",
         ]
+        return lines
 
     lines = [
         "    target = _host_for_role(role, host)",
@@ -879,6 +929,10 @@ def _render_call_block(spec: dict[str, Any], read_only: bool) -> list[str]:
         "        args=args,",
         "        options=options,",
         '        output_format="json",',
+    ]
+    if has_group_options:
+        lines.append(group_options_line)
+    lines += [
         "    )",
         "    if dry_run:",
         '        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))',
@@ -893,6 +947,10 @@ def _render_call_block(spec: dict[str, Any], read_only: bool) -> list[str]:
         "            options=options,",
         '            output_format="json",',
         "            timeout=timeout,",
+    ]
+    if has_group_options:
+        lines.append("            group_options=group_options,")
+    lines += [
         "        )",
         "    )",
     ]
@@ -1069,7 +1127,7 @@ def render_module(mode: str, specs: list[dict[str, Any]]) -> str:
     has_safeguarded = any(spec["mode"] == "safeguarded" for spec in specs)
     has_decimal = any(p["type"] == "Decimal" for spec in specs for p in spec["options"] + spec["positional"])
     has_literal = any("Literal[" in p["type"] for spec in specs for p in spec["options"] + spec["positional"])
-    has_options = any(spec["options"] for spec in specs)
+    has_options = any(spec["options"] or spec.get("group_options") for spec in specs)
 
     lines = build_header(mode, len(specs), has_read_only, has_safeguarded, has_decimal, has_literal, has_options)
     for spec in specs:

@@ -16,3 +16,17 @@
   expressions, thresholds and `for:` values unchanged. promtool
   check + test green on node2 (island section; two BridgeSet failures
   pre-exist on main).
+
+### PLAY3 MCP option forwarding
+
+- Generated CLI-mirroring MCP tools now carry options declared on a
+  command's top-level Click group (e.g. `aitbc wallet --wallet-name
+  --wallet-path --use-daemon --chain-id`, `aitbc market --wallet
+  --wallet-path --password-file`, `aitbc coin-requests --db`). They were
+  previously dropped from the tool schema and the emitted argv, so an
+  MCP-executed `wallet send` would silently use the ACTIVE wallet
+  (SCENARIO-PLAY-3 SM-class `option-missing` on node0). Group options are
+  emitted via `group_options` ahead of the subcommand tokens, matching
+  Click parsing; leaf-redeclared flags keep their leaf position.
+  Secret-value options (`--password`, `--password-stdin`) stay excluded
+  per SM-03; `--password-file` is forwarded as a path. Refs #438.
