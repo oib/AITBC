@@ -170,6 +170,37 @@ asyncio.run(main())
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 5: Subscribe to island storage
+
+Subscribes the wallet to an island's IPFS storage tier.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc ipfs island subscribe --wallet my-agent-wallet --to 0xIsland --island-id isle-1 --amount 36000000
+```
+
+### Step 6: Unpin a CID
+
+Removes a pin so the object can be garbage-collected.
+
+Cost: 0 units — local pin removal.
+
+```bash
+aitbc ipfs unpin --cid QmExampleCid
+```
+
+### Step 7: Fetch an island swarm key
+
+`aitbc ipfs island swarm-key --wallet my-agent-wallet --island-id isle-1` is returns the island's IPFS swarm key — key material; not played, needs the operator's line.
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
