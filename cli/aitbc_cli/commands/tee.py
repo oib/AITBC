@@ -22,16 +22,10 @@ from aitbc.tee.verification import DualVerificationPolicy, VerificationMode, ver
 
 from typing import Any
 
-from ..auth import AuthManager
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import LOGIN_HINT, abort, is_unauthorized
-from ..utils.http_client import AITBCHTTPClient, NetworkError
-
-
-def _looks_like_jwt(token: str) -> bool:
-    """A JWT is three base64url segments separated by dots."""
-    return token.startswith("ey") and token.count(".") == 2
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
 
 
 def _abort_for_api_error(ctx, e: NetworkError) -> None:
@@ -52,18 +46,15 @@ def _api_client(ctx) -> AITBCHTTPClient | None:
     if url.endswith("/v1"):
         url = url[:-3]
 
+    # TEE-ENVNAME-1: same credential resolver as ai/monitor — the stored
+    # `auth login` credential wins over config.api_key (the old order
+    # inverted those, so a stale config key beat `client@default`).
     token = ctx.obj.get("api_key") if ctx and hasattr(ctx, "obj") else None
-    if not token:
-        token = config.api_key or ""
-    if not token:
-        token = AuthManager().get_credential("client", quiet=True)
-    headers: dict[str, str] | None = None
-    client_kwargs: dict[str, Any] = {"base_url": url, "timeout": config.timeout, "headers": headers}
-    if token and _looks_like_jwt(token):
-        client_kwargs["headers"] = {"Authorization": f"Bearer {token}"}
-    elif token:
-        client_kwargs["api_key"] = token
-
+    client_kwargs: dict[str, Any] = {
+        "base_url": url,
+        "timeout": config.timeout,
+        **auth_client_kwargs(explicit_key=token, config_key=config.api_key),
+    }
     return AITBCHTTPClient(**client_kwargs)
 
 
