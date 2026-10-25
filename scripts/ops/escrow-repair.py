@@ -269,7 +269,9 @@ def _cmd_apply(args: argparse.Namespace) -> int:
         )
         return 2
 
-    conn = sqlite3.connect(db)
+    # mode=rw: read-write on an EXISTING file, refuses to create a missing
+    # one — the --write path needs writes, the no-create class still holds.
+    conn = sqlite3.connect(f"file:{db}?mode=rw", uri=True)
     conn.row_factory = sqlite3.Row
     try:
         report, _failures = _reb.reconcile(conn)
