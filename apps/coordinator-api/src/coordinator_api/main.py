@@ -53,7 +53,7 @@ from .contexts.compliance.routers import hipaa_router
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
 from .contexts.market.routers import market, market_gpu, market_offers, bonds as market_bonds
-from .contexts.payments.routers import escrow_relay, payments
+from .contexts.payments.routers import escrow_relay, escrow_release_relay, payments
 from .contexts.portfolio.routers import portfolio_router
 from .database_async import close_async_db
 from .exceptions import AITBCError, ErrorResponse
@@ -908,6 +908,7 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(media, prefix="/v1")
     app.include_router(payments, prefix="/v1")
     app.include_router(escrow_relay, prefix="/v1")
+    app.include_router(escrow_release_relay, prefix="/v1")
     app.include_router(inference, prefix="/v1")
     app.include_router(explorer, prefix="/v1")
     app.include_router(services, prefix="/v1")
