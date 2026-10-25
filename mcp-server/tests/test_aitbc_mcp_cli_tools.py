@@ -868,7 +868,8 @@ def test_secret_file_forms_scrub_the_value_from_output(tmp_path):
 
     out = rpc_tools.get_ipfs_rental_token(access_key="ak-test", access_secret_file=str(secret_file), role="hub")
     assert secret not in out, "rental secret leaked into serialized tool output"
-    assert "***" in out
+    # MCP-ECHO-1 masks the echoed command in _json before _scrub_secrets runs.
+    assert "<redacted>" in out
     # The forwarded call did carry the secret on the remote argv (recorded
     # follow-up: `aitbc http call` has no --params-file) — prove the relay
     # still happened.
