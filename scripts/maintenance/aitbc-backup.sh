@@ -150,10 +150,14 @@ for pg_db in "${PG_DBS[@]}"; do
     fi
 
     log "Backing up PostgreSQL ${pg_db}..."
-    if [ -z "$pg_pw" ]; then
-        warn "PostgreSQL backup SKIPPED for ${pg_db}: no password found"
+    # Dump as the postgres superuser via peer auth — a same-named role dump
+    # fails silently on tables owned by postgres (node0's aitbc_marketplace
+    # had 4 such tables; BACKUP-PG-OWNER-1). pg_pw/pg_user stay for any
+    # external consumer; the superuser can lock every table.
+    if ! sudo -u postgres psql -d "${pg_db}" -tc "SELECT 1" >/dev/null 2>&1; then
+        warn "PostgreSQL backup SKIPPED for ${pg_db}: postgres cannot connect"
     else
-        if PGPASSWORD="$pg_pw" pg_dump -U "$pg_user" -h localhost "$pg_db" \
+        if sudo -u postgres pg_dump "${pg_db}" \
             | gzip > "${BACKUP_DIR}/postgres_${pg_db}.sql.gz"; then
             chmod 600 "${BACKUP_DIR}/postgres_${pg_db}.sql.gz"
             log "PostgreSQL backup: OK for ${pg_db} ($(du -sh "${BACKUP_DIR}/postgres_${pg_db}.sql.gz" | cut -f1))"

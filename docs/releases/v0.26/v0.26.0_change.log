@@ -346,3 +346,15 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - ``_settlement_node_url`` parses the URL out of the node's detail text;
   tests stub the 503 + settlement-node path in
   ``cli/tests/test_escrow_settlement_fallback.py``.
+
+
+### BACKUP-PG-OWNER-1
+
+- The nightly Postgres dump ran as each database's same-named role and
+  silently failed on tables owned by `postgres` (node0's
+  `aitbc_marketplace` had 4). `aitbc-backup.sh` now dumps as the
+  `postgres` superuser via peer auth, so every public table is covered
+  regardless of owner; failed dumps still leave no artifact.
+  `setup_postgresql_databases.sh` now reassigns foreign-owned
+  public-schema tables to the database role on rerun, so a rerun cannot
+  recreate the ownership mix.
