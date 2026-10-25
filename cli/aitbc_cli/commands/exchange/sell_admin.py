@@ -19,9 +19,14 @@ def sell_admin():
     epilog="""Examples:
 
   aitbc exchange sell_admin status
-  aitbc exchange sell_admin status --hub-url https://hub.example/wallet""",
+  aitbc exchange sell_admin status --hub-url https://hub.example""",
 )
-@click.option("--hub-url", "hub_url", default=None, help="Hub wallet-service base URL (default: configured wallet daemon)")
+@click.option(
+    "--hub-url",
+    "hub_url",
+    default=None,
+    help="Hub wallet-service base URL — bare origin, path is stripped (default: configured wallet daemon)",
+)
 @click.pass_context
 def status(ctx, hub_url: str | None):
     """Show the sell lane's enabled/disabled state and non-secret config
