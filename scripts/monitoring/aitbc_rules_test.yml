@@ -1608,15 +1608,41 @@ tests:
             exp_annotations:
               summary: "New OOM kill in cgroup root (hub:9100)"
               description: "aitbc_cgroup_oom_kill_total for cgroup root increased over the last 15m on hub:9100 — the kernel killed a process in that scope. A root or slice-scope kill is enforced by the container/systemd limit, not the unit's own MemoryMax, so per-unit memory.events stays at 0: check memory-monitor.log and journalctl -k/systemctl --failed for the victim."
-  # IslandHubSilent (#393): hub silence gauge >600s for 15m -> warning.
-  # The island monitor serves aitbc_island_hub_silence_seconds.
+  # IslandHubSilent / IslandGossipSilent (#393): one shared gossip-silence
+  # boundary at 300s, both for 15m. node1: hub silent + gossip fresh -> hub
+  # rule only. node2: both silent -> gossip rule only. node0: gossip at
+  # exactly 300 -> gossip rule only. hub: no gossip series (no monitor) ->
+  # neither. node3: like node1, but one slow slot at 31m lifts gossip
+  # silence to 180 mid-hold; it stays under 300, so the hub rule's for-timer
+  # is not reset and node3 still fires at 40m (a 120 boundary would not).
+  # Values flip at 21m, so 30m is still pending and 40m fires.
   - interval: 1m
     input_series:
       - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node1", job="blockchain-node"}'
         values: '0x10 60x10 700x20'
+      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node1", job="blockchain-node"}'
+        values: '60x42'
+      - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node2", job="blockchain-node"}'
+        values: '0x10 60x10 900x20'
+      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node2", job="blockchain-node"}'
+        values: '0x10 60x10 900x20'
+      - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node0", job="blockchain-node"}'
+        values: '0x10 60x10 700x20'
+      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node0", job="blockchain-node"}'
+        values: '0x10 60x10 300x20'
+      - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="node3", job="blockchain-node"}'
+        values: '0x10 60x10 700x20'
+      - series: 'aitbc_island_gossip_silence_seconds{chain_id="bc-2", instance="node3", job="blockchain-node"}'
+        values: '60x30 180 60x10'
       - series: 'aitbc_island_hub_silence_seconds{chain_id="bc-2", instance="hub", job="blockchain-node"}'
         values: '0x10 60x10 800x20'
     alert_rule_test:
+      - eval_time: 30m
+        alertname: IslandHubSilent
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: IslandGossipSilent
+        exp_alerts: []
       - eval_time: 40m
         alertname: IslandHubSilent
         exp_alerts:
@@ -1628,13 +1654,34 @@ tests:
               alertname: IslandHubSilent
             exp_annotations:
               summary: "No hub-originated observation for 15+ minutes on node1"
-              description: "aitbc_island_hub_silence_seconds on node1 is 700s. The monitor counts silence across every observation path — hub-proposed gossip blocks, pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while the head keeps advancing. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
+              description: "aitbc_island_hub_silence_seconds on node1 is 700s. The monitor counts silence across every observation path — hub-proposed gossip blocks, pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while gossip blocks from the other validators keep arriving. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
           - exp_labels:
               severity: warning
               chain_id: bc-2
-              instance: hub
+              instance: node3
               job: blockchain-node
               alertname: IslandHubSilent
             exp_annotations:
-              summary: "No hub-originated observation for 15+ minutes on hub"
-              description: "aitbc_island_hub_silence_seconds on hub is 800s. The monitor counts silence across every observation path — hub-proposed gossip blocks, pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while the head keeps advancing. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
+              summary: "No hub-originated observation for 15+ minutes on node3"
+              description: "aitbc_island_hub_silence_seconds on node3 is 700s. The monitor counts silence across every observation path — hub-proposed gossip blocks, pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while gossip blocks from the other validators keep arriving. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
+      - eval_time: 40m
+        alertname: IslandGossipSilent
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              chain_id: bc-2
+              instance: node0
+              job: blockchain-node
+              alertname: IslandGossipSilent
+            exp_annotations:
+              summary: "No gossip block received for 20+ minutes on node0"
+              description: "aitbc_island_gossip_silence_seconds on node0 is 300s: this node has received no gossip block from any validator, so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's gossip connections, sync peer and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
+          - exp_labels:
+              severity: warning
+              chain_id: bc-2
+              instance: node2
+              job: blockchain-node
+              alertname: IslandGossipSilent
+            exp_annotations:
+              summary: "No gossip block received for 20+ minutes on node2"
+              description: "aitbc_island_gossip_silence_seconds on node2 is 900s: this node has received no gossip block from any validator, so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's gossip connections, sync peer and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
