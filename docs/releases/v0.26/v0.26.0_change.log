@@ -286,3 +286,14 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `dispute votes` print `Dispute N not found` and exit non-zero on the
   404 instead of dumping the request error. Live reproduction on node2
   (dispute 999999) showed the 500s in hub's rpc journal.
+
+
+### CLI-LOOPBACK-1
+
+- `gpu discover`/`gpu list-gpus` on customer nodes failed on the
+  loopback `gpu_service_url` default with a bare network error. GPU
+  failures now append a hint naming the loopback URL and the fix
+  (set the service URL — the hub gateway has no `/v1/gpu/` mount).
+  Market commands already try the hub before the local service
+  (`_candidate_bases`), and `agent-msg peers` honours the explicit
+  `--coordinator-url` before the hub-resolved default.
