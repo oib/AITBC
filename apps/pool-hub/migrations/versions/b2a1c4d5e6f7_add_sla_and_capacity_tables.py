@@ -108,16 +108,19 @@ def downgrade() -> None:
     op.drop_index("ix_capacity_snapshots_timestamp", table_name="capacity_snapshots")
     op.drop_table("capacity_snapshots")
 
-    # Drop sla_violations table
+    # Drop sla_violations table. if_exists=True on the indexes: the later
+    # c3b2d6e7f8a9 revision also drops ix_sla_violations_{miner_id,created_at}
+    # on its own downgrade (it re-creates them if_not_exists on upgrade), so
+    # they may already be gone here (PG-TARGET-1 stream 3 fixture run).
     op.drop_index("ix_sla_violations_severity", table_name="sla_violations")
-    op.drop_index("ix_sla_violations_created_at", table_name="sla_violations")
-    op.drop_index("ix_sla_violations_miner_id", table_name="sla_violations")
+    op.drop_index("ix_sla_violations_created_at", table_name="sla_violations", if_exists=True)
+    op.drop_index("ix_sla_violations_miner_id", table_name="sla_violations", if_exists=True)
     op.drop_table("sla_violations")
 
     # Drop sla_metrics table
     op.drop_index("ix_sla_metrics_metric_type", table_name="sla_metrics")
     op.drop_index("ix_sla_metrics_timestamp", table_name="sla_metrics")
-    op.drop_index("ix_sla_metrics_miner_id", table_name="sla_metrics")
+    op.drop_index("ix_sla_metrics_miner_id", table_name="sla_metrics", if_exists=True)
     op.drop_table("sla_metrics")
 
     # Remove columns from miner_status table
