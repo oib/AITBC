@@ -138,9 +138,12 @@ def _escrow_create(
     Estimates that round to zero compute-units are rounded up to one compute-unit
     so the lock transaction is valid and the provider can be paid.
 
-    ``node_wallet`` is the hub proposer address that will hold the escrow.
-    On follower/customer nodes the local RPC has no proposer, so callers should
-    pass the hub's proposer (``HUB_PROPOSER_ID`` or ``--proposer``).
+    ``node_wallet`` is the settlement node's custody address the lock pays
+    to — deliberately not the consensus proposer id. Resolution order: an
+    explicit ``--proposer``/``node_wallet`` argument, then the node's own
+    ``/health`` ``node_wallet`` (customer nodes already advertise the
+    settlement wallet there), with ``HUB_PROPOSER_ID`` only as a warned
+    fallback.
     """
     from . import get_chain_id
     from ...utils.escrow import create_signed_escrow_lock
@@ -159,11 +162,13 @@ def _escrow_create(
         info(f"Rounding escrow up to minimum {min_escrow_ait} AIT (1 compute-unit)")
         amount = min_escrow_ait
 
-    # Follower/customer nodes have no local proposer; use the configured hub proposer.
+    # The escrow `to` is the settlement node's *node wallet* (the custody
+    # address) — deliberately NOT the consensus proposer id. Prefer the
+    # node's own /health advertisement: on customer nodes it already names
+    # the settlement wallet (node0 and hub share it). HUB_PROPOSER_ID is a
+    # different identity and only a warned fallback.
     if not node_wallet:
-        node_wallet = getattr(config, "hub_proposer_id", None) or None
-    if not node_wallet:
-        # Try local /health discovery (hub/proposer nodes) before giving up.
+        # Local /health discovery names the node wallet (settlement custody).
         from ...utils.escrow import get_node_wallet
 
         try:
@@ -171,7 +176,14 @@ def _escrow_create(
         except Exception:
             pass
     if not node_wallet:
-        error("No escrow proposer address available. Set HUB_PROPOSER_ID, or run on a hub/proposer node.")
+        node_wallet = getattr(config, "hub_proposer_id", None) or None
+        if node_wallet:
+            warning(
+                "Using HUB_PROPOSER_ID as escrow destination — it is the consensus proposer, "
+                "not the node wallet; the settlement chain may reject the lock"
+            )
+    if not node_wallet:
+        error("No escrow node-wallet address available. Run on a node whose /health advertises node_wallet.")
         raise click.Abort()
 
     rpc_url = _get_blockchain_rpc_url(config)
