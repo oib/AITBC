@@ -385,7 +385,7 @@ def test_node_wallet_prefers_health_over_hub_proposer_id(monkeypatch):
 
     monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _Rpc(base_url))
     monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
-    captured = {}
+    captured: dict = {}
 
     def lock(ctx, rpc_url, job_id, buyer, provider, amount, pk, chain_id=None, fee=None, node_wallet=None, **kw):
         captured["node_wallet"] = node_wallet
@@ -413,7 +413,7 @@ def test_node_wallet_prefers_health_over_hub_proposer_id(monkeypatch):
 
 def test_node_wallet_warned_fallback_to_hub_proposer(monkeypatch, capsys):
     """When /health yields nothing, HUB_PROPOSER_ID is used with a warning."""
-    captured = {}
+    captured: dict = {}
 
     def lock(ctx, rpc_url, job_id, buyer, provider, amount, pk, chain_id=None, fee=None, node_wallet=None, **kw):
         captured["node_wallet"] = node_wallet
@@ -447,3 +447,82 @@ def test_node_wallet_warned_fallback_to_hub_proposer(monkeypatch, capsys):
     )
     assert captured["node_wallet"] == "0xPROP"
     assert "consensus proposer" in capsys.readouterr().out
+
+
+# --- ESCROW-TO-2 (#455): paid-job callers must not pin the proposer id ----
+#
+# Before #455, run_job/hermes_job computed `node_wallet = proposer_id or
+# config.hub_proposer_id`, which won over _escrow_create's /health
+# resolution. Now the explicit --proposer flag is the only override; with
+# no flag the caller passes None so _escrow_create resolves the node
+# wallet from /health.
+
+
+def _patch_run_job(monkeypatch, jobs_mod, captured, service_type="ollama"):
+    from click.testing import CliRunner
+
+    monkeypatch.setattr(jobs_mod, "resolve_output_format", lambda ctx, fmt: fmt or "json")
+    monkeypatch.setattr(
+        jobs_mod, "_resolve_offer", lambda ctx, x: {"service_type": service_type, "offer_id": "o1", "price": "1"}
+    )
+    monkeypatch.setattr(jobs_mod, "get_market_wallet", lambda ctx, require_private_key=False: ("0xB", "dead", "w1"))
+    monkeypatch.setattr(jobs_mod, "get_config", lambda: SimpleNamespace(hub_proposer_id="0xPROP"))
+    return CliRunner()
+
+
+def test_run_job_no_flag_passes_node_wallet_none(monkeypatch):
+    """market run without --proposer: HUB_PROPOSER_ID must NOT reach the
+    escrow `to` — node_wallet stays None so /health resolves it."""
+    import aitbc_cli.commands.market.jobs as jobs_mod
+
+    captured: dict = {}
+    runner = _patch_run_job(monkeypatch, jobs_mod, captured)
+
+    def fake_ollama(ctx, offer, prompt, wallet, pk, max_tokens, stream, output_format, track, node_wallet=None):
+        captured["node_wallet"] = node_wallet
+
+    monkeypatch.setattr(jobs_mod, "_run_ollama", fake_ollama)
+    result = runner.invoke(
+        jobs_mod.run_job, ["--offer-id-or-plugin-id", "o1", "--prompt", "hi"], obj={"output_format": "json"}
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["node_wallet"] is None
+
+
+def test_run_job_explicit_proposer_flag_wins(monkeypatch):
+    """market run --proposer: the explicit flag is still the override."""
+    import aitbc_cli.commands.market.jobs as jobs_mod
+
+    captured: dict = {}
+    runner = _patch_run_job(monkeypatch, jobs_mod, captured)
+
+    def fake_ollama(ctx, offer, prompt, wallet, pk, max_tokens, stream, output_format, track, node_wallet=None):
+        captured["node_wallet"] = node_wallet
+
+    monkeypatch.setattr(jobs_mod, "_run_ollama", fake_ollama)
+    result = runner.invoke(
+        jobs_mod.run_job,
+        ["--offer-id-or-plugin-id", "o1", "--prompt", "hi", "--proposer", "0xFLAG"],
+        obj={"output_format": "json"},
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["node_wallet"] == "0xFLAG"
+
+
+def test_hermes_job_no_flag_passes_node_wallet_none(monkeypatch):
+    """market hermes without --proposer: node_wallet stays None despite
+    HUB_PROPOSER_ID being set."""
+    import aitbc_cli.commands.market.jobs as jobs_mod
+
+    captured: dict = {}
+    runner = _patch_run_job(monkeypatch, jobs_mod, captured, service_type="hermes")
+
+    def fake_hermes(ctx, offer, prompt, max_time, wallet, pk, output_format, track, node_wallet=None):
+        captured["node_wallet"] = node_wallet
+
+    monkeypatch.setattr(jobs_mod, "_run_hermes", fake_hermes)
+    result = runner.invoke(
+        jobs_mod.hermes_job, ["--offer-id-or-plugin-id", "o1", "--prompt", "hi"], obj={"output_format": "json"}
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["node_wallet"] is None
