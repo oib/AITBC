@@ -37,7 +37,7 @@ def _wal(chain_id: str) -> Path:
 
 def _write_session(chain_id: str) -> None:
     """One short session that commits a write, like any proposer or sync session does."""
-    with session_scope(chain_id) as session:
+    with session_scope(chain_id, create_ok=True) as session:
         session.execute(text("CREATE TABLE IF NOT EXISTS keeper_probe (a INTEGER)"))
         session.execute(text("INSERT INTO keeper_probe VALUES (1)"))
         session.commit()
@@ -93,7 +93,7 @@ def test_keeper_survives_a_session_error(chain, monkeypatch) -> None:
     monkeypatch.setattr(settings, "db_keeper_connection", True)
     init_db(chain)
     with pytest.raises(OperationalError):
-        with session_scope(chain) as session:
+        with session_scope(chain, create_ok=True) as session:
             session.execute(text("SELECT * FROM table_that_does_not_exist"))
     assert chain in database._keepers
     _write_session(chain)
