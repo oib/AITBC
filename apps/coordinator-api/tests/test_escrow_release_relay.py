@@ -291,3 +291,43 @@ def test_release_route_registered_in_security_matrix():
 
     assert get_auth_level("/v1/escrow/release") == AuthLevel.ADMIN_OR_CLIENT
     assert ROUTE_SECURITY_MATRIX["/v1/escrow/release"] == AuthLevel.ADMIN_OR_CLIENT
+
+
+class TestOmittedAmount:
+    """Directors ruling on #469: an omitted amount releases the full lock
+    — ownership and dedup still run before the amount is derived."""
+
+    def test_omitted_amount_releases_full_lock(self, client, db_session):
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json={"job_id": "mkt_job_1"}, headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text
+        # Forwarded body carries NO amount — the chain pays the whole lock.
+        posted = mock_client.post.call_args.kwargs.get("json") or mock_client.post.call_args[1].get("json", {})
+        assert "amount" not in posted
+
+    def test_omitted_amount_still_requires_buyer(self, client, db_session):
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock(escrow=_escrow_state(buyer="0xSomebodyElse"))
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json={"job_id": "mkt_job_1"}, headers=_token("client-1"))
+        assert resp.status_code == 403
+
+    def test_omitted_amount_on_refunded_escrow_is_409(self, client, db_session):
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock(escrow=_escrow_state(state="refunded"))
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json={"job_id": "mkt_job_1"}, headers=_token("client-1"))
+        assert resp.status_code == 409
+
+    def test_omitted_amount_replay_returns_stored(self, client, db_session):
+        _bind_wallet(db_session, "client-1", BUYER)
+        db_session.add(EscrowReleaseRelay(client_id="client-1", job_id="mkt_job_1", tx_hash="0xearlier", contract_id="0xc1"))
+        db_session.commit()
+        mock_client = _chain_client_mock(escrow=_escrow_state(state="released"))
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json={"job_id": "mkt_job_1"}, headers=_token("client-1"))
+        assert resp.status_code == 200
+        assert resp.json()["tx_hash"] == "0xearlier"
+        assert mock_client.post.call_count == 0
