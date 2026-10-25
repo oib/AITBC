@@ -4526,6 +4526,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/escrow/relay",
+          "upstream": "/v1/escrow/relay",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/exchange/confirm-payment/{payment_id}",
           "upstream": "/v1/exchange/confirm-payment/{payment_id}",
           "methods": [
