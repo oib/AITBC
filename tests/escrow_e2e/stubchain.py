@@ -23,6 +23,7 @@ Errors are raised as :class:`aitbc.exceptions.NetworkError` with an
 
 from __future__ import annotations
 
+import copy
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -100,7 +101,10 @@ class StubChain:
         raise refusal("GET", base + path, 404, f"no such route: {path}")
 
     def post(self, base: str, path: str, payload: dict[str, Any] | None) -> Any:
-        self.calls.append((base, "POST", path, payload))
+        # Snapshot: callers mutate the payload in place on retry (the nonce
+        # bump rewrites job_data), and the call log must keep each attempt's
+        # own body.
+        self.calls.append((base, "POST", path, copy.deepcopy(payload)))
         url = base + path
         if base == LOCAL_RPC_URL and path == "/rpc/escrow/create" and self.refuse_local_create is not None:
             raise refusal("POST", url, self.refuse_local_create, "Forbidden")
