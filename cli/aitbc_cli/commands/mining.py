@@ -7,6 +7,7 @@ from typing import Any, cast
 import click
 
 from ..utils import error, success
+from ..utils.error_handling import abort
 from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
 from ..utils.wallet_paths import wallet_search_dirs
 
@@ -96,8 +97,7 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
     try:
         address = _load_wallet_address(wallet_name)
     except FileNotFoundError as e:
-        error(str(e))
-        return
+        abort(None, str(e))
 
     mining_config: dict[str, Any] = {"miner_address": address, "threads": threads, "enabled": True}
 
@@ -112,11 +112,11 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
         if "404" in str(e):
             error("Mining RPC endpoint not found. Check blockchain-node RPC configuration.")
         elif "401" in str(e):
-            error("Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.")
+            abort(None, "Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.")
         else:
-            error(f"Error starting mining: {e}")
+            abort(None, f"Error starting mining: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 @mining.command(
@@ -137,8 +137,7 @@ def stop(wallet_name: str | None, rpc_url: str | None):
         wallet = wallet_name or _default_wallet_name()
         address = _load_wallet_address(wallet)
     except FileNotFoundError as e:
-        error(str(e))
-        return
+        abort(None, str(e))
 
     try:
         http_client = _client(rpc_url, address)
@@ -151,7 +150,7 @@ def stop(wallet_name: str | None, rpc_url: str | None):
         else:
             error(f"Error stopping mining: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 @mining.command(
@@ -172,8 +171,7 @@ def status(wallet_name: str | None, rpc_url: str | None):
         wallet = wallet_name or _default_wallet_name()
         address = _load_wallet_address(wallet)
     except FileNotFoundError as e:
-        error(str(e))
-        return
+        abort(None, str(e))
 
     try:
         http_client = _client(rpc_url, address)
@@ -186,7 +184,7 @@ def status(wallet_name: str | None, rpc_url: str | None):
         else:
             error(f"Error getting mining status: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 @mining.command(
@@ -208,8 +206,7 @@ def list_miners(wallet_name: str | None, rpc_url: str | None):
         wallet = wallet_name or _default_wallet_name()
         address = _load_wallet_address(wallet)
     except FileNotFoundError as e:
-        error(str(e))
-        return
+        abort(None, str(e))
 
     try:
         http_client = _client(rpc_url, address)
@@ -222,4 +219,4 @@ def list_miners(wallet_name: str | None, rpc_url: str | None):
         else:
             error(f"Error listing miners: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")

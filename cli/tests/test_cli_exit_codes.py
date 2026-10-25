@@ -216,6 +216,23 @@ def test_monitor_alerts_test_webhook_fails_nonzero(runner, tmp_path, monkeypatch
 COMMANDS_DIR = Path(__file__).resolve().parent.parent / "aitbc_cli" / "commands"
 
 GUARD = {
+    "agent.py": ["No wallet directory found"],
+    "chain.py": ["Error from /rpc/network-info"],
+    "config.py": [],
+    "energy.py": [],
+    "genesis.py": [],
+    "ipfs.py": ["Failed to send island IPFS"],
+    "market/gpu.py": [],
+    "market/offers.py": [],
+    "mining.py": [],
+    "operations.py": ["Job ID is required"],
+    "system.py": ["Configuration file not found"],
+    "update.py": ["not a git repository"],
+    "wallet/bridge.py": [],
+    "wallet/misc.py": ["Import file not found"],
+    "wallet/multisig.py": ["Threshold"],
+    "wallet/staking.py": ["Invalid sender address"],
+    "workflow.py": ["Failed to start workflow"],
     "explorer.py": ["not found", "Explorer API unavailable", "Error getting"],
     "governance.py": ["Network error", "Error listing proposals", "Error getting proposal"],
     "cross_chain.py": ["Network error", "Swap failed", "Bridge failed", "Confirm failed"],
@@ -243,6 +260,8 @@ def _error_calls_followed_by_return(tree):
                 for attr in ("body", "orelse", "finalbody"):
                     if isinstance(getattr(child, attr, None), list):
                         visit(getattr(child, attr))
+                for h in getattr(child, "handlers", []):
+                    visit(h.body)
 
     visit(tree.body)
     return bad

@@ -18,6 +18,7 @@ from aitbc.utils.validation import validate_address
 from ...config import get_config
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils import DECIMAL, error, output, success
+from ...utils.error_handling import abort
 from ...utils.http_client import AITBCHTTPClient, http_error_detail, retired_surface_message
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import (
@@ -218,8 +219,7 @@ def stake(ctx, amount: Decimal, duration: int, password: str | None, password_fi
     wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
-        return
+        abort(None, wallet_not_found_message(find_wallet_file_report(wallet_name)))
 
     resolved_password = resolve_wallet_password(
         wallet_name,
@@ -236,8 +236,7 @@ def stake(ctx, amount: Decimal, duration: int, password: str | None, password_fi
 
     hex_address = canonical_address(sender_address)
     if not validate_address(hex_address):
-        error(f"Invalid sender address: {sender_address}")
-        return
+        abort(None, f"Invalid sender address: {sender_address}")
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(ctx, rpc_url)
 
@@ -259,8 +258,7 @@ def stake(ctx, amount: Decimal, duration: int, password: str | None, password_fi
     try:
         signature = _sign_staking_message(wallet_data, sign_data)
     except click.ClickException as e:
-        error(str(e))
-        return
+        abort(None, str(e))
 
     stake_data = {
         "address": hex_address,
@@ -318,8 +316,7 @@ def unstake(ctx, stake_id: str, password: str | None, password_file: str | None,
     wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
-        return
+        abort(None, wallet_not_found_message(find_wallet_file_report(wallet_name)))
 
     resolved_password = resolve_wallet_password(
         wallet_name,
@@ -336,8 +333,7 @@ def unstake(ctx, stake_id: str, password: str | None, password_file: str | None,
 
     hex_address = canonical_address(sender_address)
     if not validate_address(hex_address):
-        error(f"Invalid sender address: {sender_address}")
-        return
+        abort(None, f"Invalid sender address: {sender_address}")
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(ctx, rpc_url)
 
@@ -361,8 +357,7 @@ def unstake(ctx, stake_id: str, password: str | None, password_file: str | None,
     try:
         signature = _sign_staking_message(wallet_data, sign_data)
     except click.ClickException as e:
-        error(str(e))
-        return
+        abort(None, str(e))
 
     unstake_data = {
         "address": hex_address,
@@ -428,8 +423,7 @@ def staking_info(ctx, address_override: str | None, password: str | None, passwo
         wallet_name = "(by address)"
     else:
         if not wallet_path.exists():
-            error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
-            return
+            abort(None, wallet_not_found_message(find_wallet_file_report(wallet_name)))
 
         resolved_password = resolve_wallet_password(
             wallet_name,
@@ -446,8 +440,7 @@ def staking_info(ctx, address_override: str | None, password: str | None, passwo
 
     hex_address = canonical_address(sender_address)
     if not validate_address(hex_address):
-        error(f"Invalid sender address: {sender_address}")
-        return
+        abort(None, f"Invalid sender address: {sender_address}")
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(ctx, rpc_url)
 

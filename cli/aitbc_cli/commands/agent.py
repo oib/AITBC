@@ -60,7 +60,7 @@ async def _consume_connection_frame(ws, timeout: int, ws_endpoint: str) -> bool:
             return False
         return True
     except _asyncio.TimeoutError:
-        error(f"No connection confirmation from {ws_endpoint} within {timeout}s")
+        abort(None, f"No connection confirmation from {ws_endpoint} within {timeout}s")
         return False
 
 
@@ -139,8 +139,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
     """
     search_dirs = wallet_search_dirs()
     if not any(d.exists() for d in search_dirs):
-        error(f"No wallet directory found in any of {search_dirs}")
-        error("Create a wallet first: aitbc wallet create")
+        abort(None, f"No wallet directory found in any of {search_dirs}. Create a wallet first: aitbc wallet create")
         return None
 
     # Resolve wallet name if not explicitly given
@@ -175,7 +174,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
         success(f"Using wallet '{wallet_name}': {address}")
         return str(address)
     except (json.JSONDecodeError, OSError) as e:
-        error(f"Failed to read wallet file {wallet_file}: {e}")
+        abort(None, f"Failed to read wallet file {wallet_file}: {e}")
         return None
 
 
@@ -254,7 +253,7 @@ def send(
     try:
         http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
     except Exception as e:
-        error(f"Error creating coordinator client: {e}")
+        abort(None, f"Error creating coordinator client: {e}")
         return
 
     sender = _resolve_agent_id(from_agent)
@@ -266,19 +265,18 @@ def send(
         if sender:
             binding_error = check_registry_binding(http_client, sender, address)
             if binding_error:
-                error(binding_error)
-                return
+                abort(None, binding_error)
         else:
             sender = find_agent_by_identity(http_client, address)
             if not sender:
-                error(
+                abort(
+                    None,
                     f"No --from-agent/$AGENT_ID and no registered agent is bound to wallet {address} — "
-                    "pass --from-agent or register with `aitbc agent-comm register --wallet`"
+                    "pass --from-agent or register with `aitbc agent-comm register --wallet`",
                 )
-                return
             info(f"Resolved signing wallet to registered agent '{sender}'")
     if not sender:
-        error("--from-agent is required when AGENT_ID is not set")
+        abort(None, "--from-agent is required when AGENT_ID is not set")
         return
 
     try:
@@ -300,9 +298,10 @@ def send(
         success("Message sent via Agent Coordinator")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error sending message: {e}")
+        abort(None, f"Error sending message: {e}")
+        return
 
 
 @messaging.command(
@@ -341,7 +340,7 @@ def receive(
     config = get_config()
     agent_id = _resolve_agent_id(from_agent)
     if not agent_id:
-        error("--from-agent is required when AGENT_ID is not set")
+        abort(None, "--from-agent is required when AGENT_ID is not set")
         return
 
     signing = (
@@ -364,9 +363,10 @@ def receive(
         success("Messages:")
         output(messages_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error receiving messages: {e}")
+        abort(None, f"Error receiving messages: {e}")
+        return
 
 
 @messaging.command(
@@ -475,11 +475,12 @@ def ping(
                                 click.echo(f"  timestamp: {reply_data['timestamp']}")
                             return
                 except _asyncio.TimeoutError:
-                    error(f"No PONG from {agent} within {timeout}s")
+                    abort(None, f"No PONG from {agent} within {timeout}s")
         except WebSocketException as e:
-            error(f"WebSocket error: {e}")
+            abort(None, f"WebSocket error: {e}")
         except OSError as e:
-            error(f"Connection failed to {ws_endpoint}: {e}")
+            abort(None, f"Connection failed to {ws_endpoint}: {e}")
+            return
 
     _asyncio.run(_ping())
 
@@ -618,11 +619,12 @@ def request_coins(
                                     return
 
                 except _asyncio.TimeoutError:
-                    error(f"No response within {timeout}s")
+                    abort(None, f"No response within {timeout}s")
         except WebSocketException as e:
-            error(f"WebSocket error: {e}")
+            abort(None, f"WebSocket error: {e}")
         except OSError as e:
-            error(f"Connection failed to {ws_endpoint}: {e}")
+            abort(None, f"Connection failed to {ws_endpoint}: {e}")
+            return
 
     _asyncio.run(_request())
 
