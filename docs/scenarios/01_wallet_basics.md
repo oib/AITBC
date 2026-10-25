@@ -318,6 +318,203 @@ print(agent_dict)
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 8: Show the active wallet address
+
+Prints the address of the active wallet — the identity every other step signs with.
+
+```bash
+aitbc wallet address
+```
+
+### Step 9: Read the bridge payout float
+
+Shows the bridge payout account balance and how much is already committed to non-terminal payout rows.
+
+```bash
+aitbc wallet bridge float
+```
+
+### Step 10: List bridge settlement rows
+
+Lists recent bridge settlement ledger rows; `--state` and `--kind` filter the listing.
+
+```bash
+aitbc wallet bridge settlements --limit 10
+```
+
+### Step 11: Check the ETH balance
+
+Reads the ETH balance of the wallet on the configured Ethereum RPC endpoint.
+
+```bash
+aitbc wallet eth-balance --wallet my-agent-wallet
+```
+
+### Step 12: Inspect a wallet file
+
+Reads metadata out of a wallet file on disk (address, type, encryption) without unlocking it.
+
+```bash
+aitbc wallet inspect --path ~/.aitbc/wallets/my-agent-wallet.json
+```
+
+### Step 13: List staking and liquidity rewards
+
+Shows accrued rewards for the active wallet.
+
+```bash
+aitbc wallet rewards
+```
+
+### Step 14: Show wallet statistics
+
+Prints aggregate statistics (transactions, balances) for the active wallet.
+
+```bash
+aitbc wallet stats
+```
+
+### Step 15: Export wallet key material
+
+`aitbc wallet export --destination /tmp/wallet-export.json` is exports private-key material to a file — a key operation; not played, needs the operator's line.
+
+### Step 16: Record job earnings
+
+Records an earnings entry for a completed job against the active wallet.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc wallet earn --amount 36000000 --job-id job-001 --desc "scenario earnings"
+```
+
+### Step 17: Claim a liquidity reward
+
+Claims accrued rewards on liquidity stake 1.
+
+Cost: gas only — no principal moves.
+
+```bash
+aitbc wallet liquidity-claim --stake-id 1
+```
+
+### Step 18: Stake into a liquidity pool
+
+Locks funds into a liquidity pool.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc wallet liquidity-stake --amount 36000000 --pool default
+```
+
+### Step 19: Withdraw a liquidity stake
+
+Unstakes and returns a liquidity position.
+
+Cost: returns the staked principal — no new spend.
+
+```bash
+aitbc wallet liquidity-unstake --stake-id 1
+```
+
+### Step 20: Create a multisig wallet
+
+Creates a 2-of-3 multisig wallet owned by the listed signers.
+
+Cost: 0 units — wallet creation only.
+
+```bash
+aitbc wallet multisig-create --signers 0xSignerA,0xSignerB,0xSignerC --threshold 2 --name ops-multisig
+```
+
+### Step 21: Propose a multisig transfer
+
+Creates a pending multisig transaction other signers can approve.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) once approved.
+
+```bash
+aitbc wallet multisig-propose --wallet ops-multisig --to-address 0xRecipient --amount 36000000 --description "scenario payout"
+```
+
+### Step 22: Sign a multisig proposal
+
+Adds the wallet's signature to a pending multisig transaction.
+
+Cost: 0 units — signature only.
+
+```bash
+aitbc wallet multisig-sign --wallet ops-multisig --tx-id 1 --signer my-agent-wallet
+```
+
+### Step 23: Request a payment
+
+Creates a payment request addressed to the payer wallet.
+
+Cost: requests 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) — the payer spends, not the requester.
+
+```bash
+aitbc wallet request-payment --to-address 0xPayer --amount 36000000 --description "scenario invoice"
+```
+
+### Step 24: Send AIT to a second wallet
+
+Transfers funds from the active wallet.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) plus fee.
+
+```bash
+aitbc wallet send --to-address 0xRecipient --amount 36000000
+```
+
+### Step 25: Record a discretionary spend
+
+Books a spend against the active wallet.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc wallet spend --amount 36000000 --description "scenario test spend"
+```
+
+### Step 26: Stake AIT
+
+Locks funds in staking.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked.
+
+```bash
+aitbc wallet stake --amount 36000000 --duration 30d
+```
+
+### Step 27: Unstake a position
+
+Withdraws a staking position after the lock period.
+
+Cost: returns the staked principal — no new spend.
+
+```bash
+aitbc wallet unstake --stake-id 1
+```
+
+### Step 28: Send a small ETH transfer
+
+Sends ETH from the wallet over the configured Ethereum RPC; `--max-eth` caps the spend.
+
+Cost: 0.001 ETH = 1_000_000_000_000_000 wei, capped by --max-eth.
+
+```bash
+aitbc wallet eth-send --to 0xRecipient --amount-eth 0.001 --chain-id 1 --wallet my-agent-wallet --max-eth 0.01
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
