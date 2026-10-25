@@ -4,7 +4,8 @@ Trading-related exchange commands.
 
 from decimal import Decimal
 
-from aitbc_cli.utils import error, output, success
+from aitbc_cli.utils import output, success
+from ...utils.error_handling import abort
 
 
 def register_command(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool):
@@ -13,7 +14,7 @@ def register_command(ctx, name: str, api_key: str, api_secret: str | None, sandb
         success(f"Registered with {name}")
         output({"exchange": name, "sandbox": sandbox, "status": "registered"})
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def create_pair_command(
@@ -24,7 +25,7 @@ def create_pair_command(
         success(f"Created pair {pair}")
         output({"pair": pair, "base_asset": base_asset, "quote_asset": quote_asset})
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def start_trading_command(ctx, pair: str, exchange: str | None, order_type: tuple):
@@ -33,7 +34,7 @@ def start_trading_command(ctx, pair: str, exchange: str | None, order_type: tupl
         success(f"Started trading for {pair}")
         output({"pair": pair, "exchange": exchange, "order_type": order_type})
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def list_pairs_command(ctx, pair: str | None, exchange: str | None, status: str | None):
@@ -42,7 +43,7 @@ def list_pairs_command(ctx, pair: str | None, exchange: str | None, status: str 
         pairs = [{"pair": "AITBC/ETH", "status": "active", "exchange": "binance"}]
         output(pairs, title="Trading Pairs")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def connect_command(ctx, exchange: str, api_key: str, secret: str, sandbox: bool, passphrase: str | None):
@@ -51,7 +52,7 @@ def connect_command(ctx, exchange: str, api_key: str, secret: str, sandbox: bool
         success(f"Connected to {exchange}")
         output({"exchange": exchange, "sandbox": sandbox, "status": "connected"})
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def status_command(ctx, exchange: str | None):
@@ -60,7 +61,7 @@ def status_command(ctx, exchange: str | None):
         status_data = {"exchange": exchange or "binance", "status": "connected", "latency": "50ms"}
         output(status_data, title="Exchange Status")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def disconnect_command(ctx, exchange: str):
@@ -68,7 +69,7 @@ def disconnect_command(ctx, exchange: str):
     try:
         success(f"Disconnected from {exchange}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def orderbook_command(ctx, exchange: str, symbol: str, limit: int):
@@ -77,7 +78,7 @@ def orderbook_command(ctx, exchange: str, symbol: str, limit: int):
         orderbook = {"exchange": exchange, "symbol": symbol, "bids": [[100.0, 1.0]], "asks": [[101.0, 1.0]]}
         output(orderbook, title="Order Book")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def balance_command(ctx, exchange: str):
@@ -86,7 +87,7 @@ def balance_command(ctx, exchange: str):
         balance = {"exchange": exchange, "aitbc": 1000.0, "eth": 0.05}
         output(balance, title="Exchange Balance")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def pairs_command(ctx, exchange: str):
@@ -95,7 +96,7 @@ def pairs_command(ctx, exchange: str):
         pairs = ["AITBC/ETH", "AITBC/ETH"]
         output(pairs, title=f"Pairs on {exchange}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def order_command(ctx, order_id: str):
@@ -104,7 +105,7 @@ def order_command(ctx, order_id: str):
         order = {"order_id": order_id, "status": "filled", "price": 100.0}
         output(order, title="Order Details")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def orders_command(ctx, pair: str | None, status: str | None, limit: int):
@@ -113,7 +114,7 @@ def orders_command(ctx, pair: str | None, status: str | None, limit: int):
         orders = [{"order_id": "1", "status": "filled", "pair": "AITBC/ETH"}]
         output(orders, title="Orders")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def book_command(ctx, pair: str, limit: int):
@@ -122,7 +123,7 @@ def book_command(ctx, pair: str, limit: int):
         book = {"pair": pair, "bids": [[100.0, 1.0]], "asks": [[101.0, 1.0]]}
         output(book, title="Order Book")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def history_command(ctx, pair: str | None, limit: int):
@@ -131,7 +132,7 @@ def history_command(ctx, pair: str | None, limit: int):
         history = [{"price": 100.0, "amount": 1.0, "time": "2024-01-01"}]
         output(history, title="Trade History")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def list_exchanges_command(ctx):
@@ -140,7 +141,7 @@ def list_exchanges_command(ctx):
         exchanges = ["binance", "coinbase", "kraken"]
         output(exchanges, title="Supported Exchanges")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def price_command(ctx, base: str, quote: str):
@@ -149,7 +150,7 @@ def price_command(ctx, base: str, quote: str):
         price = {"pair": f"{base}/{quote}", "price": 100.0}
         output(price, title="Price")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def deposit_command(ctx, amount: Decimal, ait_address: str, dry_run: bool):
@@ -159,7 +160,7 @@ def deposit_command(ctx, amount: Decimal, ait_address: str, dry_run: bool):
         if dry_run:
             success("(dry run - no actual deposit)")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def withdraw_command(ctx, amount: Decimal, eth_address: str, dry_run: bool):
@@ -169,7 +170,7 @@ def withdraw_command(ctx, amount: Decimal, eth_address: str, dry_run: bool):
         if dry_run:
             success("(dry run - no actual withdrawal)")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def swap_command(ctx, from_token: str, to_token: str, amount: Decimal, slippage: float):
@@ -178,4 +179,4 @@ def swap_command(ctx, from_token: str, to_token: str, amount: Decimal, slippage:
         success(f"Swap {amount} {from_token} to {to_token}")
         output({"from": from_token, "to": to_token, "amount": str(amount), "slippage": slippage})
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")

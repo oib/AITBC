@@ -385,3 +385,15 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   18 more files. `edge.py`'s 30 helper sites are deferred: they mix
   deliberate retry-swallows with real exit-0 paths and need per-site
   classification.
+
+
+### CLI-EXIT-3
+
+- Third exit-code sweep: edge.py's 29 except-tail `error()` sites and
+  103 more helper/facade `error();return` sites across 18 files
+  (agent_task, auth, control, developer, eth, exchange/{bridge,payments,
+  trading,wallet}, exchange_island, grant, market/{init,escrow,
+  payments,ratings}, prometheus, trade) now `abort()`, so no
+  error-print path can exit 0. The AST guard now covers 35 files and
+  walks `except` handlers; the whole commands/ tree reports zero
+  remaining sites.
