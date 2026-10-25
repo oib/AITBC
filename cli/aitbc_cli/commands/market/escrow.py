@@ -214,6 +214,35 @@ def _seal_wait_seconds(exc: BaseException, wait_seconds_left: float) -> float:
     return max(0.0, min(wait, _SEAL_WAIT_CAP, wait_seconds_left))
 
 
+def _classify_relay_error(exc: BaseException, job_id: str) -> tuple[None, str | None, str | None]:
+    """Map a relay POST failure to (result, terminal_refusal, skip_reason).
+
+    425 is a named retryable condition (the lock had not sealed inside the
+    bounded wait); other business 4xx are terminal; transport failures and
+    401/404/bare-Forbidden 403 are skips that allow the rpc fallback.
+    """
+    status = http_response_status(exc)
+    detail = http_error_detail(exc) or str(exc)
+    if status == 425:
+        return (
+            None,
+            (
+                f"coordinator release relay: HTTP 425 {detail} — the escrow lock is not yet sealed "
+                f"(retryable; rerun `aitbc market escrow release --job-id {job_id}` once the "
+                "ESCROW_LOCK seals)"
+            ),
+            None,
+        )
+    # A bare {"detail": "Forbidden"} 403 is the middleware deny-by-default
+    # on an older coordinator missing the route's security-matrix entry —
+    # a deployment gap, not a business refusal: fall back like a 404.
+    middleware_deny = status == 403 and detail.strip() == "Forbidden"
+    if status is not None and 400 <= status < 500 and status not in (401, 404) and not middleware_deny:
+        return None, f"coordinator release relay refused: HTTP {status} {detail}", None
+    label = f"HTTP {status} {detail}" if status is not None else str(exc)
+    return None, None, f"coordinator release relay unavailable ({label})"
+
+
 def _release_via_relay(
     ctx,
     config,
@@ -306,28 +335,7 @@ def _release_via_relay(
                 continue
             break
     if last_exc is not None:
-        status = http_response_status(last_exc)
-        detail = http_error_detail(last_exc) or str(last_exc)
-        if status == 425:
-            # Named retryable condition, not a business refusal: the lock
-            # simply had not sealed inside the bounded wait.
-            return (
-                None,
-                (
-                    f"coordinator release relay: HTTP 425 {detail} — the escrow lock is not yet sealed "
-                    f"(retryable; rerun `aitbc market escrow release --job-id {job_id}` once the "
-                    "ESCROW_LOCK seals)"
-                ),
-                None,
-            )
-        # A bare {"detail": "Forbidden"} 403 is the middleware deny-by-default
-        # on an older coordinator missing the route's security-matrix entry —
-        # a deployment gap, not a business refusal: fall back like a 404.
-        middleware_deny = status == 403 and detail.strip() == "Forbidden"
-        if status is not None and 400 <= status < 500 and status not in (401, 404) and not middleware_deny:
-            return None, f"coordinator release relay refused: HTTP {status} {detail}", None
-        label = f"HTTP {status} {detail}" if status is not None else str(last_exc)
-        return None, None, f"coordinator release relay unavailable ({label})"
+        return _classify_relay_error(last_exc, job_id)
     return (result if isinstance(result, dict) else {"success": True}), None, None
 
 
