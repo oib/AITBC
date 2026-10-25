@@ -3,6 +3,7 @@ Escrow subgroup and escrow-related helpers
 """
 
 import re
+import time
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
@@ -172,6 +173,47 @@ def _resolve_release_amount(config, job_id: str, amount: Any) -> tuple[str | Non
     return str(amount), None
 
 
+# Bounded wait for a relay 425 "lock not yet sealed": the ESCROW_LOCK is
+# still in mempool and seals within a block or two. Each wait honours the
+# response's Retry-After (default 5 s, the chain's own hint), capped per
+# wait and in total so the whole retry stays under ~30 s.
+_SEAL_WAIT_DEFAULT = 5.0
+_SEAL_WAIT_CAP = 10.0
+_SEAL_WAIT_TOTAL = 24.0
+
+
+def _http_response_header(exc: BaseException, name: str) -> str | None:
+    """Return one response header from a wrapped HTTP error, or None."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        response = getattr(seen, "response", None)
+        if response is not None:
+            headers = getattr(response, "headers", None) or {}
+            try:
+                return headers.get(name)
+            except AttributeError:
+                return None
+        seen = seen.__cause__ or seen.__context__
+    return None
+
+
+def _seal_wait_seconds(exc: BaseException, wait_seconds_left: float) -> float:
+    """Seconds to wait before reposting after a 425 — Retry-After, bounded.
+
+    Returns 0 when the wait allowance is exhausted (the caller stops retrying).
+    """
+    raw = _http_response_header(exc, "Retry-After")
+    wait = _SEAL_WAIT_DEFAULT
+    if raw is not None:
+        try:
+            wait = float(raw)
+        except (TypeError, ValueError):
+            pass  # HTTP-date Retry-After: fall back to the default wait
+    if wait <= 0:
+        wait = _SEAL_WAIT_DEFAULT
+    return max(0.0, min(wait, _SEAL_WAIT_CAP, wait_seconds_left))
+
+
 def _release_via_relay(
     ctx,
     config,
@@ -201,6 +243,15 @@ def _release_via_relay(
       retry first — the relay dedups on job_id so a repost cannot
       double-release. The caller may fall back to
       :func:`_post_escrow_rpc`; ``skip_reason`` names why.
+
+    One status class is neither refusal nor skip: the chain answers
+    ``425`` "lock not yet sealed" (``Retry-After: 5``) while the
+    ESCROW_LOCK is still in mempool. That is retryable by definition, so
+    the helper waits and reposts the same body a bounded number of times
+    (budget under ~30 s). If the bound is exhausted the refusal slot
+    carries a named *retryable* message — still no rpc fallback (the rpc
+    would 425 identically and a customer node cannot authenticate it),
+    but it is not reported as a business refusal.
     """
     token = _client_token(ctx)
     if not token:
@@ -229,22 +280,46 @@ def _release_via_relay(
     )
     result: Any = None
     last_exc: Exception | None = None
-    # One retry on a transport failure (timeout/connection — no HTTP status):
-    # the relay POST is idempotent (the coordinator dedups on job_id and an
-    # already-released escrow returns its stored tx_hash), so a second
-    # attempt can never double-release.
-    for _attempt in range(2):
+    # Retries: one retry on a transport failure (timeout/connection — no
+    # HTTP status), and a bounded wait+repost loop on a 425 "lock not yet
+    # sealed". The relay POST is idempotent (the coordinator dedups on
+    # job_id and an already-released escrow returns its stored tx_hash),
+    # so neither repost can double-release.
+    wait_seconds_left = _SEAL_WAIT_TOTAL
+    transport_retried = False
+    while True:
         try:
             result = client.post("/v1/escrow/release", json=body)
             last_exc = None
             break
         except Exception as exc:
             last_exc = exc
-            if http_response_status(exc) is not None:
-                break
+            status = http_response_status(exc)
+            if status == 425:
+                wait = _seal_wait_seconds(exc, wait_seconds_left)
+                if wait > 0:
+                    wait_seconds_left -= wait
+                    time.sleep(wait)
+                    continue
+            elif status is None and not transport_retried:
+                transport_retried = True
+                continue
+            break
     if last_exc is not None:
         status = http_response_status(last_exc)
         detail = http_error_detail(last_exc) or str(last_exc)
+        if status == 425:
+            # Named retryable condition, not a business refusal: the lock
+            # simply had not sealed inside the bounded wait.
+            return (
+                None,
+                (
+                    f"coordinator release relay: HTTP 425 {detail} — the escrow lock is not yet sealed "
+                    f"(retryable; rerun `aitbc market escrow release --job-id {job_id}` once the "
+                    "ESCROW_LOCK seals)"
+                ),
+                None,
+            )
         # A bare {"detail": "Forbidden"} 403 is the middleware deny-by-default
         # on an older coordinator missing the route's security-matrix entry —
         # a deployment gap, not a business refusal: fall back like a 404.
