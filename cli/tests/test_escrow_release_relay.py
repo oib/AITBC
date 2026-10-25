@@ -12,18 +12,19 @@ import aitbc_cli.commands.market.escrow as esc_mod
 
 
 class _Resp:
-    def __init__(self, status_code: int, detail: str):
+    def __init__(self, status_code: int, detail: str, headers: dict | None = None):
         self.status_code = status_code
         self._detail = detail
+        self.headers = headers or {}
 
     def json(self):
         return {"detail": self._detail}
 
 
 class _StatusError(RuntimeError):
-    def __init__(self, status_code: int, detail: str = ""):
+    def __init__(self, status_code: int, detail: str = "", headers: dict | None = None):
         super().__init__(f"HTTP {status_code}")
-        self.response = _Resp(status_code, detail)
+        self.response = _Resp(status_code, detail, headers)
 
 
 def _config():
@@ -308,6 +309,110 @@ def test_relay_http_error_not_retried(monkeypatch):
     assert result is not None
     assert _ErrorRelay.attempts == 1
     assert rpc.posts[0]["endpoint"] == "/rpc/escrow/j1/release"
+
+
+# --- bounded retry on a relay 425 "lock not yet sealed" ----------------------
+
+
+def _no_sleep(monkeypatch):
+    """Record sleep durations instead of sleeping; return the calls list."""
+    calls: list[float] = []
+    monkeypatch.setattr(esc_mod.time, "sleep", calls.append)
+    return calls
+
+
+def test_relay_425_then_200_releases(monkeypatch):
+    """A fast job asked before the lock sealed: the helper waits and reposts
+    the same body — the relay dedup makes the repost safe."""
+    _no_sleep(monkeypatch)
+
+    class _Sealing(_RelayClient):
+        attempts = 0
+
+        def post(self, endpoint, json=None):
+            type(self).attempts += 1
+            self.posts.append(dict(json))
+            if type(self).attempts == 1:
+                raise _StatusError(425, "escrow lock for job_id=j1 is not yet sealed in a block")
+            return {"success": True, "tx_hash": "0xrel"}
+
+    relay, rpc = _wire(monkeypatch, relay_cls=_Sealing)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result == {"success": True, "tx_hash": "0xrel"}
+    assert _Sealing.attempts == 2
+    assert relay.posts == [{"job_id": "j1", "amount": "0.5"}, {"job_id": "j1", "amount": "0.5"}]
+    assert rpc.posts == []
+
+
+def test_relay_425_forever_named_retryable_no_rpc(monkeypatch):
+    """The 425 bound is finite: a never-sealing lock ends in a named
+    *retryable* condition (not a business refusal) and the rpc path is
+    never tried — it would 425 identically and cannot authenticate."""
+    sleeps = _no_sleep(monkeypatch)
+
+    class _NeverSealed(_RelayClient):
+        attempts = 0
+
+        def post(self, endpoint, json=None):
+            type(self).attempts += 1
+            raise _StatusError(425, "escrow lock for job_id=j1 is not yet sealed in a block")
+
+    relay, rpc = _wire(monkeypatch, relay_cls=_NeverSealed)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result is None
+    assert rpc.posts == []
+    # Bounded: a handful of reposts, total sleep under ~30 s.
+    assert 1 < _NeverSealed.attempts < 10
+    assert 0 < sum(sleeps) <= esc_mod._SEAL_WAIT_TOTAL
+    assert len(failures) == 1
+    assert "425" in failures[0]
+    assert "not yet sealed" in failures[0]
+    assert "retryable" in failures[0]
+
+
+def test_relay_425_honours_retry_after_header(monkeypatch):
+    """The wait comes from Retry-After when the response carries one
+    (capped per wait); without it the default applies."""
+    sleeps = _no_sleep(monkeypatch)
+
+    class _RetryAfter(_RelayClient):
+        attempts = 0
+
+        def post(self, endpoint, json=None):
+            type(self).attempts += 1
+            if type(self).attempts == 1:
+                raise _StatusError(
+                    425,
+                    "lock not yet sealed",
+                    headers={"Retry-After": "30"},  # capped at _SEAL_WAIT_CAP
+                )
+            if type(self).attempts == 2:
+                raise _StatusError(425, "lock not yet sealed")  # no header -> default
+            return {"success": True, "tx_hash": "0xrel"}
+
+    _wire(monkeypatch, relay_cls=_RetryAfter)
+    result, _ = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result == {"success": True, "tx_hash": "0xrel"}
+    assert sleeps == [esc_mod._SEAL_WAIT_CAP, esc_mod._SEAL_WAIT_DEFAULT]
+
+
+def test_relay_425_business_4xx_still_terminal(monkeypatch):
+    """Interleaved sanity: a non-425 4xx is never retried and never waits."""
+    sleeps = _no_sleep(monkeypatch)
+
+    class _Conflict(_RelayClient):
+        attempts = 0
+
+        def post(self, endpoint, json=None):
+            type(self).attempts += 1
+            raise _StatusError(409, "Escrow for job_id=j1 has already been refunded")
+
+    _wire(monkeypatch, relay_cls=_Conflict)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result is None
+    assert _Conflict.attempts == 1
+    assert sleeps == []
+    assert "409" in failures[0]
 
 
 def test_amount_unreadable_falls_back(monkeypatch):
