@@ -85,7 +85,7 @@ def _source_columns(conn: sqlite3.Connection, table: str) -> list[str]:
 
 
 def _source_count(conn: sqlite3.Connection, table: str) -> int:
-    return int(conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
+    return int(conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])  # nosec B608 — table names come from schema reflection, never user input
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ def _copy_table(
     inserted = 0
     skipped = 0
     batch: list[dict] = []
-    cursor = source_conn.execute(f'SELECT {", ".join(chr(34) + c + chr(34) for c in columns)} FROM "{table.name}"')
+    cursor = source_conn.execute(f'SELECT {", ".join(chr(34) + c + chr(34) for c in columns)} FROM "{table.name}"')  # nosec B608 — reflected column/table names only
     for row in cursor:
         pk = _canon_pk(row[i] for i in pk_idx)
         if pk in existing_pks:
@@ -321,6 +321,30 @@ def _resolve_target(args: argparse.Namespace) -> str:
     return url
 
 
+def _refuse_nonempty_target(engine, args) -> None:
+    """Raise before the schema build when the target already holds rows.
+
+    Pre-existing data must not be touched; migration seeds added during
+    'upgrade head' are not pre-existing (they exist identically in the
+    source and count as skips). ``--allow-nonempty`` disables the refusal.
+    """
+    inspector = sa.inspect(engine)
+    preexisting: dict[str, int] = {}
+    for tname in inspector.get_table_names():
+        if tname in _SKIP_TABLES or any(tname.startswith(p) for p in _SKIP_PREFIXES):
+            continue
+        with engine.connect() as conn:
+            count = int(conn.execute(sa.text(f'SELECT COUNT(*) FROM "{tname}"')).scalar_one())  # nosec B608 — reflected table names only
+        if count:
+            preexisting[tname] = count
+    if preexisting and not args.allow_nonempty:
+        raise MigrationError(
+            "target database already holds rows — refusing to copy "
+            "(re-run with --allow-nonempty for insert-missing-only): "
+            + ", ".join(f"{n}={c}" for n, c in sorted(preexisting.items()))
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.batch_size < 1:
@@ -357,26 +381,7 @@ def main(argv: list[str] | None = None) -> int:
     # -- execute ------------------------------------------------------------
     engine = sa.create_engine(target_url)
     try:
-        # Refusal check runs *before* the schema build: rows already present
-        # are pre-existing data the copy must not touch. Rows seeded by the
-        # migrations themselves during 'upgrade head' are not pre-existing —
-        # they appear identically in the source, so the insert-missing logic
-        # counts them as skips rather than violations.
-        inspector = sa.inspect(engine)
-        preexisting: dict[str, int] = {}
-        for tname in inspector.get_table_names():
-            if tname in _SKIP_TABLES or any(tname.startswith(p) for p in _SKIP_PREFIXES):
-                continue
-            with engine.connect() as conn:
-                count = int(conn.execute(sa.text(f'SELECT COUNT(*) FROM "{tname}"')).scalar_one())
-            if count:
-                preexisting[tname] = count
-        if preexisting and not args.allow_nonempty:
-            raise MigrationError(
-                "target database already holds rows — refusing to copy "
-                "(re-run with --allow-nonempty for insert-missing-only): "
-                + ", ".join(f"{n}={c}" for n, c in sorted(preexisting.items()))
-            )
+        _refuse_nonempty_target(engine, args)
 
         print("\nBuilding target schema via 'alembic upgrade head' ...")
         _build_target_schema(target_url)
@@ -412,7 +417,7 @@ def main(argv: list[str] | None = None) -> int:
                     _canon_pk(r)
                     for r in source_conn.execute(
                         f'SELECT {", ".join(chr(34) + c + chr(34) for c in _pk_columns(table))} FROM "{name}"'
-                    )
+                    )  # nosec B608 — reflected names only
                 }
                 expected = src_pks | baseline_pks[name]
                 if src_pks - tgt_pks:
