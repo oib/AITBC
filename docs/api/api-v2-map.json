@@ -4533,6 +4533,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/escrow/release",
+          "upstream": "/v1/escrow/release",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/exchange/confirm-payment/{payment_id}",
           "upstream": "/v1/exchange/confirm-payment/{payment_id}",
           "methods": [
