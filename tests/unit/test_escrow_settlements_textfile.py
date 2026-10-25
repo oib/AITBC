@@ -488,7 +488,8 @@ class TestFilesAgree:
 
     def test_timer_fires_minutely_on_the_service(self):
         timer = (MONITORING / "aitbc-escrow-settlements.timer").read_text()
-        assert "OnCalendar=minutely" in timer
+        assert "OnBootSec=1min" in timer
+        assert "OnUnitActiveSec=1min" in timer
         assert "Unit=aitbc-escrow-settlements.service" in timer
 
     def test_alert_rules_are_in_the_shared_file_not_hub_only(self):

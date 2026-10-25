@@ -3,7 +3,8 @@ Description=Export unlanded escrow settlements every minute
 Documentation=https://github.com/oib/AITBC
 
 [Timer]
-OnCalendar=minutely
+OnBootSec=1min
+OnUnitActiveSec=1min
 AccuracySec=10s
 Persistent=false
 Unit=aitbc-escrow-settlements.service
