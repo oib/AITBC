@@ -415,15 +415,16 @@ def test_relay_425_business_4xx_still_terminal(monkeypatch):
     assert "409" in failures[0]
 
 
-def test_amount_unreadable_falls_back(monkeypatch):
-    """No amount argument and no readable escrow row → straight to rpc."""
+def test_amount_unreadable_posts_without_amount(monkeypatch):
+    """No amount argument and no readable escrow row → relay without an
+    amount field; the coordinator derives the full lock server-side (#469)."""
     relay, rpc = _wire(monkeypatch)
     rpc.get_exc = _StatusError(404, "escrow not found")
     result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1")
-    assert result == {"tx_hash": "0xrpc", "released_amount": "0.5"}
-    assert relay.posts == []
-    assert rpc.posts[0]["json"] == {}
-    assert any("amount unreadable" in f for f in failures)
+    assert result == {"success": True, "tx_hash": "0xrel", "released_amount": "0.5"}
+    assert relay.posts == [{"job_id": "j1"}]
+    assert rpc.posts == []
+    assert failures == []
 
 
 # --- command-level ------------------------------------------------------------
