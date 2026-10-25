@@ -44,7 +44,7 @@ class _RefuseLocal:
 
 
 def test_settlement_node_url_extracted():
-    assert esc_mod._settlement_node_url(DETAIL) == "https://hub.aitbc.bubuit.net/rpc"
+    assert esc_mod._settlement_node_url(DETAIL) == "https://hub.aitbc.bubuit.net"
     assert esc_mod._settlement_node_url("some other refusal") is None
 
 
