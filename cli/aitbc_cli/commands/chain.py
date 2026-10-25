@@ -7,7 +7,6 @@ from pathlib import Path
 import click
 from click import echo
 
-from ..config import get_config
 from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
@@ -31,9 +30,6 @@ def _load_chain_manager(node_urls: tuple[str, ...] = ()) -> ChainManager:
     config = load_multichain_config()
     for url in node_urls:
         config.nodes[url] = NodeConfig(id=url, endpoint=url)
-    if not config.nodes:
-        endpoint = getattr(get_config(), "blockchain_rpc_url", "") or "http://127.0.0.1:8202"
-        config.nodes["local-rpc"] = NodeConfig(id="local-rpc", endpoint=endpoint)
     return ChainManager(config)
 
 
