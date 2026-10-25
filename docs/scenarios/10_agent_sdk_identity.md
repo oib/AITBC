@@ -362,6 +362,103 @@ asyncio.run(main())
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 10: Show agent capabilities
+
+Lists the capabilities advertised by registered agents.
+
+```bash
+aitbc agent capabilities
+```
+
+### Step 11: Read the agent inbox
+
+Shows messages waiting in the agent's coordinator inbox.
+
+```bash
+aitbc agent inbox --limit 10
+```
+
+### Step 12: List saved workflows
+
+Lists workflows stored on the coordinator.
+
+```bash
+aitbc agent workflow list-workflows
+```
+
+### Step 13: Check a workflow run
+
+Shows the state of a workflow execution.
+
+```bash
+aitbc agent workflow workflow-status --workflow-id wf-001
+```
+
+### Step 14: Check an agent wallet balance
+
+Reads the wallet balance held by an agent.
+
+```bash
+aitbc agent-wallet balance --agent-id agent-001
+```
+
+### Step 15: Subscribe an agent to a topic
+
+Registers a coordinator-side topic subscription for the agent.
+
+Cost: 0 units — subscription record only.
+
+```bash
+aitbc agent subscribe --agent-id agent-001 --topic announcements
+```
+
+### Step 16: Create a workflow
+
+Stores a named multi-step workflow on the coordinator.
+
+Cost: 0 units — workflow record only.
+
+```bash
+aitbc agent workflow create-workflow --name daily-report --steps-file steps.json
+```
+
+### Step 17: Execute a workflow
+
+Runs a stored workflow.
+
+Cost: step costs as defined by the workflow, in units (UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc agent workflow execute --workflow-id wf-001
+```
+
+### Step 18: Rebalance an agent wallet
+
+Moves part of an agent's earnings per its reinvest policy.
+
+Cost: moved amount in units (UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc agent-wallet rebalance --agent-id agent-001 --reinvest-pct 50
+```
+
+### Step 19: Stake from an agent wallet
+
+Stakes agent wallet funds.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked.
+
+```bash
+aitbc agent-wallet stake --agent-id agent-001 --amount 36000000
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
