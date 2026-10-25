@@ -461,6 +461,38 @@ SKIP_OPTION_NAMES = {
     "allow-remote",
 }
 
+# MCP-SECRETS-1 (SM-03): an option whose normalized name matches this pattern
+# carries a secret *value* — a raw key, password or token that would land in
+# the agent transcript, the MCP client log, the local ssh argv and the remote
+# process list. Exact-name skips (SKIP_OPTION_NAMES) cannot keep up with names
+# like ``wallet_password`` or ``admin_private_key``, so the exclusion is
+# pattern-based. Deliberately NOT matched: ``token``/``*_token`` on their own
+# (asset symbols, idempotency keys), ``seed``/``*_seed`` (RNG seeds), and
+# ``access_key`` (the public identifier half of a key/secret pair).
+SECRET_VALUE_RE = re.compile(
+    r"private_key|password|passwd|secret|api_key|api_secret|apikey"
+    r"|auth_token|access_token|refresh_token|bearer_token|mnemonic|seed_phrase"
+)
+
+# Names that match SECRET_VALUE_RE but denote a *path* to a secret rather than
+# the secret itself — the file's content never appears in the transcript.
+# ``password_file``/``private_key_file`` are the accepted design.
+SECRET_PATH_SUFFIXES = ("_file", "_file_path", "_path", "_dir")
+
+# Explicit exceptions: normalized option names that match SECRET_VALUE_RE and
+# are not path forms, kept deliberately. One-line reason per entry — the MCP
+# schema test enforces the same list for curated tools.
+SECRET_OPTION_ALLOWLIST: dict[str, str] = {}
+
+
+def is_secret_value_option(name: str) -> bool:
+    """Return True when a normalized option name carries a secret value."""
+    normalized = name.replace("-", "_")
+    if normalized.endswith(SECRET_PATH_SUFFIXES) or normalized in SECRET_OPTION_ALLOWLIST:
+        return False
+    return SECRET_VALUE_RE.search(normalized) is not None
+
+
 # Options stripped from specific command paths only. SKIP_OPTION_NAMES is
 # global, and names like ``interval`` carry legitimate meaning on other
 # commands (agent-comm, analytics, chain, messaging), so the watch/notify
@@ -591,7 +623,7 @@ def classify_command(path: tuple[str, ...]) -> str:
 
 def is_excluded_option(param: click.Option) -> bool:
     name = (param.name or "").replace("-", "_")
-    return name in SKIP_OPTION_NAMES or (param.hidden is True)
+    return name in SKIP_OPTION_NAMES or is_secret_value_option(name) or (param.hidden is True)
 
 
 def _unique_py_name(base: str, reserved_suffix: str, seen: set[str]) -> str:
@@ -635,7 +667,7 @@ def _parse_option(param: click.Option, order: int, seen_names: set[str]) -> dict
     if not help_text:
         help_text = f"{flag} option"
     base = param.name.replace("-", "_") if param.name else flag.replace("-", "_")
-    if base in SKIP_OPTION_NAMES:
+    if base in SKIP_OPTION_NAMES or is_secret_value_option(base) or is_secret_value_option(flag):
         return None
     py_name = _unique_py_name(base, "opt", seen_names)
     if ptype == "float" and any(t in MONEY_TOKENS for t in py_name.split("_")):
@@ -652,9 +684,14 @@ def _parse_option(param: click.Option, order: int, seen_names: set[str]) -> dict
     }
 
 
-def _parse_argument(param: click.Argument, order: int, seen_names: set[str]) -> dict[str, Any]:
+def _parse_argument(param: click.Argument, order: int, seen_names: set[str]) -> dict[str, Any] | None:
     """Extract one Click positional argument into a param spec."""
-    py_name = _unique_py_name((param.name or "arg").replace("-", "_"), "arg", seen_names)
+    arg_name = (param.name or "arg").replace("-", "_")
+    if is_secret_value_option(arg_name):
+        # A positional secret value is skipped like a secret option; no such
+        # argument exists today, but a future one must not leak either.
+        return None
+    py_name = _unique_py_name(arg_name, "arg", seen_names)
     nargs = getattr(param, "nargs", 1)
     multiple = nargs == -1 or nargs > 1
     ptype = "list[str]" if multiple else "str"
@@ -685,7 +722,9 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
             if option is not None:
                 options.append(option)
         elif isinstance(param, click.Argument):
-            positional.append(_parse_argument(param, i, seen_names))
+            argument = _parse_argument(param, i, seen_names)
+            if argument is not None:
+                positional.append(argument)
 
     return {
         "path": path,

@@ -31,7 +31,6 @@ def aitbc_auth_login(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
-    private_key: Annotated[str | None, Field(description="Raw hex private key (use only in CI/scripts)")] = None,
     private_key_file: Annotated[str | None, Field(description="File containing a raw hex private key")] = None,
     wallet_address: Annotated[
         str | None, Field(description="Wallet address (defaults to address derived from private key)")
@@ -54,7 +53,6 @@ def aitbc_auth_login(
         values={
             "wallet": "wallet",
             "password_file": "password-file",
-            "private_key": "private-key",
             "private_key_file": "private-key-file",
             "wallet_address": "wallet-address",
             "coordinator_url": "coordinator-url",
