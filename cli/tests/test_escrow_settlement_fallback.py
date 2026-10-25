@@ -77,7 +77,7 @@ def test_escrow_create_retries_on_settlement_node(monkeypatch):
         node_wallet="0xPROP",
     )
     assert contract == "contract-9"
-    assert calls == ["http://127.0.0.1:8202", "https://hub.aitbc.bubuit.net/rpc"]
+    assert calls == ["http://127.0.0.1:8202", "https://hub.aitbc.bubuit.net"]
 
 
 def test_escrow_create_refusal_without_settlement_url_aborts(monkeypatch):
