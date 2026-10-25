@@ -42,6 +42,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from aitbc_mcp_cli_tools_generated_groups import GENERATED_AITBC_GROUPS
+from aitbc_mcp_mask import mask_envelope
 
 mcp = MCPServer("aitbc", log_level=os.getenv("AITBC_MCP_LOG_LEVEL", "INFO"))
 
@@ -695,13 +696,17 @@ def _json(result: Any) -> str:
     envelope is a well-formed preview and gets ``ok: true``.  Command-result
     envelopes carry ``ok``/``exit_code``/``timed_out`` from
     :func:`_result_status`.
+
+    Every tool module returns through here, so this is where echoed command
+    lines are masked (MCP-ECHO-1): :func:`aitbc_mcp_mask.mask_envelope`
+    works on a copy and never sees the argv that was executed.
     """
     if isinstance(result, dict) and "ok" not in result:
         if "error" in result:
             result["ok"] = False
         elif result.get("dry_run"):
             result["ok"] = True
-    return json.dumps(result, indent=2, default=str)
+    return json.dumps(mask_envelope(result), indent=2, default=str)
 
 
 def _safe_command(command: str) -> tuple[bool, list[str]]:
@@ -2168,7 +2173,7 @@ def list_market_offers(
         offers = offers[:limit]
         parsed["json"] = offers
         parsed["stdout"] = json.dumps(offers)
-    return json.dumps(parsed)
+    return json.dumps(mask_envelope(parsed))
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
