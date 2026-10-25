@@ -78,6 +78,84 @@ class TestAitbcGroupWhitelist:
         assert "governance" in mcp_server.ALL_AITBC_GROUPS
 
 
+_GENERATED_MODULE_PREFIX = "aitbc_mcp_cli_tools_generated_"
+# Metadata module carrying GENERATED_AITBC_GROUPS — it holds the group list
+# itself, not tools for a CLI group named "groups".
+_GROUPS_LIST_MODULE_STEM = "aitbc_mcp_cli_tools_generated_groups"
+
+
+def _generated_tool_groups() -> set[str]:
+    """Top-level CLI groups that have a generated per-group tool module."""
+    names: set[str] = set()
+    for path in MCP_SERVER_DIR.glob(f"{_GENERATED_MODULE_PREFIX}*.py"):
+        stem = path.stem
+        if stem in {_GROUPS_LIST_MODULE_STEM, "aitbc_mcp_cli_tools_generated"}:
+            continue
+        names.add(stem[len(_GENERATED_MODULE_PREFIX) :].replace("_", "-"))
+    return names
+
+
+class TestGeneratedGroupAllowlist:
+    """The pivot allow-list must cover every group with generated MCP tools.
+
+    SM-06/MCP-GROUPS-1: ten groups (incl. ``dispute`` and ``energy``) had
+    registered generated tools whose read variants died at the
+    ``ALL_AITBC_GROUPS`` gate with ``unknown aitbc group``.  The set is now
+    derived from the generator-emitted group list so it cannot drift again;
+    these tests pin the three-way consistency
+    ``tool modules == GENERATED_AITBC_GROUPS ⊆ ALL_AITBC_GROUPS == CLI tree``.
+    """
+
+    def test_every_generated_group_is_allowed(self):
+        missing = _generated_tool_groups() - set(mcp_server.ALL_AITBC_GROUPS)
+        assert not missing, f"groups with generated MCP tools missing from ALL_AITBC_GROUPS: {sorted(missing)}"
+
+    def test_group_list_matches_tool_modules(self):
+        """The emitted group list agrees with the emitted per-group modules."""
+        import aitbc_mcp_cli_tools_generated_groups as groups_mod
+
+        assert set(groups_mod.GENERATED_AITBC_GROUPS) == _generated_tool_groups()
+
+    def test_allowlist_matches_cli_tree(self):
+        """The allow-list is exactly the real top-level CLI group set."""
+        from aitbc_cli.core.main import cli
+
+        cli_groups = set(cli.commands)
+        unknown = set(mcp_server.ALL_AITBC_GROUPS) - cli_groups
+        assert not unknown, f"ALL_AITBC_GROUPS names that are not CLI groups: {sorted(unknown)}"
+        missing = cli_groups - set(mcp_server.ALL_AITBC_GROUPS)
+        assert not missing, (
+            f"CLI groups not reachable through the MCP pivot: {sorted(missing)} — emit tools for them "
+            "or add a curated-only entry deliberately"
+        )
+
+
+class TestPivotNewlyAllowedGroups:
+    """The pivot must reach groups that were missing from the allow-list."""
+
+    @staticmethod
+    def _fake_run_remote(host: str, command: str, timeout: int = 60) -> dict[str, object]:
+        return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+    def test_run_pivot_dispute_active_executes(self):
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(mcp_server.run_aitbc_cli(group="dispute", subcommand="active", host="node0", dry_run=False))
+        assert "error" not in result
+        assert "dispute active" in str(result["command"])
+
+    def test_read_pivot_energy_leaf_executes(self):
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(mcp_server.read_aitbc_cli(group="energy", subcommand=["floor"], host="node0"))
+        assert "error" not in result
+        assert "energy floor" in str(result["command"])
+
+    def test_list_group_help_dispute(self):
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(mcp_server.list_aitbc_cli_group(group="dispute", host="node0"))
+        assert "error" not in result
+        assert "dispute --help" in str(result["command"])
+
+
 class TestManageAiJobCommand:
     """Tests for manage_ai_job command string construction."""
 
