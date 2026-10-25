@@ -141,6 +141,87 @@ Blocks should resume with the configured `PROPOSER_ID` and the same chain state.
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 6: Show gossip topics
+
+Lists the gossip topics the node participates in.
+
+```bash
+aitbc network gossip --topics
+```
+
+### Step 7: Check heartbeats
+
+Shows recent validator heartbeats.
+
+```bash
+aitbc network heartbeat
+```
+
+### Step 8: Check lease status
+
+Reads the proposer lease state.
+
+```bash
+aitbc network lease-status
+```
+
+### Step 9: List subscribers
+
+Lists nodes subscribed to the network event feed.
+
+```bash
+aitbc network subscribers
+```
+
+### Step 10: Subscribe to network events
+
+Streams network events for a bounded duration.
+
+```bash
+aitbc network subscribe --duration 30
+```
+
+### Step 11: Test a peer connection
+
+Probes connectivity to a peer.
+
+```bash
+aitbc network test --peer http://node1.example:8100
+```
+
+### Step 12: Show sync status
+
+Reports sync lag against the hub.
+
+```bash
+aitbc sync status
+```
+
+### Step 13: Run a bulk sync import
+
+Bulk-imports blocks from a source node.
+
+Cost: 0 units — data import only.
+
+```bash
+aitbc sync bulk --source http://hub.example:8100
+```
+
+### Step 14: Force sync from a peer
+
+`aitbc network force-sync --peer-url http://node1.example:8100 --admin-private-key 0xK` is forces resync via the admin key — key operation; not played, needs the operator's line.
+
+### Step 15: Set the sync source
+
+`aitbc network set-sync-source --url http://hub.example:8100` is rewrites the node's sync-source env and restarts — env/service control; not played, needs the operator's line.
+
+---
+
 ## Validation
 
 - Unit and soak tests pass: `50 passed` in `apps/blockchain-node/tests/consensus`.
