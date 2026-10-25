@@ -1688,3 +1688,32 @@ tests:
             exp_annotations:
               summary: "No block import for 20+ minutes on node2"
               description: "aitbc_island_import_silence_seconds on node2 is 900s: this node has imported no block from any validator on any transport (the gauge counts every accepted import on any transport), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
+
+  - interval: 30s
+    input_series:
+      # node0-shaped noise: 4xx client errors on a trickle of requests —
+      # the 5% ratio trips, but the new 4xx lane (20% + 0.5 req/s floor)
+      # must stay silent.
+      - series: 'rpc_client_errors_total{instance="nodeA:9009", job="blockchain-node"}'
+        values: '0+1x35'
+      - series: 'rpc_server_errors_total{instance="nodeA:9009", job="blockchain-node"}'
+        values: '0x35'
+      - series: 'rpc_requests_total{instance="nodeA:9009", job="blockchain-node"}'
+        values: '0+1x35'
+      # nodeB: a real 5xx burst — server-error rate over the 5% lane.
+      - series: 'rpc_client_errors_total{instance="nodeB:9009", job="blockchain-node"}'
+        values: '0x35'
+      - series: 'rpc_server_errors_total{instance="nodeB:9009", job="blockchain-node"}'
+        values: '0+2x35'
+      - series: 'rpc_requests_total{instance="nodeB:9009", job="blockchain-node"}'
+        values: '0+2x35'
+    alert_rule_test:
+      - eval_time: 17m
+        alertname: RpcErrorsSpiking
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: "nodeB:9009"
+              job: blockchain-node
+            exp_annotations:
+              summary: "RPC error rate is spiking"

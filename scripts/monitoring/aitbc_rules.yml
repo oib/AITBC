@@ -55,11 +55,18 @@ groups:
           summary: "Block processing p95 exceeds 1 second"
 
       - alert: RpcErrorsSpiking
+        # 5xx lane keeps the 5% threshold at any request rate. 4xx noise
+        # (wrong-route 404s, rate-limit 429s, replay traffic) only fires
+        # above 20% AND a real request floor — the counters carry no
+        # route labels, so 404s cannot be excluded by selector.
         expr: |
-          (
+          rate(rpc_server_errors_total[5m])
+            / clamp_min(rate(rpc_requests_total[5m]), 1) > 0.05
+          or (
             rate(rpc_client_errors_total[5m])
-            + rate(rpc_server_errors_total[5m])
-          ) / clamp_min(rate(rpc_requests_total[5m]), 1) > 0.05
+              / clamp_min(rate(rpc_requests_total[5m]), 1) > 0.20
+            and rate(rpc_requests_total[5m]) > 0.5
+          )
         for: 5m
         labels:
           severity: warning
