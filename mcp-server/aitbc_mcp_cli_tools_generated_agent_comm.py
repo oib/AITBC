@@ -79,6 +79,7 @@ def aitbc_agent_comm_collaborate(
 def aitbc_agent_comm_discover(
     chain_id: Annotated[str, Field(description="The Chain id.")],
     capabilities: Annotated[str | None, Field(description="Required capabilities (comma-separated)")] = None,
+    output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -87,7 +88,7 @@ def aitbc_agent_comm_discover(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id", "capabilities": "capabilities"},
+        values={"chain_id": "chain-id", "capabilities": "capabilities", "output_format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -106,6 +107,7 @@ def aitbc_agent_comm_list(
     chain_id: Annotated[str | None, Field(description="Filter by chain ID")] = None,
     status: Annotated[Literal["active", "inactive", "busy", "offline"] | None, Field(description="Filter by status")] = None,
     capabilities: Annotated[str | None, Field(description="Filter by capabilities (comma-separated)")] = None,
+    output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -114,7 +116,7 @@ def aitbc_agent_comm_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id", "status": "status", "capabilities": "capabilities"},
+        values={"chain_id": "chain-id", "status": "status", "capabilities": "capabilities", "output_format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -156,12 +158,17 @@ def aitbc_agent_comm_monitor(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_comm_network(
+    output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get an overview of the cross-chain agent network and distribution."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"output_format": "format"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -184,6 +191,7 @@ def aitbc_agent_comm_receive(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -194,7 +202,13 @@ def aitbc_agent_comm_receive(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"receiver_id": "receiver-id", "limit": "limit", "wallet_name": "wallet", "password_file": "password-file"},
+        values={
+            "receiver_id": "receiver-id",
+            "limit": "limit",
+            "wallet_name": "wallet",
+            "password_file": "password-file",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -432,6 +446,7 @@ def aitbc_agent_comm_send(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_comm_status(
     agent_id: Annotated[str, Field(description="The Agent id.")],
+    output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -440,7 +455,7 @@ def aitbc_agent_comm_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"agent_id": "agent-id"},
+        values={"agent_id": "agent-id", "output_format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(

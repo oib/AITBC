@@ -902,12 +902,17 @@ def aitbc_node_island_list_islands(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_node_list(
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all configured nodes and their connection settings."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"format": "format"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

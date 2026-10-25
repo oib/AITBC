@@ -361,6 +361,66 @@ def _build_env_prefix(env: dict[str, str] | None) -> str:
     return " ".join(parts) + " " if parts else ""
 
 
+# Root for agent-created scratch space on the live nodes. Callers may point
+# env/cwd only underneath it so a remote command cannot be redirected at
+# /etc, /var/lib/aitbc, or another user's home.
+SCRATCH_ROOT = "/var/tmp"
+
+# Environment names accepted through the generic CLI tools' ``env`` parameter:
+# ``HOME`` plus non-secret ``AITBC_*`` names. The use case is scratch-wallet
+# and scratch-data plays; credential-shaped names stay refused.
+CLI_ENV_ALLOWED_EXACT = frozenset({"HOME"})
+CLI_ENV_ALLOWED_PREFIX = "AITBC_"
+CLI_ENV_FORBIDDEN_TOKENS = (
+    "KEY",
+    "SECRET",
+    "PASSWORD",
+    "PASSWD",
+    "TOKEN",
+    "JWT",
+    "MNEMONIC",
+    "SEED",
+    "PRIVATE",
+    "CREDENTIAL",
+)
+
+
+def _is_scratch_path(value: str) -> bool:
+    """True when ``value`` is ``/var/tmp`` itself or a path beneath it."""
+    norm = os.path.normpath(value)
+    return norm == SCRATCH_ROOT or norm.startswith(SCRATCH_ROOT + "/")
+
+
+def _is_allowed_env_name(name: str) -> bool:
+    if name in CLI_ENV_ALLOWED_EXACT:
+        return True
+    return name.startswith(CLI_ENV_ALLOWED_PREFIX) and not any(token in name for token in CLI_ENV_FORBIDDEN_TOKENS)
+
+
+def _validate_cli_env(env: dict[str, str] | None) -> str | None:
+    """Validate the generic tools' ``env`` parameter. Returns an error message or None."""
+    if not env:
+        return None
+    for name, value in env.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            return f"invalid environment variable name: {name!r}"
+        if not _is_allowed_env_name(name):
+            return f"environment variable not allowed: {name!r} (allow-list: HOME, non-secret AITBC_* names)"
+        if not isinstance(value, str) or not _is_scratch_path(value):
+            return f"environment value must be a path under {SCRATCH_ROOT}/: {name}={value!r}"
+    return None
+
+
+def _validate_cli_env_cwd(env: dict[str, str] | None, cwd: str | None) -> str | None:
+    """Validate ``env`` and ``cwd`` together for the generic CLI tools."""
+    error = _validate_cli_env(env)
+    if error:
+        return error
+    if cwd is not None and not _is_scratch_path(cwd):
+        return f"cwd must be a path under {SCRATCH_ROOT}/: {cwd!r}"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -531,17 +591,50 @@ def _timeout_result(context: dict[str, str], command: str, timeout: int, e: subp
     }
 
 
+_ENV_ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def _split_posix_prefix(command: str) -> tuple[dict[str, str], str | None, list[str]]:
+    """Peel POSIX prefixes off a command string for a direct ``execvp``.
+
+    Command strings may carry a ``cd <dir> &&`` working-directory clause
+    followed by ``NAME=value`` environment assignments. The remote login
+    shell interprets those prefixes; a local ``shlex.split`` + ``execvp``
+    would treat ``cd`` or ``NAME=value`` as the program name, so the local
+    branch of :func:`_run_remote` applies them as real child settings
+    instead.
+
+    Returns ``(env, cwd, argv)``.
+    """
+    argv = shlex.split(command)
+    cwd: str | None = None
+    env: dict[str, str] = {}
+    if len(argv) >= 3 and argv[0] == "cd" and argv[2] == "&&":
+        cwd = argv[1]
+        argv = argv[3:]
+    while argv and _ENV_ASSIGNMENT_RE.match(argv[0]):
+        name, _, value = argv.pop(0).partition("=")
+        env[name] = value
+    return env, cwd, argv
+
+
 def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
     """Run a single command on an AITBC host, using a local shell when possible."""
     context = _execution_context(host)
     if context["mode"] == "local":
+        env, cwd, argv = _split_posix_prefix(command)
+        child_env = None
+        if env:
+            child_env = {**os.environ, **env}
         try:
             res = subprocess.run(
-                shlex.split(command),
+                argv,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
                 shell=False,
+                env=child_env,
+                cwd=cwd,
                 # Never let a CLI child read this process's stdin: the MCP
                 # server speaks the stdio protocol on it.
                 stdin=subprocess.DEVNULL,
@@ -888,6 +981,7 @@ def _build_aitbc_cli_command(
     group_options: dict[str, Any] | None = None,
     subcommand_options: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
+    cwd: str | None = None,
 ) -> str:
     """Build a quoted aitbc CLI command string.
 
@@ -899,6 +993,11 @@ def _build_aitbc_cli_command(
 
     For backward compatibility the ``options`` parameter is treated as an alias
     for ``subcommand_options``.
+
+    ``env``/``cwd`` are rendered as POSIX prefixes in the returned string
+    (``cd <dir> && KEY=value <command>``) which the remote login shell
+    interprets; the local branch of :func:`_run_remote` peels them back off
+    into real ``env``/``cwd`` child settings.
     """
     tokens: list[str] = [AITBC_CLI]
     if output_format in {"json", "yaml", "csv"}:
@@ -941,7 +1040,10 @@ def _build_aitbc_cli_command(
         else:
             tokens.append(f"--{key}={shlex.quote(str(value))}")
 
-    return _build_env_prefix(env) + " ".join(tokens)
+    command = _build_env_prefix(env) + " ".join(tokens)
+    if cwd:
+        command = f"cd {shlex.quote(cwd)} && " + command
+    return command
 
 
 def _subcommand_tokens(subcommand: str | list[str] | None) -> list[str]:
@@ -1028,6 +1130,7 @@ def _run_aitbc_cli(
     group_options: dict[str, Any] | None = None,
     subcommand_options: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
+    cwd: str | None = None,
 ) -> dict[str, Any]:
     """Run an aitbc CLI subcommand on a remote host and optionally parse JSON."""
     command = _build_aitbc_cli_command(
@@ -1039,6 +1142,7 @@ def _run_aitbc_cli(
         group_options=group_options,
         subcommand_options=subcommand_options,
         env=env,
+        cwd=cwd,
     )
     result = _run_remote(host, command, timeout)
     if output_format == "json" and result.get("returncode") == 0:
@@ -1061,6 +1165,7 @@ def _aitbc_cli_read_tool(
     group_options: dict[str, Any] | None = None,
     subcommand_options: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
+    cwd: str | None = None,
 ) -> str:
     """Helper for read-only aitbc CLI tools."""
     target = _host_for_role(role, host)
@@ -1083,6 +1188,7 @@ def _aitbc_cli_read_tool(
             group_options=group_options,
             subcommand_options=subcommand_options,
             env=env,
+            cwd=cwd,
         )
     )
 
@@ -1640,6 +1746,25 @@ def run_aitbc_cli(
         int,
         Field(description="Timeout in seconds.", ge=5, le=600),
     ] = 120,
+    env: Annotated[
+        dict[str, str] | None,
+        Field(
+            description=(
+                "Extra environment variables for the remote command. Allow-listed names only: HOME or "
+                "non-secret AITBC_* names; every value must be a path under /var/tmp/ (scratch space). "
+                "Applied as a POSIX env prefix on the remote shell — SSH SendEnv is not used."
+            )
+        ),
+    ] = None,
+    cwd: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Working directory for the remote command; must be a path under /var/tmp/ (scratch space). "
+                "Runs as `cd <cwd> && <command>` on the remote shell."
+            )
+        ),
+    ] = None,
 ) -> str:
     """Run an aitbc CLI command with structured group, subcommand, args and options.
 
@@ -1654,6 +1779,7 @@ def run_aitbc_cli(
       - group="ai", subcommand="status", args=["<job-id>"]
       - group="market", subcommand="status", args=["<order-id>"]
       - group="node", subcommand="info", args=["<node-id>"]
+      - scratch play: group="wallet", subcommand="create", env={"HOME": "/var/tmp/scratch", "AITBC_WALLET_DIR": "/var/tmp/scratch/wallets"}, cwd="/var/tmp/scratch"
     """
     target = _host_for_role(role, host)
     if group not in ALL_AITBC_GROUPS:
@@ -1663,9 +1789,21 @@ def run_aitbc_cli(
                 "allowed_groups": sorted(ALL_AITBC_GROUPS),
             }
         )
+    env_error = _validate_cli_env_cwd(env, cwd)
+    if env_error:
+        return _json({"error": env_error})
 
     try:
-        command = _build_aitbc_cli_command(group, subcommand, args, options, output_format, group_options=group_options)
+        command = _build_aitbc_cli_command(
+            group,
+            subcommand,
+            args,
+            options,
+            output_format,
+            group_options=group_options,
+            env=env,
+            cwd=cwd,
+        )
     except ValueError as e:
         return _json({"error": f"invalid subcommand or options: {e}"})
     destructive = _is_aitbc_subcommand_destructive(subcommand, group, args)
@@ -1693,6 +1831,8 @@ def run_aitbc_cli(
             output_format,
             timeout,
             group_options=group_options,
+            env=env,
+            cwd=cwd,
         )
     )
 
@@ -1739,6 +1879,25 @@ def read_aitbc_cli(
         int,
         Field(description="Timeout in seconds.", ge=5, le=600),
     ] = 120,
+    env: Annotated[
+        dict[str, str] | None,
+        Field(
+            description=(
+                "Extra environment variables for the remote command. Allow-listed names only: HOME or "
+                "non-secret AITBC_* names; every value must be a path under /var/tmp/ (scratch space). "
+                "Applied as a POSIX env prefix on the remote shell — SSH SendEnv is not used."
+            )
+        ),
+    ] = None,
+    cwd: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Working directory for the remote command; must be a path under /var/tmp/ (scratch space). "
+                "Runs as `cd <cwd> && <command>` on the remote shell."
+            )
+        ),
+    ] = None,
 ) -> str:
     """Generic read-only wrapper for any aitbc CLI command.
 
@@ -1750,6 +1909,7 @@ def read_aitbc_cli(
       - group="wallet", subcommand=["rewards"]
       - group="ai", subcommand=["service", "list"]
       - group="market", subcommand=["list"], group_options={"mine": None}
+      - scratch HOME: group="wallet", subcommand=["list"], env={"HOME": "/var/tmp/scratch"}
     """
     target = _host_for_role(role, host)
     if group not in ALL_AITBC_GROUPS:
@@ -1767,6 +1927,9 @@ def read_aitbc_cli(
                 "note": "Use run_aitbc_cli for mutating operations; destructive subcommands require dry_run=false and confirm=true.",
             }
         )
+    env_error = _validate_cli_env_cwd(env, cwd)
+    if env_error:
+        return _json({"error": env_error})
     return _json(
         _run_aitbc_cli(
             target,
@@ -1777,6 +1940,8 @@ def read_aitbc_cli(
             output_format,
             timeout,
             group_options=group_options,
+            env=env,
+            cwd=cwd,
         )
     )
 

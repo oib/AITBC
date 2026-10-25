@@ -446,12 +446,13 @@ MONEY_TOKENS = {
 # arguments would land in transcripts/logs, and a CLI child spawned by the MCP
 # server must never read the server's own stdio transport stream (the runner
 # also passes stdin=DEVNULL). Agents use ``password_file`` instead.
+#
+# ``format``/``output``/``output_format`` are intentionally NOT skipped: they
+# are real leaf-level output-format options the scenarios pass (SM-08). The
+# generated tool forwards them verbatim; the global ``--output=json`` stays the
+# default where the leaf defers to it.
 SKIP_OPTION_NAMES = {
     "help",
-    "format",
-    "output",
-    "output_format",
-    "output-format",
     "password",
     "password_stdin",
     # ``allow_remote``/``allow-remote`` (e.g. `prometheus metric`) lifts a
@@ -563,9 +564,13 @@ def path_to_cli_name(path: tuple[str, ...]) -> str:
 
 
 def get_flag_name(param: click.Option) -> str | None:
+    # Prefer the first-declared long option: it is the canonical spelling the
+    # command's help and scenarios use. (`crosschain bridge-status` declares
+    # ``--bridge-id`` first with ``--transfer-id`` as the alias; picking the
+    # longest emitted the alias instead — SM-10.)
     long = [o for o in param.opts if o.startswith("--")]
     if long:
-        return max(long, key=len).lstrip("-")
+        return long[0].lstrip("-")
     short = [o for o in param.opts if o.startswith("-") and len(o) == 2]
     if short:
         return short[0].lstrip("-")
@@ -714,8 +719,24 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
     positional: list[dict[str, Any]] = []
     seen_names: set[str] = set()
     path_skips = SKIP_OPTIONS_BY_PATH.get(path, frozenset())
+
+    # OUTPUT_FORMAT_OPTION (cli/aitbc_cli/utils/output.py) attaches ``--format``
+    # and ``--output`` as two click.Option objects sharing one param name on 18
+    # commands. Emit a single tool parameter for each param name, preferring
+    # the ``--format`` spelling — the leaf accepts both and ``--format`` is the
+    # spelling the scenarios use.
+    chosen: dict[str, click.Option] = {}
+    for param in cmd.params:
+        if not isinstance(param, click.Option):
+            continue
+        key = param.name or ""
+        if key not in chosen or "--format" in param.opts:
+            chosen[key] = param
+
     for i, param in enumerate(cmd.params):
         if isinstance(param, click.Option):
+            if chosen.get(param.name or "") is not param:
+                continue
             if (param.name or "").replace("-", "_") in path_skips:
                 continue
             option = _parse_option(param, i, seen_names)
