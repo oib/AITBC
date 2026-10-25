@@ -42,6 +42,7 @@ from ..utils.wallet_loader import load_wallet_for_payment
 from .ipfs import _daemon_available, _ipfs_add_file, _is_cid
 from .market.escrow import _get_blockchain_rpc_url
 from .market.host import _resolve_ipfs_api
+from ..utils.error_handling import abort
 
 logger = get_logger(__name__)
 
@@ -147,12 +148,12 @@ def _resolve_provider_wallet(client: AITBCHTTPClient, agent_id: str) -> str | No
     try:
         data = client.get(f"/v1/agents/{agent_id}")
     except Exception as e:
-        error(f"Could not look up agent {agent_id}: {e}")
+        abort(None, f"Could not look up agent {agent_id}: {e}")
         return None
     agent = data.get("agent", {}) if isinstance(data, dict) else {}
     wallet = (agent.get("metadata") or {}).get("wallet") or (agent.get("endpoints") or {}).get("wallet")
     if not wallet:
-        error(f"Agent {agent_id} has no wallet in its registry metadata — cannot escrow payment")
+        abort(None, f"Agent {agent_id} has no wallet in its registry metadata — cannot escrow payment")
         return None
     return cast(str, wallet)
 
@@ -163,15 +164,15 @@ def _resolve_payload_ref(ctx, payload: str) -> str | None:
         return payload
     path = Path(payload)
     if not path.is_file():
-        error(f"--payload must be an IPFS CID or a local file path (got: {payload})")
+        abort(None, f"--payload must be an IPFS CID or a local file path (got: {payload})")
         return None
     ipfs_api = _resolve_ipfs_api({})
     if not _daemon_available(ipfs_api):
-        error(f"No local island IPFS daemon reachable at {ipfs_api} — cannot upload payload")
+        abort(None, f"No local island IPFS daemon reachable at {ipfs_api} — cannot upload payload")
         return None
     cid = _ipfs_add_file(ipfs_api, path)
     if not cid:
-        error(f"IPFS add failed for {path}")
+        abort(None, f"IPFS add failed for {path}")
         return None
     info(f"Payload uploaded: {cid}")
     return cid

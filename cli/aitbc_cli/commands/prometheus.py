@@ -25,8 +25,9 @@ import httpx
 
 from aitbc.aitbc_logging import configure_logging
 
-from ..utils import error, output, success
+from ..utils import output, success
 from ..utils.http_client import get_logger
+from ..utils.error_handling import abort
 
 logger = get_logger(__name__)
 
@@ -66,10 +67,10 @@ def _prometheus_get(url: str, path: str, params: dict[str, Any] | None = None, t
         response.raise_for_status()
         return cast(dict[str, Any], response.json())
     except httpx.RequestError as e:
-        error(f"Could not reach Prometheus at {url}: {e}")
+        abort(None, f"Could not reach Prometheus at {url}: {e}")
         return {}
     except httpx.HTTPStatusError as e:
-        error(f"Prometheus returned {e.response.status_code}: {e}")
+        abort(None, f"Prometheus returned {e.response.status_code}: {e}")
         return {}
 
 
@@ -1182,7 +1183,7 @@ def check(ctx: click.Context, config_path: str, rules_path: str):
     if all_ok:
         success("Prometheus config and rules are valid")
     else:
-        error("Prometheus config or rules validation failed")
+        abort(None, "Prometheus config or rules validation failed")
 
 
 @prometheus.command(

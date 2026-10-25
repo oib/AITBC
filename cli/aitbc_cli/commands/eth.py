@@ -18,6 +18,7 @@ import click
 
 from ..utils import error, info, warning
 from ..utils.evm_rpc import display_rpc_url, mask_rpc_url
+from ..utils.error_handling import abort
 
 SEPOLIA_CHAIN_ID = 11155111
 DEFAULT_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com"
@@ -324,7 +325,7 @@ def _wallet_report(label: str, addr: str, explorer_url: str, rpc_url: str) -> tu
         nonce = int(str(_rpc(rpc_url, "eth_getTransactionCount", [addr, "latest"])), 16)
         balance = int(str(_rpc(rpc_url, "eth_getBalance", [addr, "latest"])), 16)
     except ExplorerError as e:
-        error(f"{label}: {e}")
+        abort(None, f"{label}: {e}")
         return None
     rows = normalize_address_txs(label, addr, list(raw.values())) + normalize_internal_txs(label, addr, internal)
     return rows, nonce, balance

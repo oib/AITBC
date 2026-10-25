@@ -9,7 +9,7 @@ import click
 
 from ..auth import AuthManager
 from ..config import get_config
-from ..utils import error, info, output, success, warning
+from ..utils import info, output, success, warning
 from ..utils.error_handling import abort
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ..utils.http_client import AITBCHTTPClient, NetworkError
@@ -199,7 +199,7 @@ def login(
             ctx.obj.get("output_format", "table"),
         )
     else:
-        error("Login succeeded but token could not be stored")
+        abort(None, "Login succeeded but token could not be stored")
 
 
 @auth.command(
