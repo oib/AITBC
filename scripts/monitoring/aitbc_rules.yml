@@ -104,14 +104,33 @@ groups:
       # observation on ANY path (gossip block with proposer=hub, pull sync
       # answer, hub RPC read). Warning, not critical — the island survives
       # hub loss; a survivable loss must not page critical.
+      # Both silences are computed at scrape time, so a node cut off from
+      # gossip sees both climb. One shared boundary (gossip silence 300s,
+      # several ~65s slots so one slow slot cannot reset the for-timer)
+      # splits the cases: hub dark + gossip fresh -> IslandHubSilent;
+      # gossip silent -> IslandGossipSilent; every state fires one or
+      # neither. The hub runs no monitor and exports neither series, so
+      # neither rule can fire there. A restarted node starts both at 0.
       - alert: IslandHubSilent
-        expr: aitbc_island_hub_silence_seconds > 600
+        expr: aitbc_island_hub_silence_seconds > 600 and on(instance, job) aitbc_island_gossip_silence_seconds < 300
         for: 15m
         labels:
           severity: warning
         annotations:
           summary: "No hub-originated observation for 15+ minutes on {{ $labels.instance }}"
-          description: "aitbc_island_hub_silence_seconds on {{ $labels.instance }} is {{ $value }}s. The monitor counts silence across every observation path — hub-proposed gossip blocks, pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while the head keeps advancing. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
+          description: "aitbc_island_hub_silence_seconds on {{ $labels.instance }} is {{ $value }}s. The monitor counts silence across every observation path — hub-proposed gossip blocks, pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while gossip blocks from the other validators keep arriving. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
+
+      # #393: this node receives no gossip block from any validator. A node
+      # cut off from gossip also stops seeing the hub; this rule owns that
+      # case so IslandHubSilent keeps its meaning (shared 300s boundary).
+      - alert: IslandGossipSilent
+        expr: aitbc_island_gossip_silence_seconds >= 300
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No gossip block received for 20+ minutes on {{ $labels.instance }}"
+          description: "aitbc_island_gossip_silence_seconds on {{ $labels.instance }} is {{ $value }}s: this node has received no gossip block from any validator, so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's gossip connections, sync peer and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
 
       # CHAIN-STALL-2: ChainHeadStalled reads the messaging head gauge, so a
       # target that keeps scraping but stops exposing the series leaves the
