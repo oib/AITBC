@@ -275,3 +275,14 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `load_multichain_config` now always offers the configured
   `blockchain_rpc_url` (default 127.0.0.1:8202) as a `local-rpc`
   fallback node, so a stale registry no longer blinds read commands.
+
+### RPC-DISPUTE-EVIDENCE-1
+
+- `GET /rpc/disputes/{id}/evidence` and `/{id}/votes` answered 500 for an
+  unknown dispute id while `/{id}` answered 404: the two readers mapped
+  every service-level `{"success": False}` to HTTPException(500). A
+  shared helper now maps "not found" to 404 (any other failure stays
+  500), matching `get_dispute`. CLI `dispute evidence list` and
+  `dispute votes` print `Dispute N not found` and exit non-zero on the
+  404 instead of dumping the request error. Live reproduction on node2
+  (dispute 999999) showed the 500s in hub's rpc journal.

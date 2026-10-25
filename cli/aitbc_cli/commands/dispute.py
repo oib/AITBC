@@ -64,6 +64,16 @@ def _coordinator_client(ctx, coordinator_url: str | None = None, timeout: int | 
     return AITBCHTTPClient(**client_kwargs)
 
 
+def _is_not_found(network_error: NetworkError) -> bool:
+    """True when the RPC error's underlying response was a 404.
+
+    ``AITBCHTTPClient`` wraps ``requests.HTTPError`` in ``NetworkError``;
+    the status lives on ``__cause__.response.status_code``.
+    """
+    response = getattr(network_error.__cause__, "response", None)
+    return getattr(response, "status_code", None) == 404
+
+
 def _chain_client(ctx, node_url: str | None = None, timeout: int | None = None) -> AITBCHTTPClient:
     """Return an HTTP client for the blockchain node RPC.
 
@@ -221,6 +231,8 @@ def votes(ctx, dispute_id, node_url, format):
         result = client.get(f"/rpc/disputes/{dispute_id}/votes")
         output(result, ctx.obj.get("output_format", format), title=f"Votes on Dispute {dispute_id}")
     except NetworkError as e:
+        if _is_not_found(e):
+            abort(ctx, f"Dispute {dispute_id} not found", from_exception=e)
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error fetching votes for dispute {dispute_id}: {e}", from_exception=e)
@@ -319,6 +331,8 @@ def evidence_list(ctx, dispute_id, node_url, format):
         result = client.get(f"/rpc/disputes/{dispute_id}/evidence")
         output(result, ctx.obj.get("output_format", format), title=f"Evidence for Dispute {dispute_id}")
     except NetworkError as e:
+        if _is_not_found(e):
+            abort(ctx, f"Dispute {dispute_id} not found", from_exception=e)
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error fetching evidence for dispute {dispute_id}: {e}", from_exception=e)
