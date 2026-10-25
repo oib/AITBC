@@ -19,7 +19,9 @@ OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
 _health_checker = create_basic_health_check("agent-coordinator")
 
 
-# Health check endpoint
+# Health check endpoint — HEAD registered too (FastAPI does not auto-add it)
+# so uptime monitors can probe without a body; kept out of the OpenAPI schema.
+@router.head("/health", include_in_schema=False)
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
 async def health_check(request: Request, principal: OptionalAgent) -> dict[str, Any]:
