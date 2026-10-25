@@ -947,6 +947,96 @@ def test_crosschain_bridge_status_emits_bridge_id():
     assert "--transfer-id" not in cmd
 
 
+def test_group_options_forwarded_before_subcommand():
+    """PLAY3 option-missing: options declared on a CLI *group* are part of the
+    leaf's real surface — `aitbc wallet --wallet-name X send` selects the
+    wallet; without it the spend falls back to the ACTIVE wallet. The
+    generated tool must expose them as parameters and emit them between the
+    group token and the subcommand path (Click rejects them after the leaf)."""
+    import inspect
+
+    func = _generated("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_send")
+    params = inspect.signature(func).parameters
+    for name in ("wallet_name", "wallet_path", "chain_id"):
+        assert name in params, f"aitbc_wallet_send missing group option {name}"
+    assert "password" not in params
+    assert "password_stdin" not in params
+
+    _clear()
+    result = json.loads(
+        func(
+            to_address="0xd9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9",
+            amount="1",
+            wallet_name="genesis",
+            wait_seal=True,
+            password_file="/tmp/wallet.pass",
+        )
+    )
+    assert result.get("dry_run") is True
+    command = str(result["command"])
+    assert "--wallet-name=genesis" in command, command
+    # The group option must precede the `send` leaf token for Click to accept it.
+    assert command.index("--wallet-name") < command.index(" send"), command
+    assert "--wait" in command, command
+    assert "--password-file" in command, command
+    assert "--password-stdin" not in command
+
+
+def test_group_options_omitted_when_unset():
+    """Unset group options must not reach the command line — a default
+    `--wallet-name=None` would send from a wallet literally named 'None'."""
+    func = _generated("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_send")
+    _clear()
+    result = json.loads(func(to_address="0xabc", amount="1"))
+    assert result.get("dry_run") is True
+    command = str(result["command"])
+    for flag in ("--wallet-name", "--wallet-path", "--use-daemon", "--chain-id"):
+        assert flag not in command, f"{flag} emitted despite being unset: {command}"
+
+
+def test_group_options_on_read_only_leaf():
+    """Read leaves under an optioned group forward group options too —
+    `aitbc wallet --wallet-name X balance` reads the named wallet, not the
+    active one."""
+    func = _generated("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_balance")
+    _clear()
+    result = json.loads(func(wallet_name="genesis", role="hub"))
+    assert result["returncode"] == 0
+    command = _last_command()
+    assert "--wallet-name=genesis" in command, command
+    assert command.index("--wallet-name") < command.index(" balance"), command
+
+
+def test_market_group_wallet_option_forwarded():
+    """The `market` group declares --wallet/--wallet-path/--password-file at
+    group level; leaves that do not redeclare them still get the parameters."""
+    import inspect
+
+    func = _generated("aitbc_mcp_cli_tools_generated_market", "aitbc_market_offer")
+    params = inspect.signature(func).parameters
+    # The market group option declares the --wallet flag under the parameter
+    # name `market_wallet` (and likewise --wallet-path → market_wallet_path).
+    assert "market_wallet" in params, "market group --wallet option missing"
+    assert "market_wallet_path" in params, "market group --wallet-path option missing"
+    assert "password_file" in params, "market group --password-file option missing"
+    assert "password" not in params
+    assert "password_stdin" not in params
+
+    _clear()
+    result = json.loads(
+        func(
+            service_type="whisper",
+            model_or_variant="tiny",
+            price="1",
+            market_wallet="genesis",
+        )
+    )
+    assert result.get("dry_run") is True
+    command = str(result["command"])
+    assert "--wallet=genesis" in command, command
+    assert command.index("--wallet") < command.index(" offer"), command
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()
@@ -976,4 +1066,8 @@ if __name__ == "__main__":
     test_format_option_omitted_when_unset()
     test_output_format_option_deduped_to_single_param()
     test_crosschain_bridge_status_emits_bridge_id()
+    test_group_options_forwarded_before_subcommand()
+    test_group_options_omitted_when_unset()
+    test_group_options_on_read_only_leaf()
+    test_market_group_wallet_option_forwarded()
     print("All aitbc_mcp_cli_tools tests passed")
