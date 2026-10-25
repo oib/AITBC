@@ -91,6 +91,10 @@ venv/bin/python -m aitbc_cli wallet bridge deposit \
   --eth-rpc-url https://ethereum-sepolia-rpc.publicnode.com
 # wallet password prompt (TTY) — the CLI signs the ETH tx with the
 # sepolia key; the AIT recipient is that same 0x address
+
+# installed entry-point equivalent (aitbc on PATH):
+aitbc wallet bridge deposit --wallet-name sepolia --amount 0.002 \
+  --eth-rpc-url https://ethereum-sepolia-rpc.publicnode.com
 ```
 
 **Non-interactive form (agents / no TTY):** the same command takes
@@ -182,6 +186,10 @@ venv/bin/python -m aitbc_cli wallet bridge withdraw \
   --wallet-name default --amount 10 --eth-address <node2-sepolia-address>
 # node2's funded wallet is named `default` (~92 AIT balance);
 # wallet password prompt if the wallet is encrypted
+
+# installed entry-point equivalent (aitbc on PATH):
+aitbc wallet bridge withdraw --wallet-name default --amount 10 \
+  --eth-address <node2-sepolia-address>
 ```
 
 **Non-interactive form:** `--password-file /etc/aitbc/default.wallet.pass`
