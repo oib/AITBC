@@ -33,6 +33,10 @@ class SyncManagerStatusServer:
             return {"chains": chains}
 
         @app.get("/health")
+        @app.get("/v1/island/health")
+        async def island_health() -> dict:
+            return self._sync_manager.island_health()
+
         async def health() -> dict[str, str]:
             return {"status": "ok"}
 
