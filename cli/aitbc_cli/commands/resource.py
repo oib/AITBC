@@ -207,7 +207,10 @@ def status(ctx, agent_id: str | None, status_filter: str | None, limit: int):
         if not isinstance(rows, list):
             rows = [rows] if rows else []
         if not rows:
-            info("No resource allocations found")
+            if ctx.obj.get("output_format", "table") == "json":
+                output([], "json")
+            else:
+                info("No resource allocations found")
             return
         output(
             [
