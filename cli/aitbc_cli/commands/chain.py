@@ -1,5 +1,9 @@
 """Chain management commands for AITBC CLI"""
 
+import os
+import sqlite3
+from pathlib import Path
+
 import click
 from click import echo
 
@@ -31,6 +35,40 @@ def _load_chain_manager(node_urls: tuple[str, ...] = ()) -> ChainManager:
         endpoint = getattr(get_config(), "blockchain_rpc_url", "") or "http://127.0.0.1:8202"
         config.nodes["local-rpc"] = NodeConfig(id="local-rpc", endpoint=endpoint)
     return ChainManager(config)
+
+
+_LOCAL_RPC_URL = "http://127.0.0.1:8202"
+
+
+def _source_endpoints(chain_manager: ChainManager) -> str:
+    """Comma-joined node endpoints a ChainManager query ran against."""
+    return ", ".join(sorted({node.endpoint for node in chain_manager.config.nodes.values()}))
+
+
+def _local_head_from_db(chain_id: str | None) -> dict:
+    """Read the local chain head straight from chain.db, read-only.
+
+    Never creates or writes: a missing or ambiguous store fails with a clear
+    message instead of sqlite silently creating an empty file.
+    """
+    data_dir = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc")) / "data"
+    candidates = [data_dir / chain_id / "chain.db"] if chain_id else sorted(data_dir.glob("*/chain.db"))
+    if not candidates:
+        raise click.ClickException(
+            f"no chain.db under {data_dir}" + (f" for chain {chain_id}" if chain_id else " — pass --chain-id")
+        )
+    if not chain_id and len(candidates) > 1:
+        names = ", ".join(c.parent.name for c in candidates)
+        raise click.ClickException(f"several chain stores under {data_dir} ({names}) — pass --chain-id")
+    db = candidates[0]
+    if not db.exists():
+        raise click.ClickException(f"no chain.db at {db}")
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        height = conn.execute("select max(height) from block").fetchone()[0]
+    finally:
+        conn.close()
+    return {"height": height, "chain_id": db.parent.name, "source": f"local-db:{db}"}
 
 
 @click.group(
@@ -170,11 +208,20 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
     help="Blockchain RPC URL of a node to query (repeatable); falls back to the configured blockchain_rpc_url when no nodes are known",
 )
 @click.option("--detailed", is_flag=True, help="Show detailed status information")
+@click.option(
+    "--local",
+    "use_local",
+    is_flag=True,
+    help="Query this node's own rpc (127.0.0.1:8202) instead of the configured blockchain_rpc_url",
+)
 @click.pass_context
-def status(ctx, chain_id, detailed, node_urls):
+def status(ctx, chain_id, detailed, node_urls, use_local):
     """Check the status and optional details or metrics of a chain."""
     try:
+        if use_local:
+            node_urls = (_LOCAL_RPC_URL,) + tuple(node_urls)
         chain_manager = _load_chain_manager(node_urls)
+        source = _source_endpoints(chain_manager)
 
         import asyncio
 
@@ -190,6 +237,7 @@ def status(ctx, chain_id, detailed, node_urls):
                 "Block Height": chain_info.block_height,
                 "Active Nodes": chain_info.active_nodes,
                 "Total Nodes": chain_info.node_count,
+                "Source": source,
             }
 
             if detailed:
@@ -226,6 +274,7 @@ def status(ctx, chain_id, detailed, node_urls):
                     "Status": chain.status.value,
                     "Block Height": chain.block_height,
                     "Active Nodes": chain.active_nodes,
+                    "Source": source,
                 }
                 status_list.append(status_info)
 
@@ -248,12 +297,25 @@ def status(ctx, chain_id, detailed, node_urls):
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--detailed", is_flag=True, help="Show detailed information")
 @click.option("--metrics", is_flag=True, help="Show performance metrics")
+@click.option(
+    "--local",
+    "use_local",
+    is_flag=True,
+    help="Query this node's own rpc (127.0.0.1:8202) instead of the configured blockchain_rpc_url",
+)
+@click.option(
+    "--node-url",
+    "node_urls",
+    multiple=True,
+    help="Blockchain RPC URL of a node to query (repeatable); falls back to the configured blockchain_rpc_url when no nodes are known",
+)
 @click.pass_context
-def info(ctx, chain_id, detailed, metrics):
+def info(ctx, chain_id, detailed, metrics, use_local, node_urls):
     """Get detailed information and optional metrics about a chain."""
     try:
-        config = load_multichain_config()
-        chain_manager = ChainManager(config)
+        if use_local:
+            node_urls = (_LOCAL_RPC_URL,) + tuple(node_urls)
+        chain_manager = _load_chain_manager(node_urls)
 
         import asyncio
 
@@ -270,6 +332,7 @@ def info(ctx, chain_id, detailed, metrics):
             "Created": chain_info.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "Block Height": chain_info.block_height,
             "Size": f"{chain_info.size_mb:.1f}MB",
+            "Source": _source_endpoints(chain_manager),
         }
 
         output(basic_info, ctx.obj.get("output_format", "table"), title=f"Chain Information: {chain_id}")
@@ -1081,14 +1144,20 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format:
   aitbc --output=json blockchain height --node-url http://localhost:8202"""
 )
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Blockchain RPC URL")
+@click.option("--db", "from_db", is_flag=True, help="Read the local chain.db directly (read-only); needs no running rpc unit")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
-def height(ctx, node_url: str, output_format: str):
+def height(ctx, node_url: str, from_db: bool, output_format: str):
     """Get the current blockchain height from a node."""
     output_format = resolve_output_format(ctx, output_format)
+    if from_db:
+        output(_local_head_from_db(ctx.obj.get("chain_id")), output_format, title="Blockchain Height")
+        return
     client = AITBCHTTPClient(base_url=node_url, timeout=10)
     try:
         result = client.get("/rpc/height")
+        if isinstance(result, dict):
+            result.setdefault("source", node_url)
         output(result, output_format, title="Blockchain Height")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
@@ -1113,6 +1182,8 @@ def block(ctx, block_height: int, node_url: str, output_format: str):
     client = AITBCHTTPClient(base_url=node_url, timeout=10)
     try:
         result = client.get(f"/rpc/blocks/{block_height}")
+        if isinstance(result, dict):
+            result.setdefault("source", node_url)
         output(result, output_format, title=f"Block {block_height}")
     except NetworkError as e:
         error(f"Cannot connect to node at {node_url}: {e}")
