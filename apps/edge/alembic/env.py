@@ -64,7 +64,9 @@ def _resolved_target() -> str:
     A migration should never be the first thing that tells you which database it chose.
     """
     url = _sync_database_url()
-    print(f"alembic: target database -> {url}", file=sys.stderr)
+    from aitbc.database.target import redacted_url
+
+    print(f"alembic: target database -> {redacted_url(url)}", file=sys.stderr)
     return url
 
 

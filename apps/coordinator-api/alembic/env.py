@@ -16,7 +16,6 @@ Usage::
 from __future__ import annotations
 
 import os
-import re
 import sys
 from logging.config import fileConfig
 
@@ -50,9 +49,7 @@ _override = os.environ.get("DATABASE_URL") or os.environ.get("SQLITE_URL")
 _db_url = _override or _app_url
 
 
-def _redact(url: str) -> str:
-    """Hide the password in a DSN so it never reaches a log or a terminal scrollback."""
-    return re.sub(r"://([^:/@]+):[^@]*@", r"://\1:***@", url)
+from aitbc.database.target import redacted_url as _redact
 
 
 if _override and _override != _app_url:

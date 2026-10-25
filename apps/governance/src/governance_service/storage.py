@@ -5,13 +5,13 @@ Database session management for Governance service
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from urllib.parse import quote
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
 from aitbc.database.ssl_args import build_ssl_arg
+from aitbc.database.target import resolve_service_database_url
 
 # Importing the models is what puts them on `governance_metadata`; create_all builds nothing
 # otherwise. This service's tables live there rather than on the global SQLModel registry --
@@ -29,19 +29,10 @@ def _build_database_url() -> str:
     passed through `connect_args` in `_create_engine` instead. See
     `aitbc.database.ssl_args.build_ssl_arg`.
     """
-    db_type = os.getenv("DB_TYPE", "sqlite")
-    if db_type == "postgresql":
-        host = os.getenv("DB_HOST", "localhost")
-        port = os.getenv("DB_PORT", "5432")
-        name = os.getenv("DB_NAME", "aitbc_governance")
-        # User and password sit inside the URL's userinfo, so a value containing
-        # `@`, `/`, or `:` would silently corrupt the host/name the driver ends
-        # up dialling. Percent-encode them (`safe=""` quotes the reserved set);
-        # the driver decodes before authenticating.
-        user = quote(os.getenv("DB_USER", "aitbc"), safe="")
-        password = quote(os.getenv("DB_PASS", ""), safe="")
-        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
-    return os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/data/governance_service.db")
+    return resolve_service_database_url(
+        default_url=f"sqlite+aiosqlite:///{DATA_DIR}/data/governance_service.db",
+        default_db_name="aitbc_governance",
+    )
 
 
 def _create_engine() -> AsyncEngine:

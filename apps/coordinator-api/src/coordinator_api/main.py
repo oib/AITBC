@@ -265,6 +265,24 @@ async def _start_sweepers(task_manager) -> None:
     )
 
 
+def _assert_db_target() -> None:
+    """Fail closed when an env override points the migrator at a different DB.
+
+    ``DATABASE_URL``/``SQLITE_URL`` override the alembic target; the app reads
+    only ``settings.database.effective_url``. A deployed env file once carried
+    such an override: migrations advanced a Postgres schema while the service
+    ran SQLite. The migrator still allows the override for CI, but the service
+    refuses to start while they disagree (PG-TARGET-1).
+    """
+    import os
+
+    from aitbc.database.target import assert_same_target
+
+    override = os.environ.get("DATABASE_URL") or os.environ.get("SQLITE_URL")
+    if override:
+        assert_same_target(settings.database.effective_url, override)
+
+
 async def _init_databases() -> None:
     """Consolidated database initialization — failures are non-fatal."""
     from .storage.db import init_async_db, init_db
@@ -386,6 +404,7 @@ def _log_receipt_signing_status() -> None:
 
 async def _startup(app: FastAPI, task_manager) -> None:
     """Startup phase of the lifespan: init stores, warm up, start sweepers."""
+    _assert_db_target()
     await _init_databases()
     await _init_redis_state()
 
