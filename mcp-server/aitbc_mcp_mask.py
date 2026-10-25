@@ -28,7 +28,98 @@ import re
 import shlex
 from typing import Any
 
-from aitbc_cli.commands.system import _field_name_denied
+# --- secret-name patterns ----------------------------------------------------
+# Copied from ``aitbc_cli.commands.system`` (the env-set/field deny list) so
+# the MCP server does not need ``aitbc_cli`` on its path to start.
+# ``tests/test_aitbc_mcp_echo_mask.py`` imports the CLI originals and fails
+# when this copy drifts from them.
+_FIELD_DENY_NAMES = frozenset({"private_key", "secret", "password", "token", "mnemonic", "seed", "key", "api_key"})
+_FIELD_DENY_NORMALIZED = frozenset({"privatekey", "apikey", "secretkey", "passphrase", "passwd", "credential", "credentials"})
+_FIELD_DENY_KEY_PREFIXES = ("private", "secret", "api", "auth", "signing", "access")
+_FIELD_DENY_TOKENS = frozenset(
+    {
+        "pass",
+        "password",
+        "passwd",
+        "pwd",
+        "passphrase",
+        "secret",
+        "token",
+        "key",
+        "keys",
+        "private",
+        "credential",
+        "credentials",
+        "auth",
+        "signing",
+        "mnemonic",
+        "seed",
+        "dsn",
+        "url",
+        "uri",
+        "secrets",
+        "passwords",
+        "tokens",
+        "apikeys",
+        "pw",
+        "bearer",
+        "cookie",
+        "cookies",
+        "privkey",
+        "seedphrase",
+        "salt",
+    }
+)
+_FIELD_DENY_SUFFIXES = (
+    "password",
+    "passwd",
+    "passphrase",
+    "pwd",
+    "secret",
+    "token",
+    "private",
+    "credential",
+    "credentials",
+    "mnemonic",
+    "seed",
+    "dsn",
+    "secrets",
+    "passwords",
+    "tokens",
+    "apikeys",
+    "cookie",
+    "cookies",
+    "bearer",
+    "authorization",
+    "privkey",
+    "seedphrase",
+)
+_FIELD_DENY_TAIL = ("_url", "_uri", "_dsn")
+_CONN_STRING_TOKENS = frozenset({"url", "uri", "dsn"})
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def _field_tokens(name: str) -> list[str]:
+    return [t.lower() for t in re.split(r"[_-]+", _CAMEL_BOUNDARY.sub("_", name)) if t]
+
+
+def _deny_token_hit(tokens: list[str], deny_conn_strings: bool) -> bool:
+    return any(token in _FIELD_DENY_TOKENS and (deny_conn_strings or token not in _CONN_STRING_TOKENS) for token in tokens)
+
+
+def _field_name_denied(name: str, *, deny_conn_strings: bool = True) -> bool:
+    lowered = name.lower()
+    normalized = lowered.replace("-", "").replace("_", "")
+    tokens = _field_tokens(name)
+    return (
+        lowered in _FIELD_DENY_NAMES
+        or normalized in _FIELD_DENY_NORMALIZED
+        or (deny_conn_strings and lowered.endswith(_FIELD_DENY_TAIL))
+        or _deny_token_hit(tokens, deny_conn_strings)
+        or (normalized.endswith("key") and normalized[:-3] in _FIELD_DENY_KEY_PREFIXES)
+        or (len(tokens) == 1 and normalized.endswith(_FIELD_DENY_SUFFIXES))
+    )
+
 
 MARKER = "<redacted>"
 
@@ -60,6 +151,9 @@ _HEADER_RE = re.compile(
 )
 _BEARER_RE = re.compile(r"\b(?P<scheme>bearer|basic|token)(?P<sep>\s+)(?P<value>[A-Za-z0-9._~+/=-]+)", re.IGNORECASE)
 _QUOTED_PAIR_RE = re.compile(r"(?P<q>[\"'])(?P<name>[A-Za-z0-9_.-]+)(?P=q)(?P<sep>\s*:\s*)(?P<vq>[\"'])(?P<value>.*?)(?P=vq)")
+# Fallback only: a quoted key whose value may be cut off by an unbalanced quote
+# (``--body={"api_key": "zzz``).
+_LOOSE_PAIR_RE = re.compile(r"(?P<q>[\"'])(?P<name>[A-Za-z0-9_.-]+)(?P=q)(?P<sep>\s*:\s*)(?P<vq>[\"']?)(?P<value>[^\"',}\s]+)")
 _OPTION_TEXT_RE = re.compile(r"(?P<name>(?<![\w-])--?[A-Za-z][A-Za-z0-9_-]*)(?P<sep>=|\s+)(?P<value>[^\s\"']+)")
 
 
@@ -153,6 +247,10 @@ def _mask_text_fallback(text: str) -> str:
     """Regex-only masking for strings ``shlex`` cannot split (unbalanced quotes)."""
     text = _OPTION_TEXT_RE.sub(
         lambda m: f"{m['name']}{m['sep']}{_SENTINEL}" if secret_name(m["name"]) else m.group(0),
+        text,
+    )
+    text = _LOOSE_PAIR_RE.sub(
+        lambda m: f"{m['q']}{m['name']}{m['q']}{m['sep']}{m['vq']}{_SENTINEL}" if secret_name(m["name"]) else m.group(0),
         text,
     )
     return " ".join(_mask_value(part) for part in text.split(" "))
