@@ -482,3 +482,12 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `auth_client_kwargs` resolver (store wins, explicit `--api-key` still
   top). Tests pin stored-JWT-over-config, config-fallback and no-URL
   paths.
+### ISLAND-ORDERS-CANCEL-1
+
+- `exchange-island orders/orderbook/rates` now correlate cancel
+  transactions to their orders in the read model: a sealed cancel
+  closes the original order (`status=cancelled`, gone from
+  `--status open` and the book), and the cancel row shows the order's
+  pair/side instead of empty fields. A cancel for an unknown or
+  already-cancelled order is a no-op. Read-model only — no apply or
+  consensus change.
