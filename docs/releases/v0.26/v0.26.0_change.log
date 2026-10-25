@@ -226,3 +226,23 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   (empty multichain registry); it now gets the same ``blockchain_rpc_url``
   fallback as ``status``. Defaults are unchanged: plain ``status`` still
   shows the hub view by design.
+
+### PG-TARGET-1 (stream 1) — app and migrator resolve to the same checked database (#436)
+
+- New ``aitbc/database/target.py``: ``resolve_service_database_url``
+  (``DB_TYPE``+``DB_*`` percent-encoded credentials win, then
+  ``DATABASE_URL``, then the sqlite default), ``to_sync_url``,
+  ``redacted_url`` (scheme/host/db name only), ``assert_same_target``
+  (fail-closed with a redacted pair).
+- ``trading``'s app now uses the shared resolver — it previously ignored
+  ``DB_TYPE``/``DB_*`` entirely, so a Postgres deployment migrated PG while
+  the app served SQLite. ``governance``'s alembic env uses it too, which
+  gives the migrator the same percent-encoded credentials as the app —
+  reserved characters in ``DB_USER``/``DB_PASS`` no longer parse
+  differently on the two paths.
+- ``edge``'s alembic env now prints the migration target redacted (it
+  printed the full URL to stderr). ``coordinator-api``'s env swaps its
+  local redactor for the shared one, and its service startup refuses to
+  boot while ``DATABASE_URL``/``SQLITE_URL`` disagrees with
+  ``effective_url`` (the deployed-env divergence that once advanced a
+  schema nothing read).
