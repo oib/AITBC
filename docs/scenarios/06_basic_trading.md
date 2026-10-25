@@ -248,6 +248,133 @@ for line in listing.splitlines():
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 7: List configured exchanges
+
+Shows the exchanges registered in the local configuration.
+
+```bash
+aitbc exchange list
+```
+
+### Step 8: Monitor an exchange
+
+Streams order-book and trade updates for a pair.
+
+```bash
+aitbc exchange monitor --pair AIT/USDC --exchange local
+```
+
+### Step 9: List exchange nodes
+
+Lists exchange nodes known to the coordinator.
+
+```bash
+aitbc exchange node list
+```
+
+### Step 10: Read the order book
+
+Prints the current order book.
+
+```bash
+aitbc exchange order book
+```
+
+### Step 11: Check sell-admin status
+
+Reads the exchange sell-side admin service status from the hub.
+
+```bash
+aitbc exchange sell_admin status
+```
+
+### Step 12: Check one exchange's status
+
+Prints health and configuration of a named exchange.
+
+```bash
+aitbc exchange status --exchange-name local
+```
+
+### Step 13: Verify exchange accounting
+
+Runs the exchange's financial-consistency verification over its databases.
+
+```bash
+aitbc exchange verify
+```
+
+### Step 14: Register an external exchange
+
+`aitbc exchange register --name ext --api-key REDACTED` is stores external exchange API credentials — a key/secret operation; not played, needs the operator's line.
+
+### Step 15: Add liquidity to a pair
+
+Adds liquidity to an exchange pair.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked in the pool.
+
+```bash
+aitbc exchange add-liquidity --pair AIT/USDC --amount 36000000 --side both
+```
+
+### Step 16: Create a trading pair
+
+Creates a new pair on the named exchange.
+
+Cost: 0 units — config write only.
+
+```bash
+aitbc exchange create-pair --base-asset AIT --quote-asset USDC --exchange local
+```
+
+### Step 17: Fund a prepared order
+
+Pays the escrowed funds for a prepared order.
+
+Cost: order amount in units (UNITS_PER_AIT = 36_000_000) plus fee.
+
+```bash
+aitbc exchange order fund ord-123
+```
+
+### Step 18: Make a prepay deposit
+
+Sends an ETH prepayment into the exchange deposit contract.
+
+Cost: 0.001 ETH = 1_000_000_000_000_000 wei.
+
+```bash
+aitbc exchange prepay deposit --amount-eth 0.001 --send
+```
+
+### Step 19: Set the node payout address
+
+Registers the Ethereum address exchange payouts settle to.
+
+Cost: 0 units — config write only.
+
+```bash
+aitbc exchange node set-payout --eth-address 0xPayoutAddress
+```
+
+### Step 20: Start trading on a pair
+
+Enables trading on a pair that was created halted.
+
+Cost: liquidity budgets in units (UNITS_PER_AIT = 36_000_000) when --base-liquidity/--quote-liquidity are passed.
+
+```bash
+aitbc exchange start-trading --pair AIT/USDC
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
