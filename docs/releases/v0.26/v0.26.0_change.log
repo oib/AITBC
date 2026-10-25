@@ -571,3 +571,10 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   4xx lane now needs >20% AND >0.5 requests/s — wrong-route 404s,
   429s and replay traffic on quiet nodes no longer fire it. promtool
   unit test pins both lanes.
+### BACKUP-RUNBOOK-1
+
+- New runbook `docs/ops/backup-restore.md` — per-artefact restore
+  paths (pg_dump needs roles first, `chain_*.db.gz` are `.dump` text,
+  coordinator db is binary), scratch-only rule, integrity checks, and
+  what stays behind the operator's typed line. Linked from the
+  manual-refund runbook.
