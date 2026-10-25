@@ -174,9 +174,14 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   ``--password v``), ``NAME=value`` env prefixes and positionals, query and
   ``--params`` pairs, URL userinfo passwords, ``Authorization``/``X-*-Key``
   header values, ``Bearer`` tokens and secret-named keys inside JSON bodies.
-  Names reuse ``_field_name_denied`` from ``aitbc_cli.commands.system``
-  (connection-string names exempt; ``access_key``/public keys and
-  ``*_file``/``*_path``/``*_dir``/``*-stdin`` names stay visible).
+  Names use the same deny list as ``aitbc_cli.commands.system``'s
+  ``_field_name_denied``, copied into the mask so the MCP server does not
+  need ``aitbc_cli`` on its path to start; a parity test in
+  ``tests/test_aitbc_mcp_echo_mask.py`` is the only import of the CLI
+  original and fails when the copy drifts (connection-string names exempt;
+  ``access_key``/public keys and ``*_file``/``*_path``/``*_dir``/``*-stdin``
+  names stay visible). A truncated JSON body under an unbalanced quote is
+  masked by a loose-pair rule in the regex fallback.
 - Stays visible: tx/block hashes (a bare 64-hex is only masked when a
   secret-named option sits next to it), addresses, CIDs, wallet/name values,
   ids. An echo without secrets is returned unchanged.
