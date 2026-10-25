@@ -100,6 +100,39 @@ def _settlement_node_url(detail: str) -> str | None:
     return url or None
 
 
+def _describe_rpc_failure(base: str, exc: BaseException) -> str:
+    """One-line description of an RPC failure, including the status code.
+
+    A 401/403 names the API-key cause so a refused release/refund never
+    reads like an unreachable node.
+    """
+    status = http_response_status(exc)
+    detail = http_error_detail(exc) or str(exc)
+    hint = " (RPC requires an API key — set blockchain_rpc_api_key)" if status in (401, 403) else ""
+    return f"{base}: HTTP {status} {detail}{hint}" if status is not None else f"{base}: {exc}"
+
+
+def _post_escrow_rpc(config, path: str, payload: dict[str, Any], timeout: int = 10) -> tuple[dict[str, Any] | None, list[str]]:
+    """POST an escrow RPC to the local node, then the hub fallback.
+
+    Returns ``(result, failures)`` — ``failures`` names each endpoint that
+    refused and why, so callers surface a real error instead of silently
+    returning None (a 403 API-key refusal used to read exactly like a
+    missing escrow).
+    """
+    failures: list[str] = []
+    rpc_url = _get_blockchain_rpc_url(config)
+    hub_url = _hub_base_url(config)
+    for base in dict.fromkeys(b for b in (rpc_url, hub_url) if b):
+        try:
+            result = _get_rpc_client(config, base, timeout=timeout).post(path, json=payload)
+            return result, failures
+        except Exception as exc:
+            logger.debug("Escrow RPC %s failed on %s", path, base, exc_info=True)
+            failures.append(_describe_rpc_failure(base, exc))
+    return None, failures
+
+
 def _settlement_url_allowed(url: str, config) -> bool:
     """Allow the retry only against the configured hub or a loopback host.
 
@@ -281,28 +314,12 @@ def escrow_release(ctx, job_id: str):
     """Release escrow funds to the provider after job completion."""
     try:
         config = get_config()
-        rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = _hub_base_url(config)
-        result = None
-        refusal_detail: str | None = None
-        try:
-            http_client = _get_rpc_client(config, rpc_url, timeout=10)
-            result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
-        except Exception as exc:
-            refusal_detail = _http_503_detail(exc)
-            logger.debug("Escrow request failed", exc_info=True)
-        if not result:
-            try:
-                http_client = _get_rpc_client(config, hub_url, timeout=10)
-                result = http_client.post(f"/rpc/escrow/{job_id}/release", json={})
-            except Exception as exc:
-                refusal_detail = refusal_detail or _http_503_detail(exc)
-                logger.debug("Escrow request failed", exc_info=True)
+        result, failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/release", {})
         if result:
             success(f"Escrow released for job {job_id}")
             output(result, ctx.obj.get("output_format", "table"))
         else:
-            suffix = f": {refusal_detail}" if refusal_detail else ""
+            suffix = f": {'; '.join(failures)}" if failures else ""
             error(f"Failed to release escrow for job {job_id}{suffix}")
     except Exception as e:
         error(f"Error releasing escrow: {e}")
@@ -382,29 +399,16 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
             success(f"Coordinator refund accepted for job {job_id}")
             output(coordinator_result, ctx.obj.get("output_format", "table"))
             return coordinator_result
-        rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = _hub_base_url(config)
-        result = None
-        refusal_detail: str | None = None
-        try:
-            http_client = _get_rpc_client(config, rpc_url, timeout=10)
-            result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
-        except Exception as exc:
-            refusal_detail = _http_503_detail(exc)
-            logger.debug("Escrow request failed", exc_info=True)
-        if not result:
-            try:
-                http_client = _get_rpc_client(config, hub_url, timeout=10)
-                result = http_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
-            except Exception as exc:
-                refusal_detail = refusal_detail or _http_503_detail(exc)
-                logger.debug("Escrow request failed", exc_info=True)
+        info(f"Coordinator refund unavailable for job {job_id} (no coordinator payment) — falling back to the chain rpc")
+        result, failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/refund", {"reason": reason})
         if result:
             success(f"Escrow refunded for job {job_id}")
             output(result, ctx.obj.get("output_format", "table"))
             return result
-        if refusal_detail:
-            error(f"Escrow refund refused: {refusal_detail}")
+        # Never return silently: name each refusal so a 403 API-key or a 503
+        # settlement refusal is diagnosable instead of reading as "no escrow".
+        suffix = f": {'; '.join(failures)}" if failures else ""
+        error(f"Failed to refund escrow for job {job_id}{suffix}")
         return None
     except Exception as e:
         error(f"Error refunding escrow: {e}")

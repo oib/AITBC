@@ -29,7 +29,7 @@ from ..ipfs import (
 )
 from ._group import market
 from . import get_chain_id, get_market_wallet
-from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
+from .escrow import _escrow_create, _post_escrow_rpc
 from .jobs import _resolve_offer, _track_coordinator_job
 
 logger = get_logger(__name__)
@@ -89,15 +89,11 @@ def _confirm_market_pin(job_id: str, size: int | None = None) -> dict[str, Any] 
 
 
 def _release_market_payment(ctx: click.Context, job_id: str) -> dict[str, Any] | None:
-    """Release escrow for a completed job via the customer blockchain, then sync the market record."""
+    """Release escrow for a completed job via the customer blockchain (hub fallback), then sync the market record."""
     config = get_config()
-    rpc_url = _get_blockchain_rpc_url(config)
-    rpc_client = _get_rpc_client(config, rpc_url, timeout=20)
-    release_result: dict[str, Any] | None = None
-    try:
-        release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={})
-    except Exception as e:
-        warning(f"Local escrow release failed: {e}")
+    release_result, failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/release", {}, timeout=20)
+    if release_result is None:
+        warning(f"Escrow release failed ({'; '.join(failures)}) — the escrow stays locked")
     tx_hash = release_result.get("tx_hash") if isinstance(release_result, dict) else None
     try:
         client = _market_client()
@@ -604,13 +600,9 @@ def cancel(
 
     # Attempt an immediate on-chain refund through the customer blockchain and sync state.
     config = get_config()
-    rpc_url = _get_blockchain_rpc_url(config)
-    rpc_client = _get_rpc_client(config, rpc_url, timeout=20)
-    refund_result: dict[str, Any] | None = None
-    try:
-        refund_result = rpc_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
-    except Exception as e:
-        warning(f"Local escrow refund failed (sweeper will retry): {e}")
+    refund_result, refund_failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/refund", {"reason": reason}, timeout=20)
+    if refund_result is None:
+        warning(f"Escrow refund failed locally and on the hub (sweeper will retry): {'; '.join(refund_failures)}")
 
     tx_hash = (
         (refund_result.get("tx_hash") or refund_result.get("refund_tx_hash")) if isinstance(refund_result, dict) else None
