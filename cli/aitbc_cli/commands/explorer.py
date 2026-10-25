@@ -5,7 +5,8 @@ import json
 import click
 
 from ..config import get_config
-from ..utils import error, success
+from ..utils import success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 
 logger = get_logger(__name__)
@@ -55,11 +56,11 @@ def chain_head(chain_id: str | None):
             success("Chain Head")
             click.echo(json.dumps(result, indent=2))
         else:
-            error("No chain head data available")
+            abort(None, "No chain head data available")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting chain head: {e}")
+        abort(None, f"Error getting chain head: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -86,9 +87,9 @@ def latest_blocks(limit: int, offset: int, chain_id: str | None):
         success(f"Latest {len(blocks)} blocks")
         click.echo(json.dumps(blocks, indent=2))
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting latest blocks: {e}")
+        abort(None, f"Error getting latest blocks: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -115,9 +116,9 @@ def non_empty_blocks(limit: int, offset: int, chain_id: str | None):
         success(f"Non-empty blocks: {len(blocks)}")
         click.echo(json.dumps(blocks, indent=2))
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting non-empty blocks: {e}")
+        abort(None, f"Error getting non-empty blocks: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -140,11 +141,11 @@ def block(height: int, chain_id: str | None):
             success(f"Block at height {height}")
             click.echo(json.dumps(result, indent=2))
         else:
-            error(f"Block at height {height} not found")
+            abort(None, f"Block at height {height} not found")
     except NetworkError as e:
-        error(_explorer_failure(e, f"Block at height {height} not found"))
+        abort(None, _explorer_failure(e, f"Block at height {height} not found"))
     except Exception as e:
-        error(f"Error getting block: {e}")
+        abort(None, f"Error getting block: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -167,11 +168,11 @@ def block_by_hash(block_hash: str, chain_id: str | None):
             success(f"Block with hash {block_hash}")
             click.echo(json.dumps(result, indent=2))
         else:
-            error(f"Block with hash {block_hash} not found")
+            abort(None, f"Block with hash {block_hash} not found")
     except NetworkError as e:
-        error(_explorer_failure(e, f"Block with hash {block_hash} not found"))
+        abort(None, _explorer_failure(e, f"Block with hash {block_hash} not found"))
     except Exception as e:
-        error(f"Error getting block by hash: {e}")
+        abort(None, f"Error getting block by hash: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -194,11 +195,11 @@ def transaction(tx_hash: str, chain_id: str | None):
             success(f"Transaction {tx_hash}")
             click.echo(json.dumps(result, indent=2))
         else:
-            error(f"Transaction {tx_hash} not found")
+            abort(None, f"Transaction {tx_hash} not found")
     except NetworkError as e:
-        error(_explorer_failure(e, f"Transaction {tx_hash} not found"))
+        abort(None, _explorer_failure(e, f"Transaction {tx_hash} not found"))
     except Exception as e:
-        error(f"Error getting transaction: {e}")
+        abort(None, f"Error getting transaction: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -221,11 +222,11 @@ def transaction_by_hash(tx_hash: str, chain_id: str | None):
             success(f"Transaction details for {tx_hash}")
             click.echo(json.dumps(result, indent=2))
         else:
-            error(f"Transaction {tx_hash} not found")
+            abort(None, f"Transaction {tx_hash} not found")
     except NetworkError as e:
-        error(_explorer_failure(e, f"Transaction {tx_hash} not found"))
+        abort(None, _explorer_failure(e, f"Transaction {tx_hash} not found"))
     except Exception as e:
-        error(f"Error getting transaction details: {e}")
+        abort(None, f"Error getting transaction details: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -252,9 +253,9 @@ def search_transactions(address: str, limit: int, chain_id: str | None):
         success(f"Found {len(transactions)} transactions for {address}")
         click.echo(json.dumps(transactions, indent=2))
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error searching transactions: {e}")
+        abort(None, f"Error searching transactions: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -281,9 +282,9 @@ def blocks_by_address(address: str, limit: int, chain_id: str | None):
         success(f"Found {len(blocks)} blocks for {address}")
         click.echo(json.dumps(blocks, indent=2))
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting blocks by address: {e}")
+        abort(None, f"Error getting blocks by address: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -309,11 +310,11 @@ def activity_timeline(period: str, chain_id: str | None):
             success(f"Activity timeline for {period}")
             click.echo(json.dumps(result, indent=2))
         else:
-            error("No activity data available")
+            abort(None, "No activity data available")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting activity timeline: {e}")
+        abort(None, f"Error getting activity timeline: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -335,11 +336,11 @@ def network_stats(chain_id: str | None):
             success("Network Statistics")
             click.echo(json.dumps(result, indent=2))
         else:
-            error("No network stats available")
+            abort(None, "No network stats available")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting network stats: {e}")
+        abort(None, f"Error getting network stats: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -362,11 +363,11 @@ def provider_reputation(provider_id: str, chain_id: str | None):
             success(f"Reputation for provider {provider_id}")
             click.echo(json.dumps(result, indent=2))
         else:
-            error(f"No reputation data for provider {provider_id}")
+            abort(None, f"No reputation data for provider {provider_id}")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting provider reputation: {e}")
+        abort(None, f"Error getting provider reputation: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -392,9 +393,9 @@ def top_addresses(limit: int, chain_id: str | None):
         success(f"Top {len(addresses)} addresses")
         click.echo(json.dumps(addresses, indent=2))
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting top addresses: {e}")
+        abort(None, f"Error getting top addresses: {e}", from_exception=e)
 
 
 @explorer.command(
@@ -414,8 +415,8 @@ def chains():
             success("Supported Chains")
             click.echo(json.dumps(result, indent=2))
         else:
-            error("No chains data available")
+            abort(None, "No chains data available")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        abort(None, f"Explorer API unavailable: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error getting chains: {e}")
+        abort(None, f"Error getting chains: {e}", from_exception=e)

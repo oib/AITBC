@@ -13,6 +13,7 @@ import websockets
 from websockets.exceptions import WebSocketException
 
 from ..config import get_config
+from ..utils.error_handling import abort
 from ..utils import error, info, output, success
 from ..utils.agent_signing import (
     agent_login_token,
@@ -388,9 +389,9 @@ def peers(ctx, coordinator_url: str | None):
         success("Agent Coordinator Peers:")
         output(peers_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
-        error(f"Error fetching peers: {e}")
+        abort(ctx, f"Error fetching peers: {e}", from_exception=e)
 
 
 @messaging.command(
