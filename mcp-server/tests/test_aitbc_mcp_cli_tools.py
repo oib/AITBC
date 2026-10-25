@@ -210,6 +210,22 @@ def test_download_ipfs():
             role="hub",
         )
     )
+    # The downloader writes a file on the remote host — it is gated like the
+    # generated aitbc_ipfs_download twin, so a default call only dry-runs.
+    assert result.get("dry_run") is True
+    assert "command" in result
+    assert not CAPTURED
+
+    result = json.loads(
+        aitbc_mcp_cli_tools.download_ipfs(
+            cid="QmTest",
+            output="/tmp/out",
+            wait=True,
+            dry_run=False,
+            confirm=True,
+            role="hub",
+        )
+    )
     assert result["returncode"] == 0
     cmd = _last_command()
     assert "ipfs download" in cmd
@@ -480,6 +496,216 @@ def test_no_generated_tool_exposes_password_or_password_stdin():
     assert saw_password_file > 0, "expected some generated tools to keep the safe --password-file form"
 
 
+# --- MCP-READONLY-1 (issue #417) ---------------------------------------------
+#
+# 28 scenario replay commands landed on dry_run-gated generated tools although
+# the CLI leaf is a read; the generic read_aitbc_cli pivot executed them anyway.
+# The generator misclassified them: the leaf token was missing from
+# SAFE_LEAF_TOKENS or unreachable behind a hyphenated entry that never matched
+# the normalized token.  The promoted leaves below must now execute on a bare
+# call, while verified mutating leaves keep the dry_run/confirm gate.
+
+
+def _generated(module_name: str, func_name: str):
+    import importlib
+
+    return getattr(importlib.import_module(module_name), func_name)
+
+
+# (module, function, kwargs) — minimal kwargs to build the command.
+PROMOTED_READ_LEAVES = [
+    ("aitbc_mcp_cli_tools_generated_transactions", "aitbc_transactions_pending", {}),
+    (
+        "aitbc_mcp_cli_tools_generated_transactions",
+        "aitbc_transactions_estimate_fee",
+        {"from_wallet": "w1", "to_address": "0xd9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9", "amount": "10"},
+    ),
+    ("aitbc_mcp_cli_tools_generated_exchange_island", "aitbc_exchange_island_orderbook", {"pair": "AIT/ETH"}),
+    ("aitbc_mcp_cli_tools_generated_exchange_island", "aitbc_exchange_island_orders", {}),
+    ("aitbc_mcp_cli_tools_generated_ai", "aitbc_ai_results", {}),
+    ("aitbc_mcp_cli_tools_generated_gpu", "aitbc_gpu_list_gpus", {}),
+    ("aitbc_mcp_cli_tools_generated_gpu_onchain", "aitbc_gpu_onchain_query", {"gpu_id": "gpu-0"}),
+    ("aitbc_mcp_cli_tools_generated_gpu_onchain", "aitbc_gpu_onchain_allocations", {"gpu_id": "gpu-0"}),
+    ("aitbc_mcp_cli_tools_generated_agent", "aitbc_agent_discover_agents", {}),
+    ("aitbc_mcp_cli_tools_generated_reputation", "aitbc_reputation_trust_score", {"agent_id": "agent-1"}),
+    ("aitbc_mcp_cli_tools_generated_analytics", "aitbc_analytics_predict", {}),
+    ("aitbc_mcp_cli_tools_generated_security", "aitbc_security_scan", {}),
+    ("aitbc_mcp_cli_tools_generated_crosschain", "aitbc_crosschain_bridge_status", {"bridge_id": "0xabc"}),
+    ("aitbc_mcp_cli_tools_generated_bridge", "aitbc_bridge_pending", {}),
+    ("aitbc_mcp_cli_tools_generated_explorer", "aitbc_explorer_network_stats", {}),
+    ("aitbc_mcp_cli_tools_generated_zk", "aitbc_zk_circuits", {}),
+    ("aitbc_mcp_cli_tools_generated_dispute", "aitbc_dispute_active", {}),
+    # Curated-twin leaves promoted alongside (issue gate-3…14).
+    ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_escrow_status", {"job_id": "job-1"}),
+    ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_exchange_price", {}),
+    ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_exchange_list_deposits", {}),
+    ("aitbc_mcp_cli_tools_generated_dashboard", "aitbc_dashboard_customer", {}),
+    ("aitbc_mcp_cli_tools_generated_dashboard", "aitbc_dashboard_shop", {}),
+    ("aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_island_info", {"island_id": "is-1"}),
+    ("aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_list_islands", {}),
+    # Bonus promotions from the token fixes — all verified pure reads.
+    ("aitbc_mcp_cli_tools_generated_bridge", "aitbc_bridge_security_status", {}),
+    ("aitbc_mcp_cli_tools_generated_explorer", "aitbc_explorer_block_by_hash", {"block_hash": "0xabc"}),
+    ("aitbc_mcp_cli_tools_generated_explorer", "aitbc_explorer_blocks_by_address", {"address": "0xabc"}),
+    ("aitbc_mcp_cli_tools_generated_explorer", "aitbc_explorer_non_empty_blocks", {}),
+    ("aitbc_mcp_cli_tools_generated_explorer", "aitbc_explorer_top_addresses", {}),
+    ("aitbc_mcp_cli_tools_generated_explorer", "aitbc_explorer_transaction_by_hash", {"tx_hash": "0xabc"}),
+    ("aitbc_mcp_cli_tools_generated_monitor", "aitbc_monitor_campaign_stats", {}),
+    ("aitbc_mcp_cli_tools_generated_edge", "aitbc_edge_gpu_list_gpus", {}),
+    ("aitbc_mcp_cli_tools_generated_simulate", "aitbc_simulate_price", {}),
+]
+
+
+def test_promoted_read_leaves_execute_without_gate():
+    """Every leaf re-verified as a read runs on a bare call — no dry_run or
+    confirm parameter exists, and the result is never a dry-run envelope."""
+    import inspect
+
+    for module_name, func_name, kwargs in PROMOTED_READ_LEAVES:
+        func = _generated(module_name, func_name)
+        params = inspect.signature(func).parameters
+        assert "dry_run" not in params, f"{func_name} still exposes dry_run"
+        assert "confirm" not in params, f"{func_name} still exposes confirm"
+        _clear()
+        result = json.loads(func(**kwargs))
+        assert result.get("dry_run") is not True, f"{func_name} returned a dry-run envelope"
+        assert "command" not in result or "returncode" in result, f"{func_name} returned a would-be command only"
+
+
+def test_mutating_gate_check_still_enforced():
+    """The 10 Phase-A gate-check tools keep the dry_run/confirm contract:
+    dry-run envelope on defaults, refusal without confirm, execute with both."""
+    gated = [
+        ("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_create", {"name": "w1"}),
+        (
+            "aitbc_mcp_cli_tools_generated_transactions",
+            "aitbc_transactions_send",
+            {"from_wallet": "w1", "to_address": "0xd9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9", "amount": "1"},
+        ),
+        ("aitbc_mcp_cli_tools_generated_ai", "aitbc_ai_submit", {}),
+        (
+            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_market_offer",
+            {"service_type": "whisper", "model_or_variant": "tiny", "price": "1"},
+        ),
+        ("aitbc_mcp_cli_tools_generated_bond", "aitbc_bond_create", {"provider_id": "p1"}),
+        (
+            "aitbc_mcp_cli_tools_generated_governance",
+            "aitbc_governance_propose",
+            {"title": "t", "description": "d", "proposer_id": "p1"},
+        ),
+        (
+            "aitbc_mcp_cli_tools_generated_bridge",
+            "aitbc_bridge_lock",
+            {"target_chain": "ait-test", "sender": "0x1", "recipient": "0x2", "amount": 1},
+        ),
+        ("aitbc_mcp_cli_tools_generated_system", "aitbc_system_restart", {"service": "wallet"}),
+        ("aitbc_mcp_cli_tools_generated_system", "aitbc_system_env_set", {"service": "wallet"}),
+        ("aitbc_mcp_cli_tools_generated_auth", "aitbc_auth_login", {}),
+    ]
+    for module_name, func_name, kwargs in gated:
+        func = _generated(module_name, func_name)
+
+        _clear()
+        result = json.loads(func(**kwargs))
+        assert result.get("dry_run") is True, f"{func_name} executed on a default call"
+        assert "command" in result
+        assert not CAPTURED, f"{func_name} reached the remote on a default call"
+
+        _clear()
+        result = json.loads(func(**kwargs, dry_run=False, confirm=False))
+        assert "Confirmation required" in result.get("error", ""), f"{func_name} ran without confirm"
+        assert not CAPTURED, f"{func_name} reached the remote without confirm"
+
+        _clear()
+        result = json.loads(func(**kwargs, dry_run=False, confirm=True))
+        assert result.get("returncode") == 0, f"{func_name} failed to execute with confirm"
+        assert CAPTURED, f"{func_name} never reached the remote with confirm"
+
+
+def test_read_only_curated_tools_have_ungated_twins():
+    """No curated tool may sit read-only-marked while its generated twin on the
+    same CLI leaf is destructive-gated — the dual exposure this row removes.
+
+    Exception: get_zk_refund_sweep_candidates is read-only on purpose — it pins
+    --dry-run on `ai refund-sweep`, a leaf that genuinely mutates without it.
+    """
+    import inspect
+
+    pairs = [
+        (
+            aitbc_mcp_cli_tools.get_exchange_orderbook,
+            "aitbc_mcp_cli_tools_generated_exchange_island",
+            "aitbc_exchange_island_orderbook",
+        ),
+        (
+            aitbc_mcp_cli_tools.get_exchange_orders,
+            "aitbc_mcp_cli_tools_generated_exchange_island",
+            "aitbc_exchange_island_orders",
+        ),
+        (aitbc_mcp_cli_tools.list_node_islands, "aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_list_islands"),
+        (aitbc_mcp_cli_tools.get_node_island_info, "aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_island_info"),
+        (aitbc_mcp_cli_tools.get_market_escrow_status, "aitbc_mcp_cli_tools_generated_market", "aitbc_market_escrow_status"),
+        (aitbc_mcp_cli_tools.get_market_exchange_price, "aitbc_mcp_cli_tools_generated_market", "aitbc_market_exchange_price"),
+        (
+            aitbc_mcp_cli_tools.list_market_exchange_deposits,
+            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_market_exchange_list_deposits",
+        ),
+        (mcp_server.get_ai_job_results, "aitbc_mcp_cli_tools_generated_ai", "aitbc_ai_results"),
+        (mcp_server.list_pending_transactions, "aitbc_mcp_cli_tools_generated_transactions", "aitbc_transactions_pending"),
+        (mcp_server.get_aitbc_dashboard_customer, "aitbc_mcp_cli_tools_generated_dashboard", "aitbc_dashboard_customer"),
+        (mcp_server.get_aitbc_dashboard_shop, "aitbc_mcp_cli_tools_generated_dashboard", "aitbc_dashboard_shop"),
+        (mcp_server.list_gpus, "aitbc_mcp_cli_tools_generated_gpu", "aitbc_gpu_list_gpus"),
+    ]
+    for curated, module_name, twin_name in pairs:
+        curated_params = inspect.signature(curated).parameters
+        assert "dry_run" not in curated_params, f"{curated.__name__} unexpectedly gated"
+        twin_params = inspect.signature(_generated(module_name, twin_name)).parameters
+        assert "dry_run" not in twin_params and "confirm" not in twin_params, (
+            f"{curated.__name__} is read-only while generated twin {twin_name} is gated"
+        )
+
+
+def test_ipfs_downloaders_are_gated_both_lanes():
+    """Both download leaves write a file on the remote host: the curated tools
+    and their generated twins must all carry the dry_run/confirm gate."""
+    import inspect
+
+    for func in (
+        aitbc_mcp_cli_tools.download_ipfs,
+        aitbc_mcp_cli_tools.download_market_ipfs,
+        _generated("aitbc_mcp_cli_tools_generated_ipfs", "aitbc_ipfs_download"),
+        _generated("aitbc_mcp_cli_tools_generated_market", "aitbc_market_download"),
+    ):
+        params = inspect.signature(func).parameters
+        assert "dry_run" in params and "confirm" in params, f"{func.__name__} lost its gate"
+        assert params["dry_run"].default is True, f"{func.__name__} defaults dry_run off"
+        assert params["confirm"].default is False, f"{func.__name__} defaults confirm on"
+
+    _clear()
+    result = json.loads(aitbc_mcp_cli_tools.download_market_ipfs(cid="QmTest", role="hub"))
+    assert result.get("dry_run") is True
+    assert not CAPTURED
+
+
+def test_list_node_islands_targets_real_leaf():
+    """gate-5: the curated tool called a nonexistent `island-list-islands`
+    subcommand; it must build the real `node island list-islands` leaf."""
+    _clear()
+    result = json.loads(aitbc_mcp_cli_tools.list_node_islands(role="hub"))
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "node island list-islands" in cmd
+    assert "island-list-islands" not in cmd.replace("node island list-islands", "")
+
+
+def test_list_aitbc_ipfs_rentals_removed():
+    """gate-12: `ipfs rentals` does not exist in the CLI tree — the tool could
+    only ever return click's 'No such command' and is dropped."""
+    assert not hasattr(mcp_server, "list_aitbc_ipfs_rentals")
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()
@@ -496,6 +722,12 @@ if __name__ == "__main__":
     test_send_aitbc_from_wallet()
     test_omitted_optional_params_never_reach_command()
     test_no_generated_tool_exposes_password_or_password_stdin()
+    test_promoted_read_leaves_execute_without_gate()
+    test_mutating_gate_check_still_enforced()
+    test_read_only_curated_tools_have_ungated_twins()
+    test_ipfs_downloaders_are_gated_both_lanes()
+    test_list_node_islands_targets_real_leaf()
+    test_list_aitbc_ipfs_rentals_removed()
     test_nested_market_escrow_create()
     test_set_aitbc_config()
     test_login_aitbc()

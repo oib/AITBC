@@ -13,6 +13,7 @@ from pydantic import Field
 
 from aitbc_mcp_server import (
     NodeRole,
+    _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
     _collect_options,
@@ -73,15 +74,13 @@ def aitbc_explorer_activity_timeline(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_explorer_block_by_hash(
     block_hash: Annotated[str, Field(description="The Block hash.")],
     chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get a block by its hash on the specified chain."""
     options: dict[str, Any] = _collect_options(
@@ -90,39 +89,18 @@ def aitbc_explorer_block_by_hash(
         values={"block_hash": "block-hash", "chain_id": "chain-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "explorer",
         subcommand=["block-by-hash"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "explorer",
-            subcommand=["block-by-hash"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_explorer_blocks_by_address(
     address: Annotated[str, Field(description="Blockchain address to fund.")],
     limit: Annotated[int | None, Field(description="Number of blocks to return")] = None,
@@ -130,8 +108,6 @@ def aitbc_explorer_blocks_by_address(
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get blocks containing transactions for a given address."""
     options: dict[str, Any] = _collect_options(
@@ -140,35 +116,14 @@ def aitbc_explorer_blocks_by_address(
         values={"address": "address", "limit": "limit", "chain_id": "chain-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "explorer",
         subcommand=["blocks-by-address"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "explorer",
-            subcommand=["blocks-by-address"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
@@ -215,14 +170,12 @@ def aitbc_explorer_chains(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_explorer_network_stats(
     chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get network-wide statistics for a chain."""
     options: dict[str, Any] = _collect_options(
@@ -231,39 +184,18 @@ def aitbc_explorer_network_stats(
         values={"chain_id": "chain-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "explorer",
         subcommand=["network-stats"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "explorer",
-            subcommand=["network-stats"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_explorer_non_empty_blocks(
     limit: Annotated[int | None, Field(description="Number of blocks to return")] = None,
     offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
@@ -271,8 +203,6 @@ def aitbc_explorer_non_empty_blocks(
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List non-empty blocks with optional limit, offset, and chain filters."""
     options: dict[str, Any] = _collect_options(
@@ -281,35 +211,14 @@ def aitbc_explorer_non_empty_blocks(
         values={"limit": "limit", "offset": "offset", "chain_id": "chain-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "explorer",
         subcommand=["non-empty-blocks"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "explorer",
-            subcommand=["non-empty-blocks"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
@@ -412,15 +321,13 @@ def aitbc_explorer_search_transactions(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_explorer_top_addresses(
     limit: Annotated[int | None, Field(description="Number of addresses to return")] = None,
     chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List the top addresses by balance on a chain."""
     options: dict[str, Any] = _collect_options(
@@ -429,47 +336,24 @@ def aitbc_explorer_top_addresses(
         values={"limit": "limit", "chain_id": "chain-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "explorer",
         subcommand=["top-addresses"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "explorer",
-            subcommand=["top-addresses"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_explorer_transaction_by_hash(
     tx_hash: Annotated[str, Field(description="The Tx hash.")],
     chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get full transaction details by its hash."""
     options: dict[str, Any] = _collect_options(
@@ -478,33 +362,12 @@ def aitbc_explorer_transaction_by_hash(
         values={"tx_hash": "tx-hash", "chain_id": "chain-id"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "explorer",
         subcommand=["transaction-by-hash"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "explorer",
-            subcommand=["transaction-by-hash"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
