@@ -11,7 +11,7 @@ import httpx
 
 from ..config import get_config
 from ..utils import DECIMAL, error, info, output, resolve_output_format, success, warning
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import NetworkError, get_logger
 
 # Initialize logger
@@ -533,8 +533,10 @@ def sync_db(ctx, database_id: str):
         else:
             success(f"Database {database_id} synced")
         output(result, resolve_output_format(ctx))
+    except CLIError:
+        raise
     except Exception as e:
-        error(f"Error syncing database: {str(e)}")
+        abort(None, f"Error syncing database: {e}", from_exception=e)
 
 
 @edge.group(
