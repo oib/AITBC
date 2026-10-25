@@ -28,7 +28,7 @@ def postgres_cluster() -> Iterator[LocalPostgresCluster]:
     """
     if find_postgres_bin() is None:
         pytest.skip("requires_postgres: no initdb/pg_ctl/postgres binaries on this host")
-    cluster = LocalPostgresCluster(base_dir="/var/tmp")
+    cluster = LocalPostgresCluster(base_dir="/var/tmp")  # nosec B108 — fixture scratch root per prompt
     cluster.start()
     yield cluster
     cluster.stop()
