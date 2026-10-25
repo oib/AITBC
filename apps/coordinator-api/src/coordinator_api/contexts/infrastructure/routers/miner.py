@@ -27,6 +27,7 @@ from ....schemas import (
 from ...infrastructure.domain import Job
 from ...infrastructure.domain.job_receipt import JobReceipt
 from ...payments.acceptance import DISPUTED, PENDING_ACCEPTANCE, window_seconds_for
+from ....custom_types import job_state_filter_help, parse_job_state_filter
 from ....services import JobService, MinerService
 from ....contexts.reputation.services.reputation_service import ReputationService
 from ....contexts.infrastructure.services.spot_check import SpotCheckService
@@ -654,16 +655,23 @@ async def list_miner_jobs(
     job_status: str | None = None,
 ) -> dict[str, Any]:
     """List jobs assigned to a specific miner"""
+    filters = {}
+    if job_type:
+        filters["job_type"] = job_type
+    if job_status:
+        # Parsed before the broad try below so an invalid value answers 400
+        # instead of being swallowed into the generic error payload.
+        try:
+            state = parse_job_state_filter(job_status)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"invalid job_status filter {job_status!r} ({job_state_filter_help()})",
+            ) from None
+        if state is not None:
+            filters["state"] = state.value
     try:
         service = JobService(session)
-        filters = {}
-        if job_type:
-            filters["job_type"] = job_type
-        if job_status:
-            try:
-                filters["state"] = JobState(job_status.upper()).value
-            except ValueError:
-                pass
         jobs = service.list_jobs(assigned_miner_id=miner_id, limit=limit, offset=offset, **filters)
         return {
             "jobs": service.to_views(jobs),
