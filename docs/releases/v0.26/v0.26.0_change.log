@@ -159,3 +159,29 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   ``cd <dir> &&`` clause became argv[0] and any env-using tool failed with
   FileNotFoundError on the MCP host's own node. The local branch now peels
   POSIX prefixes off the string and applies them as real child env/cwd.
+
+
+### MCP-ECHO-1 — secret-bearing argument values masked in every echoed command (SM-03; #422)
+
+- New ``mcp-server/aitbc_mcp_mask.py``: ``mask_command`` (string or argv
+  list) and ``mask_envelope``. ``_json`` — the one serialisation step every
+  tool module returns through — now serialises a masked copy, so dry-run,
+  confirmation, result, timeout and error envelopes from the generic lanes,
+  the HTTP/RPC tools and all generated tools are covered without touching
+  the generator. The argv handed to ``subprocess`` is unchanged.
+- Masked, with the option name kept and the value replaced by
+  ``<redacted>``: values of secret-named options (``--api-key=v`` and
+  ``--password v``), ``NAME=value`` env prefixes and positionals, query and
+  ``--params`` pairs, URL userinfo passwords, ``Authorization``/``X-*-Key``
+  header values, ``Bearer`` tokens and secret-named keys inside JSON bodies.
+  Names reuse ``_field_name_denied`` from ``aitbc_cli.commands.system``
+  (connection-string names exempt; ``access_key``/public keys and
+  ``*_file``/``*_path``/``*_dir``/``*-stdin`` names stay visible).
+- Stays visible: tx/block hashes (a bare 64-hex is only masked when a
+  secret-named option sits next to it), addresses, CIDs, wallet/name values,
+  ids. An echo without secrets is returned unchanged.
+- ``_scrub_secrets`` stays as is: it replaces known values in the whole
+  output (stdout included); the mask is pattern-based on echo fields only.
+- Tests: every pattern, the must-not-mask list, list/string forms, error
+  text, byte-identical executed argv (local and ssh), and an AST coverage
+  test that fails when an envelope is serialised without the mask.
