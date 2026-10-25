@@ -335,3 +335,14 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - Add operator plays 60-74 documenting the previously uncovered CLI groups: `edge` (60), `node` (61), `trade` (62), `config` (63), `operations` (64), `simulate` (65), `workflow` (66), `grant` (67), `performance` (68), `cluster` (69), `script` (70), `reinvest` (71), `developer` (72), `contract` (73), `confidential` (74). Destructive/spend leaves are marked "not played, needs the operator's line"; known CLI gaps (`simulate run/status/result`, `performance optimize/tune`) and stub output (`cluster`) are documented. Refs #438.
 ### PLAY3 coverage
 - docs(scenarios): extend 21 existing scenario files to invoke 189 previously uncovered CLI leaf commands (issue #438 EXTEND pass); mutating steps carry integer-unit cost lines (UNITS_PER_AIT = 36_000_000), destructive/validator/env/key leaves are marked not-played pending the operator line
+### PLAY3 — escrow create retries on the settlement node (CLI; #438)
+
+- ``market transcribe``/``process``/``run`` escrow creation failed on
+  customer nodes: ``/rpc/escrow/create`` is posted to the local blockchain
+  RPC, which refuses settlement-shaped ops without a settlement key
+  (``503``, "the settlement node is at <url>"). The command now retries
+  the create once on the settlement URL the node names — the same refusal
+  is already encoded, so a retry can only help a wrong-routed caller.
+- ``_settlement_node_url`` parses the URL out of the node's detail text;
+  tests stub the 503 + settlement-node path in
+  ``cli/tests/test_escrow_settlement_fallback.py``.
