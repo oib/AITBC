@@ -218,6 +218,59 @@ aitbc agent-msg receive \
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 6: Monitor agent comm traffic
+
+Streams agent-comm message events.
+
+```bash
+aitbc agent-comm monitor
+```
+
+### Step 7: Receive agent-comm messages
+
+Pulls pending messages for a receiver.
+
+```bash
+aitbc agent-comm receive --receiver-id agent-002 --limit 10
+```
+
+### Step 8: Send an agent-comm message
+
+Sends a typed message between agents.
+
+Cost: 0 units — message only.
+
+```bash
+aitbc agent-comm send --sender-id agent-001 --receiver-id agent-002 --message-type task --chain-id ait-mainnet
+```
+
+### Step 9: Record an interaction result
+
+Writes a reputation data point for a counterparty.
+
+Cost: 0 units — reputation record.
+
+```bash
+aitbc agent-comm reputation --agent-id agent-002 --interaction-result success
+```
+
+### Step 10: Start a collaboration
+
+Registers a multi-agent collaboration.
+
+Cost: 0 units — collaboration record (any task spend stays in units, UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc agent-comm collaborate --agent-ids agent-001,agent-002 --collaboration-type task-share
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
