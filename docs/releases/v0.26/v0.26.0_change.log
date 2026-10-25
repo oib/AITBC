@@ -106,3 +106,28 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - Curated tools: `download_market_ipfs` drops `access_secret`; `get_ipfs_rental_token` moves to `access_secret_file` and `register_ipfs_rental_token` to `token_file` — both read the secret-holding file on the MCP host and scrub the value from serialized output (`_scrub_secrets`) so the echoed command cannot leak it back into the transcript.
 - Leaves whose CLI has no file/env form lose real-run capability until the follow-up CLI options land: `--private-key-file` on `bridge attest|confirm|ingest-header|register-validator|sign-proof|store-header` and `network force-sync`, `--password-file` on `bridge lock|unlock`, `--access-secret-file` on `market|ipfs download`, `--secret-file` on `trade settle`, env/file credential input on `exchange register`.
 - New schema test scans every mcp-server module (generated + curated) and fails on any parameter matching the secret regex unless allow-listed with a reason.
+
+
+### MCP-RESULT-1 — MCP results carry the failure signal; timeout output decoded; read_aitbc_cli path gate closed (SM-07, SM-09, SM-05; #420)
+
+- Every command-result envelope now carries `ok` (bool) and `exit_code`:
+  `ok` is `returncode == 0` *and* no error pattern in the first 15 lines of
+  stdout/stderr, closing the SP-13 class where exit-0 CLI errors surfaced as
+  MCP success with the error only in the body.  When the pattern — not the
+  return code — makes `ok` false, `error_hint` names the offending line.
+  `{"error": …}` envelopes stamp `ok:false` and dry-run previews `ok:true`
+  via `_json` so refusal/gating results are distinguishable too.
+- Timeouts keep `returncode:-1` and gain `timed_out:true`; partial stdout/
+  stderr are now decoded (`errors="replace"`) instead of byte-mangled
+  `b'\xe2…'` reprs — `TimeoutExpired.stdout` stays bytes even under
+  `text=True`.
+- `read_aitbc_cli` token-splitting hole closed: the destructive-path check
+  now runs over the *effective* path `group + subcommand + args` (Click
+  consumes leading positionals as path tokens) with prefix matching on
+  `DESTRUCTIVE_AITBC_PATHS`, so `["alerts","list"]`, `["alerts"]`+args,
+  `subcommand=None`+args, and string spellings classify identically.
+  Previously `read_aitbc_cli(group="monitor", subcommand=["alerts","list"])`
+  executed while `["alerts"]`+args was refused — and `args` alone could
+  supply any destructive leaf (e.g. `monitor alerts remove`).
+- Tests: error-pattern table (20 false / 10 true cases), timeout byte
+  decode, both spellings for every multi-token destructive path.
