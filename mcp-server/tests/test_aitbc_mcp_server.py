@@ -192,15 +192,31 @@ class TestExecutionContext:
         with (
             mock.patch.object(mcp_server, "_is_local_host", return_value=False),
             mock.patch.object(mcp_server, "_ssh_target", return_value="root@hub.aitbc"),
+            mock.patch.object(mcp_server, "_role_for_host", return_value="hub"),
         ):
             ctx = mcp_server._execution_context("hub.aitbc")
-        assert ctx == {"host": "hub.aitbc", "target": "root@hub.aitbc", "mode": "ssh"}
+        assert ctx == {
+            "host": "hub.aitbc",
+            "resolved_host": "hub.aitbc",
+            "role_used": "hub",
+            "target": "root@hub.aitbc",
+            "mode": "ssh",
+        }
 
     def test_local_host_reports_local(self):
         """A local host reports target 'local' and mode 'local'."""
-        with mock.patch.object(mcp_server, "_is_local_host", return_value=True):
+        with (
+            mock.patch.object(mcp_server, "_is_local_host", return_value=True),
+            mock.patch.object(mcp_server, "_role_for_host", return_value=None),
+        ):
             ctx = mcp_server._execution_context("mcp-host")
-        assert ctx == {"host": "mcp-host", "target": "local", "mode": "local"}
+        assert ctx == {
+            "host": "mcp-host",
+            "resolved_host": "mcp-host",
+            "role_used": None,
+            "target": "local",
+            "mode": "local",
+        }
 
 
 class TestRunRemoteTargetVisibility:
@@ -1029,3 +1045,83 @@ class TestDestructiveStructuralAudit:
             except (OSError, TypeError, ValueError):
                 unreadable.add(" ".join(path))
         assert unreadable == _WRAPPER_LOOP_PATHS
+
+
+class TestHostForRoleRouting:
+    """MCP-ROUTING-1: role/host resolution must be explicit, never silent.
+
+    ``host`` used to override ``role`` silently and an unmapped role string
+    fell through to be used as the ssh target itself. Both are now refused.
+    """
+
+    _HOSTS = {
+        "roles": {"hub": "hub.aitbc", "customer": "node0", "shop": "node2"},
+        "default_host": "hub.aitbc",
+        "ssh_user": "root",
+    }
+
+    def test_role_resolves_through_map(self):
+        with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
+            assert mcp_server._host_for_role("customer") == "node0"
+
+    def test_host_only_resolves_verbatim(self):
+        with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
+            assert mcp_server._host_for_role(None, "node2") == "node2"
+
+    def test_user_at_host_override_allowed(self):
+        with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
+            assert mcp_server._host_for_role(None, "root@hub.aitbc") == "root@hub.aitbc"
+
+    def test_default_host_when_neither_given(self):
+        with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
+            assert mcp_server._host_for_role(None) == "hub.aitbc"
+
+    def test_role_and_host_together_refused(self):
+        """A call that can reach another node's wallet must not silently pick a side."""
+        with (
+            mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)),
+            pytest.raises(ValueError, match="either role or host"),
+        ):
+            mcp_server._host_for_role("customer", "hub.aitbc")
+
+    def test_unknown_role_refused_instead_of_ssh_to_role_name(self):
+        """The old fallthrough ran ``ssh … bogus-role`` — now refused."""
+        with (
+            mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)),
+            pytest.raises(ValueError, match="unknown role"),
+        ):
+            mcp_server._host_for_role("bogus-role")
+
+    def test_option_looking_host_refused(self):
+        """`-oProxyCommand=…` style values must never reach ssh argv."""
+        with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
+            for bad in ("-oProxyCommand=/bin/echo marker", "-F/dev/null", "-v"):
+                with pytest.raises(ValueError, match="invalid host"):
+                    mcp_server._host_for_role(None, bad)
+
+    def test_host_with_whitespace_or_equals_refused(self):
+        with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
+            for bad in ("hub.aitbc -oBatchMode=no", "a=b", "hub .aitbc", " "):
+                with pytest.raises(ValueError, match="invalid host"):
+                    mcp_server._host_for_role(None, bad)
+
+    def test_envelope_carries_resolved_host_and_role(self):
+        """Dry-run/result envelopes name where the call actually went."""
+        with (
+            mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)),
+            mock.patch.object(mcp_server, "_is_local_host", return_value=False),
+            mock.patch.object(mcp_server, "_ssh_target", return_value="root@node0"),
+        ):
+            ctx = mcp_server._execution_context("node0")
+        assert ctx["resolved_host"] == "node0"
+        assert ctx["role_used"] == "customer"
+        assert ctx["target"] == "root@node0"
+
+    def test_adhoc_host_envelope_has_no_role(self):
+        with (
+            mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)),
+            mock.patch.object(mcp_server, "_is_local_host", return_value=False),
+        ):
+            ctx = mcp_server._execution_context("ad-hoc.example")
+        assert ctx["resolved_host"] == "ad-hoc.example"
+        assert ctx["role_used"] is None
