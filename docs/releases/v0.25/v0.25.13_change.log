@@ -24,20 +24,23 @@
 
 ### MCP-ROUTING-1 — MCP host routing refuses ambiguity and names the resolved target
 
-- `acebe2f0a` — `aitbc_mcp_server.py` `_host_for_role` no longer lets an
-  explicit `host` silently override a `role`: a call carrying both is
-  refused (`pass either role or host, not both`) so a wallet or write call
-  can never land on a different node than the role intends (SM-01). A role
-  not present in the loaded `mcp-hosts.yaml` map is refused instead of
-  falling through to be used as the ssh target itself (previously `ssh …
-  bogus-role`); over the real MCP transport this hole only fires for a
-  Literal-valid but unmapped role, since the tool schema already rejects
-  unknown role strings. Explicit `host` overrides stay allowed for ad-hoc
-  operator targets but must match a hostname/alias pattern — no leading
-  `-`, no whitespace or `=` — so a `-oProxyCommand=…`-style value can
-  never be parsed as an ssh option (verified over the transport: the value
-  was consumed as an ssh option). Every dry-run and result envelope now
-  carries `resolved_host` and `role_used` (`null` for ad-hoc hosts) so a
-  reader sees where the call actually went. Verified live: role→host map
-  on at1 returns distinct wallet names per node; role+host and the
+- `acebe2f0a`, `63a1d5588`, `2a94d750a` — `aitbc_mcp_server.py`
+  `_host_for_role` no longer lets an explicit `host` silently override a
+  `role`: a call carrying both is refused (`pass either role or host, not
+  both`, surfaced as a clear `ToolError` over the transport) so a wallet
+  or write call can never land on a different node than the role intends
+  (SM-01). A role not present in the loaded `mcp-hosts.yaml` map is
+  refused instead of falling through to be used as the ssh target itself
+  (previously `ssh … bogus-role`); over the real MCP transport this hole
+  only fires for a Literal-valid but unmapped role, since the tool schema
+  already rejects unknown role strings. Explicit `host` overrides stay
+  allowed for ad-hoc operator targets but must match a hostname/alias
+  pattern — no leading `-`, no whitespace or `=` — so a
+  `-oProxyCommand=…`-style value can never be parsed as an ssh option
+  (verified over the transport: the value was consumed as an ssh option).
+  Every dry-run and result envelope now carries `resolved_host` and
+  `role_used` (`null` for ad-hoc hosts) so a reader sees where the call
+  actually went. Verified live over stdio JSON-RPC: `aitbc_wallet_list`
+  for `customer`/`shop`/`hub`/`follower`/`customer2` resolves to
+  node0/node2/hub/node1/hub1 with distinct wallet names; role+host and the
   option-looking host are refused without any ssh.
