@@ -365,6 +365,9 @@ def aitbc_blockchain_delete(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_height(
     node_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    from_db: Annotated[
+        bool | None, Field(description="Read the local chain.db directly (read-only); needs no running rpc unit")
+    ] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -373,7 +376,7 @@ def aitbc_blockchain_height(
     """Get the current blockchain height from a node."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"from_db": "db"},
         values={"node_url": "node-url", "output_format": "format"},
     )
     args = None
@@ -393,6 +396,16 @@ def aitbc_blockchain_info(
     chain_id: Annotated[str, Field(description="The Chain id.")],
     detailed: Annotated[bool | None, Field(description="Show detailed information")] = None,
     metrics: Annotated[bool | None, Field(description="Show performance metrics")] = None,
+    use_local: Annotated[
+        bool | None,
+        Field(description="Query this node's own rpc (127.0.0.1:8202) instead of the configured blockchain_rpc_url"),
+    ] = None,
+    node_urls: Annotated[
+        list[str] | None,
+        Field(
+            description="Blockchain RPC URL of a node to query (repeatable); falls back to the configured blockchain_rpc_url when no nodes are known"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -400,8 +413,8 @@ def aitbc_blockchain_info(
     """Get detailed information and optional metrics about a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"detailed": "detailed", "metrics": "metrics"},
-        values={"chain_id": "chain-id"},
+        flags={"detailed": "detailed", "metrics": "metrics", "use_local": "local"},
+        values={"chain_id": "chain-id", "node_urls": "node-url"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -717,6 +730,10 @@ def aitbc_blockchain_status(
         ),
     ] = None,
     detailed: Annotated[bool | None, Field(description="Show detailed status information")] = None,
+    use_local: Annotated[
+        bool | None,
+        Field(description="Query this node's own rpc (127.0.0.1:8202) instead of the configured blockchain_rpc_url"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -724,7 +741,7 @@ def aitbc_blockchain_status(
     """Check the status and optional details or metrics of a chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"detailed": "detailed"},
+        flags={"detailed": "detailed", "use_local": "local"},
         values={"chain_id": "chain-id", "node_urls": "node-url"},
     )
     args = None

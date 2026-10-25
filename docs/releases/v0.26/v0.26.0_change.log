@@ -211,3 +211,18 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - Tests: ``cli/tests/test_cli_exit_codes.py`` — stubbed-failure invocations
   per command group asserting non-zero exit plus an AST guard that fails on
   any ``error(...)`` immediately followed by ``return`` in the fixed files.
+### CLI-HEIGHT-1 — head-reading blockchain commands name their source (CLI; #434)
+
+- ``aitbc blockchain height`` and ``block`` add a ``source`` field to the
+  output naming the rpc endpoint the answer came from (default is the node's
+  own ``127.0.0.1:8202`` — unchanged).
+- ``aitbc blockchain height --db`` reads the local ``chain.db`` directly,
+  opened ``mode=ro`` — a heads-equal check that works when the rpc unit is
+  down, and never creates the file. Ambiguous or missing stores fail with a
+  clear message (``--chain-id`` disambiguates).
+- ``aitbc blockchain status`` and ``info`` show a ``Source`` column naming
+  the endpoints queried, and accept ``--local`` (this node's rpc) and
+  ``--node-url`` (repeatable). ``info`` previously found no chain off the hub
+  (empty multichain registry); it now gets the same ``blockchain_rpc_url``
+  fallback as ``status``. Defaults are unchanged: plain ``status`` still
+  shows the hub view by design.
