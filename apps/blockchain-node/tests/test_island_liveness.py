@@ -338,23 +338,144 @@ def test_escrow_degraded_error_is_dual_typed():
     assert issubclass(ce.EscrowDegradedError, IslandDegradedError)
 
 
+def _scrape(text=None):
+    """(hub, gossip) silence values from the exporter's REGISTRY output;
+    None for a missing series."""
+    import re
+
+    if text is None:
+        from prometheus_client import REGISTRY, generate_latest
+
+        text = generate_latest(REGISTRY).decode()
+    vals = []
+    for name in ("aitbc_island_hub_silence_seconds", "aitbc_island_gossip_silence_seconds"):
+        hit = re.search(rf"^{name} ([0-9.eE+-]+)$", text, re.M)
+        vals.append(float(hit.group(1)) if hit else None)
+    return tuple(vals)
+
+
+def _fake_clock(monkeypatch, start=1000.0):
+    from aitbc_chain import island_monitor as im
+
+    clock = [start]
+    monkeypatch.setattr(im.time, "monotonic", lambda: clock[0])
+    return clock
+
+
+def _hub_configured(monkeypatch, hub_id="0xHUB"):
+    from aitbc_chain import config
+
+    monkeypatch.setattr(config.settings, "island_hub_proposer_id", hub_id, raising=False)
+    monkeypatch.setattr(config.settings, "validator_set", "0xHUB,0xA,0xB,0xC", raising=False)
+    monkeypatch.setattr(config.settings, "proposer_id", "0xA", raising=False)
+
+
+def _no_tick(*_a, **_k):
+    raise AssertionError("tick() must not be needed for the exported value")
+
+
 def test_tick_exports_silences_to_prometheus():
     """The gauges must appear in the exporter's REGISTRY output — the
     defect comment 2819 caught: getter-only globals never reached :9009.
-    Fails if the .set() publish lines are removed from tick()."""
+    Fails if publish_silence_gauges() stops binding either series."""
     import time as _t
-    from prometheus_client import REGISTRY, generate_latest
-    from aitbc_chain.island_monitor import IslandMonitor
+    from aitbc_chain import island_monitor as im
 
-    m = IslandMonitor(beacon_interval=60.0, is_hub_self=False, validator_count=4)
+    m = im.IslandMonitor(beacon_interval=60.0, is_hub_self=False, validator_count=4)
     m.last_hub_observation_at = _t.monotonic() - 300
     m.last_gossip_block_at = _t.monotonic() - 120
-    m.tick(100)
-    out = generate_latest(REGISTRY).decode()
-    import re
+    im.publish_silence_gauges(m)
+    hub, gos = _scrape()
+    assert hub is not None and gos is not None, "gauges missing from REGISTRY export"
+    assert 295 <= hub <= 305
+    assert 115 <= gos <= 125
 
-    hub = re.search(r"^aitbc_island_hub_silence_seconds ([0-9.eE+-]+)", out, re.M)
-    gos = re.search(r"^aitbc_island_gossip_silence_seconds ([0-9.eE+-]+)", out, re.M)
-    assert hub and gos, "gauges missing from REGISTRY export"
-    assert 295 <= float(hub.group(1)) <= 305
-    assert 115 <= float(gos.group(1)) <= 125
+
+def test_silences_grow_at_scrape_time_without_tick(monkeypatch):
+    """Comment 2840: silence must grow while no gossip block (so no tick)
+    arrives. Patched clock, no sleep: scrape, advance 300, scrape."""
+    from aitbc_chain import island_monitor as im
+
+    clock = _fake_clock(monkeypatch)
+    m = _monitor()
+    monkeypatch.setattr(m, "tick", _no_tick)
+    im.publish_silence_gauges(m)
+    assert _scrape() == (0.0, 0.0)
+    clock[0] += 300
+    assert _scrape() == (300.0, 300.0)
+    m.on_hub_observation()  # pull answer from the hub, still no gossip
+    clock[0] += 60
+    assert _scrape() == (60.0, 360.0)
+
+
+def test_scrape_right_after_build_is_small_non_negative(monkeypatch):
+    """Comment 2841 point 2: before any block or observation both values
+    start at 0 — never epoch-sized, never an exception."""
+    from aitbc_chain.island_monitor import build_monitor_from_settings
+
+    _hub_configured(monkeypatch)
+    m = build_monitor_from_settings()
+    assert m is not None
+    hub, gos = _scrape()
+    assert hub is not None and 0.0 <= hub < 5.0
+    assert gos is not None and 0.0 <= gos < 5.0
+
+
+def test_monitor_off_exports_no_silence_series(monkeypatch):
+    """Comment 2842 point 2': a monitor-off process (hub, unset env) must
+    export no aitbc_island_*_silence_seconds line at all — an unlabeled
+    gauge registered at import would export a live-looking 0.0."""
+    import importlib
+    from prometheus_client import REGISTRY, generate_latest
+    from aitbc_chain import island_monitor as im
+
+    for name in (im.HUB_SILENCE_METRIC, im.GOSSIP_SILENCE_METRIC):
+        collector = REGISTRY._names_to_collectors.get(name)
+        if collector is not None:
+            REGISTRY.unregister(collector)
+    importlib.reload(im)  # a fresh import must register nothing
+    _hub_configured(monkeypatch, hub_id="")
+    assert im.build_monitor_from_settings() is None
+    from aitbc_chain.sync_manager import SyncManager
+
+    sm = SyncManager(chains=[], use_gossip=False, use_subscription=False)
+    assert sm._island_monitor is None
+    out = generate_latest(REGISTRY).decode()
+    assert "aitbc_island_hub_silence_seconds" not in out
+    assert "aitbc_island_gossip_silence_seconds" not in out
+
+
+def test_reload_rebuilt_monitor_replaces_callback_real_scrape(monkeypatch):
+    """Comment 2841 point 4 / 2842: two reloads, a rebuilt monitor, then a
+    real _MetricsHandler HTTP scrape — values follow the NEW monitor."""
+    import importlib
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+    import threading
+    from aitbc_chain import island_monitor as im
+    from aitbc_chain.observability.exporters import _MetricsHandler
+
+    clock = _fake_clock(monkeypatch)
+    _hub_configured(monkeypatch)
+    old = im.build_monitor_from_settings()
+    old.last_hub_observation_at = clock[0] - 100
+    old.last_gossip_block_at = clock[0] - 100
+    assert _scrape() == (100.0, 100.0)
+    importlib.reload(im)
+    importlib.reload(im)
+    new = im.build_monitor_from_settings()
+    new.last_hub_observation_at = clock[0] - 5
+    new.last_gossip_block_at = clock[0] - 2
+    clock[0] += 50
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _MetricsHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}/metrics"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            body = resp.read().decode()
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert _scrape(body) == (55.0, 52.0)  # new monitor; the old one would read 150.0
