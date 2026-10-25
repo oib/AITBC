@@ -453,3 +453,8 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `apps/trading/tests/test_pg_migrations.py` run `alembic upgrade head`,
   a real insert, a real read and `downgrade base` on the throwaway cluster;
   `tests/test_pg_cluster.py` covers the URL guard and raw insert/read.
+- Found by that proof run: `c3b2d6e7f8a9_add_poolhub_indexes.downgrade()`
+  dropped indexes unconditionally while `upgrade()` creates them
+  `if_not_exists` — the two `ix_sla_violations_*` indexes it didn't create
+  were then dropped twice, so `downgrade base` failed on PostgreSQL with
+  UndefinedObjectError. Downgrade now uses `if_exists=True`.
