@@ -195,9 +195,10 @@ def _settlement_wallet(client: AITBCHTTPClient, config, ctx, rpc_url: str) -> st
     """Resolve the escrow settlement wallet, or None when none is configured.
 
     The coordinator settles through its configured blockchain RPC's node
-    wallet. Ask the coordinator first (correct on any node); fall back to the
-    market convention — HUB_PROPOSER_ID, then the local RPC's node wallet
-    (right only when buyer == hub).
+    wallet. Ask the coordinator first (correct on any node); then the local
+    RPC's /health node_wallet (the custody address the chain validates the
+    lock `to` against). HUB_PROPOSER_ID — the consensus proposer id, a
+    different account — is only a warned last resort (#455).
     """
     settlement_wallet = None
     try:
@@ -207,14 +208,19 @@ def _settlement_wallet(client: AITBCHTTPClient, config, ctx, rpc_url: str) -> st
     except Exception:
         pass
     if not settlement_wallet:
-        settlement_wallet = getattr(config, "hub_proposer_id", None) or None
-    if not settlement_wallet:
         from ..utils.escrow import get_node_wallet
 
         try:
             settlement_wallet = get_node_wallet(ctx, rpc_url)
         except Exception:
             settlement_wallet = None
+    if not settlement_wallet:
+        settlement_wallet = getattr(config, "hub_proposer_id", None) or None
+        if settlement_wallet:
+            warning(
+                "Using HUB_PROPOSER_ID as escrow destination — it is the consensus proposer, "
+                "not the node wallet; the settlement chain may reject the lock"
+            )
     return settlement_wallet
 
 

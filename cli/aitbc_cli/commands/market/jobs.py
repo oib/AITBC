@@ -826,7 +826,12 @@ def _run_hermes(
 @click.option("--days", type=int, default=1, help="Rental duration in days for IPFS hosting")
 @click.option("--pin/--no-pin", default=True, help="Pin the CID for IPFS hosting (default: pin)")
 @click.option("--track", is_flag=True, default=False, help="Create a coordinator job record after a successful run")
-@click.option("--proposer", "proposer_id", default=None, help="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
+@click.option(
+    "--proposer",
+    "proposer_id",
+    default=None,
+    help="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)",
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def run_job(
@@ -858,9 +863,12 @@ def run_job(
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
         assert private_key is not None
 
-        # Use explicit --proposer, then HUB_PROPOSER_ID, then local RPC proposer discovery.
-        config = get_config()
-        node_wallet = proposer_id or config.hub_proposer_id or None
+        # --proposer stays the explicit override; otherwise _escrow_create
+        # resolves the node wallet from the node RPC's /health. The escrow
+        # `to` must be the settlement node's custody wallet, not the
+        # consensus proposer id — HUB_PROPOSER_ID is only a warned fallback
+        # inside _escrow_create (#455).
+        node_wallet = proposer_id or None
 
         if service_type == "ollama":
             _run_ollama(
@@ -1047,7 +1055,12 @@ def process_video(
     default=False,
     help="Create a coordinator job record after a successful run",
 )
-@click.option("--proposer", "proposer_id", default=None, help="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
+@click.option(
+    "--proposer",
+    "proposer_id",
+    default=None,
+    help="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)",
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def hermes_job(
@@ -1065,8 +1078,10 @@ def hermes_job(
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
         assert private_key is not None
-        config = get_config()
-        node_wallet = proposer_id or config.hub_proposer_id or None
+        # --proposer is the explicit override; otherwise _escrow_create
+        # resolves the node wallet from /health (warned HUB_PROPOSER_ID
+        # fallback) — see run_job (#455).
+        node_wallet = proposer_id or None
         _run_hermes(ctx, offer, prompt, max_time, wallet_address, private_key, output_format, track, node_wallet=node_wallet)
     except Exception as e:
         error(f"Error running Hermes job: {e}")
