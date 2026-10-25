@@ -39,3 +39,18 @@
   `aitbc_island_import_silence_seconds` bound to the same feed, and keeps
   the old name exported as a deprecated alias for one release. Alert
   rules (`IslandImportSilent`, `IslandHubSilent`) read the new name.
+### COVERAGE-LEFT-1
+- docs(scenarios): the last 15 uncovered CLI leaves now have a scenario
+  home — `account list` (34), `list` + `unstake`/`liquidity-stake`
+  aliases (01, aliases documented not-played), `bootstrap
+  bootstrap-env` (63), `brand list`/`compliance export-audit`/`platform
+  init-platform`/`deploy deploy-brand` (43), `http call` (27), and
+  `health`/`update --check`/`stop`/`restart`/`service harden` dry-run
+  forms (21, real forms documented not-played). Regenerating the census
+  also surfaced 17 leaves that lost coverage when scenario 08 was
+  archived (8f97d023d): the market surface is re-covered in scenario 50
+  (read-only views played, fund-moving calls documented not-played) and
+  stale command shapes fixed in 60/62/63 (`edge transfer`, `edge gpu
+  remove-gpu`, `trade get`/`match` positional id, `config unset --key`,
+  `config reset`). SCENARIO-COVERAGE.md regenerated: 566 leaves, 0
+  uncovered. Refs #445.
