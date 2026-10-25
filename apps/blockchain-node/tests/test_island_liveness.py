@@ -240,3 +240,12 @@ def test_defer_helper_flag_on_degraded():
     assert island_deferral.should_defer("offer-publish") is True
     os.environ.pop("ISLAND_DEFER_ENABLED", None)
     importlib.reload(island_deferral)
+
+
+def test_bulk_pull_feeds_hub_observation():
+    """A successful pull answer feeds on_hub_observation (detection only)."""
+    import inspect
+    from aitbc_chain.sync_manager import SyncManager
+
+    src = inspect.getsource(SyncManager._bulk_pull)
+    assert "on_hub_observation" in src and "_island_monitor is not None" in src
