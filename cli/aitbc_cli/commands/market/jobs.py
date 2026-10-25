@@ -27,7 +27,7 @@ from ...auth import AuthManager
 
 from ._group import market
 from . import get_chain_id, get_market_wallet, get_next_nonce
-from .escrow import _escrow_create, _post_escrow_rpc
+from .escrow import _escrow_create, _post_escrow_release
 
 
 def _compute_plugin_id(service_type: str, model: str) -> str:
@@ -291,14 +291,11 @@ def _run_ollama(
 
     # Release metered escrow for actual tokens used
     if contract_id:
-        release_result, release_failures = _post_escrow_rpc(
+        release_result, release_failures = _post_escrow_release(
+            ctx,
             config,
-            f"/rpc/escrow/{job_id}/release",
-            {
-                "amount": str(actual_cost),
-                "tokens_used": tokens_used,
-                "job_id": job_id,
-            },
+            job_id,
+            amount=str(actual_cost),
         )
         if release_result and release_result.get("tx_hash"):
             released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
@@ -483,8 +480,8 @@ def _run_whisper(
 
     # Release metered escrow with job TX hash as proof
     if contract_id:
-        release_result, release_failures = _post_escrow_rpc(
-            config, f"/rpc/escrow/{job_id}/release", {"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
+        release_result, release_failures = _post_escrow_release(
+            ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
         )
         if release_result and release_result.get("tx_hash"):
             released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
@@ -642,8 +639,8 @@ def _run_ffmpeg(
 
     # Release metered escrow with job TX hash as proof
     if contract_id:
-        release_result, release_failures = _post_escrow_rpc(
-            config, f"/rpc/escrow/{job_id}/release", {"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
+        release_result, release_failures = _post_escrow_release(
+            ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
         )
         if release_result and release_result.get("tx_hash"):
             released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
@@ -786,8 +783,8 @@ def _run_hermes(
 
     # Release metered escrow with job TX hash as proof
     if contract_id:
-        release_result, release_failures = _post_escrow_rpc(
-            config, f"/rpc/escrow/{job_id}/release", {"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
+        release_result, release_failures = _post_escrow_release(
+            ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
         )
         if release_result and release_result.get("tx_hash"):
             released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
