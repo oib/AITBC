@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from ...utils import error, output, success
+from ...utils.error_handling import abort
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.wallet_paths import (
     find_wallet_file_report,
@@ -214,8 +215,7 @@ def export(ctx, destination: str | None):
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
-        return
+        abort(None, wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
 
     try:
         wallet_data = _load_wallet(wallet_path, wallet_name)
@@ -241,7 +241,7 @@ def export(ctx, destination: str | None):
             ctx.obj.get("output_format", "table"),
         )
     except Exception as e:
-        error(f"Error exporting wallet: {e}")
+        abort(None, f"Error exporting wallet: {e}")
 
 
 @wallet.command(
@@ -260,8 +260,7 @@ def import_wallet(ctx, file_path: str, name: str | None):
     import_path = Path(file_path)
 
     if not import_path.exists():
-        error(f"Import file not found: {file_path}")
-        return
+        abort(None, f"Import file not found: {file_path}")
 
     try:
         with open(import_path) as f:
@@ -290,6 +289,6 @@ def import_wallet(ctx, file_path: str, name: str | None):
             ctx.obj.get("output_format", "table"),
         )
     except json.JSONDecodeError:
-        error("Invalid JSON file")
+        abort(None, "Invalid JSON file")
     except Exception as e:
-        error(f"Error importing wallet: {e}")
+        abort(None, f"Error importing wallet: {e}")

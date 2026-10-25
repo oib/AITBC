@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 
 from aitbc_cli.config import get_config  # noqa: F401
-from aitbc_cli.utils import DECIMAL, error, output, resolve_output_format, success, warning
+from aitbc_cli.utils import DECIMAL, output, resolve_output_format, success, warning
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger  # noqa: F401
 
 from .hub_orders import node as hub_node
@@ -18,6 +18,7 @@ from .hub_orders import order as hub_order
 from .hub_orders import verify as hub_verify
 from .prepay import prepay as hub_prepay
 from .sell_admin import sell_admin as hub_sell_admin
+from ...utils.error_handling import abort
 
 logger = get_logger(__name__)
 
@@ -103,14 +104,14 @@ def create_pair(
 
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        error("No exchanges registered. Use 'aitbc exchange register' first.")
+        abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
     with open(exchanges_file) as f:
         exchanges = json.load(f)
 
     if exchange.lower() not in exchanges:
-        error(f"Exchange '{exchange}' not registered.")
+        abort(None, f"Exchange '{exchange}' not registered.")
         return
 
     pair_config = {
@@ -150,7 +151,7 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
     """Start trading for a specific pair with optional initial price and liquidity."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        error("No exchanges registered. Use 'aitbc exchange register' first.")
+        abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
     with open(exchanges_file) as f:
@@ -169,7 +170,7 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
             break
 
     if not target_pair:
-        error(f"Trading pair '{pair}' not found. Create it first with 'aitbc exchange create-pair'.")
+        abort(None, f"Trading pair '{pair}' not found. Create it first with 'aitbc exchange create-pair'.")
         return
 
     target_pair["trading_enabled"] = True
@@ -214,7 +215,7 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
     """Monitor exchange trading activity across registered pairs and exchanges."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        error("No exchanges registered. Use 'aitbc exchange register' first.")
+        abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
     with open(exchanges_file) as f:
@@ -244,7 +245,7 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
             )
 
     if not monitoring_data:
-        error("No trading pairs found for monitoring.")
+        abort(None, "No trading pairs found for monitoring.")
         return
 
     output(
@@ -278,7 +279,7 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
     """Add liquidity to a trading pair on the specified side."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        error("No exchanges registered. Use 'aitbc exchange register' first.")
+        abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
     with open(exchanges_file) as f:
@@ -300,7 +301,7 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
             break
 
     if not target_pair:
-        error(f"Trading pair '{pair}' not found.")
+        abort(None, f"Trading pair '{pair}' not found.")
         return
 
     # str() on the way in: the stored value may be a JSON number written by an older
@@ -375,14 +376,14 @@ def status(ctx, exchange_name: str):
     """Get the status and configuration of a specific registered exchange."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        error("No exchanges registered.")
+        abort(None, "No exchanges registered.")
         return
 
     with open(exchanges_file) as f:
         exchanges = json.load(f)
 
     if exchange_name.lower() not in exchanges:
-        error(f"Exchange '{exchange_name}' not found.")
+        abort(None, f"Exchange '{exchange_name}' not found.")
         return
 
     exchange_data = exchanges[exchange_name.lower()]

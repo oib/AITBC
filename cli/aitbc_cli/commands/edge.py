@@ -11,6 +11,7 @@ import httpx
 
 from ..config import get_config
 from ..utils import DECIMAL, error, info, output, resolve_output_format, success, warning
+from ..utils.error_handling import abort
 from ..utils.http_client import NetworkError, get_logger
 
 # Initialize logger
@@ -517,15 +518,13 @@ def sync_db(ctx, database_id: str):
         # V23-17: edge sync is not implemented and answers 501. Surface the server's
         # explanation rather than letting raise_for_status turn it into a bare status line.
         if response.status_code == 501:
-            error(response.json().get("detail", "Edge database sync is not implemented"))
-            return
+            abort(None, response.json().get("detail", "Edge database sync is not implemented"))
 
         response.raise_for_status()
         result = response.json()
 
         if not result.get("success"):
-            error(f"Failed to sync database: {result.get('message', 'Unknown error')}")
-            return
+            abort(None, f"Failed to sync database: {result.get('message', 'Unknown error')}")
 
         # A simulated response must not be reported as a completed sync. The service
         # labels it; repeating "synced" here would discard the label one layer up.

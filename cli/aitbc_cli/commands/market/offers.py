@@ -31,6 +31,7 @@ logger = get_logger(__name__)
 from ._group import market
 from . import get_chain_id, get_island_id, get_market_wallet, get_next_nonce, safe_load_credentials
 from .escrow import _get_blockchain_rpc_url, _get_rpc_client
+from ...utils.error_handling import abort
 
 
 def _is_wallet_address(value: str | None) -> bool:
@@ -1466,7 +1467,7 @@ def offer_disable(
             success(f"Disabled offer {plugin_id}")
             output(result, output_format, title="Disabled Offer")
             return
-        error(f"Could not disable offer {plugin_id}: {result}")
+        abort(None, f"Could not disable offer {plugin_id}: {result}")
     except Exception as e:
-        error(f"Error disabling offer: {e}")
+        abort(None, f"Error disabling offer: {e}")
     raise click.Abort()
