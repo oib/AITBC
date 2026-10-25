@@ -206,6 +206,22 @@ def _escrow_create(
             success(f"Escrow created: contract_id={contract_id}")
         return contract_id
     except Exception as e:
+        # Customer route: the hub nginx allowlist 403s external
+        # /rpc/escrow/create, so a customer node cannot reach a
+        # settlement-capable RPC directly. Relay the buyer-signed lock
+        # through the coordinator instead — it submits from the hub,
+        # inside the allowlist. Older coordinators do not serve the relay
+        # endpoint (404) — fall through to the settlement-node retry.
+        try:
+            relayed = _coordinator_escrow_create(ctx, payload)
+        except Exception as relay_exc:
+            warning(f"Coordinator escrow relay failed ({relay_exc}) — trying direct node routes")
+            relayed = None
+        if relayed is not None:
+            contract_id = relayed.get("contract_id") if isinstance(relayed, dict) else None
+            if contract_id:
+                success(f"Escrow created via coordinator relay: contract_id={contract_id}")
+            return contract_id
         detail = _http_503_detail(e)
         # A settlement-incapable node names its settlement node in the 503
         # detail ("the settlement node is at <url>"). Retry the create there
@@ -297,6 +313,33 @@ def _client_token(ctx) -> str | None:
     if not token:
         token = AuthManager().get_credential("client")
     return cast(str | None, token)
+
+
+def _coordinator_escrow_create(ctx, payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Relay a buyer-signed escrow create through the coordinator.
+
+    Market escrows carry a locally-minted job_id with no coordinator job
+    row, so ``POST /v1/payments`` cannot serve them (it requires an owned
+    job). The JWT-gated relay endpoint ``POST /v1/escrow/relay`` accepts
+    the raw ``/rpc/escrow/create`` payload and submits it from the hub —
+    inside the nginx allowlist that blocks external callers.
+
+    Returns the relayed response, or ``None`` when no relay is possible:
+    no client credential, or a coordinator that does not serve the relay
+    endpoint yet (HTTP 404). Other failures propagate so the caller can
+    warn and fall back to direct node routes.
+    """
+    token = _client_token(ctx)
+    if not token:
+        return None
+    base_url = _coordinator_base_url(ctx)
+    client = AITBCHTTPClient(base_url=base_url, timeout=30, headers={"Authorization": f"Bearer {token}"})
+    try:
+        return client.post("/v1/escrow/relay", json=payload)
+    except Exception as exc:
+        if http_response_status(exc) == 404:
+            return None
+        raise
 
 
 def _coordinator_refund(ctx, job_id: str, reason: str) -> dict[str, Any] | None:
